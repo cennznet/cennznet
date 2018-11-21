@@ -1,0 +1,79 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug unit tests in library 'cennznet-runtime'",
+        "cargo": {
+            "args": [
+                "test",
+                "--no-run",
+                "--lib",
+                "--package=cennznet-runtime"
+            ],
+            "filter": {
+                "kind": "lib"
+            }
+        },
+        "args": [],
+        "cwd": "${workspaceFolder}"
+    },
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug unit tests in library 'cennznet-primitives'",
+        "cargo": {
+            "args": [
+                "test",
+                "--no-run",
+                "--lib",
+                "--package=cennznet-primitives"
+            ],
+            "filter": {
+                "kind": "lib"
+            }
+        },
+        "args": [],
+        "cwd": "${workspaceFolder}"
+    },
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug executable 'cennznet'",
+        "cargo": {
+            "args": [
+                "build",
+                "--bin=cennznet",
+                "--package=cennznet"
+            ],
+            "filter": {
+                "kind": "bin"
+            }
+        },
+        "args": [],
+        "cwd": "${workspaceFolder}"
+    },
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug unit tests in executable 'cennznet'",
+        "cargo": {
+            "args": [
+                "test",
+                "--no-run",
+                "--bin=cennznet",
+                "--package=cennznet"
+            ],
+            "filter": {
+                "kind": "bin"
+            }
+        },
+        "args": [],
+        "cwd": "${workspaceFolder}"
+    }
+]
+}
