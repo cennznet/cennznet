@@ -90,7 +90,7 @@ const NOTE_OFFLINE_POSITION: u32 = 1;
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: ver_str!("cennznet"),
-	impl_name: ver_str!("cennznet"),
+	impl_name: ver_str!("centrality-cennznet"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,

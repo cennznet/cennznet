@@ -69,9 +69,9 @@ fn run() -> cli::error::Result<()> {
 	let version = VersionInfo {
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "substrate",
-		author: "Parity Team <admin@parity.io>",
-		description: "Generic substrate node",
+		executable_name: "cennznet",
+		author: "Centrality Developers <developers@centrality.ai>",
+		description: "CENNZNET node",
 	};
 	cli::run(::std::env::args(), Exit, version)
 }

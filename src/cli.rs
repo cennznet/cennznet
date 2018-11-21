@@ -72,12 +72,12 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
 {
-	match substrate_cli::prepare_execution::<service::Factory, _, _, _, _>(args, exit, version, load_spec, "substrate-node")? {
+	match substrate_cli::prepare_execution::<service::Factory, _, _, _, _>(args, exit, version, load_spec, "cennznet")? {
 		substrate_cli::Action::ExecutedInternally => (),
 		substrate_cli::Action::RunService((config, exit)) => {
-			info!("Substrate Node");
+			info!("CENNZNET");
 			info!("  version {}", config.full_version());
-			info!("  by Parity Technologies, 2017, 2018");
+			info!("  by Centrality");
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
