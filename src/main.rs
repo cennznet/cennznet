@@ -1,4 +1,4 @@
-//! Substrate Node Template CLI library.
+//! CENNZNET CLI library.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
@@ -20,7 +20,7 @@ extern crate substrate_executor;
 extern crate substrate_transaction_pool as transaction_pool;
 #[macro_use]
 extern crate substrate_service;
-extern crate template_node_runtime;
+extern crate cennznet_runtime;
 
 mod chain_spec;
 mod service;
@@ -32,9 +32,9 @@ fn run() -> cli::error::Result<()> {
 	let version = VersionInfo {
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "template-node",
-		author: "Anonymous",
-		description: "Template Node",
+		executable_name: "cennznet",
+		author: "Centrality Developers",
+		description: "CENNZNET",
 	};
 	cli::run(::std::env::args(), cli::Exit, version)
 }

@@ -1,4 +1,4 @@
-//! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! The CENNZNET runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
@@ -96,8 +96,8 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: ver_str!("template-node"),
-	impl_name: ver_str!("template-node"),
+	spec_name: ver_str!("cennznet"),
+	impl_name: ver_str!("cennznet"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,

@@ -1,6 +1,6 @@
-name: template-node
-author: "Anonymous"
-about: Template Node
+name: cennznet
+author: "Centrality Developers"
+about: CENNZNET
 args:
   - log:
       short: l

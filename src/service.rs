@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 use transaction_pool::{self, txpool::{Pool as TransactionPool}};
-use template_node_runtime::{self, GenesisConfig, opaque::Block, ClientWithApi};
+use cennznet_runtime::{self, GenesisConfig, opaque::Block, ClientWithApi};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor,
@@ -17,9 +17,9 @@ pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
-	template_node_runtime::api::dispatch,
-	template_node_runtime::native_version,
-	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/template_node_runtime.compact.wasm")
+	cennznet_runtime::api::dispatch,
+	cennznet_runtime::native_version,
+	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
 );
 
 const AURA_SLOT_DURATION: u64 = 6;
