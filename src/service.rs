@@ -1,10 +1,11 @@
-//! Service and ServiceFactory implementation. Specialized wrapper over Substrate service.
+//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 #![warn(unused_extern_crates)]
 
 use std::sync::Arc;
 use transaction_pool::{self, txpool::{Pool as TransactionPool}};
-use cennznet_runtime::{self, GenesisConfig, opaque::Block, ClientWithApi};
+use cennznet_runtime::{GenesisConfig, ClientWithApi};
+use cennznet_primitives::Block;
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor,
@@ -71,20 +72,78 @@ construct_service_factory! {
 		LightService = LightComponents<Self>
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
 		FullImportQueue = AuraImportQueue<Self::Block, FullClient<Self>, NothingExtra>
-			{ |config, client| Ok(import_queue(AuraConfig {
-						local_key: None,
-						slot_duration: 5
-					},
-					client,
-					NothingExtra
-			)) },
+			{ |config, client| Ok(import_queue(
+				AuraConfig {
+					local_key: None,
+					slot_duration: 5
+				},
+				client,
+				NothingExtra,
+			))
+			},
 		LightImportQueue = AuraImportQueue<Self::Block, LightClient<Self>, NothingExtra>
-			{ |config, client| Ok(import_queue(AuraConfig {
-						local_key: None,
-						slot_duration: 5
-					},
-					client,
-					NothingExtra
-			)) },
+			{ |config, client| Ok(import_queue(
+				AuraConfig {
+					local_key: None,
+					slot_duration: 5
+				},
+				client,
+				NothingExtra,
+			))
+			},
 	}
+}
+
+
+#[cfg(test)]
+mod tests {
+	#[cfg(feature = "rhd")]
+	fn test_sync() {
+		use {service_test, Factory};
+		use client::{ImportBlock, BlockOrigin};
+
+		let alice: Arc<ed25519::Pair> = Arc::new(Keyring::Alice.into());
+		let bob: Arc<ed25519::Pair> = Arc::new(Keyring::Bob.into());
+		let validators = vec![alice.public().0.into(), bob.public().0.into()];
+		let keys: Vec<&ed25519::Pair> = vec![&*alice, &*bob];
+		let offline = Arc::new(RwLock::new(OfflineTracker::new()));
+		let dummy_runtime = ::tokio::runtime::Runtime::new().unwrap();
+		let block_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
+			let block_id = BlockId::number(service.client().info().unwrap().chain.best_number);
+			let parent_header = service.client().header(&block_id).unwrap().unwrap();
+			let consensus_net = ConsensusNetwork::new(service.network(), service.client().clone());
+			let proposer_factory = consensus::ProposerFactory {
+				client: service.client().clone(),
+				transaction_pool: service.transaction_pool().clone(),
+				network: consensus_net,
+				offline: offline.clone(),
+				force_delay: 0,
+				handle: dummy_runtime.executor(),
+			};
+			let (proposer, _, _) = proposer_factory.init(&parent_header, &validators, alice.clone()).unwrap();
+			let block = proposer.propose().expect("Error making test block");
+			ImportBlock {
+				origin: BlockOrigin::File,
+				justification: Vec::new(),
+				internal_justification: Vec::new(),
+				finalized: true,
+				body: Some(block.extrinsics),
+				header: block.header,
+				auxiliary: Vec::new(),
+			}
+		};
+		let extrinsic_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
+			let payload = (0, Call::Balances(BalancesCall::transfer(RawAddress::Id(bob.public().0.into()), 69.into())), Era::immortal(), service.client().genesis_hash());
+			let signature = alice.sign(&payload.encode()).into();
+			let id = alice.public().0.into();
+			let xt = UncheckedExtrinsic {
+				signature: Some((RawAddress::Id(id), signature, payload.0, Era::immortal())),
+				function: payload.1,
+			}.encode();
+			let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
+			OpaqueExtrinsic(v)
+		};
+		service_test::sync::<Factory, _, _>(chain_spec::integration_test_config(), block_factory, extrinsic_factory);
+	}
+
 }
