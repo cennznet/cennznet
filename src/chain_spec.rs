@@ -10,7 +10,8 @@ use substrate_service;
 
 use substrate_keystore::pad_seed;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+// const STAGING_TELEMETRY_URL = Some("wss://telemetry.polkadot.io/submit/");
+const STAGING_TELEMETRY_URL: Option<&str> = None;
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -130,7 +131,7 @@ pub fn staging_testnet_config() -> ChainSpec {
 		"staging_testnet",
 		staging_testnet_config_genesis,
 		boot_nodes,
-		Some(STAGING_TELEMETRY_URL.into()),
+		STAGING_TELEMETRY_URL,
 		None,
 		None,
 		None,
