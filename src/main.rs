@@ -16,23 +16,24 @@ extern crate exit_future;
 extern crate hex_literal;
 // #[cfg(test)]
 // extern crate substrate_service_test as service_test;
-extern crate substrate_transaction_pool as transaction_pool;
 #[macro_use]
 extern crate substrate_network as network;
 extern crate substrate_consensus_aura as consensus;
 extern crate substrate_client as client;
+extern crate substrate_cli;
 extern crate cennznet_primitives;
-#[macro_use]
-extern crate substrate_service;
 #[macro_use]
 extern crate substrate_executor;
 extern crate substrate_transaction_pool as transaction_pool;
 extern crate substrate_finality_grandpa as grandpa;
 #[macro_use]
 extern crate substrate_service;
+extern crate substrate_keystore;
 extern crate cennznet_runtime;
 #[macro_use]
 extern crate structopt;
+#[macro_use]
+extern crate log;
 
 mod cli;
 mod chain_spec;

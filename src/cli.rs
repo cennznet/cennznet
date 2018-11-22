@@ -1,9 +1,7 @@
 use service;
-use futures::{future, Future, sync::oneshot};
-use std::cell::RefCell;
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
-use substrate_cli::{Action, informant, parse_matches, execute_default, CoreParams};
+use substrate_cli::{Action, parse_matches, execute_default, CoreParams};
 use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use chain_spec;
 use std::ops::Deref;
@@ -23,9 +21,6 @@ pub struct NodeParams {
 	#[structopt(flatten)]
 	core: CoreParams
 }
-
-use chain_spec;
-use service;
 
 /// The chain specification option.
 #[derive(Clone, Debug)]
