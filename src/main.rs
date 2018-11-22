@@ -26,13 +26,13 @@ extern crate cennznet_primitives;
 extern crate substrate_service;
 #[macro_use]
 extern crate substrate_executor;
-extern crate substrate_keystore;
-extern crate substrate_cli;
-
-extern crate cennznet_runtime;
-
+extern crate substrate_transaction_pool as transaction_pool;
+extern crate substrate_finality_grandpa as grandpa;
 #[macro_use]
-extern crate log;
+extern crate substrate_service;
+extern crate cennznet_runtime;
+#[macro_use]
+extern crate structopt;
 
 mod cli;
 mod chain_spec;
