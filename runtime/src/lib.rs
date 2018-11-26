@@ -1,6 +1,6 @@
 //! The CENNZNET runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
-// This file is mostly copied from https://github.com/cennznet/substrate/blob/a786c1d22ef141f2ffd317bf424b3e7319d62246/node/runtime/src/lib.rs#L17
+// This file is mostly copied from https://github.com/paritytech/substrate/blob/a786c1d22ef141f2ffd317bf424b3e7319d62246/node/runtime/src/lib.rs#L17
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
