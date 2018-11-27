@@ -4,7 +4,7 @@ use primitives::{AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	UpgradeKeyConfig, ContractConfig, Permill, Perbill};
+	UpgradeKeyConfig, ContractConfig, GrandpaConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
@@ -120,6 +120,10 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 			key: endowed_accounts[0].clone(),
 			_genesis_phantom_data: Default::default(),
 		}),
+		grandpa: Some(GrandpaConfig {
+			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
+			_genesis_phantom_data: Default::default(),
+		})
 	}
 }
 
@@ -249,6 +253,10 @@ pub fn testnet_genesis(
 			key: upgrade_key,
 			_genesis_phantom_data: Default::default(),
 		}),
+		grandpa: Some(GrandpaConfig {
+			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
+			_genesis_phantom_data: Default::default(),
+		})
 	}
 }
 
