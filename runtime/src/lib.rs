@@ -4,7 +4,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 #[macro_use]
 extern crate srml_support;
@@ -39,48 +39,52 @@ extern crate srml_system as system;
 extern crate srml_timestamp as timestamp;
 extern crate srml_treasury as treasury;
 extern crate srml_upgrade_key as upgrade_key;
+
+extern crate gat;
+
 #[macro_use]
 extern crate sr_version as version;
 extern crate cennznet_primitives;
 extern crate substrate_finality_grandpa_primitives;
 
 #[cfg(feature = "std")]
-use codec::{Encode, Decode};
-use rstd::prelude::*;
-use substrate_primitives::u32_trait::{_2, _4};
-use cennznet_primitives::{
-	AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature
-};
-#[cfg(feature = "std")]
 use cennznet_primitives::Block as GBlock;
-use client::{block_builder::api::runtime::*, runtime_api::{runtime::*, id::*}};
+use cennznet_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature};
 #[cfg(feature = "std")]
 use client::runtime_api::ApiExt;
-use runtime_primitives::ApplyResult;
-use runtime_primitives::transaction_validity::TransactionValidity;
-use runtime_primitives::generic;
-use runtime_primitives::traits::{Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor};
+use client::{
+	block_builder::api::runtime::*,
+	runtime_api::{id::*, runtime::*},
+};
 #[cfg(feature = "std")]
-use runtime_primitives::traits::ApiRef;
-#[cfg(feature = "std")]
-use substrate_primitives::AuthorityId;
-use version::RuntimeVersion;
-use council::{motions as council_motions, voting as council_voting};
+use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use council::seats as council_seats;
+use council::{motions as council_motions, voting as council_voting};
+use rstd::prelude::*;
+use runtime_primitives::generic;
+#[cfg(feature = "std")]
+use runtime_primitives::traits::ApiRef;
+use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor};
+use runtime_primitives::transaction_validity::TransactionValidity;
+use runtime_primitives::ApplyResult;
+use substrate_finality_grandpa_primitives::{runtime::GrandpaApi, ScheduledChange};
+use substrate_primitives::u32_trait::{_2, _4};
+#[cfg(feature = "std")]
+use substrate_primitives::AuthorityId;
+use substrate_primitives::OpaqueMetadata;
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
-use substrate_primitives::OpaqueMetadata;
-use substrate_finality_grandpa_primitives::{runtime::GrandpaApi, ScheduledChange};
+use version::RuntimeVersion;
 
+pub use balances::Call as BalancesCall;
+pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
-pub use consensus::Call as ConsensusCall;
-pub use timestamp::Call as TimestampCall;
-pub use balances::Call as BalancesCall;
-pub use runtime_primitives::{Permill, Perbill};
+pub use runtime_primitives::{Perbill, Permill};
+pub use srml_support::{RuntimeMetadata, StorageValue};
 pub use timestamp::BlockPeriod;
-pub use srml_support::{StorageValue, RuntimeMetadata};
+pub use timestamp::Call as TimestampCall;
 
 pub use cennznet_primitives::AccountId;
 
@@ -218,6 +222,11 @@ impl upgrade_key::Trait for Runtime {
 	type Event = Event;
 }
 
+impl gat::Trait for Runtime {
+	type Event = Event;
+	type Balance = Balance;
+}
+
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
 		Block = Block,
@@ -237,6 +246,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
+		GAT: gat,
 	}
 );
 
