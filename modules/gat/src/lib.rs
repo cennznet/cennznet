@@ -60,19 +60,17 @@ pub trait Trait: system::Trait {
     // type Creator: system::Trait::AccountId;
 }
 
-type AssetId = u32;
 // #[derive(Encode, Decode, Default)]
 // type Name<'a> = &'a str;
 // type Name = String;
 // type Name = &'static (str + MaybeDecode);
 // type Creator = u32;
-type Decimals = u32;
 
 #[derive(Encode, Decode, Default)]
 pub struct Asset {
-    asset_id: AssetId,
+    asset_id: u32,
     // name: RuntimeString,
-    decimals: Decimals,
+    decimals: u32,
 }
 
 decl_module! {
@@ -83,7 +81,7 @@ decl_module! {
         /// such assets and they'll all belong to the `origin` initially. It will have an
         /// identifier `AssetId` instance: this will be specified in the `Issued` event.
         // pub fn issue(origin, name: RuntimeString, decimals: Decimals) -> Result {
-        pub fn issue(origin, decimals: Decimals) -> Result {
+        pub fn issue(origin, decimals: u32) -> Result {
             let origin = ensure_signed(origin)?;
 
             let id = Self::next_asset_id();
@@ -100,7 +98,7 @@ decl_module! {
         }
 
         // Move some assets from one holder to another.
-        fn transfer(origin, id: AssetId, target: T::AccountId, amount: T::Balance) -> Result {
+        fn transfer(origin, id: u32, target: T::AccountId, amount: T::Balance) -> Result {
         	let origin = ensure_signed(origin)?;
         	let origin_account = (id, origin.clone());
         	let origin_balance = <Balances<T>>::get(&origin_account);
@@ -113,7 +111,7 @@ decl_module! {
         	Ok(())
         }
 
-        fn set_balance(origin, id: AssetId, target: T::AccountId, amount: T::Balance) -> Result {
+        fn set_balance(origin, id: u32, target: T::AccountId, amount: T::Balance) -> Result {
         	let origin = ensure_signed(origin)?;
 
         	Self::deposit_event(RawEvent::BalanceSet(id, target.clone(), amount));            
@@ -122,7 +120,7 @@ decl_module! {
         }
 
         /// Destroy any assets of `id` owned by `origin`.
-        fn destroy(origin, id: AssetId) -> Result {
+        fn destroy(origin, id: u32) -> Result {
         	let origin = ensure_signed(origin)?;
 
         	let balance = <Balances<T>>::take((id, origin.clone()));
@@ -141,22 +139,22 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		/// Some assets were issued.
-		Issued(AssetId, AccountId),
+		Issued(u32, AccountId),
 		// Some assets were transfered.
-		Transfered(AssetId, AccountId, AccountId, Balance),
+		Transfered(u32, AccountId, AccountId, Balance),
 		// Some assets were destroyed.
-		Destroyed(AssetId, AccountId, Balance),
-        BalanceSet(AssetId, AccountId, Balance),
+		Destroyed(u32, AccountId, Balance),
+        BalanceSet(u32, AccountId, Balance),
 	}
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
-        Balances: map (AssetId, T::AccountId) => T::Balance;
+        Balances: map (u32, T::AccountId) => T::Balance;
         /// The next asset identifier up for grabs.
-        NextAssetId get(next_asset_id): AssetId;
-        Assets: map (AssetId) => Asset;
+        NextAssetId get(next_asset_id): u32;
+        Assets: map (u32) => Asset;
 
         // TODO find out how to get rid of this
         pub SomeValue get(configValue) config(): T::Balance;
@@ -168,7 +166,7 @@ impl<T: Trait> Module<T> {
     // Public immutables
 
     /// Get the asset `id` balance of `who`.
-    pub fn balance(id: AssetId, who: T::AccountId) -> T::Balance {
+    pub fn balance(id: u32, who: T::AccountId) -> T::Balance {
         <Balances<T>>::get((id, who))
     }
 }
