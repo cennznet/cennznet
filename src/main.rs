@@ -26,6 +26,7 @@ extern crate cennznet_primitives;
 extern crate substrate_executor;
 extern crate substrate_transaction_pool as transaction_pool;
 extern crate substrate_finality_grandpa as grandpa;
+extern crate substrate_consensus_common as consensus_common;
 #[macro_use]
 extern crate substrate_service;
 extern crate substrate_keystore;
@@ -34,6 +35,7 @@ extern crate cennznet_runtime;
 extern crate structopt;
 #[macro_use]
 extern crate log;
+extern crate parking_lot;
 
 mod cli;
 mod chain_spec;
