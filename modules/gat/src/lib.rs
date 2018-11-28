@@ -46,6 +46,8 @@ extern crate sr_primitives as primitives;
 extern crate srml_system as system;
 
 use primitives::traits::{Member, SimpleArithmetic, Zero};
+use primitives::traits::MaybeDecode;
+use primitives::RuntimeString;
 use runtime_support::{dispatch::Result, Parameter, StorageMap, StorageValue};
 use system::ensure_signed;
 
@@ -55,9 +57,23 @@ pub trait Trait: system::Trait {
 
     /// The units in which we record balances.
     type Balance: Member + Parameter + SimpleArithmetic + Default + Copy;
+    // type Creator: system::Trait::AccountId;
 }
 
 type AssetId = u32;
+// #[derive(Encode, Decode, Default)]
+// type Name<'a> = &'a str;
+// type Name = String;
+// type Name = &'static (str + MaybeDecode);
+// type Creator = u32;
+type Decimals = u32;
+
+#[derive(Encode, Decode, Default)]
+pub struct Asset {
+    asset_id: AssetId,
+    // name: RuntimeString,
+    decimals: Decimals,
+}
 
 decl_module! {
     // Simple declaration of the `Module` type. Lets the macro know what its working on.
@@ -66,26 +82,20 @@ decl_module! {
         /// Issue a new class of fungible assets. There are, and will only ever be, `total`
         /// such assets and they'll all belong to the `origin` initially. It will have an
         /// identifier `AssetId` instance: this will be specified in the `Issued` event.
-        fn issue(origin, total: T::Balance) -> Result {
+        // pub fn issue(origin, name: RuntimeString, decimals: Decimals) -> Result {
+        pub fn issue(origin, decimals: Decimals) -> Result {
             let origin = ensure_signed(origin)?;
 
             let id = Self::next_asset_id();
             <NextAssetId<T>>::mutate(|id| *id += 1);
 
-            <Balances<T>>::insert((id, origin.clone()), total);
-
-            Self::deposit_event(RawEvent::Issued(id, origin, total));
-            Ok(())
-        }
-
-        fn create(origin, decimals: u32) -> Result {
-            let origin = ensure_signed(origin);
-
-
-            // check if exists
-
-            // create an asset type
-            Self::deposit_event(RawEvent::Created());
+            // <Balances<T>>::insert((id, origin.clone()), total);
+            <Assets<T>>::insert(id, Asset{
+                asset_id: id,
+                // name: name,
+                decimals: decimals,
+            });
+            Self::deposit_event(RawEvent::Issued(id, origin));
             Ok(())
         }
 
@@ -101,6 +111,14 @@ decl_module! {
         	<Balances<T>>::mutate((id, target), |balance| *balance += amount);
 
         	Ok(())
+        }
+
+        fn set_balance(origin, id: AssetId, target: T::AccountId, amount: T::Balance) -> Result {
+        	let origin = ensure_signed(origin)?;
+
+        	Self::deposit_event(RawEvent::BalanceSet(id, target.clone(), amount));            
+        	<Balances<T>>::insert((id, target), amount);
+            Ok(())
         }
 
         /// Destroy any assets of `id` owned by `origin`.
@@ -123,12 +141,12 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		/// Some assets were issued.
-		Issued(AssetId, AccountId, Balance),
-        Created(),
+		Issued(AssetId, AccountId),
 		// Some assets were transfered.
 		Transfered(AssetId, AccountId, AccountId, Balance),
 		// Some assets were destroyed.
 		Destroyed(AssetId, AccountId, Balance),
+        BalanceSet(AssetId, AccountId, Balance),
 	}
 );
 
@@ -138,8 +156,9 @@ decl_storage! {
         Balances: map (AssetId, T::AccountId) => T::Balance;
         /// The next asset identifier up for grabs.
         NextAssetId get(next_asset_id): AssetId;
-        // Assets: map () =
+        Assets: map (AssetId) => Asset;
 
+        // TODO find out how to get rid of this
         pub SomeValue get(configValue) config(): T::Balance;
     }
 }
