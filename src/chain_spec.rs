@@ -158,12 +158,12 @@ pub fn testnet_genesis(
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
-			get_authority_id_from_seed("Alice"),
-			get_authority_id_from_seed("Bob"),
-			get_authority_id_from_seed("Charlie"),
-			get_authority_id_from_seed("Dave"),
-			get_authority_id_from_seed("Eve"),
-			get_authority_id_from_seed("Ferdie"),
+			get_authority_id_from_seed("Andrea"),
+			get_authority_id_from_seed("Brooke"),
+			get_authority_id_from_seed("Courtney"),
+			get_authority_id_from_seed("Drew"),
+			get_authority_id_from_seed("Emily"),
+			get_authority_id_from_seed("Frank"),
 		]
 	});
 	GenesisConfig {
@@ -191,8 +191,8 @@ pub fn testnet_genesis(
 		staking: Some(StakingConfig {
 			current_era: 0,
 			intentions: initial_authorities.iter().cloned().map(Into::into).collect(),
-			minimum_validator_count: 1,
-			validator_count: 2,
+			minimum_validator_count: 2,
+			validator_count: 3,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
 			offline_slash: Perbill::zero(),
@@ -263,9 +263,11 @@ pub fn testnet_genesis(
 fn development_config_genesis() -> GenesisConfig {
 	testnet_genesis(
 		vec![
-			get_authority_id_from_seed("Alice"),
+			get_authority_id_from_seed("Andrea"),
+			get_authority_id_from_seed("Brooke"),
+			get_authority_id_from_seed("Courtney"),
 		],
-		get_authority_id_from_seed("Alice").into(),
+		get_authority_id_from_seed("Centrality").into(),
 		None,
 	)
 }
