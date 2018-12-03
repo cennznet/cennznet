@@ -47,7 +47,7 @@ use grandpa::fg_primitives::{self, ScheduledChange, id::*};
 use client::{
 	block_builder::api as block_builder_api, runtime_api::{self as client_api, id::*}
 };
-use runtime_primitives::{ApplyResult, CheckInherentError};
+use runtime_primitives::{ApplyResult, CheckInherentError, BasicInherentData};
 use runtime_primitives::transaction_validity::TransactionValidity;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{
@@ -193,7 +193,8 @@ impl grandpa::Trait for Runtime {
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
 		Block = Block,
-		NodeBlock = cennznet_primitives::Block
+		NodeBlock = cennznet_primitives::Block,
+		InherentData = BasicInherentData
 	{
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
@@ -258,7 +259,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl block_builder_api::BlockBuilder<Block> for Runtime {
+	impl block_builder_api::BlockBuilder<Block, BasicInherentData> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
 			Executive::apply_extrinsic(extrinsic)
 		}
@@ -267,7 +268,7 @@ impl_runtime_apis! {
 			Executive::finalise_block()
 		}
 
-		fn inherent_extrinsics(data: runtime_primitives::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+		fn inherent_extrinsics(data: BasicInherentData) -> Vec<<Block as BlockT>::Extrinsic> {
 			let mut inherent = Vec::new();
 
 			inherent.extend(
@@ -286,8 +287,8 @@ impl_runtime_apis! {
 			inherent.into_iter().map(|v| v.1).collect()
 		}
 
-		fn check_inherents(block: Block, data: runtime_primitives::InherentData) -> Result<(), CheckInherentError> {
-			InherentData::check_inherents(data, block)
+		fn check_inherents(block: Block, data: BasicInherentData) -> Result<(), CheckInherentError> {
+			Runtime::check_inherents(block, data)
 		}
 
 		fn random_seed() -> <Block as BlockT>::Hash {
