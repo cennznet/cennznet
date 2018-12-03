@@ -1,6 +1,5 @@
 //! CENNZNET chain configurations.
 
-use std::path::{Path};
 use primitives::{AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
@@ -263,8 +262,7 @@ pub fn testnet_genesis(
 
 /// Development config (load from "genesis/dev.json")
 pub fn development_config() -> Result<ChainSpec, String> {
-	let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("genesis/dev.json");
-	ChainSpec::from_json_file(path.clone()).map_err(|e| format!("{} at {:?}.", e, path))
+	ChainSpec::from_embedded(include_bytes!("../genesis/dev.json")).map_err(|e| format!("{} at genesis/dev.json", e))
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
