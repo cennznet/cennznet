@@ -1,5 +1,6 @@
 //! CENNZNET chain configurations.
 
+use std::path::{Path};
 use primitives::{AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
@@ -260,21 +261,11 @@ pub fn testnet_genesis(
 	}
 }
 
-fn development_config_genesis() -> GenesisConfig {
-	testnet_genesis(
-		vec![
-			get_authority_id_from_seed("Andrea"),
-			get_authority_id_from_seed("Brooke"),
-			get_authority_id_from_seed("Courtney"),
-		],
-		get_authority_id_from_seed("Centrality").into(),
-		None,
-	)
-}
-
-/// Development config (single validator Alice)
+/// Development config (load from "genesis/dev.json")
 pub fn development_config() -> ChainSpec {
-	ChainSpec::from_genesis("DEV", "cennznet_dev", development_config_genesis, vec![], None, None, None, None)
+	let relative_path = "genensis/dev.json";
+	ChainSpec::from_json_file(Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path))
+		.expect(format!("Can't find {}", relative_path).as_str())
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
