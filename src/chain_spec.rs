@@ -129,9 +129,9 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 }
 
 /// Staging testnet config.
-pub fn staging_testnet_config() -> ChainSpec {
+pub fn staging_testnet_config() -> Result<ChainSpec, String> {
 	let boot_nodes = vec![];
-	ChainSpec::from_genesis(
+	Ok(ChainSpec::from_genesis(
 		"Staging Testnet",
 		"staging_testnet",
 		staging_testnet_config_genesis,
@@ -140,7 +140,7 @@ pub fn staging_testnet_config() -> ChainSpec {
 		None,
 		None,
 		None,
-	)
+	))
 }
 
 /// Helper function to generate AuthorityID from seed
@@ -262,10 +262,9 @@ pub fn testnet_genesis(
 }
 
 /// Development config (load from "genesis/dev.json")
-pub fn development_config() -> ChainSpec {
-	let relative_path = "genesis/dev.json";
-	ChainSpec::from_json_file(Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path))
-		.expect(format!("Can't find {}", relative_path).as_str())
+pub fn development_config() -> Result<ChainSpec, String> {
+	let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("genesis/dev.json");
+	ChainSpec::from_json_file(path.clone()).map_err(|e| format!("{} at {:?}.", e, path))
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
@@ -280,6 +279,8 @@ fn local_testnet_genesis() -> GenesisConfig {
 }
 
 /// Local testnet config (multivalidator Alice + Bob)
-pub fn local_testnet_config() -> ChainSpec {
-	ChainSpec::from_genesis("Local Testnet", "local_testnet", local_testnet_genesis, vec![], None, None, None, None)
+pub fn local_testnet_config() -> Result<ChainSpec, String> {
+	Ok(
+		ChainSpec::from_genesis("Local Testnet", "local_testnet", local_testnet_genesis, vec![], None, None, None, None)
+	)
 }
