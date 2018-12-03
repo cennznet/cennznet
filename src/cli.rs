@@ -36,11 +36,11 @@ pub enum ChainSpec {
 /// Get a chain config from a spec setting.
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
-		Ok(match self {
+		match self {
 			ChainSpec::Development => chain_spec::development_config(),
 			ChainSpec::LocalTestnet => chain_spec::local_testnet_config(),
 			ChainSpec::StagingTestnet => chain_spec::staging_testnet_config(),
-		})
+		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
