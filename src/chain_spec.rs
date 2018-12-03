@@ -263,7 +263,7 @@ pub fn testnet_genesis(
 
 /// Development config (load from "genesis/dev.json")
 pub fn development_config() -> ChainSpec {
-	let relative_path = "genensis/dev.json";
+	let relative_path = "genesis/dev.json";
 	ChainSpec::from_json_file(Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path))
 		.expect(format!("Can't find {}", relative_path).as_str())
 }
