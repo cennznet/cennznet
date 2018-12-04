@@ -27,27 +27,27 @@ pub struct NodeParams {
 pub enum ChainSpec {
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
-	LocalTestnet,
-	/// Whatever the current runtime is with the "global testnet" defaults.
-	StagingTestnet,
+	/// The CENNZnet DEV testnet.
+	CennznetDev,
+	/// Whatever the current runtime is, with lunch DEV testnet defaults.
+	LocalCennznetDev,
 }
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		match self {
-			ChainSpec::Development => chain_spec::development_config(),
-			ChainSpec::LocalTestnet => chain_spec::local_testnet_config(),
-			ChainSpec::StagingTestnet => chain_spec::staging_testnet_config(),
+			ChainSpec::Development => chain_spec::local_dev_config(),
+			ChainSpec::CennznetDev => chain_spec::cennznet_dev_config(),
+			ChainSpec::LocalCennznetDev => chain_spec::local_cennznet_dev_config(),
 		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
-			"" | "dev" => Some(ChainSpec::Development),
-			"local" => Some(ChainSpec::LocalTestnet),
-			"staging" => Some(ChainSpec::StagingTestnet),
+			"dev" => Some(ChainSpec::Development),
+			"local-cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
+			"" | "cennznet-dev" => Some(ChainSpec::CennznetDev),
 			_ => None,
 		}
 	}
