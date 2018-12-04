@@ -128,9 +128,9 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 }
 
 /// Staging testnet config.
-pub fn staging_testnet_config() -> ChainSpec {
+pub fn staging_testnet_config() -> Result<ChainSpec, String> {
 	let boot_nodes = vec![];
-	ChainSpec::from_genesis(
+	Ok(ChainSpec::from_genesis(
 		"Staging Testnet",
 		"staging_testnet",
 		staging_testnet_config_genesis,
@@ -139,7 +139,7 @@ pub fn staging_testnet_config() -> ChainSpec {
 		None,
 		None,
 		None,
-	)
+	))
 }
 
 /// Helper function to generate AuthorityID from seed
@@ -158,12 +158,12 @@ pub fn testnet_genesis(
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
-			get_authority_id_from_seed("Alice"),
-			get_authority_id_from_seed("Bob"),
-			get_authority_id_from_seed("Charlie"),
-			get_authority_id_from_seed("Dave"),
-			get_authority_id_from_seed("Eve"),
-			get_authority_id_from_seed("Ferdie"),
+			get_authority_id_from_seed("Andrea"),
+			get_authority_id_from_seed("Brooke"),
+			get_authority_id_from_seed("Courtney"),
+			get_authority_id_from_seed("Drew"),
+			get_authority_id_from_seed("Emily"),
+			get_authority_id_from_seed("Frank"),
 		]
 	});
 	GenesisConfig {
@@ -191,8 +191,8 @@ pub fn testnet_genesis(
 		staking: Some(StakingConfig {
 			current_era: 0,
 			intentions: initial_authorities.iter().cloned().map(Into::into).collect(),
-			minimum_validator_count: 1,
-			validator_count: 2,
+			minimum_validator_count: 2,
+			validator_count: 3,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
 			offline_slash: Perbill::zero(),
@@ -260,19 +260,9 @@ pub fn testnet_genesis(
 	}
 }
 
-fn development_config_genesis() -> GenesisConfig {
-	testnet_genesis(
-		vec![
-			get_authority_id_from_seed("Alice"),
-		],
-		get_authority_id_from_seed("Alice").into(),
-		None,
-	)
-}
-
-/// Development config (single validator Alice)
-pub fn development_config() -> ChainSpec {
-	ChainSpec::from_genesis("DEV", "cennznet_dev", development_config_genesis, vec![], None, None, None, None)
+/// Development config (load from "genesis/dev.json")
+pub fn development_config() -> Result<ChainSpec, String> {
+	ChainSpec::from_embedded(include_bytes!("../genesis/dev.json")).map_err(|e| format!("{} at genesis/dev.json", e))
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
@@ -287,6 +277,8 @@ fn local_testnet_genesis() -> GenesisConfig {
 }
 
 /// Local testnet config (multivalidator Alice + Bob)
-pub fn local_testnet_config() -> ChainSpec {
-	ChainSpec::from_genesis("Local Testnet", "local_testnet", local_testnet_genesis, vec![], None, None, None, None)
+pub fn local_testnet_config() -> Result<ChainSpec, String> {
+	Ok(
+		ChainSpec::from_genesis("Local Testnet", "local_testnet", local_testnet_genesis, vec![], None, None, None, None)
+	)
 }
