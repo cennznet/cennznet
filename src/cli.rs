@@ -61,7 +61,7 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> error::Result<()> where
+pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
@@ -81,7 +81,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 			Err(e) => e.exit(),
 		};
 
-	let (spec, mut config) = parse_matches::<service::Factory, _>(load_spec, version, "substrate-node", &matches)?;
+	let (spec, mut config) = parse_matches::<service::Factory, _>(load_spec, version, "centrality-cennznet", &matches)?;
 
 	if matches.is_present("grandpa_authority_only") {
 		config.custom.grandpa_authority = true;
@@ -94,10 +94,10 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 		config.roles = ServiceRoles::AUTHORITY;
 	}
 
-	match execute_default::<service::Factory, _>(spec, exit, &matches)? {
+	match execute_default::<service::Factory, _>(spec, exit, &matches, &config)? {
 		Action::ExecutedInternally => (),
 		Action::RunService(exit) => {
-			info!("CENNZNET Node");
+			info!("CENNZnet Node");
 			info!("  version {}", config.full_version());
 			info!("  by Centrality");
 			info!("Chain specification: {}", config.chain_spec.name());
@@ -111,7 +111,6 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 			}
 		}
 	}
-
 	Ok(())
 }
 
