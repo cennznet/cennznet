@@ -5,6 +5,8 @@ services:
     volumes:
       - "./substrate_0:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
+    depends_on:
+      - "telemetry"
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
@@ -15,12 +17,14 @@ services:
       - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
       - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --validator
-      - --telemetry-url=ws://0.0.0.0:1024
+      - --telemetry-url=ws://telemetry:1024
   substrate-1:
     image: parity/substrate:nightly-20181204
     volumes:
       - "./substrate_1:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
+    depends_on:
+      - "telemetry"
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
@@ -31,12 +35,14 @@ services:
       - --validator
       - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
-      - --telemetry-url=ws://0.0.0.0:1024
+      - --telemetry-url=ws://telemetry:1024
   substrate-2:
     image: parity/substrate:nightly-20181204
     volumes:
       - "./substrate_2:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
+    depends_on:
+      - "telemetry"
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
@@ -47,7 +53,13 @@ services:
       - --validator
       - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
-      - --telemetry-url=ws://0.0.0.0:1024
+      - --telemetry-url=ws://telemetry:1024
+  telemetry:
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet-telemetry:1.0.14
+    command: "sleep 9999999"
+    ports:
+      - "8080:8080"
+      - "5000:5000"
 volumes:
   substrate_0:
   substrate_1:
