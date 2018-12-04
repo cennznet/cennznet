@@ -10,7 +10,7 @@ services:
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
-      - --base-path="/mnt/substrate"
+      - --base-path=/mnt/substrate
       - --key=Andrea
       - --name="ANDREA"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000001
@@ -28,7 +28,7 @@ services:
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
-      - --base-path="/mnt/substrate"
+      - --base-path=/mnt/substrate
       - --key=Brooke
       - --name="BROOKE"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
@@ -46,7 +46,7 @@ services:
     command:
       - substrate
       - --chain=/mnt/genesis/dev.json
-      - --base-path="/mnt/substrate"
+      - --base-path=/mnt/substrate
       - --key=Courtney
       - --name="COURTNEY"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
