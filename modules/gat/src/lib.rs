@@ -157,7 +157,7 @@ decl_storage! {
         Assets: map (u32) => Asset;
 
         // TODO find out how to get rid of this
-        pub SomeValue get(configValue) config(): T::Balance;
+        // pub SomeValue get(configValue) config(): T::Balance;
     }
 }
 

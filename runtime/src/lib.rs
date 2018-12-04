@@ -246,7 +246,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
-		GAT: gat,
+		GAT: gat::{Module, Call, Storage, Event<T>},
 	}
 );
 
