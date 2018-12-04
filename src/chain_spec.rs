@@ -10,8 +10,7 @@ use substrate_service;
 
 use substrate_keystore::pad_seed;
 
-// const STAGING_TELEMETRY_URL = Some("wss://telemetry.polkadot.io/submit/");
-const STAGING_TELEMETRY_URL: Option<&str> = None;
+const DEV_TELEMETRY_URL: Option<&str> = Some("wss://cennznet-telemetry.centrality.me");
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -261,10 +260,10 @@ pub fn cennznet_dev_config_genesis() -> GenesisConfig {
 	)
 }
 
-/// Local testnet config (multivalidator Alice + Bob)
+/// Local cennznet dev config (multivalidator Alice + Bob)
 pub fn local_cennznet_dev_config() -> Result<ChainSpec, String> {
 	Ok(
-		ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_config_genesis, vec![], None, None, None, None)
+		ChainSpec::from_genesis("Local CENNZnet DEV", "local_cennznet_dev", cennznet_dev_config_genesis, vec![], DEV_TELEMETRY_URL, None, None, None)
 	)
 }
 
@@ -278,7 +277,7 @@ fn local_dev_config_genesis() -> GenesisConfig {
 	)
 }
 
-/// Local testnet config (multivalidator Alice + Bob)
+/// Local testnet config
 pub fn local_dev_config() -> Result<ChainSpec, String> {
 	Ok(
 		ChainSpec::from_genesis("Development", "development", local_dev_config_genesis, vec![], None, None, None, None)
