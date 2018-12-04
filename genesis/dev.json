@@ -6,7 +6,7 @@
     "/dns4/af037f9abf27c11e89ee8062276d2000-740170240.ap-southeast-1.elb.amazonaws.com/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK",
     "/dns4/a7828d458f76711e8bee6062276d2000-1912194914.ap-southeast-1.elb.amazonaws.com/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
   ],
-  "telemetryUrl": null,
+  "telemetryUrl": "wss://cennznet-telemetry.centrality.me",
   "protocolId": null,
   "consensusEngine": null,
   "properties": null,
