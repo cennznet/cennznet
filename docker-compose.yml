@@ -1,7 +1,7 @@
 version: '3'
 services:
   substrate-0:
-    image: parity/substrate:nightly-20181126
+    image: parity/substrate:nightly-20181204
     volumes:
       - "./substrate_0:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
@@ -17,7 +17,7 @@ services:
       - --validator
       - --telemetry-url=ws://0.0.0.0:1024
   substrate-1:
-    image: parity/substrate:nightly-20181126
+    image: parity/substrate:nightly-20181204
     volumes:
       - "./substrate_1:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
@@ -33,7 +33,7 @@ services:
       - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --telemetry-url=ws://0.0.0.0:1024
   substrate-2:
-    image: parity/substrate:nightly-20181126
+    image: parity/substrate:nightly-20181204
     volumes:
       - "./substrate_2:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
