@@ -27,27 +27,27 @@ pub struct NodeParams {
 pub enum ChainSpec {
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
-	LocalTestnet,
-	/// Whatever the current runtime is with the "global testnet" defaults.
-	StagingTestnet,
+	/// The CENNZnet DEV testnet.
+	CennznetDev,
+	/// Whatever the current runtime is, with lunch DEV testnet defaults.
+	LocalCennznetDev,
 }
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
-		Ok(match self {
-			ChainSpec::Development => chain_spec::development_config(),
-			ChainSpec::LocalTestnet => chain_spec::local_testnet_config(),
-			ChainSpec::StagingTestnet => chain_spec::staging_testnet_config(),
-		})
+		match self {
+			ChainSpec::Development => chain_spec::local_dev_config(),
+			ChainSpec::CennznetDev => chain_spec::cennznet_dev_config(),
+			ChainSpec::LocalCennznetDev => chain_spec::local_cennznet_dev_config(),
+		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
-			"" | "dev" => Some(ChainSpec::Development),
-			"local" => Some(ChainSpec::LocalTestnet),
-			"staging" => Some(ChainSpec::StagingTestnet),
+			"dev" => Some(ChainSpec::Development),
+			"local-cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
+			"" | "cennznet-dev" => Some(ChainSpec::CennznetDev),
 			_ => None,
 		}
 	}
@@ -61,7 +61,7 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> error::Result<()> where
+pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
@@ -81,7 +81,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 			Err(e) => e.exit(),
 		};
 
-	let (spec, mut config) = parse_matches::<service::Factory, _>(load_spec, version, "substrate-node", &matches)?;
+	let (spec, mut config) = parse_matches::<service::Factory, _>(load_spec, version, "centrality-cennznet", &matches)?;
 
 	if matches.is_present("grandpa_authority_only") {
 		config.custom.grandpa_authority = true;
@@ -94,10 +94,10 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 		config.roles = ServiceRoles::AUTHORITY;
 	}
 
-	match execute_default::<service::Factory, _>(spec, exit, &matches)? {
+	match execute_default::<service::Factory, _>(spec, exit, &matches, &config)? {
 		Action::ExecutedInternally => (),
 		Action::RunService(exit) => {
-			info!("CENNZNET Node");
+			info!("CENNZnet Node");
 			info!("  version {}", config.full_version());
 			info!("  by Centrality");
 			info!("Chain specification: {}", config.chain_spec.name());
@@ -111,7 +111,6 @@ pub fn run<I, T, E>(args: I, exit: E, version: substrate_cli::VersionInfo) -> er
 			}
 		}
 	}
-
 	Ok(())
 }
 
