@@ -31,7 +31,7 @@ extern crate substrate_consensus_common as consensus_common;
 extern crate substrate_service;
 extern crate substrate_keystore;
 extern crate cennznet_runtime;
-#[macro_use]
+
 extern crate structopt;
 #[macro_use]
 extern crate log;
