@@ -12,7 +12,6 @@ extern crate tokio;
 
 extern crate substrate_primitives as primitives;
 extern crate exit_future;
-#[macro_use]
 extern crate hex_literal;
 // #[cfg(test)]
 // extern crate substrate_service_test as service_test;
