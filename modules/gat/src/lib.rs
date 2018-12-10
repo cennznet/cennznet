@@ -88,18 +88,18 @@ decl_module! {
         }
 
         // Move some assets from one holder to another.
-        // fn transfer(origin, asset_id: u32, dest: T::AccountId, amount: T::Balance) -> Result {
-        // 	let origin = ensure_signed(origin)?;
-        // 	let origin_account = (asset_id, origin.clone());
-        // 	let origin_balance = <Balances<T>>::get(&origin_account);
-        // 	ensure!(origin_balance >= amount, "origin account balance must be greater than amount");
+        fn transfer(origin, asset_id: u32, dest: T::AccountId, amount: T::Balance) -> Result {
+        	let origin = ensure_signed(origin)?;
+        	let origin_account = (asset_id, origin.clone());
+        	let origin_balance = <FreeBalance<T>>::get(&origin_account);
+        	ensure!(origin_balance >= amount, "origin account balance must be greater than amount");
 
-        // 	Self::deposit_event(RawEvent::Transfered(id, origin, dest.clone(), amount));
-        // 	<Balances<T>>::insert(origin_account, origin_balance - amount);
-        // 	<Balances<T>>::mutate((id, dest), |balance| *balance += amount);
+        	Self::deposit_event(RawEvent::Transfered(asset_id, origin, dest.clone(), amount));
+        	<FreeBalance<T>>::insert(origin_account, origin_balance - amount);
+        	<FreeBalance<T>>::mutate((asset_id, dest), |balance| *balance += amount);
 
-        // 	Ok(())
-        // }
+        	Ok(())
+        }
 
         // fn set_balance(origin, id: u32, target: T::AccountId, amount: T::Balance) -> Result {
         // 	let origin = ensure_signed(origin)?;
@@ -136,7 +136,7 @@ decl_event!(
         // /// Some assets were issued.
 		// Issued(u32, AccountId),
 		// // Some assets were transfered.
-		// Transfered(u32, AccountId, AccountId, Balance),
+		Transfered(u32, AccountId, AccountId, Balance),
 		// // Some assets were destroyed.
 		// Destroyed(u32, AccountId, Balance),
         // BalanceSet(u32, AccountId, Balance),
