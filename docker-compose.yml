@@ -17,7 +17,12 @@ services:
       - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
       - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --validator
+      - --ws-external
+      - --rpc-external
       - --telemetry-url=ws://telemetry:1024
+    ports:
+      - "9933:9933"
+      - "9944:9944"
   substrate-1:
     image: parity/substrate:nightly-20181204
     volumes:
@@ -35,6 +40,8 @@ services:
       - --validator
       - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
+      - --ws-external
+      - --rpc-external
       - --telemetry-url=ws://telemetry:1024
   substrate-2:
     image: parity/substrate:nightly-20181204
@@ -53,13 +60,15 @@ services:
       - --validator
       - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
+      - --ws-external
+      - --rpc-external
       - --telemetry-url=ws://telemetry:1024
   telemetry:
-    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet-telemetry:1.0.14
-    command: "sleep 9999999"
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet-telemetry:1.0.16
+    entrypoint: "bash scripts/deploy.sh"
     ports:
-      - "8080:8080"
       - "5000:5000"
+      - "8080:8080"
 volumes:
   substrate_0:
   substrate_1:

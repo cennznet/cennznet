@@ -40,6 +40,7 @@ extern crate gat;
 #[macro_use]
 extern crate sr_version as version;
 extern crate cennznet_primitives;
+extern crate cennznet_module_sylo as sylo;
 
 use rstd::prelude::*;
 use substrate_primitives::u32_trait::{_2, _4};
@@ -198,6 +199,10 @@ impl gat::Trait for Runtime {
 	type Balance = Balance;
 }
 
+impl sylo::Trait for Runtime {
+	type Event = Event;
+}
+
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
 		Block = Block,
@@ -220,6 +225,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
 		GAT: gat::{Module, Call, Storage, Event<T>},
+		Sylo: sylo,
 	}
 );
 
