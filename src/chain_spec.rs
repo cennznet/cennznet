@@ -129,7 +129,8 @@ fn cennznet_dev_genesis(
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 			_genesis_phantom_data: Default::default(),
-		})
+		}),
+		sylo: None,
 	}
 }
 
@@ -238,7 +239,8 @@ pub fn local_dev_genesis(
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 			_genesis_phantom_data: Default::default(),
-		})
+		}),
+		sylo: None,
 	}
 }
 
