@@ -1,19 +1,3 @@
-// Copyright 2017-2018 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
-
 //! A simple, secure module for dealing with fungible assets.
 
 // Ensure we're `no_std` when compiling for Wasm.
@@ -60,35 +44,25 @@ pub trait Trait: system::Trait {
     // type Creator: system::Trait::AccountId;
 }
 
-// type AssetId = u32;
+type AssetId = u32;
 
 decl_module! {
     // Simple declaration of the `Module` type. Lets the macro know what its working on.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
-        /// Issue a new class of fungible assets. There are, and will only ever be, `total`
-        /// such assets and they'll all belong to the `origin` initially. It will have an
-        /// identifier `AssetId` instance: this will be specified in the `Issued` event.
         pub fn create(origin, total: T::Balance) -> Result {
             let origin = ensure_signed(origin)?;
 
             let asset_id = Self::next_asset_id();
             <NextAssetId<T>>::mutate(|id| *id += 1);
 
-            // <Balances<T>>::insert((id, origin.clone()), total);
-            // todo look at fixing the clone
             <FreeBalance<T>>::insert((asset_id, origin.clone()), total);
-            // <Assets<T>>::insert(id, Asset{
-            //     asset_id: id,
-            //     // name: name,
-            //     decimals: decimals,
-            // });
             Self::deposit_event(RawEvent::Created(asset_id, origin, total));
             Ok(())
         }
 
         // Move some assets from one holder to another.
-        fn transfer(origin, asset_id: u32, dest: T::AccountId, amount: T::Balance) -> Result {
+        fn transfer(origin, asset_id: AssetId, dest: T::AccountId, amount: T::Balance) -> Result {
         	let origin = ensure_signed(origin)?;
         	let origin_account = (asset_id, origin.clone());
         	let origin_balance = <FreeBalance<T>>::get(&origin_account);
@@ -100,26 +74,6 @@ decl_module! {
 
         	Ok(())
         }
-
-        // fn set_balance(origin, id: u32, target: T::AccountId, amount: T::Balance) -> Result {
-        // 	let origin = ensure_signed(origin)?;
-
-        // 	Self::deposit_event(RawEvent::BalanceSet(id, target.clone(), amount));            
-        // 	<Balances<T>>::insert((id, target), amount);
-        //     Ok(())
-        // }
-
-        // /// Destroy any assets of `id` owned by `origin`.
-        // fn destroy(origin, id: u32) -> Result {
-        // 	let origin = ensure_signed(origin)?;
-
-        // 	let balance = <Balances<T>>::take((id, origin.clone()));
-        // 	ensure!(!balance.is_zero(), "origin balance should be non-zero");
-
-        // 	Self::deposit_event(RawEvent::Destroyed(id, origin, balance));
-
-        // 	Ok(())
-        // }
     }
 }
 
@@ -129,32 +83,20 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		// An asset was created.
-        // u32 = assetId
-        // TODO add assetID type
-        Created(u32, AccountId, Balance),
+        Created(AssetId, AccountId, Balance),
         
-        // /// Some assets were issued.
-		// Issued(u32, AccountId),
-		// // Some assets were transfered.
-		Transfered(u32, AccountId, AccountId, Balance),
-		// // Some assets were destroyed.
-		// Destroyed(u32, AccountId, Balance),
-        // BalanceSet(u32, AccountId, Balance),
+		// Some assets were transfered.
+		Transfered(AssetId, AccountId, AccountId, Balance),
 	}
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as gat {
         /// The number of units of assets held by any given account.
-        // FreeBalance: map (u32, T::AccountId) => T::Balance;
-        pub FreeBalance get(free_balance) build(|config: &GenesisConfig<T>| config.balances.clone()): map (u32, T::AccountId) => T::Balance;
+        pub FreeBalance get(free_balance) build(|config: &GenesisConfig<T>| config.balances.clone()): map (AssetId, T::AccountId) => T::Balance;
 
         /// The next asset identifier up for grabs.
-        NextAssetId get(next_asset_id): u32;
-        // Assets: map (u32) => Asset;
-
-        // TODO find out how to get rid of this
-        // pub SomeValue get(configValue) config(): T::Balance;
+        NextAssetId get(next_asset_id): AssetId;
     }
 }
 
@@ -163,7 +105,7 @@ impl<T: Trait> Module<T> {
     // Public immutables
 
     /// Get the asset `id` balance of `who`.
-    pub fn balance(asset_id: u32, who: T::AccountId) -> T::Balance {
+    pub fn balance(asset_id: AssetId, who: T::AccountId) -> T::Balance {
         <FreeBalance<T>>::get((asset_id, who))
     }
 }
