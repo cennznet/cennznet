@@ -35,7 +35,7 @@ extern crate srml_timestamp as timestamp;
 extern crate srml_treasury as treasury;
 extern crate srml_upgrade_key as upgrade_key;
 
-extern crate gat;
+extern crate cennznet_module_generic_asset as generic_asset;
 
 #[macro_use]
 extern crate sr_version as version;
@@ -194,7 +194,7 @@ impl grandpa::Trait for Runtime {
 	type Event = Event;
 }
 
-impl gat::Trait for Runtime {
+impl generic_asset::Trait for Runtime {
 	type Event = Event;
 	type Balance = Balance;
 }
@@ -224,7 +224,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
-		GAT: gat::{Module, Call, Storage, Event<T>},
+		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
 		Sylo: sylo,
 	}
 );

@@ -18,7 +18,7 @@ extern crate sr_primitives as primitives;
 // depend on it being around.
 extern crate srml_system as system;
 
-use primitives::traits::{Member, SimpleArithmetic, Zero};
+use primitives::traits::{Member, SimpleArithmetic};
 use runtime_support::{dispatch::Result, Parameter, StorageMap, StorageValue};
 use system::ensure_signed;
 
@@ -78,7 +78,7 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as gat {
+    trait Store for Module<T: Trait> as GenericAsset {
         /// The number of units of assets held by any given account.
         pub FreeBalance get(free_balance) build(|config: &GenesisConfig<T>| config.balances.clone()): map (AssetId, T::AccountId) => T::Balance;
 
