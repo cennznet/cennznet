@@ -70,8 +70,8 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		// An asset was created.
-        Created(AssetId, AccountId, Balance),
-        
+		Created(AssetId, AccountId, Balance),
+
 		// Some assets were transfered.
 		Transfered(AssetId, AccountId, AccountId, Balance),
 	}
