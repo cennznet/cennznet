@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 #[macro_use]
 extern crate srml_support;
@@ -34,6 +34,9 @@ extern crate srml_system as system;
 extern crate srml_timestamp as timestamp;
 extern crate srml_treasury as treasury;
 extern crate srml_upgrade_key as upgrade_key;
+
+extern crate cennznet_module_generic_asset as generic_asset;
+
 #[macro_use]
 extern crate sr_version as version;
 extern crate cennznet_primitives;
@@ -62,14 +65,14 @@ use council::seats as council_seats;
 use version::NativeVersion;
 use substrate_primitives::OpaqueMetadata;
 
+pub use balances::Call as BalancesCall;
+pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
-pub use consensus::Call as ConsensusCall;
-pub use timestamp::Call as TimestampCall;
-pub use balances::Call as BalancesCall;
-pub use runtime_primitives::{Permill, Perbill};
+pub use runtime_primitives::{Perbill, Permill};
+pub use srml_support::{RuntimeMetadata, StorageValue};
 pub use timestamp::BlockPeriod;
-pub use srml_support::{StorageValue, RuntimeMetadata};
+pub use timestamp::Call as TimestampCall;
 
 const TIMESTAMP_SET_POSITION: u32 = 0;
 const NOTE_OFFLINE_POSITION: u32 = 1;
@@ -191,6 +194,11 @@ impl grandpa::Trait for Runtime {
 	type Event = Event;
 }
 
+impl generic_asset::Trait for Runtime {
+	type Event = Event;
+	type Balance = Balance;
+}
+
 impl sylo::Trait for Runtime {
 	type Event = Event;
 }
@@ -216,6 +224,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
+		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
 		Sylo: sylo,
 	}
 );
