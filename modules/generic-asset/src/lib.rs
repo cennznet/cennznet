@@ -80,7 +80,7 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Trait> as GenericAsset {
         /// The number of units of assets held by any given account.
-        pub FreeBalance get(free_balance) build(|config: &GenesisConfig<T>| config.balances.clone()): map (AssetId, T::AccountId) => T::Balance;
+        pub FreeBalance get(free_balance): map (AssetId, T::AccountId) => T::Balance;
 
         /// The next asset identifier up for grabs.
         NextAssetId get(next_asset_id): AssetId;
