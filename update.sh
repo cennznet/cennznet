@@ -5,5 +5,5 @@ cargo check
 cd runtime/wasm
 cargo update
 cd ../..
-./build
+./build.sh
 cargo run
