@@ -46,12 +46,12 @@ fn cennznet_dev_genesis(
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 0,
+			transaction_base_fee: 10,
+			transaction_byte_fee: 1,
 			existential_deposit: 500,
-			transfer_fee: 0,
-			creation_fee: 0,
-			reclaim_rebate: 0,
+			transfer_fee: 1,
+			creation_fee: 1,
+			reclaim_rebate: 1,
 			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
 		}),
 		session: Some(SessionConfig {
@@ -97,7 +97,7 @@ fn cennznet_dev_genesis(
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: 5,                    // 5 second block time.
+			period: 3, // block time = period * 2
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
@@ -197,7 +197,7 @@ pub fn local_dev_genesis(
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: 5,                    // 5 second block time.
+			period: 2, // block time = period * 2
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
