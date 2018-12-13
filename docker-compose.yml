@@ -1,14 +1,14 @@
 version: '3'
 services:
   substrate-0:
-    image: parity/substrate:nightly-20181204
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
       - "./substrate_0:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
-      - substrate
+      - cennznet
       - --chain=/mnt/genesis/dev.json
       - --base-path=/mnt/substrate
       - --key=Andrea
@@ -24,14 +24,14 @@ services:
       - "9933:9933"
       - "9944:9944"
   substrate-1:
-    image: parity/substrate:nightly-20181204
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
       - "./substrate_1:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
-      - substrate
+      - cennznet
       - --chain=/mnt/genesis/dev.json
       - --base-path=/mnt/substrate
       - --key=Brooke
@@ -44,14 +44,14 @@ services:
       - --rpc-external
       - --telemetry-url=ws://telemetry:1024
   substrate-2:
-    image: parity/substrate:nightly-20181204
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
       - "./substrate_2:/mnt/substrate"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
-      - substrate
+      - cennznet
       - --chain=/mnt/genesis/dev.json
       - --base-path=/mnt/substrate
       - --key=Courtney
