@@ -76,6 +76,7 @@ fn cennznet_dev_genesis(
 			voting_period: 18,
 			minimum_deposit: 10,
 			public_delay: 0,
+			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts.iter()
@@ -176,6 +177,7 @@ pub fn local_dev_genesis(
 			voting_period: 18,
 			minimum_deposit: 10,
 			public_delay: 0,
+			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts.iter()
