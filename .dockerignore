@@ -1,0 +1,12 @@
+doc
+target/
+!target/debug/cennznet
+!target/release/cennznet
+.idea/
+Dockerfile
+.dockerignore
+.git/
+k8s/
+.vscode/
+centrality.deploy/
+.cargo/
