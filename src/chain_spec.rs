@@ -10,7 +10,7 @@ use substrate_service;
 
 use substrate_keystore::pad_seed;
 
-const DEV_TELEMETRY_URL: Option<&str> = Some("wss://cennznet-telemetry.centrality.me");
+const DEV_TELEMETRY_URL: Option<&str> = Some("ws://cennznet-telemetry.centrality.me:1024");
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -229,6 +229,13 @@ pub fn local_dev_genesis(
 /// The CENNZnet DEV testnet config (load from "genesis/dev.json")
 pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/dev.json")).map_err(|e| format!("{} at genesis/dev.json", e))
+	// Ok(
+	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_config_genesis, vec![
+	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+	// 	], DEV_TELEMETRY_URL, None, None, None)
+	// )
 }
 
 /// The CENNZnet DEV testnet genesis (created from code)
