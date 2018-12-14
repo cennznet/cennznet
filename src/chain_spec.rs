@@ -10,7 +10,7 @@ use substrate_service;
 
 use substrate_keystore::pad_seed;
 
-const DEV_TELEMETRY_URL: Option<&str> = Some("wss://cennznet-telemetry.centrality.me");
+const DEV_TELEMETRY_URL: Option<&str> = Some("ws://cennznet-telemetry.centrality.me:1024");
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -43,23 +43,20 @@ fn cennznet_dev_genesis(
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm").to_vec(),
 			authorities: initial_authorities.clone(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 0,
+			transaction_base_fee: 10,
+			transaction_byte_fee: 1,
 			existential_deposit: 500,
-			transfer_fee: 0,
-			creation_fee: 0,
-			reclaim_rebate: 0,
+			transfer_fee: 1,
+			creation_fee: 1,
+			reclaim_rebate: 1,
 			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
 			session_length: 10,
-			_genesis_phantom_data: Default::default(),
 		}),
 		staking: Some(StakingConfig {
 			current_era: 0,
@@ -73,13 +70,13 @@ fn cennznet_dev_genesis(
 			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 0,
-			_genesis_phantom_data: Default::default(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 9,
 			voting_period: 18,
 			minimum_deposit: 10,
-			_genesis_phantom_data: Default::default(),
+			public_delay: 0,
+			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts.iter()
@@ -94,23 +91,20 @@ fn cennznet_dev_genesis(
 			term_duration: 1000000,
 			desired_seats: (endowed_accounts.len() - initial_authorities.len()) as u32,
 			inactive_grace_period: 1,
-			_genesis_phantom_data: Default::default(),
 		}),
 		council_voting: Some(CouncilVotingConfig {
 			cooloff_period: 75,
 			voting_period: 20,
-			_genesis_phantom_data: Default::default(),
+			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: 5,                    // 5 second block time.
-			_genesis_phantom_data: Default::default(),
+			period: 3, // block time = period * 2
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
 			proposal_bond_minimum: 1_000_000,
 			spend_period: 12 * 60 * 24,
 			burn: Permill::from_percent(50),
-			_genesis_phantom_data: Default::default(),
 		}),
 		contract: Some(ContractConfig {
 			contract_fee: 21,
@@ -120,15 +114,12 @@ fn cennznet_dev_genesis(
 			max_depth: 1024,
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		upgrade_key: Some(UpgradeKeyConfig {
 			key: upgrade_key,
-			_genesis_phantom_data: Default::default(),
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		sylo: None,
 	}
@@ -153,7 +144,6 @@ pub fn local_dev_genesis(
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm").to_vec(),
 			authorities: initial_authorities.clone(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
@@ -164,12 +154,10 @@ pub fn local_dev_genesis(
 			creation_fee: 0,
 			reclaim_rebate: 0,
 			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
 			session_length: 10,
-			_genesis_phantom_data: Default::default(),
 		}),
 		staking: Some(StakingConfig {
 			current_era: 0,
@@ -183,13 +171,13 @@ pub fn local_dev_genesis(
 			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 0,
-			_genesis_phantom_data: Default::default(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 9,
 			voting_period: 18,
 			minimum_deposit: 10,
-			_genesis_phantom_data: Default::default(),
+			public_delay: 0,
+			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts.iter()
@@ -204,23 +192,20 @@ pub fn local_dev_genesis(
 			term_duration: 1000000,
 			desired_seats: (endowed_accounts.len() - initial_authorities.len()) as u32,
 			inactive_grace_period: 1,
-			_genesis_phantom_data: Default::default(),
 		}),
 		council_voting: Some(CouncilVotingConfig {
 			cooloff_period: 75,
 			voting_period: 20,
-			_genesis_phantom_data: Default::default(),
+			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: 5,                    // 5 second block time.
-			_genesis_phantom_data: Default::default(),
+			period: 2, // block time = period * 2
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
 			proposal_bond_minimum: 1_000_000,
 			spend_period: 12 * 60 * 24,
 			burn: Permill::from_percent(50),
-			_genesis_phantom_data: Default::default(),
 		}),
 		contract: Some(ContractConfig {
 			contract_fee: 21,
@@ -230,15 +215,12 @@ pub fn local_dev_genesis(
 			max_depth: 1024,
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		upgrade_key: Some(UpgradeKeyConfig {
 			key: upgrade_key,
-			_genesis_phantom_data: Default::default(),
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
-			_genesis_phantom_data: Default::default(),
 		}),
 		sylo: None,
 	}
@@ -247,6 +229,13 @@ pub fn local_dev_genesis(
 /// The CENNZnet DEV testnet config (load from "genesis/dev.json")
 pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/dev.json")).map_err(|e| format!("{} at genesis/dev.json", e))
+	// Ok(
+	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_config_genesis, vec![
+	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+	// 	], DEV_TELEMETRY_URL, None, None, None)
+	// )
 }
 
 /// The CENNZnet DEV testnet genesis (created from code)

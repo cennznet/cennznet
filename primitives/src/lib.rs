@@ -22,6 +22,8 @@ use runtime_primitives::generic;
 use primitives::bytes;
 use runtime_primitives::traits::{BlakeTwo256, self};
 
+pub use runtime_primitives::BasicInherentData as InherentData;
+
 /// An index to a block.
 pub type BlockNumber = u64;
 
@@ -61,7 +63,7 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// Opaque, encoded, unchecked extrinsic.
 #[derive(PartialEq, Eq, Clone, Default, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Serialize, Debug))]
 pub struct UncheckedExtrinsic(#[cfg_attr(feature = "std", serde(with="bytes"))] pub Vec<u8>);
 
 impl traits::Extrinsic for UncheckedExtrinsic {
