@@ -1,21 +1,21 @@
 version: '3'
 services:
-  substrate-0:
+  node-0:
     image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
-      - "./substrate_0:/mnt/substrate"
+      - "./node_0:/mnt/node"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
       - cennznet
       - --chain=/mnt/genesis/dev.json
-      - --base-path=/mnt/substrate
+      - --base-path=/mnt/node
       - --key=Andrea
       - --name="ANDREA"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000001
-      - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
-      - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
+      - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
+      - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --validator
       - --ws-external
       - --rpc-external
@@ -23,43 +23,43 @@ services:
     ports:
       - "9933:9933"
       - "9944:9944"
-  substrate-1:
+  node-1:
     image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
-      - "./substrate_1:/mnt/substrate"
+      - "./node_1:/mnt/node"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
       - cennznet
       - --chain=/mnt/genesis/dev.json
-      - --base-path=/mnt/substrate
+      - --base-path=/mnt/node
       - --key=Brooke
       - --name="BROOKE"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
       - --validator
-      - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
-      - --bootnodes=/dns4/substrate-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
+      - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
+      - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --ws-external
       - --rpc-external
       - --telemetry-url=ws://telemetry:1024
-  substrate-2:
+  node-2:
     image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
     volumes:
-      - "./substrate_2:/mnt/substrate"
+      - "./node_2:/mnt/node"
       - "./genesis/:/mnt/genesis:ro"
     depends_on:
       - "telemetry"
     command:
       - cennznet
       - --chain=/mnt/genesis/dev.json
-      - --base-path=/mnt/substrate
+      - --base-path=/mnt/node
       - --key=Courtney
       - --name="COURTNEY"
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
       - --validator
-      - --bootnodes=/dns4/substrate-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
-      - --bootnodes=/dns4/substrate-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
+      - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
+      - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
       - --ws-external
       - --rpc-external
       - --telemetry-url=ws://telemetry:1024
@@ -70,6 +70,6 @@ services:
       - "5000:5000"
       - "8080:8080"
 volumes:
-  substrate_0:
-  substrate_1:
-  substrate_2:
+  node_0:
+  node_1:
+  node_2:
