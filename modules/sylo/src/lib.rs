@@ -16,6 +16,6 @@ extern crate srml_system as system;
 
 pub mod device;
 pub mod inbox;
-// pub mod groups;
+pub mod groups;
 
-pub use device::{Trait, Module, RawEvent, Event};
+pub use groups::{Trait, Module, RawEvent, Event};
