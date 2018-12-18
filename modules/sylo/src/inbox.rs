@@ -1,7 +1,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use srml_support::{dispatch::Result, dispatch::Vec, StorageMap, StorageValue};
+use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use {balances, system::ensure_signed};
 
 // Assert macros used in tests.

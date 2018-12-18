@@ -207,6 +207,8 @@ impl sylo::Trait for Runtime {
 	type Event = Event;
 }
 
+impl sylo::response::Trait for Runtime {}
+
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
 		Block = Block,

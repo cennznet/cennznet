@@ -1,8 +1,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use srml_support::{dispatch::Result, dispatch::Vec, StorageMap, StorageValue};
-use {balances, system::ensure_signed};
+use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
+use {balances, response, system::ensure_signed};
 extern crate srml_system as system;
 
 #[cfg(test)]
@@ -14,7 +14,7 @@ extern crate sr_io;
 #[cfg(test)]
 extern crate substrate_primitives;
 
-pub trait Trait: balances::Trait {
+pub trait Trait: balances::Trait + response::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -25,7 +25,7 @@ decl_module! {
 
     // Registers a new device for e2ee
     // request_id is used to identify the assigned device id
-    fn register_device(origin, request_id: Vec<u8>) -> Result {
+    fn register_device(origin, request_id: T::Hash) -> Result {
       let sender = ensure_signed(origin)?;
 
       let mut devices = <Devices<T>>::get(&sender);
@@ -35,8 +35,8 @@ decl_module! {
       devices.push(len);
 
       <Devices<T>>::insert(&sender, devices);
-
-      Self::deposit_event(RawEvent::DeviceAdded(sender, request_id, len));
+      Self::deposit_event(RawEvent::DeviceAdded(sender.clone(), request_id, len));
+      <response::Module<T>>::set_response(sender, request_id, response::Response::DeviceId(len));
       Ok(())
     }
   }
@@ -54,8 +54,8 @@ decl_storage! {
 }
 
 decl_event!(
-  pub enum Event<T> where <T as system::Trait>::AccountId {
-    DeviceAdded(AccountId, Vec<u8>, u32),
+  pub enum Event<T> where <T as system::Trait>::Hash, <T as system::Trait>::AccountId {
+    DeviceAdded(AccountId, Hash, u32),
   }
 );
 
@@ -106,7 +106,10 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
+    impl response::Trait for Test {}
+
     type Devices = Module<Test>;
+    type Responses = response::Module<response::tests::Test>;
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
@@ -121,7 +124,7 @@ mod tests {
     #[test]
     fn should_add_device() {
         with_externalities(&mut new_test_ext(), || {
-            let request_id = b"request device".to_vec();
+            let request_id = H256::from(23);
             assert_ok!(Devices::register_device(
                 Origin::signed(1),
                 request_id.clone()
@@ -134,6 +137,12 @@ mod tests {
             ));
             assert_eq!(Devices::devices(1).len(), 2);
             assert_eq!(Devices::devices(1)[1], 1);
+
+            // check saved response
+            assert_eq!(
+                Responses::response((1, request_id)),
+                response::Response::DeviceId(1)
+            );
         });
     }
 }

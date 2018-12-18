@@ -1,7 +1,6 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
 // Needed for tests (`with_externalities`).
 #[cfg(test)]
 extern crate sr_io;
@@ -23,19 +22,19 @@ use groups::substrate_primitives::hash::{H256, H512};
 use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, system::ensure_signed};
+use {balances, response, system::ensure_signed};
 
-pub trait Trait: balances::Trait {
+pub trait Trait: balances::Trait + response::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
-
-pub type Text = Vec<u8>;
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
 
 pub type PKB = (u32 /* device_id */, Text /* pkb */);
+
+pub type Text = Vec<u8>;
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -46,15 +45,15 @@ pub enum MemberRoles {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Invite {
-    invite_key: H256,
+pub struct Invite<Hash: Decode + Encode> {
+    invite_key: Hash,
     meta: Meta,
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Member<A: Encode + Decode> {
-    user_id: A,
+pub struct Member<AccountId: Encode + Decode> {
+    user_id: AccountId,
     roles: Vec<MemberRoles>,
     meta: Meta,
 }
@@ -72,10 +71,14 @@ impl<A: Encode + Decode> Member<A> {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Group<A: Encode + Decode> {
-    group_id: H256,
-    members: Vec<Member<A>>,
-    invites: Vec<Invite>,
+pub struct Group<AccountId, Hash>
+where
+    AccountId: Encode + Decode,
+    Hash: Encode + Decode,
+{
+    group_id: Hash,
+    members: Vec<Member<AccountId>>,
+    invites: Vec<Invite<H256>>,
     meta: Meta,
 }
 
@@ -104,7 +107,7 @@ decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     fn deposit_event() = default;
 
-    fn create_group(origin, group_id: H256, pkbs: Vec<PKB>, meta: Meta) -> Result {
+    fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(<Groups<T>>::exists(&group_id), "Group already exists");
@@ -115,7 +118,7 @@ decl_module! {
         meta: Vec::new(),
       };
       // Build up group
-      let group: Group<T::AccountId> = Group {
+      let group = Group {
         group_id: group_id.clone(),
         members: vec![admin],
         meta,
@@ -127,7 +130,7 @@ decl_module! {
       Ok(())
     }
 
-    fn leave_group(origin, group_id: H256) -> Result {
+    fn leave_group(origin, group_id: T::Hash) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -151,7 +154,7 @@ decl_module! {
       Ok(())
     }
 
-    fn update_member(origin, group_id: H256, meta: Meta) -> Result {
+    fn update_member(origin, group_id: T::Hash, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
       restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
@@ -178,7 +181,7 @@ decl_module! {
       Ok(())
     }
 
-    fn upsert_group_meta(origin, group_id: H256, meta: Meta) -> Result {
+    fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -215,7 +218,7 @@ decl_module! {
       Ok(())
     }
 
-    fn add_pending_invite(origin, group_id: H256, invite_key: H256, meta: Meta) -> Result {
+    fn add_pending_invite(origin, group_id: T::Hash, invite_key: H256, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -235,7 +238,7 @@ decl_module! {
       Ok(())
     }
 
-    fn accept_invite(origin, group_id: H256, payload: (T::AccountId, Vec<PKB>), invite_key: H256, signature: H512) -> Result {
+    fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, signature: H512) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -274,7 +277,7 @@ decl_module! {
       Ok(())
     }
 
-    fn revoke_invites(origin, group_id: H256, invite_keys: Vec<H256>) -> Result {
+    fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -294,7 +297,7 @@ decl_module! {
       Ok(())
     }
 
-    fn replenish_pkbs(origin, group_id: H256, pkbs: Vec<PKB>) -> Result {
+    fn replenish_pkbs(origin, group_id: T::Hash, pkbs: Vec<PKB>) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -305,7 +308,7 @@ decl_module! {
       Ok(())
     }
 
-    fn withdraw_pkbs(origin, group_id: H256, request_id: Text, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
+    fn withdraw_pkbs(origin, group_id: T::Hash, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
       let sender = ensure_signed(origin)?;
 
       restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
@@ -320,11 +323,11 @@ decl_module! {
       let acquired_pkbs: Vec<(T::AccountId, u32, Text)> = wanted_pkbs
         .into_iter()
         .map(|wanted_pkb| {
-          let mut device_pkbs = <PKBs<T>>::get((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1));
+          let mut device_pkbs = <Pkbs<T>>::get((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1));
 
           let pkb = device_pkbs.pop();
 
-          <PKBs<T>>::insert((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1.clone()), device_pkbs);
+          <Pkbs<T>>::insert((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1.clone()), device_pkbs);
 
           (wanted_pkb.0, wanted_pkb.1, pkb)
         })
@@ -332,8 +335,8 @@ decl_module! {
         .map(|a_pkb| (a_pkb.0, a_pkb.1, a_pkb.2.unwrap()))
         .collect();
 
-      Self::deposit_event(RawEvent::PKBsWithdrawn(sender, request_id, acquired_pkbs));
-
+      Self::deposit_event(RawEvent::PKBsWithdrawn(sender.clone(), request_id.clone(), acquired_pkbs.clone()));
+      <response::Module<T>>::set_response(sender, request_id, response::Response::Pkb(acquired_pkbs));
       Ok(())
     }
   }
@@ -341,11 +344,11 @@ decl_module! {
 
 decl_storage! {
   trait Store for Module<T: Trait> as Groups {
-    Groups get(group): map H256 => Group<T::AccountId>;
+    Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
     /* Mapping to device ids*/
-    PKBMapping get(pkb_map): map (H256 /* group_id */, T::AccountId) => Vec<u32>;
+    PkbMapping get(pkb_map): map (T::Hash /* group_id */, T::AccountId) => Vec<u32>;
     /* PKBs */
-    PKBs get(pkbs): map (H256 /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;
+    Pkbs get(pkbs): map (T::Hash /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;
   }
   add_extra_genesis {
         config(_marker): ::std::marker::PhantomData<T>;
@@ -354,27 +357,28 @@ decl_storage! {
 }
 
 decl_event!(
-  pub enum Event<T> where <T as system::Trait>::AccountId {
-    PKBsWithdrawn(AccountId, Text /* request_id */, Vec<(AccountId, u32 /* device id */, Text)> /* pkbs */),
+  pub enum Event<T> where <T as system::Trait>::AccountId, <T as system::Trait>::Hash {
+    PKBsWithdrawn(AccountId, Hash /* request_id */, Vec<(AccountId, u32 /* device id */, Text)> /* pkbs */),
   }
 );
 
 impl<T: Trait> Module<T> {
-    pub fn get_pkbs(group_id: H256, account_id: T::AccountId) -> Vec<(u32, Vec<Text>)> {
+    pub fn get_pkbs(group_id: T::Hash, account_id: T::AccountId) -> Vec<(u32, Vec<Text>)> {
         if !<Groups<T>>::exists(&group_id) {
             return vec![];
         }
-        <PKBMapping<T>>::get((group_id.clone(), account_id.clone()))
+        <PkbMapping<T>>::get((group_id.clone(), account_id.clone()))
             .iter()
             .map(|device_id| {
                 (
                     *device_id,
-                    <PKBs<T>>::get((group_id.clone(), account_id.clone(), *device_id)),
+                    <Pkbs<T>>::get((group_id.clone(), account_id.clone(), *device_id)),
                 )
-            }).collect()
+            })
+            .collect()
     }
 
-    fn is_group_member(group_id: &H256, account_id: &T::AccountId) -> bool {
+    fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
         <Groups<T>>::get(group_id)
             .members
             .into_iter()
@@ -382,7 +386,7 @@ impl<T: Trait> Module<T> {
             .is_some()
     }
 
-    fn is_group_admin(group_id: &H256, account_id: &T::AccountId) -> bool {
+    fn is_group_admin(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
         <Groups<T>>::get(group_id)
             .members
             .into_iter()
@@ -390,13 +394,13 @@ impl<T: Trait> Module<T> {
             .is_some()
     }
 
-    fn store_pkbs(group_id: H256, account_id: T::AccountId, pkbs: Vec<PKB>) {
+    fn store_pkbs(group_id: T::Hash, account_id: T::AccountId, pkbs: Vec<PKB>) {
         // Get pkbs references
-        let mut pkbs_map = <PKBMapping<T>>::get((group_id.clone(), account_id.clone()));
+        let mut pkbs_map = <PkbMapping<T>>::get((group_id.clone(), account_id.clone()));
 
         for pkb in pkbs {
             // Get pkbs for device
-            let mut pkbs = <PKBs<T>>::get((group_id.clone(), account_id.clone(), pkb.0));
+            let mut pkbs = <Pkbs<T>>::get((group_id.clone(), account_id.clone(), pkb.0));
 
             // Update pkbs
             pkbs.push(pkb.1);
@@ -409,22 +413,22 @@ impl<T: Trait> Module<T> {
             pkbs_map.dedup();
 
             // Store pkbs
-            <PKBs<T>>::insert((group_id.clone(), account_id.clone(), pkb.0), pkbs);
+            <Pkbs<T>>::insert((group_id.clone(), account_id.clone(), pkb.0), pkbs);
         }
 
         // Store updated pkbs references
-        <PKBMapping<T>>::insert((group_id.clone(), account_id.clone()), pkbs_map);
+        <PkbMapping<T>>::insert((group_id.clone(), account_id.clone()), pkbs_map);
     }
 
-    fn remove_pkbs(group_id: H256, account_id: T::AccountId) {
-        let devices = <PKBMapping<T>>::get((group_id.clone(), account_id.clone()));
+    fn remove_pkbs(group_id: T::Hash, account_id: T::AccountId) {
+        let devices = <PkbMapping<T>>::get((group_id.clone(), account_id.clone()));
 
         for device in devices {
             // Remove pkbs for device
-            <PKBs<T>>::remove((group_id.clone(), account_id.clone(), device));
+            <Pkbs<T>>::remove((group_id.clone(), account_id.clone(), device));
         }
 
         // Remove references to devices
-        <PKBMapping<T>>::remove((group_id.clone(), account_id.clone()));
+        <PkbMapping<T>>::remove((group_id.clone(), account_id.clone()));
     }
 }

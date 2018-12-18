@@ -11,7 +11,9 @@ mod tests {
         BuildStorage,
     };
     // use groups::tests::{Call, Origin, Event as OuterEvent};
-    use groups::{balances, system, Encode, Group, Member, MemberRoles, Module, Trait, PKB};
+    use groups::{
+        balances, response, system, Encode, Group, Member, MemberRoles, Module, Trait, PKB,
+    };
     // use system::{EventRecord, Phase};
 
     impl_outer_origin! {
@@ -49,7 +51,9 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
+    impl response::Trait for Test {}
     type Groups = Module<Test>;
+    type Responses = response::Module<response::tests::Test>;
     // type System = system::Module<Test>;
 
     // This function basically just builds a genesis storage key/value store according to
@@ -155,7 +159,7 @@ mod tests {
                 (1, b"device_1_1".to_vec()),
                 (2, b"device_2_0".to_vec()),
             ];
-            let req_id = b"req_id".to_vec();
+            let req_id = H256::from(321);
 
             //Create a group
             assert_ok!(Groups::create_group(
@@ -177,6 +181,15 @@ mod tests {
                 req_id.clone(),
                 vec![(1, 1), (1, 2)]
             ));
+
+            // check saved response
+            assert_eq!(
+                Responses::response((1, req_id.clone())),
+                response::Response::Pkb(vec![
+                    (1, 1, b"device_1_1".to_vec()),
+                    (1, 2, b"device_2_0".to_vec())
+                ])
+            );
 
             // TODO test event
 
