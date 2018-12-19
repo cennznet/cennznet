@@ -19,4 +19,4 @@ pub mod inbox;
 pub mod groups;
 pub mod response;
 
-pub use groups::{Trait, Module, RawEvent, Event};
+pub use groups::{Trait, Module, Event, Call};
