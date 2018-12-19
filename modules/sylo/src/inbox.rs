@@ -81,10 +81,6 @@ decl_storage! {
     AccountValues: map(T::AccountId) => Vec<(T::AccountId, u32)>;
     Values: map(T::AccountId, u32) => Vec<u8>;
   }
-  add_extra_genesis {
-        config(_marker): ::std::marker::PhantomData<T>;
-        build(|_, _, _| {});
-    }
 }
 
 impl<T: Trait> Module<T> {

@@ -22,7 +22,7 @@ use groups::substrate_primitives::hash::{H256, H512};
 use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, response, system::ensure_signed};
+use {balances, response, system::ensure_signed, vec};
 
 pub trait Trait: balances::Trait + response::Trait {
     /// The overarching event type.
@@ -80,19 +80,6 @@ where
     members: Vec<Member<AccountId>>,
     invites: Vec<Invite<H256>>,
     meta: Meta,
-}
-
-macro_rules! vec {
-    ( $( $x:expr ),* ) => {
-        {
-            #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
-            $(
-                temp_vec.push($x);
-            )*
-            temp_vec
-        }
-    };
 }
 
 decl_module! {
@@ -342,10 +329,6 @@ decl_storage! {
     /* PKBs */
     Pkbs get(pkbs): map (T::Hash /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;
   }
-  add_extra_genesis {
-        config(_marker): ::std::marker::PhantomData<T>;
-        build(|_, _, _| {});
-    }
 }
 
 decl_event!(

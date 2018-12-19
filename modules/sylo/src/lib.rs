@@ -19,4 +19,6 @@ pub mod inbox;
 pub mod groups;
 pub mod response;
 
+pub use rstd::vec;
+
 pub use groups::{Trait, Module, Event, Call};

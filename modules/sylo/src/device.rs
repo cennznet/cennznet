@@ -47,10 +47,6 @@ decl_storage! {
   trait Store for Module<T: Trait> as Device {
     Devices get(devices): map T::AccountId => Vec<u32>;
   }
-  add_extra_genesis {
-        config(_marker): ::std::marker::PhantomData<T>;
-        build(|_, _, _| {});
-    }
 }
 
 decl_event!(

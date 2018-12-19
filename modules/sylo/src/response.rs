@@ -50,10 +50,6 @@ decl_storage! {
   trait Store for Module<T: Trait> as Device {
     Responses get(response): map (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
   }
-  add_extra_genesis {
-        config(_marker): ::std::marker::PhantomData<T>;
-        build(|_, _, _| {});
-    }
 }
 
 impl<T: Trait> Module<T> {
