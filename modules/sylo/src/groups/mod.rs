@@ -82,14 +82,6 @@ where
     meta: Meta,
 }
 
-macro_rules! restriction {
-    ($condition:expr, $err_msg: tt) => {
-        if $condition {
-            return Err($err_msg);
-        }
-    };
-}
-
 macro_rules! vec {
     ( $( $x:expr ),* ) => {
         {
@@ -110,7 +102,7 @@ decl_module! {
     fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(<Groups<T>>::exists(&group_id), "Group already exists");
+      ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
 
       let admin: Member<T::AccountId> = Member {
         user_id: sender.clone(),
@@ -133,8 +125,8 @@ decl_module! {
     fn leave_group(origin, group_id: T::Hash) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
       let mut group = <Groups<T>>::get(&group_id);
       // Remove the member from the group
@@ -156,8 +148,8 @@ decl_module! {
 
     fn update_member(origin, group_id: T::Hash, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
       let mut group = <Groups<T>>::get(&group_id);
 
@@ -184,8 +176,8 @@ decl_module! {
     fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
       let mut group = <Groups<T>>::get(&group_id);
 
@@ -221,12 +213,12 @@ decl_module! {
     fn add_pending_invite(origin, group_id: T::Hash, invite_key: H256, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
-      restriction!(!Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 
       let mut group = <Groups<T>>::get(&group_id);
-      restriction!(group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
+      ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
 
       group.invites.push(Invite {
         invite_key,
@@ -241,8 +233,8 @@ decl_module! {
     fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, signature: H512) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(Self::is_group_member(&group_id, &sender), "Already a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(!Self::is_group_member(&group_id, &sender), "Already a member of group");
 
       let mut group = <Groups<T>>::get(&group_id);
       let invite = group.clone().invites
@@ -252,8 +244,8 @@ decl_module! {
 
       let sig = Ed25519Signature::from(signature);
       // TODO ensure payload is encoded properly
-      restriction!(
-        !sig.verify(payload.encode().as_slice(), &invite.invite_key),
+      ensure!(
+        sig.verify(payload.encode().as_slice(), &invite.invite_key),
         "Failed to verify invite"
       );
 
@@ -280,9 +272,9 @@ decl_module! {
     fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
-      restriction!(!Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 
       let mut group = <Groups<T>>::get(&group_id);
 
@@ -300,8 +292,8 @@ decl_module! {
     fn replenish_pkbs(origin, group_id: T::Hash, pkbs: Vec<PKB>) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
       Self::store_pkbs(group_id, sender, pkbs);
 
@@ -311,12 +303,12 @@ decl_module! {
     fn withdraw_pkbs(origin, group_id: T::Hash, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
       let sender = ensure_signed(origin)?;
 
-      restriction!(!<Groups<T>>::exists(&group_id), "Group not found");
-      restriction!(!Self::is_group_member(&group_id, &sender), "Not a member of group");
+      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
       // Make sure we are withdrawing keys from members
-      restriction!(
-        wanted_pkbs.iter().any(|wanted_pkb| !Self::is_group_member(&group_id, &wanted_pkb.0)),
+      ensure!(
+        !wanted_pkbs.iter().any(|wanted_pkb| !Self::is_group_member(&group_id, &wanted_pkb.0)),
         "Member not found"
       );
 
