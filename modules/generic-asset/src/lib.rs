@@ -18,6 +18,8 @@ extern crate sr_primitives as primitives;
 // depend on it being around.
 extern crate srml_system as system;
 
+use runtime_support::rstd::prelude::*;
+
 use primitives::traits::{Member, SimpleArithmetic};
 use runtime_support::{dispatch::Result, Parameter, StorageMap, StorageValue};
 use system::ensure_signed;
