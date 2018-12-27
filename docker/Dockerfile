@@ -11,7 +11,7 @@ RUN rm -rf /usr/lib/python* && \
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
-ARG PROFILE=debug
+ARG PROFILE=release
 COPY target/$PROFILE/cennznet /usr/local/bin
 
 CMD ["/usr/local/bin/cennznet"]
