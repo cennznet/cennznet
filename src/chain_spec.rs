@@ -37,6 +37,7 @@ fn cennznet_dev_genesis(
 			get_authority_id_from_seed("Drew"),
 			get_authority_id_from_seed("Emily"),
 			get_authority_id_from_seed("Frank"),
+			get_authority_id_from_seed("Centrality")
 		]
 	});
 	GenesisConfig {
@@ -48,7 +49,7 @@ fn cennznet_dev_genesis(
 		balances: Some(BalancesConfig {
 			transaction_base_fee: 10,
 			transaction_byte_fee: 1,
-			existential_deposit: 500,
+			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
 			reclaim_rebate: 1,
@@ -148,7 +149,7 @@ pub fn local_dev_genesis(
 		balances: Some(BalancesConfig {
 			transaction_base_fee: 1,
 			transaction_byte_fee: 0,
-			existential_deposit: 500,
+			existential_deposit: 50,
 			transfer_fee: 0,
 			creation_fee: 0,
 			reclaim_rebate: 0,
