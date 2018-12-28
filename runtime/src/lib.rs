@@ -203,12 +203,12 @@ impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 }
 
-// impl sylo::Trait for Runtime {
-// 	type Event = Event;
-// }
+impl sylo::Trait for Runtime {
+	type Event = Event;
+}
 
-// impl sylo::response::Trait for Runtime {}
-// impl sylo::inbox::Trait for Runtime {}
+impl sylo::response::Trait for Runtime {}
+impl sylo::inbox::Trait for Runtime {}
 
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
@@ -233,7 +233,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		UpgradeKey: upgrade_key,
 		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
-		// Sylo: sylo::{Module, Event<T>, Trait, Call},
+		Sylo: sylo::{Module, Event<T>, Trait, Call},
 	}
 );
 
