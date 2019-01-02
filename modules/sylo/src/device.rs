@@ -21,7 +21,7 @@ pub trait Trait: balances::Trait + response::Trait {
 
 decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-    fn deposit_event() = default;
+    fn deposit_event<T>() = default;
 
     // Registers a new device for e2ee
     // request_id is used to identify the assigned device id

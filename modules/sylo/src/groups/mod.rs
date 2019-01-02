@@ -84,7 +84,7 @@ where
 
 decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-    fn deposit_event() = default;
+    fn deposit_event<T>() = default;
 
     fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
