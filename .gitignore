@@ -15,4 +15,6 @@
 .idea
 substrate_*
 node_*
-.cargo
+
+# Archived genesis block
+genesis/*.gz
