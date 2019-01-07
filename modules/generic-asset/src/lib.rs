@@ -18,6 +18,8 @@ extern crate sr_primitives as primitives;
 // depend on it being around.
 extern crate srml_system as system;
 
+use runtime_support::rstd::prelude::*;
+
 use primitives::traits::{Member, SimpleArithmetic};
 use runtime_support::{dispatch::Result, Parameter, StorageMap, StorageValue};
 use system::ensure_signed;
@@ -36,7 +38,8 @@ type AssetId = u32;
 decl_module! {
     // Simple declaration of the `Module` type. Lets the macro know what its working on.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        fn deposit_event() = default;
+        fn deposit_event<T>() = default;
+
         pub fn create(origin, total: T::Balance) -> Result {
             let origin = ensure_signed(origin)?;
 

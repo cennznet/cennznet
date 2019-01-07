@@ -1,21 +1,19 @@
-//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
-
 #![warn(unused_extern_crates)]
+
+//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use std::sync::Arc;
 use transaction_pool::{self, txpool::{Pool as TransactionPool}};
 use cennznet_runtime::{GenesisConfig, RuntimeApi};
-use cennznet_primitives::Block;
+use cennznet_primitives::{Block, InherentData};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor, TaskExecutor
 };
-use consensus::{import_queue, start_aura, Config as AuraConfig, AuraImportQueue, NothingExtra};
-use consensus_common::offline_tracker::OfflineTracker;
+use consensus::{import_queue, start_aura, AuraImportQueue, SlotDuration, NothingExtra};
 use primitives::ed25519::Pair;
 use client;
 use std::time::Duration;
-use parking_lot::RwLock;
 use grandpa;
 
 pub use substrate_executor::NativeExecutor;
@@ -26,8 +24,6 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
 );
 
-const AURA_SLOT_DURATION: u64 = 6;
-
 construct_simple_protocol! {
 	/// Demo protocol attachment for substrate.
 	pub struct NodeProtocol where Block = Block { }
@@ -35,12 +31,7 @@ construct_simple_protocol! {
 
 /// Node specific configuration
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
-	/// should run as a grandpa authority
-	pub grandpa_authority: bool,
-	/// should run as a grandpa authority only, don't validate as usual
-	pub grandpa_authority_only: bool,
 	/// grandpa connection to import block
-
 	// FIXME: rather than putting this on the config, let's have an actual intermediate setup state
 	// https://github.com/paritytech/substrate/issues/1134
 	pub grandpa_import_setup: Option<(Arc<grandpa::BlockImportForService<F>>, grandpa::LinkHalfForService<F>)>,
@@ -49,8 +40,6 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
 impl<F> Default for NodeConfig<F> where F: substrate_service::ServiceFactory {
 	fn default() -> NodeConfig<F> {
 		NodeConfig {
-			grandpa_authority: false,
-			grandpa_authority_only: false,
 			grandpa_import_setup: None,
 		}
 	}
@@ -72,73 +61,80 @@ construct_service_factory! {
 			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
 				FullComponents::<Factory>::new(config, executor) },
 		AuthoritySetup = {
-			|mut service: Self::FullService, executor: TaskExecutor, key: Arc<Pair>| {
+			|mut service: Self::FullService, executor: TaskExecutor, local_key: Option<Arc<Pair>>| {
 				let (block_import, link_half) = service.config.custom.grandpa_import_setup.take()
 					.expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
-				if service.config.custom.grandpa_authority {
-					info!("Running Grandpa session as Authority {}", key.public());
-					let grandpa_fut = grandpa::run_grandpa(
-						grandpa::Config {
-							gossip_duration: Duration::new(4, 0), // FIXME: make this available through chainspec?
-							local_key: Some(key.clone()),
-							name: Some(service.config.name.clone())
-						},
-						link_half,
-						grandpa::NetworkBridge::new(service.network())
-					)?;
-
-					executor.spawn(grandpa_fut);
-				}
-				if !service.config.custom.grandpa_authority_only {
+				if let Some(ref key) = local_key {
 					info!("Using authority key {}", key.public());
-					let proposer = Arc::new(substrate_service::ProposerFactory {
+					let proposer = Arc::new(substrate_basic_authorship::ProposerFactory {
 						client: service.client(),
 						transaction_pool: service.transaction_pool(),
-						offline: Arc::new(RwLock::new(OfflineTracker::new())),
-						force_delay: 0 // FIXME: allow this to be configured https://github.com/paritytech/substrate/issues/1170
 					});
+
+					let client = service.client();
 					executor.spawn(start_aura(
-						AuraConfig {
-							local_key: Some(key),
-							slot_duration: AURA_SLOT_DURATION,
-						},
-						service.client(),
+						SlotDuration::get_or_compute(&*client)?,
+						key.clone(),
+						client,
 						block_import.clone(),
 						proposer,
 						service.network(),
+						service.on_exit(),
 					));
+
+					info!("Running Grandpa session as Authority {}", key.public());
 				}
+
+				executor.spawn(grandpa::run_grandpa(
+					grandpa::Config {
+						local_key,
+						gossip_duration: Duration::new(4, 0), // FIXME: make this available through chainspec?
+						name: Some(service.config.name.clone())
+					},
+					link_half,
+					grandpa::NetworkBridge::new(service.network()),
+					service.on_exit(),
+				)?);
+
 				Ok(service)
 			}
 		},
 		LightService = LightComponents<Self>
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
-		FullImportQueue = AuraImportQueue<Self::Block, grandpa::BlockImportForService<Self>, NothingExtra>
+		FullImportQueue = AuraImportQueue<
+			Self::Block,
+			grandpa::BlockImportForService<Self>,
+			NothingExtra,
+			::consensus::InherentProducingFn<InherentData>,
+		>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
+				let slot_duration = SlotDuration::get_or_compute(&*client)?;
 				let (block_import, link_half) = grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(client.clone(), client)?;
 				let block_import = Arc::new(block_import);
 
 				config.custom.grandpa_import_setup = Some((block_import.clone(), link_half));
 
 				Ok(import_queue(
-					AuraConfig {
-						local_key: None,
-						slot_duration: 5
-					},
+					slot_duration,
 					block_import,
 					NothingExtra,
+					::consensus::make_basic_inherent as _,
 				))
 			}},
-		LightImportQueue = AuraImportQueue<Self::Block, LightClient<Self>, NothingExtra>
-			{ |ref mut config, client| Ok(
-				import_queue(AuraConfig {
-					local_key: None,
-					slot_duration: 5
-				},
-				client,
-				NothingExtra,
-			))
+		LightImportQueue = AuraImportQueue<
+			Self::Block,
+			LightClient<Self>,
+			NothingExtra,
+			::consensus::InherentProducingFn<InherentData>,
+		>
+			{ |ref mut config, client: Arc<LightClient<Self>>|
+				Ok(import_queue(
+					SlotDuration::get_or_compute(&*client)?,
+					client,
+					NothingExtra,
+					::consensus::make_basic_inherent as _,
+				))
 			},
 	}
 }
@@ -155,7 +151,6 @@ mod tests {
 		let bob: Arc<ed25519::Pair> = Arc::new(Keyring::Bob.into());
 		let validators = vec![alice.public().0.into(), bob.public().0.into()];
 		let keys: Vec<&ed25519::Pair> = vec![&*alice, &*bob];
-		let offline = Arc::new(RwLock::new(OfflineTracker::new()));
 		let dummy_runtime = ::tokio::runtime::Runtime::new().unwrap();
 		let block_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
 			let block_id = BlockId::number(service.client().info().unwrap().chain.best_number);
@@ -165,7 +160,6 @@ mod tests {
 				client: service.client().clone(),
 				transaction_pool: service.transaction_pool().clone(),
 				network: consensus_net,
-				offline: offline.clone(),
 				force_delay: 0,
 				handle: dummy_runtime.executor(),
 			};

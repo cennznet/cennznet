@@ -1,8 +1,7 @@
-FROM alpine:edge
+FROM debian:stretch-slim
 LABEL maintainer="developers@centrality.ai"
 
-RUN apk add --no-cache ca-certificates \
-    libstdc++ \
+RUN apt update && apt install -y ca-certificates \
     openssl
 
 RUN rm -rf /usr/lib/python* && \
@@ -12,7 +11,7 @@ RUN rm -rf /usr/lib/python* && \
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
-ARG PROFILE=debug
+ARG PROFILE=release
 COPY target/$PROFILE/cennznet /usr/local/bin
 
 CMD ["/usr/local/bin/cennznet"]
