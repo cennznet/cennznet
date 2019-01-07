@@ -1,6 +1,3 @@
-// Ensure we're `no_std` when compiling for Wasm.
-#![cfg_attr(not(feature = "std"), no_std)]
-
 // Needed for tests (`with_externalities`).
 #[cfg(test)]
 extern crate sr_io;
