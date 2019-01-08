@@ -11,3 +11,8 @@
 
 # Temporary cargo dir
 .cargo
+
+.idea
+substrate_*
+node_*
+.cargo

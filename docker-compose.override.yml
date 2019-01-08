@@ -1,18 +1,13 @@
 version: '3'
 services:
   node-0:
-    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
-    volumes:
-      - "./node_0:/mnt/node"
-      - "./genesis/:/mnt/genesis:ro"
-    depends_on:
-      - "telemetry"
+    image: cennznet-node:latest
     command:
       - cennznet
-      - --chain=/mnt/genesis/dev.json
+      - --chain=/mnt/genesis/local.json
       - --base-path=/mnt/node
       - --key=Andrea
-      - --name="ANDREA"
+      - --name=‼️${HOSTNAME:-localhost}-0
       - --node-key=0000000000000000000000000000000000000000000000000000000000000001
       - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
       - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
@@ -23,19 +18,15 @@ services:
     ports:
       - "9933:9933"
       - "9944:9944"
+      - "30334:30333"
   node-1:
-    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
-    volumes:
-      - "./node_1:/mnt/node"
-      - "./genesis/:/mnt/genesis:ro"
-    depends_on:
-      - "telemetry"
+    image: cennznet-node:latest
     command:
       - cennznet
-      - --chain=/mnt/genesis/dev.json
+      - --chain=/mnt/genesis/local.json
       - --base-path=/mnt/node
       - --key=Brooke
-      - --name="BROOKE"
+      - --name=❤️${HOSTNAME:-localhost}-1
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
       - --validator
       - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
@@ -43,19 +34,16 @@ services:
       - --ws-external
       - --rpc-external
       - --telemetry-url=ws://telemetry:1024
+    ports:
+      - "30335:30333"
   node-2:
-    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.39
-    volumes:
-      - "./node_2:/mnt/node"
-      - "./genesis/:/mnt/genesis:ro"
-    depends_on:
-      - "telemetry"
+    image: cennznet-node:latest
     command:
       - cennznet
-      - --chain=/mnt/genesis/dev.json
+      - --chain=/mnt/genesis/local.json
       - --base-path=/mnt/node
       - --key=Courtney
-      - --name="COURTNEY"
+      - --name=☺️${HOSTNAME:-localhost}-2
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
       - --validator
       - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
@@ -64,12 +52,7 @@ services:
       - --rpc-external
       - --telemetry-url=ws://telemetry:1024
   telemetry:
-    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet-telemetry:1.0.16
-    entrypoint: "bash scripts/deploy.sh"
     ports:
+      - "1024:1024"
       - "5000:5000"
       - "8080:8080"
-volumes:
-  node_0:
-  node_1:
-  node_2:
