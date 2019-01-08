@@ -1,12 +1,12 @@
 {
-  "name": "CENNZnet LOCAL",
-  "id": "cennznet_local",
+  "name": "CENNZnet DEV",
+  "id": "cennznet_dev",
   "bootNodes": [
-    "/ip4/10.9.30.51/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN",
-    "/ip4/10.9.30.51/tcp/30334/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK",
-    "/ip4/10.9.30.51/tcp/30335/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
+    "/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN",
+    "/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK",
+    "/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
   ],
-  "telemetryUrl": "ws://10.9.30.51:1024",
+  "telemetryUrl": "ws://cennznet-telemetry.centrality.me:1024",
   "protocolId": null,
   "consensusEngine": null,
   "properties": null,
