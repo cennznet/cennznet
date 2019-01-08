@@ -1,0 +1,58 @@
+version: '3'
+services:
+  node-0:
+    image: cennznet-node:latest
+    command:
+      - cennznet
+      - --chain=/mnt/genesis/local.json
+      - --base-path=/mnt/node
+      - --key=Andrea
+      - --name=‼️${HOSTNAME:-localhost}-0
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000001
+      - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
+      - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
+      - --validator
+      - --ws-external
+      - --rpc-external
+      - --telemetry-url=ws://telemetry:1024
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30334:30333"
+  node-1:
+    image: cennznet-node:latest
+    command:
+      - cennznet
+      - --chain=/mnt/genesis/local.json
+      - --base-path=/mnt/node
+      - --key=Brooke
+      - --name=❤️${HOSTNAME:-localhost}-1
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000002
+      - --validator
+      - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
+      - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
+      - --ws-external
+      - --rpc-external
+      - --telemetry-url=ws://telemetry:1024
+    ports:
+      - "30335:30333"
+  node-2:
+    image: cennznet-node:latest
+    command:
+      - cennznet
+      - --chain=/mnt/genesis/local.json
+      - --base-path=/mnt/node
+      - --key=Courtney
+      - --name=☺️${HOSTNAME:-localhost}-2
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000003
+      - --validator
+      - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
+      - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
+      - --ws-external
+      - --rpc-external
+      - --telemetry-url=ws://telemetry:1024
+  telemetry:
+    ports:
+      - "1024:1024"
+      - "5000:5000"
+      - "8080:8080"

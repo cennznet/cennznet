@@ -15,3 +15,4 @@
 .idea
 substrate_*
 node_*
+.cargo
