@@ -1,7 +1,8 @@
 version: '3'
 services:
   node-0:
-    image: cennznet-node:latest
+    #image: cennznet-node:latest
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.107
     command:
       - cennznet
       - --chain=/mnt/genesis/local.json
@@ -20,7 +21,8 @@ services:
       - "9944:9944"
       - "30334:30333"
   node-1:
-    image: cennznet-node:latest
+    #image: cennznet-node:latest
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.107
     command:
       - cennznet
       - --chain=/mnt/genesis/local.json
@@ -37,7 +39,8 @@ services:
     ports:
       - "30335:30333"
   node-2:
-    image: cennznet-node:latest
+    #image: cennznet-node:latest
+    image: centralitycontainerregistry-on.azurecr.io/centrality/cennznet:1.0.107
     command:
       - cennznet
       - --chain=/mnt/genesis/local.json
