@@ -17,4 +17,4 @@ substrate_*
 node_*
 
 # Archived genesis block
-genesis/*.gz
+*.gz
