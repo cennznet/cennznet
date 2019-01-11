@@ -51,7 +51,7 @@ impl ChainSpec {
 		match s {
 			"dev" => Some(ChainSpec::Development),
 			"local-cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
-			"cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
+			"cennznet-dev" => Some(ChainSpec::CennznetDev),
 			"" | "cennznet-uat" => Some(ChainSpec::CennznetUat),
 			_ => None,
 		}
