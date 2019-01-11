@@ -1,10 +1,10 @@
 //! CENNZNET chain configurations.
 
-use primitives::{AuthorityId, ed25519};
+use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	UpgradeKeyConfig, ContractConfig, GrandpaConfig, Permill, Perbill};
+	SudoConfig, ContractConfig, GrandpaConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
@@ -16,7 +16,7 @@ const DEV_TELEMETRY_URL: Option<&str> = Some("ws://cennznet-telemetry.centrality
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 
 /// Helper function to generate AuthorityID from seed
-pub fn get_authority_id_from_seed(seed: &str) -> AuthorityId {
+pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
 	let padded_seed = pad_seed(seed);
 	// NOTE from ed25519 impl:
 	// prefer pkcs#8 unless security doesn't matter -- this is used primarily for tests.
@@ -25,9 +25,9 @@ pub fn get_authority_id_from_seed(seed: &str) -> AuthorityId {
 
 /// genesis config for DEV env
 fn cennznet_dev_genesis(
-	initial_authorities: Vec<AuthorityId>,
-	upgrade_key: AccountId,
-	endowed_accounts: Option<Vec<AuthorityId>>,
+	initial_authorities: Vec<Ed25519AuthorityId>,
+	root_key: AccountId,
+	endowed_accounts: Option<Vec<Ed25519AuthorityId>>,
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
@@ -117,8 +117,8 @@ fn cennznet_dev_genesis(
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
 		}),
-		upgrade_key: Some(UpgradeKeyConfig {
-			key: upgrade_key,
+		sudo: Some(SudoConfig {
+			key: root_key,
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
@@ -127,9 +127,9 @@ fn cennznet_dev_genesis(
 }
 
 pub fn local_dev_genesis(
-	initial_authorities: Vec<AuthorityId>,
-	upgrade_key: AccountId,
-	endowed_accounts: Option<Vec<AuthorityId>>,
+	initial_authorities: Vec<Ed25519AuthorityId>,
+	root_key: AccountId,
+	endowed_accounts: Option<Vec<Ed25519AuthorityId>>,
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
@@ -218,8 +218,8 @@ pub fn local_dev_genesis(
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
 		}),
-		upgrade_key: Some(UpgradeKeyConfig {
-			key: upgrade_key,
+		sudo: Some(SudoConfig {
+			key: root_key,
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
