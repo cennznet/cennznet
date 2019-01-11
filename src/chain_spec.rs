@@ -23,8 +23,8 @@ pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
 	ed25519::Pair::from_seed(&padded_seed).public().0.into()
 }
 
-/// genesis config for DEV env
-fn cennznet_dev_genesis(
+/// genesis config for DEV/UAT env
+fn cennznet_dev_uat_genesis(
 	initial_authorities: Vec<Ed25519AuthorityId>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<Ed25519AuthorityId>>,
@@ -63,21 +63,21 @@ fn cennznet_dev_genesis(
 			current_era: 0,
 			intentions: initial_authorities.iter().cloned().map(Into::into).collect(),
 			minimum_validator_count: 2,
-			validator_count: 3,
+			validator_count: 5,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
-			offline_slash: Perbill::zero(),
-			session_reward: Perbill::zero(),
+			offline_slash: Perbill::from_billionths(1_001),
+			session_reward: Perbill::from_billionths(2_065),
 			current_offline_slash: 0,
 			current_session_reward: 0,
-			offline_slash_grace: 0,
+			offline_slash_grace: 1,
 			invulnerables: initial_authorities.iter().cloned().map(Into::into).collect(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 9,
 			voting_period: 18,
-			minimum_deposit: 10,
-			public_delay: 0,
+			minimum_deposit: 100,
+			public_delay: 5,
 			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
@@ -231,7 +231,7 @@ pub fn local_dev_genesis(
 pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/dev/genesis.json")).map_err(|e| format!("Error loading genesis for CENNZnet DEV testnet {}", e))
 	// Ok(
-	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_config_genesis, vec![
+	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_uat_config_genesis, vec![
 	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
 	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
 	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
@@ -243,7 +243,7 @@ pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 pub fn cennznet_uat_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/uat/genesis.json")).map_err(|e| format!("Error loading genesis for CENNZnet UAT testnet {}", e))
 	// Ok(
-	// 	ChainSpec::from_genesis("CENNZnet UAT", "cennznet_uat", cennznet_dev_config_genesis, vec![
+	// 	ChainSpec::from_genesis("CENNZnet UAT", "cennznet_uat", cennznet_dev_uat_config_genesis, vec![
 	// 		String::from("/dns4/cennznet-node-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
 	// 		String::from("/dns4/cennznet-node-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
 	// 		String::from("/dns4/cennznet-node-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
@@ -251,9 +251,9 @@ pub fn cennznet_uat_config() -> Result<ChainSpec, String> {
 	// )
 }
 
-/// The CENNZnet DEV testnet genesis (created from code)
-pub fn cennznet_dev_config_genesis() -> GenesisConfig {
-	cennznet_dev_genesis(
+/// The CENNZnet DEV/UAT testnet genesis (created from code)
+pub fn cennznet_dev_uat_config_genesis() -> GenesisConfig {
+	cennznet_dev_uat_genesis(
 		vec![
 			get_authority_id_from_seed("Andrea"),
 			get_authority_id_from_seed("Brooke"),
@@ -267,7 +267,7 @@ pub fn cennznet_dev_config_genesis() -> GenesisConfig {
 /// Local cennznet dev config (multivalidator Alice + Bob)
 pub fn local_cennznet_dev_config() -> Result<ChainSpec, String> {
 	Ok(
-		ChainSpec::from_genesis("Local CENNZnet DEV", "local_cennznet_dev", cennznet_dev_config_genesis, vec![], DEV_TELEMETRY_URL, None, None, None)
+		ChainSpec::from_genesis("Local CENNZnet DEV", "local_cennznet_dev", cennznet_dev_uat_config_genesis, vec![], DEV_TELEMETRY_URL, None, None, None)
 	)
 }
 
