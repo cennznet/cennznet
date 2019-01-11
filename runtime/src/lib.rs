@@ -34,7 +34,7 @@ extern crate srml_staking as staking;
 extern crate srml_system as system;
 extern crate srml_timestamp as timestamp;
 extern crate srml_treasury as treasury;
-extern crate srml_upgrade_key as upgrade_key;
+extern crate srml_sudo as sudo;
 #[macro_use]
 extern crate sr_version as version;
 extern crate substrate_consensus_aura_primitives as consensus_aura;
@@ -83,8 +83,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 3,
-	impl_version: 3,
+	spec_version: 4,
+	impl_version: 4,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -188,8 +188,9 @@ impl contract::Trait for Runtime {
 	type Event = Event;
 }
 
-impl upgrade_key::Trait for Runtime {
+impl sudo::Trait for Runtime {
 	type Event = Event;
+	type Proposal = Call;
 }
 
 impl grandpa::Trait for Runtime {
@@ -231,7 +232,7 @@ construct_runtime!(
 		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
-		UpgradeKey: upgrade_key,
+		Sudo: sudo,
 		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
 		Sylo: sylo::{Module, Event<T>, Trait, Call},
 	}
@@ -251,7 +252,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedMortalExtrinsic<Address, Index, Call, Signature>;
+pub type UncheckedExtrinsic = generic::UncheckedMortalCompactExtrinsic<Address, Index, Call, Signature>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.

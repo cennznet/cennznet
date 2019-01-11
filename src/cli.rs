@@ -30,6 +30,8 @@ pub enum ChainSpec {
 	Development,
 	/// The CENNZnet DEV testnet.
 	CennznetDev,
+	/// The CENNZnet UAT testnet.
+	CennznetUat,
 	/// Whatever the current runtime is, with lunch DEV testnet defaults.
 	LocalCennznetDev,
 }
@@ -40,6 +42,7 @@ impl ChainSpec {
 		match self {
 			ChainSpec::Development => chain_spec::local_dev_config(),
 			ChainSpec::CennznetDev => chain_spec::cennznet_dev_config(),
+			ChainSpec::CennznetUat => chain_spec::cennznet_uat_config(),
 			ChainSpec::LocalCennznetDev => chain_spec::local_cennznet_dev_config(),
 		}
 	}
@@ -48,7 +51,8 @@ impl ChainSpec {
 		match s {
 			"dev" => Some(ChainSpec::Development),
 			"local-cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
-			"" | "cennznet-dev" => Some(ChainSpec::CennznetDev),
+			"cennznet-dev" => Some(ChainSpec::CennznetDev),
+			"" | "cennznet-uat" => Some(ChainSpec::CennznetUat),
 			_ => None,
 		}
 	}
