@@ -119,7 +119,7 @@ pub(super) mod tests {
     #[test]
     fn should_set_response() {
         with_externalities(&mut new_test_ext(), || {
-            let request_id = H256::from(12);
+            let request_id = H256::from([1;32]);
             let resp_number = Response::DeviceId(111);
 
             // setting number

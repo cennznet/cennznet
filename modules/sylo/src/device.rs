@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn should_add_device() {
         with_externalities(&mut new_test_ext(), || {
-            let request_id = H256::from(23);
+            let request_id = H256::from([0;32]);
             assert_ok!(Devices::register_device(
                 Origin::signed(1),
                 request_id.clone()

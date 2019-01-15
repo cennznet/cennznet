@@ -70,7 +70,7 @@ mod tests {
     fn it_works_creating_a_group() {
         with_externalities(&mut new_test_ext(), || {
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             //Create a group
             assert_ok!(Groups::create_group(
                 Origin::signed(1),
@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn it_works_modifying_meta() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             let mut meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
             let mut meta_2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
 
@@ -152,14 +152,14 @@ mod tests {
     #[test]
     fn it_works_replenishing_and_withdrawing_pkbs() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
             let mock_pkb = vec![
                 (1, b"device_1_0".to_vec()),
                 (1, b"device_1_1".to_vec()),
                 (2, b"device_2_0".to_vec()),
             ];
-            let req_id = H256::from(321);
+            let req_id = H256::from([2;32]);
 
             //Create a group
             assert_ok!(Groups::create_group(
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn should_leave_group() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
             //Create a group
@@ -262,7 +262,7 @@ mod tests {
 
             // leave wrong group
             assert_eq!(
-                Groups::leave_group(Origin::signed(1), H256::from(222)),
+                Groups::leave_group(Origin::signed(1), H256::from([3;32])),
                 Err("Group not found")
             );
 
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn should_accept_invite() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([2;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
             //Create a group
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn should_revoke_invites() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
             //Create a group
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn should_update_member() {
         with_externalities(&mut new_test_ext(), || {
-            let group_id = H256::from(111);
+            let group_id = H256::from([1;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
             //Create a group
