@@ -38,12 +38,19 @@ decl_module! {
       account_values.push((peer_id.clone(), next_index));
 
       // Store data
-      <Values<T>>::insert((peer_id.clone(), next_index), value);
+      let mut values = <Values<T>>::get(&peer_id);
+      if let Some((i, _)) = values.iter()
+                                    .enumerate()
+                                    .find(|(_,item)| item.0 == next_index) {
+            values[i] = (next_index, value);
+        } else {
+            values.push((next_index, value));
+        }
+        <Values<T>>::insert(peer_id.clone(), values);
       <AccountValues<T>>::insert(&peer_id, account_values);
 
       // Update next_index
       <NextIndexes<T>>::insert(&peer_id, next_index + 1);
-
 
       Ok(())
     }
@@ -53,16 +60,21 @@ decl_module! {
 
       let account_values = <AccountValues<T>>::get(&sender);
 
+
       // Remove reference to value
       let account_values: Vec<(T::AccountId, u32)> = account_values
         .into_iter()
         .filter(|account_value| !value_ids.contains(&account_value.1))
         .collect();
 
+        let mut values = <Values<T>>::get(&sender);
       for id in value_ids {
         // Remove value from storage
-        <Values<T>>::remove((sender.clone(), id));
+        if let Some(index) = values.iter().position(|(x,_)| *x == id) {
+            values.remove(index);
+        }
       }
+      <Values<T>>::insert(sender.clone(), values);
 
       // Update account reference values
       <AccountValues<T>>::insert(&sender, account_values);
@@ -76,18 +88,17 @@ decl_storage! {
   trait Store for Module<T: Trait> as Inbox {
     NextIndexes: map(T::AccountId) => u32;
     AccountValues: map(T::AccountId) => Vec<(T::AccountId, u32)>;
-    Values: map(T::AccountId, u32) => Vec<u8>;
+    Values get(values): map T::AccountId => Vec<(u32, Vec<u8>)>;
   }
 }
 
 impl<T: Trait> Module<T> {
     pub fn inbox(who: T::AccountId) -> Vec<Vec<u8>> {
-        let inboxes = <AccountValues<T>>::get(who);
-
-        inboxes
-            .iter()
-            .map(|entry| <Values<T>>::get(entry))
-            .collect()
+        let mut res: Vec<Vec<u8>> = Vec::new();
+        for (_, value) in <Values<T>>::get(who).iter() {
+            res.push(value.clone());
+        }
+        res
     }
 }
 

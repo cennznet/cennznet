@@ -155,11 +155,11 @@ mod tests {
             let group_id = H256::from([1;32]);
             let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
             let mock_pkb = vec![
-                (1, b"device_1_0".to_vec()),
-                (1, b"device_1_1".to_vec()),
-                (2, b"device_2_0".to_vec()),
+                (1, b"10".to_vec()),
+                (1, b"11".to_vec()),
+                (2, b"20".to_vec()),
             ];
-            let req_id = H256::from([2;32]);
+            let req_id = H256::from([3;32]);
 
             //Create a group
             assert_ok!(Groups::create_group(
@@ -171,8 +171,11 @@ mod tests {
 
             assert_eq!(
                 Groups::pkbs((group_id.clone(), 1, 1)),
-                vec![b"device_1_0".to_vec(), b"device_1_1".to_vec()]
+                vec![b"10".to_vec(), b"11".to_vec()]
             );
+
+            // check signall addresses
+            assert_eq!(Groups::signal_addresses(group_id.clone())[0].1, vec![1, 2]);
 
             // Withdraw pkbs
             assert_ok!(Groups::withdraw_pkbs(
@@ -185,18 +188,12 @@ mod tests {
             // check saved response
             assert_eq!(
                 Responses::response((1, req_id.clone())),
-                response::Response::Pkb(vec![
-                    (1, 1, b"device_1_1".to_vec()),
-                    (1, 2, b"device_2_0".to_vec())
-                ])
+                response::Response::Pkb(vec![(1, 1, b"11".to_vec()), (1, 2, b"20".to_vec())])
             );
 
             // TODO test event
 
-            assert_eq!(
-                Groups::pkbs((group_id.clone(), 1, 1)),
-                vec![b"device_1_0".to_vec()]
-            );
+            assert_eq!(Groups::pkbs((group_id.clone(), 1, 1)), vec![b"10".to_vec()]);
 
             assert_eq!(
                 Groups::pkbs((group_id.clone(), 1, 2)),
@@ -209,40 +206,18 @@ mod tests {
                 Origin::signed(1),
                 group_id.clone(),
                 vec![
-                    (1, b"device_1_2".to_vec()),
-                    (1, b"device_1_3".to_vec()),
-                    (2, b"device_2_1".to_vec())
+                    (1, b"12".to_vec()),
+                    (1, b"13".to_vec()),
+                    (2, b"21".to_vec())
                 ]
             ));
 
             assert_eq!(
                 Groups::pkbs((group_id.clone(), 1, 1)),
-                vec![
-                    b"device_1_0".to_vec(),
-                    b"device_1_2".to_vec(),
-                    b"device_1_3".to_vec()
-                ]
+                vec![b"10".to_vec(), b"12".to_vec(), b"13".to_vec()]
             );
 
-            assert_eq!(
-                Groups::pkbs((group_id.clone(), 1, 2)),
-                vec![b"device_2_1".to_vec()]
-            );
-
-            assert_eq!(
-                Groups::get_pkbs(group_id.clone(), 1),
-                vec![
-                    (
-                        1,
-                        vec![
-                            b"device_1_0".to_vec(),
-                            b"device_1_2".to_vec(),
-                            b"device_1_3".to_vec()
-                        ]
-                    ),
-                    (2, vec![b"device_2_1".to_vec()])
-                ]
-            );
+            assert_eq!(Groups::pkbs((group_id.clone(), 1, 2)), vec![b"21".to_vec()]);
         });
     }
 
