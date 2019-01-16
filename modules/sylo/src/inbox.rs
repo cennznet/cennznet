@@ -94,11 +94,7 @@ decl_storage! {
 
 impl<T: Trait> Module<T> {
     pub fn inbox(who: T::AccountId) -> Vec<Vec<u8>> {
-        let mut res: Vec<Vec<u8>> = Vec::new();
-        for (_, value) in <Values<T>>::get(who).iter() {
-            res.push(value.clone());
-        }
-        res
+        <Values<T>>::get(who).into_iter().map(|(_, value)| value).collect()
     }
 }
 
