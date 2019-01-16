@@ -321,10 +321,9 @@ decl_module! {
 decl_storage! {
   trait Store for Module<T: Trait> as Groups {
     Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
-    /* Mapping to device ids*/
-    PkbMapping get(pkb_map): map (T::Hash /* group_id */, T::AccountId) => Vec<u32>;
     /* PKBs */
     Pkbs get(pkbs): map (T::Hash /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;
+    SignalAddresses get(signal_addresses): map T::Hash => Vec<(T::AccountId, Vec<u32>)>;
   }
 }
 
@@ -335,21 +334,6 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn get_pkbs(group_id: T::Hash, account_id: T::AccountId) -> Vec<(u32, Vec<Text>)> {
-        if !<Groups<T>>::exists(&group_id) {
-            return vec![];
-        }
-        <PkbMapping<T>>::get((group_id.clone(), account_id.clone()))
-            .iter()
-            .map(|device_id| {
-                (
-                    *device_id,
-                    <Pkbs<T>>::get((group_id.clone(), account_id.clone(), *device_id)),
-                )
-            })
-            .collect()
-    }
-
     fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
         <Groups<T>>::get(group_id)
             .members
@@ -368,39 +352,56 @@ impl<T: Trait> Module<T> {
 
     fn store_pkbs(group_id: T::Hash, account_id: T::AccountId, pkbs: Vec<PKB>) {
         // Get pkbs references
-        let mut pkbs_map = <PkbMapping<T>>::get((group_id.clone(), account_id.clone()));
+        let mut pbk_arr = <SignalAddresses<T>>::get(&group_id);
 
-        for pkb in pkbs {
-            // Get pkbs for device
-            let mut pkbs = <Pkbs<T>>::get((group_id.clone(), account_id.clone(), pkb.0));
+        // needs to drop mut ref to pbk_arr, drop fn doesn't work for this mut ref
+        {
+            #[allow(unused_assignments)]
+            let mut pkbs_map: &mut Vec<u32> = &mut vec![];
+            match pbk_arr.iter().position(|(acc_id, _)| *acc_id == account_id) {
+                Some(i) => pkbs_map = &mut pbk_arr[i].1,
+                None => {
+                    let len = pbk_arr.len();
+                    pbk_arr.push((account_id.clone(), vec![]));
+                    pkbs_map = &mut pbk_arr[len].1;
+                }
+            }
 
-            // Update pkbs
-            pkbs.push(pkb.1);
-            pkbs.sort();
-            pkbs.dedup();
+            for pkb in pkbs {
+                // Get pkbs for device
+                let mut pkbs = <Pkbs<T>>::get((group_id.clone(), account_id.clone(), pkb.0));
 
-            // Add device id
-            pkbs_map.push(pkb.0);
-            pkbs_map.sort();
-            pkbs_map.dedup();
+                // Update pkbs
+                pkbs.push(pkb.1);
+                pkbs.sort();
+                pkbs.dedup();
 
-            // Store pkbs
-            <Pkbs<T>>::insert((group_id.clone(), account_id.clone(), pkb.0), pkbs);
+                // Add device id
+                pkbs_map.push(pkb.0);
+                pkbs_map.sort();
+                pkbs_map.dedup();
+
+                // Store pkbs
+                <Pkbs<T>>::insert((group_id.clone(), account_id.clone(), pkb.0), pkbs);
+            }
         }
 
         // Store updated pkbs references
-        <PkbMapping<T>>::insert((group_id.clone(), account_id.clone()), pkbs_map);
+        <SignalAddresses<T>>::insert(group_id.clone(), pbk_arr);
     }
 
     fn remove_pkbs(group_id: T::Hash, account_id: T::AccountId) {
-        let devices = <PkbMapping<T>>::get((group_id.clone(), account_id.clone()));
+        let mut pkbs = <SignalAddresses<T>>::get(&group_id);
+        let mut devices: Vec<u32> = vec![];
+        if let Some(i) = pkbs.iter().position(|(acc_id, _)| *acc_id == account_id) {
+            devices = pkbs[i].1.clone();
+            pkbs.remove(i);
+            <SignalAddresses<T>>::insert(group_id.clone(), pkbs);
+        };
 
         for device in devices {
             // Remove pkbs for device
             <Pkbs<T>>::remove((group_id.clone(), account_id.clone(), device));
         }
-
-        // Remove references to devices
-        <PkbMapping<T>>::remove((group_id.clone(), account_id.clone()));
     }
 }
