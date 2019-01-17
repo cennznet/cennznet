@@ -42,7 +42,7 @@ extern crate substrate_consensus_aura_primitives as consensus_aura;
 
 extern crate cennznet_primitives;
 extern crate cennznet_module_sylo as sylo;
-extern crate cennznet_module_generic_asset as generic_asset;
+extern crate srml_generic_asset as generic_asset;
 
 use rstd::prelude::*;
 use substrate_primitives::u32_trait::{_2, _4};
@@ -216,6 +216,7 @@ impl grandpa::Trait for Runtime {
 impl generic_asset::Trait for Runtime {
 	type Event = Event;
 	type Balance = Balance;
+	type AssetId = u32;
 }
 
 impl sylo::groups::Trait for Runtime {
