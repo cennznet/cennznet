@@ -44,7 +44,7 @@ decl_module! {
 
 // The data that is stored
 decl_storage! {
-  trait Store for Module<T: Trait> as Responses {
+  trait Store for Module<T: Trait> as SyloResponse {
     Responses get(response): map (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
   }
 }

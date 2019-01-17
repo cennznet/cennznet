@@ -85,7 +85,7 @@ decl_module! {
 }
 
 decl_storage! {
-  trait Store for Module<T: Trait> as Inbox {
+  trait Store for Module<T: Trait> as SyloInbox {
     NextIndexes: map(T::AccountId) => u32;
     AccountValues: map(T::AccountId) => Vec<(T::AccountId, u32)>;
     Values get(values): map T::AccountId => Vec<(u32, Vec<u8>)>;
