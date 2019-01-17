@@ -5,23 +5,21 @@ pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{Action, parse_matches, execute_default, CoreParams, informant};
 use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use chain_spec;
-use std::ops::Deref;
 use structopt::StructOpt;
+use std::ops::Deref;
+use app_dirs::AppInfo;
 
 /// Extend params for Node
 #[derive(Debug, StructOpt)]
 pub struct NodeParams {
-	/// Should run as a GRANDPA authority node
-	#[structopt(long = "grandpa-authority", help = "Run Node as a GRANDPA authority, implies --validator")]
-	grandpa_authority: bool,
-
-	/// Should run as a GRANDPA authority node only
-	#[structopt(long = "grandpa-authority-only", help = "Run Node as a GRANDPA authority only, don't as a usual validator, implies --grandpa-authority")]
-	grandpa_authority_only: bool,
-
 	#[structopt(flatten)]
 	core: CoreParams
 }
+
+const APP_INFO: AppInfo = AppInfo {
+	name: "CENNZnet Node",
+	author: "Centrality"
+};
 
 /// The chain specification option.
 #[derive(Clone, Debug)]
@@ -87,15 +85,15 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 		};
 
 	let (spec, config) = parse_matches::<service::Factory, _>(
-		load_spec, version, "centrality-cennznet", &matches
+		load_spec, version, "centrality-cennznet", &matches, &APP_INFO
 	)?;
 
-	match execute_default::<service::Factory, _>(spec, exit, &matches, &config)? {
+	match execute_default::<service::Factory, _>(spec, exit, &matches, &config, &APP_INFO)? {
 		Action::ExecutedInternally => (),
 		Action::RunService(exit) => {
-			info!("CENNZnet Node");
+			info!("{}", APP_INFO.name);
 			info!("  version {}", config.full_version());
-			info!("  by Centrality");
+			info!("  by {}", APP_INFO.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);

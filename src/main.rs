@@ -35,6 +35,7 @@ extern crate structopt;
 #[macro_use]
 extern crate log;
 extern crate parking_lot;
+extern crate app_dirs;
 
 mod cli;
 mod chain_spec;
