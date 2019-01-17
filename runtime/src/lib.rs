@@ -234,7 +234,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		Sudo: sudo,
 		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
-		Sylo: sylo::{Module, Event<T>, Trait, Call},
+		Sylo: sylo::{Module, Event<T>, Trait, Call, Storage},
 	}
 );
 
