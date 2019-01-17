@@ -41,7 +41,7 @@ decl_module! {
 
 // The data that is stored
 decl_storage! {
-  trait Store for Module<T: Trait> as Device {
+  trait Store for Module<T: Trait> as SyloDevice {
     Devices get(devices): map T::AccountId => Vec<u32>;
   }
 }

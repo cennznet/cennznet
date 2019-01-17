@@ -319,7 +319,7 @@ decl_module! {
 }
 
 decl_storage! {
-  trait Store for Module<T: Trait> as Groups {
+  trait Store for Module<T: Trait> as SyloGroups {
     Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
     /* PKBs */
     Pkbs get(pkbs): map (T::Hash /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;

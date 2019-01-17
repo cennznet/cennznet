@@ -75,6 +75,11 @@ pub use balances::Call as BalancesCall;
 pub use runtime_primitives::{Permill, Perbill};
 pub use srml_support::{StorageValue, RuntimeMetadata};
 
+pub use sylo::groups as sylo_groups;
+pub use sylo::device as sylo_device;
+pub use sylo::inbox as sylo_inbox;
+pub use sylo::response as sylo_response;
+
 const TIMESTAMP_SET_POSITION: u32 = 0;
 const NOTE_OFFLINE_POSITION: u32 = 1;
 
@@ -204,12 +209,15 @@ impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 }
 
-impl sylo::Trait for Runtime {
+impl sylo::groups::Trait for Runtime {
 	type Event = Event;
 }
-
+impl sylo::device::Trait for Runtime {
+	type Event = Event;
+}
 impl sylo::response::Trait for Runtime {}
 impl sylo::inbox::Trait for Runtime {}
+
 
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
@@ -234,7 +242,10 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		Sudo: sudo,
 		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
-		Sylo: sylo::{Module, Event<T>, Trait, Call, Storage},
+		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
+		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
+		SyloInbox: sylo_inbox::{Module, Call, Storage},
+		SyloResponse: sylo_response::{Module, Call, Storage},
 	}
 );
 
