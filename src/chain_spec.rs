@@ -4,7 +4,7 @@ use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, Permill, Perbill};
+	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
@@ -52,8 +52,10 @@ fn cennznet_dev_uat_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			reclaim_rebate: 1,
 			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
+		}),
+		indices: Some(IndicesConfig {
+			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
@@ -153,8 +155,10 @@ pub fn local_dev_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			reclaim_rebate: 1,
 			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
+		}),
+		indices: Some(IndicesConfig {
+			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
