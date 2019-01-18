@@ -236,9 +236,9 @@ pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/dev/genesis.json")).map_err(|e| format!("Error loading genesis for CENNZnet DEV testnet {}", e))
 	// Ok(
 	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_uat_config_genesis, vec![
-	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
+	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
+	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
 	// 	], DEV_TELEMETRY_URL, None, None, None)
 	// )
 }
