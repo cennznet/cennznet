@@ -70,9 +70,13 @@ quick_main!(run);
 
 fn run() -> cli::error::Result<()> {
 	let version = VersionInfo {
+		name: "CENNZnet Node",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "cennznet",
+		// TODO: should be cennnzet but this is also used to get the app dir to store chain db
+		// Make this substrate ensure the default base path matches to substrate node to avoid breaking change
+		// and for convenience that no need to pass a different base path when switching between substrate node and cennznet node
+		executable_name: "substrate",
 		author: "Centrality Developers <developers@centrality.ai>",
 		description: "CENNZNET node",
 	};

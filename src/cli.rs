@@ -89,10 +89,10 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 		};
 
 	let (spec, config) = parse_matches::<service::Factory, _>(
-		load_spec, version, "centrality-cennznet", &matches, &APP_INFO
+		load_spec, &version, "centrality-cennznet", &matches
 	)?;
 
-	match execute_default::<service::Factory, _>(spec, exit, &matches, &config, &APP_INFO)? {
+	match execute_default::<service::Factory, _>(spec, exit, &matches, &config, &version)? {
 		Action::ExecutedInternally => (),
 		Action::RunService(exit) => {
 			info!("{}", APP_INFO.name);
