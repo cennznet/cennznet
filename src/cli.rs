@@ -30,8 +30,10 @@ pub enum ChainSpec {
 	CennznetDev,
 	/// The CENNZnet UAT testnet.
 	CennznetUat,
-	/// Whatever the current runtime is, with lunch DEV testnet defaults.
-	LocalCennznetDev,
+	/// The CENNZnet DEV testnet, with latest runtime
+	CennznetDevLatest,
+	/// The CENNZnet UAT testnet, with latest runtime
+	CennznetUatLatest,
 }
 
 /// Get a chain config from a spec setting.
@@ -41,16 +43,18 @@ impl ChainSpec {
 			ChainSpec::Development => chain_spec::local_dev_config(),
 			ChainSpec::CennznetDev => chain_spec::cennznet_dev_config(),
 			ChainSpec::CennznetUat => chain_spec::cennznet_uat_config(),
-			ChainSpec::LocalCennznetDev => chain_spec::local_cennznet_dev_config(),
+			ChainSpec::CennznetDevLatest => chain_spec::cennznet_dev_config_latest(),
+			ChainSpec::CennznetUatLatest => chain_spec::cennznet_uat_config_latest(),
 		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(ChainSpec::Development),
-			"local-cennznet-dev" => Some(ChainSpec::LocalCennznetDev),
 			"cennznet-dev" => Some(ChainSpec::CennznetDev),
 			"" | "cennznet-uat" => Some(ChainSpec::CennznetUat),
+			"cennznet-dev-latest" => Some(ChainSpec::CennznetDevLatest),
+			"cennznet-uat-latest" => Some(ChainSpec::CennznetUatLatest),
 			_ => None,
 		}
 	}

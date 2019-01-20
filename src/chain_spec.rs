@@ -234,25 +234,11 @@ pub fn local_dev_genesis(
 /// The CENNZnet DEV testnet config
 pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/dev/genesis.json")).map_err(|e| format!("Error loading genesis for CENNZnet DEV testnet {}", e))
-	// Ok(
-	// 	ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_uat_config_genesis, vec![
-	// 		String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-	// 		String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-	// 		String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
-	// 	], DEV_TELEMETRY_URL, None, None, None)
-	// )
 }
 
 /// The CENNZnet UAT testnet config
 pub fn cennznet_uat_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../genesis/uat/genesis.json")).map_err(|e| format!("Error loading genesis for CENNZnet UAT testnet {}", e))
-	// Ok(
-	// 	ChainSpec::from_genesis("CENNZnet UAT", "cennznet_uat", cennznet_dev_uat_config_genesis, vec![
-	// 		String::from("/dns4/cennznet-node-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-	// 		String::from("/dns4/cennznet-node-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-	// 		String::from("/dns4/cennznet-node-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
-	// 	], DEV_TELEMETRY_URL, None, None, None)
-	// )
 }
 
 /// The CENNZnet DEV/UAT testnet genesis (created from code)
@@ -268,10 +254,25 @@ pub fn cennznet_dev_uat_config_genesis() -> GenesisConfig {
 	)
 }
 
-/// Local cennznet dev config (multivalidator Alice + Bob)
-pub fn local_cennznet_dev_config() -> Result<ChainSpec, String> {
+/// The CENNZnet DEV testnet config with latest runtime
+pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 	Ok(
-		ChainSpec::from_genesis("Local CENNZnet DEV", "local_cennznet_dev", cennznet_dev_uat_config_genesis, vec![], DEV_TELEMETRY_URL, None, None, None)
+		ChainSpec::from_genesis("CENNZnet DEV", "cennznet_dev", cennznet_dev_uat_config_genesis, vec![
+			String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
+			String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
+			String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
+		], DEV_TELEMETRY_URL, None, None, None)
+	)
+}
+
+/// The CENNZnet UAT testnet config with latest runtime
+pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
+	Ok(
+		ChainSpec::from_genesis("CENNZnet UAT", "cennznet_uat", cennznet_dev_uat_config_genesis, vec![
+			String::from("/dns4/cennznet-node-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+			String::from("/dns4/cennznet-node-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+			String::from("/dns4/cennznet-node-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+		], DEV_TELEMETRY_URL, None, None, None)
 	)
 }
 
