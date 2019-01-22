@@ -22,8 +22,6 @@ use runtime_primitives::generic;
 use primitives::bytes;
 use runtime_primitives::traits::{BlakeTwo256, self};
 
-pub use runtime_primitives::BasicInherentData as InherentData;
-
 /// An index to a block.
 pub type BlockNumber = u64;
 

@@ -3,18 +3,20 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use std::sync::Arc;
-use transaction_pool::{self, txpool::{Pool as TransactionPool}};
+use std::time::Duration;
+
+use client;
+use consensus::{import_queue, start_aura, AuraImportQueue, SlotDuration, NothingExtra};
+use grandpa;
+use primitives::ed25519::Pair;
+use cennznet_primitives::Block;
 use cennznet_runtime::{GenesisConfig, RuntimeApi};
-use cennznet_primitives::{Block, InherentData};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
-	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor, TaskExecutor
+	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor, TaskExecutor,
 };
-use consensus::{import_queue, start_aura, AuraImportQueue, SlotDuration, NothingExtra};
-use primitives::ed25519::Pair;
-use client;
-use std::time::Duration;
-use grandpa;
+use transaction_pool::{self, txpool::{Pool as TransactionPool}};
+use inherents::InherentDataProviders;
 
 pub use substrate_executor::NativeExecutor;
 native_executor_instance!(
@@ -35,12 +37,14 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
 	// FIXME: rather than putting this on the config, let's have an actual intermediate setup state
 	// https://github.com/paritytech/substrate/issues/1134
 	pub grandpa_import_setup: Option<(Arc<grandpa::BlockImportForService<F>>, grandpa::LinkHalfForService<F>)>,
+	inherent_data_providers: InherentDataProviders,
 }
 
 impl<F> Default for NodeConfig<F> where F: substrate_service::ServiceFactory {
 	fn default() -> NodeConfig<F> {
 		NodeConfig {
 			grandpa_import_setup: None,
+			inherent_data_providers: InherentDataProviders::new(),
 		}
 	}
 }
@@ -81,7 +85,8 @@ construct_service_factory! {
 						proposer,
 						service.network(),
 						service.on_exit(),
-					));
+						service.config.custom.inherent_data_providers.clone(),
+					)?);
 
 					info!("Running Grandpa session as Authority {}", key.public());
 				}
@@ -89,7 +94,8 @@ construct_service_factory! {
 				executor.spawn(grandpa::run_grandpa(
 					grandpa::Config {
 						local_key,
-						gossip_duration: Duration::new(4, 0), // FIXME: make this available through chainspec?
+						// FIXME: make this available through chainspec?
+						gossip_duration: Duration::new(4, 0),
 						justification_period: 4096,
 						name: Some(service.config.name.clone())
 					},
@@ -107,35 +113,38 @@ construct_service_factory! {
 			Self::Block,
 			grandpa::BlockImportForService<Self>,
 			NothingExtra,
-			::consensus::InherentProducingFn<InherentData>,
 		>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
 				let slot_duration = SlotDuration::get_or_compute(&*client)?;
-				let (block_import, link_half) = grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(client.clone(), client)?;
+
+				let (block_import, link_half) =
+					grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
+						client.clone(), client
+					)?;
 				let block_import = Arc::new(block_import);
 
 				config.custom.grandpa_import_setup = Some((block_import.clone(), link_half));
 
-				Ok(import_queue(
+				import_queue(
 					slot_duration,
 					block_import,
 					NothingExtra,
-					::consensus::make_basic_inherent as _,
-				))
+					config.custom.inherent_data_providers.clone(),
+				).map_err(Into::into)
 			}},
 		LightImportQueue = AuraImportQueue<
 			Self::Block,
 			LightClient<Self>,
 			NothingExtra,
-			::consensus::InherentProducingFn<InherentData>,
 		>
-			{ |ref mut config, client: Arc<LightClient<Self>>|
-				Ok(import_queue(
-					SlotDuration::get_or_compute(&*client)?,
-					client,
-					NothingExtra,
-					::consensus::make_basic_inherent as _,
-				))
+			{ |config: &FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
+					import_queue(
+						SlotDuration::get_or_compute(&*client)?,
+						client,
+						NothingExtra,
+						config.custom.inherent_data_providers.clone(),
+					).map_err(Into::into)
+				}
 			},
 	}
 }
