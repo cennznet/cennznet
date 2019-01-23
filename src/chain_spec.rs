@@ -139,11 +139,11 @@ fn cennznet_dev_uat_genesis(
 		generic_asset: Some(GenericAssetConfig {
 			total_supply: vec![
 				// staking token
-				(0, 1_000_000_000),
+				(0, 10u128.pow(30)),
 				// spending token
-				(10, 1_000_000_000)
+				(10, 10u128.pow(30))
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 1_000_000),
+			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
 			// dummy
@@ -255,11 +255,11 @@ pub fn local_dev_genesis(
 		generic_asset: Some(GenericAssetConfig {
 			total_supply: vec![
 				// staking token
-				(0, 1_000_000_000),
+				(0, 10u128.pow(30)),
 				// spending token
-				(10, 1_000_000_000)
+				(10, 10u128.pow(30))
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 1_000_000),
+			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
 			// dummy
