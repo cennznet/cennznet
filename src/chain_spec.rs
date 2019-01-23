@@ -4,7 +4,7 @@ use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, Permill, Perbill};
+	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, GenericAssetConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
@@ -21,6 +21,17 @@ pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
 	// NOTE from ed25519 impl:
 	// prefer pkcs#8 unless security doesn't matter -- this is used primarily for tests.
 	ed25519::Pair::from_seed(&padded_seed).public().0.into()
+}
+
+/// Helper function to populate genesis generic asset balances for endowed accounts.
+fn build_balances_for_accounts(
+	asset_ids: Vec<u32>,
+	accounts: Vec<AccountId>,
+	amount: u128,
+) -> Vec<((u32, AccountId), u128)> {
+	asset_ids.iter().flat_map(
+		|asset_id| accounts.iter().cloned().map(move |account_id| ((asset_id.clone(), account_id), amount))
+	).collect()
 }
 
 /// genesis config for DEV/UAT env
@@ -124,7 +135,20 @@ fn cennznet_dev_uat_genesis(
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
-		})
+		}),
+		generic_asset: Some(GenericAssetConfig {
+			total_supply: vec![
+				// staking token
+				(0, 10u128.pow(30)),
+				// spending token
+				(10, 10u128.pow(30))
+			],
+			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			// ids smaller than 1_000_000 are reserved
+			next_asset_id: 1_000_000,
+			// dummy
+			dummy: 0,
+		}),
 	}
 }
 
@@ -227,7 +251,20 @@ pub fn local_dev_genesis(
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
-		})
+		}),
+		generic_asset: Some(GenericAssetConfig {
+			total_supply: vec![
+				// staking token
+				(0, 10u128.pow(30)),
+				// spending token
+				(10, 10u128.pow(30))
+			],
+			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			// ids smaller than 1_000_000 are reserved
+			next_asset_id: 1_000_000,
+			// dummy
+			dummy: 0,
+		}),
 	}
 }
 
