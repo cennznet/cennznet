@@ -1,8 +1,8 @@
 //! The CENNZnet runtime. This can be compiled with ``#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
+#![recursion_limit = "512"]
 
 #[macro_use]
 extern crate srml_support;
@@ -250,7 +250,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		Sudo: sudo,
-		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>},
+		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
