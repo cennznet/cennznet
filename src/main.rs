@@ -79,7 +79,7 @@ fn run() -> cli::error::Result<()> {
 		// and for convenience that no need to pass a different base path when switching between substrate node and cennznet node
 		executable_name: "substrate",
 		author: "Centrality Developers <developers@centrality.ai>",
-		description: "CENNZNET node",
+		description: "CENNZnet node",
 	};
 	cli::run(::std::env::args(), Exit, version)
 }

@@ -1,25 +1,11 @@
 use service;
 use tokio::prelude::Future;
 use tokio::runtime::Runtime;
-pub use substrate_cli::{VersionInfo, IntoExit, error};
-use substrate_cli::{Action, parse_matches, execute_default, CoreParams, informant};
 use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use chain_spec;
-use structopt::StructOpt;
 use std::ops::Deref;
-use app_dirs::AppInfo;
-
-/// Extend params for Node
-#[derive(Debug, StructOpt)]
-pub struct NodeParams {
-	#[structopt(flatten)]
-	core: CoreParams
-}
-
-const APP_INFO: AppInfo = AppInfo {
-	name: "CENNZnet Node",
-	author: "Centrality"
-};
+pub use substrate_cli::{VersionInfo, IntoExit, NoCustom, error};
+use substrate_cli as cli;
 
 /// The chain specification option.
 #[derive(Clone, Debug)]
@@ -68,48 +54,36 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
+pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Result<()> where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
 {
-	let full_version = substrate_service::config::full_version_from_strs(
-		version.version,
-		version.commit
-	);
-
-	let matches = match NodeParams::clap()
-		.name(version.executable_name)
-		.author(version.author)
-		.about(version.description)
-		.version(&(full_version + "\n")[..])
-		.get_matches_from_safe(args) {
-			Ok(m) => m,
-			Err(e) => e.exit(),
-		};
-
-	let (spec, config) = parse_matches::<service::Factory, _>(
-		load_spec, &version, "centrality-cennznet", &matches
-	)?;
-
-	match execute_default::<service::Factory, _>(spec, exit, &matches, &config)? {
-		Action::ExecutedInternally => (),
-		Action::RunService(exit) => {
-			info!("{}", APP_INFO.name);
+	cli::parse_and_execute::<service::Factory, NoCustom, NoCustom, _, _, _, _, _>(
+		load_spec, &version, "cennznet-node", args, exit,
+		|exit, _custom_args, config| {
+			info!("{}", version.name);
 			info!("  version {}", config.full_version());
-			info!("  by {}", APP_INFO.author);
+			info!("  by {}", version.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
-			let mut runtime = Runtime::new()?;
+			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();
-			match config.roles == ServiceRoles::LIGHT {
-				true => run_until_exit(runtime, service::Factory::new_light(config, executor)?, exit)?,
-				false => run_until_exit(runtime, service::Factory::new_full(config, executor)?, exit)?,
-			}
+			match config.roles {
+				ServiceRoles::LIGHT => run_until_exit(
+					runtime,
+					service::Factory::new_light(config, executor).map_err(|e| format!("{:?}", e))?,
+					exit
+				),
+				_ => run_until_exit(
+					runtime,
+					service::Factory::new_full(config, executor).map_err(|e| format!("{:?}", e))?,
+					exit
+				),
+			}.map_err(|e| format!("{:?}", e))
 		}
-	}
-	Ok(())
+	).map_err(Into::into).map(|_| ())
 }
 
 fn run_until_exit<T, C, E>(
@@ -125,7 +99,7 @@ fn run_until_exit<T, C, E>(
 	let (exit_send, exit) = exit_future::signal();
 
 	let executor = runtime.executor();
-	informant::start(&service, exit.clone(), executor.clone());
+	cli::informant::start(&service, exit.clone(), executor.clone());
 
 	let _ = runtime.block_on(e.into_exit());
 	exit_send.fire();
