@@ -29,7 +29,6 @@ extern crate srml_council as council;
 extern crate srml_democracy as democracy;
 extern crate srml_executive as executive;
 extern crate srml_grandpa as grandpa;
-extern crate srml_indices as indices;
 extern crate srml_session as session;
 extern crate srml_staking as staking;
 extern crate srml_sudo as sudo;
@@ -47,7 +46,7 @@ extern crate srml_generic_asset as generic_asset;
 use rstd::prelude::*;
 use substrate_primitives::u32_trait::{_2, _4};
 use cennznet_primitives::{
-	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature
+	AccountId, Balance, BlockNumber, Hash, Index, SessionKey, Signature
 };
 use grandpa::fg_primitives::{self, ScheduledChange};
 use client::{
@@ -58,7 +57,7 @@ use runtime_primitives::ApplyResult;
 use runtime_primitives::transaction_validity::TransactionValidity;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{
-	Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup,
+	Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, IdentityLookup
 };
 use version::RuntimeVersion;
 use council::{motions as council_motions, voting as council_voting};
@@ -108,7 +107,7 @@ impl system::Trait for Runtime {
 	type Hashing = BlakeTwo256;
 	type Digest = generic::Digest<Log>;
 	type AccountId = AccountId;
- 	type Lookup = Indices;
+ 	type Lookup = IdentityLookup<AccountId>;
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
@@ -121,7 +120,7 @@ impl aura::Trait for Runtime {
 impl balances::Trait for Runtime {
 	type Balance = Balance;
 	type OnFreeBalanceZero = ((Staking, Contract), Democracy);
-	type OnNewAccount = Indices;
+	type OnNewAccount = ();
 	type EnsureAccountLiquid = (Staking, Democracy);
 	type Event = Event;
 }
@@ -133,13 +132,6 @@ impl consensus::Trait for Runtime {
 	// the aura module handles offline-reports internally
 	// rather than using an explicit report system.
 	type InherentOfflineReport = ();
-}
-
-impl indices::Trait for Runtime {
-	type AccountIndex = AccountIndex;
-	type IsDeadAccount = Balances;
-	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
-	type Event = Event;
 }
 
 impl timestamp::Trait for Runtime {
@@ -236,7 +228,6 @@ construct_runtime!(
 		Aura: aura::{Module, Inherent(Timestamp)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Indices: indices,
 		Balances: balances,
 		Session: session,
 		Staking: staking,
@@ -257,7 +248,7 @@ construct_runtime!(
 	}
 );
 
-pub type Address = <Indices as StaticLookup>::Source;
+pub type Address = AccountId;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 /// Block type as expected by this runtime.
