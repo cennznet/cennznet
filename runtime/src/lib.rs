@@ -74,7 +74,7 @@ pub use consensus::Call as ConsensusCall;
 pub use timestamp::Call as TimestampCall;
 pub use balances::Call as BalancesCall;
 pub use runtime_primitives::{Permill, Perbill};
-pub use srml_support::{StorageValue, RuntimeMetadata};
+pub use srml_support::StorageValue;
 
 pub use sylo::groups as sylo_groups;
 pub use sylo::device as sylo_device;
@@ -119,7 +119,6 @@ impl aura::Trait for Runtime {
 }
 
 impl balances::Trait for Runtime {
-	type Balance = Balance;
 	type OnFreeBalanceZero = ((Staking, Contract), Democracy);
 	type OnNewAccount = ();
 	type EnsureAccountLiquid = (Staking, Democracy);

@@ -28,9 +28,9 @@ fn build_balances_for_accounts(
 	asset_ids: Vec<u32>,
 	accounts: Vec<AccountId>,
 	amount: u128,
-) -> Vec<((u32, AccountId), u128)> {
+) -> Vec<(u32, AccountId, u128)> {
 	asset_ids.iter().flat_map(
-		|asset_id| accounts.iter().cloned().map(move |account_id| ((asset_id.clone(), account_id), amount))
+		|asset_id| accounts.iter().cloned().map(move |account_id| (asset_id.clone(), account_id, amount))
 	).collect()
 }
 
