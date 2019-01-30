@@ -40,6 +40,7 @@ extern crate sr_version as version;
 extern crate substrate_consensus_aura_primitives as consensus_aura;
 
 extern crate cennznet_primitives;
+extern crate cennznet_module_attestation as attestation;
 extern crate cennznet_module_sylo as sylo;
 extern crate srml_generic_asset as generic_asset;
 
@@ -208,6 +209,10 @@ impl generic_asset::Trait for Runtime {
 	type AssetId = u32;
 }
 
+impl attestation::Trait for Runtime {
+	type Event = Event;
+}
+
 impl sylo::groups::Trait for Runtime {
 	type Event = Event;
 }
@@ -240,6 +245,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Config<T>, Event<T>},
 		Sudo: sudo,
+		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
