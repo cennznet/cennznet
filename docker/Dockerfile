@@ -14,4 +14,4 @@ VOLUME ["/data"]
 ARG PROFILE=release
 COPY target/$PROFILE/cennznet /usr/local/bin
 
-CMD ["/usr/local/bin/cennznet"]
+ENTRYPOINT ["/usr/local/bin/cennznet"]
