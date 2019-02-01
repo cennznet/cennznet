@@ -15,7 +15,7 @@ use parity_codec_derive::{Encode, Decode};
 use srml_support::{Serialize, Deserialize};
 use substrate_primitives::u32_trait::{_2, _4};
 use cennznet_primitives::{
-	AccountId, Balance, BlockNumber, Hash, Index, SessionKey, Signature
+	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature
 };
 use grandpa::fg_primitives::{self, ScheduledChange};
 use substrate_client::impl_runtime_apis;
@@ -27,7 +27,7 @@ use runtime_primitives::ApplyResult;
 use runtime_primitives::transaction_validity::TransactionValidity;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{
-	Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, IdentityLookup
+	Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup,
 };
 use version::RuntimeVersion;
 use council::{motions as council_motions, voting as council_voting};
@@ -77,7 +77,7 @@ impl system::Trait for Runtime {
 	type Hashing = BlakeTwo256;
 	type Digest = generic::Digest<Log>;
 	type AccountId = AccountId;
- 	type Lookup = IdentityLookup<AccountId>;
+ 	type Lookup = Indices;
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
@@ -89,7 +89,7 @@ impl aura::Trait for Runtime {
 
 impl balances::Trait for Runtime {
 	type OnFreeBalanceZero = ((Staking, Contract), Democracy);
-	type OnNewAccount = ();
+	type OnNewAccount = Indices;
 	type EnsureAccountLiquid = (Staking, Democracy);
 	type Event = Event;
 }
@@ -101,6 +101,13 @@ impl consensus::Trait for Runtime {
 	// the aura module handles offline-reports internally
 	// rather than using an explicit report system.
 	type InherentOfflineReport = ();
+}
+
+impl indices::Trait for Runtime {
+	type AccountIndex = AccountIndex;
+	type IsDeadAccount = Balances;
+	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
+	type Event = Event;
 }
 
 impl timestamp::Trait for Runtime {
@@ -201,6 +208,7 @@ construct_runtime!(
 		Aura: aura::{Module, Inherent(Timestamp)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
+		Indices: indices,
 		Balances: balances,
 		Session: session,
 		Staking: staking,
@@ -222,8 +230,7 @@ construct_runtime!(
 	}
 );
 
-/// The address format for describing accounts.
-pub type Address = AccountId;
+pub type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 /// Block type as expected by this runtime.
