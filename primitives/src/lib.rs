@@ -5,22 +5,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
 
-#[cfg(feature = "std")]
-#[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
-extern crate parity_codec_derive;
-
-extern crate sr_std as rstd;
-extern crate sr_primitives as runtime_primitives;
-extern crate substrate_primitives as primitives;
-
-use rstd::prelude::*;
 use runtime_primitives::generic;
-#[cfg(feature = "std")]
-use primitives::bytes;
-use runtime_primitives::traits::{BlakeTwo256, self};
+use runtime_primitives::{OpaqueExtrinsic, traits::BlakeTwo256};
 
 /// An index to a block.
 pub type BlockNumber = u64;
@@ -56,12 +42,4 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// Opaque, encoded, unchecked extrinsic.
-#[derive(PartialEq, Eq, Clone, Default, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Debug))]
-pub struct UncheckedExtrinsic(#[cfg_attr(feature = "std", serde(with="bytes"))] pub Vec<u8>);
-
-impl traits::Extrinsic for UncheckedExtrinsic {
-	fn is_signed(&self) -> Option<bool> {
-		None
-	}
-}
+pub type UncheckedExtrinsic = OpaqueExtrinsic;
