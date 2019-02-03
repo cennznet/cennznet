@@ -37,10 +37,10 @@ impl ChainSpec {
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(ChainSpec::Development),
-			"cennznet-dev" => Some(ChainSpec::CennznetDev),
-			"" | "cennznet-uat" => Some(ChainSpec::CennznetUat),
-			"cennznet-dev-latest" => Some(ChainSpec::CennznetDevLatest),
-			"cennznet-uat-latest" => Some(ChainSpec::CennznetUatLatest),
+			"kauri" => Some(ChainSpec::CennznetDev),
+			"" | "rimu" => Some(ChainSpec::CennznetUat),
+			"kauri-latest" => Some(ChainSpec::CennznetDevLatest),
+			"rimu-latest" => Some(ChainSpec::CennznetUatLatest),
 			_ => None,
 		}
 	}
