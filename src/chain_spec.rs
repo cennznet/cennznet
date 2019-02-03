@@ -295,9 +295,9 @@ pub fn cennznet_dev_uat_config_genesis() -> GenesisConfig {
 pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 	Ok(
 		ChainSpec::from_genesis("Kauri CENNZnet", "kauri", cennznet_dev_uat_config_genesis, vec![
-			String::from("/dns4/cennznet-node-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
-			String::from("/dns4/cennznet-node-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
-			String::from("/dns4/cennznet-node-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
+			String::from("/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
+			String::from("/dns4/cennznet-bootnode-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
+			String::from("/dns4/cennznet-bootnode-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
 		], DEV_TELEMETRY_URL, None, None, None)
 	)
 }
