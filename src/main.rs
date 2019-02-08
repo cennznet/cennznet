@@ -79,7 +79,7 @@ fn run() -> cli::error::Result<()> {
 		executable_name: "substrate",
 		author: "Centrality Developers <developers@centrality.ai>",
 		description: "CENNZnet node",
-		support_url: "",
+		support_url: "#plug Slack channel",
 	};
 	cli::run(::std::env::args(), Exit, version)
 }
