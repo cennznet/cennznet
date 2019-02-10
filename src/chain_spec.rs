@@ -306,9 +306,9 @@ pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
 	Ok(
 		ChainSpec::from_genesis("Rimu CENNZnet", "rimu", cennznet_dev_uat_config_genesis, vec![
-			String::from("/dns4/cennznet-node-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-			String::from("/dns4/cennznet-node-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-			String::from("/dns4/cennznet-node-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+			String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+			String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+			String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
 		], DEV_TELEMETRY_URL, None, None, None)
 	)
 }
