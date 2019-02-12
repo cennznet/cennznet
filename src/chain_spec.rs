@@ -63,7 +63,6 @@ fn cennznet_dev_uat_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -179,7 +178,6 @@ pub fn local_dev_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
