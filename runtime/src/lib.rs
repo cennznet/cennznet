@@ -188,6 +188,11 @@ impl attestation::Trait for Runtime {
 	type Event = Event;
 }
 
+impl doughnut::Trait for Runtime {
+	type Event = Event;
+}
+
+
 impl sylo::groups::Trait for Runtime {
 	type Event = Event;
 }
@@ -222,6 +227,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
+		Doughnut: doughnut::{Module, Call, Storage, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
