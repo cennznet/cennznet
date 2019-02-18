@@ -321,6 +321,13 @@ fn local_dev_config_genesis() -> GenesisConfig {
 	)
 }
 
+/// The CENNZnet Kauri testnet config for local test purpose
+pub fn cennznet_dev_local_config() -> Result<ChainSpec, String> {
+	Ok(
+		ChainSpec::from_genesis("Kauri Dev", "kauri-dev", cennznet_dev_uat_config_genesis, vec![], None, None, None, None)
+	)
+}
+
 /// Local testnet config
 pub fn local_dev_config() -> Result<ChainSpec, String> {
 	Ok(
