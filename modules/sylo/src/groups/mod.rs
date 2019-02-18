@@ -19,9 +19,9 @@ use groups::substrate_primitives::hash::{H256, H512};
 use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, response, system::ensure_signed, vec};
+use {balances, inbox, response, system::ensure_signed, vec};
 
-pub trait Trait: balances::Trait + response::Trait {
+pub trait Trait: balances::Trait + inbox::Trait + response::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -194,7 +194,7 @@ decl_module! {
       Ok(())
     }
 
-    fn add_pending_invite(origin, group_id: T::Hash, invite_key: H256, meta: Meta) -> Result {
+    fn create_invite(origin, group_id: T::Hash, peer_id: T::AccountId, invite_data: Vec<u8>, invite_key: H256, meta: Meta) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -211,10 +211,10 @@ decl_module! {
 
       <Groups<T>>::insert(&group_id, group);
 
-      Ok(())
+      <inbox::Module<T>>::add(peer_id, invite_data)
     }
 
-    fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, signature: H512) -> Result {
+    fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, inbox_id: u32, signature: H512) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -250,7 +250,7 @@ decl_module! {
 
       <Groups<T>>::insert(&group_id, group);
 
-      Ok(())
+      <inbox::Module<T>>::delete(sender, vec![inbox_id])
     }
 
     fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> Result {
