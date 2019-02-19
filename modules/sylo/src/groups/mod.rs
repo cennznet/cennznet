@@ -47,6 +47,7 @@ pub struct Invite<AccountId: Encode + Decode> {
     invite_data: Vec<u8>,
     invite_key: H256,
     meta: Meta,
+    roles: Vec<MemberRoles>
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -54,6 +55,7 @@ pub struct Invite<AccountId: Encode + Decode> {
 pub struct PendingInvite<Hash: Encode + Decode> {
     invite_key: Hash,
     meta: Meta,
+    roles: Vec<MemberRoles>
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -120,7 +122,7 @@ decl_module! {
           Err(_error) => {}
         }
       }
-      
+
       Ok(())
     }
 
@@ -248,10 +250,13 @@ decl_module! {
         "Failed to verify invite"
       );
 
+      let mut roles = vec![MemberRoles::Member];
+      roles.extend(invite.roles);
+
       let new_member: Member<T::AccountId> = Member {
         user_id: payload.0.clone(),
-        roles: vec![MemberRoles::Member],
         meta: Vec::new(),
+        roles,
       };
 
       // Add member and remove invite from group
@@ -370,6 +375,7 @@ impl<T: Trait> Module<T> {
         let invite_data = invite.invite_data;
         let invite_key = invite.invite_key;
         let meta = invite.meta;
+        let roles = invite.roles;
 
         let mut group = <Groups<T>>::get(&group_id);
         ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
@@ -377,6 +383,7 @@ impl<T: Trait> Module<T> {
         group.invites.push(PendingInvite {
           invite_key,
           meta,
+          roles
         });
 
         <Groups<T>>::insert(&group_id, group);
