@@ -42,7 +42,7 @@ pub enum MemberRoles {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct CreateInviteParams<AccountId: Encode + Decode> {
+pub struct Invite<AccountId: Encode + Decode> {
     peer_id: AccountId,
     invite_data: Vec<u8>,
     invite_key: H256,
@@ -92,7 +92,7 @@ decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     fn deposit_event<T>() = default;
 
-    fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta) -> Result {
+    fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta, invites: Vec<Invite<T::AccountId>>) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
@@ -112,6 +112,15 @@ decl_module! {
       Self::store_pkbs(group_id.clone(), sender, pkbs);
       // Store new group
       <Groups<T>>::insert(group_id.clone(), group);
+
+      // Create invites
+      for invite in invites {
+        match Self::create_invite(group_id, invite) {
+          Ok(_unit) => {},
+          Err(_error) => {}
+        }
+      }
+      
       Ok(())
     }
 
@@ -203,7 +212,7 @@ decl_module! {
       Ok(())
     }
 
-    fn create_invites(origin, group_id: T::Hash, invites: Vec<CreateInviteParams<T::AccountId>> /* peer_id: T::AccountId, invite_data: Vec<u8>, invite_key: H256, meta: Meta */) -> Result {
+    fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -356,7 +365,7 @@ impl<T: Trait> Module<T> {
             .is_some()
     }
 
-    fn create_invite(group_id: T::Hash, invite: CreateInviteParams<T::AccountId>) -> Result {
+    fn create_invite(group_id: T::Hash, invite: Invite<T::AccountId>) -> Result {
         let peer_id = invite.peer_id;
         let invite_data = invite.invite_data;
         let invite_key = invite.invite_key;
