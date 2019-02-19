@@ -7,14 +7,14 @@
 extern crate srml_support as support;
 
 use generic_asset;
-use runtime_io::twox_128;
+use runtime_io::{blake2_256, twox_128};
 use runtime_primitives::traits::As;
+use substrate_primitives::H256;
 use support::{rstd::prelude::*, StorageDoubleMap};
 
 pub trait Trait: system::Trait + generic_asset::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
-
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -88,8 +88,29 @@ decl_storage! {
 	}
 }
 
+/// Convert a `u64` into its byte array representation
+fn u64_to_bytes(x: u64) -> [u8; 8] {
+	let mut buf: [u8; 8] = [0u8; 8];
+	for i in 0..8 {
+		buf[7 - i] = ((x >> i * 8) & 0xFF) as u8;
+	}
+
+	buf
+}
+
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
+
+	/// Generates an exchange address for the given asset pair
+	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> H256 {
+		let mut buf = Vec::new();
+		buf.extend_from_slice(b"cennzx-account-id");
+		buf.extend_from_slice(&u64_to_bytes(As::as_(asset1)));
+		buf.extend_from_slice(&u64_to_bytes(As::as_(asset2)));
+
+		H256::from_slice(&blake2_256(&buf[..]))
+	}
+
 	//
 	// Manage Liquidity
 	//
