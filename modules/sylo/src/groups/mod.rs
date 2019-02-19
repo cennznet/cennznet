@@ -42,7 +42,16 @@ pub enum MemberRoles {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Invite<Hash: Decode + Encode> {
+pub struct CreateInviteParams<AccountId: Encode + Decode> {
+    peer_id: AccountId,
+    invite_data: Vec<u8>,
+    invite_key: H256,
+    meta: Meta,
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct PendingInvite<Hash: Encode + Decode> {
     invite_key: Hash,
     meta: Meta,
 }
@@ -75,7 +84,7 @@ where
 {
     group_id: Hash,
     members: Vec<Member<AccountId>>,
-    invites: Vec<Invite<H256>>,
+    invites: Vec<PendingInvite<H256>>,
     meta: Meta,
 }
 
@@ -194,24 +203,21 @@ decl_module! {
       Ok(())
     }
 
-    fn create_invite(origin, group_id: T::Hash, peer_id: T::AccountId, invite_data: Vec<u8>, invite_key: H256, meta: Meta) -> Result {
+    fn create_invites(origin, group_id: T::Hash, invites: Vec<CreateInviteParams<T::AccountId>> /* peer_id: T::AccountId, invite_data: Vec<u8>, invite_key: H256, meta: Meta */) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
       ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
       ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 
-      let mut group = <Groups<T>>::get(&group_id);
-      ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
+      for invite in invites {
+        match Self::create_invite(group_id, invite) {
+          Ok(_unit) => {},
+          Err(_error) => {}
+        }
+      }
 
-      group.invites.push(Invite {
-        invite_key,
-        meta,
-      });
-
-      <Groups<T>>::insert(&group_id, group);
-
-      <inbox::Module<T>>::add(peer_id, invite_data)
+      Ok(())
     }
 
     fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, inbox_id: u32, signature: H512) -> Result {
@@ -348,6 +354,25 @@ impl<T: Trait> Module<T> {
             .into_iter()
             .find(|member| &member.user_id == account_id && member.is_admin())
             .is_some()
+    }
+
+    fn create_invite(group_id: T::Hash, invite: CreateInviteParams<T::AccountId>) -> Result {
+        let peer_id = invite.peer_id;
+        let invite_data = invite.invite_data;
+        let invite_key = invite.invite_key;
+        let meta = invite.meta;
+
+        let mut group = <Groups<T>>::get(&group_id);
+        ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
+
+        group.invites.push(PendingInvite {
+          invite_key,
+          meta,
+        });
+
+        <Groups<T>>::insert(&group_id, group);
+
+        <inbox::Module<T>>::add(peer_id, invite_data)
     }
 
     fn store_pkbs(group_id: T::Hash, account_id: T::AccountId, pkbs: Vec<PKB>) {
