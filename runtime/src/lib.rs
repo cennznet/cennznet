@@ -202,9 +202,7 @@ impl attestation::Trait for Runtime {
 	type Event = Event;
 }
 
-impl sylo::groups::Trait for Runtime {
-	type Event = Event;
-}
+impl sylo::groups::Trait for Runtime {}
 impl sylo::e2ee::Trait for Runtime {
 	type Event = Event;
 }
@@ -242,7 +240,7 @@ construct_runtime!(
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
+		SyloGroups: sylo_groups::{Module, Call, Storage},
 		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},

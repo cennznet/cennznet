@@ -21,15 +21,10 @@ use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use {balances, inbox, response, system::ensure_signed, vec};
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait {
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-}
+pub trait Trait: balances::Trait + inbox::Trait + response::Trait {}
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
-
-pub type PKB = (u32 /* device_id */, Text /* pkb */);
 
 pub type Text = Vec<u8>;
 
@@ -56,6 +51,12 @@ pub struct PendingInvite<Hash: Encode + Decode> {
     invite_key: Hash,
     meta: Meta,
     roles: Vec<MemberRoles>
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct AcceptPayload<AccountId: Encode + Decode> {
+    account_id: AccountId
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -92,9 +93,7 @@ where
 
 decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-    fn deposit_event<T>() = default;
-
-    fn create_group(origin, group_id: T::Hash, pkbs: Vec<PKB>, meta: Meta, invites: Vec<Invite<T::AccountId>>) -> Result {
+    fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
@@ -111,7 +110,7 @@ decl_module! {
         meta,
         invites: vec![]
       };
-      Self::store_pkbs(group_id.clone(), sender, pkbs);
+
       // Store new group
       <Groups<T>>::insert(group_id.clone(), group);
 
@@ -145,7 +144,6 @@ decl_module! {
       } else {
         <Groups<T>>::remove(&group_id);
       }
-      Self::remove_pkbs(group_id, sender);
 
       Ok(())
     }
@@ -231,11 +229,11 @@ decl_module! {
       Ok(())
     }
 
-    fn accept_invite(origin, group_id: T::Hash, payload: (T::AccountId, Vec<PKB>), invite_key: H256, inbox_id: u32, signature: H512) -> Result {
+    fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512) -> Result {
       let sender = ensure_signed(origin)?;
 
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
-      ensure!(!Self::is_group_member(&group_id, &sender), "Already a member of group");
+      ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
 
       let mut group = <Groups<T>>::get(&group_id);
       let invite = group.clone().invites
@@ -254,7 +252,7 @@ decl_module! {
       roles.extend(invite.roles);
 
       let new_member: Member<T::AccountId> = Member {
-        user_id: payload.0.clone(),
+        user_id: payload.account_id.clone(),
         meta: Vec::new(),
         roles,
       };
@@ -265,8 +263,6 @@ decl_module! {
         .into_iter()
         .filter(|invite| invite.invite_key != invite_key)
         .collect();
-
-      Self::store_pkbs(group_id.clone(), payload.0, payload.1);
 
       <Groups<T>>::insert(&group_id, group);
 
@@ -292,66 +288,14 @@ decl_module! {
 
       Ok(())
     }
-
-    fn replenish_pkbs(origin, group_id: T::Hash, pkbs: Vec<PKB>) -> Result {
-      let sender = ensure_signed(origin)?;
-
-      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
-      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
-
-      Self::store_pkbs(group_id, sender, pkbs);
-
-      Ok(())
-    }
-
-    fn withdraw_pkbs(origin, group_id: T::Hash, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
-      let sender = ensure_signed(origin)?;
-
-      ensure!(<Groups<T>>::exists(&group_id), "Group not found");
-      ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
-
-      // Make sure we are withdrawing keys from members
-      ensure!(
-        !wanted_pkbs.iter().any(|wanted_pkb| !Self::is_group_member(&group_id, &wanted_pkb.0)),
-        "Member not found"
-      );
-
-      let acquired_pkbs: Vec<(T::AccountId, u32, Text)> = wanted_pkbs
-        .into_iter()
-        .map(|wanted_pkb| {
-          let mut device_pkbs = <Pkbs<T>>::get((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1));
-
-          let pkb = device_pkbs.pop();
-
-          <Pkbs<T>>::insert((group_id.clone(), wanted_pkb.0.clone(), wanted_pkb.1.clone()), device_pkbs);
-
-          (wanted_pkb.0, wanted_pkb.1, pkb)
-        })
-        .filter(|a_pkb| a_pkb.2.is_some())
-        .map(|a_pkb| (a_pkb.0, a_pkb.1, a_pkb.2.unwrap()))
-        .collect();
-
-      Self::deposit_event(RawEvent::PKBsWithdrawn(sender.clone(), request_id.clone(), acquired_pkbs.clone()));
-      <response::Module<T>>::set_response(sender, request_id, response::Response::Pkb(acquired_pkbs));
-      Ok(())
-    }
   }
 }
 
 decl_storage! {
   trait Store for Module<T: Trait> as SyloGroups {
     Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
-    /* PKBs */
-    Pkbs get(pkbs): map (T::Hash /* group_id */, T::AccountId, u32 /* device_id */) => Vec<Text>;
-    SignalAddresses get(signal_addresses): map T::Hash => Vec<(T::AccountId, Vec<u32>)>;
   }
 }
-
-decl_event!(
-  pub enum Event<T> where <T as system::Trait>::AccountId, <T as system::Trait>::Hash {
-    PKBsWithdrawn(AccountId, Hash /* request_id */, Vec<(AccountId, u32 /* device id */, Text)> /* pkbs */),
-  }
-);
 
 impl<T: Trait> Module<T> {
     fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
@@ -389,60 +333,5 @@ impl<T: Trait> Module<T> {
         <Groups<T>>::insert(&group_id, group);
 
         <inbox::Module<T>>::add(peer_id, invite_data)
-    }
-
-    fn store_pkbs(group_id: T::Hash, account_id: T::AccountId, pkbs: Vec<PKB>) {
-        // Get pkbs references
-        let mut pbk_arr = <SignalAddresses<T>>::get(&group_id);
-
-        // needs to drop mut ref to pbk_arr, drop fn doesn't work for this mut ref
-        {
-            #[allow(unused_assignments)]
-            let mut pkbs_map: &mut Vec<u32> = &mut vec![];
-            match pbk_arr.iter().position(|(acc_id, _)| *acc_id == account_id) {
-                Some(i) => pkbs_map = &mut pbk_arr[i].1,
-                None => {
-                    let len = pbk_arr.len();
-                    pbk_arr.push((account_id.clone(), vec![]));
-                    pkbs_map = &mut pbk_arr[len].1;
-                }
-            }
-
-            for pkb in pkbs {
-                // Get pkbs for device
-                let mut pkbs = <Pkbs<T>>::get((group_id.clone(), account_id.clone(), pkb.0));
-
-                // Update pkbs
-                pkbs.push(pkb.1);
-                pkbs.sort();
-                pkbs.dedup();
-
-                // Add device id
-                pkbs_map.push(pkb.0);
-                pkbs_map.sort();
-                pkbs_map.dedup();
-
-                // Store pkbs
-                <Pkbs<T>>::insert((group_id.clone(), account_id.clone(), pkb.0), pkbs);
-            }
-        }
-
-        // Store updated pkbs references
-        <SignalAddresses<T>>::insert(group_id.clone(), pbk_arr);
-    }
-
-    fn remove_pkbs(group_id: T::Hash, account_id: T::AccountId) {
-        let mut pkbs = <SignalAddresses<T>>::get(&group_id);
-        let mut devices: Vec<u32> = vec![];
-        if let Some(i) = pkbs.iter().position(|(acc_id, _)| *acc_id == account_id) {
-            devices = pkbs[i].1.clone();
-            pkbs.remove(i);
-            <SignalAddresses<T>>::insert(group_id.clone(), pkbs);
-        };
-
-        for device in devices {
-            // Remove pkbs for device
-            <Pkbs<T>>::remove((group_id.clone(), account_id.clone(), device));
-        }
     }
 }
