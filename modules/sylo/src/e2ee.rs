@@ -12,14 +12,10 @@ extern crate srml_system as system;
 
 extern crate parity_codec;
 
-use e2ee::sr_primitives::Ed25519Signature;
-use e2ee::substrate_primitives::hash::{H256, H512};
-use self::parity_codec::{Decode, Encode};
-use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, inbox, response, system::ensure_signed, vec};
+use {balances, inbox, response, groups, device, system::ensure_signed};
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait {
+pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait + groups::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -41,18 +37,15 @@ decl_module! {
 		fn register_device(origin, device_id: u32, pkbs: Vec<PKB>) -> Result {
 			let sender = ensure_signed(origin)?;
 
-			let mut devices = <Devices<T>>::get(&sender);
+			let result = <device::Module<T>>::append_device(sender.clone(), device_id);
 
-			ensure!(!devices.contains(&device_id), "Device Id already in use");
-
-			devices.push(device_id);
-
-			<Devices<T>>::insert(&sender, devices);
-			Self::deposit_event(RawEvent::DeviceAdded(sender.clone(), device_id));
-
-			Self::store_pkbs(sender, device_id, pkbs);
-
-			Ok(())
+			match result {
+				Ok(()) => {
+					Self::store_pkbs(sender, device_id, pkbs);
+					Ok(())
+				},
+				Err(error) => Err(error)
+			}
 		}
 
 		fn replenish_pkbs(origin, device_id: u32, pkbs: Vec<PKB>) -> Result {
@@ -90,9 +83,6 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloE2EE {
-		/* Devices */
-		Devices get(devices): map T::AccountId => Vec<u32>;
-
 		/* PKBs */
 		PKBs get(pkbs): map (T::AccountId, u32 /* device_id */) => Vec<PKB>;
 	}

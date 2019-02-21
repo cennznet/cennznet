@@ -19,9 +19,9 @@ use groups::substrate_primitives::hash::{H256, H512};
 use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, inbox, response, system::ensure_signed, vec};
+use {balances, inbox, response, device, system::ensure_signed, vec};
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait {}
+pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait {}
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
@@ -103,6 +103,7 @@ decl_module! {
         roles: vec![MemberRoles::Admin],
         meta: Vec::new(),
       };
+
       // Build up group
       let group = Group {
         group_id: group_id.clone(),
@@ -113,6 +114,18 @@ decl_module! {
 
       // Store new group
       <Groups<T>>::insert(group_id.clone(), group);
+
+      // Record new membership
+      Self::store_membership(sender.clone(), group_id.clone());
+
+      // Record user's devices
+      let member_devices: Vec<(T::AccountId, u32)> =
+        <device::Module<T>>::get_devices(&sender)
+          .into_iter()
+          .map(|device| (sender.clone(), device))
+          .collect();
+
+      <MemberDevices<T>>::insert(group_id.clone(), member_devices);
 
       // Create invites
       for invite in invites {
@@ -266,6 +279,18 @@ decl_module! {
 
       <Groups<T>>::insert(&group_id, group);
 
+      // Record new membership
+      Self::store_membership(sender.clone(), group_id.clone());
+
+      // Record user's devices
+      let member_devices: Vec<(T::AccountId, u32)> =
+        <device::Module<T>>::get_devices(&sender)
+          .into_iter()
+          .map(|device| (sender.clone(), device))
+          .collect();
+
+      <MemberDevices<T>>::insert(group_id.clone(), member_devices);
+
       <inbox::Module<T>>::delete(sender, vec![inbox_id])
     }
 
@@ -294,6 +319,12 @@ decl_module! {
 decl_storage! {
   trait Store for Module<T: Trait> as SyloGroups {
     Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
+
+    // Stores the group ids that a user is a member of
+    Memberships get(memberships): map T::AccountId => Vec<T::Hash>;
+
+    // Stores the known member/deviceId tuples for a particular group
+    MemberDevices get(member_devices): map T::Hash => Vec<(T::AccountId, u32)>;
   }
 }
 
@@ -312,6 +343,16 @@ impl<T: Trait> Module<T> {
             .into_iter()
             .find(|member| &member.user_id == account_id && member.is_admin())
             .is_some()
+    }
+
+    fn store_membership(account_id: T::AccountId, group_id: T::Hash) {
+        if <Memberships<T>>::exists(&account_id) {
+            let mut memberships = <Memberships<T>>::get(&account_id);
+            memberships.push(group_id.clone());
+            <Memberships<T>>::insert(&account_id, memberships)
+        } else {
+            <Memberships<T>>::insert(&account_id, vec![group_id])
+        }
     }
 
     fn create_invite(group_id: T::Hash, invite: Invite<T::AccountId>) -> Result {

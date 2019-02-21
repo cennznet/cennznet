@@ -1,5 +1,5 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, response, system::ensure_signed};
+use {balances, response};
 extern crate srml_system as system;
 
 #[cfg(test)]
@@ -19,23 +19,6 @@ pub trait Trait: balances::Trait + response::Trait {
 decl_module! {
   pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     fn deposit_event<T>() = default;
-
-    // Registers a new device for e2ee
-    // request_id is used to identify the assigned device id
-    fn register_device(origin, request_id: T::Hash) -> Result {
-      let sender = ensure_signed(origin)?;
-
-      let mut devices = <Devices<T>>::get(&sender);
-
-      let len = devices.len() as u32;
-
-      devices.push(len);
-
-      <Devices<T>>::insert(&sender, devices);
-      Self::deposit_event(RawEvent::DeviceAdded(sender.clone(), request_id, len));
-      <response::Module<T>>::set_response(sender, request_id, response::Response::DeviceId(len));
-      Ok(())
-    }
   }
 }
 
@@ -52,7 +35,23 @@ decl_event!(
   }
 );
 
-impl<T: Trait> Module<T> {}
+impl<T: Trait> Module<T> {
+    pub fn append_device(user_id: T::AccountId, device_id: u32) -> Result {
+		let mut devices = <Devices<T>>::get(&user_id);
+
+		ensure!(!devices.contains(&device_id), "Device Id already in use");
+
+		devices.push(device_id);
+
+		<Devices<T>>::insert(&user_id, devices);
+
+        Ok(())
+    }
+
+    pub fn get_devices(user_id: &T::AccountId) -> Vec<u32> {
+        <Devices<T>>::get(user_id)
+    }
+}
 
 #[cfg(test)]
 mod tests {
