@@ -49,6 +49,10 @@ pub use sylo::groups as sylo_groups;
 pub use sylo::device as sylo_device;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
+pub use doughnut::Doughnut as DoughnutType;
+
+mod cennznet_extrinsic;
+use cennznet_extrinsic::CennznetExtrinsic;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -227,7 +231,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
-		Doughnut: doughnut::{Module, Call, Storage, Event<T>},
+		Doughnut: doughnut::{Module, Call, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
@@ -246,7 +250,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedMortalCompactExtrinsic<Address, Index, Call, Signature>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, DoughnutType, Signature>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.
