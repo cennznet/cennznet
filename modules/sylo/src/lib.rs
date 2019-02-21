@@ -13,6 +13,7 @@ extern crate sr_primitives as primitives;
 extern crate srml_balances as balances;
 extern crate srml_system as system;
 
+pub mod e2ee;
 pub mod device;
 pub mod inbox;
 pub mod groups;
