@@ -1,93 +1,102 @@
-//! Centrality's Doughnut.
-
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 // #![cfg_attr(not(feature = "std"), feature(alloc))]
 
+extern crate parity_codec as codec;
 // Needed for deriving `Encode` and `Decode` for `RawEvent`.
 #[macro_use]
 extern crate parity_codec_derive;
-extern crate parity_codec as codec;
-
+extern crate sr_io as io;
+extern crate sr_primitives as primitives;
 // Needed for type-safe access to storage DB.
 #[macro_use]
 extern crate srml_support as runtime_support;
-
-extern crate sr_io as io;
-extern crate sr_primitives as primitives;
-extern crate substrate_primitives;
 // `system` module provides us with all sorts of useful stuff and macros
 // depend on it being around.
 extern crate srml_system as system;
+extern crate substrate_primitives;
 
+use std::time::SystemTime;
+
+use codec::Encode;
+use primitives::traits::Verify;
+use runtime_support::{dispatch::Result};
 use runtime_support::rstd::prelude::*;
-use runtime_support::{dispatch::Result, StorageMap};
-use substrate_primitives::uint::U256;
-use system::ensure_signed;
 
-/*
+use cennznet_primitives::AccountId;
+use cennznet_primitives::Signature;
 
-Find a way to allow other kinds of permission domains (other keys in permissions)
-Might look like: a wild card that accepts cennznet + w/e
-If cennznet is present, success otherwise fail
-*/
-
-#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Default)]
-struct Permissions {
-	cennznet: bool,
+pub trait Trait: system::Trait {
+	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
+
+// derive Debug to meet the requirement of deposit_event
 
 #[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Default)]
 struct Certificate {
-	Expires: Vec<u32>,
-	Version: u32,
-	Holder: Vec<u8>,
-	Permissions: Permissions,
-	Issuer: Vec<u8>,
+	expires: u64,
+	version: u32,
+	holder: AccountId,
+	not_before: Option<u64>,
+	//	use vec of tuple to work as a key value map
+	permissions: Vec<(Vec<u8>, Vec<u8>)>,
+	issuer: AccountId,
 }
 
 #[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Default)]
 pub struct Doughnut {
-	certificate: Option<Certificate>,
-	signature: Option<Vec<u32>>,
-	compact: Option<Vec<u32>>,
-}
-
-pub trait Trait: system::Trait {
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	certificate: Certificate,
+	signature: Signature,
+	compact: Vec<u8>,
 }
 
 decl_module! {
-		pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
-			fn validate(doughnut: Doughnut) {
-					// validation for a doughnut
-					println!("Hello world");
+		fn deposit_event<T>() = default;
+
+
+		pub fn validate(doughnut: Doughnut) -> Result {
+			let now = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+				Ok(n) => n.as_secs(),
+				Err(_) => return Err("SystemTime before UNIX EPOCH!")
+
+			};
+			if doughnut.certificate.expires > now {
+				let valid = match doughnut.certificate.not_before {
+					Some(not_before) => not_before <= now,
+					None => true
+				};
+				if valid {
+					if doughnut.signature.verify(doughnut.certificate.encode().as_slice(), &doughnut.certificate.issuer) {
+						// TODO: ensure doughnut hasn't been revoked
+//						Self::deposit_event(RawEvent::Validated(doughnut.certificate.issuer, doughnut.compact));
+						return Ok(());
+					} else {
+						return Err("invalid signature");
+					}
+
+
+				}
 			}
+			return Err("invalid doughnut");
+		}
 
-			// fn validate_certificate(certificate: Certificate) {
-			// 	println!("{}", certificate)
-			// }
 
-			// fn validate_signature(signature: Vec<u32>) {
-			// 	println!("{}", signature)
-			// }
-
+		pub fn validate_permission(doughnut: Doughnut) -> Result {
+			// not efficient, optimize later
+			for permission_pair in &doughnut.certificate.permissions {
+				if permission_pair.0 == "cennznet".encode() {
+					return Ok(())
+				}
+			}
+			return Err("no permission")
+		}
+	}
 }
 
-}
-
-/// An event in this module. Events are simple means of reporting specific conditions and
-/// circumstances that have happened that users, Dapps and/or chain explorers would find
-/// interesting and otherwise difficult to detect.
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId  {
-		Validate(AccountId, Doughnut),
+		Validated(AccountId, Vec<u8>),
 	}
 );
-
-decl_storage! {
-	trait Store for Module<T: Trait> as Doughnut {
-	}
-}
