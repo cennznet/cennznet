@@ -236,7 +236,7 @@ construct_runtime!(
 		Sudo: sudo,
 		Fees: fees::{Module, Storage, Config<T>, Event<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
-		CennzX: cennz_x::{Module, Call, Storage, Event<T>},
+		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},

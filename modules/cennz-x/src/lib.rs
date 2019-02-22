@@ -6,18 +6,18 @@
 #[macro_use]
 extern crate srml_support as support;
 
+extern crate srml_timestamp as timestamp;
+use rstd::prelude::*;
 use generic_asset;
-use runtime_io::twox_128;
-use runtime_primitives::traits::{As, Hash};
-use support::{
-	rstd::prelude::*,
-	StorageDoubleMap,
-};
+use runtime_io::{twox_128};
+use runtime_primitives::traits::{As, Hash, One, Zero};
+use support::{StorageDoubleMap, StorageMap, StorageValue, dispatch::Result};
+use system::ensure_signed;
 
 // An alias for the system wide `AccountId` type
 pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
 
-pub trait Trait: system::Trait + generic_asset::Trait {
+pub trait Trait: system::Trait + generic_asset::Trait + timestamp::Trait {
 	// This type is used as a shim from `system::Trait::Hash` to `system::Trait::AccountId`
 	type AccountId: From<<Self as system::Trait>::Hash> + Into<<Self as system::Trait>::AccountId>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -29,6 +29,18 @@ decl_module! {
 
 		pub fn test() {
 			Self::generate_exchange_address(T::AssetId::sa(0), T::AssetId::sa(10));
+		}
+
+		pub fn add_liquidity(
+			origin,
+			asset_id: T::AssetId,
+			min_liquidity: T::Balance,
+			max_asset_amount: T::Balance,
+			core_amount: T::Balance,
+			expire: T::Moment
+		) {
+			let origin = ensure_signed(origin)?;
+//			Self::_add_liquidity(origin.into(), asset_id, min_liquidity, max_asset_amount, core_amount, expire);
 		}
 	}
 }
@@ -55,30 +67,11 @@ decl_event!(
 
 /// Asset balance of each user in each exchange pool.
 /// Key: `(core asset id, trade asset id), account_id`
-pub(crate) struct AssetBalance<T>(rstd::marker::PhantomData<T>);
+pub(crate) struct LiquidityBalance<T>(rstd::marker::PhantomData<T>);
 
-impl<T: Trait> StorageDoubleMap for AssetBalance<T> {
-	const PREFIX: &'static [u8] = b"cennz-x:asset";
+impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
+	const PREFIX: &'static [u8] = b"cennz-x-spot:liquidity";
 	type Key1 = (T::AssetId, T::AssetId); // Delete the whole pool
-	type Key2 = AccountIdOf<T>;
-	type Value = T::Balance;
-
-	fn derive_key1(key1_data: Vec<u8>) -> Vec<u8> {
-		twox_128(&key1_data).to_vec()
-	}
-
-	fn derive_key2(key2_data: Vec<u8>) -> Vec<u8> {
-		key2_data
-	}
-}
-
-/// Core asset balance of each user in each exchange pool.
-/// Key: `(core asset id, trade asset id), account_id`
-pub(crate) struct CoreAssetBalance<T>(rstd::marker::PhantomData<T>);
-
-impl<T: Trait> StorageDoubleMap for CoreAssetBalance<T> {
-	const PREFIX: &'static [u8] = b"cennz-x:core";
-	type Key1 = (T::AssetId, T::AssetId);
 	type Key2 = AccountIdOf<T>;
 	type Value = T::Balance;
 
@@ -93,9 +86,12 @@ impl<T: Trait> StorageDoubleMap for CoreAssetBalance<T> {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as CennzX {
+		/// The Core AssetId
+		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
+		pub FeeRate get(fee_rate) config(): (u32, u32);
 		// Total supply of exchange token in existence.
 		// Key: `(asset id, core asset id)`
-		pub TotalSupply get(total_supply): map(T::AssetId, T::AssetId) => T::Balance;
+		pub TotalSupply get(total_supply): map (T::AssetId, T::AssetId) => T::Balance;
 	}
 }
 
@@ -111,19 +107,54 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T>
-where
-	<T as Trait>::AccountId: From<T::Hash>,
 {
 
 	/// Generates an exchange address for the given asset pair
-	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> AccountIdOf<T> {
+	fn generate_exchange_address(asset: T::AssetId, core_asset: T::AssetId) -> AccountIdOf<T> {
 		let mut buf = Vec::new();
-		buf.extend_from_slice(b"cennzx-account-id");
-		buf.extend_from_slice(&u64_to_bytes(As::as_(asset1)));
-		buf.extend_from_slice(&u64_to_bytes(As::as_(asset2)));
+		buf.extend_from_slice(b"cennz-x-spot:");
+		buf.extend_from_slice(&u64_to_bytes(As::as_(core_asset)));
+		buf.extend_from_slice(&u64_to_bytes(As::as_(asset)));
 
 		// Use shim `system::Trait::Hash` -> `Trait::AccountId` -> system::Trait::AccountId`
 		<T as Trait>::AccountId::from(T::Hashing::hash(&buf[..])).into()
+	}
+
+	fn ensure_not_expired(expire: T::Moment) -> Result {
+		let now = <timestamp::Module<T>>::get();
+		if expire > now {
+			return Err("cennzx request expired");
+		}
+		Ok(())
+	}
+
+	// Storage R/W
+	fn get_total_supply(asset_id: T::AssetId) -> T::Balance {
+		let core_asset_id = Self::core_asset_id();
+		<TotalSupply<T>>::get((asset_id, core_asset_id))
+//		Self::total_supply((asset_id, core_asset_id))
+	}
+
+	fn mint_total_supply(asset_id: &T::AssetId, increase: &T::Balance) {
+		let core_asset_id = Self::core_asset_id();
+		<TotalSupply<T>>::mutate(
+			(*asset_id, core_asset_id),
+			|balance| { *balance + *increase });
+	}
+
+	fn burn_total_supply(asset_id: &T::AssetId, decrease: &T::Balance) {
+		let core_asset_id = Self::core_asset_id();
+		<TotalSupply<T>>::mutate(
+			(*asset_id, core_asset_id),
+			|balance| { *balance - *decrease });
+	}
+
+	fn set_liquidity(core_asset_id: T::AssetId, asset_id: T::AssetId, who: &AccountIdOf<T>, balance: T::Balance) {
+		<LiquidityBalance<T>>::insert(&(core_asset_id, asset_id), who, balance);
+	}
+
+	pub fn get_liquidity(core_asset_id: T::AssetId, asset_id: T::AssetId, who: &AccountIdOf<T>) -> T::Balance {
+		<LiquidityBalance<T>>::get(&(core_asset_id, asset_id), who).unwrap_or_else(Default::default)
 	}
 
 	//
@@ -134,34 +165,64 @@ where
 	/// Returns amount of exchange assets minted.
 	///
 	/// `asset_id` - The trade asset ID
-	/// `core_asset_id` - The core asset ID e.g. CENNZ or SYLO or any core asset
+	/// `min_liquidity` - The minimum liquidity to add
 	/// `asset_amount` - Amount of trade asset to add
 	/// `core_amount` - Amount of core asset to add
-	/// `min_liquidity` - The minimum liquidity to add
-	pub fn add_liquiditiy(
+	/// `expire` - Amount of core asset to add
+	pub fn _add_liquidity(
+		from_account: AccountIdOf<T>,
 		asset_id: T::AssetId,
-		core_asset_id: T::AssetId,
-		asset_amount: T::Balance,
-		core_amount: T::Balance,
 		min_liquidity: T::Balance,
-	) {
+		max_asset_amount: T::Balance,
+		core_amount: T::Balance,
+		expire: T::Moment,
+	) -> rstd::result::Result<T::Balance, &'static str> {
+		Self::ensure_not_expired(expire)?;
+		let core_asset_id = Self::core_asset_id();
+		let total_liquidity = Self::get_total_supply(asset_id.clone());
+		if total_liquidity > Zero::zero() {
+			let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
+			// shall i use total_balance instead? in which case the exchange address will have reserve balance?
+			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+			let trade_asset_amount = core_amount.clone() * trade_asset_reserve / core_asset_reserve + One::one();
+			let liquidity_minted = core_amount.clone() * total_liquidity / core_asset_reserve;
+			ensure!( liquidity_minted >= min_liquidity, "Minimum liquidity is required");
+			ensure!( max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
+
+			 <generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount.clone())?;
+			 <generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount.clone())?;
+
+			Self::set_liquidity(core_asset_id, asset_id, &from_account,
+								Self::get_liquidity(core_asset_id, asset_id.clone(), &from_account) + liquidity_minted);
+			Self::mint_total_supply(&asset_id, &liquidity_minted);
+			Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), core_amount, asset_id, trade_asset_amount));
+			Ok(liquidity_minted)
+		} else {
+			// <generic_asset::Module<T>>::transfer(core_asset_id, from_account, exchange_address, core_amount)?;
+			// <generic_asset::Module<T>>::transfer(asset_id, from_account, exchange_address, trade_asset_amount)?;
+			let trade_asset_amount = max_asset_amount;
+			let initial_liquidity = core_amount;
+			Self::set_liquidity(core_asset_id, asset_id, &from_account, initial_liquidity);
+			Self::mint_total_supply(&asset_id, &initial_liquidity);
+			Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), initial_liquidity, asset_id.clone(), trade_asset_amount));
+			Ok(initial_liquidity.clone())
+		}
 	}
 
 	/// Burn exchange assets to withdraw core asset and trade asset at current ratio
 	///
 	/// `asset_id` - The trade asset ID
-	/// `core_asset_id` - The core asset ID e.g. CENNZ or SYLO or any core asset
 	/// `asset_amount` - Amount of exchange asset to burn
 	/// `min_asset_withdraw` - The minimum trade asset withdrawn
 	/// `min_core_withdraw` -  The minimum core asset withdrawn
 	pub fn remove_liquidity(
 		asset_id: T::AssetId,
-		core_asset_id: T::AssetId,
 		asset_amount: T::Balance,
 		min_asset_withdraw: T::Balance,
 		min_core_withdraw: T::Balance,
-	) {
-	}
+		expire: T::Moment,
+	) {}
 
 	//
 	// Trade core to other asset
@@ -178,9 +239,9 @@ where
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
 	/// User specifies exact input (core asset) and minimum output.
@@ -195,9 +256,9 @@ where
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert core asset to trade asset. User specifies
 	/// maximum input (core asset) and exact output.
@@ -210,9 +271,9 @@ where
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient
 	/// from system account. User specifies maximum input (core asset) and exact output
@@ -227,9 +288,9 @@ where
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	//
 	// Trade asset with core asset
@@ -246,9 +307,9 @@ where
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert trade asset to core asset and transfer the core asset to recipient from system account.
 	/// User specifies exact input (core asset) and minimum output.
@@ -263,9 +324,9 @@ where
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert trade asset to core asset. User specifies maximum input (trade asset) and exact output
 	///
@@ -277,9 +338,9 @@ where
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
 	/// User specifies maximum input (core asset) and exact output.
@@ -294,9 +355,9 @@ where
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	//
 	// Trade non-core asset to non-core asset
@@ -317,9 +378,9 @@ where
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset and transfer the
 	/// trade asset2 to recipient from system account.User specifies exact input
@@ -339,9 +400,9 @@ where
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset. User specifies maximum
 	/// input and exact output.
@@ -358,9 +419,9 @@ where
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset and transfer the trade asset2
 	/// to recipient from system account.
@@ -380,9 +441,9 @@ where
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: u32,
-	) {
-	}
+		expire: T::Moment,
+		fee_rate: u32,
+	) {}
 
 	//
 	// Get Prices
@@ -391,7 +452,11 @@ where
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of core sold
 	/// Returns amount of asset that can be bought with the input core
-	pub fn core_to_asset_input_price(asset_id: T::AssetId, amount_sold: T::Balance) -> T::Balance {
+	pub fn core_to_asset_input_price(
+		asset_id: T::AssetId,
+		amount_sold: T::Balance,
+		fee_rate: u32,
+	) -> T::Balance {
 		T::Balance::sa(0)
 	}
 
@@ -401,6 +466,7 @@ where
 	pub fn core_to_asset_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
+		fee_rate: u32,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
@@ -408,7 +474,11 @@ where
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of trade assets sold
 	/// Returns amount of core that can be bought with input assets.
-	pub fn asset_to_core_input_price(asset_id: T::AssetId, amount_sold: T::Balance) -> T::Balance {
+	pub fn asset_to_core_input_price(
+		asset_id: T::AssetId,
+		amount_sold: T::Balance,
+		fee_rate: u32,
+	) -> T::Balance {
 		T::Balance::sa(0)
 	}
 
@@ -418,7 +488,75 @@ where
 	pub fn asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
+		fee_rate: u32,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
 }
+
+//#[cfg(test)]
+//mod tests {
+//	// The testing primitives are very useful for avoiding having to work with signatures
+//	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
+//	use primitives::{
+//		BuildStorage,
+//		testing::{Digest, DigestItem, Header},
+//		traits::{BlakeTwo256, IdentityLookup},
+//	};
+//	use runtime_io::with_externalities;
+//	use substrate_primitives::{Blake2Hasher, H256};
+//
+//	use super::*;
+//
+//	impl_outer_origin! {
+//		pub enum Origin for Test {}
+//	}
+//
+//	// For testing the module, we construct most of a mock runtime. This means
+//	// first constructing a configuration type (`Test`) which `impl`s each of the
+//	// configuration traits of modules we want to use.
+//	#[derive(Clone, Eq, PartialEq)]
+//	pub struct Test;
+//
+//	impl system::Trait for Test {
+//		type Origin = Origin;
+//		type Index = u64;
+//		type BlockNumber = u64;
+//		type Hash = H256;
+//		type Hashing = BlakeTwo256;
+//		type Digest = Digest;
+//		type AccountId = u64;
+//		type Lookup = IdentityLookup<u64>;
+//		type Header = Header;
+//		type Event = ();
+//		type Log = DigestItem;
+//	}
+//
+//	impl Trait for Test {
+//		type Event = ();
+//	}
+//
+//	type CennzXSpot = Module<Test>;
+//
+//	fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+//		system::GenesisConfig::<Test>::default()
+//			.build_storage()
+//			.unwrap()
+//			.0
+//			.into()
+//	}
+//
+//	#[test]
+//	fn it_works() {
+//		with_externalities(&mut new_test_ext(), || {
+//			assert_ok!(CennzXSpot::add_liquidity(
+//				Origin::signed(1),
+//				0, //asset_id: T::AssetId,
+//				10, // min_liquidity: T::Balance,
+//				10, //max_asset_amount: T::Balance,
+//				10, //core_amount: T::Balance,
+//				10//expire: T::Moment
+//			))
+//		});
+//	}
+//}
