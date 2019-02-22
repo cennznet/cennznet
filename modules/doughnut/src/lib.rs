@@ -4,12 +4,10 @@
 
 extern crate parity_codec as codec;
 // Needed for deriving `Encode` and `Decode` for `RawEvent`.
-#[macro_use]
 extern crate parity_codec_derive;
 extern crate sr_io as io;
 extern crate sr_primitives as primitives;
 // Needed for type-safe access to storage DB.
-#[macro_use]
 extern crate srml_support as runtime_support;
 // `system` module provides us with all sorts of useful stuff and macros
 // depend on it being around.

@@ -63,7 +63,6 @@ fn cennznet_dev_uat_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -179,7 +178,6 @@ pub fn local_dev_genesis(
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
-			balances: endowed_accounts.iter().map(|&k| (k.into(), (1 << 60))).collect(),
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -320,6 +318,13 @@ fn local_dev_config_genesis() -> GenesisConfig {
 		],
 		get_authority_id_from_seed("Alice").into(),
 		None,
+	)
+}
+
+/// The CENNZnet Kauri testnet config for local test purpose
+pub fn cennznet_dev_local_config() -> Result<ChainSpec, String> {
+	Ok(
+		ChainSpec::from_genesis("Kauri Dev", "kauri-dev", cennznet_dev_uat_config_genesis, vec![], None, None, None, None)
 	)
 }
 

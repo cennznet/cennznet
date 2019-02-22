@@ -57,8 +57,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 10,
-	impl_version: 10,
+	spec_version: 11,
+	impl_version: 11,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -186,6 +186,10 @@ impl generic_asset::Trait for Runtime {
 	type AssetId = u32;
 }
 
+impl cennz_x::Trait for Runtime {
+	type Event = Event;
+}
+
 impl attestation::Trait for Runtime {
 	type Event = Event;
 }
@@ -230,6 +234,7 @@ construct_runtime!(
 		Sudo: sudo,
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		Doughnut: doughnut::{Module, Call, Event<T>},
+		CennzX: cennz_x::{Module, Call, Storage, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
