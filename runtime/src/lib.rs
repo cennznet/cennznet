@@ -5,54 +5,52 @@
 #![recursion_limit = "512"]
 
 #[macro_use]
-extern crate srml_support;
-#[macro_use]
 extern crate runtime_primitives;
+#[macro_use]
+extern crate srml_support;
 
-use rstd::prelude::*;
-use parity_codec_derive::{Encode, Decode};
-#[cfg(feature = "std")]
-use srml_support::{Serialize, Deserialize};
-use substrate_primitives::u32_trait::{_2, _4};
-use cennznet_primitives::{
-	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature
-};
-use grandpa::fg_primitives::{self, ScheduledChange};
-use substrate_client::impl_runtime_apis;
-use substrate_client::{
-	block_builder::api::{self as block_builder_api, InherentData, CheckInherentsResult},
-	runtime_api as client_api,
-};
-use runtime_primitives::ApplyResult;
-use runtime_primitives::transaction_validity::TransactionValidity;
-use runtime_primitives::generic;
-use runtime_primitives::traits::{
-	Convert, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup,
-};
-use version::RuntimeVersion;
+pub use balances::Call as BalancesCall;
+pub use consensus::Call as ConsensusCall;
 use council::{motions as council_motions, voting as council_voting};
 #[cfg(feature = "std")]
 use council::seats as council_seats;
-#[cfg(any(feature = "std", test))]
-use version::NativeVersion;
-use substrate_primitives::OpaqueMetadata;
-
+use grandpa::fg_primitives::{self, ScheduledChange};
+use parity_codec_derive::{Decode, Encode};
+use rstd::prelude::*;
+pub use runtime_primitives::{Perbill, Permill};
+use runtime_primitives::ApplyResult;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
-pub use consensus::Call as ConsensusCall;
-pub use timestamp::Call as TimestampCall;
-pub use balances::Call as BalancesCall;
-pub use runtime_primitives::{Permill, Perbill};
+use runtime_primitives::generic;
+use runtime_primitives::traits::{
+	BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup,
+};
+use runtime_primitives::transaction_validity::TransactionValidity;
+#[cfg(feature = "std")]
+use srml_support::{Deserialize, Serialize};
 pub use srml_support::StorageValue;
+use substrate_client::{
+	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
+	runtime_api as client_api,
+};
+use substrate_client::impl_runtime_apis;
+use substrate_primitives::OpaqueMetadata;
+use substrate_primitives::u32_trait::{_2, _4};
+pub use timestamp::Call as TimestampCall;
+#[cfg(any(feature = "std", test))]
+use version::NativeVersion;
+use version::RuntimeVersion;
 
-pub use sylo::groups as sylo_groups;
+use cennznet_extrinsic::CennznetExtrinsic;
+use cennznet_primitives::{
+	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature,
+};
 pub use sylo::device as sylo_device;
+pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
-pub use doughnut::Doughnut as DoughnutType;
 
 mod cennznet_extrinsic;
-use cennznet_extrinsic::CennznetExtrinsic;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -250,7 +248,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, DoughnutType, Signature>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.

@@ -4,14 +4,15 @@
 use std::fmt;
 
 use rstd::prelude::*;
-use substrate_primitives::{blake2_256};
-use runtime_primitives::codec::{Decode, Encode, Input, Compact};
-use runtime_primitives::traits::{self, Member, SimpleArithmetic, MaybeDisplay, CurrentHeight, BlockNumberToHash, Lookup,
-					Checkable, Extrinsic};
+use runtime_primitives::codec::{Compact, Decode, Encode, Input};
 use runtime_primitives::generic::{CheckedExtrinsic, Era};
+use runtime_primitives::traits::{self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay,
+								 Member, SimpleArithmetic};
+use substrate_primitives::blake2_256;
+
+use doughnut;
 
 const TRANSACTION_VERSION: u8 = 1;
-
 
 fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8> {
 	let size = ::rstd::mem::size_of::<T>();
@@ -38,17 +39,17 @@ fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8>
 /// A extrinsic right from the external world. This is unchecked and so
 /// can contain a signature.
 #[derive(PartialEq, Eq, Clone)]
-pub struct CennznetExtrinsic<Address, Index, Call, Doughnut, Signature> {
+pub struct CennznetExtrinsic<Address, Index, Call, Signature> {
 	/// The signature, address, number of extrinsics have come before from
 	/// the same signer and an era describing the longevity of this transaction,
 	/// if this is a signed extrinsic.
 	pub signature: Option<(Address, Signature, Compact<Index>, Era)>,
 	/// The function that should be called.
 	pub function: Call,
-	pub doughnut: Option<Doughnut>,
+	pub doughnut: Option<doughnut::Doughnut>,
 }
 
-impl<Address, Index, Call, Doughnut, Signature> CennznetExtrinsic<Address, Index, Call, Doughnut, Signature> {
+impl<Address, Index, Call, Signature> CennznetExtrinsic<Address, Index, Call, Signature> {
 	/// New instance of a signed extrinsic aka "transaction".
 	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era) -> Self {
 		CennznetExtrinsic {
@@ -68,21 +69,20 @@ impl<Address, Index, Call, Doughnut, Signature> CennznetExtrinsic<Address, Index
 	}
 }
 
-impl<Address: Encode, Index: Encode, Call: Encode, Doughnut: Encode, Signature: Encode> Extrinsic for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature> {
+impl<Address: Encode, Index: Encode, Call: Encode, Signature: Encode> Extrinsic for CennznetExtrinsic<Address, Index, Call, Signature> {
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())
 	}
 }
 
-impl<Address, AccountId, Index, Call, Doughnut, Signature, Context, Hash, BlockNumber> Checkable<Context>
-for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
+impl<Address, AccountId, Index, Call, Signature, Context, Hash, BlockNumber> Checkable<Context>
+for CennznetExtrinsic<Address, Index, Call, Signature>
 	where
 		Address: Member + MaybeDisplay,
 		Index: Member + MaybeDisplay + SimpleArithmetic,
 		Compact<Index>: Encode,
 		Call: Encode + Member,
 		Signature: Member + traits::Verify<Signer=AccountId>,
-		Doughnut: Encode,
 		AccountId: Member + MaybeDisplay,
 		BlockNumber: SimpleArithmetic,
 		Hash: Encode,
@@ -93,7 +93,17 @@ for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
 	type Checked = CheckedExtrinsic<AccountId, Index, Call>;
 
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
-		Ok(match self.signature {
+		match self.doughnut {
+			Some(d) => {
+				match d.validate() {
+					Err(e) => return Err(e),
+					Ok(_) => ()
+				}
+			},
+			None => ()
+		};
+
+		let result = match self.signature {
 			Some((signed, signature, index, era)) => {
 				let h = context.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
 					.ok_or("transaction birth block ancient")?;
@@ -117,17 +127,17 @@ for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
 				signed: None,
 				function: self.function,
 			},
-		})
+		};
+		Ok(result)
 	}
 }
 
-impl<Address, Index, Call, Doughnut, Signature> Decode
-for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
+impl<Address, Index, Call, Signature> Decode
+for CennznetExtrinsic<Address, Index, Call, Signature>
 	where
 		Address: Decode,
 		Signature: Decode,
 		Compact<Index>: Decode,
-		Doughnut: Decode,
 		Call: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
@@ -153,13 +163,12 @@ for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
 	}
 }
 
-impl<Address, Index, Call, Doughnut, Signature> Encode
-for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
+impl<Address, Index, Call, Signature> Encode
+for CennznetExtrinsic<Address, Index, Call, Signature>
 	where
 		Address: Encode,
 		Signature: Encode,
 		Compact<Index>: Encode,
-		Doughnut: Encode,
 		Call: Encode,
 {
 	fn encode(&self) -> Vec<u8> {
@@ -180,8 +189,8 @@ for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
 }
 
 #[cfg(feature = "std")]
-impl<Address: Encode, Index, Signature: Encode, Doughnut: Encode, Call: Encode> serde::Serialize
-for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
+impl<Address: Encode, Index, Signature: Encode, Call: Encode> serde::Serialize
+for CennznetExtrinsic<Address, Index, Call, Signature>
 	where Compact<Index>: Encode
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
@@ -190,7 +199,7 @@ for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature>
 }
 
 #[cfg(feature = "std")]
-impl<Address, Index, Call, Doughnut, Signature> fmt::Debug for CennznetExtrinsic<Address, Index, Call, Doughnut, Signature> where
+impl<Address, Index, Call, Signature> fmt::Debug for CennznetExtrinsic<Address, Index, Call, Signature> where
 	Address: fmt::Debug,
 	Index: fmt::Debug,
 	Call: fmt::Debug,
@@ -202,20 +211,20 @@ impl<Address, Index, Call, Doughnut, Signature> fmt::Debug for CennznetExtrinsic
 
 #[cfg(test)]
 mod tests {
-	use substrate_primitives::{blake2_256};
-	use runtime_primitives::codec::{Decode, Encode, Compact};
-	use runtime_primitives::serde_derive::{Serialize, Deserialize};
-	use runtime_primitives::traits::Lookup;
-	use runtime_primitives::traits::CurrentHeight;
-	use crate::cennznet_extrinsic::CennznetExtrinsic;
+	use runtime_primitives::codec::{Compact, Decode, Encode};
 	use runtime_primitives::generic::CheckedExtrinsic;
-	use runtime_primitives::traits::Verify;
-	use runtime_primitives::traits::Checkable;
-	use runtime_primitives::traits::Extrinsic;
-	use runtime_primitives::traits::BlockNumberToHash;
-	use crate::DoughnutType;
 	use runtime_primitives::generic::Era;
+	use runtime_primitives::serde_derive::{Deserialize, Serialize};
+	use runtime_primitives::traits::BlockNumberToHash;
+	use runtime_primitives::traits::Checkable;
+	use runtime_primitives::traits::CurrentHeight;
+	use runtime_primitives::traits::Extrinsic;
 	use runtime_primitives::traits::Lazy;
+	use runtime_primitives::traits::Lookup;
+	use runtime_primitives::traits::Verify;
+	use substrate_primitives::blake2_256;
+
+	use crate::cennznet_extrinsic::CennznetExtrinsic;
 
 	struct TestContext;
 	impl Lookup for TestContext {
@@ -244,7 +253,7 @@ mod tests {
 
 	const DUMMY_ACCOUNTID: u64 = 0;
 
-	type Ex = CennznetExtrinsic<u64, u64, Vec<u8>, DoughnutType, TestSig>;
+	type Ex = CennznetExtrinsic<u64, u64, Vec<u8>, TestSig>;
 	type CEx = CheckedExtrinsic<u64, u64, Vec<u8>>;
 
 	#[test]

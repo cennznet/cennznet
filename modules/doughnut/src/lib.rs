@@ -50,48 +50,45 @@ pub struct Doughnut {
 	compact: Vec<u8>,
 }
 
+impl Doughnut {
+	pub fn validate(self) -> Result {
+		let now = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+			Ok(n) => n.as_secs(),
+			Err(_) => return Err("SystemTime before UNIX EPOCH!")
+		};
+		if self.certificate.expires > now {
+			let valid = match self.certificate.not_before {
+				Some(not_before) => not_before <= now,
+				None => true
+			};
+			if valid {
+				if self.signature.verify(self.certificate.encode().as_slice(), &self.certificate.issuer) {
+					// TODO: ensure doughnut hasn't been revoked
+//						Self::deposit_event(RawEvent::Validated(doughnut.certificate.issuer, doughnut.compact));
+					return Ok(());
+				} else {
+					return Err("invalid signature");
+				}
+			}
+		}
+		return Err("invalid doughnut");
+	}
+	pub fn validate_permission(self) -> Result {
+		// not efficient, optimize later
+		for permission_pair in &self.certificate.permissions {
+			if permission_pair.0 == "cennznet".encode() {
+				return Ok(())
+			}
+		}
+		return Err("no permission")
+	}
+}
+
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
 		fn deposit_event<T>() = default;
 
-
-		pub fn validate(doughnut: Doughnut) -> Result {
-			let now = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-				Ok(n) => n.as_secs(),
-				Err(_) => return Err("SystemTime before UNIX EPOCH!")
-
-			};
-			if doughnut.certificate.expires > now {
-				let valid = match doughnut.certificate.not_before {
-					Some(not_before) => not_before <= now,
-					None => true
-				};
-				if valid {
-					if doughnut.signature.verify(doughnut.certificate.encode().as_slice(), &doughnut.certificate.issuer) {
-						// TODO: ensure doughnut hasn't been revoked
-//						Self::deposit_event(RawEvent::Validated(doughnut.certificate.issuer, doughnut.compact));
-						return Ok(());
-					} else {
-						return Err("invalid signature");
-					}
-
-
-				}
-			}
-			return Err("invalid doughnut");
-		}
-
-
-		pub fn validate_permission(doughnut: Doughnut) -> Result {
-			// not efficient, optimize later
-			for permission_pair in &doughnut.certificate.permissions {
-				if permission_pair.0 == "cennznet".encode() {
-					return Ok(())
-				}
-			}
-			return Err("no permission")
-		}
 	}
 }
 
