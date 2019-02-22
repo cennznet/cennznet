@@ -8,9 +8,11 @@ extern crate srml_support as support;
 
 use generic_asset;
 use runtime_io::{blake2_256, twox_128};
-use runtime_primitives::traits::As;
-use substrate_primitives::H256;
-use support::{rstd::prelude::*, StorageDoubleMap};
+use runtime_primitives::traits::{As, Hash};
+use support::{
+	rstd::prelude::*,
+	StorageDoubleMap,
+};
 
 pub trait Trait: system::Trait + generic_asset::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -99,16 +101,19 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 }
 
 // The main implementation block for the module.
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>
+where
+	T::AccountId: From<T::Hash>,
+{
 
 	/// Generates an exchange address for the given asset pair
-	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> H256 {
+	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennzx-account-id");
 		buf.extend_from_slice(&u64_to_bytes(As::as_(asset1)));
 		buf.extend_from_slice(&u64_to_bytes(As::as_(asset2)));
 
-		H256::from_slice(&blake2_256(&buf[..]))
+		T::Hashing::hash(&buf[..]).into()
 	}
 
 	//
