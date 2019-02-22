@@ -39,17 +39,17 @@ fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8>
 /// A extrinsic right from the external world. This is unchecked and so
 /// can contain a signature.
 #[derive(PartialEq, Eq, Clone)]
-pub struct CennznetExtrinsic<Address, Index, Call, Signature> {
+pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature> {
 	/// The signature, address, number of extrinsics have come before from
 	/// the same signer and an era describing the longevity of this transaction,
 	/// if this is a signed extrinsic.
 	pub signature: Option<(Address, Signature, Compact<Index>, Era)>,
 	/// The function that should be called.
 	pub function: Call,
-	pub doughnut: Option<doughnut::Doughnut>,
+	pub doughnut: Option<doughnut::Doughnut<AccountId, Signature>>,
 }
 
-impl<Address, Index, Call, Signature> CennznetExtrinsic<Address, Index, Call, Signature> {
+impl<AccountId, Address, Index, Call, Signature> CennznetExtrinsic<AccountId, Address, Index, Call, Signature> {
 	/// New instance of a signed extrinsic aka "transaction".
 	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era) -> Self {
 		CennznetExtrinsic {
@@ -69,23 +69,24 @@ impl<Address, Index, Call, Signature> CennznetExtrinsic<Address, Index, Call, Si
 	}
 }
 
-impl<Address: Encode, Index: Encode, Call: Encode, Signature: Encode> Extrinsic for CennznetExtrinsic<Address, Index, Call, Signature> {
+impl<AccountId: Encode, Address: Encode, Index: Encode, Call: Encode, Signature: Encode> Extrinsic for CennznetExtrinsic<AccountId, Address, Index, Call, Signature> {
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())
 	}
 }
 
 impl<Address, AccountId, Index, Call, Signature, Context, Hash, BlockNumber> Checkable<Context>
-for CennznetExtrinsic<Address, Index, Call, Signature>
+for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
 		Address: Member + MaybeDisplay,
 		Index: Member + MaybeDisplay + SimpleArithmetic,
 		Compact<Index>: Encode,
 		Call: Encode + Member,
-		Signature: Member + traits::Verify<Signer=AccountId>,
-		AccountId: Member + MaybeDisplay,
+		Signature: Member + traits::Verify<Signer=AccountId> + Encode,
+		AccountId: Member + MaybeDisplay + Encode,
 		BlockNumber: SimpleArithmetic,
 		Hash: Encode,
+		Address: Encode,
 		Context: Lookup<Source=Address, Target=AccountId>
 		+ CurrentHeight<BlockNumber=BlockNumber>
 		+ BlockNumberToHash<BlockNumber=BlockNumber, Hash=Hash>,
@@ -93,17 +94,7 @@ for CennznetExtrinsic<Address, Index, Call, Signature>
 	type Checked = CheckedExtrinsic<AccountId, Index, Call>;
 
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
-		match self.doughnut {
-			Some(d) => {
-				match d.validate() {
-					Err(e) => return Err(e),
-					Ok(_) => ()
-				}
-			},
-			None => ()
-		};
-
-		let result = match self.signature {
+		Ok(match self.signature {
 			Some((signed, signature, index, era)) => {
 				let h = context.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
 					.ok_or("transaction birth block ancient")?;
@@ -118,22 +109,34 @@ for CennznetExtrinsic<Address, Index, Call, Signature>
 				}) {
 					return Err("bad signature in extrinsic")
 				}
-				CheckedExtrinsic {
-					signed: Some((signed, (raw_payload.0).0)),
-					function: raw_payload.1,
+
+				match self.doughnut {
+					Some(d) => {
+						match d.validate() {
+							Err(e) => return Err(e),
+							Ok(d) => CheckedExtrinsic {
+								signed: Some((d.certificate.issuer, (raw_payload.0).0)),
+								function: raw_payload.1,
+							}
+						}
+					},
+					None => CheckedExtrinsic {
+						signed: Some((signed, (raw_payload.0).0)),
+						function: raw_payload.1,
+					}
 				}
+
 			}
 			None => CheckedExtrinsic {
 				signed: None,
 				function: self.function,
 			},
-		};
-		Ok(result)
+		})
 	}
 }
 
-impl<Address, Index, Call, Signature> Decode
-for CennznetExtrinsic<Address, Index, Call, Signature>
+impl<AccountId, Address, Index, Call, Signature> Decode
+for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
 		Address: Decode,
 		Signature: Decode,
@@ -163,8 +166,8 @@ for CennznetExtrinsic<Address, Index, Call, Signature>
 	}
 }
 
-impl<Address, Index, Call, Signature> Encode
-for CennznetExtrinsic<Address, Index, Call, Signature>
+impl<AccountId, Address, Index, Call, Signature> Encode
+for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
 		Address: Encode,
 		Signature: Encode,
@@ -189,8 +192,8 @@ for CennznetExtrinsic<Address, Index, Call, Signature>
 }
 
 #[cfg(feature = "std")]
-impl<Address: Encode, Index, Signature: Encode, Call: Encode> serde::Serialize
-for CennznetExtrinsic<Address, Index, Call, Signature>
+impl<AccountId: Encode, Address: Encode, Index, Signature: Encode, Call: Encode> serde::Serialize
+for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where Compact<Index>: Encode
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
@@ -199,7 +202,7 @@ for CennznetExtrinsic<Address, Index, Call, Signature>
 }
 
 #[cfg(feature = "std")]
-impl<Address, Index, Call, Signature> fmt::Debug for CennznetExtrinsic<Address, Index, Call, Signature> where
+impl<AccountId, Address, Index, Call, Signature> fmt::Debug for CennznetExtrinsic<AccountId, Address, Index, Call, Signature> where
 	Address: fmt::Debug,
 	Index: fmt::Debug,
 	Call: fmt::Debug,
@@ -253,7 +256,7 @@ mod tests {
 
 	const DUMMY_ACCOUNTID: u64 = 0;
 
-	type Ex = CennznetExtrinsic<u64, u64, Vec<u8>, TestSig>;
+	type Ex = CennznetExtrinsic<u64, u64, u64, Vec<u8>, TestSig>;
 	type CEx = CheckedExtrinsic<u64, u64, Vec<u8>>;
 
 	#[test]
