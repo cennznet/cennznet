@@ -7,20 +7,29 @@
 extern crate srml_support as support;
 
 use generic_asset;
-use runtime_io::{blake2_256, twox_128};
+use runtime_io::twox_128;
 use runtime_primitives::traits::{As, Hash};
 use support::{
 	rstd::prelude::*,
 	StorageDoubleMap,
 };
 
+// An alias for the system wide `AccountId` type
+pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
+
 pub trait Trait: system::Trait + generic_asset::Trait {
+	// This type is used as a shim from `system::Trait::Hash` to `system::Trait::AccountId`
+	type AccountId: From<<Self as system::Trait>::Hash> + Into<<Self as system::Trait>::AccountId>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
+
+		pub fn test() {
+			Self::generate_exchange_address(T::AssetId::sa(0), T::AssetId::sa(10));
+		}
 	}
 }
 
@@ -51,7 +60,7 @@ pub(crate) struct AssetBalance<T>(rstd::marker::PhantomData<T>);
 impl<T: Trait> StorageDoubleMap for AssetBalance<T> {
 	const PREFIX: &'static [u8] = b"cennz-x:asset";
 	type Key1 = (T::AssetId, T::AssetId); // Delete the whole pool
-	type Key2 = T::AccountId;
+	type Key2 = AccountIdOf<T>;
 	type Value = T::Balance;
 
 	fn derive_key1(key1_data: Vec<u8>) -> Vec<u8> {
@@ -70,7 +79,7 @@ pub(crate) struct CoreAssetBalance<T>(rstd::marker::PhantomData<T>);
 impl<T: Trait> StorageDoubleMap for CoreAssetBalance<T> {
 	const PREFIX: &'static [u8] = b"cennz-x:core";
 	type Key1 = (T::AssetId, T::AssetId);
-	type Key2 = T::AccountId;
+	type Key2 = AccountIdOf<T>;
 	type Value = T::Balance;
 
 	fn derive_key1(key1_data: Vec<u8>) -> Vec<u8> {
@@ -107,13 +116,14 @@ where
 {
 
 	/// Generates an exchange address for the given asset pair
-	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> T::AccountId {
+	fn generate_exchange_address(asset1: T::AssetId, asset2: T::AssetId) -> AccountIdOf<T> {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennzx-account-id");
 		buf.extend_from_slice(&u64_to_bytes(As::as_(asset1)));
 		buf.extend_from_slice(&u64_to_bytes(As::as_(asset2)));
 
-		T::Hashing::hash(&buf[..]).into()
+		// Use shim `system::Trait::Hash` -> `Trait::AccountId` -> system::Trait::AccountId`
+		<T as Trait>::AccountId::from(T::Hashing::hash(&buf[..])).into()
 	}
 
 	//
@@ -184,7 +194,7 @@ where
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}
@@ -216,7 +226,7 @@ where
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}
@@ -252,7 +262,7 @@ where
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}
@@ -283,7 +293,7 @@ where
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}
@@ -328,7 +338,7 @@ where
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}
@@ -369,7 +379,7 @@ where
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		recipient: T::AccountId,
+		recipient: AccountIdOf<T>,
 		expire: u32,
 	) {
 	}

@@ -193,6 +193,7 @@ impl fees::Trait for Runtime {
 }
 
 impl cennz_x::Trait for Runtime {
+	type AccountId = AccountId;
 	type Event = Event;
 }
 
