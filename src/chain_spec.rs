@@ -4,7 +4,7 @@ use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, GenericAssetConfig, Permill, Perbill};
+	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, FeesConfig, GenericAssetConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
@@ -58,11 +58,10 @@ fn cennznet_dev_uat_genesis(
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 10,
-			transaction_byte_fee: 1,
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
+			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -148,6 +147,10 @@ fn cennznet_dev_uat_genesis(
 			// dummy
 			dummy: 0,
 		}),
+		fees: Some(FeesConfig {
+			transaction_base_fee: 10,
+			transaction_byte_fee: 1,
+		}),
 	}
 }
 
@@ -173,11 +176,10 @@ pub fn local_dev_genesis(
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 1,
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
+			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -262,6 +264,10 @@ pub fn local_dev_genesis(
 			next_asset_id: 1_000_000,
 			// dummy
 			dummy: 0,
+		}),
+		fees: Some(FeesConfig {
+			transaction_base_fee: 1,
+			transaction_byte_fee: 1,
 		}),
 	}
 }
