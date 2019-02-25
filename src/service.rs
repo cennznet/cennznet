@@ -94,7 +94,7 @@ construct_service_factory! {
 				executor.spawn(grandpa::run_grandpa(
 					grandpa::Config {
 						local_key,
-						// FIXME: make this available through chainspec?
+						// FIXME #1578 make this available through chainspec
 						gossip_duration: Duration::new(4, 0),
 						justification_period: 4096,
 						name: Some(service.config.name.clone())
@@ -109,12 +109,8 @@ construct_service_factory! {
 		},
 		LightService = LightComponents<Self>
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
-		FullImportQueue = AuraImportQueue<
-			Self::Block,
-			FullClient<Self>,
-			NothingExtra,
-		>
-			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<FullClient<Self>>| {
+		FullImportQueue = AuraImportQueue<Self::Block>
+			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
 				let slot_duration = SlotDuration::get_or_compute(&*client)?;
 				let (block_import, link_half) =
 					grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
@@ -134,11 +130,7 @@ construct_service_factory! {
 					config.custom.inherent_data_providers.clone(),
 				).map_err(Into::into)
 			}},
-		LightImportQueue = AuraImportQueue<
-			Self::Block,
-			LightClient<Self>,
-			NothingExtra,
-		>
+		LightImportQueue = AuraImportQueue<Self::Block>
 			{ |config: &FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
 					import_queue(
 						SlotDuration::get_or_compute(&*client)?,
