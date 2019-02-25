@@ -48,7 +48,9 @@ fn cennznet_dev_uat_genesis(
 			get_authority_id_from_seed("Drew"),
 			get_authority_id_from_seed("Emily"),
 			get_authority_id_from_seed("Frank"),
-			get_authority_id_from_seed("Centrality")
+			get_authority_id_from_seed("Centrality"),
+			get_authority_id_from_seed("Kauri"),
+			get_authority_id_from_seed("Rimu"),
 		]
 	});
 	GenesisConfig {
