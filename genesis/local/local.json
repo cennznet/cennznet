@@ -5,7 +5,7 @@
     "/ip4/127.0.0.1/tcp/30333/p2p/QmReKRKXsWc5T6gQ6EkLqYy6FFzZwi1CMXWUKmE6bMy6JV",
     "/ip4/127.0.0.1/tcp/30334/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN",
     "/ip4/127.0.0.1/tcp/30335/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK",
-    "/ip4/127.0.0.1/tcp/30336/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC",
+    "/ip4/127.0.0.1/tcp/30336/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
   ],
 	"telemetryUrl": "ws://localhost:1024",
 	"protocolId": null,
