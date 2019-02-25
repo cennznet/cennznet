@@ -112,7 +112,7 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 // The main implementation block for the module.
 impl<T: Trait> Module<T>
 where
-	T::AccountId: From<T::Hash>,
+	<T as Trait>::AccountId: From<T::Hash>,
 {
 
 	/// Generates an exchange address for the given asset pair
