@@ -4,7 +4,7 @@ use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, GenericAssetConfig, Permill, Perbill, SpotExchangeConfig};
+	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, FeesConfig, GenericAssetConfig, Permill, Perbill, SpotExchangeConfig};
 pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 

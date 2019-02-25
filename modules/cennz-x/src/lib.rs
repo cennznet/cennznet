@@ -494,69 +494,74 @@ impl<T: Trait> Module<T>
 	}
 }
 
-//#[cfg(test)]
-//mod tests {
-//	// The testing primitives are very useful for avoiding having to work with signatures
-//	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-//	use primitives::{
-//		BuildStorage,
-//		testing::{Digest, DigestItem, Header},
-//		traits::{BlakeTwo256, IdentityLookup},
-//	};
-//	use runtime_io::with_externalities;
-//	use substrate_primitives::{Blake2Hasher, H256};
-//
-//	use super::*;
-//
-//	impl_outer_origin! {
-//		pub enum Origin for Test {}
-//	}
-//
-//	// For testing the module, we construct most of a mock runtime. This means
-//	// first constructing a configuration type (`Test`) which `impl`s each of the
-//	// configuration traits of modules we want to use.
-//	#[derive(Clone, Eq, PartialEq)]
-//	pub struct Test;
-//
-//	impl system::Trait for Test {
-//		type Origin = Origin;
-//		type Index = u64;
-//		type BlockNumber = u64;
-//		type Hash = H256;
-//		type Hashing = BlakeTwo256;
-//		type Digest = Digest;
-//		type AccountId = u64;
-//		type Lookup = IdentityLookup<u64>;
-//		type Header = Header;
-//		type Event = ();
-//		type Log = DigestItem;
-//	}
-//
-//	impl Trait for Test {
-//		type Event = ();
-//	}
-//
-//	type CennzXSpot = Module<Test>;
-//
-//	fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-//		system::GenesisConfig::<Test>::default()
-//			.build_storage()
-//			.unwrap()
-//			.0
-//			.into()
-//	}
-//
-//	#[test]
-//	fn it_works() {
-//		with_externalities(&mut new_test_ext(), || {
-//			assert_ok!(CennzXSpot::add_liquidity(
-//				Origin::signed(1),
-//				0, //asset_id: T::AssetId,
-//				10, // min_liquidity: T::Balance,
-//				10, //max_asset_amount: T::Balance,
-//				10, //core_amount: T::Balance,
-//				10//expire: T::Moment
-//			))
-//		});
-//	}
-//}
+#[cfg(test)]
+mod tests {
+	// The testing primitives are very useful for avoiding having to work with signatures
+	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
+	use primitives::{
+		BuildStorage,
+		testing::{Digest, DigestItem, Header},
+		traits::{BlakeTwo256, IdentityLookup},
+	};
+	use runtime_io::with_externalities;
+	use substrate_primitives::{Blake2Hasher, H256};
+
+	use super::*;
+
+	impl_outer_origin! {
+		pub enum Origin for Test {}
+	}
+
+	// For testing the module, we construct most of a mock runtime. This means
+	// first constructing a configuration type (`Test`) which `impl`s each of the
+	// configuration traits of modules we want to use.
+	#[derive(Clone, Eq, PartialEq)]
+	pub struct Test;
+
+	impl system::Trait for Test {
+		type Origin = Origin;
+		type Index = u64;
+		type BlockNumber = u64;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type Digest = Digest;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<u64>;
+		type Header = Header;
+		type Event = ();
+		type Log = DigestItem;
+	}
+
+	impl timestamp::Trait for Test {
+		type Moment = u64;
+		type OnTimestampSet = Aura;
+	}
+
+	impl Trait for Test {
+		type Event = ();
+	}
+
+	type CennzXSpot = Module<Test>;
+
+	fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+		system::GenesisConfig::<Test>::default()
+			.build_storage()
+			.unwrap()
+			.0
+			.into()
+	}
+
+	#[test]
+	fn it_works() {
+		with_externalities(&mut new_test_ext(), || {
+			assert_ok!(CennzXSpot::add_liquidity(
+				Origin::signed(1),
+				0, //asset_id: T::AssetId,
+				10, // min_liquidity: T::Balance,
+				10, //max_asset_amount: T::Balance,
+				10, //core_amount: T::Balance,
+				10//expire: T::Moment
+			))
+		});
+	}
+}
