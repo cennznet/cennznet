@@ -45,12 +45,17 @@ decl_module! {
 		) {
 			let from_account = ensure_signed(origin)?;
 			Self::ensure_not_expired(expire)?;
+			let core_asset_id = Self::core_asset_id();
 			ensure!(!max_asset_amount.is_zero(), "trade asset amount must be greater than zero");
 			ensure!(!core_amount.is_zero(), "core asset amount must be greater than zero");
-			let core_asset_id = Self::core_asset_id();
+			ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
+				"no enough core asset balance"
+			);
+			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
+				"no enough trade asset balance"
+			);
 			let total_liquidity = Self::get_total_supply(asset_id.clone());
 			let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
-
 			if total_liquidity.is_zero() {
 				// new exchange pool
 				<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
@@ -105,6 +110,7 @@ decl_event!(
 /// Key: `(core asset id, trade asset id), account_id`
 pub(crate) struct LiquidityBalance<T>(rstd::marker::PhantomData<T>);
 
+/// store all user's liquidity in each exchange pool
 impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
 	const PREFIX: &'static [u8] = b"cennz-x-spot:liquidity";
 	type Key1 = (T::AssetId, T::AssetId);
@@ -123,11 +129,13 @@ impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as CennzX {
-		/// The Core AssetId
+		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
+		/// Default Trading fee rate
 		pub FeeRate get(fee_rate) config(): (u32, u32);
-		// Total supply of exchange token in existence.
-		// Key: `(asset id, core asset id)`
+		/// Total supply of exchange token in existence.
+		/// it will always be less than the core asset's total supply
+		/// Key: `(asset id, core asset id)`
 		pub TotalSupply get(total_supply): map (T::AssetId, T::AssetId) => T::Balance;
 	}
 }
@@ -168,21 +176,21 @@ impl<T: Trait> Module<T>
 	fn get_total_supply(asset_id: T::AssetId) -> T::Balance {
 		let core_asset_id = Self::core_asset_id();
 		<TotalSupply<T>>::get((asset_id, core_asset_id))
-//		Self::total_supply((asset_id, core_asset_id))
 	}
 
+	/// mint total supply for an exchange pool
 	fn mint_total_supply(asset_id: &T::AssetId, increase: &T::Balance) {
 		let core_asset_id = Self::core_asset_id();
 		<TotalSupply<T>>::mutate(
 			(*asset_id, core_asset_id),
-			|balance| { *balance + *increase });
+			|balance| { *balance + *increase }); // will not overflow because it's limited by core assets's total supply
 	}
 
 	fn burn_total_supply(asset_id: &T::AssetId, decrease: &T::Balance) {
 		let core_asset_id = Self::core_asset_id();
 		<TotalSupply<T>>::mutate(
 			(*asset_id, core_asset_id),
-			|balance| { *balance - *decrease });
+			|balance| { *balance - *decrease }); // will not downflow for the same reason
 	}
 
 	fn set_liquidity(core_asset_id: T::AssetId, asset_id: T::AssetId, who: &AccountIdOf<T>, balance: T::Balance) {
