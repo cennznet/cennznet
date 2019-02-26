@@ -6,12 +6,10 @@
 #[macro_use]
 extern crate srml_support as support;
 
-extern crate srml_timestamp as timestamp;
-
 use rstd::prelude::*;
 use generic_asset;
 use runtime_io::twox_128;
-use runtime_primitives::traits::{As, Hash};
+use runtime_primitives::traits::{As, Hash, One, Zero};
 use support::{StorageDoubleMap, StorageMap, StorageValue, dispatch::Result};
 use system::ensure_signed;
 
@@ -28,6 +26,15 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
+		/// Deposit core asset and trade asset at current ratio to mint liquidity
+		/// Returns amount of liquidity minted.
+		///
+		/// `origin`
+		/// `asset_id` - The trade asset ID
+		/// `min_liquidity` - The minimum liquidity to add
+		/// `asset_amount` - Amount of trade asset to add
+		/// `core_amount` - Amount of core asset to add
+		/// `expire` - Amount of core asset to add
 		pub fn add_liquidity(
 			origin,
 			asset_id: T::AssetId,
@@ -36,8 +43,40 @@ decl_module! {
 			core_amount: T::Balance,
 			expire: T::Moment
 		) {
-			let origin = ensure_signed(origin)?;
-			Self::_add_liquidity(origin, asset_id, min_liquidity, max_asset_amount, core_amount, expire)?;
+			let from_account = ensure_signed(origin)?;
+			Self::ensure_not_expired(expire)?;
+			ensure!(!max_asset_amount.is_zero(), "trade asset amount must be greater than zero");
+			ensure!(!core_amount.is_zero(), "core asset amount must be greater than zero");
+			let core_asset_id = Self::core_asset_id();
+			let total_liquidity = Self::get_total_supply(asset_id.clone());
+			let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
+
+			if total_liquidity.is_zero() {
+				// new exchange pool
+				<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
+				<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, max_asset_amount)?;
+				let trade_asset_amount = max_asset_amount;
+				let initial_liquidity = core_amount;
+				Self::set_liquidity(core_asset_id, asset_id, &from_account, initial_liquidity);
+				Self::mint_total_supply(&asset_id, &initial_liquidity);
+				Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), initial_liquidity, asset_id.clone(), trade_asset_amount));
+			} else {
+				// shall i use total_balance instead? in which case the exchange address will have reserve balance?
+				let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+				let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+				let trade_asset_amount = core_amount.clone() * trade_asset_reserve / core_asset_reserve + One::one();
+				let liquidity_minted = core_amount.clone() * total_liquidity / core_asset_reserve;
+				ensure!( liquidity_minted >= min_liquidity, "Minimum liquidity is required");
+				ensure!( max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
+
+				<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount.clone())?;
+				<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount.clone())?;
+
+				Self::set_liquidity(core_asset_id, asset_id, &from_account,
+									Self::get_liquidity(core_asset_id, asset_id.clone(), &from_account) + liquidity_minted);
+				Self::mint_total_supply(&asset_id, &liquidity_minted);
+				Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), core_amount, asset_id, trade_asset_amount));
+			}
 		}
 	}
 }
@@ -158,55 +197,6 @@ impl<T: Trait> Module<T>
 	// Manage Liquidity
 	//
 
-	/// Deposit core asset and trade asset at current ratio to mint exchange assets
-	/// Returns amount of exchange assets minted.
-	///
-	/// `asset_id` - The trade asset ID
-	/// `min_liquidity` - The minimum liquidity to add
-	/// `asset_amount` - Amount of trade asset to add
-	/// `core_amount` - Amount of core asset to add
-	/// `expire` - Amount of core asset to add
-	pub fn _add_liquidity(
-		from_account: AccountIdOf<T>,
-		asset_id: T::AssetId,
-		min_liquidity: T::Balance,
-		max_asset_amount: T::Balance,
-		core_amount: T::Balance,
-		expire: T::Moment,
-	) -> rstd::result::Result<T::Balance, &'static str> {
-		Self::ensure_not_expired(expire)?;
-		let core_asset_id = Self::core_asset_id();
-		let total_liquidity = Self::get_total_supply(asset_id.clone());
-		let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
-		if total_liquidity > T::Balance::sa(0) {
-			// shall i use total_balance instead? in which case the exchange address will have reserve balance?
-			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let trade_asset_amount = core_amount.clone() * trade_asset_reserve / core_asset_reserve + T::Balance::sa(1);
-			let liquidity_minted = core_amount.clone() * total_liquidity / core_asset_reserve;
-			ensure!( liquidity_minted >= min_liquidity, "Minimum liquidity is required");
-			ensure!( max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
-
-			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount.clone())?;
-			<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount.clone())?;
-
-			Self::set_liquidity(core_asset_id, asset_id, &from_account,
-								Self::get_liquidity(core_asset_id, asset_id.clone(), &from_account) + liquidity_minted);
-			Self::mint_total_supply(&asset_id, &liquidity_minted);
-			Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), core_amount, asset_id, trade_asset_amount));
-			Ok(liquidity_minted)
-		} else {
-			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-			<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, max_asset_amount)?;
-			let trade_asset_amount = max_asset_amount;
-			let initial_liquidity = core_amount;
-			Self::set_liquidity(core_asset_id, asset_id, &from_account, initial_liquidity);
-			Self::mint_total_supply(&asset_id, &initial_liquidity);
-			Self::deposit_event(RawEvent::AddLiquidity(from_account.clone(), initial_liquidity, asset_id.clone(), trade_asset_amount));
-			Ok(initial_liquidity.clone())
-		}
-	}
-
 	/// Burn exchange assets to withdraw core asset and trade asset at current ratio
 	///
 	/// `asset_id` - The trade asset ID
@@ -321,7 +311,7 @@ impl<T: Trait> Module<T>
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: T::Moment,
+//		expire: T::Moment,
 		fee_rate: u32,
 	) {}
 
@@ -624,14 +614,14 @@ mod tests {
 					100,
 				);
 			}
-			assert_eq!(CennzXSpot::_add_liquidity(
-				H256::from_low_u64_be(1),
+			assert_ok!(CennzXSpot::add_liquidity(
+				Origin::signed(H256::from_low_u64_be(1)),
 				1, //asset_id: T::AssetId,
 				2, // min_liquidity: T::Balance,
 				15, //max_asset_amount: T::Balance,
 				10, //core_amount: T::Balance,
 				10,//expire: T::Moment
-			), Ok(10));
+			));
 
 			let pool_address = CennzXSpot::generate_exchange_address(1, 0);
 
