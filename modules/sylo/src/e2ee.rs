@@ -20,7 +20,7 @@ pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trai
 }
 
 // Serialized pre key bundle used to establish one to one e2ee
-pub type PKB = Vec<u8>;
+pub type PreKeyBundle = Vec<u8>;
 
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId {
@@ -34,7 +34,7 @@ decl_module! {
 
 		// Registers a new device id for e2ee
 		// request_id is used to identify the assigned device id
-		fn register_device(origin, device_id: u32, pkbs: Vec<PKB>) -> Result {
+		fn register_device(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			let result = <device::Module<T>>::append_device(sender.clone(), device_id);
@@ -48,7 +48,7 @@ decl_module! {
 			}
 		}
 
-		fn replenish_pkbs(origin, device_id: u32, pkbs: Vec<PKB>) -> Result {
+		fn replenish_pkbs(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			Self::store_pkbs(sender, device_id, pkbs);
@@ -59,15 +59,15 @@ decl_module! {
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
 			let sender = ensure_signed(origin)?;
 
-			let acquired_pkbs: Vec<(T::AccountId, u32, PKB)> = wanted_pkbs
+			let acquired_pkbs: Vec<(T::AccountId, u32, PreKeyBundle)> = wanted_pkbs
 				.into_iter()
 				.filter_map(|wanted_pkb| {
 					// retrieve set of pre key bundles for (user, deviceId)
-					let mut pkbs = <PKBs<T>>::get(wanted_pkb.clone());
+					let mut pkbs = <PreKeyBundles<T>>::get(wanted_pkb.clone());
 
 					match pkbs.pop() {
 						Some(retrieved_pkb) => {
-							<PKBs<T>>::insert(wanted_pkb.clone(), pkbs);
+							<PreKeyBundles<T>>::insert(wanted_pkb.clone(), pkbs);
 							return Some((wanted_pkb.0, wanted_pkb.1, retrieved_pkb))
 						}
 						None => None
@@ -75,7 +75,7 @@ decl_module! {
 				})
 				.collect();
 
-			<response::Module<T>>::set_response(sender, request_id, response::Response::Pkb(acquired_pkbs));
+			<response::Module<T>>::set_response(sender, request_id, response::Response::PreKeyBundles(acquired_pkbs));
 			Ok(())
 		}
 	}
@@ -83,17 +83,17 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloE2EE {
-		/* PKBs */
-		PKBs get(pkbs): map (T::AccountId, u32 /* device_id */) => Vec<PKB>;
+		/* PreKeyBundles */
+		PreKeyBundles get(pkbs): map (T::AccountId, u32 /* device_id */) => Vec<PreKeyBundle>;
 	}
 }
 
 impl<T: Trait> Module<T> {
-	fn store_pkbs(account_id: T::AccountId, device_id: u32, pkbs: Vec<PKB>) {
-		let mut current_pkbs = <PKBs<T>>::get((account_id.clone(), device_id.clone()));
+	fn store_pkbs(account_id: T::AccountId, device_id: u32, pkbs: Vec<PreKeyBundle>) {
+		let mut current_pkbs = <PreKeyBundles<T>>::get((account_id.clone(), device_id.clone()));
 
 		current_pkbs.extend(pkbs);
 
-		<PKBs<T>>::insert((account_id, device_id), current_pkbs);
+		<PreKeyBundles<T>>::insert((account_id, device_id), current_pkbs);
 	}
 }

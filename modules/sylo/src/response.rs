@@ -15,13 +15,12 @@ extern crate sr_io;
 extern crate substrate_primitives;
 
 pub trait Trait: balances::Trait {}
-pub type Text = Vec<u8>;
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum Response<T: Encode + Decode> {
     DeviceId(u32),
-    Pkb(Vec<(T, u32, Text)>),
+    PreKeyBundles(Vec<(T, u32, Vec<u8>)>),
     None,
 }
 
@@ -130,7 +129,7 @@ pub(super) mod tests {
             );
 
             // // setting pkb type
-            let resp_pkb = Response::Pkb(vec![(1, 2, b"test data".to_vec())]);
+            let resp_pkb = Response::PreKeyBundles(vec![(1, 2, b"test data".to_vec())]);
             Responses::set_response(1, request_id.clone(), resp_pkb.clone());
             assert_eq!(
                 Responses::response((1, request_id.clone())),
