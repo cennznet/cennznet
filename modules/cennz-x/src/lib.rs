@@ -5,12 +5,11 @@
 
 #[macro_use]
 extern crate srml_support as support;
-
 extern crate srml_timestamp as timestamp;
 use rstd::prelude::*;
 use generic_asset;
 use runtime_io::{twox_128};
-use runtime_primitives::traits::{As, Hash, One, Zero};
+use runtime_primitives::{Permill, traits::{As, Hash, One, Zero}};
 use support::{StorageDoubleMap, StorageMap, StorageValue, dispatch::Result};
 use system::ensure_signed;
 
@@ -41,6 +40,14 @@ decl_module! {
 		) {
 			let origin = ensure_signed(origin)?;
 //			Self::_add_liquidity(origin.into(), asset_id, min_liquidity, max_asset_amount, core_amount, expire);
+		}
+
+		pub fn asset_to_core_output_price(
+			asset_id: T::AssetId,
+			amount_bought: T::Balance
+		) {
+			let fee_rate = Self::fee_rate();
+			Self::_asset_to_core_output_price( asset_id, amount_bought, fee_rate);
 		}
 	}
 }
@@ -88,7 +95,7 @@ decl_storage! {
 	trait Store for Module<T: Trait> as CennzX {
 		/// The Core AssetId
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
-		pub FeeRate get(fee_rate) config(): (u32, u32);
+		pub FeeRate get(fee_rate) config(): Permill;
 		// Total supply of exchange token in existence.
 		// Key: `(asset id, core asset id)`
 		pub TotalSupply get(total_supply): map (T::AssetId, T::AssetId) => T::Balance;
@@ -108,7 +115,6 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 // The main implementation block for the module.
 impl<T: Trait> Module<T>
 {
-
 	/// Generates an exchange address for the given asset pair
 	fn generate_exchange_address(asset: T::AssetId, core_asset: T::AssetId) -> AccountIdOf<T> {
 		let mut buf = Vec::new();
@@ -339,8 +345,11 @@ impl<T: Trait> Module<T>
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
-	) {}
+		fee_rate: (u32, u32)
+	) {
+		//Self::_asset_to_core_output_price( asset_id, amount_bought, fee_rate);
+	}
+
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
 	/// User specifies maximum input (core asset) and exact output.
@@ -445,6 +454,7 @@ impl<T: Trait> Module<T>
 		fee_rate: u32,
 	) {}
 
+
 	//
 	// Get Prices
 	//
@@ -482,15 +492,42 @@ impl<T: Trait> Module<T>
 		T::Balance::sa(0)
 	}
 
+	 fn get_output_price(output_amount: T::Balance, input_reserve: T::Balance, output_reserve: T::Balance, fee_rate: Permill) -> T::Balance
+	{
+		if input_reserve > Zero::zero() && output_reserve > Zero::zero() {
+			// let (fee_rate_numerator, decimal_points) = fee_rate; // (131, 2) = 1.31
+			// let fee_rate_num: T::Balance = T::Balance::sa(fee_rate_numerator as u64);
+			//let fee_rate_denominator: T::Balance = 10_i32.pow(decimal_points);
+			//let fee_rate_denominator: T::Balance = T::Balance::sa(10_i32.pow(decimal_points) as u64);
+			//let numerator: T::Balance = input_reserve * output_amount * fee_rate_num;
+			// let numerator: BalanceOf<T> = fee_rate * input_reserve * output_amount;
+			let numerator: T::Balance = fee_rate * input_reserve * output_amount;
+			// let denominator = (output_reserve - output_amount) * fee_rate_denominator;
+			let denominator = output_reserve - output_amount;
+			numerator / denominator + One::one()
+		} else {
+			Zero::zero()
+		}
+	}
+
 	/// `asset_id` - Trade asset
 	/// `amount_bought` - Amount of output core
 	/// Returns amount of trade assets needed to buy output core.
-	pub fn asset_to_core_output_price(
+	pub fn _asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) -> T::Balance {
-		T::Balance::sa(0)
+		let core_asset_id = Self::core_asset_id();
+		if amount_bought > Zero::zero() {
+			let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
+			// shall i use total_balance instead? in which case the exchange address will have reserve balance?
+			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+			Self::get_output_price(amount_bought, trade_asset_reserve, core_asset_reserve, fee_rate)
+		} else {
+			Zero::zero()
+		}
 	}
 }
 
@@ -563,5 +600,10 @@ mod tests {
 				10//expire: T::Moment
 			))
 		});
+	}
+
+	#[test]
+	fn calculate_output_price() {
+
 	}
 }
