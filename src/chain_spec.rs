@@ -152,7 +152,7 @@ fn cennznet_dev_uat_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig{
-			fee_rate: (3, 1000),
+			inverse_fee_rate: Permill::from_percent(97),
 			core_asset_id: 10,
 		}),
 	}
@@ -274,7 +274,7 @@ pub fn local_dev_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig{
-			fee_rate: (3, 1000),
+			fee_rate: Permill::from_percent(5),
 			core_asset_id: 10,
 		}),
 	}
