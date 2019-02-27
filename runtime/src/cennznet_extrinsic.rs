@@ -2,6 +2,7 @@
 
 #[cfg(feature = "std")]
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rstd::prelude::*;
 use runtime_primitives::codec::{Compact, Decode, Encode, Input};
@@ -109,10 +110,13 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 				}) {
 					return Err("bad signature in extrinsic")
 				}
-
+				let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+					Ok(n)=> n.as_secs(), 
+					Err(_) => return Err("SystemTime before UNIX EPOCH!")
+				};
 				match self.doughnut {
 					Some(d) => {
-						match d.validate() {
+						match d.validate(now) {
 							Err(e) => return Err(e),
 							Ok(d) => CheckedExtrinsic {
 								signed: Some((d.certificate.issuer, (raw_payload.0).0)),
@@ -203,6 +207,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 
 #[cfg(feature = "std")]
 impl<AccountId, Address, Index, Call, Signature> fmt::Debug for CennznetExtrinsic<AccountId, Address, Index, Call, Signature> where
+	AccountId: fmt::Debug,
 	Address: fmt::Debug,
 	Index: fmt::Debug,
 	Call: fmt::Debug,
