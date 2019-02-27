@@ -289,7 +289,10 @@ decl_module! {
           .map(|device| (sender.clone(), device))
           .collect();
 
-      <MemberDevices<T>>::insert(group_id.clone(), member_devices);
+      let mut all_devices = <MemberDevices<T>>::get(&group_id);
+      all_devices.extend(member_devices);
+
+      <MemberDevices<T>>::insert(group_id.clone(), all_devices);
 
       <inbox::Module<T>>::delete(sender, vec![inbox_id])
     }
@@ -355,6 +358,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    pub fn get_users_groups(account_id: T::AccountId) -> Vec<T::Hash> {
+        <Memberships<T>>::get(&account_id)
+    }
+
     fn create_invite(group_id: T::Hash, invite: Invite<T::AccountId>) -> Result {
         let peer_id = invite.peer_id;
         let invite_data = invite.invite_data;
@@ -374,5 +381,20 @@ impl<T: Trait> Module<T> {
         <Groups<T>>::insert(&group_id, group);
 
         <inbox::Module<T>>::add(peer_id, invite_data)
+    }
+
+    pub fn append_member_device(group_id: T::Hash, account_id: T::AccountId, device_id: u32) {
+        let mut devices = <MemberDevices<T>>::get(&group_id);
+
+        let exists = devices.clone()
+          .into_iter()
+          .find(|device| &device.0 == &account_id && &device.1 == &device_id)
+          .is_some();
+
+        if !exists {
+          devices.push((account_id, device_id));
+          <MemberDevices<T>>::insert(&group_id, devices);
+        }
+
     }
 }

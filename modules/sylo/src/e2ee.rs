@@ -41,7 +41,11 @@ decl_module! {
 
 			match result {
 				Ok(()) => {
-					Self::store_pkbs(sender, device_id, pkbs);
+					Self::store_pkbs(sender.clone(), device_id, pkbs);
+					let user_groups = <groups::Module<T>>::get_users_groups(sender.clone());
+					for group_id in user_groups {
+						<groups::Module<T>>::append_member_device(group_id, sender.clone(), device_id);
+					}
 					Ok(())
 				},
 				Err(error) => Err(error)
@@ -56,7 +60,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32)>) -> Result {
+		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32 /* device id */)>) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			let acquired_pkbs: Vec<(T::AccountId, u32, PreKeyBundle)> = wanted_pkbs
