@@ -15,6 +15,7 @@ use system::ensure_signed;
 
 // An alias for the system wide `AccountId` type
 pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
+// (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (<T as generic_asset::Trait>::AssetId, <T as generic_asset::Trait>::AssetId);
 
 pub trait Trait: system::Trait + generic_asset::Trait + timestamp::Trait {
@@ -157,7 +158,7 @@ impl<T: Trait> Module<T>
 {
 	/// Generates an exchange address for the given asset pair
 	pub fn generate_exchange_address(exchange_key: &ExchangeKey<T>) -> AccountIdOf<T> {
-		let (asset, core_asset) = exchange_key;
+		let (core_asset, asset ) = exchange_key;
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
 		buf.extend_from_slice(&u64_to_bytes(As::as_(*core_asset)));
