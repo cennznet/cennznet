@@ -23,17 +23,6 @@ pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
 	ed25519::Pair::from_seed(&padded_seed).public().0.into()
 }
 
-/// Helper function to populate genesis generic asset balances for endowed accounts.
-fn build_balances_for_accounts(
-	asset_ids: Vec<u32>,
-	accounts: Vec<AccountId>,
-	amount: u128,
-) -> Vec<(u32, AccountId, u128)> {
-	asset_ids.iter().flat_map(
-		|asset_id| accounts.iter().cloned().map(move |account_id| (asset_id.clone(), account_id, amount))
-	).collect()
-}
-
 /// genesis config for DEV/UAT env
 fn cennznet_dev_uat_genesis(
 	initial_authorities: Vec<Ed25519AuthorityId>,
@@ -137,17 +126,21 @@ fn cennznet_dev_uat_genesis(
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
-			total_supply: vec![
-				// staking token
-				(0, 10u128.pow(30)),
-				// spending token
-				(10, 10u128.pow(30))
+			assets: vec![
+				// Staking token
+				0,		// CENNZ
+				// Spending token
+				10,		// CENTRAPAY
+				// Reserve Tokens
+				100,	// PLUG
+				101,	// SYLO
+				102,	// CERTI
+				103,	// ARDA
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
-			// dummy
-			dummy: 0,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 10,
@@ -255,17 +248,21 @@ pub fn local_dev_genesis(
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
-			total_supply: vec![
-				// staking token
-				(0, 10u128.pow(30)),
-				// spending token
-				(10, 10u128.pow(30))
+			assets: vec![
+				// Staking token
+				0,		// CENNZ
+				// Spending token
+				10,		// CENTRAPAY
+				// Reserve Tokens
+				100,	// PLUG
+				101,	// SYLO
+				102,	// CERTI
+				103,	// ARDA
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
-			// dummy
-			dummy: 0,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1,
