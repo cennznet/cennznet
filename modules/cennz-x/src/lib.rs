@@ -3,13 +3,16 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// TODO: Suppress warnings from unimplemented stubs. Remove when complete
+#![allow(unused_variables)]
+
 #[macro_use]
 extern crate srml_support as support;
 
-use rstd::prelude::*;
+use rstd::{mem, prelude::*};
 use generic_asset;
 use runtime_io::twox_128;
-use runtime_primitives::traits::{As, Hash, One, Zero};
+use runtime_primitives::{traits::{As, Hash, One, Zero}, Permill};
 use support::{StorageDoubleMap, StorageMap, StorageValue, dispatch::Result};
 use system::ensure_signed;
 
@@ -69,13 +72,13 @@ decl_module! {
 				Self::mint_total_supply(&exchange_key, initial_liquidity);
 				Self::deposit_event(RawEvent::AddLiquidity(from_account, initial_liquidity, asset_id, trade_asset_amount));
 			} else {
-				// shall i use total_balance instead? in which case the exchange address will have reserve balance?
+				// TODO: shall i use total_balance instead? in which case the exchange address will have reserve balance?
 				let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 				let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
-				ensure!( liquidity_minted >= min_liquidity, "Minimum liquidity is required");
-				ensure!( max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
+				ensure!(liquidity_minted >= min_liquidity, "Minimum liquidity is required");
+				ensure!(max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
 
 				<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
 				<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
@@ -135,7 +138,7 @@ decl_storage! {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
-		pub FeeRate get(fee_rate) config(): (u32, u32);
+		pub FeeRate get(fee_rate) config(): Permill;
 		/// Total supply of exchange token in existence.
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
@@ -145,12 +148,7 @@ decl_storage! {
 
 /// Convert a `u64` into its byte array representation
 fn u64_to_bytes(x: u64) -> [u8; 8] {
-	let mut buf: [u8; 8] = [0u8; 8];
-	for i in 0..8 {
-		buf[7 - i] = ((x >> i * 8) & 0xFF) as u8;
-	}
-
-	buf
+	unsafe { mem::transmute(x.to_le()) }
 }
 
 // The main implementation block for the module.
@@ -236,7 +234,7 @@ impl<T: Trait> Module<T>
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
@@ -253,7 +251,7 @@ impl<T: Trait> Module<T>
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert core asset to trade asset. User specifies
@@ -268,7 +266,7 @@ impl<T: Trait> Module<T>
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient
@@ -285,7 +283,7 @@ impl<T: Trait> Module<T>
 		max_amount_sold: T::Balance,
 		recipient: AccountIdOf<T>,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	//
@@ -304,7 +302,7 @@ impl<T: Trait> Module<T>
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert trade asset to core asset and transfer the core asset to recipient from system account.
@@ -321,7 +319,7 @@ impl<T: Trait> Module<T>
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
 //		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert trade asset to core asset. User specifies maximum input (trade asset) and exact output
@@ -335,7 +333,7 @@ impl<T: Trait> Module<T>
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
@@ -352,7 +350,7 @@ impl<T: Trait> Module<T>
 		max_amount_sold: T::Balance,
 		recipient: AccountIdOf<T>,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	//
@@ -375,7 +373,7 @@ impl<T: Trait> Module<T>
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset and transfer the
@@ -397,7 +395,7 @@ impl<T: Trait> Module<T>
 		min_core_bought: T::Balance,
 		recipient: AccountIdOf<T>,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset. User specifies maximum
@@ -416,7 +414,7 @@ impl<T: Trait> Module<T>
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	/// Convert trade asset1 to trade asset2 via core asset and transfer the trade asset2
@@ -438,7 +436,7 @@ impl<T: Trait> Module<T>
 		max_core_sold: T::Balance,
 		recipient: AccountIdOf<T>,
 		expire: T::Moment,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) {}
 
 	//
@@ -451,7 +449,7 @@ impl<T: Trait> Module<T>
 	pub fn core_to_asset_input_price(
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
@@ -462,7 +460,7 @@ impl<T: Trait> Module<T>
 	pub fn core_to_asset_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
@@ -473,7 +471,7 @@ impl<T: Trait> Module<T>
 	pub fn asset_to_core_input_price(
 		asset_id: T::AssetId,
 		amount_sold: T::Balance,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
@@ -484,7 +482,7 @@ impl<T: Trait> Module<T>
 	pub fn asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		fee_rate: u32,
+		fee_rate: Permill,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
@@ -566,14 +564,14 @@ mod tests {
 
 	pub struct ExtBuilder {
 		core_asset_id: u32,
-		fee_rate: (u32, u32),
+		fee_rate: Permill,
 	}
 
 	impl Default for ExtBuilder {
 		fn default() -> Self {
 			Self {
 				core_asset_id: 0,
-				fee_rate: (3, 1000),
+				fee_rate: Permill::from_percent(3),
 			}
 		}
 	}
@@ -611,7 +609,7 @@ mod tests {
 			let core_asset_id = <CoreAssetId<Test>>::get();
 			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
 			{
-//				<timestamp::Module<Test>>::set_timestamp(20);
+				// <timestamp::Module<Test>>::set_timestamp(20);
 				<generic_asset::Module<Test>>::set_free_balance(
 					&0,
 					&H256::from_low_u64_be(1),
@@ -638,7 +636,11 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 15);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
-
 		});
+	}
+
+	#[test]
+	fn u64_to_bytes_works() {
+		assert_eq!(u64_to_bytes(80000), [128,56,1,0,0,0,0,0]);
 	}
 }
