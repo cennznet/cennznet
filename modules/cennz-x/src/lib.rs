@@ -45,7 +45,7 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
 			let core_asset_id = Self::core_asset_id();
-			let asset_sold: T::Balance = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
+			let asset_sold = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
 			ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
 			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
 					"Not enough core asset balance"
