@@ -31,6 +31,37 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
+		/// Convert trade asset to core asset. User specifies maximum input (trade asset) and exact output
+		/// origin,
+		/// `asset_id` - Trade asset ID
+		/// `amount_bought` - Amount of core asset purchased
+		/// `max_amount_sold` -  Maximum trade asset sold
+		/// `expire` - The block height before which this trade is valid
+		pub fn asset_to_core_swap_output(
+			origin,
+			asset_id: T::AssetId,
+			amount_bought: T::Balance,
+			max_amount_sold: T::Balance,
+			expire: T::Moment
+		) -> Result {
+			let from_account = ensure_signed(origin)?;
+			Self::ensure_not_expired(expire)?;
+			let return_fee_rate = Self::return_fee_rate();
+			let core_asset_id = Self::core_asset_id();
+			let asset_sold : T::Balance = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
+			ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
+			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
+					"no enough core asset balance"
+				);
+			let exchange_key = (core_asset_id, asset_id);
+			let exchange_address = Self::generate_exchange_address(&exchange_key);
+			ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
+					"no enough trade asset balance in pool"
+				);
+			Self::_asset_to_core_swap_output(asset_id, amount_bought, asset_sold, from_account, return_fee_rate);
+			Ok(())
+		}
+
 		/// Deposit core asset and trade asset at current ratio to mint liquidity
 		/// Returns amount of liquidity minted.
 		///
@@ -328,28 +359,18 @@ impl<T: Trait> Module<T>
 	/// `amount_bought` - Amount of core asset purchased
 	/// `max_amount_sold` -  Maximum trade asset sold
 	/// `expire` - The block height before which this trade is valid
-	pub fn asset_to_core_swap_output(
+	fn _asset_to_core_swap_output(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
-		expire: T::Moment,
+		asset_sold: T::Balance,
 		from_account: AccountIdOf<T>,
 		fee_rate: Permill
 	) -> T::Balance {
-		// let from_account = ensure_signed(origin)?;
 		let core_asset_id = Self::core_asset_id();
-		let asset_sold : T::Balance = Self::_asset_to_core_output_price( asset_id, amount_bought, fee_rate);
-		// ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
-		//ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
-		//		"no enough core asset balance"
-		//	);
 		let exchange_key = (core_asset_id, asset_id);
 		let exchange_address = Self::generate_exchange_address(&exchange_key);
-		//ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
-		//		"no enough trade asset balance in pool"
-		//	);
-		<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought.clone());
-		<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold.clone());
+		<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought);
+		<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold);
 		asset_sold
 	}
 
@@ -508,14 +529,13 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset
 	/// `amount_bought` - Amount of output core
 	/// Returns amount of trade assets needed to buy output core.
-	pub fn _asset_to_core_output_price(
+	fn _asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		return_fee_rate: Permill,
 	) -> T::Balance {
-		let core_asset_id = Self::core_asset_id();
 		if amount_bought > Zero::zero() {
-			let exchange_key = (core_asset_id, asset_id);
+			let exchange_key = (Self::core_asset_id(), asset_id);
 			let exchange_address = Self::generate_exchange_address(&exchange_key);
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
@@ -716,14 +736,13 @@ mod tests {
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
 			assert_eq!(CennzXSpot::_asset_to_core_output_price(1,123,return_fee_rate),136);
-			assert_eq!(CennzXSpot::asset_to_core_swap_output(
+			assert_ok!(CennzXSpot::asset_to_core_swap_output(
+				Origin::signed(H256::from_low_u64_be(1)), //origin
 				1, // asset_id: T::AssetId,
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
 				10, // expire: T::Moment,
-				H256::from_low_u64_be(1), // from_account: AccountIdOf<T>,
-				return_fee_rate // fee_rate: Permill,
-			),136);
+			));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
