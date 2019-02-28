@@ -15,6 +15,8 @@ extern crate parity_codec;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use {balances, inbox, response, groups, device, system::ensure_signed};
 
+const MAX_PKBS: usize = 50;
+
 pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait + groups::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -41,12 +43,11 @@ decl_module! {
 
 			match result {
 				Ok(()) => {
-					Self::store_pkbs(sender.clone(), device_id, pkbs);
 					let user_groups = <groups::Module<T>>::get_users_groups(sender.clone());
 					for group_id in user_groups {
 						<groups::Module<T>>::append_member_device(group_id, sender.clone(), device_id);
 					}
-					Ok(())
+					Self::store_pkbs(sender.clone(), device_id, pkbs)
 				},
 				Err(error) => Err(error)
 			}
@@ -55,9 +56,7 @@ decl_module! {
 		fn replenish_pkbs(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
 			let sender = ensure_signed(origin)?;
 
-			Self::store_pkbs(sender, device_id, pkbs);
-
-			Ok(())
+			Self::store_pkbs(sender, device_id, pkbs)
 		}
 
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, u32 /* device id */)>) -> Result {
@@ -93,11 +92,15 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {
-	fn store_pkbs(account_id: T::AccountId, device_id: u32, pkbs: Vec<PreKeyBundle>) {
+	fn store_pkbs(account_id: T::AccountId, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
 		let mut current_pkbs = <PreKeyBundles<T>>::get((account_id.clone(), device_id.clone()));
+
+		ensure!((current_pkbs.len() + pkbs.len()) <= MAX_PKBS, "User can not store more than maximum number of pkbs");
 
 		current_pkbs.extend(pkbs);
 
 		<PreKeyBundles<T>>::insert((account_id, device_id), current_pkbs);
+
+		Ok(())
 	}
 }

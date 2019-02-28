@@ -11,6 +11,8 @@ extern crate sr_io;
 #[cfg(test)]
 extern crate substrate_primitives;
 
+const MAX_DEVICES: usize = 1000;
+
 pub trait Trait: balances::Trait + response::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -40,6 +42,7 @@ impl<T: Trait> Module<T> {
 		let mut devices = <Devices<T>>::get(&user_id);
 
 		ensure!(!devices.contains(&device_id), "Device Id already in use");
+        ensure!(devices.len() < MAX_DEVICES, "User has registered up to the maximum number of devices");
 
 		devices.push(device_id);
 
