@@ -38,15 +38,15 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn append_device(user_id: T::AccountId, device_id: u32) -> Result {
-		let mut devices = <Devices<T>>::get(&user_id);
+    pub fn append_device(user_id: &T::AccountId, device_id: u32) -> Result {
+		let mut devices = <Devices<T>>::get(user_id);
 
 		ensure!(!devices.contains(&device_id), "Device Id already in use");
         ensure!(devices.len() < MAX_DEVICES, "User has registered up to the maximum number of devices");
 
 		devices.push(device_id);
 
-		<Devices<T>>::insert(&user_id, devices);
+		<Devices<T>>::insert(user_id, devices);
 
         Ok(())
     }

@@ -39,13 +39,13 @@ decl_module! {
 		fn register_device(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
 			let sender = ensure_signed(origin)?;
 
-			let result = <device::Module<T>>::append_device(sender.clone(), device_id);
+			let result = <device::Module<T>>::append_device(&sender, device_id);
 
 			match result {
 				Ok(()) => {
-					let user_groups = <groups::Module<T>>::get_users_groups(sender.clone());
+					let user_groups = <groups::Module<T>>::get_users_groups(&sender);
 					for group_id in user_groups {
-						<groups::Module<T>>::append_member_device(group_id, sender.clone(), device_id);
+						<groups::Module<T>>::append_member_device(&group_id, sender.clone(), device_id);
 					}
 					Self::store_pkbs(sender.clone(), device_id, pkbs)
 				},
@@ -66,11 +66,11 @@ decl_module! {
 				.into_iter()
 				.filter_map(|wanted_pkb| {
 					// retrieve set of pre key bundles for (user, deviceId)
-					let mut pkbs = <PreKeyBundles<T>>::get(wanted_pkb.clone());
+					let mut pkbs = <PreKeyBundles<T>>::get(&wanted_pkb);
 
 					match pkbs.pop() {
 						Some(retrieved_pkb) => {
-							<PreKeyBundles<T>>::insert(wanted_pkb.clone(), pkbs);
+							<PreKeyBundles<T>>::insert(&wanted_pkb, pkbs);
 							return Some((wanted_pkb.0, wanted_pkb.1, retrieved_pkb))
 						}
 						None => None
@@ -93,7 +93,7 @@ decl_storage! {
 
 impl<T: Trait> Module<T> {
 	fn store_pkbs(account_id: T::AccountId, device_id: u32, pkbs: Vec<PreKeyBundle>) -> Result {
-		let mut current_pkbs = <PreKeyBundles<T>>::get((account_id.clone(), device_id.clone()));
+		let mut current_pkbs = <PreKeyBundles<T>>::get((account_id.clone(), device_id));
 
 		ensure!((current_pkbs.len() + pkbs.len()) <= MAX_PKBS, "User can not store more than maximum number of pkbs");
 

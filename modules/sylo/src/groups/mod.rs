@@ -116,7 +116,7 @@ decl_module! {
       <Groups<T>>::insert(group_id.clone(), group);
 
       // Record new membership
-      Self::store_membership(sender.clone(), group_id.clone());
+      Self::store_membership(&sender, group_id.clone());
 
       // Record user's devices
       let member_devices: Vec<(T::AccountId, u32)> =
@@ -129,7 +129,7 @@ decl_module! {
 
       // Create invites
       for invite in invites {
-        match Self::create_invite(group_id, invite) {
+        match Self::create_invite(&group_id, invite) {
           Ok(_unit) => {},
           Err(_error) => {}
         }
@@ -233,7 +233,7 @@ decl_module! {
       ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 
       for invite in invites {
-        match Self::create_invite(group_id, invite) {
+        match Self::create_invite(&group_id, invite) {
           Ok(_unit) => {},
           Err(_error) => {}
         }
@@ -280,7 +280,7 @@ decl_module! {
       <Groups<T>>::insert(&group_id, group);
 
       // Record new membership
-      Self::store_membership(sender.clone(), group_id.clone());
+      Self::store_membership(&sender, group_id.clone());
 
       // Record user's devices
       let member_devices: Vec<(T::AccountId, u32)> =
@@ -348,28 +348,28 @@ impl<T: Trait> Module<T> {
             .is_some()
     }
 
-    fn store_membership(account_id: T::AccountId, group_id: T::Hash) {
-        if <Memberships<T>>::exists(&account_id) {
-            let mut memberships = <Memberships<T>>::get(&account_id);
+    fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
+        if <Memberships<T>>::exists(account_id) {
+            let mut memberships = <Memberships<T>>::get(account_id);
             memberships.push(group_id.clone());
-            <Memberships<T>>::insert(&account_id, memberships)
+            <Memberships<T>>::insert(account_id, memberships)
         } else {
-            <Memberships<T>>::insert(&account_id, vec![group_id])
+            <Memberships<T>>::insert(account_id, vec![group_id])
         }
     }
 
-    pub fn get_users_groups(account_id: T::AccountId) -> Vec<T::Hash> {
-        <Memberships<T>>::get(&account_id)
+    pub fn get_users_groups(account_id: &T::AccountId) -> Vec<T::Hash> {
+        <Memberships<T>>::get(account_id)
     }
 
-    fn create_invite(group_id: T::Hash, invite: Invite<T::AccountId>) -> Result {
+    fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> Result {
         let peer_id = invite.peer_id;
         let invite_data = invite.invite_data;
         let invite_key = invite.invite_key;
         let meta = invite.meta;
         let roles = invite.roles;
 
-        let mut group = <Groups<T>>::get(&group_id);
+        let mut group = <Groups<T>>::get(group_id);
         ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
 
         group.invites.push(PendingInvite {
@@ -378,13 +378,13 @@ impl<T: Trait> Module<T> {
           roles
         });
 
-        <Groups<T>>::insert(&group_id, group);
+        <Groups<T>>::insert(group_id, group);
 
         <inbox::Module<T>>::add(peer_id, invite_data)
     }
 
-    pub fn append_member_device(group_id: T::Hash, account_id: T::AccountId, device_id: u32) {
-        let mut devices = <MemberDevices<T>>::get(&group_id);
+    pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: u32) {
+        let mut devices = <MemberDevices<T>>::get(group_id);
 
         let exists = devices.clone()
           .into_iter()
@@ -393,7 +393,7 @@ impl<T: Trait> Module<T> {
 
         if !exists {
           devices.push((account_id, device_id));
-          <MemberDevices<T>>::insert(&group_id, devices);
+          <MemberDevices<T>>::insert(group_id, devices);
         }
 
     }
