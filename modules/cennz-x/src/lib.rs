@@ -357,7 +357,7 @@ impl<T: Trait> Module<T>
 	/// `amount_bought` - Amount of core asset purchased
 	/// `max_amount_sold` -  Maximum trade asset sold
 	/// `expire` - The block height before which this trade is valid
-	fn _asset_to_core_swap_output(
+	pub fn _asset_to_core_swap_output(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		asset_sold: T::Balance,
@@ -527,7 +527,7 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset
 	/// `amount_bought` - Amount of output core
 	/// Returns amount of trade assets needed to buy output core.
-	fn _asset_to_core_output_price(
+	pub fn _asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		return_fee_rate: Permill,
