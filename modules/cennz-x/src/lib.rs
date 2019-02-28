@@ -335,9 +335,23 @@ impl<T: Trait> Module<T>
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		expire: T::Moment,
-		fee_rate: (u32, u32)
-	) {
-		//Self::_asset_to_core_output_price( asset_id, amount_bought, fee_rate);
+		from_account: AccountIdOf<T>,
+		fee_rate: Permill
+	) -> T::Balance {
+		// let from_account = ensure_signed(origin)?;
+		let core_asset_id = Self::core_asset_id();
+		let asset_sold : T::Balance = Self::_asset_to_core_output_price( asset_id, amount_bought, fee_rate);
+		// ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
+		//ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
+		//		"no enough core asset balance"
+		//	);
+		let exchange_address = Self::generate_exchange_address(asset_id.clone(), core_asset_id);
+		//ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
+		//		"no enough trade asset balance in pool"
+		//	);
+		<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought.clone());
+		<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold.clone());
+		asset_sold
 	}
 
 
@@ -679,7 +693,7 @@ mod tests {
 				<generic_asset::Module<Test>>::set_free_balance(
 					&1,
 					&H256::from_low_u64_be(1),
-					1000,
+					1500,
 				);
 			}
 			assert_ok!(CennzXSpot::add_liquidity(
@@ -698,6 +712,17 @@ mod tests {
 
 			assert_eq!(CennzXSpot::get_liquidity(0, 1, &H256::from_low_u64_be(1)), 1000);
 			assert_eq!(CennzXSpot::_asset_to_core_output_price(1,123,inverse_fee_rate),136);
+			assert_eq!(CennzXSpot::asset_to_core_swap_output(
+						1, // asset_id: T::AssetId,
+						123, // amount_bought: T::Balance,
+						140, // max_amount_sold: T::Balance,
+						10, // expire: T::Moment,
+						H256::from_low_u64_be(1), // from_account: AccountIdOf<T>,
+						inverse_fee_rate // fee_rate: Permill,
+					),136);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
 		});
 	}
 }
