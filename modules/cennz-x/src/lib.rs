@@ -45,15 +45,15 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
 			let core_asset_id = Self::core_asset_id();
-			let asset_sold : T::Balance = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
+			let asset_sold: T::Balance = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
 			ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
 			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
-					"no enough core asset balance"
+					"Not enough core asset balance"
 				);
 			let exchange_key = (core_asset_id, asset_id);
 			let exchange_address = Self::generate_exchange_address(&exchange_key);
 			ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
-					"no enough trade asset balance in pool"
+					"Not enough trade asset balance in pool"
 				);
 			Self::_asset_to_core_swap_output(asset_id, amount_bought, asset_sold, from_account, return_fee_rate);
 			Ok(())
