@@ -138,7 +138,7 @@ decl_storage! {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
-		pub InverseFeeRate get(inverse_fee_rate) config(): Permill;
+		pub ReturnFeeRate get(return_fee_rate) config(): Permill;
 		/// Total supply of exchange token in existence.
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
@@ -494,10 +494,10 @@ impl<T: Trait> Module<T>
 		T::Balance::sa(0)
 	}
 
-	 fn get_output_price(output_amount: T::Balance, input_reserve: T::Balance, output_reserve: T::Balance, inverse_fee_rate: Permill) -> T::Balance
+	 fn get_output_price(output_amount: T::Balance, input_reserve: T::Balance, output_reserve: T::Balance, return_fee_rate: Permill) -> T::Balance
 	{
 		if input_reserve > Zero::zero() && output_reserve > Zero::zero() {
-			let numerator: T::Balance = inverse_fee_rate * input_reserve * output_amount;
+			let numerator: T::Balance = return_fee_rate * input_reserve * output_amount;
 			let denominator = output_reserve - output_amount;
 			numerator / denominator
 		} else {
@@ -511,7 +511,7 @@ impl<T: Trait> Module<T>
 	pub fn _asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		inverse_fee_rate: Permill,
+		return_fee_rate: Permill,
 	) -> T::Balance {
 		let core_asset_id = Self::core_asset_id();
 		if amount_bought > Zero::zero() {
@@ -519,7 +519,7 @@ impl<T: Trait> Module<T>
 			let exchange_address = Self::generate_exchange_address(&exchange_key);
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			Self::get_output_price(amount_bought, trade_asset_reserve, core_asset_reserve, inverse_fee_rate)
+			Self::get_output_price(amount_bought, trade_asset_reserve, core_asset_reserve, return_fee_rate)
 		} else {
 			Zero::zero()
 		}
@@ -602,14 +602,14 @@ mod tests {
 
 	pub struct ExtBuilder {
 		core_asset_id: u32,
-		inverse_fee_rate: Permill,
+		return_fee_rate: Permill,
 	}
 
 	impl Default for ExtBuilder {
 		fn default() -> Self {
 			Self {
 				core_asset_id: 0,
-				inverse_fee_rate: Permill::from_percent(97),
+				return_fee_rate: Permill::from_percent(97),
 			}
 		}
 	}
@@ -623,7 +623,7 @@ mod tests {
 			t.extend(
 				GenesisConfig::<Test> {
 					core_asset_id: self.core_asset_id,
-					inverse_fee_rate: self.inverse_fee_rate,
+					return_fee_rate: self.return_fee_rate,
 				}
 					.build_storage()
 					.unwrap()
@@ -686,7 +686,7 @@ mod tests {
 	fn get_token_to_core_output_price_after_adding_liquidity() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
-			let inverse_fee_rate = <InverseFeeRate<Test>>::get();
+			let return_fee_rate = <ReturnFeeRate<Test>>::get();
 			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
 			{
 				<generic_asset::Module<Test>>::set_free_balance(
@@ -715,14 +715,14 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
-			assert_eq!(CennzXSpot::_asset_to_core_output_price(1,123,inverse_fee_rate),136);
+			assert_eq!(CennzXSpot::_asset_to_core_output_price(1,123,return_fee_rate),136);
 			assert_eq!(CennzXSpot::asset_to_core_swap_output(
 				1, // asset_id: T::AssetId,
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
 				10, // expire: T::Moment,
 				H256::from_low_u64_be(1), // from_account: AccountIdOf<T>,
-				inverse_fee_rate // fee_rate: Permill,
+				return_fee_rate // fee_rate: Permill,
 			),136);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
