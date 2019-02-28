@@ -36,7 +36,6 @@ decl_module! {
 		/// `asset_id` - Trade asset ID
 		/// `amount_bought` - Amount of core asset purchased
 		/// `max_amount_sold` -  Maximum trade asset sold
-		/// `expire` - The block height before which this trade is valid
 		pub fn asset_to_core_swap_output(
 			origin,
 			asset_id: T::AssetId,
