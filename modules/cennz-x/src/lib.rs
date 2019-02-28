@@ -41,11 +41,9 @@ decl_module! {
 			origin,
 			asset_id: T::AssetId,
 			amount_bought: T::Balance,
-			max_amount_sold: T::Balance,
-			expire: T::Moment
+			max_amount_sold: T::Balance
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
-			Self::ensure_not_expired(expire)?;
 			let return_fee_rate = Self::return_fee_rate();
 			let core_asset_id = Self::core_asset_id();
 			let asset_sold : T::Balance = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
@@ -535,7 +533,8 @@ impl<T: Trait> Module<T>
 		return_fee_rate: Permill,
 	) -> T::Balance {
 		if amount_bought > Zero::zero() {
-			let exchange_key = (Self::core_asset_id(), asset_id);
+			let core_asset_id = Self::core_asset_id();
+			let exchange_key = (core_asset_id, asset_id);
 			let exchange_address = Self::generate_exchange_address(&exchange_key);
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
@@ -741,7 +740,6 @@ mod tests {
 				1, // asset_id: T::AssetId,
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
-				10, // expire: T::Moment,
 			));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
