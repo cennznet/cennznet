@@ -45,7 +45,7 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
 			let core_asset_id = Self::core_asset_id();
-			let asset_sold = Self::_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
+			let asset_sold = Self::get_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
 			ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
 			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
 					"Not enough core asset balance"
@@ -55,7 +55,7 @@ decl_module! {
 			ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
 					"Not enough trade asset balance in pool"
 				);
-			Self::_asset_to_core_swap_output(asset_id, amount_bought, asset_sold, from_account, return_fee_rate);
+			Self::make_asset_to_core_swap_output(asset_id, amount_bought, asset_sold, from_account, return_fee_rate);
 			Ok(())
 		}
 
@@ -354,9 +354,10 @@ impl<T: Trait> Module<T>
 	///
 	/// `asset_id` - Trade asset ID
 	/// `amount_bought` - Amount of core asset purchased
-	/// `max_amount_sold` -  Maximum trade asset sold
-	/// `expire` - The block height before which this trade is valid
-	pub fn _asset_to_core_swap_output(
+	/// `asset_sold` -  trade asset sold
+	/// `from account` - from account
+	/// `fee_rate` - Fee rate
+	pub fn make_asset_to_core_swap_output(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		asset_sold: T::Balance,
@@ -526,7 +527,7 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset
 	/// `amount_bought` - Amount of output core
 	/// Returns amount of trade assets needed to buy output core.
-	pub fn _asset_to_core_output_price(
+	pub fn get_asset_to_core_output_price(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		return_fee_rate: Permill,
@@ -733,7 +734,7 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
-			assert_eq!(CennzXSpot::_asset_to_core_output_price(1,123,return_fee_rate),136);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(1,123,return_fee_rate),136);
 			assert_ok!(CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(H256::from_low_u64_be(1)), //origin
 				1, // asset_id: T::AssetId,
