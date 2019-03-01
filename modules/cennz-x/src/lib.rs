@@ -44,18 +44,7 @@ decl_module! {
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
-			let core_asset_id = Self::core_asset_id();
-			let asset_sold = Self::get_asset_to_core_output_price(asset_id, amount_bought, return_fee_rate);
-			ensure!(max_amount_sold >= asset_sold, "Max asset should be greater than asset sold");
-			ensure!(<generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= asset_sold,
-					"Not enough core asset balance"
-				);
-			let exchange_key = (core_asset_id, asset_id);
-			let exchange_address = Self::generate_exchange_address(&exchange_key);
-			ensure!(<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= amount_bought,
-					"Not enough trade asset balance in pool"
-				);
-			Self::make_asset_to_core_swap_output(asset_id, amount_bought, asset_sold, from_account, return_fee_rate);
+			Self::make_asset_to_core_swap_output(asset_id, amount_bought, max_amount_sold, from_account, return_fee_rate);
 			Ok(())
 		}
 
@@ -354,22 +343,33 @@ impl<T: Trait> Module<T>
 	///
 	/// `asset_id` - Trade asset ID
 	/// `amount_bought` - Amount of core asset purchased
-	/// `asset_sold` -  trade asset sold
+	/// `max_amount_sold` -  maximum trade asset sold
 	/// `from account` - from account
 	/// `fee_rate` - Fee rate
 	pub fn make_asset_to_core_swap_output(
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
-		asset_sold: T::Balance,
+		max_amount_sold: T::Balance,
 		from_account: AccountIdOf<T>,
 		fee_rate: Permill
-	) -> T::Balance {
+	) -> rstd::result::Result<T::Balance, &'static str> {
 		let core_asset_id = Self::core_asset_id();
+		let asset_sold = Self::get_asset_to_core_output_price(asset_id, amount_bought, fee_rate);
 		let exchange_key = (core_asset_id, asset_id);
 		let exchange_address = Self::generate_exchange_address(&exchange_key);
-		<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought);
-		<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold);
-		asset_sold
+		if asset_sold < Zero::zero() {
+			return Err("Asset sold should be greater than zero");
+		} else if max_amount_sold < asset_sold {
+			return Err("Max asset should be greater than asset sold");
+		} else if <generic_asset::Module<T>>::free_balance(&asset_id, &from_account) < asset_sold {
+			return Err("Not enough trade asset balance in user account");
+		} else if <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) < amount_bought {
+			return Err("Not enough core asset balance in pool");
+		} else {
+			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought);
+			<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold);
+			Ok(asset_sold)
+		}
 	}
 
 
@@ -702,7 +702,7 @@ mod tests {
 	}
 
 	#[test]
-	fn get_token_to_core_output_price_after_adding_liquidity() {
+	fn get_token_to_core_output_price() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
 			let return_fee_rate = <ReturnFeeRate<Test>>::get();
