@@ -44,7 +44,7 @@ decl_module! {
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
-			Self::make_asset_to_core_swap_output(asset_id, amount_bought, max_amount_sold, from_account, return_fee_rate);
+			Self::make_asset_to_core_swap_output(asset_id, amount_bought, max_amount_sold, from_account, return_fee_rate)?;
 			Ok(())
 		}
 
@@ -741,6 +741,53 @@ mod tests {
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
 			));
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
+		});
+	}
+
+	#[test]
+	fn get_asset_to_core_output_price_internal_call() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let core_asset_id = <CoreAssetId<Test>>::get();
+			let return_fee_rate = <ReturnFeeRate<Test>>::get();
+			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
+			{
+				<generic_asset::Module<Test>>::set_free_balance(
+					&0,
+					&H256::from_low_u64_be(1),
+					1000,
+				);
+				<generic_asset::Module<Test>>::set_free_balance(
+					&1,
+					&H256::from_low_u64_be(1),
+					1500,
+				);
+			}
+			assert_ok!(CennzXSpot::add_liquidity(
+				Origin::signed(H256::from_low_u64_be(1)),
+				1, //asset_id: T::AssetId,
+				2, // min_liquidity: T::Balance,
+				1000, //max_asset_amount: T::Balance,
+				1000, //core_amount: T::Balance,
+				10,//expire: T::Moment
+			));
+			let exchange_key = (0, 1);
+			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
+
+			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(1,123,return_fee_rate),136);
+			assert_eq!(CennzXSpot::make_asset_to_core_swap_output(
+				1, // asset_id: T::AssetId,
+				123, // amount_bought: T::Balance,
+				140, // max_amount_sold: T::Balance,
+				H256::from_low_u64_be(1), // from: T::AccountId
+				return_fee_rate // Fee rate
+			), Ok(136));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
