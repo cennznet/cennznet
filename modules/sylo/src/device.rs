@@ -27,7 +27,7 @@ decl_module! {
 // The data that is stored
 decl_storage! {
   trait Store for Module<T: Trait> as SyloDevice {
-    Devices get(devices): map T::AccountId => Vec<u32>;
+    pub Devices get(devices): map T::AccountId => Vec<u32>;
   }
 }
 
@@ -39,20 +39,16 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     pub fn append_device(user_id: &T::AccountId, device_id: u32) -> Result {
-		let mut devices = <Devices<T>>::get(user_id);
+        let mut devices = <Devices<T>>::get(user_id);
+        
+        ensure!(!devices.contains(&device_id), "Device Id already in use");
+        ensure!(devices.len() <= MAX_DEVICES, "User has registered up to the maximum number of devices");
 
-		ensure!(!devices.contains(&device_id), "Device Id already in use");
-        ensure!(devices.len() < MAX_DEVICES, "User has registered up to the maximum number of devices");
+        devices.push(device_id);
 
-		devices.push(device_id);
-
-		<Devices<T>>::insert(user_id, devices);
+        <Devices<T>>::insert(user_id, devices);
 
         Ok(())
-    }
-
-    pub fn get_devices(user_id: &T::AccountId) -> Vec<u32> {
-        <Devices<T>>::get(user_id)
     }
 }
 

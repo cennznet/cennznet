@@ -23,6 +23,8 @@ use {balances, inbox, response, device, system::ensure_signed, vec};
 
 pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait {}
 
+const INVITES_MAX: usize = 15;
+
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
 
@@ -37,7 +39,7 @@ pub enum MemberRoles {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Invite<AccountId: Encode + Decode> {
+pub struct Invite<AccountId> {
     peer_id: AccountId,
     invite_data: Vec<u8>,
     invite_key: H256,
@@ -47,7 +49,7 @@ pub struct Invite<AccountId: Encode + Decode> {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PendingInvite<Hash: Encode + Decode> {
+pub struct PendingInvite<Hash> {
     invite_key: Hash,
     meta: Meta,
     roles: Vec<MemberRoles>
@@ -97,6 +99,7 @@ decl_module! {
       let sender = ensure_signed(origin)?;
 
       ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
+      ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
 
       let admin: Member<T::AccountId> = Member {
         user_id: sender.clone(),
@@ -120,7 +123,7 @@ decl_module! {
 
       // Record user's devices
       let member_devices: Vec<(T::AccountId, u32)> =
-        <device::Module<T>>::get_devices(&sender)
+        <device::Devices<T>>::get(&sender)
           .into_iter()
           .map(|device| (sender.clone(), device))
           .collect();
@@ -129,10 +132,7 @@ decl_module! {
 
       // Create invites
       for invite in invites {
-        match Self::create_invite(&group_id, invite) {
-          Ok(_unit) => {},
-          Err(_error) => {}
-        }
+        let _ = Self::create_invite(&group_id, invite);
       }
 
       Ok(())
@@ -231,12 +231,10 @@ decl_module! {
       ensure!(<Groups<T>>::exists(&group_id), "Group not found");
       ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
       ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
+      ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
 
       for invite in invites {
-        match Self::create_invite(&group_id, invite) {
-          Ok(_unit) => {},
-          Err(_error) => {}
-        }
+        let _ = Self::create_invite(&group_id, invite);
       }
 
       Ok(())
@@ -284,7 +282,7 @@ decl_module! {
 
       // Record user's devices
       let member_devices: Vec<(T::AccountId, u32)> =
-        <device::Module<T>>::get_devices(&sender)
+        <device::Devices<T>>::get(&sender)
           .into_iter()
           .map(|device| (sender.clone(), device))
           .collect();
@@ -323,10 +321,10 @@ decl_storage! {
   trait Store for Module<T: Trait> as SyloGroups {
     Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
 
-    // Stores the group ids that a user is a member of
-    Memberships get(memberships): map T::AccountId => Vec<T::Hash>;
+    /// Stores the group ids that a user is a member of
+    pub Memberships get(memberships): map T::AccountId => Vec<T::Hash>;
 
-    // Stores the known member/deviceId tuples for a particular group
+    /// Stores the known member/deviceId tuples for a particular group
     MemberDevices get(member_devices): map T::Hash => Vec<(T::AccountId, u32)>;
   }
 }
@@ -351,15 +349,11 @@ impl<T: Trait> Module<T> {
     fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
         if <Memberships<T>>::exists(account_id) {
             let mut memberships = <Memberships<T>>::get(account_id);
-            memberships.push(group_id.clone());
+            memberships.push(group_id);
             <Memberships<T>>::insert(account_id, memberships)
         } else {
             <Memberships<T>>::insert(account_id, vec![group_id])
         }
-    }
-
-    pub fn get_users_groups(account_id: &T::AccountId) -> Vec<T::Hash> {
-        <Memberships<T>>::get(account_id)
     }
 
     fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> Result {
@@ -386,8 +380,8 @@ impl<T: Trait> Module<T> {
     pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: u32) {
         let mut devices = <MemberDevices<T>>::get(group_id);
 
-        let exists = devices.clone()
-          .into_iter()
+        let exists = devices
+          .iter()
           .find(|device| &device.0 == &account_id && &device.1 == &device_id)
           .is_some();
 
