@@ -142,6 +142,8 @@ fn cennznet_dev_uat_genesis(
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 10,
@@ -268,6 +270,8 @@ pub fn local_dev_genesis(
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1,

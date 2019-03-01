@@ -1,7 +1,11 @@
 # Runtime version 13
 - Update substrate to commit 4ec33d1c8d9b1c432ffcabb0ef3c7387dcbfbc9a
-- GA
-	- Type `AssetOptions` field `total_supply` renamed to `initial_issuance`
-		- SDK type needs to be updated
-	- Internal method `total_supply` renamed to `total_issuance`
-- New runtime module CENNZX
+- Breaking changes:
+	- GA
+		- Type `AssetOptions` field `total_supply` renamed to `initial_issuance`
+			- SDK type needs to be updated
+		- Internal method `total_supply` renamed to `total_issuance`
+- New features:
+	- New runtime module CENNZX
+	- Sylo modules refactor
+	- GA V4 (partially implemented, subject to change)
