@@ -357,7 +357,7 @@ impl<T: Trait> Module<T>
 		let asset_sold = Self::get_asset_to_core_output_price(asset_id, amount_bought, fee_rate);
 		let exchange_key = (core_asset_id, asset_id);
 		let exchange_address = Self::generate_exchange_address(&exchange_key);
-		if asset_sold < Zero::zero() {
+		if asset_sold <= Zero::zero() {
 			return Err("Asset sold should be greater than zero");
 		} else if max_amount_sold < asset_sold {
 			return Err("Max asset should be greater than asset sold");
@@ -702,7 +702,7 @@ mod tests {
 	}
 
 	#[test]
-	fn get_token_to_core_output_price() {
+	fn get_asset_to_core_output_price() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
 			let return_fee_rate = <ReturnFeeRate<Test>>::get();
