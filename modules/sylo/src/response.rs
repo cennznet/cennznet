@@ -2,7 +2,7 @@ extern crate parity_codec;
 
 use self::parity_codec::{Decode, Encode};
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, system::ensure_signed};
+use {system::ensure_signed};
 extern crate srml_system as system;
 
 #[cfg(test)]
@@ -14,7 +14,7 @@ extern crate sr_io;
 #[cfg(test)]
 extern crate substrate_primitives;
 
-pub trait Trait: balances::Trait {}
+pub trait Trait: system::Trait {}
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -69,7 +69,7 @@ pub(super) mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
 	use self::sr_primitives::{
 		testing::{Digest, DigestItem, Header},
-		traits::BlakeTwo256,
+		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage,
 	};
 
@@ -89,17 +89,11 @@ pub(super) mod tests {
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
 		type Digest = Digest;
-		type AccountId = u64;
+		type AccountId = H256;
+		type Lookup = IdentityLookup<H256>;
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
-	}
-	impl balances::Trait for Test {
-		type Balance = u64;
-		type AccountIndex = u64;
-		type OnFreeBalanceZero = ();
-		type EnsureAccountLiquid = ();
-		type Event = ();
 	}
 	impl Trait for Test {}
 	type Responses = Module<Test>;
@@ -121,26 +115,26 @@ pub(super) mod tests {
 			let resp_number = Response::DeviceId(111);
 
 			// setting number
-			Responses::set_response(1, request_id.clone(), resp_number.clone());
+			Responses::set_response(H256::from_low_u64_be(1), request_id.clone(), resp_number.clone());
 			assert_eq!(
-				Responses::response((1, request_id.clone())),
+				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
 				resp_number.clone()
 			);
 
 			// // setting pkb type
-			let resp_pkb = Response::PreKeyBundles(vec![(1, 2, b"test data".to_vec())]);
-			Responses::set_response(1, request_id.clone(), resp_pkb.clone());
+			let resp_pkb = Response::PreKeyBundles(vec![(H256::from_low_u64_be(1), 2, b"test data".to_vec())]);
+			Responses::set_response(H256::from_low_u64_be(1), request_id.clone(), resp_pkb.clone());
 			assert_eq!(
-				Responses::response((1, request_id.clone())),
+				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
 				resp_pkb.clone()
 			);
 
 			// // remove response
 			assert_ok!(Responses::remove_response(
-				Origin::signed(1),
+				Origin::signed(H256::from_low_u64_be(1)),
 				request_id.clone()
 			));
-			assert_eq!(Responses::response((1, request_id.clone())), Response::None);
+			assert_eq!(Responses::response((H256::from_low_u64_be(1), request_id.clone())), Response::None);
 		});
 	}
 }

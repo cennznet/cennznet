@@ -1,9 +1,9 @@
 use srml_support::{dispatch::Vec, StorageMap};
-use {balances, inbox, response, groups, device, system::ensure_signed};
+use {system, inbox, response, groups, device, system::ensure_signed};
 
 const MAX_PKBS: usize = 50;
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait + groups::Trait {
+pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -74,3 +74,28 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {}
+
+// #[test]
+// fn should_add_device() {
+// 	with_externalities(&mut new_test_ext(), || {
+// 		let request_id = H256::from([0;32]);
+// 		assert_ok!(Devices::register_device(
+// 			Origin::signed(1),
+// 			request_id.clone()
+// 		));
+// 		assert_eq!(Devices::devices(1).len(), 1);
+//
+// 		assert_ok!(Devices::register_device(
+// 			Origin::signed(1),
+// 			request_id.clone()
+// 		));
+// 		assert_eq!(Devices::devices(1).len(), 2);
+// 		assert_eq!(Devices::devices(1)[1], 1);
+//
+// 		// check saved response
+// 		assert_eq!(
+// 			Responses::response((1, request_id)),
+// 			response::Response::DeviceId(1)
+// 		);
+// 	});
+// }

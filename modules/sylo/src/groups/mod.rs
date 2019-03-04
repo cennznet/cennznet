@@ -19,9 +19,9 @@ use groups::substrate_primitives::hash::{H256, H512};
 use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, inbox, response, device, system::ensure_signed, vec};
+use {inbox, device, system::ensure_signed, vec};
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait {}
+pub trait Trait: system::Trait + inbox::Trait + device::Trait {}
 
 const INVITES_MAX: usize = 15;
 
