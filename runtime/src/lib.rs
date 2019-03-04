@@ -41,7 +41,6 @@ use substrate_primitives::OpaqueMetadata;
 pub use runtime_primitives::BuildStorage;
 pub use consensus::Call as ConsensusCall;
 pub use timestamp::Call as TimestampCall;
-pub use balances::Call as BalancesCall;
 pub use runtime_primitives::{Permill, Perbill};
 pub use srml_support::StorageValue;
 
@@ -88,13 +87,6 @@ impl aura::Trait for Runtime {
 	type HandleReport = aura::StakingSlasher<Runtime>;
 }
 
-impl balances::Trait for Runtime {
-	type OnFreeBalanceZero = ((Staking, Contract), Democracy);
-	type OnNewAccount = Indices;
-	type EnsureAccountLiquid = (Staking, Democracy);
-	type Event = Event;
-}
-
 impl consensus::Trait for Runtime {
 	type Log = Log;
 	type SessionKey = SessionKey;
@@ -106,7 +98,7 @@ impl consensus::Trait for Runtime {
 
 impl indices::Trait for Runtime {
 	type AccountIndex = AccountIndex;
-	type IsDeadAccount = Balances;
+	type IsDeadAccount = ();
 	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
 	type Event = Event;
 }
@@ -224,7 +216,6 @@ construct_runtime!(
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Indices: indices,
-		Balances: balances,
 		Session: session,
 		Staking: staking,
 		Democracy: democracy,
