@@ -44,7 +44,8 @@ decl_module! {
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
-			Self::make_asset_to_core_swap_output(asset_id, amount_bought, max_amount_sold, from_account, return_fee_rate)?;
+			let asset_sold = Self::make_asset_to_core_swap_output(asset_id, amount_bought, max_amount_sold, &from_account, return_fee_rate)?;
+			Self::deposit_event(RawEvent::CoreAssetPurchase(from_account, asset_sold, amount_bought));
 			Ok(())
 		}
 
@@ -350,7 +351,7 @@ impl<T: Trait> Module<T>
 		asset_id: T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		from_account: AccountIdOf<T>,
+		from_account: &AccountIdOf<T>,
 		fee_rate: Permill
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let core_asset_id = Self::core_asset_id();
@@ -361,13 +362,13 @@ impl<T: Trait> Module<T>
 			return Err("Asset sold should be greater than zero");
 		} else if max_amount_sold < asset_sold {
 			return Err("Max asset should be greater than asset sold");
-		} else if <generic_asset::Module<T>>::free_balance(&asset_id, &from_account) < asset_sold {
+		} else if <generic_asset::Module<T>>::free_balance(&asset_id, from_account) < asset_sold {
 			return Err("Not enough trade asset balance in user account");
 		} else if <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) < amount_bought {
 			return Err("Not enough core asset balance in pool");
 		} else {
-			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, amount_bought);
-			<generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, asset_sold);
+			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, from_account, amount_bought);
+			<generic_asset::Module<T>>::make_transfer(&asset_id, from_account, &exchange_address, asset_sold);
 			Ok(asset_sold)
 		}
 	}
@@ -785,7 +786,7 @@ mod tests {
 				1, // asset_id: T::AssetId,
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
-				H256::from_low_u64_be(1), // from: T::AccountId
+				&H256::from_low_u64_be(1), // from: T::AccountId
 				return_fee_rate // Fee rate
 			), Ok(136));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
