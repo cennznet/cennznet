@@ -9,8 +9,9 @@ pub use cennznet_runtime::GenesisConfig;
 use substrate_service;
 
 use substrate_keystore::pad_seed;
+use substrate_telemetry::TelemetryEndpoints;
 
-const DEV_TELEMETRY_URL: Option<&str> = Some("ws://cennznet-telemetry.centrality.me:1024");
+const DEV_TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -141,6 +142,8 @@ fn cennznet_dev_uat_genesis(
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 10,
@@ -267,6 +270,8 @@ pub fn local_dev_genesis(
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1,
@@ -318,22 +323,40 @@ pub fn cennznet_rimu_config_genesis() -> GenesisConfig {
 /// The CENNZnet DEV testnet config with latest runtime
 pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 	Ok(
-		ChainSpec::from_genesis("Kauri CENNZnet", "kauri", cennznet_kauri_config_genesis, vec![
-			String::from("/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
-			String::from("/dns4/cennznet-bootnode-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
-			String::from("/dns4/cennznet-bootnode-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
-		], DEV_TELEMETRY_URL, None, None, None)
+		ChainSpec::from_genesis(
+			"Kauri CENNZnet",
+			"kauri",
+			cennznet_kauri_config_genesis,
+			vec![
+				String::from("/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
+				String::from("/dns4/cennznet-bootnode-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
+				String::from("/dns4/cennznet-bootnode-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
+			],
+			Some(TelemetryEndpoints::new(vec![(DEV_TELEMETRY_URL.into(), 0)])),
+			None,
+			None,
+			None
+		)
 	)
 }
 
 /// The CENNZnet UAT testnet config with latest runtime
 pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
 	Ok(
-		ChainSpec::from_genesis("Rimu CENNZnet", "rimu", cennznet_rimu_config_genesis, vec![
-			String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-			String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-			String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
-		], DEV_TELEMETRY_URL, None, None, None)
+		ChainSpec::from_genesis(
+			"Rimu CENNZnet",
+			"rimu",
+			cennznet_rimu_config_genesis,
+			vec![
+				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+				String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+				String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+			],
+			Some(TelemetryEndpoints::new(vec![(DEV_TELEMETRY_URL.into(), 0)])),
+			None,
+			None,
+			None
+		)
 	)
 }
 

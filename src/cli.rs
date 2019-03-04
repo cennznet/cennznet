@@ -1,8 +1,8 @@
-use service;
+use crate::service;
 use tokio::prelude::Future;
 use tokio::runtime::Runtime;
 use substrate_service::{ServiceFactory, Roles as ServiceRoles};
-use chain_spec;
+use crate::chain_spec;
 use std::ops::Deref;
 pub use substrate_cli::{VersionInfo, IntoExit, NoCustom, error};
 use substrate_cli as cli;

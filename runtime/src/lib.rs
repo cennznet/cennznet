@@ -46,6 +46,7 @@ pub use runtime_primitives::{Permill, Perbill};
 pub use srml_support::StorageValue;
 
 pub use sylo::groups as sylo_groups;
+pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::device as sylo_device;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
@@ -201,7 +202,8 @@ impl attestation::Trait for Runtime {
 	type Event = Event;
 }
 
-impl sylo::groups::Trait for Runtime {
+impl sylo::groups::Trait for Runtime {}
+impl sylo::e2ee::Trait for Runtime {
 	type Event = Event;
 }
 impl sylo::device::Trait for Runtime {
@@ -238,7 +240,8 @@ construct_runtime!(
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
+		SyloGroups: sylo_groups::{Module, Call, Storage},
+		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
