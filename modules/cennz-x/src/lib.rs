@@ -45,7 +45,7 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let return_fee_rate = Self::return_fee_rate();
 			let amount_sold = Self::make_asset_to_core_swap_output(&asset_id, amount_bought, max_amount_sold, &from_account, return_fee_rate)?;
-			Self::deposit_event(RawEvent::CoreAssetPurchase(from_account, amount_sold, amount_bought));
+			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, from_account, amount_sold, amount_bought));
 			Ok(())
 		}
 
@@ -121,10 +121,10 @@ decl_event!(
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
 		// Provider, core asset amount, trade asset id, trade asset amount
 		RemoveLiquidity(AccountId, Balance, AssetId, Balance),
-		// Buyer, trade asset sold, core asset bought
-		CoreAssetPurchase(AccountId, Balance, Balance),
-		// Buyer, core asset sold, trade asset bought
-		TradeAssetPurchase(AccountId, Balance, Balance),
+		// Trade AssetId, Buyer, trade asset sold, core asset bought
+		CoreAssetPurchase(AssetId, AccountId, Balance, Balance),
+		// Trade AssetId, Buyer, core asset sold, trade asset bought
+		TradeAssetPurchase(AssetId, AccountId, Balance, Balance),
 		// Trade asset id, core asset id
 		NewPool(AssetId, AssetId),
 	}
