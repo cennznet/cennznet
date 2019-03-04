@@ -9,4 +9,4 @@ Dockerfile
 k8s/
 .vscode/
 centrality.deploy/
-.cargo/
+
