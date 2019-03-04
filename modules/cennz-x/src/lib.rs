@@ -21,7 +21,7 @@ pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (<T as generic_asset::Trait>::AssetId, <T as generic_asset::Trait>::AssetId);
 
-pub trait Trait: system::Trait + generic_asset::Trait + timestamp::Trait {
+pub trait Trait: system::Trait + generic_asset::Trait {
 	// This type is used as a shim from `system::Trait::Hash` to `system::Trait::AccountId`
 	type AccountId: From<<Self as system::Trait>::Hash> + Into<<Self as system::Trait>::AccountId>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -49,6 +49,10 @@ decl_module! {
 			Ok(())
 		}
 
+		//
+		// Manage Liquidity
+		//
+
 		/// Deposit core asset and trade asset at current ratio to mint liquidity
 		/// Returns amount of liquidity minted.
 		///
@@ -57,17 +61,14 @@ decl_module! {
 		/// `min_liquidity` - The minimum liquidity to add
 		/// `asset_amount` - Amount of trade asset to add
 		/// `core_amount` - Amount of core asset to add
-		/// `expire` - Amount of core asset to add
 		pub fn add_liquidity(
 			origin,
 			asset_id: T::AssetId,
 			min_liquidity: T::Balance,
 			max_asset_amount: T::Balance,
-			core_amount: T::Balance,
-			expire: T::Moment
+			core_amount: T::Balance
 		) {
 			let from_account = ensure_signed(origin)?;
-			Self::ensure_not_expired(expire)?;
 			let core_asset_id = Self::core_asset_id();
 			ensure!(!max_asset_amount.is_zero(), "trade asset amount must be greater than zero");
 			ensure!(!core_amount.is_zero(), "core asset amount must be greater than zero");
@@ -107,6 +108,20 @@ decl_module! {
 				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 			}
 		}
+
+		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
+		///
+		/// `asset_id` - The trade asset ID
+		/// `asset_amount` - Amount of exchange asset to burn
+		/// `min_asset_withdraw` - The minimum trade asset withdrawn
+		/// `min_core_withdraw` -  The minimum core asset withdrawn
+		pub fn remove_liquidity(
+			origin,
+			asset_id: T::AssetId,
+			asset_amount: T::Balance,
+			min_asset_withdraw: T::Balance,
+			min_core_withdraw: T::Balance
+		) {}
 	}
 }
 
@@ -174,7 +189,7 @@ impl<T: Trait> Module<T>
 {
 	/// Generates an exchange address for the given asset pair
 	pub fn generate_exchange_address(exchange_key: &ExchangeKey<T>) -> AccountIdOf<T> {
-		let (core_asset, asset ) = exchange_key;
+		let (core_asset, asset) = exchange_key;
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
 		buf.extend_from_slice(&u64_to_bytes(As::as_(*core_asset)));
@@ -182,14 +197,6 @@ impl<T: Trait> Module<T>
 
 		// Use shim `system::Trait::Hash` -> `Trait::AccountId` -> system::Trait::AccountId`
 		<T as Trait>::AccountId::from(T::Hashing::hash(&buf[..])).into()
-	}
-
-	fn ensure_not_expired(expire: T::Moment) -> Result {
-		let now = <timestamp::Module<T>>::get();
-		if expire < now {
-			return Err("cennzx request expired");
-		}
-		Ok(())
 	}
 
 	// Storage R/W
@@ -219,24 +226,6 @@ impl<T: Trait> Module<T>
 	}
 
 	//
-	// Manage Liquidity
-	//
-
-	/// Burn exchange assets to withdraw core asset and trade asset at current ratio
-	///
-	/// `asset_id` - The trade asset ID
-	/// `asset_amount` - Amount of exchange asset to burn
-	/// `min_asset_withdraw` - The minimum trade asset withdrawn
-	/// `min_core_withdraw` -  The minimum core asset withdrawn
-	pub fn remove_liquidity(
-		asset_id: T::AssetId,
-		asset_amount: T::Balance,
-		min_asset_withdraw: T::Balance,
-		min_core_withdraw: T::Balance,
-		expire: T::Moment,
-	) {}
-
-	//
 	// Trade core to other asset
 	//
 
@@ -246,12 +235,10 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset ID
 	/// `amount_sold` - Exact amount of trade asset to be sold
 	/// `min_amount_bought` - Minimum core assets bought
-	/// `expire` - The block height before which this trade is valid
 	pub fn core_to_asset_swap_input(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -262,13 +249,11 @@ impl<T: Trait> Module<T>
 	/// `amount_sold` - Exact amount of trade asset to be sold
 	/// `min_amount_bought` - Minimum core assets bought
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn core_to_asset_transfer_input(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -278,12 +263,10 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset ID
 	/// `amount_bought` - Amount of core asset purchased
 	/// `max_amount_sold` -  Maximum trade asset sold
-	/// `expire` - The block height before which this trade is valid
 	pub fn core_to_asset_swap_output(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -294,13 +277,11 @@ impl<T: Trait> Module<T>
 	/// `amount_bought` - Amount of core asset purchased
 	/// `max_amount_sold` -  Maximum trade asset sold
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn core_to_asset_transfer_output(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		recipient: AccountIdOf<T>,
-		expire: T::Moment,
+		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {}
 
@@ -314,12 +295,10 @@ impl<T: Trait> Module<T>
 	/// `asset_id` - Trade asset ID
 	/// `amount_sold` - Exact amount of trade asset to be sold
 	/// `min_amount_bought` - Minimum core assets bought
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_core_swap_input(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -330,13 +309,11 @@ impl<T: Trait> Module<T>
 	/// `amount_sold` - Exact amount of trade asset to be sold
 	/// `min_amount_bought` - Minimum core assets bought
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_core_transfer_input(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		recipient: AccountIdOf<T>,
-//		expire: T::Moment,
+		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {}
 
@@ -381,13 +358,11 @@ impl<T: Trait> Module<T>
 	/// `amount_bought` - Amount of core asset purchased
 	/// `max_amount_sold` -  Maximum trade asset sold
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_core_transfer_output(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
-		recipient: AccountIdOf<T>,
-		expire: T::Moment,
+		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {}
 
@@ -403,14 +378,12 @@ impl<T: Trait> Module<T>
 	/// `amount_sold` - Exact amount of trade asset to be sold
 	/// `min_amount_bought` - Minimum trade asset2 purchased
 	/// `min_core_bought` - Minimum core purchased as intermediary
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_asset_swap_input(
-		asset_sold: T::AssetId,
-		asset_bought: T::AssetId,
+		asset_sold: &T::AssetId,
+		asset_bought: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -424,15 +397,13 @@ impl<T: Trait> Module<T>
 	/// `min_amount_bought` - Minimum trade asset2 purchased
 	/// `min_core_bought` - Minimum core purchased as intermediary
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_asset_transfer_input(
-		asset_sold: T::AssetId,
-		asset_bought: T::AssetId,
+		asset_sold: &T::AssetId,
+		asset_bought: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		recipient: AccountIdOf<T>,
-		expire: T::Moment,
+		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {}
 
@@ -444,14 +415,12 @@ impl<T: Trait> Module<T>
 	/// `amount_bought` - Amount of trade asset2 bought
 	/// `max_amount_sold` - Maximum trade asset1 sold
 	/// `max_core_sold` - Maximum core asset purchased as intermediary
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_asset_swap_output(
-		asset_sold: T::AssetId,
-		asset_bought: T::AssetId,
+		asset_sold: &T::AssetId,
+		asset_bought: &T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		expire: T::Moment,
 		fee_rate: Permill,
 	) {}
 
@@ -465,15 +434,13 @@ impl<T: Trait> Module<T>
 	/// `max_amount_sold` - Maximum trade asset1 sold
 	/// `max_core_sold` - Maximum core asset purchased as intermediary
 	/// `recipient` - The address that receives the output asset
-	/// `expire` - The block height before which this trade is valid
 	pub fn asset_to_asset_transfer_output(
-		asset_sold: T::AssetId,
-		asset_bought: T::AssetId,
+		asset_sold: &T::AssetId,
+		asset_bought: &T::AssetId,
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		recipient: AccountIdOf<T>,
-		expire: T::Moment,
+		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {}
 
@@ -485,7 +452,7 @@ impl<T: Trait> Module<T>
 	/// `amount_sold` - Amount of core sold
 	/// Returns amount of asset that can be bought with the input core
 	pub fn core_to_asset_input_price(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		fee_rate: Permill,
 	) -> T::Balance {
@@ -496,7 +463,7 @@ impl<T: Trait> Module<T>
 	/// `amount_bought`- Amount of trade assets bought
 	/// Returns amount of core needed to buy output assets.
 	pub fn core_to_asset_output_price(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_bought: T::Balance,
 		fee_rate: Permill,
 	) -> T::Balance {
@@ -507,14 +474,19 @@ impl<T: Trait> Module<T>
 	/// `amount_sold` - Amount of trade assets sold
 	/// Returns amount of core that can be bought with input assets.
 	pub fn asset_to_core_input_price(
-		asset_id: T::AssetId,
+		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		fee_rate: Permill,
 	) -> T::Balance {
 		T::Balance::sa(0)
 	}
 
-	 fn get_output_price(output_amount: T::Balance, input_reserve: T::Balance, output_reserve: T::Balance, return_fee_rate: Permill) -> T::Balance
+	fn get_output_price(
+		output_amount: T::Balance,
+		input_reserve: T::Balance,
+		output_reserve: T::Balance,
+		return_fee_rate: Permill
+	) -> T::Balance
 	{
 		if input_reserve > Zero::zero() && output_reserve > Zero::zero() {
 			let numerator: T::Balance = return_fee_rate * input_reserve * output_amount;
@@ -548,7 +520,6 @@ impl<T: Trait> Module<T>
 
 #[cfg(test)]
 mod tests {
-	extern crate consensus;
 
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
@@ -558,7 +529,7 @@ mod tests {
 		traits::{BlakeTwo256, IdentityLookup},
 	};
 	use runtime_io::with_externalities;
-	use substrate_primitives::{Blake2Hasher, H256, Ed25519AuthorityId};
+	use substrate_primitives::{Blake2Hasher, H256};
 
 	use super::*;
 
@@ -571,12 +542,6 @@ mod tests {
 	// configuration traits of modules we want to use.
 	#[derive(Clone, Eq, PartialEq)]
 	pub struct TestAura;
-
-	impl timestamp::OnTimestampSet<u64> for TestAura {
-		fn on_timestamp_set(moment: u64) {
-			unimplemented!()
-		}
-	}
 
 
 	#[derive(Clone, Eq, PartialEq)]
@@ -594,17 +559,6 @@ mod tests {
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
-	}
-
-	impl timestamp::Trait for Test {
-		type Moment = u64;
-		type OnTimestampSet = ();
-	}
-
-	impl consensus::Trait for Test {
-		type Log = DigestItem;
-		type SessionKey = Ed25519AuthorityId;
-		type InherentOfflineReport = ();
 	}
 
 	impl generic_asset::Trait for Test {
@@ -685,7 +639,6 @@ mod tests {
 				2, // min_liquidity: T::Balance,
 				15, //max_asset_amount: T::Balance,
 				10, //core_amount: T::Balance,
-				10,//expire: T::Moment
 			));
 			let exchange_key = (0, 1);
 			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
@@ -699,7 +652,7 @@ mod tests {
 
 	#[test]
 	fn u64_to_bytes_works() {
-		assert_eq!(u64_to_bytes(80000), [128,56,1,0,0,0,0,0]);
+		assert_eq!(u64_to_bytes(80000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 
 	#[test]
@@ -726,7 +679,6 @@ mod tests {
 				2, // min_liquidity: T::Balance,
 				1000, //max_asset_amount: T::Balance,
 				1000, //core_amount: T::Balance,
-				10,//expire: T::Moment
 			));
 			let exchange_key = (0, 1);
 			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
@@ -735,7 +687,7 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
-			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1,123,return_fee_rate),136);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 123, return_fee_rate), 136);
 			assert_ok!(CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(H256::from_low_u64_be(1)), //origin
 				1, // asset_id: T::AssetId,
@@ -772,7 +724,6 @@ mod tests {
 				2, // min_liquidity: T::Balance,
 				1000, //max_asset_amount: T::Balance,
 				1000, //core_amount: T::Balance,
-				10,//expire: T::Moment
 			));
 			let exchange_key = (0, 1);
 			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
@@ -781,13 +732,13 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 1000);
-			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1,123,return_fee_rate),136);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 123, return_fee_rate), 136);
 			assert_eq!(CennzXSpot::make_asset_to_core_swap_output(
 				&1, // asset_id: T::AssetId,
 				123, // amount_bought: T::Balance,
 				140, // max_amount_sold: T::Balance,
 				&H256::from_low_u64_be(1), // from: T::AccountId
-				return_fee_rate // Fee rate
+				return_fee_rate, // Fee rate
 			), Ok(136));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)), 364);
