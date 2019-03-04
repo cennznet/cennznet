@@ -2,14 +2,13 @@
 
 #[cfg(feature = "std")]
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use rstd::prelude::*;
 use runtime_primitives::codec::{Compact, Decode, Encode, Input};
 use runtime_primitives::generic::{CheckedExtrinsic, Era};
 use runtime_primitives::traits::{self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay,
 								 Member, SimpleArithmetic};
-use substrate_primitives::blake2_256;
+use runtime_io::{blake2_256};
 
 use doughnut;
 
@@ -110,26 +109,20 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 				}) {
 					return Err("bad signature in extrinsic")
 				}
-				let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-					Ok(n)=> n.as_secs(), 
-					Err(_) => return Err("SystemTime before UNIX EPOCH!")
-				};
+				// let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+				// 	Ok(n)=> n.as_secs(), 
+				// 	Err(_) => return Err("SystemTime before UNIX EPOCH!")
+				// };
 				match self.doughnut {
-					Some(d) => {
-						match d.validate(now) {
-							Err(e) => return Err(e),
-							Ok(d) => CheckedExtrinsic {
+					Some(d) => CheckedExtrinsic {
 								signed: Some((d.certificate.issuer, (raw_payload.0).0)),
 								function: raw_payload.1,
-							}
-						}
 					},
 					None => CheckedExtrinsic {
 						signed: Some((signed, (raw_payload.0).0)),
 						function: raw_payload.1,
 					}
 				}
-
 			}
 			None => CheckedExtrinsic {
 				signed: None,
