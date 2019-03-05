@@ -209,8 +209,7 @@ impl<T: Trait> Module<T> {
 
 	/// mint total supply for an exchange pool
 	fn mint_total_supply(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase
-		); // will not overflow because it's limited by core assets's total supply
+		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
 	}
 
 	fn burn_total_supply(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
