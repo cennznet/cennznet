@@ -5,18 +5,18 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use client;
-use consensus::{import_queue, start_aura, AuraImportQueue, SlotDuration, NothingExtra};
-use grandpa;
-use primitives::ed25519::Pair;
 use cennznet_primitives::Block;
 use cennznet_runtime::{GenesisConfig, RuntimeApi};
-use substrate_service::{
-	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
-	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor, TaskExecutor,
-};
-use transaction_pool::{self, txpool::{Pool as TransactionPool}};
+use client;
+use consensus::{import_queue, start_aura, AuraImportQueue, NothingExtra, SlotDuration};
+use grandpa;
 use inherents::InherentDataProviders;
+use primitives::ed25519::Pair;
+use substrate_service::{
+	FactoryFullConfiguration, FullBackend, FullClient, FullComponents, FullExecutor, LightBackend, LightClient,
+	LightComponents, LightExecutor, TaskExecutor,
+};
+use transaction_pool::{self, txpool::Pool as TransactionPool};
 
 pub use substrate_executor::NativeExecutor;
 native_executor_instance!(
@@ -40,7 +40,10 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
 	inherent_data_providers: InherentDataProviders,
 }
 
-impl<F> Default for NodeConfig<F> where F: substrate_service::ServiceFactory {
+impl<F> Default for NodeConfig<F>
+where
+	F: substrate_service::ServiceFactory,
+{
 	fn default() -> NodeConfig<F> {
 		NodeConfig {
 			grandpa_import_setup: None,
@@ -145,13 +148,12 @@ construct_service_factory! {
 	}
 }
 
-
 #[cfg(test)]
 mod tests {
 	#[cfg(feature = "rhd")]
 	fn test_sync() {
+		use client::{BlockOrigin, ImportBlock};
 		use {service_test, Factory};
-		use client::{ImportBlock, BlockOrigin};
 
 		let alice: Arc<ed25519::Pair> = Arc::new(Keyring::Alice.into());
 		let bob: Arc<ed25519::Pair> = Arc::new(Keyring::Bob.into());
@@ -169,7 +171,9 @@ mod tests {
 				force_delay: 0,
 				handle: dummy_runtime.executor(),
 			};
-			let (proposer, _, _) = proposer_factory.init(&parent_header, &validators, alice.clone()).unwrap();
+			let (proposer, _, _) = proposer_factory
+				.init(&parent_header, &validators, alice.clone())
+				.unwrap();
 			let block = proposer.propose().expect("Error making test block");
 			ImportBlock {
 				origin: BlockOrigin::File,
@@ -182,13 +186,19 @@ mod tests {
 			}
 		};
 		let extrinsic_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
-			let payload = (0, Call::Balances(BalancesCall::transfer(RawAddress::Id(bob.public().0.into()), 69.into())), Era::immortal(), service.client().genesis_hash());
+			let payload = (
+				0,
+				Call::Balances(BalancesCall::transfer(RawAddress::Id(bob.public().0.into()), 69.into())),
+				Era::immortal(),
+				service.client().genesis_hash(),
+			);
 			let signature = alice.sign(&payload.encode()).into();
 			let id = alice.public().0.into();
 			let xt = UncheckedExtrinsic {
 				signature: Some((RawAddress::Id(id), signature, payload.0, Era::immortal())),
 				function: payload.1,
-			}.encode();
+			}
+			.encode();
 			let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
 			OpaqueExtrinsic(v)
 		};

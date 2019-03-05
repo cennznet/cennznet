@@ -41,7 +41,10 @@ impl<T: Trait> Module<T> {
 		let mut devices = <Devices<T>>::get(user_id);
 
 		ensure!(!devices.contains(&device_id), "Device Id already in use");
-		ensure!(devices.len() <= MAX_DEVICES, "User has registered up to the maximum number of devices");
+		ensure!(
+			devices.len() <= MAX_DEVICES,
+			"User has registered up to the maximum number of devices"
+		);
 
 		devices.push(device_id);
 
