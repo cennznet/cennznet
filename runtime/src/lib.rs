@@ -33,7 +33,6 @@ use substrate_primitives::OpaqueMetadata;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use balances::Call as BalancesCall;
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
