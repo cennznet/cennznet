@@ -11,9 +11,7 @@ mod tests {
 		BuildStorage,
 	};
 
-	use groups::{
-		device, inbox, system, Encode, Group, Invite, AcceptPayload, Member, MemberRoles, Module, Trait
-	};
+	use groups::{device, inbox, system, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module, Trait};
 
 	impl_outer_origin! {
 	  pub enum Origin for Test {}
@@ -41,8 +39,7 @@ mod tests {
 		type Event = ();
 		type Log = DigestItem;
 	}
-	impl Trait for Test {
-	}
+	impl Trait for Test {}
 	impl device::Trait for Test {
 		type Event = ();
 	}
@@ -63,7 +60,7 @@ mod tests {
 	fn it_works_creating_a_group() {
 		with_externalities(&mut new_test_ext(), || {
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
-			let group_id = H256::from([1;32]);
+			let group_id = H256::from([1; 32]);
 			//Create a group
 			assert_ok!(Groups::create_group(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -101,7 +98,7 @@ mod tests {
 	#[test]
 	fn it_works_modifying_meta() {
 		with_externalities(&mut new_test_ext(), || {
-			let group_id = H256::from([1;32]);
+			let group_id = H256::from([1; 32]);
 			let mut meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let mut meta_2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
 
@@ -145,7 +142,7 @@ mod tests {
 	#[test]
 	fn should_leave_group() {
 		with_externalities(&mut new_test_ext(), || {
-			let group_id = H256::from([1;32]);
+			let group_id = H256::from([1; 32]);
 
 			//Create a group
 			assert_ok!(Groups::create_group(
@@ -157,7 +154,7 @@ mod tests {
 
 			// leave wrong group
 			assert_eq!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3;32])),
+				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32])),
 				Err("Group not found")
 			);
 
@@ -167,7 +164,10 @@ mod tests {
 				Err("Not a member of group")
 			);
 
-			assert_ok!(Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), group_id.clone()));
+			assert_ok!(Groups::leave_group(
+				Origin::signed(H256::from_low_u64_be(1)),
+				group_id.clone()
+			));
 
 			// todo: check empty group
 		});
@@ -176,7 +176,7 @@ mod tests {
 	#[test]
 	fn should_accept_invite() {
 		with_externalities(&mut new_test_ext(), || {
-			let group_id = H256::from([2;32]);
+			let group_id = H256::from([2; 32]);
 
 			//Create a group
 			assert_ok!(Groups::create_group(
@@ -187,7 +187,7 @@ mod tests {
 			));
 
 			let payload = AcceptPayload {
-				account_id: H256::from_low_u64_be(2)
+				account_id: H256::from_low_u64_be(2),
 			};
 			let encoded = payload.encode();
 			let message = encoded.as_slice();
@@ -201,7 +201,7 @@ mod tests {
 				invite_data: vec![],
 				invite_key: invite_key.clone(),
 				meta: vec![],
-				roles: vec![]
+				roles: vec![],
 			};
 
 			// create invite
@@ -262,7 +262,7 @@ mod tests {
 	#[test]
 	fn should_revoke_invites() {
 		with_externalities(&mut new_test_ext(), || {
-			let group_id = H256::from([1;32]);
+			let group_id = H256::from([1; 32]);
 
 			//Create a group
 			assert_ok!(Groups::create_group(
@@ -271,23 +271,18 @@ mod tests {
 				vec![],
 				vec![]
 			));
-			let invite_keys = vec![
-				H256::from([1; 32]),
-				H256::from([2; 32]),
-				H256::from([3; 32]),
-			];
-			let invites = invite_keys.clone().
-				into_iter().
-				map(|invite_key| {
-					Invite {
-						peer_id: H256::from_low_u64_be(2),
-						invite_data: vec![],
-						invite_key: invite_key,
-						meta: vec![],
-						roles: vec![]
-					}
-				}).
-				collect();
+			let invite_keys = vec![H256::from([1; 32]), H256::from([2; 32]), H256::from([3; 32])];
+			let invites = invite_keys
+				.clone()
+				.into_iter()
+				.map(|invite_key| Invite {
+					peer_id: H256::from_low_u64_be(2),
+					invite_data: vec![],
+					invite_key: invite_key,
+					meta: vec![],
+					roles: vec![],
+				})
+				.collect();
 
 			assert_ok!(Groups::create_invites(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -317,7 +312,7 @@ mod tests {
 	#[test]
 	fn should_update_member() {
 		with_externalities(&mut new_test_ext(), || {
-			let group_id = H256::from([1;32]);
+			let group_id = H256::from([1; 32]);
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
 			//Create a group
@@ -335,10 +330,7 @@ mod tests {
 				meta_1.clone()
 			));
 
-			assert_eq!(
-				Groups::group(group_id.clone()).members[0].meta,
-				meta_1.clone()
-			)
+			assert_eq!(Groups::group(group_id.clone()).members[0].meta, meta_1.clone())
 		});
 	}
 }

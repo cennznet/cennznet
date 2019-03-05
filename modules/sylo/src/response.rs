@@ -2,7 +2,7 @@ extern crate parity_codec;
 
 use self::parity_codec::{Decode, Encode};
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {system::ensure_signed};
+use system::ensure_signed;
 extern crate srml_system as system;
 
 #[cfg(test)]
@@ -48,11 +48,7 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {
-	pub(super) fn set_response(
-		sender: T::AccountId,
-		request_id: T::Hash,
-		response: Response<T::AccountId>,
-	) {
+	pub(super) fn set_response(sender: T::AccountId, request_id: T::Hash, response: Response<T::AccountId>) {
 		if response != Response::None {
 			<Responses<T>>::insert((sender, request_id), response);
 		}
@@ -111,7 +107,7 @@ pub(super) mod tests {
 	#[test]
 	fn should_set_response() {
 		with_externalities(&mut new_test_ext(), || {
-			let request_id = H256::from([1;32]);
+			let request_id = H256::from([1; 32]);
 			let resp_number = Response::DeviceId(111);
 
 			// setting number
@@ -134,7 +130,10 @@ pub(super) mod tests {
 				Origin::signed(H256::from_low_u64_be(1)),
 				request_id.clone()
 			));
-			assert_eq!(Responses::response((H256::from_low_u64_be(1), request_id.clone())), Response::None);
+			assert_eq!(
+				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
+				Response::None
+			);
 		});
 	}
 }

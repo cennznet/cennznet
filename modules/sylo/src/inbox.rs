@@ -1,5 +1,5 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {system::ensure_signed};
+use system::ensure_signed;
 
 // Assert macros used in tests.
 extern crate sr_std;
@@ -63,7 +63,7 @@ impl<T: Trait> Module<T> {
 
 		// Store data
 		let mut values = <Values<T>>::get(&peer_id);
-		if let Some((i, _)) = values.iter().enumerate().find(|(_,item)| item.0 == next_index) {
+		if let Some((i, _)) = values.iter().enumerate().find(|(_, item)| item.0 == next_index) {
 			values[i] = (next_index, value);
 		} else {
 			values.push((next_index, value));
@@ -87,9 +87,9 @@ impl<T: Trait> Module<T> {
 			.collect();
 
 		let mut values = <Values<T>>::get(&user_id);
-			for id in value_ids {
+		for id in value_ids {
 			// Remove value from storage
-			if let Some(index) = values.iter().position(|(x,_)| *x == id) {
+			if let Some(index) = values.iter().position(|(x, _)| *x == id) {
 				values.remove(index);
 			}
 		}
@@ -160,19 +160,14 @@ mod tests {
 				H256::from_low_u64_be(2),
 				b"hello, world".to_vec()
 			));
-			assert_eq!(
-				Inbox::inbox(H256::from_low_u64_be(2)),
-				vec![b"hello, world".to_vec()]
-			);
+			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"hello, world".to_vec()]);
 
 			// Add another value
-			assert_ok!(
-				Inbox::add_value(
-					Origin::signed(H256::from_low_u64_be(1)),
-					H256::from_low_u64_be(2),
-					b"sylo".to_vec()
-				)
-			);
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"sylo".to_vec()
+			));
 			assert_eq!(
 				Inbox::inbox(H256::from_low_u64_be(2)),
 				vec![b"hello, world".to_vec(), b"sylo".to_vec()]
@@ -184,10 +179,26 @@ mod tests {
 	fn it_works_removing_values_from_an_inbox() {
 		with_externalities(&mut new_test_ext(), || {
 			// Add values to an empty inbox
-			assert_ok!(Inbox::add_value(Origin::signed(H256::from_low_u64_be(1)), H256::from_low_u64_be(2), b"hello, world".to_vec()));
-			assert_ok!(Inbox::add_value(Origin::signed(H256::from_low_u64_be(1)), H256::from_low_u64_be(2), b"sylo".to_vec()));
-			assert_ok!(Inbox::add_value(Origin::signed(H256::from_low_u64_be(1)), H256::from_low_u64_be(2), b"foo".to_vec()));
-			assert_ok!(Inbox::add_value(Origin::signed(H256::from_low_u64_be(1)), H256::from_low_u64_be(2), b"bar".to_vec()));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"hello, world".to_vec()
+			));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"sylo".to_vec()
+			));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"foo".to_vec()
+			));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"bar".to_vec()
+			));
 
 			// Remove a single value
 			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
@@ -196,7 +207,10 @@ mod tests {
 				vec![b"sylo".to_vec(), b"foo".to_vec(), b"bar".to_vec()]
 			);
 
-			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![2, 3]));
+			assert_ok!(Inbox::delete_values(
+				Origin::signed(H256::from_low_u64_be(2)),
+				vec![2, 3]
+			));
 			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"sylo".to_vec()]);
 		});
 	}
