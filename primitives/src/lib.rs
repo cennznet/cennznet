@@ -1,12 +1,11 @@
 //! Low-level types for CENNZNET
 
 #![warn(missing_docs)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
 
 use runtime_primitives::generic;
-use runtime_primitives::{OpaqueExtrinsic, traits::BlakeTwo256};
+use runtime_primitives::{traits::BlakeTwo256, OpaqueExtrinsic};
 
 /// An index to a block.
 pub type BlockNumber = u64;

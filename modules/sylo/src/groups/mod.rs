@@ -14,14 +14,14 @@ extern crate parity_codec;
 
 mod tests;
 
+use self::parity_codec::{Decode, Encode};
 use groups::sr_primitives::Ed25519Signature;
 use groups::substrate_primitives::hash::{H256, H512};
-use self::parity_codec::{Decode, Encode};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, inbox, response, device, system::ensure_signed, vec};
+use {device, inbox, system::ensure_signed, vec};
 
-pub trait Trait: balances::Trait + inbox::Trait + response::Trait + device::Trait {}
+pub trait Trait: system::Trait + inbox::Trait + device::Trait {}
 
 const INVITES_MAX: usize = 15;
 
@@ -44,7 +44,7 @@ pub struct Invite<AccountId> {
 	invite_data: Vec<u8>,
 	invite_key: H256,
 	meta: Meta,
-	roles: Vec<MemberRoles>
+	roles: Vec<MemberRoles>,
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -52,13 +52,13 @@ pub struct Invite<AccountId> {
 pub struct PendingInvite<Hash> {
 	invite_key: Hash,
 	meta: Meta,
-	roles: Vec<MemberRoles>
+	roles: Vec<MemberRoles>,
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct AcceptPayload<AccountId: Encode + Decode> {
-	account_id: AccountId
+	account_id: AccountId,
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -328,65 +328,67 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {
-		fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
-			<Groups<T>>::get(group_id)
-				.members
-				.into_iter()
-				.find(|member| &member.user_id == account_id)
-				.is_some()
+	fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
+		<Groups<T>>::get(group_id)
+			.members
+			.into_iter()
+			.find(|member| &member.user_id == account_id)
+			.is_some()
+	}
+
+	fn is_group_admin(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
+		<Groups<T>>::get(group_id)
+			.members
+			.into_iter()
+			.find(|member| &member.user_id == account_id && member.is_admin())
+			.is_some()
+	}
+
+	fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
+		if <Memberships<T>>::exists(account_id) {
+			let mut memberships = <Memberships<T>>::get(account_id);
+			memberships.push(group_id);
+			<Memberships<T>>::insert(account_id, memberships)
+		} else {
+			<Memberships<T>>::insert(account_id, vec![group_id])
 		}
+	}
 
-		fn is_group_admin(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
-			<Groups<T>>::get(group_id)
-				.members
-				.into_iter()
-				.find(|member| &member.user_id == account_id && member.is_admin())
-				.is_some()
+	fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> Result {
+		let peer_id = invite.peer_id;
+		let invite_data = invite.invite_data;
+		let invite_key = invite.invite_key;
+		let meta = invite.meta;
+		let roles = invite.roles;
+
+		let mut group = <Groups<T>>::get(group_id);
+		ensure!(
+			!group.invites.iter().any(|i| i.invite_key == invite_key),
+			"Invite already exists"
+		);
+
+		group.invites.push(PendingInvite {
+			invite_key,
+			meta,
+			roles,
+		});
+
+		<Groups<T>>::insert(group_id, group);
+
+		<inbox::Module<T>>::add(peer_id, invite_data)
+	}
+
+	pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: u32) {
+		let mut devices = <MemberDevices<T>>::get(group_id);
+
+		let exists = devices
+			.iter()
+			.find(|device| &device.0 == &account_id && &device.1 == &device_id)
+			.is_some();
+
+		if !exists {
+			devices.push((account_id, device_id));
+			<MemberDevices<T>>::insert(group_id, devices);
 		}
-
-		fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
-			if <Memberships<T>>::exists(account_id) {
-				let mut memberships = <Memberships<T>>::get(account_id);
-				memberships.push(group_id);
-				<Memberships<T>>::insert(account_id, memberships)
-			} else {
-				<Memberships<T>>::insert(account_id, vec![group_id])
-			}
-		}
-
-		fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> Result {
-			let peer_id = invite.peer_id;
-			let invite_data = invite.invite_data;
-			let invite_key = invite.invite_key;
-			let meta = invite.meta;
-			let roles = invite.roles;
-
-			let mut group = <Groups<T>>::get(group_id);
-			ensure!(!group.invites.iter().any(|i| i.invite_key == invite_key), "Invite already exists");
-
-			group.invites.push(PendingInvite {
-				invite_key,
-				meta,
-				roles
-			});
-
-			<Groups<T>>::insert(group_id, group);
-
-			<inbox::Module<T>>::add(peer_id, invite_data)
-		}
-
-		pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: u32) {
-			let mut devices = <MemberDevices<T>>::get(group_id);
-
-			let exists = devices
-				.iter()
-				.find(|device| &device.0 == &account_id && &device.1 == &device_id)
-				.is_some();
-
-			if !exists {
-				devices.push((account_id, device_id));
-				<MemberDevices<T>>::insert(group_id, devices);
-			}
-
-		}
+	}
 }

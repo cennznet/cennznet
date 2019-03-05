@@ -1,5 +1,5 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {balances, system::ensure_signed};
+use system::ensure_signed;
 
 // Assert macros used in tests.
 extern crate sr_std;
@@ -20,7 +20,7 @@ extern crate srml_system as system;
 
 // type String = Vec<u8>;
 
-pub trait Trait: balances::Trait {
+pub trait Trait: system::Trait {
 	// add code here
 }
 
@@ -63,7 +63,7 @@ impl<T: Trait> Module<T> {
 
 		// Store data
 		let mut values = <Values<T>>::get(&peer_id);
-		if let Some((i, _)) = values.iter().enumerate().find(|(_,item)| item.0 == next_index) {
+		if let Some((i, _)) = values.iter().enumerate().find(|(_, item)| item.0 == next_index) {
 			values[i] = (next_index, value);
 		} else {
 			values.push((next_index, value));
@@ -87,9 +87,9 @@ impl<T: Trait> Module<T> {
 			.collect();
 
 		let mut values = <Values<T>>::get(&user_id);
-			for id in value_ids {
+		for id in value_ids {
 			// Remove value from storage
-			if let Some(index) = values.iter().position(|(x,_)| *x == id) {
+			if let Some(index) = values.iter().position(|(x, _)| *x == id) {
 				values.remove(index);
 			}
 		}
@@ -112,7 +112,7 @@ mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
 	use self::sr_primitives::{
 		testing::{Digest, DigestItem, Header},
-		traits::BlakeTwo256,
+		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage,
 	};
 
@@ -132,17 +132,11 @@ mod tests {
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
 		type Digest = Digest;
-		type AccountId = u64;
+		type AccountId = H256;
+		type Lookup = IdentityLookup<H256>;
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
-	}
-	impl balances::Trait for Test {
-		type Balance = u64;
-		type AccountIndex = u64;
-		type OnFreeBalanceZero = ();
-		type EnsureAccountLiquid = ();
-		type Event = ();
 	}
 	impl Trait for Test {}
 	type Inbox = Module<Test>;
@@ -162,16 +156,20 @@ mod tests {
 		with_externalities(&mut new_test_ext(), || {
 			// Add a value to an empty inbox
 			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
 				b"hello, world".to_vec()
 			));
-			assert_eq!(Inbox::inbox(2), vec![b"hello, world".to_vec()]);
+			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"hello, world".to_vec()]);
 
 			// Add another value
-			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"sylo".to_vec()
+			));
 			assert_eq!(
-				Inbox::inbox(2),
+				Inbox::inbox(H256::from_low_u64_be(2)),
 				vec![b"hello, world".to_vec(), b"sylo".to_vec()]
 			);
 		});
@@ -180,25 +178,40 @@ mod tests {
 	#[test]
 	fn it_works_removing_values_from_an_inbox() {
 		with_externalities(&mut new_test_ext(), || {
-			// Add a values to an empty inbox
+			// Add values to an empty inbox
 			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
 				b"hello, world".to_vec()
 			));
-			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
-			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"foo".to_vec()));
-			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"bar".to_vec()));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"sylo".to_vec()
+			));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"foo".to_vec()
+			));
+			assert_ok!(Inbox::add_value(
+				Origin::signed(H256::from_low_u64_be(1)),
+				H256::from_low_u64_be(2),
+				b"bar".to_vec()
+			));
 
 			// Remove a single value
-			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![0]));
+			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
 			assert_eq!(
-				Inbox::inbox(2),
+				Inbox::inbox(H256::from_low_u64_be(2)),
 				vec![b"sylo".to_vec(), b"foo".to_vec(), b"bar".to_vec()]
 			);
 
-			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![2, 3]));
-			assert_eq!(Inbox::inbox(2), vec![b"sylo".to_vec()]);
+			assert_ok!(Inbox::delete_values(
+				Origin::signed(H256::from_low_u64_be(2)),
+				vec![2, 3]
+			));
+			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"sylo".to_vec()]);
 		});
 	}
 
@@ -206,7 +219,7 @@ mod tests {
 	fn it_works_removing_values_from_an_empty_inbox() {
 		with_externalities(&mut new_test_ext(), || {
 			// Remove a value that doesn't exist
-			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![0]));
+			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
 		});
 	}
 }
