@@ -13,18 +13,17 @@ extern crate parity_codec as codec;
 #[macro_use]
 extern crate srml_support as runtime_support;
 
+extern crate sr_io as io;
 extern crate sr_primitives as primitives;
 extern crate substrate_primitives;
-extern crate sr_io as io;
 // `system` module provides us with all sorts of useful stuff and macros
 // depend on it being around.
 extern crate srml_system as system;
 
-
 use runtime_support::rstd::prelude::*;
 use runtime_support::{dispatch::Result, StorageMap};
-use system::ensure_signed;
 use substrate_primitives::uint::U256;
+use system::ensure_signed;
 
 pub trait Trait: system::Trait {
 	/// The overarching event type.
@@ -87,15 +86,17 @@ decl_storage! {
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
 	fn create_claim(holder: T::AccountId, issuer: T::AccountId, topic: Topic, value: Value) -> Result {
-		<Issuers<T>>::mutate(
-			&holder,
-			|issuers| if !issuers.contains(&issuer) {issuers.push(issuer.clone())}
-		);
+		<Issuers<T>>::mutate(&holder, |issuers| {
+			if !issuers.contains(&issuer) {
+				issuers.push(issuer.clone())
+			}
+		});
 
-		<Topics<T>>::mutate(
-			(holder.clone(), issuer.clone()),
-			|topics| if !topics.contains(&topic) {topics.push(topic.clone())}
-		);
+		<Topics<T>>::mutate((holder.clone(), issuer.clone()), |topics| {
+			if !topics.contains(&topic) {
+				topics.push(topic.clone())
+			}
+		});
 
 		<Values<T>>::insert((holder.clone(), issuer.clone(), topic.clone()), value);
 		Self::deposit_event(RawEvent::ClaimSet(holder, issuer, topic, value));

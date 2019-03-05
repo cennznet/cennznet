@@ -1,11 +1,11 @@
-use service;
+use crate::chain_spec;
+use crate::service;
+use std::ops::Deref;
+use substrate_cli as cli;
+pub use substrate_cli::{error, IntoExit, NoCustom, VersionInfo};
+use substrate_service::{Roles as ServiceRoles, ServiceFactory};
 use tokio::prelude::Future;
 use tokio::runtime::Runtime;
-use substrate_service::{ServiceFactory, Roles as ServiceRoles};
-use chain_spec;
-use std::ops::Deref;
-pub use substrate_cli::{VersionInfo, IntoExit, NoCustom, error};
-use substrate_cli as cli;
 
 /// The chain specification option.
 #[derive(Clone, Debug)]
@@ -58,13 +58,18 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Result<()> where
+pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Result<()>
+where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
 {
 	cli::parse_and_execute::<service::Factory, NoCustom, NoCustom, _, _, _, _, _>(
-		load_spec, &version, "cennznet-node", args, exit,
+		load_spec,
+		&version,
+		"cennznet-node",
+		args,
+		exit,
 		|exit, _custom_args, config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
@@ -78,27 +83,26 @@ pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Resul
 				ServiceRoles::LIGHT => run_until_exit(
 					runtime,
 					service::Factory::new_light(config, executor).map_err(|e| format!("{:?}", e))?,
-					exit
+					exit,
 				),
 				_ => run_until_exit(
 					runtime,
 					service::Factory::new_full(config, executor).map_err(|e| format!("{:?}", e))?,
-					exit
+					exit,
 				),
-			}.map_err(|e| format!("{:?}", e))
-		}
-	).map_err(Into::into).map(|_| ())
+			}
+			.map_err(|e| format!("{:?}", e))
+		},
+	)
+	.map_err(Into::into)
+	.map(|_| ())
 }
 
-fn run_until_exit<T, C, E>(
-	mut runtime: Runtime,
-	service: T,
-	e: E,
-) -> error::Result<()>
-	where
-	    T: Deref<Target=substrate_service::Service<C>>,
-		C: substrate_service::Components,
-		E: IntoExit,
+fn run_until_exit<T, C, E>(mut runtime: Runtime, service: T, e: E) -> error::Result<()>
+where
+	T: Deref<Target = substrate_service::Service<C>>,
+	C: substrate_service::Components,
+	E: IntoExit,
 {
 	let (exit_send, exit) = exit_future::signal();
 

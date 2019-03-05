@@ -22,9 +22,7 @@ use runtime_primitives::ApplyResult;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
 use runtime_primitives::generic;
-use runtime_primitives::traits::{
-	BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup,
-};
+use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup};
 use runtime_primitives::transaction_validity::TransactionValidity;
 #[cfg(feature = "std")]
 use srml_support::{Deserialize, Serialize};
@@ -46,6 +44,7 @@ use cennznet_primitives::{
 	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature,
 };
 pub use sylo::device as sylo_device;
+pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
@@ -57,8 +56,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 11,
-	impl_version: 11,
+	spec_version: 13,
+	impl_version: 13,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -79,7 +78,7 @@ impl system::Trait for Runtime {
 	type Hashing = BlakeTwo256;
 	type Digest = generic::Digest<Log>;
 	type AccountId = AccountId;
- 	type Lookup = Indices;
+	type Lookup = Indices;
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
@@ -132,11 +131,13 @@ impl session::Trait for Runtime {
 }
 
 impl staking::Trait for Runtime {
+	type Currency = generic_asset::Module<Self>;
 	type OnRewardMinted = Treasury;
 	type Event = Event;
 }
 
 impl democracy::Trait for Runtime {
+	type Currency = generic_asset::Module<Self>;
 	type Proposal = Call;
 	type Event = Event;
 }
@@ -156,6 +157,7 @@ impl council::motions::Trait for Runtime {
 }
 
 impl treasury::Trait for Runtime {
+	type Currency = generic_asset::Module<Self>;
 	type ApproveOrigin = council_motions::EnsureMembers<_4>;
 	type RejectOrigin = council_motions::EnsureMembers<_2>;
 	type Event = Event;
@@ -186,7 +188,13 @@ impl generic_asset::Trait for Runtime {
 	type AssetId = u32;
 }
 
+impl fees::Trait for Runtime {
+	type Event = Event;
+	type TransferAsset = GenericAsset;
+}
+
 impl cennz_x::Trait for Runtime {
+	type AccountId = AccountId;
 	type Event = Event;
 }
 
@@ -198,8 +206,8 @@ impl doughnut::Trait for Runtime {
 	type Event = Event;
 }
 
-
-impl sylo::groups::Trait for Runtime {
+impl sylo::groups::Trait for Runtime {}
+impl sylo::e2ee::Trait for Runtime {
 	type Event = Event;
 }
 impl sylo::device::Trait for Runtime {
@@ -207,7 +215,6 @@ impl sylo::device::Trait for Runtime {
 }
 impl sylo::response::Trait for Runtime {}
 impl sylo::inbox::Trait for Runtime {}
-
 
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
@@ -232,11 +239,13 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
+		Fees: fees::{Module, Storage, Config<T>, Event<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		Doughnut: doughnut::{Module, Call, Event<T>},
-		CennzX: cennz_x::{Module, Call, Storage, Event<T>},
+		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		SyloGroups: sylo_groups::{Module, Call, Event<T>, Storage},
+		SyloGroups: sylo_groups::{Module, Call, Storage},
+		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
@@ -257,7 +266,7 @@ pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call,
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Balances, AllModules>;
+pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Fees, AllModules>;
 
 impl_runtime_apis! {
 	impl client_api::Core<Block> for Runtime {

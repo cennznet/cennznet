@@ -2,43 +2,30 @@
 
 #![warn(missing_docs)]
 
-extern crate ctrlc;
-extern crate futures;
-
 #[macro_use]
 extern crate error_chain;
 
-extern crate tokio;
-
 extern crate substrate_primitives as primitives;
-extern crate exit_future;
-extern crate hex_literal;
-// #[cfg(test)]
-// extern crate substrate_service_test as service_test;
+
 #[macro_use]
 extern crate substrate_network as network;
-extern crate substrate_consensus_aura as consensus;
 extern crate substrate_client as client;
-extern crate substrate_cli;
-extern crate cennznet_primitives;
+extern crate substrate_consensus_aura as consensus;
+
 #[macro_use]
 extern crate substrate_executor;
-extern crate substrate_transaction_pool as transaction_pool;
-extern crate substrate_finality_grandpa as grandpa;
 extern crate substrate_consensus_common as consensus_common;
+extern crate substrate_finality_grandpa as grandpa;
+extern crate substrate_transaction_pool as transaction_pool;
 #[macro_use]
 extern crate substrate_service;
-extern crate substrate_keystore;
-extern crate cennznet_runtime;
 extern crate substrate_inherents as inherents;
 
-extern crate structopt;
 #[macro_use]
 extern crate log;
-extern crate app_dirs;
 
-mod cli;
 mod chain_spec;
+mod cli;
 mod service;
 
 use cli::VersionInfo;
@@ -57,10 +44,15 @@ impl cli::IntoExit for Exit {
 
 		let exit_send_cell = RefCell::new(Some(exit_send));
 		ctrlc::set_handler(move || {
-			if let Some(exit_send) = exit_send_cell.try_borrow_mut().expect("signal handler not reentrant; qed").take() {
+			if let Some(exit_send) = exit_send_cell
+				.try_borrow_mut()
+				.expect("signal handler not reentrant; qed")
+				.take()
+			{
 				exit_send.send(()).expect("Error sending exit notification");
 			}
-		}).expect("Error setting Ctrl-C handler");
+		})
+		.expect("Error setting Ctrl-C handler");
 
 		exit.map_err(drop)
 	}

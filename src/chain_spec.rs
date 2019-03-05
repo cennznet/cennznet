@@ -1,16 +1,19 @@
 //! CENNZNET chain configurations.
 
-use primitives::{Ed25519AuthorityId, ed25519};
 use cennznet_primitives::AccountId;
-use cennznet_runtime::{ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
-	SessionConfig, StakingConfig, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, GenericAssetConfig, Permill, Perbill};
 pub use cennznet_runtime::GenesisConfig;
+use cennznet_runtime::{
+	BalancesConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
+	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+};
+use primitives::{ed25519, Ed25519AuthorityId};
 use substrate_service;
 
 use substrate_keystore::pad_seed;
+use substrate_telemetry::TelemetryEndpoints;
 
-const DEV_TELEMETRY_URL: Option<&str> = Some("ws://cennznet-telemetry.centrality.me:1024");
+const DEV_TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -21,17 +24,6 @@ pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
 	// NOTE from ed25519 impl:
 	// prefer pkcs#8 unless security doesn't matter -- this is used primarily for tests.
 	ed25519::Pair::from_seed(&padded_seed).public().0.into()
-}
-
-/// Helper function to populate genesis generic asset balances for endowed accounts.
-fn build_balances_for_accounts(
-	asset_ids: Vec<u32>,
-	accounts: Vec<AccountId>,
-	amount: u128,
-) -> Vec<(u32, AccountId, u128)> {
-	asset_ids.iter().flat_map(
-		|asset_id| accounts.iter().cloned().map(move |account_id| (asset_id.clone(), account_id, amount))
-	).collect()
 }
 
 /// genesis config for DEV/UAT env
@@ -48,21 +40,23 @@ fn cennznet_dev_uat_genesis(
 			get_authority_id_from_seed("Drew"),
 			get_authority_id_from_seed("Emily"),
 			get_authority_id_from_seed("Frank"),
-			get_authority_id_from_seed("Centrality")
+			get_authority_id_from_seed("Centrality"),
+			get_authority_id_from_seed("Kauri"),
+			get_authority_id_from_seed("Rimu"),
 		]
 	});
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
-			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm").to_vec(),
+			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
+				.to_vec(),
 			authorities: initial_authorities.clone(),
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 10,
-			transaction_byte_fee: 1,
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
+			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -93,16 +87,18 @@ fn cennznet_dev_uat_genesis(
 			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
-			active_council: endowed_accounts.iter()
-			.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
-				.map(|a| (a.clone().into(), 1000000)).collect(),
+			active_council: endowed_accounts
+				.iter()
+				.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
+				.map(|a| (a.clone().into(), 1_000_000))
+				.collect(),
 			candidacy_bond: 10,
 			voter_bond: 2,
 			present_slash_per_voter: 1,
 			carry_count: 4,
 			presentation_duration: 10,
 			approval_voting_period: 20,
-			term_duration: 1000000,
+			term_duration: 1_000_000,
 			desired_seats: (endowed_accounts.len() - initial_authorities.len()) as u32,
 			inactive_grace_period: 1,
 		}),
@@ -129,24 +125,36 @@ fn cennznet_dev_uat_genesis(
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
 		}),
-		sudo: Some(SudoConfig {
-			key: root_key,
-		}),
+		sudo: Some(SudoConfig { key: root_key }),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
-			total_supply: vec![
-				// staking token
-				(0, 10u128.pow(30)),
-				// spending token
-				(10, 10u128.pow(30))
+			assets: vec![
+				// Staking token
+				0, // CENNZ
+				// Spending token
+				10, // CENTRAPAY
+				// Reserve Tokens
+				100, // PLUG
+				101, // SYLO
+				102, // CERTI
+				103, // ARDA
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
-			// dummy
-			dummy: 0,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
+		}),
+		fees: Some(FeesConfig {
+			transaction_base_fee: 10,
+			transaction_byte_fee: 1,
+		}),
+		cennz_x: Some(SpotExchangeConfig {
+			fee_rate: Permill::from_millionths(3000),
+			core_asset_id: 10,
 		}),
 	}
 }
@@ -168,16 +176,16 @@ pub fn local_dev_genesis(
 	});
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
-			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm").to_vec(),
+			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
+				.to_vec(),
 			authorities: initial_authorities.clone(),
 		}),
 		system: None,
 		balances: Some(BalancesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 1,
 			existential_deposit: 50,
 			transfer_fee: 1,
 			creation_fee: 1,
+			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
@@ -208,16 +216,18 @@ pub fn local_dev_genesis(
 			max_lock_periods: 6,
 		}),
 		council_seats: Some(CouncilSeatsConfig {
-			active_council: endowed_accounts.iter()
-			.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
-				.map(|a| (a.clone().into(), 1000000)).collect(),
+			active_council: endowed_accounts
+				.iter()
+				.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
+				.map(|a| (a.clone().into(), 1_000_000))
+				.collect(),
 			candidacy_bond: 10,
 			voter_bond: 2,
 			present_slash_per_voter: 1,
 			carry_count: 4,
 			presentation_duration: 10,
 			approval_voting_period: 20,
-			term_duration: 1000000,
+			term_duration: 1_000_000,
 			desired_seats: (endowed_accounts.len() - initial_authorities.len()) as u32,
 			inactive_grace_period: 1,
 		}),
@@ -244,78 +254,123 @@ pub fn local_dev_genesis(
 			block_gas_limit: 10_000_000,
 			current_schedule: Default::default(),
 		}),
-		sudo: Some(SudoConfig {
-			key: root_key,
-		}),
+		sudo: Some(SudoConfig { key: root_key }),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
-			total_supply: vec![
-				// staking token
-				(0, 10u128.pow(30)),
-				// spending token
-				(10, 10u128.pow(30))
+			assets: vec![
+				// Staking token
+				0, // CENNZ
+				// Spending token
+				10, // CENTRAPAY
+				// Reserve Tokens
+				100, // PLUG
+				101, // SYLO
+				102, // CERTI
+				103, // ARDA
 			],
-			free_balance: build_balances_for_accounts(vec![0, 10], endowed_accounts.iter().cloned().map(Into::into).collect(), 10u128.pow(28)),
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
-			// dummy
-			dummy: 0,
+			create_asset_stake: 1000,
+			transfer_fee: 20,
+		}),
+		fees: Some(FeesConfig {
+			transaction_base_fee: 1,
+			transaction_byte_fee: 1,
+		}),
+		cennz_x: Some(SpotExchangeConfig {
+			fee_rate: Permill::from_millionths(3000),
+			core_asset_id: 10,
 		}),
 	}
 }
 
 /// The CENNZnet DEV testnet config
 pub fn cennznet_dev_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_embedded(include_bytes!("../genesis/dev/genesis.json")).map_err(|e| format!("Error loading genesis for Kauri CENNZnet testnet {}", e))
+	ChainSpec::from_embedded(include_bytes!("../genesis/dev/genesis.json"))
+		.map_err(|e| format!("Error loading genesis for Kauri CENNZnet testnet {}", e))
 }
 
 /// The CENNZnet UAT testnet config
 pub fn cennznet_uat_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_embedded(include_bytes!("../genesis/uat/genesis.json")).map_err(|e| format!("Error loading genesis for Rimu CENNZnet testnet {}", e))
+	ChainSpec::from_embedded(include_bytes!("../genesis/uat/genesis.json"))
+		.map_err(|e| format!("Error loading genesis for Rimu CENNZnet testnet {}", e))
 }
 
-/// The CENNZnet DEV/UAT testnet genesis (created from code)
-pub fn cennznet_dev_uat_config_genesis() -> GenesisConfig {
+/// The CENNZnet Kauri testnet genesis)
+pub fn cennznet_kauri_config_genesis() -> GenesisConfig {
 	cennznet_dev_uat_genesis(
 		vec![
 			get_authority_id_from_seed("Andrea"),
 			get_authority_id_from_seed("Brooke"),
 			get_authority_id_from_seed("Courtney"),
 		],
-		get_authority_id_from_seed("Centrality").into(),
+		get_authority_id_from_seed("Kauri").into(),
+		None,
+	)
+}
+
+/// The CENNZnet Rimu testnet genesis
+pub fn cennznet_rimu_config_genesis() -> GenesisConfig {
+	cennznet_dev_uat_genesis(
+		vec![
+			get_authority_id_from_seed("Andrea"),
+			get_authority_id_from_seed("Brooke"),
+			get_authority_id_from_seed("Courtney"),
+		],
+		get_authority_id_from_seed("Rimu").into(),
 		None,
 	)
 }
 
 /// The CENNZnet DEV testnet config with latest runtime
 pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
-	Ok(
-		ChainSpec::from_genesis("Kauri CENNZnet", "kauri", cennznet_dev_uat_config_genesis, vec![
-			String::from("/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2"),
-			String::from("/dns4/cennznet-bootnode-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa"),
-			String::from("/dns4/cennznet-bootnode-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ")
-		], DEV_TELEMETRY_URL, None, None, None)
-	)
+	Ok(ChainSpec::from_genesis(
+		"Kauri CENNZnet",
+		"kauri",
+		cennznet_kauri_config_genesis,
+		vec![
+			String::from(
+				"/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2",
+			),
+			String::from(
+				"/dns4/cennznet-bootnode-1.centrality.me/tcp/30333/p2p/QmRaZu8UNGejxuGB9pMhjw5GZEVVBkaRiYYhhLYYUkT8qa",
+			),
+			String::from(
+				"/dns4/cennznet-bootnode-2.centrality.me/tcp/30333/p2p/QmTEUaAyqq3spjKSFLWw5gG8tzZ6xwbt5ptTKvs65VkBPJ",
+			),
+		],
+		Some(TelemetryEndpoints::new(vec![(DEV_TELEMETRY_URL.into(), 0)])),
+		None,
+		None,
+		None,
+	))
 }
 
 /// The CENNZnet UAT testnet config with latest runtime
 pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
-	Ok(
-		ChainSpec::from_genesis("Rimu CENNZnet", "rimu", cennznet_dev_uat_config_genesis, vec![
-			String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-			String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-			String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
-		], DEV_TELEMETRY_URL, None, None, None)
-	)
+	Ok(ChainSpec::from_genesis(
+		"Rimu CENNZnet",
+		"rimu",
+		cennznet_rimu_config_genesis,
+		vec![
+				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
+				String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
+				String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
+			],
+		Some(TelemetryEndpoints::new(vec![(DEV_TELEMETRY_URL.into(), 0)])),
+		None,
+		None,
+		None,
+	))
 }
 
 fn local_dev_config_genesis() -> GenesisConfig {
 	local_dev_genesis(
-		vec![
-			get_authority_id_from_seed("Alice"),
-		],
+		vec![get_authority_id_from_seed("Alice")],
 		get_authority_id_from_seed("Alice").into(),
 		None,
 	)
@@ -323,14 +378,28 @@ fn local_dev_config_genesis() -> GenesisConfig {
 
 /// The CENNZnet Kauri testnet config for local test purpose
 pub fn cennznet_dev_local_config() -> Result<ChainSpec, String> {
-	Ok(
-		ChainSpec::from_genesis("Kauri Dev", "kauri-dev", cennznet_dev_uat_config_genesis, vec![], None, None, None, None)
-	)
+	Ok(ChainSpec::from_genesis(
+		"Kauri Dev",
+		"kauri-dev",
+		cennznet_kauri_config_genesis,
+		vec![],
+		None,
+		None,
+		None,
+		None,
+	))
 }
 
 /// Local testnet config
 pub fn local_dev_config() -> Result<ChainSpec, String> {
-	Ok(
-		ChainSpec::from_genesis("Development", "development", local_dev_config_genesis, vec![], None, None, None, None)
-	)
+	Ok(ChainSpec::from_genesis(
+		"Development",
+		"development",
+		local_dev_config_genesis,
+		vec![],
+		None,
+		None,
+		None,
+		None,
+	))
 }
