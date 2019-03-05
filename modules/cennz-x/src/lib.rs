@@ -692,7 +692,6 @@ mod tests {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
 			let fee_rate = <FeeRate<Test>>::get();
-			//assert_eq!(fee_rate);
 			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
 			{
 				<generic_asset::Module<Test>>::set_free_balance(&0, &H256::from_low_u64_be(1), 2200);
