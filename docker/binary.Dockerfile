@@ -11,6 +11,6 @@ EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
 ARG PROFILE=release
-COPY ./target/release/cennznet /usr/local/bin
+COPY ./target/$PROFILE/cennznet /usr/local/bin
 
 ENTRYPOINT ["/usr/local/bin/cennznet"]
