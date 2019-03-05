@@ -671,7 +671,7 @@ mod tests {
 				CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)),
 				1000
 			);
-			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 123, fee_rate), 140);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 123, fee_rate), 141);
 			assert_ok!(CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(H256::from_low_u64_be(1)), //origin
 				1,                                        // asset_id: T::AssetId,
@@ -681,9 +681,9 @@ mod tests {
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
-				360
+				359
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1140);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1141);
 		});
 	}
 
