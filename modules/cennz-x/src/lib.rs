@@ -631,10 +631,10 @@ mod tests {
 				10, //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 10);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 15);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 10);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 15);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
 		});
@@ -667,11 +667,11 @@ mod tests {
 				10, //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 20);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 20);
 			// because a round up
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 31);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 31);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 20);
 		});
@@ -700,10 +700,10 @@ mod tests {
 				1000, //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 1000);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1000);
 
 			assert_eq!(
 				CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)),
@@ -716,12 +716,12 @@ mod tests {
 				123,                                      // amount_bought: T::Balance,
 				145,                                      // max_amount_sold: T::Balance,
 			));
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 877);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
 				359
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1141);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1141);
 		});
 	}
 
@@ -743,10 +743,10 @@ mod tests {
 				10,   //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 10);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 10);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
 			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 5, fee_rate), 1004);
@@ -760,12 +760,12 @@ mod tests {
 				),
 				Ok(1004)
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 5);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 5);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
 				196
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 2004);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 2004);
 		});
 	}
 }
