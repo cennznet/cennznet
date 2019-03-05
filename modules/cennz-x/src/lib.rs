@@ -209,11 +209,11 @@ impl<T: Trait> Module<T> {
 
 	/// mint total supply for an exchange pool
 	fn mint_total_supply(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance + increase); // will not overflow because it's limited by core assets's total supply
+		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
 	}
 
 	fn burn_total_supply(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance - decrease); // will not downflow for the same reason
+		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not downflow for the same reason
 	}
 
 	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &AccountIdOf<T>, balance: T::Balance) {
@@ -630,12 +630,49 @@ mod tests {
 				10, //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 10);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 15);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 10);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 15);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
+		});
+	}
+
+	#[test]
+	fn the_second_investor_can_add_liquidity() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let core_asset_id = <CoreAssetId<Test>>::get();
+			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
+			{
+				// <timestamp::Module<Test>>::set_timestamp(20);
+				<generic_asset::Module<Test>>::set_free_balance(&0, &H256::from_low_u64_be(1), 100);
+				<generic_asset::Module<Test>>::set_free_balance(&1, &H256::from_low_u64_be(1), 100);
+			}
+			assert_ok!(CennzXSpot::add_liquidity(
+				Origin::signed(H256::from_low_u64_be(1)),
+				1,  //asset_id: T::AssetId,
+				2,  // min_liquidity: T::Balance,
+				15, //max_asset_amount: T::Balance,
+				10, //core_amount: T::Balance,
+			));
+
+			// because a round up, sec time asset amount become 15 + 1
+			assert_ok!(CennzXSpot::add_liquidity(
+				Origin::signed(H256::from_low_u64_be(1)),
+				1,  //asset_id: T::AssetId,
+				2,  // min_liquidity: T::Balance,
+				16, //max_asset_amount: T::Balance,
+				10, //core_amount: T::Balance,
+			));
+			let exchange_key = (0, 1);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
+
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 20);
+			// because a round up
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 31);
+
+			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 20);
 		});
 	}
 
@@ -662,10 +699,10 @@ mod tests {
 				1000, //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 1000);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1000);
 
 			assert_eq!(
 				CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)),
@@ -678,12 +715,12 @@ mod tests {
 				123,                                      // amount_bought: T::Balance,
 				145,                                      // max_amount_sold: T::Balance,
 			));
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 877);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
 				359
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1141);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1141);
 		});
 	}
 
@@ -705,10 +742,10 @@ mod tests {
 				10,   //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
-			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 10);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 10);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 1000);
 
 			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
 			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 5, fee_rate), 1004);
@@ -722,12 +759,12 @@ mod tests {
 				),
 				Ok(1004)
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 5);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &exchange_address), 5);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
 				196
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 2004);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &exchange_address), 2004);
 		});
 	}
 }
