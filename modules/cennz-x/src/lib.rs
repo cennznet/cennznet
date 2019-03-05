@@ -17,7 +17,6 @@ use runtime_primitives::{
 };
 use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
-
 // An alias for the system wide `AccountId` type
 pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
 // (core_asset_id, asset_id)
@@ -48,8 +47,8 @@ decl_module! {
 			max_amount_sold: T::Balance
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
-			let return_fee_rate = Self::return_fee_rate();
-			let amount_sold = Self::make_asset_to_core_swap_output(&asset_id, amount_bought, max_amount_sold, &from_account, return_fee_rate)?;
+			let fee_rate = Self::fee_rate();
+			let amount_sold = Self::make_asset_to_core_swap_output(&asset_id, amount_bought, max_amount_sold, &from_account, fee_rate)?;
 			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, from_account, amount_sold, amount_bought));
 			Ok(())
 		}
@@ -176,7 +175,7 @@ decl_storage! {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
-		pub ReturnFeeRate get(return_fee_rate) config(): Permill;
+		pub FeeRate get(fee_rate) config(): Permill;
 		/// Total supply of exchange token in existence.
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
@@ -487,12 +486,13 @@ impl<T: Trait> Module<T> {
 		output_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
-		return_fee_rate: Permill,
+		fee_rate: Permill,
 	) -> T::Balance {
 		if input_reserve > Zero::zero() && output_reserve > Zero::zero() {
-			let numerator: T::Balance = return_fee_rate * input_reserve * output_amount;
+			let numerator: T::Balance = input_reserve * output_amount;
 			let denominator = output_reserve - output_amount;
-			numerator / denominator
+			let output = numerator / denominator + One::one();
+			fee_rate * output + output
 		} else {
 			Zero::zero()
 		}
@@ -504,7 +504,7 @@ impl<T: Trait> Module<T> {
 	pub fn get_asset_to_core_output_price(
 		asset_id: &T::AssetId,
 		amount_bought: T::Balance,
-		return_fee_rate: Permill,
+		fee_rate: Permill,
 	) -> T::Balance {
 		if amount_bought > Zero::zero() {
 			let core_asset_id = Self::core_asset_id();
@@ -512,7 +512,7 @@ impl<T: Trait> Module<T> {
 			let exchange_address = Self::generate_exchange_address(&exchange_key);
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			Self::get_output_price(amount_bought, trade_asset_reserve, core_asset_reserve, return_fee_rate)
+			Self::get_output_price(amount_bought, trade_asset_reserve, core_asset_reserve, fee_rate)
 		} else {
 			Zero::zero()
 		}
@@ -576,14 +576,14 @@ mod tests {
 
 	pub struct ExtBuilder {
 		core_asset_id: u32,
-		return_fee_rate: Permill,
+		fee_rate: Permill,
 	}
 
 	impl Default for ExtBuilder {
 		fn default() -> Self {
 			Self {
 				core_asset_id: 0,
-				return_fee_rate: Permill::from_percent(97),
+				fee_rate: Permill::from_millionths(3000),
 			}
 		}
 	}
@@ -594,7 +594,7 @@ mod tests {
 			t.extend(
 				GenesisConfig::<Test> {
 					core_asset_id: self.core_asset_id,
-					return_fee_rate: self.return_fee_rate,
+					fee_rate: self.fee_rate,
 				}
 				.build_storage()
 				.unwrap()
@@ -648,7 +648,7 @@ mod tests {
 	fn get_asset_to_core_output_price() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
-			let return_fee_rate = <ReturnFeeRate<Test>>::get();
+			let fee_rate = <FeeRate<Test>>::get();
 			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
 			{
 				<generic_asset::Module<Test>>::set_free_balance(&0, &H256::from_low_u64_be(1), 1000);
@@ -671,22 +671,19 @@ mod tests {
 				CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)),
 				1000
 			);
-			assert_eq!(
-				CennzXSpot::get_asset_to_core_output_price(&1, 123, return_fee_rate),
-				136
-			);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 123, fee_rate), 141);
 			assert_ok!(CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(H256::from_low_u64_be(1)), //origin
 				1,                                        // asset_id: T::AssetId,
 				123,                                      // amount_bought: T::Balance,
-				140,                                      // max_amount_sold: T::Balance,
+				145,                                      // max_amount_sold: T::Balance,
 			));
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
-				364
+				359
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1141);
 		});
 	}
 
@@ -694,49 +691,43 @@ mod tests {
 	fn get_asset_to_core_output_price_internal_call() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			let core_asset_id = <CoreAssetId<Test>>::get();
-			let return_fee_rate = <ReturnFeeRate<Test>>::get();
+			let fee_rate = <FeeRate<Test>>::get();
 			let next_asset_id = <generic_asset::Module<Test>>::next_asset_id();
 			{
-				<generic_asset::Module<Test>>::set_free_balance(&0, &H256::from_low_u64_be(1), 1000);
-				<generic_asset::Module<Test>>::set_free_balance(&1, &H256::from_low_u64_be(1), 1500);
+				<generic_asset::Module<Test>>::set_free_balance(&0, &H256::from_low_u64_be(1), 2200);
+				<generic_asset::Module<Test>>::set_free_balance(&1, &H256::from_low_u64_be(1), 2200);
 			}
 			assert_ok!(CennzXSpot::add_liquidity(
 				Origin::signed(H256::from_low_u64_be(1)),
 				1,    //asset_id: T::AssetId,
 				2,    // min_liquidity: T::Balance,
 				1000, //max_asset_amount: T::Balance,
-				1000, //core_amount: T::Balance,
+				10,   //core_amount: T::Balance,
 			));
 			let exchange_key = (0, 1);
 			let pool_address = CennzXSpot::generate_exchange_address(&exchange_key);
 
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 1000);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 10);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1000);
 
-			assert_eq!(
-				CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)),
-				1000
-			);
-			assert_eq!(
-				CennzXSpot::get_asset_to_core_output_price(&1, 123, return_fee_rate),
-				136
-			);
+			assert_eq!(CennzXSpot::get_liquidity(&exchange_key, &H256::from_low_u64_be(1)), 10);
+			assert_eq!(CennzXSpot::get_asset_to_core_output_price(&1, 5, fee_rate), 1004);
 			assert_eq!(
 				CennzXSpot::make_asset_to_core_swap_output(
 					&1,                        // asset_id: T::AssetId,
-					123,                       // amount_bought: T::Balance,
-					140,                       // max_amount_sold: T::Balance,
+					5,                         // amount_bought: T::Balance,
+					1400,                      // max_amount_sold: T::Balance,
 					&H256::from_low_u64_be(1), // from: T::AccountId
-					return_fee_rate,           // Fee rate
+					fee_rate                   // Fee rate
 				),
-				Ok(136)
+				Ok(1004)
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 877);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&0, &pool_address), 5);
 			assert_eq!(
 				<generic_asset::Module<Test>>::free_balance(&1, &H256::from_low_u64_be(1)),
-				364
+				196
 			);
-			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 1136);
+			assert_eq!(<generic_asset::Module<Test>>::free_balance(&1, &pool_address), 2004);
 		});
 	}
 }
