@@ -513,7 +513,6 @@ impl<T: Trait> Module<T> {
             let denominator = output_reserve - output_amount;
             let output = numerator / denominator;
             fee_rate * output + output
-        //fee_rate
         } else {
             Zero::zero()
         }

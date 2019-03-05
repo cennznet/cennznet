@@ -150,7 +150,7 @@ fn cennznet_dev_uat_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig{
-			return_fee_rate: Permill::from_percent(97),
+			fee_rate: Permill::from_millionths(3000),
 			core_asset_id: 10,
 		}),
 	}
@@ -278,7 +278,7 @@ pub fn local_dev_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig{
-			return_fee_rate: Permill::from_percent(97),
+			fee_rate: Permill::from_millionths(3000),
 			core_asset_id: 10,
 		}),
 	}
