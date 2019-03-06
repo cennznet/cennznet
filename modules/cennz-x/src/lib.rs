@@ -124,7 +124,35 @@ decl_module! {
 			asset_amount: T::Balance,
 			min_asset_withdraw: T::Balance,
 			min_core_withdraw: T::Balance
-		) {}
+		) -> Result {
+			let from_account = ensure_signed(origin)?;
+			ensure!(asset_amount > Zero::zero(), "Amount of exchange asset to burn should exist");
+			ensure!(min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(), "Assets withdrawn to be greater than zero");
+
+			let core_asset_id = Self::core_asset_id();
+			let exchange_key = (core_asset_id, asset_id);
+			let account_liquidity = Self::get_liquidity(&exchange_key, &from_account);
+			ensure!(account_liquidity >= asset_amount, "Tried to overdraw liquidity");
+
+			let total_liquidity = Self::get_total_supply(&exchange_key);
+			let exchange_address = Self::generate_exchange_address(&exchange_key);
+			ensure!(total_liquidity > Zero::zero(), "Liquidity should exist");
+
+			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+			let core_asset_amount = asset_amount * core_asset_reserve / total_liquidity;
+			let trade_asset_amount = asset_amount * trade_asset_reserve / total_liquidity;
+			ensure!(core_asset_amount >= min_core_withdraw, "Minimum core asset is required");
+			ensure!(trade_asset_amount >= min_asset_withdraw, "Minimum trade asset is required");
+
+			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
+			<generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
+			Self::set_liquidity(&exchange_key, &from_account,
+									account_liquidity - asset_amount);
+			Self::burn_total_supply(&exchange_key, asset_amount);
+			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
+			Ok(())
+		}
 	}
 }
 
@@ -893,4 +921,120 @@ mod tests {
 		assert_eq!(u64_to_bytes(80000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 
+	#[test]
+	fn remove_liquidity() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			// investment
+			let _ = CennzXSpot::add_liquidity(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				2,  // min_liquidity: T::Balance,
+				15, // max_asset_amount: T::Balance,
+				10, // core_amount: T::Balance,
+			);
+
+			assert_ok!(CennzXSpot::remove_liquidity(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				10, //`asset_amount` - Amount of exchange asset to burn
+				4,  //`min_asset_withdraw` - The minimum trade asset withdrawn
+				4   //`min_core_withdraw` -  The minimum core asset withdrawn
+			));
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 0, TRADE_ASSET_ID => 0);
+			assert_balance_eq!(investor, TRADE_ASSET_ID => 100);
+			assert_balance_eq!(investor, CORE_ASSET_ID => 100);
+		});
+	}
+
+	#[test]
+	fn remove_liquidity_fails_min_core_asset_limit() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			// investment
+			let _ = CennzXSpot::add_liquidity(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				2,  // min_liquidity: T::Balance,
+				15, // max_asset_amount: T::Balance,
+				10, // core_amount: T::Balance,
+			);
+
+			assert_err!(
+				CennzXSpot::remove_liquidity(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					10, //`asset_amount` - Amount of exchange asset to burn
+					4,  //`min_asset_withdraw` - The minimum trade asset withdrawn
+					14  //`min_core_withdraw` -  The minimum core asset withdrawn
+				),
+				"Minimum core asset is required"
+			);
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 15);
+			assert_balance_eq!(investor, TRADE_ASSET_ID => 85);
+			assert_balance_eq!(investor, CORE_ASSET_ID => 90);
+		});
+	}
+
+	#[test]
+	fn remove_liquidity_fails_min_trade_asset_limit() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			// investment
+			let _ = CennzXSpot::add_liquidity(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				2,  // min_liquidity: T::Balance,
+				15, // max_asset_amount: T::Balance,
+				10, // core_amount: T::Balance,
+			);
+
+			assert_err!(
+				CennzXSpot::remove_liquidity(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					10, //`asset_amount` - Amount of exchange asset to burn
+					18, //`min_asset_withdraw` - The minimum trade asset withdrawn
+					4   //`min_core_withdraw` -  The minimum core asset withdrawn
+				),
+				"Minimum trade asset is required"
+			);
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 15);
+			assert_balance_eq!(investor, TRADE_ASSET_ID => 85);
+			assert_balance_eq!(investor, CORE_ASSET_ID => 90);
+		});
+	}
+
+	#[test]
+	fn remove_liquidity_fails_on_overdraw_liquidity() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			// investment
+			let _ = CennzXSpot::add_liquidity(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				2,  // min_liquidity: T::Balance,
+				15, // max_asset_amount: T::Balance,
+				10, // core_amount: T::Balance,
+			);
+
+			assert_err!(
+				CennzXSpot::remove_liquidity(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					20, //`asset_amount` - Amount of exchange asset to burn
+					18, //`min_asset_withdraw` - The minimum trade asset withdrawn
+					4   //`min_core_withdraw` -  The minimum core asset withdrawn
+				),
+				"Tried to overdraw liquidity"
+			);
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 15);
+			assert_balance_eq!(investor, TRADE_ASSET_ID => 85);
+			assert_balance_eq!(investor, CORE_ASSET_ID => 90);
+		});
+	}
 }
