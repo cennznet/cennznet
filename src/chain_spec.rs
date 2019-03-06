@@ -73,7 +73,7 @@ fn cennznet_dev_uat_genesis(
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().map(|x| x.1.into()).collect(),
-			session_length: 10,
+			session_length: 20,
 			keys: initial_authorities
 				.iter()
 				.map(|x| (x.1.clone(), x.2.clone()))
@@ -83,7 +83,7 @@ fn cennznet_dev_uat_genesis(
 			current_era: 0,
 			minimum_validator_count: 2,
 			validator_count: 10,
-			sessions_per_era: 5,
+			sessions_per_era: 3,
 			bonding_duration: 2 * 60 * 12,
 			offline_slash: Perbill::from_billionths(1000),
 			session_reward: Perbill::from_billionths(1000000),
