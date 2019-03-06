@@ -3,11 +3,11 @@
 use cennznet_primitives::AccountId;
 pub use cennznet_runtime::GenesisConfig;
 use cennznet_runtime::{
-	BalancesConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
-	FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
+	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeesConfig,
+	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
 	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
-use primitives::{ed25519, Ed25519AuthorityId};
+use primitives::{ed25519, Ed25519AuthorityId as AuthorityId};
 use substrate_service;
 
 use substrate_keystore::pad_seed;
@@ -19,65 +19,82 @@ const DEV_TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 
 /// Helper function to generate AuthorityID from seed
-pub fn get_authority_id_from_seed(seed: &str) -> Ed25519AuthorityId {
+pub fn get_account_id_from_seed(seed: &str) -> AccountId {
 	let padded_seed = pad_seed(seed);
 	// NOTE from ed25519 impl:
 	// prefer pkcs#8 unless security doesn't matter -- this is used primarily for tests.
 	ed25519::Pair::from_seed(&padded_seed).public().0.into()
 }
 
+/// Helper function to generate stash, controller and session key from seed
+pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, AuthorityId) {
+	let padded_seed = pad_seed(seed);
+	// NOTE from ed25519 impl:
+	// prefer pkcs#8 unless security doesn't matter -- this is used primarily for tests.
+	(
+		get_account_id_from_seed(&format!("{}-stash", seed)),
+		get_account_id_from_seed(seed),
+		ed25519::Pair::from_seed(&padded_seed).public().0.into(),
+	)
+}
+
 /// genesis config for DEV/UAT env
 fn cennznet_dev_uat_genesis(
-	initial_authorities: Vec<Ed25519AuthorityId>,
+	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<Ed25519AuthorityId>>,
+	endowed_accounts: Option<Vec<AccountId>>,
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
-			get_authority_id_from_seed("Andrea"),
-			get_authority_id_from_seed("Brooke"),
-			get_authority_id_from_seed("Courtney"),
-			get_authority_id_from_seed("Drew"),
-			get_authority_id_from_seed("Emily"),
-			get_authority_id_from_seed("Frank"),
-			get_authority_id_from_seed("Centrality"),
-			get_authority_id_from_seed("Kauri"),
-			get_authority_id_from_seed("Rimu"),
+			get_account_id_from_seed("Andrea"),
+			get_account_id_from_seed("Brooke"),
+			get_account_id_from_seed("Courtney"),
+			get_account_id_from_seed("Drew"),
+			get_account_id_from_seed("Emily"),
+			get_account_id_from_seed("Frank"),
+			get_account_id_from_seed("Centrality"),
+			get_account_id_from_seed("Kauri"),
+			get_account_id_from_seed("Rimu"),
 		]
 	});
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
 				.to_vec(),
-			authorities: initial_authorities.clone(),
+			authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
 		}),
 		system: None,
-		balances: Some(BalancesConfig {
-			existential_deposit: 50,
-			transfer_fee: 1,
-			creation_fee: 1,
-			vesting: vec![],
-		}),
 		indices: Some(IndicesConfig {
-			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
+			ids: endowed_accounts
+				.iter()
+				.cloned()
+				.chain(initial_authorities.iter().map(|x| x.0.clone()))
+				.collect::<Vec<_>>(),
 		}),
 		session: Some(SessionConfig {
-			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
+			validators: initial_authorities.iter().map(|x| x.1.into()).collect(),
 			session_length: 10,
+			keys: initial_authorities
+				.iter()
+				.map(|x| (x.1.clone(), x.2.clone()))
+				.collect::<Vec<_>>(),
 		}),
 		staking: Some(StakingConfig {
 			current_era: 0,
-			intentions: initial_authorities.iter().cloned().map(Into::into).collect(),
 			minimum_validator_count: 2,
 			validator_count: 5,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
-			offline_slash: Perbill::from_billionths(1_001),
-			session_reward: Perbill::from_billionths(2_065),
+			offline_slash: Perbill::from_billionths(1000),
+			session_reward: Perbill::from_billionths(1000000),
 			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 1,
-			invulnerables: initial_authorities.iter().cloned().map(Into::into).collect(),
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.into(), x.1.into(), 1_000_000_000))
+				.collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.1.into()).collect(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 9,
@@ -89,8 +106,13 @@ fn cennznet_dev_uat_genesis(
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts
 				.iter()
-				.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
-				.map(|a| (a.clone().into(), 1_000_000))
+				.filter(|&endowed| {
+					initial_authorities
+						.iter()
+						.find(|&(_, controller, _)| controller == endowed)
+						.is_none()
+				})
+				.map(|a| (a.clone().into(), 1000000))
 				.collect(),
 			candidacy_bond: 10,
 			voter_bond: 2,
@@ -127,7 +149,7 @@ fn cennznet_dev_uat_genesis(
 		}),
 		sudo: Some(SudoConfig { key: root_key }),
 		grandpa: Some(GrandpaConfig {
-			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
+			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
@@ -160,53 +182,58 @@ fn cennznet_dev_uat_genesis(
 }
 
 pub fn local_dev_genesis(
-	initial_authorities: Vec<Ed25519AuthorityId>,
+	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<Ed25519AuthorityId>>,
+	endowed_accounts: Option<Vec<AccountId>>,
 ) -> GenesisConfig {
 	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
 		vec![
-			get_authority_id_from_seed("Alice"),
-			get_authority_id_from_seed("Bob"),
-			get_authority_id_from_seed("Charlie"),
-			get_authority_id_from_seed("Dave"),
-			get_authority_id_from_seed("Eve"),
-			get_authority_id_from_seed("Ferdie"),
+			get_account_id_from_seed("Alice"),
+			get_account_id_from_seed("Bob"),
+			get_account_id_from_seed("Charlie"),
+			get_account_id_from_seed("Dave"),
+			get_account_id_from_seed("Eve"),
+			get_account_id_from_seed("Ferdie"),
 		]
 	});
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
 				.to_vec(),
-			authorities: initial_authorities.clone(),
+			authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
 		}),
 		system: None,
-		balances: Some(BalancesConfig {
-			existential_deposit: 50,
-			transfer_fee: 1,
-			creation_fee: 1,
-			vesting: vec![],
-		}),
 		indices: Some(IndicesConfig {
-			ids: endowed_accounts.iter().map(|x| x.0.into()).collect(),
+			ids: endowed_accounts
+				.iter()
+				.cloned()
+				.chain(initial_authorities.iter().map(|x| x.0.clone()))
+				.collect::<Vec<_>>(),
 		}),
 		session: Some(SessionConfig {
-			validators: initial_authorities.iter().cloned().map(Into::into).collect(),
+			validators: initial_authorities.iter().map(|x| x.1.into()).collect(),
 			session_length: 10,
+			keys: initial_authorities
+				.iter()
+				.map(|x| (x.1.clone(), x.2.clone()))
+				.collect::<Vec<_>>(),
 		}),
 		staking: Some(StakingConfig {
 			current_era: 0,
-			intentions: initial_authorities.iter().cloned().map(Into::into).collect(),
 			minimum_validator_count: 1,
 			validator_count: 2,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
-			offline_slash: Perbill::from_billionths(10),
-			session_reward: Perbill::from_billionths(10),
+			offline_slash: Perbill::from_billionths(1000),
+			session_reward: Perbill::from_billionths(1000000),
 			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 0,
-			invulnerables: initial_authorities.iter().cloned().map(Into::into).collect(),
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.into(), x.1.into(), 1_000_000_000))
+				.collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.1.into()).collect(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 9,
@@ -218,8 +245,13 @@ pub fn local_dev_genesis(
 		council_seats: Some(CouncilSeatsConfig {
 			active_council: endowed_accounts
 				.iter()
-				.filter(|a| initial_authorities.iter().find(|&b| a.0 == b.0).is_none())
-				.map(|a| (a.clone().into(), 1_000_000))
+				.filter(|&endowed| {
+					initial_authorities
+						.iter()
+						.find(|&(_, controller, _)| controller == endowed)
+						.is_none()
+				})
+				.map(|a| (a.clone().into(), 1000000))
 				.collect(),
 			candidacy_bond: 10,
 			voter_bond: 2,
@@ -256,7 +288,7 @@ pub fn local_dev_genesis(
 		}),
 		sudo: Some(SudoConfig { key: root_key }),
 		grandpa: Some(GrandpaConfig {
-			authorities: initial_authorities.clone().into_iter().map(|k| (k, 1)).collect(),
+			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
 		}),
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
@@ -304,11 +336,11 @@ pub fn cennznet_uat_config() -> Result<ChainSpec, String> {
 pub fn cennznet_kauri_config_genesis() -> GenesisConfig {
 	cennznet_dev_uat_genesis(
 		vec![
-			get_authority_id_from_seed("Andrea"),
-			get_authority_id_from_seed("Brooke"),
-			get_authority_id_from_seed("Courtney"),
+			get_authority_keys_from_seed("Andrea"),
+			get_authority_keys_from_seed("Brooke"),
+			get_authority_keys_from_seed("Courtney"),
 		],
-		get_authority_id_from_seed("Kauri").into(),
+		get_account_id_from_seed("Kauri").into(),
 		None,
 	)
 }
@@ -317,11 +349,11 @@ pub fn cennznet_kauri_config_genesis() -> GenesisConfig {
 pub fn cennznet_rimu_config_genesis() -> GenesisConfig {
 	cennznet_dev_uat_genesis(
 		vec![
-			get_authority_id_from_seed("Andrea"),
-			get_authority_id_from_seed("Brooke"),
-			get_authority_id_from_seed("Courtney"),
+			get_authority_keys_from_seed("Andrea"),
+			get_authority_keys_from_seed("Brooke"),
+			get_authority_keys_from_seed("Courtney"),
 		],
-		get_authority_id_from_seed("Rimu").into(),
+		get_account_id_from_seed("Rimu").into(),
 		None,
 	)
 }
@@ -370,8 +402,8 @@ pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
 
 fn local_dev_config_genesis() -> GenesisConfig {
 	local_dev_genesis(
-		vec![get_authority_id_from_seed("Alice")],
-		get_authority_id_from_seed("Alice").into(),
+		vec![get_authority_keys_from_seed("Alice")],
+		get_account_id_from_seed("Alice").into(),
 		None,
 	)
 }

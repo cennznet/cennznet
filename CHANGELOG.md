@@ -1,11 +1,20 @@
 # Runtime version 13
-- Update substrate to commit 4ec33d1c8d9b1c432ffcabb0ef3c7387dcbfbc9a
+- Update substrate to commit 9112a28af677b75cd6f935dda34d283bb4f676e7
 - Breaking changes:
 	- GA
 		- Type `AssetOptions` field `total_supply` renamed to `initial_issuance`
 			- SDK type needs to be updated
 		- Internal method `total_supply` renamed to `total_issuance`
+	- balances module is been removed
+		- use fees module to query transaction fee
+		- use GA module for currency transfer
 - New features:
 	- New runtime module CENNZX
 	- Sylo modules refactor
 	- GA V4 (partially implemented, subject to change)
+- New notable Substreate changes:
+	- Add an RPC request for the state of the network https://github.com/paritytech/substrate/pull/1884
+	- Stash/controller model for staking https://github.com/paritytech/substrate/pull/1782
+	- Update parity-codec/-derive to 3.1 https://github.com/paritytech/substrate/pull/1900
+		- Please update your branch to use parity-codec 3.1
+	- Telemetry improvements https://github.com/paritytech/substrate/pull/1886
