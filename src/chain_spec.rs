@@ -82,7 +82,7 @@ fn cennznet_dev_uat_genesis(
 		staking: Some(StakingConfig {
 			current_era: 0,
 			minimum_validator_count: 2,
-			validator_count: 5,
+			validator_count: 10,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
 			offline_slash: Perbill::from_billionths(1000),
@@ -221,7 +221,7 @@ pub fn local_dev_genesis(
 		staking: Some(StakingConfig {
 			current_era: 0,
 			minimum_validator_count: 1,
-			validator_count: 2,
+			validator_count: 4,
 			sessions_per_era: 5,
 			bonding_duration: 2 * 60 * 12,
 			offline_slash: Perbill::from_billionths(1000),
