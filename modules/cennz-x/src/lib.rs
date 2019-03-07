@@ -35,7 +35,7 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-		/// Trade asset (`asset_id`) to core asset. User specifies maximum input and exact output
+		/// Swap asset (`asset_id`) to core asset. User specifies maximum input and exact output
 		/// `asset_id` - The asset ID to trade
 		/// `buy_amount` - Amount of core asset to purchase (output)
 		/// `max_sale` -  Maximum asset to sell (input)
@@ -48,6 +48,23 @@ decl_module! {
 			let buyer = ensure_signed(origin)?;
 			let sold_amount = Self::make_asset_to_core_swap_output(&buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
 			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
+
+			Ok(())
+		}
+
+		/// Swap core asset to trade asset. User specifies maximum input (core asset) and exact output.
+		/// `asset_id` - The asset ID to trade
+		/// `buy_amount` - The amount of asset to purchase
+		/// `max_sale` - Maximum core asset to sell (input)
+		pub fn core_to_asset_swap_output(
+			origin,
+			asset_id: T::AssetId,
+			buy_amount: T::Balance,
+			max_sale: T::Balance
+		) -> Result {
+			let buyer = ensure_signed(origin)?;
+			let sold_amount = Self::make_core_to_asset_output(&buyer, &buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
 		}
@@ -240,7 +257,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	fn burn_total_supply(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not downflow for the same reason
+		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
 	}
 
 	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &AccountIdOf<T>, balance: T::Balance) {
@@ -285,20 +302,6 @@ impl<T: Trait> Module<T> {
 	) {
 	}
 
-	/// Convert core asset to trade asset. User specifies
-	/// maximum input (core asset) and exact output.
-	///
-	/// `asset_id` - Trade asset ID
-	/// `amount_bought` - Amount of core asset purchased
-	/// `max_amount_sold` -  Maximum trade asset sold
-	pub fn core_to_asset_swap_output(
-		asset_id: &T::AssetId,
-		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
-		fee_rate: Permill,
-	) {
-	}
-
 	/// Convert core asset to trade asset and transfer the trade asset to recipient
 	/// from system account. User specifies maximum input (core asset) and exact output
 	///
@@ -331,7 +334,7 @@ impl<T: Trait> Module<T> {
 		max_sale: T::Balance,
 		fee_rate: Permill,
 	) -> rstd::result::Result<T::Balance, &'static str> {
-		let sold_amount = Self::get_asset_to_core_output_price(&asset_id, buy_amount, fee_rate)?;
+		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount, fee_rate)?;
 		ensure!(
 			sold_amount > Zero::zero(),
 			"Amount of asset sold should be greater than zero"
@@ -341,15 +344,55 @@ impl<T: Trait> Module<T> {
 			"Amount of asset sold would exceed the specified max. limit"
 		);
 		ensure!(
-			<generic_asset::Module<T>>::free_balance(&asset_id, &buyer) >= sold_amount,
+			<generic_asset::Module<T>>::free_balance(asset_id, buyer) >= sold_amount,
 			"Insufficient asset balance in buyer account"
 		);
 
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, *asset_id);
 		let exchange_address = Self::generate_exchange_address(&exchange_key);
-		<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &buyer, buy_amount)?;
-		<generic_asset::Module<T>>::make_transfer(&asset_id, &buyer, &exchange_address, sold_amount)?;
+		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, buyer, buy_amount).and(
+			<generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sold_amount),
+		);
+
+		Ok(sold_amount)
+	}
+
+	/// Trade core asset to asset (`asset_id`) at the given `fee_rate`
+	/// `buyer` - Account buying core asset for trade asset
+	/// `recipient` - Account receiving trade asset
+	/// `asset_id` - The asset ID to trade
+	/// `buy_amount` - Amount of core asset to purchase (output)
+	/// `max_sale` -  Maximum asset to sell (input)
+	/// `fee_rate` - The % of exchange fees for the trade
+	pub fn make_core_to_asset_output(
+		buyer: &AccountIdOf<T>,
+		recipient: &AccountIdOf<T>,
+		asset_id: &T::AssetId,
+		buy_amount: T::Balance,
+		max_sale: T::Balance,
+		fee_rate: Permill,
+	) -> rstd::result::Result<T::Balance, &'static str> {
+		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
+		ensure!(
+			sold_amount > Zero::zero(),
+			"Amount of core asset sold should be greater than zero"
+		);
+		ensure!(
+			max_sale > sold_amount,
+			"Amount of core asset sold would exceed the specified max. limit"
+		);
+		let core_asset_id = Self::core_asset_id();
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&core_asset_id, buyer) >= sold_amount,
+			"Insufficient core asset balance in buyer account"
+		);
+
+		let exchange_key = (core_asset_id, *asset_id);
+		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, buyer, &exchange_address, sold_amount).and(
+			<generic_asset::Module<T>>::make_transfer(asset_id, &exchange_address, recipient, buy_amount),
+		);
 
 		Ok(sold_amount)
 	}
@@ -681,14 +724,31 @@ mod tests {
 		};
 	);
 
-	/// Initializes an address with the given exchange balance.
-	/// e.g. `let investor = with_account!(0 => 10, 1 => 20)`
+	/// Initializes a preset address with the given exchange balance.
+	/// Examples
+	/// ```
+	/// let andrea = with_account!(0 => 10, 1 => 20)`
+	/// let bob = with_account!("bob", 0 => 10, 1 => 20)`
+	/// ```
 	macro_rules! with_account (
 		($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 			{
 				<generic_asset::Module<Test>>::set_free_balance(&$a1, &default_address(), $b1);
 				<generic_asset::Module<Test>>::set_free_balance(&$a2, &default_address(), $b2);
 				default_address()
+			}
+		};
+		($name:expr, $a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
+			{
+				let account = match $name {
+					"andrea" => H256::from_low_u64_be(1),
+					"bob" => H256::from_low_u64_be(2),
+					"charlie" => H256::from_low_u64_be(3),
+					_ => H256::from_low_u64_be(1), // default back to "andrea"
+				};
+				<generic_asset::Module<Test>>::set_free_balance(&$a1, &account, $b1);
+				<generic_asset::Module<Test>>::set_free_balance(&$a2, &account, $b2);
+				account
 			}
 		};
 	);
@@ -772,7 +832,7 @@ mod tests {
 	}
 
 	#[test]
-	fn get_asset_to_core_output_price() {
+	fn asset_swap_output_price() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 
@@ -780,13 +840,6 @@ mod tests {
 				CennzXSpot::get_asset_to_core_output_price(&TRADE_ASSET_ID, 123, <FeeRate<Test>>::get()),
 				141
 			);
-		});
-	}
-
-	#[test]
-	fn get_core_to_asset_output_price() {
-		with_externalities(&mut ExtBuilder::default().build(), || {
-			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 
 			assert_ok!(
 				CennzXSpot::get_core_to_asset_output_price(&TRADE_ASSET_ID, 123, <FeeRate<Test>>::get()),
@@ -796,17 +849,21 @@ mod tests {
 	}
 
 	#[test]
-	fn get_core_asset_output_price_zero_buy() {
+	fn asset_swap_output_zero_buy_amount() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			assert_err!(
 				CennzXSpot::get_core_to_asset_output_price(&TRADE_ASSET_ID, 0, <FeeRate<Test>>::get()),
+				"Buy amount must be a positive value"
+			);
+			assert_err!(
+				CennzXSpot::get_asset_to_core_output_price(&TRADE_ASSET_ID, 0, <FeeRate<Test>>::get()),
 				"Buy amount must be a positive value"
 			);
 		});
 	}
 
 	#[test]
-	fn get_asset_to_core_output_insufficient_reserve() {
+	fn asset_swap_output_insufficient_reserve() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 			let investor = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
@@ -818,6 +875,15 @@ mod tests {
 					<FeeRate<Test>>::get()
 				),
 				"Insufficient core asset reserve in exchange"
+			);
+
+			assert_err!(
+				CennzXSpot::get_core_to_asset_output_price(
+					&TRADE_ASSET_ID,
+					1001, // amount_bought
+					<FeeRate<Test>>::get()
+				),
+				"Insufficient asset reserve in exchange"
 			);
 		});
 	}
@@ -863,7 +929,7 @@ mod tests {
 	}
 
 	#[test]
-	fn asset_to_core_swap_output_zero_asset_sold_fails() {
+	fn asset_swap_output_zero_asset_sold() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
@@ -877,29 +943,49 @@ mod tests {
 				),
 				"Buy amount must be a positive value"
 			);
-		});
-	}
-
-	#[test]
-	fn asset_to_core_swap_output_insufficient_balance() {
-		with_externalities(&mut ExtBuilder::default().build(), || {
-			with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_ID => 500);
-			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
 
 			assert_err!(
-				CennzXSpot::asset_to_core_swap_output(
+				CennzXSpot::core_to_asset_swap_output(
 					Origin::signed(investor),
 					TRADE_ASSET_ID,
-					101, // buy_amount
-					500, // max_sale,
+					0,   // buy_amount
+					100, // max_sale,
 				),
-				"Insufficient asset balance in buyer account"
+				"Buy amount must be a positive value"
 			);
 		});
 	}
 
 	#[test]
-	fn asset_to_core_swap_output_exceed_max_asset() {
+	fn asset_swap_output_insufficient_balance() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_ID => 500);
+			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 50);
+
+			assert_err!(
+				CennzXSpot::asset_to_core_swap_output(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					51,  // buy_amount
+					500, // max_sale,
+				),
+				"Insufficient asset balance in buyer account"
+			);
+
+			assert_err!(
+				CennzXSpot::core_to_asset_swap_output(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					101, // buy_amount
+					500, // max_sale,
+				),
+				"Insufficient core asset balance in buyer account"
+			);
+		});
+	}
+
+	#[test]
+	fn asset_swap_output_exceed_max_sale() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 			let investor = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_ID => 50);
@@ -913,6 +999,60 @@ mod tests {
 				),
 				"Amount of asset sold would exceed the specified max. limit"
 			);
+
+			assert_err!(
+				CennzXSpot::core_to_asset_swap_output(
+					Origin::signed(investor),
+					TRADE_ASSET_ID,
+					50, // buy_amount
+					0,  // max_sale,
+				),
+				"Amount of core asset sold would exceed the specified max. limit"
+			);
+		});
+	}
+
+	#[test]
+	fn core_to_asset_swap_output() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 10);
+			let investor = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+
+			assert_ok!(CennzXSpot::core_to_asset_swap_output(
+				Origin::signed(investor),
+				TRADE_ASSET_ID,
+				5,    // buy_amount: T::Balance,
+				1400, // max_sale: T::Balance,
+			));
+
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 2004, TRADE_ASSET_ID => 5);
+			assert_balance_eq!(investor, CORE_ASSET_ID => 1196);
+			assert_balance_eq!(investor, TRADE_ASSET_ID => 2205);
+		});
+	}
+
+	#[test]
+	fn make_core_to_asset_output() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 10);
+			let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let receiver = with_account!("bob", CORE_ASSET_ID => 0, TRADE_ASSET_ID => 0);
+
+			assert_ok!(
+				CennzXSpot::make_core_to_asset_output(
+					&buyer,
+					&receiver,
+					&TRADE_ASSET_ID,
+					5,                              // buy_amount: T::Balance,
+					1400,                           // max_sale: T::Balance,
+					Permill::from_millionths(3000), // fee_rate
+				),
+				1004
+			);
+
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 2004, TRADE_ASSET_ID => 5);
+			assert_balance_eq!(buyer, CORE_ASSET_ID => 1196);
+			assert_balance_eq!(receiver, TRADE_ASSET_ID => 5);
 		});
 	}
 
