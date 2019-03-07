@@ -46,7 +46,8 @@ decl_module! {
 			max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_asset_to_core_swap_output(&buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			// Buyer is also recipient
+			let sold_amount = Self::make_asset_to_core_output(&buyer, &buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
 			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
@@ -168,6 +169,24 @@ decl_module! {
 									account_liquidity - asset_amount);
 			Self::burn_total_supply(&exchange_key, asset_amount);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
+			Ok(())
+		}
+
+		/// Trade asset (`asset_id`) to core asset. User specifies maximum input and exact output
+		/// `asset_id` - The asset ID to trade
+		/// `buy_amount` - Amount of core asset to purchase (output)
+		/// `max_sale` -  Maximum asset to sell (input)
+		pub fn asset_to_core_transfer_output(
+			origin,
+			recipient: AccountIdOf<T>,
+			asset_id: T::AssetId,
+			buy_amount: T::Balance,
+			max_sale: T::Balance
+		) -> Result {
+			let buyer = ensure_signed(origin)?;
+			let sold_amount = Self::make_asset_to_core_output(&buyer, &recipient, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
+
 			Ok(())
 		}
 	}
@@ -327,8 +346,9 @@ impl<T: Trait> Module<T> {
 	/// `buy_amount` - Amount of core asset to purchase (output)
 	/// `max_sale` -  Maximum asset to sell (input)
 	/// `fee_rate` - The % of exchange fees for the trade
-	pub fn make_asset_to_core_swap_output(
+	pub fn make_asset_to_core_output(
 		buyer: &AccountIdOf<T>,
+		recipient: &AccountIdOf<T>,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_sale: T::Balance,
@@ -351,8 +371,8 @@ impl<T: Trait> Module<T> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, *asset_id);
 		let exchange_address = Self::generate_exchange_address(&exchange_key);
-		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, buyer, buy_amount).and(
-			<generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sold_amount),
+		let _ = <generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sold_amount).and(
+			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, recipient, buy_amount),
 		);
 
 		Ok(sold_amount)
@@ -422,22 +442,6 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		recipient: &AccountIdOf<T>,
-		fee_rate: Permill,
-	) {
-	}
-
-	/// Convert core asset to trade asset and transfer the trade asset to recipient from system account.
-	/// User specifies maximum input (core asset) and exact output.
-	///
-	/// `asset_id` - Trade asset ID
-	/// `amount_bought` - Amount of core asset purchased
-	/// `max_amount_sold` -  Maximum trade asset sold
-	/// `recipient` - The address that receives the output asset
-	pub fn asset_to_core_transfer_output(
-		asset_id: &T::AssetId,
-		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
 		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {
@@ -913,8 +917,9 @@ mod tests {
 			let investor = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
 
 			assert_ok!(
-				CennzXSpot::make_asset_to_core_swap_output(
-					&investor,
+				CennzXSpot::make_asset_to_core_output(
+					&investor, // buyer
+					&investor, // reciever
 					&TRADE_ASSET_ID,
 					5,                              // buy_amount: T::Balance,
 					1400,                           // max_sale: T::Balance,
@@ -1177,4 +1182,26 @@ mod tests {
 			assert_balance_eq!(investor, CORE_ASSET_ID => 90);
 		});
 	}
+
+	#[test]
+	fn asset_transfer_output() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 1000);
+			let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			assert_ok!(CennzXSpot::asset_to_core_transfer_output(
+				Origin::signed(buyer),
+				recipient,
+				TRADE_ASSET_ID,
+				5,    // buy_amount: T::Balance,
+				1400, // max_sale: T::Balance,
+			));
+
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_ID => 2004);
+			assert_balance_eq!(buyer, TRADE_ASSET_ID => 1196);
+			assert_balance_eq!(recipient, CORE_ASSET_ID => 105);
+		});
+	}
+
 }
