@@ -1,8 +1,8 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use system::ensure_signed;
 
-extern crate sr_std;
 extern crate sr_io;
+extern crate sr_std;
 extern crate substrate_primitives;
 
 // Needed for various traits. In our case, `OnFinalise`.

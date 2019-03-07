@@ -1,8 +1,8 @@
 use srml_support::{dispatch::Vec, StorageMap};
 use {device, groups, inbox, response, system, system::ensure_signed};
 
-extern crate sr_primitives;
 extern crate sr_io;
+extern crate sr_primitives;
 extern crate substrate_primitives;
 
 const MAX_PKBS: usize = 50;
@@ -123,7 +123,7 @@ pub(super) mod tests {
 	}
 	impl inbox::Trait for Test {}
 	impl response::Trait for Test {}
-	impl groups::Trait for Test{}
+	impl groups::Trait for Test {}
 	type E2EE = Module<Test>;
 	type Device = device::Module<Test>;
 	type Response = response::Module<Test>;
@@ -175,10 +175,7 @@ pub(super) mod tests {
 				vec![mock_pkb.clone()]
 			));
 
-			assert_eq!(
-				E2EE::pkbs((H256::from_low_u64_be(1), 0)),
-				vec![mock_pkb]
-			);
+			assert_eq!(E2EE::pkbs((H256::from_low_u64_be(1), 0)), vec![mock_pkb]);
 		});
 	}
 
@@ -199,7 +196,7 @@ pub(super) mod tests {
 				vec![mock_pkb.clone()]
 			));
 
-			let req_id = H256::from([3;32]);
+			let req_id = H256::from([3; 32]);
 			let wanted_pkbs = vec![(H256::from_low_u64_be(1), 0)];
 
 			assert_ok!(E2EE::withdraw_pkbs(
@@ -210,9 +207,7 @@ pub(super) mod tests {
 
 			assert_eq!(
 				Response::response((H256::from_low_u64_be(2), req_id)),
-				response::Response::PreKeyBundles(
-					vec![(H256::from_low_u64_be(1), 0, mock_pkb)]
-				)
+				response::Response::PreKeyBundles(vec![(H256::from_low_u64_be(1), 0, mock_pkb)])
 			);
 		});
 	}
