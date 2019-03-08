@@ -1,16 +1,10 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use system::ensure_signed;
 
-// Assert macros used in tests.
-extern crate sr_std;
-
-// Needed for tests (`with_externalities`).
-#[cfg(test)]
 extern crate sr_io;
-
-// Needed for the set of mock primitives used in our tests.
-#[cfg(test)]
+extern crate sr_std;
 extern crate substrate_primitives;
+
 // Needed for various traits. In our case, `OnFinalise`.
 extern crate sr_primitives;
 
