@@ -7,6 +7,9 @@
     "/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
   ],
   "telemetryUrl": "ws://cennznet-telemetry.centrality.me:1024",
+  "telemetryEndpoints": [
+	["ws://cennznet-telemetry.centrality.me:1024", 0]
+  ],
   "protocolId": null,
   "consensusEngine": null,
   "properties": null,
