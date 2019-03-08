@@ -20,5 +20,6 @@ pub mod e2ee;
 pub mod groups;
 pub mod inbox;
 pub mod response;
+pub mod vault;
 
 pub use rstd::vec;
