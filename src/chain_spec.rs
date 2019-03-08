@@ -169,6 +169,7 @@ fn cennznet_dev_uat_genesis(
 			next_asset_id: 1_000_000,
 			create_asset_stake: 1000,
 			transfer_fee: 20,
+			next_reserved_asset_id: 100_000,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 10,
@@ -308,6 +309,7 @@ pub fn local_dev_genesis(
 			next_asset_id: 1_000_000,
 			create_asset_stake: 1000,
 			transfer_fee: 20,
+			next_reserved_asset_id: 100_000,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1,

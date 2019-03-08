@@ -318,6 +318,20 @@ impl_runtime_apis! {
 			None
 		}
 
+		fn grandpa_forced_change(digest: &DigestFor<Block>)
+			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
 		fn grandpa_authorities() -> Vec<(SessionKey, u64)> {
 			Grandpa::grandpa_authorities()
 		}
