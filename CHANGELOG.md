@@ -1,5 +1,5 @@
 # Runtime version 13
-- Update substrate to commit 9112a28af677b75cd6f935dda34d283bb4f676e7
+- Update substrate to commit c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- GA
 		- Type `AssetOptions` field `total_supply` renamed to `initial_issuance`
@@ -17,4 +17,9 @@
 	- Stash/controller model for staking https://github.com/paritytech/substrate/pull/1782
 	- Update parity-codec/-derive to 3.1 https://github.com/paritytech/substrate/pull/1900
 		- Please update your branch to use parity-codec 3.1
-	- Telemetry improvements https://github.com/paritytech/substrate/pull/1886
+	- Telemetry improvements https://github.com/paritytech/substrate/pull/1886\
+	- Networking (p2p) improvements:
+		- https://github.com/paritytech/substrate/pull/1934
+		- https://github.com/paritytech/substrate/pull/1944
+	- Extract specific transaction pool errors https://github.com/paritytech/substrate/pull/1930
+	- Aggregate all liquidity restrictions in a single place https://github.com/paritytech/substrate/pull/1921
