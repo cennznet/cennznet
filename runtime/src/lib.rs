@@ -45,6 +45,7 @@ pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
+pub use sylo::vault as sylo_vault;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -201,6 +202,7 @@ impl sylo::device::Trait for Runtime {
 }
 impl sylo::response::Trait for Runtime {}
 impl sylo::inbox::Trait for Runtime {}
+impl sylo::vault::Trait for Runtime {}
 
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where

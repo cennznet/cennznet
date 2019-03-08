@@ -11,7 +11,7 @@ mod tests {
 		BuildStorage,
 	};
 
-	use groups::{device, inbox, system, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module, Trait};
+	use groups::{device, inbox, vault, system, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module, Trait};
 
 	impl_outer_origin! {
 	  pub enum Origin for Test {}
@@ -44,7 +44,9 @@ mod tests {
 		type Event = ();
 	}
 	impl inbox::Trait for Test {}
+	impl vault::Trait for Test {}
 	type Groups = Module<Test>;
+	type Vault = vault::Module<Test>;
 
 	// This function basically just builds a genesis storage key/value store according to
 	// our desired mockup.
@@ -66,7 +68,8 @@ mod tests {
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
 				meta_1.clone(),
-				vec![]
+				vec![],
+				(b"group".to_vec(), b"data".to_vec())
 			));
 
 			assert_eq!(
@@ -84,11 +87,17 @@ mod tests {
 			);
 
 			assert_eq!(
+				Vault::values(H256::from_low_u64_be(1)),
+				vec![(b"group".to_vec(), b"data".to_vec())]
+			);
+
+			assert_eq!(
 				Groups::create_group(
 					Origin::signed(H256::from_low_u64_be(1)),
 					group_id.clone(),
 					meta_1.clone(),
 					vec![],
+					(vec![], vec![])
 				),
 				Err("Group already exists")
 			);
@@ -108,6 +117,7 @@ mod tests {
 				group_id.clone(),
 				meta_1.clone(),
 				vec![],
+				(vec![], vec![])
 			));
 
 			// Check initial meta
@@ -150,6 +160,7 @@ mod tests {
 				group_id.clone(),
 				vec![],
 				vec![],
+				(vec![], vec![])
 			));
 
 			// leave wrong group
@@ -183,7 +194,8 @@ mod tests {
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
 				vec![],
-				vec![]
+				vec![],
+				(b"group".to_vec(), b"data".to_vec())
 			));
 
 			let payload = AcceptPayload {
@@ -228,7 +240,8 @@ mod tests {
 					payload.clone(),
 					invite_key.clone(),
 					0,
-					wrong_sig
+					wrong_sig,
+					(vec![], vec![])
 				),
 				Err("Failed to verify invite")
 			);
@@ -240,7 +253,8 @@ mod tests {
 				payload.clone(),
 				invite_key.clone(),
 				0,
-				signature
+				signature,
+				(vec![], vec![])
 			));
 
 			let group = Groups::group(group_id.clone());
@@ -256,6 +270,11 @@ mod tests {
 			);
 			// invite should be deleted
 			assert_eq!(group.invites.len(), 0);
+
+			assert_eq!(
+				Vault::values(H256::from_low_u64_be(1)),
+				vec![(b"group".to_vec(), b"data".to_vec())]
+			);
 		});
 	}
 
@@ -269,7 +288,8 @@ mod tests {
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
 				vec![],
-				vec![]
+				vec![],
+				(vec![], vec![])
 			));
 			let invite_keys = vec![H256::from([1; 32]), H256::from([2; 32]), H256::from([3; 32])];
 			let invites = invite_keys
@@ -320,7 +340,8 @@ mod tests {
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
 				vec![],
-				vec![]
+				vec![],
+				(vec![], vec![])
 			));
 
 			// update member's meta

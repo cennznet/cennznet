@@ -19,9 +19,9 @@ use groups::sr_primitives::Ed25519Signature;
 use groups::substrate_primitives::hash::{H256, H512};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {device, inbox, system::ensure_signed, vec};
+use {device, inbox, vault, system::ensure_signed, vec};
 
-pub trait Trait: system::Trait + inbox::Trait + device::Trait {}
+pub trait Trait: system::Trait + inbox::Trait + device::Trait + vault::Trait {}
 
 const INVITES_MAX: usize = 15;
 
@@ -95,11 +95,12 @@ where
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>) -> Result {
+		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (vault::Key, vault::Value)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
 			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
@@ -129,6 +130,8 @@ decl_module! {
 					.collect();
 
 			<MemberDevices<T>>::insert(group_id.clone(), member_devices);
+
+			<vault::Module<T>>::add(sender.clone(), group_data.0, group_data.1);
 
 			// Create invites
 			for invite in invites {
@@ -238,11 +241,12 @@ decl_module! {
 			Ok(())
 		}
 
-		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512) -> Result {
+		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512, group_data: (vault::Key, vault::Value)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
 			ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
 
 			let mut group = <Groups<T>>::get(&group_id);
 			let invite = group.clone().invites
@@ -284,6 +288,8 @@ decl_module! {
 					.into_iter()
 					.map(|device| (sender.clone(), device))
 					.collect();
+
+			<vault::Module<T>>::add(sender.clone(), group_data.0, group_data.1);
 
 			let mut all_devices = <MemberDevices<T>>::get(&group_id);
 			all_devices.extend(member_devices);

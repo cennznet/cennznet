@@ -1,29 +1,31 @@
-use srml_support::{dispatch::Vec, dispatch::Result, StorageMap};
+use srml_support::{dispatch::Vec, StorageMap};
 use {system, system::ensure_signed};
 
 extern crate sr_io;
 extern crate sr_primitives;
 extern crate substrate_primitives;
 
-const KEYS_MAX: usize = 100;
+pub const KEYS_MAX: usize = 100;
 
 pub trait Trait: system::Trait {}
 
-type Key = Vec<u8>;
-type Value = Vec<u8>;
+pub type Key = Vec<u8>;
+pub type Value = Vec<u8>;
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn add_value(origin, key: Key, value: Value) -> Result {
+		fn add_value(origin, key: Key, value: Value) {
 			let user_id = ensure_signed(origin)?;
 
-			Self::add(user_id, key, value)
+			ensure!(<Vault<T>>::get(&user_id).len() < KEYS_MAX, "Can not store more than maximum amount of keys");
+
+			Self::add(user_id, key, value);
 		}
 
-		fn delete_values(origin, keys: Vec<Key>) -> Result {
+		fn delete_values(origin, keys: Vec<Key>) {
 			let user_id = ensure_signed(origin)?;
 
-			Self::delete(user_id, keys)
+			Self::delete(user_id, keys);
 		}
 	}
 }
@@ -35,22 +37,18 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {
-	pub fn add(user_id: T::AccountId, key: Key, value: Value) -> Result {
+	pub fn add(user_id: T::AccountId, key: Key, value: Value) {
 		let mut values = <Vault<T>>::get(&user_id);
-
-		ensure!(values.len() < KEYS_MAX, "Can not store more than maximum amount of keys");
 
 		match values.iter().enumerate().find(|(_, item)| item.0 == key) {
 			None => values.push((key, value)),
 			Some((i, _)) => { values[i] = (key, value) }
 		}
 
-		<Vault<T>>::insert(user_id, values);
-
-		Ok(())
+		<Vault<T>>::insert(user_id, values)
 	}
 
-	pub fn delete(user_id: T::AccountId, keys: Vec<Key>) -> Result {
+	pub fn delete(user_id: T::AccountId, keys: Vec<Key>) {
 		let remaining_values: Vec<(Key, Value)> =
 			<Vault<T>>::get(&user_id)
 				.into_iter()
@@ -59,9 +57,7 @@ impl<T: Trait> Module<T> {
 				})
 				.collect();
 
-		<Vault<T>>::insert(user_id, remaining_values);
-
-		Ok(())
+		<Vault<T>>::insert(user_id, remaining_values)
 	}
 }
 
