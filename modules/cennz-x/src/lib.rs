@@ -70,6 +70,25 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Transfer core asset to trade asset. User specifies maximum input (core asset) and exact output.
+		/// `recipient` - Reciever of trade asset
+		/// `asset_id` - The asset ID to trade
+		/// `buy_amount` - The amount of asset to purchase
+		/// `max_sale` - Maximum core asset to sell (input)
+		pub fn core_to_asset_transfer_output(
+			origin,
+			recipient: AccountIdOf<T>,
+			asset_id: T::AssetId,
+			buy_amount: T::Balance,
+			max_sale: T::Balance
+		) -> Result {
+			let buyer = ensure_signed(origin)?;
+			let sold_amount = Self::make_core_to_asset_output(&buyer, &recipient, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
+
+			Ok(())
+		}
+
 		//
 		// Manage Liquidity
 		//
@@ -317,22 +336,6 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		fee_rate: Permill,
-	) {
-	}
-
-	/// Convert core asset to trade asset and transfer the trade asset to recipient
-	/// from system account. User specifies maximum input (core asset) and exact output
-	///
-	/// `asset_id` - Trade asset ID
-	/// `amount_bought` - Amount of core asset purchased
-	/// `max_amount_sold` -  Maximum trade asset sold
-	/// `recipient` - The address that receives the output asset
-	pub fn core_to_asset_transfer_output(
-		asset_id: &T::AssetId,
-		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
-		recipient: &AccountIdOf<T>,
 		fee_rate: Permill,
 	) {
 	}
@@ -870,7 +873,6 @@ mod tests {
 	fn asset_swap_output_insufficient_reserve() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
-			let investor = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 
 			assert_err!(
 				CennzXSpot::get_asset_to_core_output_price(
@@ -896,17 +898,17 @@ mod tests {
 	fn asset_to_core_swap_output() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 1000);
-			let investor = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
 
 			assert_ok!(CennzXSpot::asset_to_core_swap_output(
-				Origin::signed(investor),
+				Origin::signed(trader),
 				TRADE_ASSET_ID,
 				5,    // buy_amount: T::Balance,
 				1400, // max_sale: T::Balance,
 			));
 
 			assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_ID => 2004);
-			assert_balance_eq!(investor, TRADE_ASSET_ID => 1196);
+			assert_balance_eq!(trader, TRADE_ASSET_ID => 1196);
 		});
 	}
 
@@ -914,12 +916,12 @@ mod tests {
 	fn make_asset_to_core_swap_output() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 1000);
-			let investor = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
 
 			assert_ok!(
 				CennzXSpot::make_asset_to_core_output(
-					&investor, // buyer
-					&investor, // reciever
+					&trader, // buyer
+					&trader, // reciever
 					&TRADE_ASSET_ID,
 					5,                              // buy_amount: T::Balance,
 					1400,                           // max_sale: T::Balance,
@@ -929,7 +931,7 @@ mod tests {
 			);
 
 			assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_ID => 2004);
-			assert_balance_eq!(investor, TRADE_ASSET_ID => 1196);
+			assert_balance_eq!(trader, TRADE_ASSET_ID => 1196);
 		});
 	}
 
@@ -937,11 +939,11 @@ mod tests {
 	fn asset_swap_output_zero_asset_sold() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
-			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+			let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
 
 			assert_err!(
 				CennzXSpot::asset_to_core_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					0,   // buy_amount
 					100, // max_sale,
@@ -951,7 +953,7 @@ mod tests {
 
 			assert_err!(
 				CennzXSpot::core_to_asset_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					0,   // buy_amount
 					100, // max_sale,
@@ -965,11 +967,11 @@ mod tests {
 	fn asset_swap_output_insufficient_balance() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_ID => 500);
-			let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 50);
+			let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 50);
 
 			assert_err!(
 				CennzXSpot::asset_to_core_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					51,  // buy_amount
 					500, // max_sale,
@@ -979,7 +981,7 @@ mod tests {
 
 			assert_err!(
 				CennzXSpot::core_to_asset_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					101, // buy_amount
 					500, // max_sale,
@@ -993,11 +995,11 @@ mod tests {
 	fn asset_swap_output_exceed_max_sale() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
-			let investor = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_ID => 50);
+			let trader = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_ID => 50);
 
 			assert_err!(
 				CennzXSpot::asset_to_core_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					50, // buy_amount
 					0,  // max_sale,
@@ -1007,7 +1009,7 @@ mod tests {
 
 			assert_err!(
 				CennzXSpot::core_to_asset_swap_output(
-					Origin::signed(investor),
+					Origin::signed(trader),
 					TRADE_ASSET_ID,
 					50, // buy_amount
 					0,  // max_sale,
@@ -1021,18 +1023,18 @@ mod tests {
 	fn core_to_asset_swap_output() {
 		with_externalities(&mut ExtBuilder::default().build(), || {
 			with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 10);
-			let investor = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
 
 			assert_ok!(CennzXSpot::core_to_asset_swap_output(
-				Origin::signed(investor),
+				Origin::signed(trader),
 				TRADE_ASSET_ID,
 				5,    // buy_amount: T::Balance,
 				1400, // max_sale: T::Balance,
 			));
 
 			assert_exchange_balance_eq!(CORE_ASSET_ID => 2004, TRADE_ASSET_ID => 5);
-			assert_balance_eq!(investor, CORE_ASSET_ID => 1196);
-			assert_balance_eq!(investor, TRADE_ASSET_ID => 2205);
+			assert_balance_eq!(trader, CORE_ASSET_ID => 1196);
+			assert_balance_eq!(trader, TRADE_ASSET_ID => 2205);
 		});
 	}
 
@@ -1201,6 +1203,27 @@ mod tests {
 			assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_ID => 2004);
 			assert_balance_eq!(buyer, TRADE_ASSET_ID => 1196);
 			assert_balance_eq!(recipient, CORE_ASSET_ID => 105);
+		});
+	}
+
+	#[test]
+	fn core_to_asset_transfer_output() {
+		with_externalities(&mut ExtBuilder::default().build(), || {
+			with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_ID => 1000);
+			let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_ID => 2200);
+			let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
+
+			assert_ok!(CennzXSpot::core_to_asset_transfer_output(
+				Origin::signed(buyer),
+				recipient,
+				TRADE_ASSET_ID,
+				5,    // buy_amount: T::Balance,
+				1400, // max_sale: T::Balance,
+			));
+
+			assert_exchange_balance_eq!(CORE_ASSET_ID => 11, TRADE_ASSET_ID => 995);
+			assert_balance_eq!(buyer, CORE_ASSET_ID => 2199);
+			assert_balance_eq!(recipient, TRADE_ASSET_ID => 105);
 		});
 	}
 
