@@ -55,6 +55,7 @@ fn cennznet_dev_uat_genesis(
 			get_account_id_from_seed("Centrality"),
 			get_account_id_from_seed("Kauri"),
 			get_account_id_from_seed("Rimu"),
+			get_account_id_from_seed("cennznet-js-test"),
 		]
 	});
 	GenesisConfig {
