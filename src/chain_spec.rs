@@ -390,8 +390,8 @@ pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 /// The CENNZnet UAT testnet config with latest runtime
 pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::from_genesis(
-		"Rimu CENNZnet",
-		"rimu",
+		"Rimu CENNZnet 0.9.13",
+		"rimu-9.13",
 		cennznet_rimu_config_genesis,
 		vec![
 				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
