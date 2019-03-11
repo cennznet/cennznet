@@ -8,6 +8,7 @@
 	- balances module is been removed
 		- use fees module to query transaction fee
 		- use GA module for currency transfer
+	- Staking: New Staking module
 - New features:
 	- New runtime module CENNZX
 	- Sylo modules refactor
