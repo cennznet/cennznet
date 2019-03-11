@@ -11,7 +11,9 @@ mod tests {
 		BuildStorage,
 	};
 
-	use groups::{device, inbox, vault, system, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module, Trait};
+	use groups::{
+		device, inbox, system, vault, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module, Trait,
+	};
 
 	impl_outer_origin! {
 	  pub enum Origin for Test {}

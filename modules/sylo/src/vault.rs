@@ -42,20 +42,17 @@ impl<T: Trait> Module<T> {
 
 		match values.iter().enumerate().find(|(_, item)| item.0 == key) {
 			None => values.push((key, value)),
-			Some((i, _)) => { values[i] = (key, value) }
+			Some((i, _)) => values[i] = (key, value),
 		}
 
 		<Vault<T>>::insert(user_id, values)
 	}
 
 	pub fn delete(user_id: T::AccountId, keys: Vec<Key>) {
-		let remaining_values: Vec<(Key, Val)> =
-			<Vault<T>>::get(&user_id)
-				.into_iter()
-				.filter(|item| {
-					keys.iter().find(|key_to_remove| &&item.0 == key_to_remove).is_none()
-				})
-				.collect();
+		let remaining_values: Vec<(Key, Val)> = <Vault<T>>::get(&user_id)
+			.into_iter()
+			.filter(|item| keys.iter().find(|key_to_remove| &&item.0 == key_to_remove).is_none())
+			.collect();
 
 		<Vault<T>>::insert(user_id, remaining_values)
 	}
@@ -140,7 +137,7 @@ mod tests {
 				Vault::values(H256::from_low_u64_be(1)),
 				vec![(key_0, value_0), (key_1, value_1)]
 			);
-		})
+		});
 	}
 
 	#[test]
@@ -156,10 +153,7 @@ mod tests {
 				value_0.clone()
 			));
 
-			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
-				vec![(key_0.clone(), value_0)]
-			);
+			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![(key_0.clone(), value_0)]);
 
 			assert_ok!(Vault::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -167,11 +161,8 @@ mod tests {
 				value_1.clone()
 			));
 
-			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
-				vec![(key_0, value_1)]
-			);
-		}
+			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![(key_0, value_1)]);
+		});
 	}
 
 	#[test]
@@ -203,10 +194,7 @@ mod tests {
 				vec![key_0, key_1]
 			));
 
-			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
-				vec![]
-			);
-		}
+			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
+		});
 	}
 }

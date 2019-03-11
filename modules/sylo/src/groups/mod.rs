@@ -19,7 +19,7 @@ use groups::sr_primitives::Ed25519Signature;
 use groups::substrate_primitives::hash::{H256, H512};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
-use {device, inbox, vault, system::ensure_signed, vec};
+use {device, inbox, system::ensure_signed, vault, vec};
 
 pub trait Trait: system::Trait + inbox::Trait + device::Trait + vault::Trait {}
 
