@@ -95,7 +95,7 @@ where
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (vault::Key, vault::Value)) -> Result {
+		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (vault::Key, vault::Val)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
@@ -241,7 +241,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512, group_data: (vault::Key, vault::Value)) -> Result {
+		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512, group_data: (vault::Key, vault::Val)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");

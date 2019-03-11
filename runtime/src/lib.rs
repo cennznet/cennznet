@@ -235,6 +235,7 @@ construct_runtime!(
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
+		SyloVault: sylo_vault::{Module, Call, Storage},
 	}
 );
 
