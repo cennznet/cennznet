@@ -15,7 +15,7 @@ use generic_asset;
 use rstd::{mem, prelude::*};
 use runtime_io::twox_128;
 use runtime_primitives::{
-	traits::{As, Hash, One, Zero},
+	traits::{As, Bounded, Hash, One, Zero},
 	Permill,
 };
 use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
@@ -588,6 +588,11 @@ impl<T: Trait> Module<T> {
 	) -> T::Balance {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			return Zero::zero();
+		}
+
+		// Special case, in theory price should progress towards infinity
+		if output_amount >= output_reserve {
+			return T::Balance::max_value();
 		}
 
 		let numerator: T::Balance = input_reserve * output_amount;

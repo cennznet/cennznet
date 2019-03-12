@@ -211,6 +211,23 @@ fn get_output_price() {
 }
 
 #[test]
+fn get_output_price_max_withdrawal() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
+		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
+
+		assert_eq!(
+			CennzXSpot::get_output_price(1000, 1000, 1000, <FeeRate<Test>>::get()),
+			<Test as generic_asset::Trait>::Balance::max_value()
+		);
+
+		assert_eq!(
+			CennzXSpot::get_output_price(1_000_000, 1000, 1000, <FeeRate<Test>>::get()),
+			<Test as generic_asset::Trait>::Balance::max_value()
+		);
+	});
+}
+
+#[test]
 fn asset_swap_output_price() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
 		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
