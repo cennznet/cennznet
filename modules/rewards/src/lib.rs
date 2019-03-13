@@ -32,9 +32,9 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Rewards {
-		// Accumulated transaction fees in the current session.
+		/// Accumulated transaction fees in the current session.
 		SessionTransactionFee get(session_transaction_fee): AmountOf<T>;
-		// A fixed amount of currency minted and issued every block.
+		/// A fixed amount of currency minted and issued every block.
 		BlockReward get(block_reward) config(): AmountOf<T>;
 	}
 }
