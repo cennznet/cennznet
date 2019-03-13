@@ -157,6 +157,7 @@ impl contract::Trait for Runtime {
 	type Gas = u64;
 	type DetermineContractAddress = contract::SimpleAddressDeterminator<Runtime>;
 	type ComputeDispatchFee = contract::DefaultDispatchFeeComputor<Runtime>;
+	type ChargeFee = fees::Module<Self>;
 }
 
 impl sudo::Trait for Runtime {
@@ -179,6 +180,7 @@ impl generic_asset::Trait for Runtime {
 impl fees::Trait for Runtime {
 	type Event = Event;
 	type TransferAsset = GenericAsset;
+	type OnFeeCharged = ();
 }
 
 impl cennz_x::Trait for Runtime {
