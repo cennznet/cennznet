@@ -135,6 +135,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 impl<AccountId, Address, Index, Call, Signature> Decode
 for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
+		AccountId: Decode,
 		Address: Decode,
 		Signature: Decode,
 		Compact<Index>: Decode,
@@ -150,6 +151,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		let version = input.read_byte()?;
 
 		let is_signed = version & 0b1000_0000 != 0;
+		let has_doughtnut = version &0b0100_0000 !=0;
 		let version = version & 0b0111_1111;
 		if version != TRANSACTION_VERSION {
 			return None
@@ -158,7 +160,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		Some(CennznetExtrinsic {
 			signature: if is_signed { Some(Decode::decode(input)?) } else { None },
 			function: Decode::decode(input)?,
-			doughnut: None
+			doughnut: if has_doughtnut {Some(Decode::decode(input)?)} else { None }
 		})
 	}
 }

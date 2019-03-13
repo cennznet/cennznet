@@ -5,49 +5,47 @@
 #![recursion_limit = "512"]
 
 #[macro_use]
-extern crate runtime_primitives;
-#[macro_use]
 extern crate srml_support;
+#[macro_use]
+extern crate runtime_primitives;
 
-pub use balances::Call as BalancesCall;
-pub use consensus::Call as ConsensusCall;
-use council::{motions as council_motions, voting as council_voting};
+use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature};
 #[cfg(feature = "std")]
 use council::seats as council_seats;
+use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
 use parity_codec_derive::{Decode, Encode};
 use rstd::prelude::*;
-pub use runtime_primitives::{Perbill, Permill};
-use runtime_primitives::ApplyResult;
-#[cfg(any(feature = "std", test))]
-pub use runtime_primitives::BuildStorage;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup};
 use runtime_primitives::transaction_validity::TransactionValidity;
+use runtime_primitives::ApplyResult;
 #[cfg(feature = "std")]
 use srml_support::{Deserialize, Serialize};
-pub use srml_support::StorageValue;
+use substrate_client::impl_runtime_apis;
 use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	runtime_api as client_api,
 };
-use substrate_client::impl_runtime_apis;
-use substrate_primitives::OpaqueMetadata;
 use substrate_primitives::u32_trait::{_2, _4};
-pub use timestamp::Call as TimestampCall;
+use substrate_primitives::OpaqueMetadata;
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-use cennznet_extrinsic::CennznetExtrinsic;
-use cennznet_primitives::{
-	AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature,
-};
+pub use consensus::Call as ConsensusCall;
+#[cfg(any(feature = "std", test))]
+pub use runtime_primitives::BuildStorage;
+pub use runtime_primitives::{Perbill, Permill};
+pub use srml_support::StorageValue;
+pub use timestamp::Call as TimestampCall;
+
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
+use crate::cennznet_extrinsic::CennznetExtrinsic;
 
 mod cennznet_extrinsic;
 
@@ -88,13 +86,6 @@ impl aura::Trait for Runtime {
 	type HandleReport = aura::StakingSlasher<Runtime>;
 }
 
-impl balances::Trait for Runtime {
-	type OnFreeBalanceZero = ((Staking, Contract), Democracy);
-	type OnNewAccount = Indices;
-	type EnsureAccountLiquid = (Staking, Democracy);
-	type Event = Event;
-}
-
 impl consensus::Trait for Runtime {
 	type Log = Log;
 	type SessionKey = SessionKey;
@@ -106,7 +97,7 @@ impl consensus::Trait for Runtime {
 
 impl indices::Trait for Runtime {
 	type AccountIndex = AccountIndex;
-	type IsDeadAccount = Balances;
+	type IsDeadAccount = ();
 	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
 	type Event = Event;
 }
@@ -227,7 +218,6 @@ construct_runtime!(
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Indices: indices,
-		Balances: balances,
 		Session: session,
 		Staking: staking,
 		Democracy: democracy,
@@ -330,6 +320,20 @@ impl_runtime_apis! {
 				_=> None
 			}) {
 				if let Some(change) = Grandpa::scrape_digest_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn grandpa_forced_change(digest: &DigestFor<Block>)
+			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
 					return Some(change);
 				}
 			}

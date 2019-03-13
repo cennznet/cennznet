@@ -5,13 +5,8 @@ use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use system::ensure_signed;
 extern crate srml_system as system;
 
-#[cfg(test)]
-extern crate sr_primitives;
-
-#[cfg(test)]
 extern crate sr_io;
-
-#[cfg(test)]
+extern crate sr_primitives;
 extern crate substrate_primitives;
 
 pub trait Trait: system::Trait {}

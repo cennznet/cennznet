@@ -14,7 +14,7 @@ extern crate srml_support as runtime_support;
 extern crate srml_system as system;
 extern crate substrate_primitives;
 
-use codec::Encode;
+use codec::{Encode, Decode};
 use primitives::traits::Verify;
 use runtime_support::{dispatch::Result};
 use runtime_support::rstd::prelude::*;
@@ -25,7 +25,7 @@ pub trait Trait: system::Trait {
 }
 
 // derive Debug to meet the requirement of deposit_event
-#[derive(Clone, Eq, PartialEq, Default)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Certificate<AccountId> {
 	pub expires: u64,
@@ -37,40 +37,13 @@ pub struct Certificate<AccountId> {
 	pub issuer: AccountId,
 }
 
-#[derive(Clone, Eq, PartialEq, Default)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Doughnut<AccountId, Signature> {
 	pub certificate: Certificate<AccountId>,
 	pub signature: Signature,
 	pub compact: Vec<u8>,
 }
-
-impl<AccountId> Encode for Certificate<AccountId> where
-	AccountId: Encode {
-	fn encode(&self) -> Vec<u8> {
-		let mut r = Vec::new();
-		self.version.encode_to(&mut r);
-		self.expires.encode_to(&mut r);
-		self.holder.encode_to(&mut r);
-		self.issuer.encode_to(&mut r);
-		self.not_before.encode_to(&mut r);
-		self.permissions.encode_to(&mut r);
-		r
-	}
-}
-
-impl<AccountId, Signature> Encode for Doughnut<AccountId, Signature> where
-	AccountId: Encode,
-	Signature: Encode {
-	fn encode(&self) -> Vec<u8> {
-		let mut r = Vec::new();
-		self.certificate.encode_to(&mut r);
-		self.signature.encode_to(&mut r);
-		self.compact.encode_to(&mut r);
-		r
-	}
-}
-
 
 impl<AccountId, Signature> Doughnut<AccountId, Signature> where
 	Signature: Verify<Signer=AccountId> + Encode,

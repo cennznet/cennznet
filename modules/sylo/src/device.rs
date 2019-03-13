@@ -1,15 +1,6 @@
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 extern crate srml_system as system;
 
-#[cfg(test)]
-extern crate sr_primitives;
-
-#[cfg(test)]
-extern crate sr_io;
-
-#[cfg(test)]
-extern crate substrate_primitives;
-
 const MAX_DEVICES: usize = 1000;
 
 pub trait Trait: system::Trait {
