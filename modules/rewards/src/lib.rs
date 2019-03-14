@@ -7,15 +7,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use parity_codec::{Encode, Decode};
-
-use rstd::prelude::*;
 use support::{
 	StorageValue, decl_storage, decl_module, traits::ArithmeticType,
 };
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use staking::CurrentEraReward;
+
+mod mock;
+mod tests;
 
 type AmountOf<T> = <<T as staking::Trait>::Currency as ArithmeticType>::Type;
 
