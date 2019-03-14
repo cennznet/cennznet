@@ -14,12 +14,12 @@ pub type Val = Vec<u8>;
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn add_value(origin, key: Key, value: Val) {
+		fn upsert_value(origin, key: Key, value: Val) {
 			let user_id = ensure_signed(origin)?;
 
 			ensure!(<Vault<T>>::get(&user_id).len() < KEYS_MAX, "Can not store more than maximum amount of keys");
 
-			Self::add(user_id, key, value);
+			Self::upsert(user_id, key, value);
 		}
 
 		fn delete_values(origin, keys: Vec<Key>) {
@@ -37,7 +37,7 @@ decl_storage! {
 }
 
 impl<T: Trait> Module<T> {
-	pub fn add(user_id: T::AccountId, key: Key, value: Val) {
+	pub fn upsert(user_id: T::AccountId, key: Key, value: Val) {
 		let mut values = <Vault<T>>::get(&user_id);
 
 		match values.iter().enumerate().find(|(_, item)| item.0 == key) {
@@ -108,12 +108,12 @@ mod tests {
 	}
 
 	#[test]
-	fn should_add_values() {
+	fn should_upsert_values() {
 		with_externalities(&mut new_test_ext(), || {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_0.clone(),
 				value_0.clone()
@@ -127,7 +127,7 @@ mod tests {
 			let key_1 = b"01".to_vec();
 			let value_1 = b"10".to_vec();
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_1.clone(),
 				value_1.clone()
@@ -147,7 +147,7 @@ mod tests {
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_0.clone(),
 				value_0.clone()
@@ -155,7 +155,7 @@ mod tests {
 
 			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![(key_0.clone(), value_0)]);
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_0.clone(),
 				value_1.clone()
@@ -172,13 +172,13 @@ mod tests {
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_0.clone(),
 				value_0.clone()
 			));
 
-			assert_ok!(Vault::add_value(
+			assert_ok!(Vault::upsert_value(
 				Origin::signed(H256::from_low_u64_be(1)),
 				key_1.clone(),
 				value_0.clone()

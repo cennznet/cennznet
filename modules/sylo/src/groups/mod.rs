@@ -131,7 +131,7 @@ decl_module! {
 
 			<MemberDevices<T>>::insert(group_id.clone(), member_devices);
 
-			<vault::Module<T>>::add(sender.clone(), group_data.0, group_data.1);
+			<vault::Module<T>>::upsert(sender.clone(), group_data.0, group_data.1);
 
 			// Create invites
 			for invite in invites {
@@ -289,7 +289,7 @@ decl_module! {
 					.map(|device| (sender.clone(), device))
 					.collect();
 
-			<vault::Module<T>>::add(sender.clone(), group_data.0, group_data.1);
+			<vault::Module<T>>::upsert(sender.clone(), group_data.0, group_data.1);
 
 			let mut all_devices = <MemberDevices<T>>::get(&group_id);
 			all_devices.extend(member_devices);
