@@ -11,6 +11,7 @@ use primitives::{H256, Blake2Hasher};
 use runtime_io;
 use staking;
 use generic_asset;
+use fees::OnFeeCharged;
 use support::{impl_outer_origin};
 use crate::{GenesisConfig, Module, Trait};
 
@@ -64,6 +65,14 @@ impl Trait for Test {}
 
 pub type Rewards = Module<Test>;
 pub type Staking = staking::Module<Test>;
+
+// A mock to trigger `on_fee_charged` function.
+pub struct ChargeFeeMock;
+impl ChargeFeeMock {
+	pub fn trigger_rewards_on_fee_charged(amount: u64) {
+		<Rewards as OnFeeCharged<u64>>::on_fee_charged(&amount);
+	}
+}
 
 pub struct ExtBuilder {
 	block_reward: u64,
