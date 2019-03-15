@@ -12,6 +12,7 @@ use runtime_io;
 use staking;
 use generic_asset;
 use fees::OnFeeCharged;
+use session::OnSessionChange;
 use support::{impl_outer_origin};
 use crate::{GenesisConfig, Module, Trait};
 
@@ -71,6 +72,14 @@ pub struct ChargeFeeMock;
 impl ChargeFeeMock {
 	pub fn trigger_rewards_on_fee_charged(amount: u64) {
 		<Rewards as OnFeeCharged<u64>>::on_fee_charged(&amount);
+	}
+}
+
+// A mock to trigger `on_session_change` function.
+pub struct SessionChangeMock;
+impl SessionChangeMock {
+	pub fn trigger_rewards_on_session_change() {
+		<Rewards as OnSessionChange<u64>>::on_session_change(10, false);
 	}
 }
 
