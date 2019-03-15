@@ -33,6 +33,8 @@ use substrate_primitives::OpaqueMetadata;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
+use generic_asset::{RewardAssetCurrency, SpendingAssetCurrency, StakingAssetCurrency};
+
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
@@ -119,13 +121,13 @@ impl session::Trait for Runtime {
 }
 
 impl staking::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = RewardAssetCurrency<Self>;
 	type OnRewardMinted = Treasury;
 	type Event = Event;
 }
 
 impl democracy::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = StakingAssetCurrency<Self>;
 	type Proposal = Call;
 	type Event = Event;
 }
@@ -145,7 +147,7 @@ impl council::motions::Trait for Runtime {
 }
 
 impl treasury::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = StakingAssetCurrency<Self>;
 	type ApproveOrigin = council_motions::EnsureMembers<_4>;
 	type RejectOrigin = council_motions::EnsureMembers<_2>;
 	type Event = Event;
@@ -179,7 +181,7 @@ impl generic_asset::Trait for Runtime {
 
 impl fees::Trait for Runtime {
 	type Event = Event;
-	type TransferAsset = GenericAsset;
+	type TransferAsset = SpendingAssetCurrency<Self>;
 	type OnFeeCharged = ();
 }
 
