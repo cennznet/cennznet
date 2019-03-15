@@ -7,9 +7,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use support::{
-	StorageValue, decl_storage, decl_module, traits::ArithmeticType,
-};
+use support::{StorageValue, decl_storage, decl_module, traits::ArithmeticType};
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use staking::CurrentEraReward;
@@ -25,6 +23,11 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		pub fn set_block_reward(#[compact] reward: AmountOf<T>) {
 			<BlockReward<T>>::put(reward);
+		}
+
+		fn on_finalise() {
+			// Mint and issue block reward.
+			<CurrentEraReward<T>>::mutate(|reward| *reward += Self::block_reward());
 		}
 	}
 }

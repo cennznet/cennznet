@@ -5,16 +5,27 @@
 use super::*;
 use runtime_io::with_externalities;
 
+use runtime_primitives::{traits::OnFinalise};
+use support::{assert_ok, StorageValue};
 use crate::mock::{ExtBuilder, Rewards, Staking, ChargeFeeMock, SessionChangeMock, Test};
-use support::{assert_err, assert_ok, StorageValue};
-use staking;
 
 #[test]
 fn set_block_reward_works() {
 	with_externalities(&mut ExtBuilder::default().block_reward(3).build(), || {
 		assert_eq!(Rewards::block_reward(), 3);
-		Rewards::set_block_reward(5);
+		assert_ok!(Rewards::set_block_reward(5));
 		assert_eq!(Rewards::block_reward(), 5);
+	})
+}
+
+#[test]
+fn mint_block_reward_on_finalise_works() {
+	with_externalities(&mut ExtBuilder::default().block_reward(3).build(), || {
+		assert_eq!(Staking::current_era_reward(), 0);
+		Rewards::on_finalise(0);
+		assert_eq!(Staking::current_era_reward(), 3);
+		Rewards::on_finalise(1);
+		assert_eq!(Staking::current_era_reward(), 6);
 	})
 }
 
