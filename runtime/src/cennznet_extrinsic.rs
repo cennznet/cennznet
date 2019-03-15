@@ -11,6 +11,7 @@ use runtime_primitives::traits::{self, BlockNumberToHash, Checkable, CurrentHeig
 use runtime_io::{blake2_256};
 
 use doughnut;
+use std::fmt::Debug;
 
 const TRANSACTION_VERSION: u8 = 1;
 
@@ -135,11 +136,11 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 impl<AccountId, Address, Index, Call, Signature> Decode
 for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
-		AccountId: Decode,
-		Address: Decode,
-		Signature: Decode,
-		Compact<Index>: Decode,
-		Call: Decode,
+		AccountId: Decode+Debug,
+		Address: Decode+Debug,
+		Signature: Decode+Debug,
+		Compact<Index>: Decode+Debug,
+		Call: Decode+Debug,
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		// This is a little more complicated than usual since the binary format must be compatible
@@ -152,15 +153,43 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 
 		let is_signed = version & 0b1000_0000 != 0;
 		let has_doughtnut = version &0b0100_0000 !=0;
-		let version = version & 0b0111_1111;
+		let version = version & 0b0000_1111;
+
+		println!("{:?}", version);
+
 		if version != TRANSACTION_VERSION {
 			return None
 		}
 
+		let add: Option<Address> = Decode::decode(input);
+
+		println!("add {:?}", add);
+
+		let sig: Option<Signature> = Decode::decode(input);
+
+		println!("sig {:?}", sig);
+
+		let idx: Option<Compact<Index>> = Decode::decode(input);
+
+		println!("idx {:?}", idx);
+
+		let era: Option<Era> = Decode::decode(input);
+
+		println!("era {:?}", era);
+
+		let f = Decode::decode(input);
+		println!("f {:?}", f);
+		let d = if has_doughtnut {
+			Decode::decode(input)
+		} else { None };
+
+		println!("d {:?}", d);
+
+
 		Some(CennznetExtrinsic {
-			signature: if is_signed { Some(Decode::decode(input)?) } else { None },
-			function: Decode::decode(input)?,
-			doughnut: if has_doughtnut {Some(Decode::decode(input)?)} else { None }
+			signature: Some((add.unwrap(), sig.unwrap(), idx.unwrap(), era.unwrap())),
+			function: f?,
+			doughnut: Some(d?)
 		})
 	}
 }
@@ -229,6 +258,8 @@ mod tests {
 
 	use crate::cennznet_extrinsic::CennznetExtrinsic;
 
+	use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature};
+
 	struct TestContext;
 	impl Lookup for TestContext {
 		type Source = u64;
@@ -256,8 +287,8 @@ mod tests {
 
 	const DUMMY_ACCOUNTID: u64 = 0;
 
-	type Ex = CennznetExtrinsic<u64, u64, u64, Vec<u8>, TestSig>;
-	type CEx = CheckedExtrinsic<u64, u64, Vec<u8>>;
+	type Ex = CennznetExtrinsic<AccountId, AccountIndex, u64, Vec<u8>, TestSig>;
+	type CEx = CheckedExtrinsic<AccountId, AccountIndex, Vec<u8>>;
 
 	#[test]
 	fn unsigned_codec_should_work() {
@@ -337,5 +368,12 @@ mod tests {
 		assert_eq!(decoded, ex);
 		let as_vec: Vec<u8> = Decode::decode(&mut encoded.as_slice()).unwrap();
 		assert_eq!(as_vec.encode(), encoded);
+	}
+
+	#[test]
+	fn decode_with_doughnut_should_work() {
+		let ex: Vec<u8> = vec![89,6,193,255,191,200,35,170,117,195,0,88,238,236,33,171,226,194,214,183,36,116,24,164,175,137,214,122,32,132,194,172,134,77,160,128,209,248,236,210,53,11,138,14,192,50,63,146,100,49,186,211,4,206,243,248,80,130,91,87,119,137,0,231,11,249,132,10,156,23,50,206,57,163,210,84,144,137,199,122,217,41,204,136,72,132,188,134,30,241,47,197,87,166,29,86,118,54,79,8,0,0,0,16,1,0,215,86,142,95,10,126,218,103,168,38,145,255,55,154,196,187,164,249,201,184,89,254,119,155,93,70,54,59,97,173,45,185,229,192,152,150,109,94,0,0,0,0,1,0,0,0,191,200,35,170,117,195,0,88,238,236,33,171,226,194,214,183,36,116,24,164,175,137,214,122,32,132,194,172,134,77,160,128,152,17,139,92,0,0,0,0,68,123,34,99,101,110,110,122,110,101,116,34,58,116,114,117,101,125,209,114,167,76,218,76,134,89,18,195,43,160,168,10,87,174,105,171,174,65,14,92,203,89,222,232,78,47,68,50,219,79,215,239,246,43,243,85,86,80,59,41,120,220,9,184,210,166,219,43,29,139,110,254,118,3,191,158,103,117,126,117,167,222,79,228,167,139,194,178,12,90,104,182,122,42,183,66,67,50,32,85,59,104,65,154,36,57,74,84,182,250,7,120,142,4,152,150,109,94,0,0,0,0,1,0,0,0,191,200,35,170,117,195,0,88,238,236,33,171,226,194,214,183,36,116,24,164,175,137,214,122,32,132,194,172,134,77,160,128,152,17,139,92,0,0,0,0,68,123,34,99,101,110,110,122,110,101,116,34,58,116,114,117,101,125,209,114,167,76,218,76,134,89,18,195,43,160,168,10,87,174,105,171,174,65,14,92,203,89,222,232,78,47,68,50,219,79];
+		let decoded = Ex::decode(&mut ex.as_slice()).unwrap();
+		println!("{:?}", decoded);
 	}
 }
