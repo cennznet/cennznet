@@ -183,6 +183,8 @@ impl fees::Trait for Runtime {
 	type OnFeeCharged = ();
 }
 
+impl rewards::Trait for Runtime {}
+
 impl cennz_x::Trait for Runtime {
 	type AccountId = AccountId;
 	type Event = Event;
@@ -225,6 +227,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Fees: fees::{Module, Storage, Config<T>, Event<T>},
+		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
