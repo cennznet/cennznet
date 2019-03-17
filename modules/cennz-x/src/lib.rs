@@ -5,8 +5,9 @@
 // TODO: Suppress warnings from unimplemented stubs. Remove when complete
 #![allow(unused_variables)]
 
-#[cfg(test)]
 mod tests;
+mod types;
+pub use types::FeeRate;
 
 #[macro_use]
 extern crate srml_support as support;
@@ -14,14 +15,13 @@ extern crate srml_support as support;
 use generic_asset;
 use rstd::{mem, prelude::*};
 use runtime_io::twox_128;
-use runtime_primitives::{
-	traits::{As, Bounded, Hash, One, Zero},
-	Permill,
-};
+use runtime_primitives::traits::{As, Bounded, Hash, One, Zero};
 use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
+
 // An alias for the system wide `AccountId` type
 pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
+
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
 	<T as generic_asset::Trait>::AssetId,
@@ -260,7 +260,7 @@ decl_storage! {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
-		pub FeeRate get(fee_rate) config(): Permill;
+		pub DefaultFeeRate get(fee_rate) config(): FeeRate;
 		/// Total supply of exchange token in existence.
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
@@ -323,7 +323,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -339,7 +339,7 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: AccountIdOf<T>,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -358,7 +358,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_sale: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount, fee_rate)?;
 		ensure!(
@@ -397,7 +397,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_sale: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
 		ensure!(
@@ -433,7 +433,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -449,7 +449,7 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		recipient: &AccountIdOf<T>,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -471,7 +471,7 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -492,7 +492,7 @@ impl<T: Trait> Module<T> {
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
 		recipient: &AccountIdOf<T>,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -510,7 +510,7 @@ impl<T: Trait> Module<T> {
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -531,7 +531,7 @@ impl<T: Trait> Module<T> {
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
 		recipient: &AccountIdOf<T>,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) {
 	}
 
@@ -542,7 +542,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of core sold
 	/// Returns amount of asset that can be bought with the input core
-	pub fn core_to_asset_input_price(asset_id: &T::AssetId, amount_sold: T::Balance, fee_rate: Permill) -> T::Balance {
+	pub fn core_to_asset_input_price(asset_id: &T::AssetId, amount_sold: T::Balance, fee_rate: FeeRate) -> T::Balance {
 		T::Balance::sa(0)
 	}
 
@@ -552,7 +552,7 @@ impl<T: Trait> Module<T> {
 	pub fn get_core_to_asset_output_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		ensure!(buy_amount > Zero::zero(), "Buy amount must be a positive value");
 
@@ -576,7 +576,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of trade assets sold
 	/// Returns amount of core that can be bought with input assets.
-	pub fn asset_to_core_input_price(asset_id: &T::AssetId, amount_sold: T::Balance, fee_rate: Permill) -> T::Balance {
+	pub fn asset_to_core_input_price(asset_id: &T::AssetId, amount_sold: T::Balance, fee_rate: FeeRate) -> T::Balance {
 		T::Balance::sa(0)
 	}
 
@@ -584,7 +584,7 @@ impl<T: Trait> Module<T> {
 		output_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) -> T::Balance {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			return Zero::zero();
@@ -597,8 +597,31 @@ impl<T: Trait> Module<T> {
 
 		let numerator: T::Balance = input_reserve * output_amount;
 		let denominator = output_reserve - output_amount;
-		let output = numerator / denominator + One::one();
-		fee_rate * output + output
+		let output: T::Balance = numerator / denominator + One::one();
+
+		(FeeRate::one() + fee_rate) * output
+	}
+
+	fn get_input_price(
+		input_amount: T::Balance,
+		input_reserve: T::Balance,
+		output_reserve: T::Balance,
+		fee_rate: FeeRate,
+	) -> T::Balance {
+		if input_reserve.is_zero() || output_reserve.is_zero() {
+			return Zero::zero();
+		}
+		let div_rate = FeeRate::one() + fee_rate;
+		// This operation rounds away necessary decimal points. In order to-
+		// counteract this, we scale the input amount
+		let input_amount_less_fee_scaled = FeeRate::div(
+			input_amount * T::Balance::sa(1_000_000), // scale up
+			div_rate,
+		);
+		let numerator: T::Balance = input_amount_less_fee_scaled * output_reserve;
+		let denominator: T::Balance = FeeRate::div(input_amount, div_rate) + input_reserve;
+
+		numerator / denominator / T::Balance::sa(1_000_000) // undo scaling
 	}
 
 	/// `asset_id` - Trade asset
@@ -607,7 +630,7 @@ impl<T: Trait> Module<T> {
 	pub fn get_asset_to_core_output_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		fee_rate: Permill,
+		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		ensure!(buy_amount > Zero::zero(), "Buy amount must be a positive value");
 

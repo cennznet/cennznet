@@ -3,7 +3,7 @@
 use cennznet_primitives::AccountId;
 pub use cennznet_runtime::GenesisConfig;
 use cennznet_runtime::{
-	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeesConfig,
+	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
 	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
 	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
@@ -177,7 +177,7 @@ fn cennznet_dev_uat_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig {
-			fee_rate: Permill::from_millionths(3000),
+			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
 		}),
 	}
@@ -317,7 +317,7 @@ pub fn local_dev_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig {
-			fee_rate: Permill::from_millionths(3000),
+			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
 		}),
 	}
