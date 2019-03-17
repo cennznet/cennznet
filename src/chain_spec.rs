@@ -5,7 +5,7 @@ pub use cennznet_runtime::GenesisConfig;
 use cennznet_runtime::{
 	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
 	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
-	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig, RewardsConfig,
 };
 use primitives::{ed25519, Ed25519AuthorityId as AuthorityId};
 use substrate_service;
@@ -180,6 +180,9 @@ fn cennznet_dev_uat_genesis(
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
 		}),
+		rewards: Some(RewardsConfig {
+			block_reward: 10u128.pow(18),
+		}),
 	}
 }
 
@@ -319,6 +322,9 @@ pub fn local_dev_genesis(
 		cennz_x: Some(SpotExchangeConfig {
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
+		}),
+		rewards: Some(RewardsConfig {
+			block_reward: 10u128.pow(18),
 		}),
 	}
 }
