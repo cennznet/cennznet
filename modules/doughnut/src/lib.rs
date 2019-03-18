@@ -14,11 +14,10 @@ extern crate srml_support as runtime_support;
 extern crate srml_system as system;
 extern crate substrate_primitives;
 
-use codec::{Encode, Decode};
+use codec::{Encode, Decode, Input};
 use primitives::traits::Verify;
 use runtime_support::{dispatch::Result};
 use runtime_support::rstd::prelude::*;
-use sr_std::result;
 
 pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -31,33 +30,43 @@ pub struct Certificate<AccountId> {
 	pub expires: u64,
 	pub version: u32,
 	pub holder: AccountId,
-	pub not_before: Option<u64>,
+	pub not_before: u64,
 	//	use vec of tuple to work as a key value map
 	pub permissions: Vec<(Vec<u8>, Vec<u8>)>,
 	pub issuer: AccountId,
 }
 
-#[derive(Clone, Eq, PartialEq, Default, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Default, Encode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Doughnut<AccountId, Signature> {
 	pub certificate: Certificate<AccountId>,
 	pub signature: Signature,
 }
 
+impl<AccountId, Signature> Decode
+for Doughnut<AccountId, Signature>
+where
+	Certificate<AccountId>: Decode,
+	Signature: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		Some(Doughnut {
+			certificate: Decode::decode(input)?,
+			signature: Decode::decode(input)?,
+		})
+	}
+}
+
 impl<AccountId, Signature> Doughnut<AccountId, Signature> where
 	Signature: Verify<Signer=AccountId> + Encode,
 	AccountId: Encode {
-	pub fn validate(self, now:u64) -> result::Result<Self, &'static str> {
+	pub fn validate(&self, now:u64) -> Result {
 		if self.certificate.expires > now {
-			let valid = match self.certificate.not_before {
-				Some(not_before) => not_before <= now,
-				None => true
-			};
+			let valid = self.certificate.not_before <= now;
 			if valid {
 				if self.signature.verify(self.certificate.encode().as_slice(), &self.certificate.issuer) {
 					// TODO: ensure doughnut hasn't been revoked
-//						Self::deposit_event(RawEvent::Validated(doughnut.certificate.issuer, doughnut.compact));
-					return Ok(self);
+					return Ok(());
 				} else {
 					return Err("invalid signature");
 				}
@@ -65,7 +74,7 @@ impl<AccountId, Signature> Doughnut<AccountId, Signature> where
 		}
 		return Err("invalid doughnut");
 	}
-	pub fn validate_permission(self) -> Result {
+	pub fn validate_permission(&self) -> Result {
 		// not efficient, optimize later
 		for permission_pair in &self.certificate.permissions {
 			if permission_pair.0 == "cennznet".encode() {

@@ -126,7 +126,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 
 
 				// let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-				// 	Ok(n)=> n.as_secs(), 
+				// 	Ok(n)=> n.as_secs(),
 				// 	Err(_) => return Err("SystemTime before UNIX EPOCH!")
 				// };
 				match self.doughnut {
@@ -162,7 +162,7 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		// with substrate's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length (we don't need
 		// to use this).
-		let _length_do_not_remove_me_see_above: Vec<()> = Decode::decode(input)?;
+		let length_do_not_remove_me_see_above: Vec<()> = Decode::decode(input)?;
 
 		let version = input.read_byte()?;
 
@@ -175,6 +175,8 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		if version != TRANSACTION_VERSION {
 			return None
 		}
+
+		println!("cennz ext len, {}", length_do_not_remove_me_see_above.len());
 
 //		let add: Option<Address> = Decode::decode(input);
 //
