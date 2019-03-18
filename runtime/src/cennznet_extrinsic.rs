@@ -10,8 +10,8 @@ use runtime_primitives::traits::{self, BlockNumberToHash, Checkable, CurrentHeig
 								 Member, SimpleArithmetic};
 use runtime_io::{blake2_256};
 
-use doughnut;
-use std::fmt::Debug;
+use doughnut::Doughnut;
+//use std::fmt::Debug;
 
 const TRANSACTION_VERSION: u8 = 1;
 
@@ -47,16 +47,16 @@ pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature> {
 	pub signature: Option<(Address, Signature, Compact<Index>, Era)>,
 	/// The function that should be called.
 	pub function: Call,
-	pub doughnut: Option<doughnut::Doughnut<AccountId, Signature>>,
+	pub doughnut: Option<Doughnut<AccountId, Signature>>,
 }
 
 impl<AccountId, Address, Index, Call, Signature> CennznetExtrinsic<AccountId, Address, Index, Call, Signature> {
 	/// New instance of a signed extrinsic aka "transaction".
-	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era) -> Self {
+	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era, doughnut: Option<Doughnut<AccountId, Signature>>) -> Self {
 		CennznetExtrinsic {
 			signature: Some((signed, signature, index.into(), era)),
 			function,
-			doughnut: None
+			doughnut,
 		}
 	}
 
@@ -100,28 +100,43 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 				let h = context.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
 					.ok_or("transaction birth block ancient")?;
 				let signed = context.lookup(signed)?;
-				let raw_payload = (index, self.function, era, h);
-				if !raw_payload.using_encoded(|payload| {
-					if payload.len() > 256 {
-						signature.verify(&blake2_256(payload)[..], &signed)
-					} else {
-						signature.verify(payload, &signed)
+				if let Some(ref doughnut) = self.doughnut {
+					let raw_payload = (&index, &self.function, era, h, doughnut);
+					if !raw_payload.using_encoded(|payload| {
+						if payload.len() > 256 {
+							signature.verify(&blake2_256(payload)[..], &signed)
+						} else {
+							signature.verify(payload, &signed)
+						}
+					}) {
+						return Err("bad signature in extrinsic")
 					}
-				}) {
-					return Err("bad signature in extrinsic")
+				} else {
+					let raw_payload = (&index, &self.function, era, h);
+					if !raw_payload.using_encoded(|payload| {
+						if payload.len() > 256 {
+							signature.verify(&blake2_256(payload)[..], &signed)
+						} else {
+							signature.verify(payload, &signed)
+						}
+					}) {
+						return Err("bad signature in extrinsic")
+					}
 				}
+
+
 				// let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
 				// 	Ok(n)=> n.as_secs(), 
 				// 	Err(_) => return Err("SystemTime before UNIX EPOCH!")
 				// };
 				match self.doughnut {
 					Some(d) => CheckedExtrinsic {
-								signed: Some((d.certificate.issuer, (raw_payload.0).0)),
-								function: raw_payload.1,
+						signed: Some((d.certificate.issuer, index.0)),
+						function: self.function,
 					},
 					None => CheckedExtrinsic {
-						signed: Some((signed, (raw_payload.0).0)),
-						function: raw_payload.1,
+						signed: Some((signed, index.0)),
+						function: self.function,
 					}
 				}
 			}
@@ -136,11 +151,11 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 impl<AccountId, Address, Index, Call, Signature> Decode
 for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 	where
-		AccountId: Decode+Debug,
-		Address: Decode+Debug,
-		Signature: Decode+Debug,
-		Compact<Index>: Decode+Debug,
-		Call: Decode+Debug,
+		AccountId: Decode,
+		Address: Decode,
+		Signature: Decode,
+		Compact<Index>: Decode,
+		Call: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		// This is a little more complicated than usual since the binary format must be compatible
@@ -155,41 +170,51 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		let has_doughtnut = version &0b0100_0000 !=0;
 		let version = version & 0b0000_1111;
 
-		println!("{:?}", version);
+//		println!("{:?}", version);
 
 		if version != TRANSACTION_VERSION {
 			return None
 		}
 
-		let add: Option<Address> = Decode::decode(input);
+//		let add: Option<Address> = Decode::decode(input);
+//
+//		println!("add {:?}", add);
+//
+//		let sig: Option<Signature> = Decode::decode(input);
+//
+//		println!("sig {:?}", sig);
+//
+//		let idx: Option<Compact<Index>> = Decode::decode(input);
+//
+//		println!("idx {:?}", idx);
+//
+//		let era: Option<Era> = Decode::decode(input);
+//
+//		println!("era {:?}", era);
+//
+//		let f = Decode::decode(input);
+//		println!("f {:?}", f);
+//		let d = if has_doughtnut {
+//			Decode::decode(input)
+//		} else { None };
+//
+//		println!("d {:?}", d);
+//
+//
+//		Some(CennznetExtrinsic {
+//			signature: Some((add.unwrap(), sig.unwrap(), idx.unwrap(), era.unwrap())),
+//			function: f?,
+//			doughnut: Some(d?)
+//		})
 
-		println!("add {:?}", add);
-
-		let sig: Option<Signature> = Decode::decode(input);
-
-		println!("sig {:?}", sig);
-
-		let idx: Option<Compact<Index>> = Decode::decode(input);
-
-		println!("idx {:?}", idx);
-
-		let era: Option<Era> = Decode::decode(input);
-
-		println!("era {:?}", era);
-
-		let f = Decode::decode(input);
-		println!("f {:?}", f);
-		let d = if has_doughtnut {
-			Decode::decode(input)
-		} else { None };
-
-		println!("d {:?}", d);
-
+		let signature = if is_signed { Some(Decode::decode(input)?) } else { None };
+		let doughnut = if has_doughtnut { Some(Decode::decode(input)?) } else { None };
+		let function = Decode::decode(input)?;
 
 		Some(CennznetExtrinsic {
-			signature: Some((add.unwrap(), sig.unwrap(), idx.unwrap(), era.unwrap())),
-			function: f?,
-			doughnut: Some(d?)
+			signature,
+			function,
+			doughnut,
 		})
 	}
 }
@@ -201,18 +226,26 @@ for CennznetExtrinsic<AccountId, Address, Index, Call, Signature>
 		Signature: Encode,
 		Compact<Index>: Encode,
 		Call: Encode,
+		Doughnut<AccountId, Signature>: Encode
 {
 	fn encode(&self) -> Vec<u8> {
 		encode_with_vec_prefix::<Self, _>(|v| {
 			// 1 byte version id.
 			match self.signature.as_ref() {
 				Some(s) => {
-					v.push(TRANSACTION_VERSION | 0b1000_0000);
+					let mut version = TRANSACTION_VERSION | 0b1000_0000;
+					if self.doughnut.is_some() {
+						version |= 0b0100_0000;
+					}
+					v.push(version);
 					s.encode_to(v);
 				}
 				None => {
-					v.push(TRANSACTION_VERSION & 0b0111_1111);
+					v.push(TRANSACTION_VERSION & 0b0000_1111);
 				}
+			}
+			if let Some(ref doughnut) = self.doughnut {
+				doughnut.encode_to(v);
 			}
 			self.function.encode_to(v);
 		})

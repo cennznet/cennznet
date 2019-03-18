@@ -42,7 +42,6 @@ pub struct Certificate<AccountId> {
 pub struct Doughnut<AccountId, Signature> {
 	pub certificate: Certificate<AccountId>,
 	pub signature: Signature,
-	pub compact: Vec<u8>,
 }
 
 impl<AccountId, Signature> Doughnut<AccountId, Signature> where
