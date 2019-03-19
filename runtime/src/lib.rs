@@ -33,6 +33,8 @@ use substrate_primitives::OpaqueMetadata;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
+use generic_asset::{RewardAssetCurrency, SpendingAssetCurrency, StakingAssetCurrency};
+
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
@@ -40,11 +42,13 @@ pub use runtime_primitives::{Perbill, Permill};
 pub use srml_support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
+pub use cennz_x::FeeRate;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
+pub use sylo::vault as sylo_vault;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -119,13 +123,13 @@ impl session::Trait for Runtime {
 }
 
 impl staking::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = RewardAssetCurrency<Self>;
 	type OnRewardMinted = Treasury;
 	type Event = Event;
 }
 
 impl democracy::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = StakingAssetCurrency<Self>;
 	type Proposal = Call;
 	type Event = Event;
 }
@@ -145,7 +149,7 @@ impl council::motions::Trait for Runtime {
 }
 
 impl treasury::Trait for Runtime {
-	type Currency = generic_asset::Module<Self>;
+	type Currency = StakingAssetCurrency<Self>;
 	type ApproveOrigin = council_motions::EnsureMembers<_4>;
 	type RejectOrigin = council_motions::EnsureMembers<_2>;
 	type Event = Event;
@@ -179,7 +183,7 @@ impl generic_asset::Trait for Runtime {
 
 impl fees::Trait for Runtime {
 	type Event = Event;
-	type TransferAsset = GenericAsset;
+	type TransferAsset = SpendingAssetCurrency<Self>;
 	type OnFeeCharged = ();
 }
 
@@ -201,6 +205,7 @@ impl sylo::device::Trait for Runtime {
 }
 impl sylo::response::Trait for Runtime {}
 impl sylo::inbox::Trait for Runtime {}
+impl sylo::vault::Trait for Runtime {}
 
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
@@ -233,6 +238,7 @@ construct_runtime!(
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
+		SyloVault: sylo_vault::{Module, Call, Storage},
 	}
 );
 

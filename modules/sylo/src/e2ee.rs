@@ -93,6 +93,8 @@ pub(super) mod tests {
 		BuildStorage,
 	};
 
+	use vault;
+
 	impl_outer_origin! {
 		pub enum Origin for Test {}
 	}
@@ -124,6 +126,7 @@ pub(super) mod tests {
 	impl inbox::Trait for Test {}
 	impl response::Trait for Test {}
 	impl groups::Trait for Test {}
+	impl vault::Trait for Test {}
 	type E2EE = Module<Test>;
 	type Device = device::Module<Test>;
 	type Response = response::Module<Test>;
