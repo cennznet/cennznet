@@ -43,8 +43,8 @@ impl generic_asset::Trait for Test {
 }
 
 impl Trait for Test {
-	type AccountId = H256;
 	type Event = ();
+	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 }
 
 type CennzXSpot = Module<Test>;
@@ -84,8 +84,7 @@ impl ExtBuilder {
 macro_rules! with_exchange (
 	($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
-			let exchange_key = ($a1, $a2);
-			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for($a1, $a2);
 			<generic_asset::Module<Test>>::set_free_balance(&$a1, &exchange_address, $b1);
 			<generic_asset::Module<Test>>::set_free_balance(&$a2, &exchange_address, $b2);
 		}
@@ -97,8 +96,7 @@ macro_rules! with_exchange (
 macro_rules! assert_exchange_balance_eq (
 	($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
-			let exchange_key = ($a1, $a2);
-			let exchange_address = CennzXSpot::generate_exchange_address(&exchange_key);
+			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for($a1, $a2);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&$a1, &exchange_address), $b1);
 			assert_eq!(<generic_asset::Module<Test>>::free_balance(&$a2, &exchange_address), $b2);
 		}
@@ -455,11 +453,6 @@ fn make_core_to_asset_output() {
 }
 
 #[test]
-fn u64_to_bytes_works() {
-	assert_eq!(u64_to_bytes(80000), [128, 56, 1, 0, 0, 0, 0, 0]);
-}
-
-#[test]
 fn remove_liquidity() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
 		let investor = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_ID => 100);
@@ -671,7 +664,6 @@ fn asset_swap_input_insufficient_balance() {
 		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
 
 		let trader = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_ID => 1000);
-
 		assert_err!(
 			CennzXSpot::make_asset_to_core_input(
 				&trader, // seller
@@ -693,7 +685,7 @@ fn asset_swap_input_insufficient_balance() {
 				100,   // min buy limit
 				<DefaultFeeRate<Test>>::get()
 			),
-			"Insufficient asset balance in seller account"
+			"Insufficient core asset balance in seller account"
 		);
 	});
 }

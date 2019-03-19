@@ -5,22 +5,21 @@
 // TODO: Suppress warnings from unimplemented stubs. Remove when complete
 #![allow(unused_variables)]
 
+mod impls;
 mod tests;
 mod types;
+pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::FeeRate;
 
 #[macro_use]
 extern crate srml_support as support;
 
 use generic_asset;
-use rstd::{mem, prelude::*};
+use rstd::prelude::*;
 use runtime_io::twox_128;
-use runtime_primitives::traits::{As, Bounded, Hash, One, Zero};
+use runtime_primitives::traits::{As, Bounded, One, Zero};
 use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
-
-// An alias for the system wide `AccountId` type
-pub type AccountIdOf<T> = <T as system::Trait>::AccountId;
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
@@ -29,9 +28,9 @@ pub type ExchangeKey<T> = (
 );
 
 pub trait Trait: system::Trait + generic_asset::Trait {
-	// This type is used as a shim from `system::Trait::Hash` to `system::Trait::AccountId`
-	type AccountId: From<<Self as system::Trait>::Hash> + Into<<Self as system::Trait>::AccountId>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	/// A function type to get an exchange address given the asset ID pair.
+	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
 }
 
 decl_module! {
@@ -44,9 +43,9 @@ decl_module! {
 		/// `max_sale` -  Maximum asset to sell (input)
 		pub fn asset_to_core_swap_output(
 			origin,
-			asset_id: T::AssetId,
-			buy_amount: T::Balance,
-			max_sale: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] buy_amount: T::Balance,
+			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			// Buyer is also recipient
@@ -63,7 +62,7 @@ decl_module! {
 		/// `max_sale` -  Maximum asset to sell (input)
 		pub fn asset_to_core_transfer_output(
 			origin,
-			recipient: AccountIdOf<T>,
+			recipient: T::AccountId,
 			asset_id: T::AssetId,
 			buy_amount: T::Balance,
 			max_sale: T::Balance
@@ -82,9 +81,9 @@ decl_module! {
 		/// `max_sale` - Maximum core asset to sell (input)
 		pub fn core_to_asset_swap_output(
 			origin,
-			asset_id: T::AssetId,
-			buy_amount: T::Balance,
-			max_sale: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] buy_amount: T::Balance,
+			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			let sold_amount = Self::make_core_to_asset_output(&buyer, &buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
@@ -100,10 +99,10 @@ decl_module! {
 		/// `max_sale` - Maximum core asset to sell (input)
 		pub fn core_to_asset_transfer_output(
 			origin,
-			recipient: AccountIdOf<T>,
-			asset_id: T::AssetId,
-			buy_amount: T::Balance,
-			max_sale: T::Balance
+			recipient: T::AccountId,
+			#[compact] asset_id: T::AssetId,
+			#[compact] buy_amount: T::Balance,
+			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			let sold_amount = Self::make_core_to_asset_output(&buyer, &recipient, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
@@ -126,10 +125,10 @@ decl_module! {
 		/// `core_amount` - Amount of core asset to add
 		pub fn add_liquidity(
 			origin,
-			asset_id: T::AssetId,
-			min_liquidity: T::Balance,
-			max_asset_amount: T::Balance,
-			core_amount: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] min_liquidity: T::Balance,
+			#[compact] max_asset_amount: T::Balance,
+			#[compact] core_amount: T::Balance
 		) {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
@@ -143,7 +142,8 @@ decl_module! {
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = Self::get_total_supply(&exchange_key);
-			let exchange_address = Self::generate_exchange_address(&exchange_key);
+			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
+
 			if total_liquidity.is_zero() {
 				// new exchange pool
 				<generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
@@ -180,10 +180,10 @@ decl_module! {
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
 		pub fn remove_liquidity(
 			origin,
-			asset_id: T::AssetId,
-			asset_amount: T::Balance,
-			min_asset_withdraw: T::Balance,
-			min_core_withdraw: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] asset_amount: T::Balance,
+			#[compact] min_asset_withdraw: T::Balance,
+			#[compact] min_core_withdraw: T::Balance
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
 			ensure!(asset_amount > Zero::zero(), "Amount of exchange asset to burn should exist");
@@ -195,7 +195,7 @@ decl_module! {
 			ensure!(account_liquidity >= asset_amount, "Tried to overdraw liquidity");
 
 			let total_liquidity = Self::get_total_supply(&exchange_key);
-			let exchange_address = Self::generate_exchange_address(&exchange_key);
+			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 			ensure!(total_liquidity > Zero::zero(), "Liquidity should exist");
 
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
@@ -220,9 +220,9 @@ decl_module! {
 		/// `min_sale` - Min core asset to receive from sale (output)
 		pub fn asset_to_core_swap_input(
 			origin,
-			asset_id: T::AssetId,
-			sell_amount: T::Balance,
-			min_sale: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] sell_amount: T::Balance,
+			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
 			let core_received = Self::make_asset_to_core_input(&seller, &seller, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
@@ -237,10 +237,10 @@ decl_module! {
 		/// `min_sale` -  Min core asset to receive from sale (output)
 		pub fn asset_to_core_transfer_input(
 			origin,
-			recipient: AccountIdOf<T>,
-			asset_id: T::AssetId,
-			sell_amount: T::Balance,
-			min_sale: T::Balance
+			recipient: T::AccountId,
+			#[compact] asset_id: T::AssetId,
+			#[compact] sell_amount: T::Balance,
+			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
 			let core_received = Self::make_asset_to_core_input(&seller, &recipient, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
@@ -257,9 +257,9 @@ decl_module! {
 		/// `min_sale` - The min. trade asset to receive from sale
 		pub fn core_to_asset_swap_input(
 			origin,
-			asset_id: T::AssetId,
-			sell_amount: T::Balance,
-			min_sale: T::Balance
+			#[compact] asset_id: T::AssetId,
+			#[compact] sell_amount: T::Balance,
+			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
 			let asset_received = Self::make_core_to_asset_input(&seller, &seller, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
@@ -278,10 +278,10 @@ decl_module! {
 		/// `min_sale` - The min. trade asset to receive from sale
 		pub fn core_to_asset_transfer_input(
 			origin,
-			recipient: AccountIdOf<T>,
-			asset_id: T::AssetId,
-			sell_amount: T::Balance,
-			min_sale: T::Balance
+			recipient: T::AccountId,
+			#[compact] asset_id: T::AssetId,
+			#[compact] sell_amount: T::Balance,
+			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
 			let asset_received = Self::make_core_to_asset_input(&seller, &recipient, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
@@ -322,7 +322,7 @@ impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
 	const PREFIX: &'static [u8] = b"cennz-x-spot:liquidity";
 	type Key1 = ExchangeKey<T>;
 	// Delete the whole pool
-	type Key2 = AccountIdOf<T>;
+	type Key2 = T::AccountId;
 	type Value = T::Balance;
 
 	fn derive_key1(key1_data: Vec<u8>) -> Vec<u8> {
@@ -347,25 +347,8 @@ decl_storage! {
 	}
 }
 
-/// Convert a `u64` into its byte array representation
-fn u64_to_bytes(x: u64) -> [u8; 8] {
-	unsafe { mem::transmute(x.to_le()) }
-}
-
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-	/// Generates an exchange address for the given asset pair
-	pub fn generate_exchange_address(exchange_key: &ExchangeKey<T>) -> AccountIdOf<T> {
-		let (core_asset, asset) = exchange_key;
-		let mut buf = Vec::new();
-		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&u64_to_bytes(As::as_(*core_asset)));
-		buf.extend_from_slice(&u64_to_bytes(As::as_(*asset)));
-
-		// Use shim `system::Trait::Hash` -> `Trait::AccountId` -> system::Trait::AccountId`
-		<T as Trait>::AccountId::from(T::Hashing::hash(&buf[..])).into()
-	}
-
 	// Storage R/W
 	fn get_total_supply(exchange_key: &ExchangeKey<T>) -> T::Balance {
 		<TotalSupply<T>>::get(exchange_key)
@@ -380,11 +363,11 @@ impl<T: Trait> Module<T> {
 		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
 	}
 
-	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &AccountIdOf<T>, balance: T::Balance) {
+	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, balance: T::Balance) {
 		<LiquidityBalance<T>>::insert(exchange_key, who, balance);
 	}
 
-	pub fn get_liquidity(exchange_key: &ExchangeKey<T>, who: &AccountIdOf<T>) -> T::Balance {
+	pub fn get_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId) -> T::Balance {
 		<LiquidityBalance<T>>::get(exchange_key, who).unwrap_or_else(Default::default)
 	}
 
@@ -396,8 +379,8 @@ impl<T: Trait> Module<T> {
 	/// `min_sale` -  The minimum trade asset value of the sale (output)
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_core_to_asset_input(
-		seller: &AccountIdOf<T>,
-		recipient: &AccountIdOf<T>,
+		seller: &T::AccountId,
+		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 		min_sale: T::Balance,
@@ -413,14 +396,13 @@ impl<T: Trait> Module<T> {
 			sale_value >= min_sale,
 			"The sale value of input is less than the required min."
 		);
+		let core_asset_id = Self::core_asset_id();
 		ensure!(
-			<generic_asset::Module<T>>::free_balance(asset_id, seller) >= sell_amount,
-			"Insufficient asset balance in seller account"
+			<generic_asset::Module<T>>::free_balance(&core_asset_id, seller) >= sell_amount,
+			"Insufficient core asset balance in seller account"
 		);
 
-		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, seller, &exchange_address, sell_amount).and(
 			<generic_asset::Module<T>>::make_transfer(asset_id, &exchange_address, recipient, sale_value),
@@ -435,8 +417,8 @@ impl<T: Trait> Module<T> {
 	/// `max_sale` -  Maximum asset to sell (input)
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_to_core_output(
-		buyer: &AccountIdOf<T>,
-		recipient: &AccountIdOf<T>,
+		buyer: &T::AccountId,
+		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_sale: T::Balance,
@@ -457,8 +439,8 @@ impl<T: Trait> Module<T> {
 		);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+
 		let _ = <generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sold_amount).and(
 			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, recipient, buy_amount),
 		);
@@ -474,8 +456,8 @@ impl<T: Trait> Module<T> {
 	/// `max_sale` -  Maximum asset to sell (input)
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_core_to_asset_output(
-		buyer: &AccountIdOf<T>,
-		recipient: &AccountIdOf<T>,
+		buyer: &T::AccountId,
+		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_sale: T::Balance,
@@ -496,8 +478,8 @@ impl<T: Trait> Module<T> {
 			"Insufficient core asset balance in buyer account"
 		);
 
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+
 		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, buyer, &exchange_address, sold_amount).and(
 			<generic_asset::Module<T>>::make_transfer(asset_id, &exchange_address, recipient, buy_amount),
 		);
@@ -512,8 +494,8 @@ impl<T: Trait> Module<T> {
 	/// `sell_amount` - Exact amount of trade asset to be sold
 	/// `min_sale` - Minimum amount of core asset to receive from sale
 	pub fn make_asset_to_core_input(
-		buyer: &AccountIdOf<T>,
-		recipient: &AccountIdOf<T>,
+		buyer: &T::AccountId,
+		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 		min_sale: T::Balance,
@@ -532,8 +514,7 @@ impl<T: Trait> Module<T> {
 		);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		ensure!(
 			<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= sale_value,
@@ -585,7 +566,7 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		recipient: &AccountIdOf<T>,
+		recipient: &T::AccountId,
 		fee_rate: FeeRate,
 	) {
 	}
@@ -624,7 +605,7 @@ impl<T: Trait> Module<T> {
 		amount_bought: T::Balance,
 		max_amount_sold: T::Balance,
 		max_core_sold: T::Balance,
-		recipient: &AccountIdOf<T>,
+		recipient: &T::AccountId,
 		fee_rate: FeeRate,
 	) {
 	}
@@ -644,8 +625,7 @@ impl<T: Trait> Module<T> {
 		ensure!(buy_amount > Zero::zero(), "Buy amount must be a positive value");
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let asset_reserve = <generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		ensure!(asset_reserve > buy_amount, "Insufficient asset reserve in exchange");
@@ -671,8 +651,8 @@ impl<T: Trait> Module<T> {
 		ensure!(sell_amount > Zero::zero(), "Sell amount must be a positive value");
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+
 		let asset_reserve = <generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		Ok(Self::get_input_price(
@@ -739,8 +719,7 @@ impl<T: Trait> Module<T> {
 		ensure!(buy_amount > Zero::zero(), "Buy amount must be a positive value");
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		ensure!(
@@ -769,10 +748,9 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		ensure!(sell_amount > Zero::zero(), "Sell amount must be a positive value");
-		let core_asset_id = Self::core_asset_id();
-		let exchange_key = (core_asset_id, *asset_id);
-		let exchange_address = Self::generate_exchange_address(&exchange_key);
 
+		let core_asset_id = Self::core_asset_id();
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 		let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
