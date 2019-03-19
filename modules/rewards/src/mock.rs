@@ -2,19 +2,19 @@
 
 #![cfg(test)]
 
+use crate::{GenesisConfig, Module, Trait};
+use fees::OnFeeCharged;
+use generic_asset::{AssetCurrency, RewardAssetIdProvider};
+use primitives::{Blake2Hasher, H256};
+use runtime_io;
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
-	traits::{IdentityLookup, BlakeTwo256},
-	testing::{Digest, DigestItem, Header, UintAuthorityId, ConvertUintAuthorityId},
+	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
+	traits::{BlakeTwo256, IdentityLookup},
 };
-use primitives::{H256, Blake2Hasher};
-use runtime_io;
-use staking;
-use generic_asset::{AssetCurrency, RewardAssetIdProvider};
-use fees::OnFeeCharged;
 use session::OnSessionChange;
-use support::{impl_outer_origin};
-use crate::{GenesisConfig, Module, Trait};
+use staking;
+use support::impl_outer_origin;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -89,9 +89,7 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self {
-			block_reward: 0,
-		}
+		Self { block_reward: 0 }
 	}
 }
 
@@ -103,9 +101,14 @@ impl ExtBuilder {
 
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
 		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
-		t.extend(GenesisConfig::<Test> {
-			block_reward: self.block_reward,
-		}.build_storage().unwrap().0);
+		t.extend(
+			GenesisConfig::<Test> {
+				block_reward: self.block_reward,
+			}
+			.build_storage()
+			.unwrap()
+			.0,
+		);
 		t.into()
 	}
 }

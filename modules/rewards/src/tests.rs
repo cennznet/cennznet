@@ -5,9 +5,9 @@
 use super::*;
 use runtime_io::with_externalities;
 
-use runtime_primitives::{traits::OnFinalise};
+use crate::mock::{ChargeFeeMock, ExtBuilder, Rewards, SessionChangeMock, Staking, Test};
+use runtime_primitives::traits::OnFinalise;
 use support::{assert_ok, StorageValue};
-use crate::mock::{ExtBuilder, Rewards, Staking, ChargeFeeMock, SessionChangeMock, Test};
 
 #[test]
 fn set_block_reward_works() {

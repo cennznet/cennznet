@@ -7,10 +7,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use support::{StorageValue, decl_storage, decl_module, traits::ArithmeticType};
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use staking::CurrentEraReward;
+use support::{decl_module, decl_storage, traits::ArithmeticType, StorageValue};
 
 mod mock;
 mod tests;
