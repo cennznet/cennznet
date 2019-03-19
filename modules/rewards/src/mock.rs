@@ -10,7 +10,7 @@ use runtime_primitives::{
 use primitives::{H256, Blake2Hasher};
 use runtime_io;
 use staking;
-use generic_asset;
+use generic_asset::{AssetCurrency, RewardAssetIdProvider};
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use support::{impl_outer_origin};
@@ -57,7 +57,7 @@ impl session::Trait for Test {
 	type Event = ();
 }
 impl staking::Trait for Test {
-	type Currency = generic_asset::Module<Test>;
+	type Currency = AssetCurrency<Test, RewardAssetIdProvider<Test>>;
 	type OnRewardMinted = ();
 	type Event = ();
 }
