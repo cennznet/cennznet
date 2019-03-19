@@ -2,6 +2,9 @@
 - Update substrate to commit xxxxxx
 - Breaking changes:
 - New features:
+	- New runtime module `rewards`, which accumulates transaction fees and mint block reward.
+		- Accumulated fees and minted block reward got contributed to staking rewards.
+		- Block reward could be set in genesis config, also via `set_block_reward` in rewards module.
 - New notable Substreate changes:
 
 # Runtime version 13 (Kauri)
