@@ -14,7 +14,7 @@ use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, I
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
-use parity_codec_derive::{Decode, Encode};
+use parity_codec::{Decode, Encode};
 use rstd::prelude::*;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup};
