@@ -9,7 +9,9 @@ extern crate srml_support;
 #[macro_use]
 extern crate runtime_primitives;
 
-use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature};
+use cennznet_primitives::{
+	AccountId, AccountIndex, Balance, BlockNumber, CennznetExtrinsic, Hash, Index, SessionKey, Signature,
+};
 #[cfg(feature = "std")]
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
@@ -49,8 +51,6 @@ pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
-
-mod cennznet_extrinsic;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -257,7 +257,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = cennznet_extrinsic::CennznetExtrinsic<Address, Index, Call, Signature>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.
