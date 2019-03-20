@@ -4,9 +4,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // #![cfg_attr(not(feature = "std"), feature(alloc))]
 
-// Needed for deriving `Encode` and `Decode` for `RawEvent`.
-#[macro_use]
-extern crate parity_codec_derive;
 extern crate parity_codec as codec;
 
 // Needed for type-safe access to storage DB.

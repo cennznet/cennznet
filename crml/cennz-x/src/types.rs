@@ -1,8 +1,7 @@
 //!
 //! CENNZ-X Types
 //!
-use parity_codec::{Compact, CompactAs};
-use parity_codec_derive::{Decode, Encode};
+use parity_codec::{Compact, CompactAs, Decode, Encode};
 use runtime_primitives::traits::As;
 
 /// FeeRate S.F precision
