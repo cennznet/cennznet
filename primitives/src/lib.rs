@@ -4,6 +4,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
 
+mod cennznet_extrinsic;
+
+pub use cennznet_extrinsic::CennznetExtrinsic;
+
 use runtime_primitives::generic;
 use runtime_primitives::{traits::BlakeTwo256, OpaqueExtrinsic};
 

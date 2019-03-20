@@ -4,13 +4,12 @@
 use std::fmt;
 
 use rstd::prelude::*;
+use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, Input};
 use runtime_primitives::generic::{CheckedExtrinsic, Era};
 use runtime_primitives::traits::{
 	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic,
 };
-
-use runtime_io::blake2_256;
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
 const MASK_VERSION: u8 = 0b0000_1111;
