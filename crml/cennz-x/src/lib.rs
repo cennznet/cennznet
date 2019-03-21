@@ -111,6 +111,35 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Convert trade asset1 to trade asset2 via core asset. User specifies maximum
+		/// input and exact output.
+		///  origin
+		/// `recipient` - Account to receive asset_bought, defaults to origin if None
+		/// `asset_sold` - asset ID 1 to sell
+		/// `asset_bought` - asset ID 2 to buy
+		/// `buy_amount` - The amount of asset '2' to purchase
+		/// `max_trade_asset_sale` - Maximum trade asset '1' to sell
+		pub fn asset_to_asset_swap_output(
+			origin,
+			recipient: Option<T::AccountId>,
+			#[compact] asset_sold: T::AssetId,
+			#[compact] asset_bought: T::AssetId,
+			#[compact] buy_amount: T::Balance,
+			#[compact] max_trade_asset_sale: T::Balance
+		) -> Result {
+			let buyer = ensure_signed(origin)?;
+			let sold_amount = Self::make_asset_to_asset_output(
+				 &buyer,
+				 &recipient.unwrap_or_else(|| buyer.clone()),
+				 &asset_sold,
+				 &asset_bought,
+				 buy_amount,
+				 max_trade_asset_sale,
+				 Self::fee_rate())?;
+
+			Ok(())
+		}
+
 		//
 		// Manage Liquidity
 		//
@@ -181,18 +210,18 @@ decl_module! {
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
-			#[compact] asset_amount: T::Balance,
+			#[compact] liquidity_withdrawn: T::Balance,
 			#[compact] min_asset_withdraw: T::Balance,
 			#[compact] min_core_withdraw: T::Balance
 		) -> Result {
 			let from_account = ensure_signed(origin)?;
-			ensure!(asset_amount > Zero::zero(), "Amount of exchange asset to burn should exist");
+			ensure!(liquidity_withdrawn > Zero::zero(), "Amount of exchange asset to burn should exist");
 			ensure!(min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(), "Assets withdrawn to be greater than zero");
 
 			let core_asset_id = Self::core_asset_id();
 			let exchange_key = (core_asset_id, asset_id);
 			let account_liquidity = Self::get_liquidity(&exchange_key, &from_account);
-			ensure!(account_liquidity >= asset_amount, "Tried to overdraw liquidity");
+			ensure!(account_liquidity >= liquidity_withdrawn, "Tried to overdraw liquidity");
 
 			let total_liquidity = Self::get_total_supply(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
@@ -200,16 +229,16 @@ decl_module! {
 
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = asset_amount * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = asset_amount * trade_asset_reserve / total_liquidity;
+			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
+			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
 			ensure!(core_asset_amount >= min_core_withdraw, "Minimum core asset is required");
 			ensure!(trade_asset_amount >= min_asset_withdraw, "Minimum trade asset is required");
 
 			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
 			<generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
 			Self::set_liquidity(&exchange_key, &from_account,
-									account_liquidity - asset_amount);
-			Self::burn_total_supply(&exchange_key, asset_amount);
+									account_liquidity - liquidity_withdrawn);
+			Self::burn_total_supply(&exchange_key, liquidity_withdrawn);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
 			Ok(())
 		}
@@ -308,6 +337,8 @@ decl_event!(
 		CoreAssetPurchase(AssetId, AccountId, Balance, Balance),
 		// Trade AssetId, Buyer, core asset sold, trade asset bought
 		TradeAssetPurchase(AssetId, AccountId, Balance, Balance),
+		// AssetSold, AssetBought, CoreAsset, Buyer, SoldAmount, BoughtAmount, CoreAmount
+		AssetToAssetPurchase(AssetId, AssetId, AssetId, AccountId, Balance, Balance, Balance),
 		// Trade asset id, core asset id
 		NewPool(AssetId, AssetId),
 	}
@@ -430,7 +461,7 @@ impl<T: Trait> Module<T> {
 			"Amount of asset sold should be greater than zero"
 		);
 		ensure!(
-			max_sale > sold_amount,
+			max_sale >= sold_amount,
 			"Amount of asset sold would exceed the specified max. limit"
 		);
 		ensure!(
@@ -469,7 +500,7 @@ impl<T: Trait> Module<T> {
 			"Amount of core asset sold should be greater than zero"
 		);
 		ensure!(
-			max_sale > sold_amount,
+			max_sale >= sold_amount,
 			"Amount of core asset sold would exceed the specified max. limit"
 		);
 		let core_asset_id = Self::core_asset_id();
@@ -485,6 +516,84 @@ impl<T: Trait> Module<T> {
 		);
 
 		Ok(sold_amount)
+	}
+
+	/// Convert trade asset1 to trade asset2 via core asset. User specifies maximum
+	/// input and exact output.
+	/// `buyer` - Account buying core asset for trade asset
+	/// `recipient` - Account receiving trade asset
+	/// `asset_a` - asset ID to sell
+	/// `asset_b` - asset ID to buy
+	/// `buy_amount_b` - The amount of asset 'b' to purchase (output)
+	/// `max_a_for_sale` - Maximum trade asset 'a' to sell
+	/// `fee_rate` - The % of exchange fees for the trade
+	pub fn make_asset_to_asset_output(
+		buyer: &T::AccountId,
+		recipient: &T::AccountId,
+		asset_a: &T::AssetId,
+		asset_b: &T::AssetId,
+		buy_amount_for_b: T::Balance,
+		max_a_for_sale: T::Balance,
+		fee_rate: FeeRate,
+	) -> rstd::result::Result<T::Balance, &'static str> {
+		// Calculate amount of core token needed to buy trade asset 2 of #buy_amount amount
+		let core_for_b = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
+		let core_asset_id = Self::core_asset_id();
+		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
+		let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a);
+		ensure!(
+			core_asset_reserve > core_for_b,
+			"Insufficient core asset reserve in exchange"
+		);
+
+		let asset_reserve_a = <generic_asset::Module<T>>::free_balance(asset_a, &exchange_address_a);
+		let asset_sold_a = Self::get_output_price(core_for_b, asset_reserve_a, core_asset_reserve, fee_rate);
+		// sold asset is always > 0
+		ensure!(
+			max_a_for_sale >= asset_sold_a,
+			"Amount of asset sold would exceed the specified max. limit"
+		);
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&asset_a, buyer) >= asset_sold_a,
+			"Insufficient asset balance in buyer account"
+		);
+
+		let core_asset_a = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
+		ensure!(
+			core_asset_a > Zero::zero(),
+			"Amount of core asset sold should be greater than zero"
+		);
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= core_asset_a,
+			"Insufficient core asset balance in exchange account"
+		);
+
+		let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_b);
+		let _ = <generic_asset::Module<T>>::make_transfer(&asset_a, buyer, &exchange_address_a, asset_sold_a)
+			.and(<generic_asset::Module<T>>::make_transfer(
+				&core_asset_id,
+				&exchange_address_a,
+				&exchange_address_b,
+				core_asset_a,
+			))
+			.and(<generic_asset::Module<T>>::make_transfer(
+				asset_b,
+				&exchange_address_b,
+				recipient,
+				buy_amount_for_b,
+			));
+
+		Self::deposit_event(RawEvent::AssetToAssetPurchase(
+			asset_a.clone(),      // asset sold
+			asset_b.clone(),      // asset bought
+			core_asset_id,        // core asset
+			buyer.clone(),        // buyer
+			asset_sold_a.clone(), // sold amount
+			buy_amount_for_b,     // bought amount
+			core_for_b,           // core amount
+		));
+
+		Ok(asset_sold_a)
 	}
 
 	/// Convert trade asset to core asset. User specifies exact
@@ -566,45 +675,6 @@ impl<T: Trait> Module<T> {
 		amount_sold: T::Balance,
 		min_amount_bought: T::Balance,
 		min_core_bought: T::Balance,
-		recipient: &T::AccountId,
-		fee_rate: FeeRate,
-	) {
-	}
-
-	/// Convert trade asset1 to trade asset2 via core asset. User specifies maximum
-	/// input and exact output.
-	///
-	/// `asset_sold` - Trade asset1 ID
-	/// `asset_bought` - Asset2 ID
-	/// `amount_bought` - Amount of trade asset2 bought
-	/// `max_amount_sold` - Maximum trade asset1 sold
-	/// `max_core_sold` - Maximum core asset purchased as intermediary
-	pub fn asset_to_asset_swap_output(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
-		max_core_sold: T::Balance,
-		fee_rate: FeeRate,
-	) {
-	}
-
-	/// Convert trade asset1 to trade asset2 via core asset and transfer the trade asset2
-	/// to recipient from system account.
-	///
-	/// User specifies maximum input and exact output
-	/// `asset_sold` - Trade asset1
-	/// `asset_bought` - Asset2
-	/// `amount_bought` - Amount of trade asset2 bought
-	/// `max_amount_sold` - Maximum trade asset1 sold
-	/// `max_core_sold` - Maximum core asset purchased as intermediary
-	/// `recipient` - The address that receives the output asset
-	pub fn asset_to_asset_transfer_output(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_bought: T::Balance,
-		max_amount_sold: T::Balance,
-		max_core_sold: T::Balance,
 		recipient: &T::AccountId,
 		fee_rate: FeeRate,
 	) {
