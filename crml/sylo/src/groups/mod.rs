@@ -141,7 +141,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn leave_group(origin, group_id: T::Hash) -> Result {
+		fn leave_group(origin, group_id: T::Hash, group_key: Option<vault::Key>) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -159,6 +159,10 @@ decl_module! {
 				<Groups<T>>::insert(&group_id, group);
 			} else {
 				<Groups<T>>::remove(&group_id);
+			}
+
+			if let Some(key) = group_key {
+				<vault::Module<T>>::delete(sender.clone(), vec![key])
 			}
 
 			Ok(())

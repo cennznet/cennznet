@@ -162,27 +162,32 @@ mod tests {
 				group_id.clone(),
 				vec![],
 				vec![],
-				(vec![], vec![])
+				(b"key".to_vec(), b"value".to_vec())
 			));
 
 			// leave wrong group
 			assert_eq!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32])),
+				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32]), None),
 				Err("Group not found")
 			);
 
 			// trying to live group user who is not a member
 			assert_eq!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone()),
+				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone(), None),
 				Err("Not a member of group")
 			);
 
 			assert_ok!(Groups::leave_group(
 				Origin::signed(H256::from_low_u64_be(1)),
-				group_id.clone()
+				group_id.clone(),
+				Some(b"key".to_vec())
 			));
 
-			// todo: check empty group
+			// check member has left group
+			assert_eq!(Groups::group(group_id.clone()).members, vec![]);
+
+			// check group data has been removed from user's vault
+			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
 		});
 	}
 
