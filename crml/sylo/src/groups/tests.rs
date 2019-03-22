@@ -184,16 +184,10 @@ mod tests {
 			));
 
 			// check member has left group
-			assert_eq!(
-				Groups::group(group_id.clone()).members,
-				vec![]
-			);
+			assert_eq!(Groups::group(group_id.clone()).members, vec![]);
 
 			// check group data has been removed from user's vault
-			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
-				vec![]
-			);
+			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
 		});
 	}
 
