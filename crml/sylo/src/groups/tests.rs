@@ -167,19 +167,20 @@ mod tests {
 
 			// leave wrong group
 			assert_eq!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32])),
+				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32]), None),
 				Err("Group not found")
 			);
 
 			// trying to live group user who is not a member
 			assert_eq!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone()),
+				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone(), None),
 				Err("Not a member of group")
 			);
 
 			assert_ok!(Groups::leave_group(
 				Origin::signed(H256::from_low_u64_be(1)),
-				group_id.clone()
+				group_id.clone(),
+				None
 			));
 
 			// todo: check empty group
