@@ -162,7 +162,7 @@ mod tests {
 				group_id.clone(),
 				vec![],
 				vec![],
-				(vec![], vec![])
+				(b"key".to_vec(), b"value".to_vec())
 			));
 
 			// leave wrong group
@@ -180,10 +180,20 @@ mod tests {
 			assert_ok!(Groups::leave_group(
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
-				None
+				Some(b"key".to_vec())
 			));
 
-			// todo: check empty group
+			// check member has left group
+			assert_eq!(
+				Groups::group(group_id.clone()).members,
+				vec![]
+			);
+
+			// check group data has been removed from user's vault
+			assert_eq!(
+				Vault::values(H256::from_low_u64_be(1)),
+				vec![]
+			);
 		});
 	}
 

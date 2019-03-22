@@ -161,9 +161,8 @@ decl_module! {
 				<Groups<T>>::remove(&group_id);
 			}
 
-			match group_key {
-				Some(key) => <vault::Module<T>>::delete(sender.clone(), vec![key]),
-				None => ()
+			if let Some(key) = group_key {
+				<vault::Module<T>>::delete(sender.clone(), vec![key])
 			}
 
 			Ok(())
