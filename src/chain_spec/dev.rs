@@ -1,4 +1,4 @@
-
+use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
@@ -6,7 +6,6 @@ use cennznet_runtime::{
 	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use primitives::Ed25519AuthorityId as AuthorityId;
-use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig};
 
 pub fn genesis(
 	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
@@ -25,8 +24,10 @@ pub fn genesis(
 	});
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
-			code: include_bytes!("../../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm")
-				.to_vec(),
+			code: include_bytes!(
+				"../../runtime/wasm/target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm"
+			)
+			.to_vec(),
 			authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
 		}),
 		system: None,

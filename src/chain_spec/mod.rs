@@ -8,8 +8,8 @@ use substrate_service;
 use substrate_keystore::pad_seed;
 
 pub mod dev;
-pub mod testnet;
 pub mod mainnet;
+pub mod testnet;
 
 pub const TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
 
