@@ -157,12 +157,12 @@ fn genesis(
 }
 
 pub fn kauri_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_embedded(include_bytes!("../../genesis/dev/genesis.json"))
+	ChainSpec::from_embedded(include_bytes!("../../genesis/kauri/genesis.json"))
 		.map_err(|e| format!("Error loading genesis for Kauri CENNZnet testnet {}", e))
 }
 
 pub fn rimu_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_embedded(include_bytes!("../../genesis/uat/genesis.json"))
+	ChainSpec::from_embedded(include_bytes!("../../genesis/rimu/genesis.json"))
 		.map_err(|e| format!("Error loading genesis for Rimu CENNZnet testnet {}", e))
 }
 
