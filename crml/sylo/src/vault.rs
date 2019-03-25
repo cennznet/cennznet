@@ -9,12 +9,12 @@ pub const KEYS_MAX: usize = 100;
 
 pub trait Trait: system::Trait {}
 
-pub type Key = Vec<u8>;
-pub type Val = Vec<u8>;
+pub type VaultKey = Vec<u8>;
+pub type VaultValue = Vec<u8>;
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn upsert_value(origin, key: Key, value: Val) {
+		fn upsert_value(origin, key: VaultKey, value: VaultValue) {
 			let user_id = ensure_signed(origin)?;
 
 			ensure!(<Vault<T>>::get(&user_id).len() < KEYS_MAX, "Can not store more than maximum amount of keys");
@@ -22,7 +22,7 @@ decl_module! {
 			Self::upsert(user_id, key, value);
 		}
 
-		fn delete_values(origin, keys: Vec<Key>) {
+		fn delete_values(origin, keys: Vec<VaultKey>) {
 			let user_id = ensure_signed(origin)?;
 
 			Self::delete(user_id, keys);
@@ -32,12 +32,12 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloVault {
-		pub Vault get(values): map T::AccountId => Vec<(Key, Val)>;
+		pub Vault get(values): map T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }
 
 impl<T: Trait> Module<T> {
-	pub fn upsert(user_id: T::AccountId, key: Key, value: Val) {
+	pub fn upsert(user_id: T::AccountId, key: VaultKey, value: VaultValue) {
 		let mut values = <Vault<T>>::get(&user_id);
 
 		match values.iter().enumerate().find(|(_, item)| item.0 == key) {
@@ -48,8 +48,8 @@ impl<T: Trait> Module<T> {
 		<Vault<T>>::insert(user_id, values)
 	}
 
-	pub fn delete(user_id: T::AccountId, keys: Vec<Key>) {
-		let remaining_values: Vec<(Key, Val)> = <Vault<T>>::get(&user_id)
+	pub fn delete(user_id: T::AccountId, keys: Vec<VaultKey>) {
+		let remaining_values: Vec<(VaultKey, VaultValue)> = <Vault<T>>::get(&user_id)
 			.into_iter()
 			.filter(|item| keys.iter().find(|key_to_remove| &&item.0 == key_to_remove).is_none())
 			.collect();

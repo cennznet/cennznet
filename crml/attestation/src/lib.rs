@@ -27,29 +27,29 @@ pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-type Topic = U256;
-type Value = U256;
+type AttestationTopic = U256;
+type AttestationValue = U256;
 
 decl_module! {
 	// Simple declaration of the `Module` type. Lets the macro know what its working on.
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-		pub fn set_claim(origin, holder: T::AccountId, topic: Topic, value: Value) -> Result {
+		pub fn set_claim(origin, holder: T::AccountId, topic: AttestationTopic, value: AttestationValue) -> Result {
 			let issuer = ensure_signed(origin)?;
 
 			Self::create_claim(holder, issuer, topic, value)?;
 			Ok(())
 		}
 
-		pub fn set_self_claim(origin, topic: Topic, value: Value) -> Result {
+		pub fn set_self_claim(origin, topic: AttestationTopic, value: AttestationValue) -> Result {
 			let holder_and_issuer = ensure_signed(origin)?;
 
 			Self::create_claim(holder_and_issuer.clone(), holder_and_issuer, topic, value)?;
 			Ok(())
 		}
 
-		pub fn remove_claim(origin, holder: T::AccountId, topic: Topic) -> Result {
+		pub fn remove_claim(origin, holder: T::AccountId, topic: AttestationTopic) -> Result {
 			let issuer = ensure_signed(origin)?;
 			<Issuers<T>>::mutate(&holder,|issuers| issuers.retain(|vec_issuer| *vec_issuer != issuer));
 			<Topics<T>>::mutate((holder.clone(), issuer.clone()),|topics| topics.retain(|vec_topic| *vec_topic != topic));
@@ -67,22 +67,27 @@ decl_module! {
 /// interesting and otherwise difficult to detect.
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId {
-		ClaimSet(AccountId, AccountId, Topic, Value),
-		ClaimRemoved(AccountId, AccountId, Topic),
+		ClaimSet(AccountId, AccountId, AttestationTopic, AttestationValue),
+		ClaimRemoved(AccountId, AccountId, AttestationTopic),
 	}
 );
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Attestation {
 		Issuers: map T::AccountId => Vec<T::AccountId>;
-		Topics: map (T::AccountId, T::AccountId) => Vec<Topic>;
-		Values: map (T::AccountId, T::AccountId, Topic) => Value;
+		Topics: map (T::AccountId, T::AccountId) => Vec<AttestationTopic>;
+		Values: map (T::AccountId, T::AccountId, AttestationTopic) => AttestationValue;
 	}
 }
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-	fn create_claim(holder: T::AccountId, issuer: T::AccountId, topic: Topic, value: Value) -> Result {
+	fn create_claim(
+		holder: T::AccountId,
+		issuer: T::AccountId,
+		topic: AttestationTopic,
+		value: AttestationValue,
+	) -> Result {
 		<Issuers<T>>::mutate(&holder, |issuers| {
 			if !issuers.contains(&issuer) {
 				issuers.push(issuer.clone())

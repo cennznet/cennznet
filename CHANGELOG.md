@@ -1,6 +1,9 @@
 # Runtime version 15 (master)
 - Substrate commit: xxxxx
 - Breaking changes:
+	- Some types are renamed to avoid ambiguity
+		- Sylo `vault::{Key, Val}` has been renamed to `VaultKey` and `VaultValue`
+		- Attestation `Topic` and `Value` has been renamed to `AttestationTopic` and `AttestationValue`
 - New features:
 - New notable Substreate changes:
 
