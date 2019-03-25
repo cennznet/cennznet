@@ -82,7 +82,12 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-	fn create_claim(holder: T::AccountId, issuer: T::AccountId, topic: AttestationTopic, value: AttestationValue) -> Result {
+	fn create_claim(
+		holder: T::AccountId,
+		issuer: T::AccountId,
+		topic: AttestationTopic,
+		value: AttestationValue,
+	) -> Result {
 		<Issuers<T>>::mutate(&holder, |issuers| {
 			if !issuers.contains(&issuer) {
 				issuers.push(issuer.clone())
