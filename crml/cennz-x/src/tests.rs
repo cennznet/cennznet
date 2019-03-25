@@ -292,6 +292,7 @@ fn asset_to_core_swap_output() {
 
 		assert_ok!(CennzXSpot::asset_to_core_swap_output(
 			Origin::signed(trader),
+			None,
 			TRADE_ASSET_A,
 			5,    // buy_amount: T::Balance,
 			1400, // max_sale: T::Balance,
@@ -334,6 +335,7 @@ fn asset_swap_output_zero_asset_sold() {
 		assert_err!(
 			CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				0,   // buy_amount
 				100, // max_sale,
@@ -344,6 +346,7 @@ fn asset_swap_output_zero_asset_sold() {
 		assert_err!(
 			CennzXSpot::core_to_asset_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				0,   // buy_amount
 				100, // max_sale,
@@ -362,6 +365,7 @@ fn asset_swap_output_insufficient_balance() {
 		assert_err!(
 			CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				51,  // buy_amount
 				500, // max_sale,
@@ -372,6 +376,7 @@ fn asset_swap_output_insufficient_balance() {
 		assert_err!(
 			CennzXSpot::core_to_asset_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				101, // buy_amount
 				500, // max_sale,
@@ -390,6 +395,7 @@ fn asset_swap_output_exceed_max_sale() {
 		assert_err!(
 			CennzXSpot::asset_to_core_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				50, // buy_amount
 				0,  // max_sale,
@@ -400,6 +406,7 @@ fn asset_swap_output_exceed_max_sale() {
 		assert_err!(
 			CennzXSpot::core_to_asset_swap_output(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				50, // buy_amount
 				0,  // max_sale,
@@ -417,6 +424,7 @@ fn core_to_asset_swap_output() {
 
 		assert_ok!(CennzXSpot::core_to_asset_swap_output(
 			Origin::signed(trader),
+			None,
 			TRADE_ASSET_A,
 			5,    // buy_amount: T::Balance,
 			1400, // max_sale: T::Balance,
@@ -577,9 +585,9 @@ fn asset_transfer_output() {
 		let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
 		let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
 
-		assert_ok!(CennzXSpot::asset_to_core_transfer_output(
+		assert_ok!(CennzXSpot::asset_to_core_swap_output(
 			Origin::signed(buyer),
-			recipient,
+			Some(recipient),
 			TRADE_ASSET_A,
 			5,    // buy_amount: T::Balance,
 			1400, // max_sale: T::Balance,
@@ -598,9 +606,9 @@ fn core_to_asset_transfer_output() {
 		let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
 		let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
 
-		assert_ok!(CennzXSpot::core_to_asset_transfer_output(
+		assert_ok!(CennzXSpot::core_to_asset_swap_output(
 			Origin::signed(buyer),
-			recipient,
+			Some(recipient),
 			TRADE_ASSET_A,
 			5,    // buy_amount: T::Balance,
 			1400, // max_sale: T::Balance,
@@ -699,6 +707,7 @@ fn asset_to_core_swap_input() {
 
 		assert_ok!(CennzXSpot::asset_to_core_swap_input(
 			Origin::signed(trader),
+			None,
 			TRADE_ASSET_A,
 			100, // sell_amount: T::Balance,
 			50,  // min buy limit: T::Balance,
@@ -718,6 +727,7 @@ fn core_to_asset_swap_input() {
 
 		assert_ok!(CennzXSpot::core_to_asset_swap_input(
 			Origin::signed(trader),
+			None,
 			TRADE_ASSET_A,
 			100, // sell_amount: T::Balance,
 			50,  // min buy limit: T::Balance,
@@ -786,6 +796,7 @@ fn asset_swap_input_zero_asset_sold() {
 		assert_err!(
 			CennzXSpot::asset_to_core_swap_input(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				0,   // sell amount
 				100, // min buy,
@@ -795,6 +806,7 @@ fn asset_swap_input_zero_asset_sold() {
 		assert_err!(
 			CennzXSpot::core_to_asset_swap_input(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				0,   // sell amount
 				100, // min buy,
@@ -813,6 +825,7 @@ fn asset_swap_input_less_than_min_sale() {
 		assert_err!(
 			CennzXSpot::asset_to_core_swap_input(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				50,  // sell_amount
 				100, // min buy,
@@ -822,6 +835,7 @@ fn asset_swap_input_less_than_min_sale() {
 		assert_err!(
 			CennzXSpot::core_to_asset_swap_input(
 				Origin::signed(trader),
+				None,
 				TRADE_ASSET_A,
 				50,  // sell_amount
 				100, // min buy,
@@ -838,9 +852,9 @@ fn asset_to_core_transfer_input() {
 		let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
 		let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
 
-		assert_ok!(CennzXSpot::asset_to_core_transfer_input(
+		assert_ok!(CennzXSpot::asset_to_core_swap_input(
 			Origin::signed(trader),
-			recipient,
+			Some(recipient),
 			TRADE_ASSET_A,
 			50, // sell_amount: T::Balance,
 			40, // min_sale: T::Balance,
@@ -859,9 +873,9 @@ fn core_to_asset_transfer_input() {
 		let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
 		let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
 
-		assert_ok!(CennzXSpot::core_to_asset_transfer_input(
+		assert_ok!(CennzXSpot::core_to_asset_swap_input(
 			Origin::signed(trader),
-			recipient,
+			Some(recipient),
 			TRADE_ASSET_A,
 			50, // sell_amount: T::Balance,
 			40, // min_sale: T::Balance,
