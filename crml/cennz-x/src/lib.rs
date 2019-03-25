@@ -2,8 +2,6 @@
 //! CENNZ-X
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
-// TODO: Suppress warnings from unimplemented stubs. Remove when complete
-#![allow(unused_variables)]
 
 mod impls;
 mod tests;
@@ -318,6 +316,35 @@ decl_module! {
 
 			Ok(())
 		}
+
+		/// Convert trade asset1 to trade asset2 via core asset.
+		/// Seller specifies exact input (asset 1) and minimum output (trade asset and core asset)
+		/// `recipient` - Account to receive asset_bought, defaults to origin if None
+		/// `asset_sold` - asset ID 1 to sell
+		/// `asset_bought` - asset ID 2 to buy
+		/// `sell_amount` - The amount of asset '1' to sell
+		/// `min_trade_asset_sale` - Minimum trade asset '2' to receive from sale
+		pub fn asset_to_asset_swap_input(
+			origin,
+			recipient: Option<T::AccountId>,
+			#[compact] asset_sold: T::AssetId,
+			#[compact] asset_bought: T::AssetId,
+			#[compact] sell_amount: T::Balance,
+			#[compact] min_trade_asset_sale: T::Balance
+		) -> Result {
+			let seller = ensure_signed(origin)?;
+			let sold_amount = Self::make_asset_to_asset_input(
+				&seller,
+				&recipient.unwrap_or_else(|| seller.clone()),
+				&asset_sold,
+				&asset_bought,
+				sell_amount,
+				min_trade_asset_sale,
+				Self::fee_rate())?;
+
+			Ok(())
+		}
+
 	}
 
 }
@@ -540,14 +567,7 @@ impl<T: Trait> Module<T> {
 		let core_for_b = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
-		let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a);
-		ensure!(
-			core_asset_reserve > core_for_b,
-			"Insufficient core asset reserve in exchange"
-		);
-
-		let asset_reserve_a = <generic_asset::Module<T>>::free_balance(asset_a, &exchange_address_a);
-		let asset_sold_a = Self::get_output_price(core_for_b, asset_reserve_a, core_asset_reserve, fee_rate);
+		let asset_sold_a = Self::get_asset_to_core_output_price(asset_a, core_for_b, fee_rate)?;
 		// sold asset is always > 0
 		ensure!(
 			max_a_for_sale >= asset_sold_a,
@@ -584,8 +604,8 @@ impl<T: Trait> Module<T> {
 			));
 
 		Self::deposit_event(RawEvent::AssetToAssetPurchase(
-			asset_a.clone(),      // asset sold
-			asset_b.clone(),      // asset bought
+			*asset_a,             // asset sold
+			*asset_b,             // asset bought
 			core_asset_id,        // core asset
 			buyer.clone(),        // buyer
 			asset_sold_a.clone(), // sold amount
@@ -637,47 +657,71 @@ impl<T: Trait> Module<T> {
 		Ok(sale_value)
 	}
 
-	//
-	// Trade non-core asset to non-core asset
-	//
-
-	/// Convert trade asset1 to trade asset2 via core asset. User specifies
-	/// exact input and minimum output.
-	///
-	/// `asset_sold` - Trade asset1 ID
-	/// `asset_bought` - asset2 ID
-	/// `amount_sold` - Exact amount of trade asset to be sold
-	/// `min_amount_bought` - Minimum trade asset2 purchased
-	/// `min_core_bought` - Minimum core purchased as intermediary
-	pub fn asset_to_asset_swap_input(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_sold: T::Balance,
-		min_amount_bought: T::Balance,
-		min_core_bought: T::Balance,
-		fee_rate: FeeRate,
-	) {
-	}
-
-	/// Convert trade asset1 to trade asset2 via core asset and transfer the
-	/// trade asset2 to recipient from system account.User specifies exact input
-	/// and minimum output.
-	///
-	/// `asset_sold` - Trade asset1 ID
-	/// `asset_bought` - asset2 ID
-	/// `amount_sold` - Exact amount of trade asset to be sold
-	/// `min_amount_bought` - Minimum trade asset2 purchased
-	/// `min_core_bought` - Minimum core purchased as intermediary
-	/// `recipient` - The address that receives the output asset
-	pub fn asset_to_asset_transfer_input(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_sold: T::Balance,
-		min_amount_bought: T::Balance,
-		min_core_bought: T::Balance,
+	/// Convert trade asset1 to trade asset2 via core asset.
+	/// Seller specifies exact input (asset 1) and minimum output (trade asset and core asset)
+	/// `recipient` - Receiver of asset_bought
+	/// `asset_a` - asset ID to sell
+	/// `asset_b` - asset ID to buy
+	/// `sell_amount_for_a` - The amount of asset to sell
+	/// `min_b_from_sale` - Minimum trade asset 'b' to receive from sale
+	pub fn make_asset_to_asset_input(
+		seller: &T::AccountId,
 		recipient: &T::AccountId,
+		asset_a: &T::AssetId,
+		asset_b: &T::AssetId,
+		sell_amount_for_a: T::Balance,
+		min_b_from_sale: T::Balance,
 		fee_rate: FeeRate,
-	) {
+	) -> rstd::result::Result<T::Balance, &'static str> {
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&asset_a, seller) >= sell_amount_for_a,
+			"Insufficient asset balance in seller account"
+		);
+
+		let core_asset_id = Self::core_asset_id();
+		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
+		let sale_value_a = Self::get_asset_to_core_input_price(asset_a, sell_amount_for_a, fee_rate)?;
+		let asset_b_received = Self::get_core_to_asset_input_price(asset_b, sale_value_a, fee_rate)?;
+
+		ensure!(
+			asset_b_received > Zero::zero(),
+			"Asset sale value should be greater than zero"
+		);
+		ensure!(
+			asset_b_received >= min_b_from_sale,
+			"The sale value of input is less than the required min"
+		);
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= sale_value_a,
+			"Insufficient core asset balance in exchange account"
+		);
+
+		let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_b);
+
+		let _ = <generic_asset::Module<T>>::make_transfer(&asset_a, seller, &exchange_address_a, sell_amount_for_a)
+			.and(<generic_asset::Module<T>>::make_transfer(
+				&core_asset_id,
+				&exchange_address_a,
+				&exchange_address_b,
+				sale_value_a,
+			))
+			.and(<generic_asset::Module<T>>::make_transfer(
+				asset_b,
+				&exchange_address_b,
+				recipient,
+				asset_b_received,
+			));
+
+		Self::deposit_event(RawEvent::AssetToAssetPurchase(
+			*asset_a,          // asset sold
+			*asset_b,          // asset bought
+			core_asset_id,     // core asset
+			seller.clone(),    // buyer
+			sell_amount_for_a, // sold amount
+			asset_b_received,  // bought amount
+			sale_value_a,      // core amount
+		));
+		Ok(asset_b_received)
 	}
 
 	//
