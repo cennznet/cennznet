@@ -5,7 +5,8 @@
 
 use support::{
 	dispatch::Result, StorageMap, decl_event, decl_storage, decl_module, for_each_tuple,
-	traits::{ArithmeticType, ChargeBytesFee, ChargeFee, TransferAsset, WithdrawReason}
+	traits::{ArithmeticType, ChargeBytesFee, ChargeFee, TransferAsset, WithdrawReason},
+	additional_traits::FeeAmounts,
 };
 use runtime_primitives::traits::{
 	As, CheckedAdd, CheckedSub, CheckedMul, Zero
@@ -126,5 +127,17 @@ impl<T: Trait> ChargeFee<T::AccountId> for Module<T> {
 
 		<CurrentTransactionFee<T>>::insert(extrinsic_index, new_fee);
 		Ok(())
+	}
+}
+
+impl<T: Trait> FeeAmounts for Module<T> {
+	type Amount = AssetOf<T>;
+
+	fn base_fee() -> Self::Amount {
+		Self::transaction_base_fee()
+	}
+
+	fn byte_fee() -> Self::Amount {
+		Self::transaction_byte_fee()
 	}
 }
