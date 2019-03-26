@@ -51,6 +51,7 @@ pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
+pub use contract::Schedule;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
