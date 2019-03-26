@@ -112,14 +112,15 @@ decl_module! {
 			#[compact] max_trade_asset_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_asset_to_asset_output(
+			let _ = Self::make_asset_to_asset_output(
 				 &buyer,
 				 &recipient.unwrap_or_else(|| buyer.clone()),
 				 &asset_sold,
 				 &asset_bought,
 				 buy_amount,
 				 max_trade_asset_sale,
-				 Self::fee_rate())?;
+				 Self::fee_rate()
+			)?;
 
 			Ok(())
 		}
@@ -296,14 +297,15 @@ decl_module! {
 			#[compact] min_trade_asset_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let sold_amount = Self::make_asset_to_asset_input(
+			let _ = Self::make_asset_to_asset_input(
 				&seller,
 				&recipient.unwrap_or_else(|| seller.clone()),
 				&asset_sold,
 				&asset_bought,
 				sell_amount,
 				min_trade_asset_sale,
-				Self::fee_rate())?;
+				Self::fee_rate()
+			)?;
 
 			Ok(())
 		}
