@@ -45,6 +45,7 @@ pub use srml_support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
 pub use cennz_x::{ExchangeAddressGenerator, FeeRate};
+pub use contract::Schedule;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;

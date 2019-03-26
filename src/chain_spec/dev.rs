@@ -7,21 +7,15 @@ use cennznet_runtime::{
 };
 use primitives::Ed25519AuthorityId as AuthorityId;
 
-pub fn genesis(
-	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
-	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
-) -> GenesisConfig {
-	let endowed_accounts = endowed_accounts.unwrap_or_else(|| {
-		vec![
-			get_account_id_from_seed("Alice"),
-			get_account_id_from_seed("Bob"),
-			get_account_id_from_seed("Charlie"),
-			get_account_id_from_seed("Dave"),
-			get_account_id_from_seed("Eve"),
-			get_account_id_from_seed("Ferdie"),
-		]
-	});
+pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_key: AccountId) -> GenesisConfig {
+	let endowed_accounts = vec![
+		get_account_id_from_seed("Alice"),
+		get_account_id_from_seed("Bob"),
+		get_account_id_from_seed("Charlie"),
+		get_account_id_from_seed("Dave"),
+		get_account_id_from_seed("Eve"),
+		get_account_id_from_seed("Ferdie"),
+	];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!(
@@ -156,7 +150,6 @@ fn config_genesis() -> GenesisConfig {
 	genesis(
 		vec![get_authority_keys_from_seed("Alice")],
 		get_account_id_from_seed("Alice").into(),
-		None,
 	)
 }
 
