@@ -310,6 +310,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Set the spot exchange wide fee rate (root only)
+		pub fn set_fee_rate(new_fee_rate: FeeRate) -> Result {
+			<DefaultFeeRate<T>>::mutate(|fee_rate| *fee_rate = new_fee_rate);
+			Ok(())
+		}
+
 	}
 
 }
