@@ -165,6 +165,7 @@ impl contract::Trait for Runtime {
 	type DetermineContractAddress = contract::SimpleAddressDeterminator<Runtime>;
 	type ComputeDispatchFee = contract::DefaultDispatchFeeComputor<Runtime>;
 	type ChargeFee = fees::Module<Self>;
+	type FeeAmounts = fees::Module<Self>;
 }
 
 impl sudo::Trait for Runtime {
