@@ -10,41 +10,52 @@ use tokio::runtime::Runtime;
 /// The chain specification option.
 #[derive(Clone, Debug)]
 pub enum ChainSpec {
+	/// The CENNZnet to be mainnet
+	CennznetMain,
+
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
+
 	/// The CENNZnet Kauri testnet.
 	CennznetKauri,
 	/// The CENNZnet Rumi testnet.
 	CennznetRimu,
+	/// The CENNZnet Kauri for local test purpose
+	CennznetKauriDev,
+
 	/// The CENNZnet Kauri testnet, with latest runtime
 	CennznetKauriLatest,
 	/// The CENNZnet Rumi testnet, with latest runtime
 	CennznetRimuLatest,
-	/// The CENNZnet Kauri for local test purpose
-	CennznetKauriLocal,
+	/// The CENNZnet to be mainnet, with latest runtime
+	CennznetMainLatest,
 }
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		match self {
-			ChainSpec::Development => chain_spec::local_dev_config(),
-			ChainSpec::CennznetKauri => chain_spec::cennznet_dev_config(),
-			ChainSpec::CennznetRimu => chain_spec::cennznet_uat_config(),
-			ChainSpec::CennznetKauriLatest => chain_spec::cennznet_dev_config_latest(),
-			ChainSpec::CennznetRimuLatest => chain_spec::cennznet_uat_config_latest(),
-			ChainSpec::CennznetKauriLocal => chain_spec::cennznet_dev_local_config(),
+			ChainSpec::CennznetMain => chain_spec::mainnet::config(),
+			ChainSpec::Development => chain_spec::dev::config(),
+			ChainSpec::CennznetKauri => chain_spec::testnet::kauri_config(),
+			ChainSpec::CennznetRimu => chain_spec::testnet::rimu_config(),
+			ChainSpec::CennznetKauriDev => chain_spec::testnet::kauri_dev_config(),
+			ChainSpec::CennznetKauriLatest => chain_spec::testnet::kauri_latest_config(),
+			ChainSpec::CennznetRimuLatest => chain_spec::testnet::rimu_latest_config(),
+			ChainSpec::CennznetMainLatest => chain_spec::mainnet::latest_config(),
 		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
+			"main" | "cennznet" => Some(ChainSpec::CennznetMain),
 			"dev" => Some(ChainSpec::Development),
 			"kauri" => Some(ChainSpec::CennznetKauri),
 			"" | "rimu" => Some(ChainSpec::CennznetRimu),
+			"kauri-dev" => Some(ChainSpec::CennznetKauriDev),
 			"kauri-latest" => Some(ChainSpec::CennznetKauriLatest),
 			"rimu-latest" => Some(ChainSpec::CennznetRimuLatest),
-			"kauri-dev" => Some(ChainSpec::CennznetKauriLocal),
+			"main-latest" => Some(ChainSpec::CennznetMainLatest),
 			_ => None,
 		}
 	}

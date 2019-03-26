@@ -69,7 +69,7 @@ fn run() -> cli::error::Result<()> {
 		// Make this substrate ensure the default base path matches to substrate node to avoid breaking change
 		// and for convenience that no need to pass a different base path when switching between substrate node and cennznet node
 		executable_name: "substrate",
-		author: "Centrality Developers <developers@centrality.ai>",
+		author: "Centrality Developers <support@centrality.ai>",
 		description: "CENNZnet node",
 		support_url: "#plug Slack channel",
 	};

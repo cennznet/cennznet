@@ -15,7 +15,7 @@ RUN cd /cennznet/runtime/wasm && \
       cargo +nightly build -Z offline --release
 
 FROM debian:stretch-slim
-LABEL maintainer="developers@centrality.ai"
+LABEL maintainer="support@centrality.ai"
 
 RUN apt update && apt install -y ca-certificates \
     openssl
