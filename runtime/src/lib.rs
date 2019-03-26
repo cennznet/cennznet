@@ -9,12 +9,14 @@ extern crate srml_support;
 #[macro_use]
 extern crate runtime_primitives;
 
-use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, SessionKey, Signature};
+use cennznet_primitives::{
+	AccountId, AccountIndex, Balance, BlockNumber, CennznetExtrinsic, Hash, Index, SessionKey, Signature,
+};
 #[cfg(feature = "std")]
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
-use parity_codec_derive::{Decode, Encode};
+use parity_codec::{Decode, Encode};
 use rstd::prelude::*;
 use runtime_primitives::generic;
 use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup};
@@ -42,7 +44,7 @@ pub use runtime_primitives::{Perbill, Permill};
 pub use srml_support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
-pub use cennz_x::FeeRate;
+pub use cennz_x::{ExchangeAddressGenerator, FeeRate};
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
@@ -55,8 +57,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 14,
-	impl_version: 14,
+	spec_version: 15,
+	impl_version: 15,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -187,9 +189,11 @@ impl fees::Trait for Runtime {
 	type OnFeeCharged = ();
 }
 
+impl rewards::Trait for Runtime {}
+
 impl cennz_x::Trait for Runtime {
-	type AccountId = AccountId;
 	type Event = Event;
+	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 }
 
 impl attestation::Trait for Runtime {
@@ -216,6 +220,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Aura: aura::{Module, Inherent(Timestamp)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
+		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Indices: indices,
 		Session: session,
@@ -230,9 +235,9 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Fees: fees::{Module, Storage, Config<T>, Event<T>},
+		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
-		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
 		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
@@ -252,7 +257,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedMortalCompactExtrinsic<Address, Index, Call, Signature>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.

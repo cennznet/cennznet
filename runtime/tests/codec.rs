@@ -1,8 +1,4 @@
-extern crate parity_codec;
-#[macro_use]
-extern crate parity_codec_derive;
-
-use parity_codec::Codec;
+use parity_codec::{Codec, Decode, Encode};
 
 trait TestCodec: std::fmt::Debug + PartialEq + Codec {}
 impl<T: std::fmt::Debug + PartialEq + Codec> TestCodec for T {}

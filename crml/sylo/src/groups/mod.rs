@@ -19,6 +19,7 @@ use groups::sr_primitives::Ed25519Signature;
 use groups::substrate_primitives::hash::{H256, H512};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
+use vault::{VaultKey, VaultValue};
 use {device, inbox, system::ensure_signed, vault, vec};
 
 pub trait Trait: system::Trait + inbox::Trait + device::Trait + vault::Trait {}
@@ -95,7 +96,7 @@ where
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (vault::Key, vault::Val)) -> Result {
+		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
@@ -141,7 +142,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn leave_group(origin, group_id: T::Hash) -> Result {
+		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -159,6 +160,10 @@ decl_module! {
 				<Groups<T>>::insert(&group_id, group);
 			} else {
 				<Groups<T>>::remove(&group_id);
+			}
+
+			if let Some(key) = group_key {
+				<vault::Module<T>>::delete(sender.clone(), vec![key])
 			}
 
 			Ok(())
@@ -241,7 +246,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512, group_data: (vault::Key, vault::Val)) -> Result {
+		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: H512, group_data: (VaultKey, VaultValue)) -> Result {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");

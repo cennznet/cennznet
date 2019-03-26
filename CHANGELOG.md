@@ -1,11 +1,36 @@
-# Runtime version 14 (master)
-- Update substrate to commit xxxxxx
+# Runtime version 16 (master)
+- Substrate commit: xxxx
 - Breaking changes:
 - New features:
 - New notable Substreate changes:
 
-# Runtime version 13 (Kauri)
-- Update substrate to commit https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
+# Runtime version 15 (Kauri)
+- Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
+- Breaking changes:
+	- Some types are renamed to avoid ambiguity
+		- Sylo `vault::{Key, Val}` has been renamed to `VaultKey` and `VaultValue`
+		- Attestation `Topic` and `Value` has been renamed to `AttestationTopic` and `AttestationValue`
+- New features:
+	- New Sylo changes
+	- New CENNXZ changes
+- New notable Substreate changes:
+	- No upstream substrate changes merged
+
+# Runtime version 14
+- Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
+- Breaking changes:
+	- New naming conventions for runtime modules, instead of `cennznet-modules-x`, use `crml-x`, where `crml` stands for CENNZNet Runtime Module Library.
+- New features:
+	- New runtime module `rewards`, which accumulates transaction fees and mint block reward.
+		- Accumulated fees and minted block reward got contributed to staking rewards.
+		- Block reward could be set in genesis config, also via `set_block_reward` in rewards module.
+	- GA V4 fully implemented
+	- More CENNZX features
+- New notable Substreate changes:
+	- No upstream substrate changes merged
+
+# Runtime version 13 (Rimu)
+- Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- GA
 		- Type `AssetOptions` field `total_supply` renamed to `initial_issuance`
