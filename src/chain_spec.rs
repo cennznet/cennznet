@@ -3,9 +3,9 @@
 use cennznet_primitives::AccountId;
 pub use cennznet_runtime::GenesisConfig;
 use cennznet_runtime::{
-	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeesConfig,
-	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, SessionConfig, SpotExchangeConfig,
-	StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
+	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, SessionConfig,
+	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use primitives::{ed25519, Ed25519AuthorityId as AuthorityId};
 use substrate_service;
@@ -55,6 +55,7 @@ fn cennznet_dev_uat_genesis(
 			get_account_id_from_seed("Centrality"),
 			get_account_id_from_seed("Kauri"),
 			get_account_id_from_seed("Rimu"),
+			get_account_id_from_seed("cennznet-js-test"),
 		]
 	});
 	GenesisConfig {
@@ -176,8 +177,11 @@ fn cennznet_dev_uat_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig {
-			fee_rate: Permill::from_millionths(3000),
+			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
+		}),
+		rewards: Some(RewardsConfig {
+			block_reward: 10u128.pow(18),
 		}),
 	}
 }
@@ -316,8 +320,11 @@ pub fn local_dev_genesis(
 			transaction_byte_fee: 1,
 		}),
 		cennz_x: Some(SpotExchangeConfig {
-			fee_rate: Permill::from_millionths(3000),
+			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
+		}),
+		rewards: Some(RewardsConfig {
+			block_reward: 10u128.pow(18),
 		}),
 	}
 }
@@ -389,8 +396,8 @@ pub fn cennznet_dev_config_latest() -> Result<ChainSpec, String> {
 /// The CENNZnet UAT testnet config with latest runtime
 pub fn cennznet_uat_config_latest() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::from_genesis(
-		"Rimu CENNZnet",
-		"rimu",
+		"Rimu CENNZnet 0.9.13",
+		"rimu-9.13",
 		cennznet_rimu_config_genesis,
 		vec![
 				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
