@@ -23,8 +23,8 @@ use runtime_io::with_externalities;
 use runtime_primitives::traits::OnFinalise;
 use system::{EventRecord, Phase};
 
-use mock::{ExtBuilder, Fees, OnFeeChargedMock, System};
-use support::{assert_err, assert_ok};
+use mock::{ExtBuilder, Fees, OnFeeChargedMock, System, Test};
+use support::{assert_err, assert_ok, additional_traits::FeeAmounts, StorageValue};
 
 #[test]
 fn charge_base_bytes_fee_should_work() {
@@ -171,4 +171,24 @@ fn on_finalise_should_work() {
 		// Block fee should match.
 		assert_eq!(OnFeeChargedMock::amount(), 2);
 	});
+}
+
+#[test]
+fn fee_amounts_impl_works() {
+	with_externalities(
+		&mut ExtBuilder::default()
+			.transaction_base_fee(3)
+			.transaction_byte_fee(5)
+			.build(),
+		|| {
+			assert_eq!(Fees::base_fee(), 3);
+			assert_eq!(Fees::byte_fee(), 5);
+
+			<TransactionBaseFee<Test>>::put(7);
+			<TransactionByteFee<Test>>::put(11);
+
+			assert_eq!(Fees::base_fee(), 7);
+			assert_eq!(Fees::byte_fee(), 11);
+		},
+	);
 }
