@@ -7,10 +7,7 @@ use cennznet_runtime::{
 };
 use primitives::Ed25519AuthorityId as AuthorityId;
 
-pub fn genesis(
-	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
-	root_key: AccountId,
-) -> GenesisConfig {
+pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_key: AccountId) -> GenesisConfig {
 	let endowed_accounts = vec![
 		get_account_id_from_seed("Alice"),
 		get_account_id_from_seed("Bob"),

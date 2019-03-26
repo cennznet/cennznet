@@ -2,8 +2,8 @@ use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, G
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
-	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, SessionConfig,
-	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig, Schedule
+	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule, SessionConfig,
+	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use primitives::Ed25519AuthorityId as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
@@ -16,10 +16,7 @@ const MINUTES: u64 = 60 / SECS_PER_BLOCK;
 const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
 
-fn genesis(
-	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
-	root_key: AccountId,
-) -> GenesisConfig {
+fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_key: AccountId) -> GenesisConfig {
 	let endowed_accounts = vec![
 		get_account_id_from_seed("Andrea"),
 		get_account_id_from_seed("Brooke"),
