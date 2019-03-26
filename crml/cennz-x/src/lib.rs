@@ -3,8 +3,11 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod impls;
+#[cfg(test)]
+#[macro_use]
 mod tests;
+
+mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::FeeRate;
@@ -12,11 +15,13 @@ pub use types::FeeRate;
 #[macro_use]
 extern crate srml_support as support;
 
+use cennznet_primitives::{Balance, CennznetExtrinsic, Index, Signature};
 use generic_asset;
+use parity_codec::Decode;
 use rstd::prelude::*;
 use runtime_io::twox_128;
 use runtime_primitives::traits::{As, Bounded, One, Zero};
-use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
+use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
 
 // (core_asset_id, asset_id)
@@ -26,6 +31,7 @@ pub type ExchangeKey<T> = (
 );
 
 pub trait Trait: system::Trait + generic_asset::Trait {
+	type Call: Parameter + Dispatchable<Origin = <Self as system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
 	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
@@ -833,5 +839,13 @@ impl<T: Trait> Module<T> {
 		);
 
 		Ok(output_amount)
+	}
+
+	/// Get the currently executing extrinsic
+	fn current_extrinsic(
+	) -> rstd::result::Result<CennznetExtrinsic<T::AccountId, Index, T::Call, Signature, Balance>, &'static str> {
+		let extrinsic_index: u32 = <system::Module<T>>::extrinsic_index().ok_or("No extrinsic index found")?;
+		let extrinsic_data: Vec<u8> = <system::Module<T>>::extrinsic_data(extrinsic_index);
+		Decode::decode(&mut &extrinsic_data[..]).ok_or("Got extrinsic with bad encoding")
 	}
 }
