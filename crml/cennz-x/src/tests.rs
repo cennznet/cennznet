@@ -1,19 +1,30 @@
 //!
 //! CENNZ-X Tests
 //!
-#![cfg(test)]
+use crate::{
+	impls::impl_tests::MockModule,
+	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
+	types::FeeRate,
+	DefaultFeeRate, GenesisConfig, Module, Trait,
+};
+use generic_asset;
 use runtime_io::with_externalities;
 use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Zero},
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
-
-use super::*;
+use support::{impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+impl_outer_dispatch! {
+	pub enum Call for Test where origin: Origin {
+		mock_module::MockModule,
+	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -43,11 +54,12 @@ impl generic_asset::Trait for Test {
 }
 
 impl Trait for Test {
+	type Call = Call;
 	type Event = ();
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 }
 
-type CennzXSpot = Module<Test>;
+pub type CennzXSpot = Module<Test>;
 
 pub struct ExtBuilder {
 	core_asset_id: u32,
@@ -112,9 +124,9 @@ macro_rules! assert_exchange_balance_eq (
 macro_rules! with_account (
 	($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
-			<generic_asset::Module<Test>>::set_free_balance(&$a1, &default_address(), $b1);
-			<generic_asset::Module<Test>>::set_free_balance(&$a2, &default_address(), $b2);
-			default_address()
+			<generic_asset::Module<Test>>::set_free_balance(&$a1, &H256::from_low_u64_be(1), $b1);
+			<generic_asset::Module<Test>>::set_free_balance(&$a2, &H256::from_low_u64_be(1), $b2);
+			H256::from_low_u64_be(1)
 		}
 	};
 	($name:expr, $a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
@@ -141,11 +153,6 @@ macro_rules! assert_balance_eq (
 		}
 	};
 );
-
-/// A default user address
-fn default_address() -> H256 {
-	H256::from_low_u64_be(1)
-}
 
 // Default exchange asset IDs
 const CORE_ASSET_ID: u32 = 0;
