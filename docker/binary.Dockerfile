@@ -1,5 +1,5 @@
 FROM debian:stretch-slim
-LABEL maintainer="developers@centrality.ai"
+LABEL maintainer="support@centrality.ai"
 
 RUN apt-get update && apt-get install -y ca-certificates \
     openssl
