@@ -53,7 +53,7 @@ decl_module! {
 			let issuer = ensure_signed(origin)?;
 			<Issuers<T>>::mutate(&holder,|issuers| issuers.retain(|vec_issuer| *vec_issuer != issuer));
 			<Topics<T>>::mutate((holder.clone(), issuer.clone()),|topics| topics.retain(|vec_topic| *vec_topic != topic));
-			<Values<T>>::remove((holder.clone(), issuer.clone(), topic.clone()));
+			<Values<T>>::remove((holder.clone(), issuer.clone(), topic));
 
 			Self::deposit_event(RawEvent::ClaimRemoved(holder, issuer, topic));
 
@@ -96,11 +96,11 @@ impl<T: Trait> Module<T> {
 
 		<Topics<T>>::mutate((holder.clone(), issuer.clone()), |topics| {
 			if !topics.contains(&topic) {
-				topics.push(topic.clone())
+				topics.push(topic)
 			}
 		});
 
-		<Values<T>>::insert((holder.clone(), issuer.clone(), topic.clone()), value);
+		<Values<T>>::insert((holder.clone(), issuer.clone(), topic), value);
 		Self::deposit_event(RawEvent::ClaimSet(holder, issuer, topic, value));
 		Ok(())
 	}
