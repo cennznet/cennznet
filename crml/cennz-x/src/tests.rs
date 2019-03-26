@@ -1117,3 +1117,12 @@ fn asset_to_asset_transfer_input() {
 		assert_balance_eq!(trader, CORE_ASSET_ID => 2200);
 	});
 }
+
+#[test]
+fn set_fee_rate() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
+		let new_fee_rate = FeeRate::from_milli(5);
+		assert_ok!(CennzXSpot::set_fee_rate(new_fee_rate), ());
+		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
+	});
+}
