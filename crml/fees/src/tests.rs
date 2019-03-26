@@ -24,7 +24,7 @@ use runtime_primitives::traits::OnFinalise;
 use system::{EventRecord, Phase};
 
 use mock::{ExtBuilder, Fees, OnFeeChargedMock, System, Test};
-use support::{assert_err, assert_ok, additional_traits::FeeAmounts, StorageValue};
+use support::{additional_traits::FeeAmounts, assert_err, assert_ok, StorageValue};
 
 #[test]
 fn charge_base_bytes_fee_should_work() {
