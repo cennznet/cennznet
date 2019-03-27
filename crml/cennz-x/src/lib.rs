@@ -24,6 +24,10 @@ use runtime_primitives::traits::{As, Bounded, One, Zero};
 use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
 
+/// A nice type alias for CennznetExtrinsic
+pub type CennznetExtrinsicOf<T> =
+	CennznetExtrinsic<<T as system::Trait>::AccountId, Index, <T as Trait>::Call, Signature, Balance>;
+
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
 	<T as generic_asset::Trait>::AssetId,
@@ -575,13 +579,13 @@ impl<T: Trait> Module<T> {
 			));
 
 		Self::deposit_event(RawEvent::AssetToAssetPurchase(
-			*asset_a,             // asset sold
-			*asset_b,             // asset bought
-			core_asset_id,        // core asset
-			buyer.clone(),        // buyer
-			asset_sold_a.clone(), // sold amount
-			buy_amount_for_b,     // bought amount
-			core_for_b,           // core amount
+			*asset_a,         // asset sold
+			*asset_b,         // asset bought
+			core_asset_id,    // core asset
+			buyer.clone(),    // buyer
+			asset_sold_a,     // sold amount
+			buy_amount_for_b, // bought amount
+			core_for_b,       // core amount
 		));
 
 		Ok(asset_sold_a)
@@ -850,8 +854,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Get the currently executing extrinsic
-	fn current_extrinsic(
-	) -> rstd::result::Result<CennznetExtrinsic<T::AccountId, Index, T::Call, Signature, Balance>, &'static str> {
+	fn current_extrinsic() -> rstd::result::Result<CennznetExtrinsicOf<T>, &'static str> {
 		let extrinsic_index: u32 = <system::Module<T>>::extrinsic_index().ok_or("No extrinsic index found")?;
 		let extrinsic_data: Vec<u8> = <system::Module<T>>::extrinsic_data(extrinsic_index);
 		Decode::decode(&mut &extrinsic_data[..]).ok_or("Got extrinsic with bad encoding")
