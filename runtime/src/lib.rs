@@ -35,7 +35,7 @@ use substrate_primitives::OpaqueMetadata;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-use generic_asset::{RewardAssetCurrency, SpendingAssetCurrency, StakingAssetCurrency};
+use generic_asset::{RewardAssetCurrency, StakingAssetCurrency};
 
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
@@ -45,6 +45,7 @@ pub use srml_support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
 pub use cennz_x::{ExchangeAddressGenerator, FeeRate};
+pub use contract::Schedule;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
@@ -57,8 +58,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 14,
-	impl_version: 14,
+	spec_version: 15,
+	impl_version: 15,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -164,6 +165,7 @@ impl contract::Trait for Runtime {
 	type DetermineContractAddress = contract::SimpleAddressDeterminator<Runtime>;
 	type ComputeDispatchFee = contract::DefaultDispatchFeeComputor<Runtime>;
 	type ChargeFee = fees::Module<Self>;
+	type FeeAmounts = fees::Module<Self>;
 }
 
 impl sudo::Trait for Runtime {
@@ -185,13 +187,14 @@ impl generic_asset::Trait for Runtime {
 
 impl fees::Trait for Runtime {
 	type Event = Event;
-	type TransferAsset = SpendingAssetCurrency<Self>;
 	type OnFeeCharged = ();
+	type TransferAsset = cennz_x::Module<Runtime>;
 }
 
 impl rewards::Trait for Runtime {}
 
 impl cennz_x::Trait for Runtime {
+	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 }
@@ -262,8 +265,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature>;
-
+pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature, Balance>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.

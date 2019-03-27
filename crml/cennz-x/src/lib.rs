@@ -2,11 +2,12 @@
 //! CENNZ-X
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
-// TODO: Suppress warnings from unimplemented stubs. Remove when complete
-#![allow(unused_variables)]
+
+#[cfg(test)]
+#[macro_use]
+mod tests;
 
 mod impls;
-mod tests;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::FeeRate;
@@ -14,11 +15,13 @@ pub use types::FeeRate;
 #[macro_use]
 extern crate srml_support as support;
 
+use cennznet_primitives::{Balance, CennznetExtrinsic, Index, Signature};
 use generic_asset;
+use parity_codec::Decode;
 use rstd::prelude::*;
 use runtime_io::twox_128;
 use runtime_primitives::traits::{As, Bounded, One, Zero};
-use support::{dispatch::Result, StorageDoubleMap, StorageMap, StorageValue};
+use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
 
 // (core_asset_id, asset_id)
@@ -28,6 +31,7 @@ pub type ExchangeKey<T> = (
 );
 
 pub trait Trait: system::Trait + generic_asset::Trait {
+	type Call: Parameter + Dispatchable<Origin = <Self as system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
 	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
@@ -38,37 +42,27 @@ decl_module! {
 		fn deposit_event<T>() = default;
 
 		/// Swap asset (`asset_id`) to core asset. User specifies maximum input and exact output
+		/// `recipient` - Account to receive core asset, defaults to origin if None
 		/// `asset_id` - The asset ID to trade
 		/// `buy_amount` - Amount of core asset to purchase (output)
 		/// `max_sale` -  Maximum asset to sell (input)
 		pub fn asset_to_core_swap_output(
 			origin,
+			recipient: Option<T::AccountId>,
 			#[compact] asset_id: T::AssetId,
 			#[compact] buy_amount: T::Balance,
 			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			// Buyer is also recipient
-			let sold_amount = Self::make_asset_to_core_output(&buyer, &buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
-			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
-
-			Ok(())
-		}
-
-		/// Trade asset (`asset_id`) to core asset. User specifies maximum input and exact output
-		/// `recipient` - Receiver of core asset
-		/// `asset_id` - The asset ID to trade
-		/// `buy_amount` - Amount of core asset to purchase (output)
-		/// `max_sale` -  Maximum asset to sell (input)
-		pub fn asset_to_core_transfer_output(
-			origin,
-			recipient: T::AccountId,
-			asset_id: T::AssetId,
-			buy_amount: T::Balance,
-			max_sale: T::Balance
-		) -> Result {
-			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_asset_to_core_output(&buyer, &recipient, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			let sold_amount = Self::make_asset_to_core_output(
+				&buyer,
+				&recipient.unwrap_or_else(|| buyer.clone()),
+				&asset_id,
+				buy_amount,
+				max_sale,
+				Self::fee_rate()
+			)?;
 			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
@@ -76,36 +70,26 @@ decl_module! {
 
 		/// Swap core asset to trade asset. User specifies maximum input (core asset) and exact output.
 		/// Buyer receives output.
+		/// `recipient` - Account to receive trade asset, defaults to origin if None
 		/// `asset_id` - The asset ID to trade
 		/// `buy_amount` - The amount of asset to purchase
 		/// `max_sale` - Maximum core asset to sell (input)
 		pub fn core_to_asset_swap_output(
 			origin,
+			recipient: Option<T::AccountId>,
 			#[compact] asset_id: T::AssetId,
 			#[compact] buy_amount: T::Balance,
 			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_core_to_asset_output(&buyer, &buyer, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
-
-			Ok(())
-		}
-
-		/// Transfer core asset to trade asset. User specifies maximum input (core asset) and exact output.
-		/// `recipient` - Receiver of trade asset
-		/// `asset_id` - The asset ID to trade
-		/// `buy_amount` - The amount of asset to purchase
-		/// `max_sale` - Maximum core asset to sell (input)
-		pub fn core_to_asset_transfer_output(
-			origin,
-			recipient: T::AccountId,
-			#[compact] asset_id: T::AssetId,
-			#[compact] buy_amount: T::Balance,
-			#[compact] max_sale: T::Balance
-		) -> Result {
-			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_core_to_asset_output(&buyer, &recipient, &asset_id, buy_amount, max_sale, Self::fee_rate())?;
+			let sold_amount = Self::make_core_to_asset_output(
+				&buyer,
+				&recipient.unwrap_or_else(|| buyer.clone()),
+				&asset_id,
+				buy_amount,
+				max_sale,
+				Self::fee_rate()
+			)?;
 			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
@@ -128,14 +112,15 @@ decl_module! {
 			#[compact] max_trade_asset_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_asset_to_asset_output(
+			let _ = Self::make_asset_to_asset_output(
 				 &buyer,
 				 &recipient.unwrap_or_else(|| buyer.clone()),
 				 &asset_sold,
 				 &asset_bought,
 				 buy_amount,
 				 max_trade_asset_sale,
-				 Self::fee_rate())?;
+				 Self::fee_rate()
+			)?;
 
 			Ok(())
 		}
@@ -244,35 +229,26 @@ decl_module! {
 		}
 
 		/// Swap asset (`asset_id`) to core asset. User specifies min output and exact input
+		/// `recipient` - Account to receive core asset, defaults to origin if None
 		/// `asset_id` - The asset ID to trade
 		/// `sell_amount` - Amount of trade asset to sell (input)
 		/// `min_sale` - Min core asset to receive from sale (output)
 		pub fn asset_to_core_swap_input(
 			origin,
+			recipient: Option<T::AccountId>,
 			#[compact] asset_id: T::AssetId,
 			#[compact] sell_amount: T::Balance,
 			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let core_received = Self::make_asset_to_core_input(&seller, &seller, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, core_received));
-
-			Ok(())
-		}
-
-		/// Trade asset (`asset_id`) to core asset. User specifies min output and exact input
-		/// `asset_id` - The asset ID to trade
-		/// `sell_amount` - Amount of trade asset to sell (input)
-		/// `min_sale` -  Min core asset to receive from sale (output)
-		pub fn asset_to_core_transfer_input(
-			origin,
-			recipient: T::AccountId,
-			#[compact] asset_id: T::AssetId,
-			#[compact] sell_amount: T::Balance,
-			#[compact] min_sale: T::Balance
-		) -> Result {
-			let seller = ensure_signed(origin)?;
-			let core_received = Self::make_asset_to_core_input(&seller, &recipient, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
+			let core_received = Self::make_asset_to_core_input(
+				&seller,
+				&recipient.unwrap_or_else(|| seller.clone()),
+				&asset_id,
+				sell_amount,
+				min_sale,
+				Self::fee_rate()
+			)?;
 			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, core_received));
 
 			Ok(())
@@ -280,44 +256,66 @@ decl_module! {
 
 		/// Swap `sell_amount` of core asset for trade asset at the current exchange rate.
 		/// Seller specifies exact input (core asset to sell) and minimum output (trade asset to receive).
-		///
+		/// `recipient` - Account to receive trade asset, defaults to origin if None
 		/// `asset_id` - Trade asset ID
 		/// `sell_amount` - Exact amount of core asset to be sold
 		/// `min_sale` - The min. trade asset to receive from sale
 		pub fn core_to_asset_swap_input(
 			origin,
+			recipient: Option<T::AccountId>,
 			#[compact] asset_id: T::AssetId,
 			#[compact] sell_amount: T::Balance,
 			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let asset_received = Self::make_core_to_asset_input(&seller, &seller, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
+			let asset_received = Self::make_core_to_asset_input(
+				&seller,
+				&recipient.unwrap_or_else(|| seller.clone()),
+				&asset_id,
+				sell_amount,
+				min_sale,
+				Self::fee_rate()
+			)?;
 			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, asset_received));
 
 			Ok(())
 		}
 
-		/// Trade `sell_amount` of core asset for trade asset at the current exchange rate.
-		/// Seller specifies exact input (core asset to sell) and minimum output (trade asset to receive).
-		/// Any output assets are transferred to the given `recipient` account.
-		///
-		/// `recipient` - The address that receives the output asset
-		/// `asset_id` - Trade asset ID
-		/// `sell_amount` - Exact amount of core asset to be sold
-		/// `min_sale` - The min. trade asset to receive from sale
-		pub fn core_to_asset_transfer_input(
+		/// Convert trade asset1 to trade asset2 via core asset.
+		/// Seller specifies exact input (asset 1) and minimum output (trade asset and core asset)
+		/// `recipient` - Account to receive asset_bought, defaults to origin if None
+		/// `asset_sold` - asset ID 1 to sell
+		/// `asset_bought` - asset ID 2 to buy
+		/// `sell_amount` - The amount of asset '1' to sell
+		/// `min_trade_asset_sale` - Minimum trade asset '2' to receive from sale
+		pub fn asset_to_asset_swap_input(
 			origin,
-			recipient: T::AccountId,
-			#[compact] asset_id: T::AssetId,
+			recipient: Option<T::AccountId>,
+			#[compact] asset_sold: T::AssetId,
+			#[compact] asset_bought: T::AssetId,
 			#[compact] sell_amount: T::Balance,
-			#[compact] min_sale: T::Balance
+			#[compact] min_trade_asset_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let asset_received = Self::make_core_to_asset_input(&seller, &recipient, &asset_id, sell_amount, min_sale, Self::fee_rate())?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, asset_received));
+			let _ = Self::make_asset_to_asset_input(
+				&seller,
+				&recipient.unwrap_or_else(|| seller.clone()),
+				&asset_sold,
+				&asset_bought,
+				sell_amount,
+				min_trade_asset_sale,
+				Self::fee_rate()
+			)?;
 
 			Ok(())
 		}
+
+		/// Set the spot exchange wide fee rate (root only)
+		pub fn set_fee_rate(new_fee_rate: FeeRate) -> Result {
+			<DefaultFeeRate<T>>::mutate(|fee_rate| *fee_rate = new_fee_rate);
+			Ok(())
+		}
+
 	}
 
 }
@@ -540,14 +538,7 @@ impl<T: Trait> Module<T> {
 		let core_for_b = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
-		let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a);
-		ensure!(
-			core_asset_reserve > core_for_b,
-			"Insufficient core asset reserve in exchange"
-		);
-
-		let asset_reserve_a = <generic_asset::Module<T>>::free_balance(asset_a, &exchange_address_a);
-		let asset_sold_a = Self::get_output_price(core_for_b, asset_reserve_a, core_asset_reserve, fee_rate);
+		let asset_sold_a = Self::get_asset_to_core_output_price(asset_a, core_for_b, fee_rate)?;
 		// sold asset is always > 0
 		ensure!(
 			max_a_for_sale >= asset_sold_a,
@@ -584,8 +575,8 @@ impl<T: Trait> Module<T> {
 			));
 
 		Self::deposit_event(RawEvent::AssetToAssetPurchase(
-			asset_a.clone(),      // asset sold
-			asset_b.clone(),      // asset bought
+			*asset_a,             // asset sold
+			*asset_b,             // asset bought
 			core_asset_id,        // core asset
 			buyer.clone(),        // buyer
 			asset_sold_a.clone(), // sold amount
@@ -637,47 +628,71 @@ impl<T: Trait> Module<T> {
 		Ok(sale_value)
 	}
 
-	//
-	// Trade non-core asset to non-core asset
-	//
-
-	/// Convert trade asset1 to trade asset2 via core asset. User specifies
-	/// exact input and minimum output.
-	///
-	/// `asset_sold` - Trade asset1 ID
-	/// `asset_bought` - asset2 ID
-	/// `amount_sold` - Exact amount of trade asset to be sold
-	/// `min_amount_bought` - Minimum trade asset2 purchased
-	/// `min_core_bought` - Minimum core purchased as intermediary
-	pub fn asset_to_asset_swap_input(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_sold: T::Balance,
-		min_amount_bought: T::Balance,
-		min_core_bought: T::Balance,
-		fee_rate: FeeRate,
-	) {
-	}
-
-	/// Convert trade asset1 to trade asset2 via core asset and transfer the
-	/// trade asset2 to recipient from system account.User specifies exact input
-	/// and minimum output.
-	///
-	/// `asset_sold` - Trade asset1 ID
-	/// `asset_bought` - asset2 ID
-	/// `amount_sold` - Exact amount of trade asset to be sold
-	/// `min_amount_bought` - Minimum trade asset2 purchased
-	/// `min_core_bought` - Minimum core purchased as intermediary
-	/// `recipient` - The address that receives the output asset
-	pub fn asset_to_asset_transfer_input(
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		amount_sold: T::Balance,
-		min_amount_bought: T::Balance,
-		min_core_bought: T::Balance,
+	/// Convert trade asset1 to trade asset2 via core asset.
+	/// Seller specifies exact input (asset 1) and minimum output (trade asset and core asset)
+	/// `recipient` - Receiver of asset_bought
+	/// `asset_a` - asset ID to sell
+	/// `asset_b` - asset ID to buy
+	/// `sell_amount_for_a` - The amount of asset to sell
+	/// `min_b_from_sale` - Minimum trade asset 'b' to receive from sale
+	pub fn make_asset_to_asset_input(
+		seller: &T::AccountId,
 		recipient: &T::AccountId,
+		asset_a: &T::AssetId,
+		asset_b: &T::AssetId,
+		sell_amount_for_a: T::Balance,
+		min_b_from_sale: T::Balance,
 		fee_rate: FeeRate,
-	) {
+	) -> rstd::result::Result<T::Balance, &'static str> {
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&asset_a, seller) >= sell_amount_for_a,
+			"Insufficient asset balance in seller account"
+		);
+
+		let core_asset_id = Self::core_asset_id();
+		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
+		let sale_value_a = Self::get_asset_to_core_input_price(asset_a, sell_amount_for_a, fee_rate)?;
+		let asset_b_received = Self::get_core_to_asset_input_price(asset_b, sale_value_a, fee_rate)?;
+
+		ensure!(
+			asset_b_received > Zero::zero(),
+			"Asset sale value should be greater than zero"
+		);
+		ensure!(
+			asset_b_received >= min_b_from_sale,
+			"The sale value of input is less than the required min"
+		);
+		ensure!(
+			<generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= sale_value_a,
+			"Insufficient core asset balance in exchange account"
+		);
+
+		let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_b);
+
+		let _ = <generic_asset::Module<T>>::make_transfer(&asset_a, seller, &exchange_address_a, sell_amount_for_a)
+			.and(<generic_asset::Module<T>>::make_transfer(
+				&core_asset_id,
+				&exchange_address_a,
+				&exchange_address_b,
+				sale_value_a,
+			))
+			.and(<generic_asset::Module<T>>::make_transfer(
+				asset_b,
+				&exchange_address_b,
+				recipient,
+				asset_b_received,
+			));
+
+		Self::deposit_event(RawEvent::AssetToAssetPurchase(
+			*asset_a,          // asset sold
+			*asset_b,          // asset bought
+			core_asset_id,     // core asset
+			seller.clone(),    // buyer
+			sell_amount_for_a, // sold amount
+			asset_b_received,  // bought amount
+			sale_value_a,      // core amount
+		));
+		Ok(asset_b_received)
 	}
 
 	//
@@ -832,5 +847,13 @@ impl<T: Trait> Module<T> {
 		);
 
 		Ok(output_amount)
+	}
+
+	/// Get the currently executing extrinsic
+	fn current_extrinsic(
+	) -> rstd::result::Result<CennznetExtrinsic<T::AccountId, Index, T::Call, Signature, Balance>, &'static str> {
+		let extrinsic_index: u32 = <system::Module<T>>::extrinsic_index().ok_or("No extrinsic index found")?;
+		let extrinsic_data: Vec<u8> = <system::Module<T>>::extrinsic_data(extrinsic_index);
+		Decode::decode(&mut &extrinsic_data[..]).ok_or("Got extrinsic with bad encoding")
 	}
 }

@@ -1,13 +1,22 @@
-# Runtime version 15 (master)
-- Substrate commit: xxxxx
+# Runtime version 16 (master)
+- Substrate commit: xxxx
+- Breaking changes:
+- New features:
+- New notable Substreate changes:
+
+# Runtime version 15 (Kauri)
+- Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- Some types are renamed to avoid ambiguity
 		- Sylo `vault::{Key, Val}` has been renamed to `VaultKey` and `VaultValue`
 		- Attestation `Topic` and `Value` has been renamed to `AttestationTopic` and `AttestationValue`
 - New features:
+	- New Sylo changes
+	- New CENNXZ changes
 - New notable Substreate changes:
+	- No upstream substrate changes merged
 
-# Runtime version 14 (Kauri)
+# Runtime version 14
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- New naming conventions for runtime modules, instead of `cennznet-modules-x`, use `crml-x`, where `crml` stands for CENNZNet Runtime Module Library.
