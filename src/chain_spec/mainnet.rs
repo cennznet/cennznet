@@ -142,14 +142,14 @@ fn genesis() -> GenesisConfig {
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
 				// Staking token
-				0, // CENNZ
+				16000,  // CENNZ-T
 				// Spending token
-				10, // CENTRAPAY
+				16001,  // CENTRAPAY-T
 				// Reserve Tokens
-				100, // PLUG
-				101, // SYLO
-				102, // CERTI
-				103, // ARDA
+				16002, // PLUG-T
+				16003, // SYLO-T
+				16004, // CERTI-T
+				16005, // ARDA-T
 			],
 			initial_balance: 250_000 * DOLLARS,
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
@@ -158,6 +158,8 @@ fn genesis() -> GenesisConfig {
 			create_asset_stake: 1000,
 			transfer_fee: 480 * MICRO_DOLLARS,
 			next_reserved_asset_id: 100_000,
+			staking_asset_id: 16000,
+			spending_asset_id: 16001,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1000 * MICRO_DOLLARS,
