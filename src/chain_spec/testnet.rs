@@ -164,7 +164,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		}),
 		cennzx_spot: Some(SpotExchangeConfig {
 			fee_rate: FeeRate::from_milli(3),
-			core_asset_id: 10,
+			core_asset_id: 16001,
 		}),
 		rewards: Some(RewardsConfig {
 			block_reward: 10 * DOLLARS,
