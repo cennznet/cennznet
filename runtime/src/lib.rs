@@ -46,13 +46,13 @@ pub use timestamp::Call as TimestampCall;
 
 pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
 pub use contract::Schedule;
+use srml_support::additional_traits::DummyChargeFee;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
-use srml_support::additional_traits::DummyChargeFee;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
