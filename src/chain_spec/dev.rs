@@ -126,11 +126,9 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
-			// ids smaller than 1_000_000 are reserved
-			next_asset_id: 1_000_000,
+			next_asset_id: 17000,
 			create_asset_stake: 1000,
 			transfer_fee: 20,
-			next_reserved_asset_id: 100_000,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),

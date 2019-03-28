@@ -153,11 +153,9 @@ fn genesis() -> GenesisConfig {
 			],
 			initial_balance: 250_000 * DOLLARS,
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
-			// ids smaller than 1_000_000 are reserved
-			next_asset_id: 1_000_000,
+			next_asset_id: 17000,
 			create_asset_stake: 1000,
 			transfer_fee: 480 * MICRO_DOLLARS,
-			next_reserved_asset_id: 100_000,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),
