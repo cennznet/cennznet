@@ -15,7 +15,7 @@ use runtime_primitives::{
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
-use support::{impl_outer_origin, StorageValue};
+use support::{impl_outer_origin, StorageValue, additional_traits::DummyChargeFee};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -51,6 +51,7 @@ impl generic_asset::Trait for Test {
 	type Balance = u128;
 	type AssetId = u32;
 	type Event = ();
+	type ChargeFee = DummyChargeFee<H256, u128>;
 }
 
 impl Trait for Test {

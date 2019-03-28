@@ -15,6 +15,7 @@ use runtime_primitives::{
 use session::OnSessionChange;
 use staking;
 use support::impl_outer_origin;
+use support::additional_traits::DummyChargeFee;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -45,6 +46,7 @@ impl generic_asset::Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
 	type Event = ();
+	type ChargeFee = DummyChargeFee<u64, u64>;
 }
 impl consensus::Trait for Test {
 	type Log = DigestItem;
