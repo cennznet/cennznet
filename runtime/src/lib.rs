@@ -46,7 +46,6 @@ pub use timestamp::Call as TimestampCall;
 
 pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
 pub use contract::Schedule;
-use srml_support::additional_traits::DummyChargeFee;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
 pub use sylo::groups as sylo_groups;
@@ -184,7 +183,7 @@ impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type Event = Event;
 	type AssetId = u32;
-	type ChargeFee = DummyChargeFee<AccountId, Balance>;
+	type ChargeFee = fees::Module<Self>;
 }
 
 impl fees::Trait for Runtime {
