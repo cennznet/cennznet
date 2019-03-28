@@ -14,8 +14,8 @@ use runtime_primitives::{
 };
 use session::OnSessionChange;
 use staking;
-use support::impl_outer_origin;
 use support::additional_traits::DummyChargeFee;
+use support::impl_outer_origin;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}

@@ -15,7 +15,7 @@ use runtime_primitives::{
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
-use support::{impl_outer_origin, StorageValue, additional_traits::DummyChargeFee};
+use support::{additional_traits::DummyChargeFee, impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
