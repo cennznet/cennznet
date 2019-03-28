@@ -115,9 +115,9 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
 				// Staking token
-				16000,  // CENNZ-T
+				16000, // CENNZ-T
 				// Spending token
-				16001,  // CENTRAPAY-T
+				16001, // CENTRAPAY-T
 				// Reserve Tokens
 				16002, // PLUG-T
 				16003, // SYLO-T
