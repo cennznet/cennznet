@@ -35,15 +35,15 @@ fn charge_base_bytes_fee_should_work() {
 			.build(),
 		|| {
 			System::set_extrinsic_index(0);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 7));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 7, &()));
 			assert_eq!(Fees::current_transaction_fee(0), 3 + 5 * 7);
 
 			System::set_extrinsic_index(1);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 11));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 11, &()));
 			assert_eq!(Fees::current_transaction_fee(1), 3 + 5 * 11);
 
 			System::set_extrinsic_index(3);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 13));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 13, &()));
 			assert_eq!(Fees::current_transaction_fee(3), 3 + 5 * 13);
 		},
 	);
@@ -59,7 +59,7 @@ fn charge_base_bytes_fee_should_not_work_if_bytes_fee_overflow() {
 			.build(),
 		|| {
 			System::set_extrinsic_index(0);
-			assert_err!(Fees::charge_base_bytes_fee(&0, 2), "bytes fee overflow");
+			assert_err!(Fees::charge_base_bytes_fee(&0, 2, &()), "bytes fee overflow");
 		},
 	);
 }
@@ -74,7 +74,7 @@ fn charge_base_bytes_fee_should_not_work_if_overall_fee_overflow() {
 			.build(),
 		|| {
 			System::set_extrinsic_index(0);
-			assert_err!(Fees::charge_base_bytes_fee(&0, 1), "bytes fee overflow");
+			assert_err!(Fees::charge_base_bytes_fee(&0, 1, &()), "bytes fee overflow");
 		},
 	);
 }
