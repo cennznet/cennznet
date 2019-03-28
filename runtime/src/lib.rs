@@ -52,6 +52,7 @@ pub use sylo::groups as sylo_groups;
 pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
+use srml_support::additional_traits::DummyChargeFee;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -183,6 +184,7 @@ impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type Event = Event;
 	type AssetId = u32;
+	type ChargeFee = DummyChargeFee<AccountId, Balance>;
 }
 
 impl fees::Trait for Runtime {
