@@ -387,7 +387,7 @@ mod tests {
 
 	#[test]
 	fn it_works_with_fee_exchange() {
-		let mut extrinsic = CennznetExtrinsic::<H256, u32, (), (), u128>::new_unsigned(());
+		let mut extrinsic = CennznetExtrinsic::<H256, H256, u32, (), (), u128>::new_unsigned(());
 		extrinsic.fee_exchange = Some(FeeExchange::new(0, 1_000_000));
 		let buf = Encode::encode(&extrinsic);
 		let decoded = Decode::decode(&mut &buf[..]).unwrap();
