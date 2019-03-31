@@ -8,8 +8,9 @@ use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
 use runtime_primitives::generic::{CheckedExtrinsic, Era};
 use runtime_primitives::traits::{
-	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic,
+	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic, Verify
 };
+//use crate::AccountId;
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
 const MASK_VERSION: u8 = 0b0000_1111;
@@ -42,23 +43,26 @@ fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8>
 /// A extrinsic right from the external world. This is unchecked and so
 /// can contain a signature.
 #[derive(PartialEq, Eq, Clone)]
-pub struct CennznetExtrinsic<Address, Index, Call, Signature, Balance: HasCompact> {
+pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance: HasCompact> {
 	/// The signature, address, number of extrinsics have come before from
 	/// the same signer and an era describing the longevity of this transaction,
 	/// if this is a signed extrinsic.
 	pub signature: Option<(Address, Signature, Compact<Index>, Era)>,
 	/// The function that should be called.
 	pub function: Call,
+	/// Doughnut attached
+	pub doughnut: Option<Doughnut<AccountId, Signature>>,
 	/// Signal fee payment to use the spot exchange (CENNZ-X)
 	pub fee_exchange: Option<FeeExchange<Balance>>,
 }
 
-impl<Address, Index, Call, Signature, Balance: HasCompact> CennznetExtrinsic<Address, Index, Call, Signature, Balance> {
+impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact> CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance> {
 	/// New instance of a signed extrinsic aka "transaction".
-	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era) -> Self {
+	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era, doughnut: Option<Doughnut<AccountId, Signature>>) -> Self {
 		CennznetExtrinsic {
 			signature: Some((signed, signature, index.into(), era)),
 			function,
+			doughnut,
 			fee_exchange: None,
 		}
 	}
@@ -68,29 +72,30 @@ impl<Address, Index, Call, Signature, Balance: HasCompact> CennznetExtrinsic<Add
 		CennznetExtrinsic {
 			signature: None,
 			function,
+			doughnut: None,
 			fee_exchange: None,
 		}
 	}
 }
 
-impl<Address: Encode, Index: Encode, Call: Encode, Signature: Encode, Balance: HasCompact> Extrinsic
-	for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId: Encode, Address: Encode, Index: Encode, Call: Encode, Signature: Encode, Balance: HasCompact> Extrinsic
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 {
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())
 	}
 }
 
-impl<Address, AccountId, Index, Call, Signature, Context, Hash, BlockNumber, Balance> Checkable<Context>
-	for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Context, Hash, BlockNumber, Balance> Checkable<Context>
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
 	Address: Member + MaybeDisplay,
 	Balance: HasCompact,
 	Index: Member + MaybeDisplay + SimpleArithmetic,
 	Compact<Index>: Encode,
 	Call: Encode + Member,
-	Signature: Member + traits::Verify<Signer = AccountId>,
-	AccountId: Member + MaybeDisplay,
+	Signature: Member + traits::Verify<Signer = AccountId> + Encode,
+	AccountId: Member + MaybeDisplay + Encode,
 	BlockNumber: SimpleArithmetic,
 	Hash: Encode,
 	Context: Lookup<Source = Address, Target = AccountId>
@@ -102,23 +107,41 @@ where
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
 		Ok(match self.signature {
 			Some((signed, signature, index, era)) => {
-				let h = context
-					.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
+				let h = context.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
 					.ok_or("transaction birth block ancient")?;
 				let signed = context.lookup(signed)?;
-				let raw_payload = (index, self.function, era, h);
-				if !raw_payload.using_encoded(|payload| {
-					if payload.len() > 256 {
-						signature.verify(&blake2_256(payload)[..], &signed)
-					} else {
-						signature.verify(payload, &signed)
+				if let Some(ref doughnut) = self.doughnut {
+					let raw_payload = (&index, &self.function, era, h, doughnut);
+					if !raw_payload.using_encoded(|payload| {
+						if payload.len() > 256 {
+							signature.verify(&blake2_256(payload)[..], &signed)
+						} else {
+							signature.verify(payload, &signed)
+						}
+					}) {
+						return Err("bad signature in extrinsic")
 					}
-				}) {
-					return Err(runtime_primitives::BAD_SIGNATURE);
+				} else {
+					let raw_payload = (&index, &self.function, era, h);
+					if !raw_payload.using_encoded(|payload| {
+						if payload.len() > 256 {
+							signature.verify(&blake2_256(payload)[..], &signed)
+						} else {
+							signature.verify(payload, &signed)
+						}
+					}) {
+						return Err("bad signature in extrinsic")
+					}
 				}
-				CheckedExtrinsic {
-					signed: Some((signed, (raw_payload.0).0)),
-					function: raw_payload.1,
+				match self.doughnut {
+					Some(d) => CheckedExtrinsic {
+						signed: Some((d.certificate.issuer, index.0)),
+						function: self.function,
+					},
+					None => CheckedExtrinsic {
+						signed: Some((signed, index.0)),
+						function: self.function,
+					}
 				}
 			}
 			None => CheckedExtrinsic {
@@ -129,8 +152,9 @@ where
 	}
 }
 
-impl<Address, Index, Call, Signature, Balance> Decode for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Balance> Decode for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
+	AccountId: Decode,
 	Address: Decode,
 	Signature: Decode,
 	Compact<Index>: Decode,
@@ -158,9 +182,8 @@ where
 		let signature = if is_signed { Some(Decode::decode(input)?) } else { None };
 		let function = Decode::decode(input)?;
 
-		let _doughnut = if has_doughnut {
-			// TODO: decode doughnut
-			Some(())
+		let doughnut = if has_doughnut {
+			Some(Decode::decode(input)?)
 		} else {
 			None
 		};
@@ -174,13 +197,15 @@ where
 		Some(CennznetExtrinsic {
 			signature,
 			function,
+			doughnut,
 			fee_exchange,
 		})
 	}
 }
 
-impl<Address, Index, Call, Signature, Balance> Encode for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Balance> Encode for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
+	AccountId: Encode,
 	Address: Encode,
 	Signature: Encode,
 	Compact<Index>: Encode,
@@ -194,7 +219,9 @@ where
 			if self.signature.is_some() {
 				version |= BIT_SIGNED;
 			}
-			// TODO: update version if has doughnut
+			if self.doughnut.is_some() {
+				version |= BIT_DOUGHNUT;
+			}
 			if self.fee_exchange.is_some() {
 				version |= BIT_CENNZ_X;
 			}
@@ -204,7 +231,9 @@ where
 				s.encode_to(v);
 			}
 			self.function.encode_to(v);
-			// TODO: encode doughnut
+			if let Some(d) = self.doughnut.as_ref() {
+				d.encode_to(v);
+			}
 			if let Some(f) = self.fee_exchange.as_ref() {
 				f.encode_to(v);
 			}
@@ -213,8 +242,8 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<Address: Encode, Index, Signature: Encode, Call: Encode, Balance> serde::Serialize
-	for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId: Encode, Address: Encode, Index, Signature: Encode, Call: Encode, Balance> serde::Serialize
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
 	Compact<Index>: Encode,
 	Balance: HasCompact,
@@ -228,23 +257,88 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<Address, Index, Call, Signature, Balance> fmt::Debug
-	for CennznetExtrinsic<Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Balance> fmt::Debug
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
+	AccountId: fmt::Debug,
 	Address: fmt::Debug,
 	Index: fmt::Debug,
 	Call: fmt::Debug,
 	Balance: fmt::Debug + HasCompact,
+	Signature: fmt::Debug,
 {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		// TODO: write doughnut
 		write!(
 			f,
-			"CennznetExtrinsic({:?}, {:?}, {:?})",
+			"CennznetExtrinsic({:?}, {:?}, {:?}, {:?})",
 			self.signature.as_ref().map(|x| (&x.0, &x.2)),
 			self.function,
+			self.doughnut,
 			self.fee_exchange
 		)
+	}
+}
+
+
+// derive Debug to meet the requirement of deposit_event
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct Certificate<AccountId> {
+	pub expires: u64,
+	pub version: u32,
+	pub holder: AccountId,
+	pub not_before: u64,
+	//	use vec of tuple to work as a key value map
+	pub permissions: Vec<(Vec<u8>, Vec<u8>)>,
+	pub issuer: AccountId,
+}
+
+#[derive(Clone, Eq, PartialEq, Default, Encode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct Doughnut<AccountId, Signature> {
+	pub certificate: Certificate<AccountId>,
+	pub signature: Signature,
+}
+
+impl<AccountId, Signature> Decode
+for Doughnut<AccountId, Signature>
+	where
+		AccountId: Decode,
+		Signature: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		Some(Doughnut {
+			certificate: Decode::decode(input)?,
+			signature: Decode::decode(input)?,
+		})
+	}
+}
+
+impl<AccountId, Signature> Doughnut<AccountId, Signature> where
+	Signature: Verify<Signer=AccountId> + Encode,
+	AccountId: Encode {
+	pub fn validate(&self, now:u64) -> support::dispatch::Result {
+		if self.certificate.expires > now {
+			let valid = self.certificate.not_before <= now;
+			if valid {
+				if self.signature.verify(self.certificate.encode().as_slice(), &self.certificate.issuer) {
+					// TODO: ensure doughnut hasn't been revoked
+					return Ok(());
+				} else {
+					return Err("invalid signature");
+				}
+			}
+		}
+		return Err("invalid doughnut");
+	}
+	pub fn validate_permission(&self) -> support::dispatch::Result {
+		// not efficient, optimize later
+		for permission_pair in &self.certificate.permissions {
+			if permission_pair.0 == "cennznet".encode() {
+				return Ok(());
+			}
+		}
+		return Err("no permission");
 	}
 }
 

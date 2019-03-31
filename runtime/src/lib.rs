@@ -203,10 +203,6 @@ impl attestation::Trait for Runtime {
 	type Event = Event;
 }
 
-impl doughnut::Trait for Runtime {
-	type Event = Event;
-}
-
 impl sylo::groups::Trait for Runtime {}
 impl sylo::e2ee::Trait for Runtime {
 	type Event = Event;
@@ -244,7 +240,6 @@ construct_runtime!(
 		Fees: fees::{Module, Storage, Config<T>, Event<T>},
 		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
-		Doughnut: doughnut::{Module, Call, Event<T>},
 		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
 		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
@@ -265,7 +260,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature, Balance>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.
