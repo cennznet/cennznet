@@ -35,3 +35,13 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 		ed25519::Pair::from_seed(&padded_seed).public().0.into(),
 	)
 }
+
+pub fn get_account_id_from_address(address: &str) -> AccountId {
+	ed25519::Public::from_ss58check(address).unwrap().0.into()
+}
+
+pub fn get_account_keys_from_address(stash_addr: &str, controller_addr: &str) -> (AccountId, AccountId, AuthorityId) {
+	let stash = ed25519::Public::from_ss58check(stash_addr).unwrap().0;
+	let controller = ed25519::Public::from_ss58check(controller_addr).unwrap().0;
+	(stash.into(), controller.into(), controller.into())
+}

@@ -1,11 +1,9 @@
-use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, TELEMETRY_URL};
-use cennznet_primitives::AccountId;
+use super::{get_account_id_from_address, get_account_keys_from_address, ChainSpec, GenesisConfig, TELEMETRY_URL};
 use cennznet_runtime::{
 	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
 	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule, SessionConfig,
 	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
-use primitives::Ed25519AuthorityId as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
@@ -16,18 +14,23 @@ const MINUTES: u64 = 60 / SECS_PER_BLOCK;
 const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
 
-fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_key: AccountId) -> GenesisConfig {
+fn genesis() -> GenesisConfig {
+	let initial_authorities = vec![
+		// TODO: change to real address
+		get_account_keys_from_address(
+			"5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi",
+			"5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi",
+		),
+	];
+	// TODO: change to real address
+	let root_key = get_account_id_from_address("5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi");
 	let endowed_accounts = vec![
-		get_account_id_from_seed("Andrea"),
-		get_account_id_from_seed("Brooke"),
-		get_account_id_from_seed("Courtney"),
-		get_account_id_from_seed("Drew"),
-		get_account_id_from_seed("Emily"),
-		get_account_id_from_seed("Frank"),
-		get_account_id_from_seed("Centrality"),
-		get_account_id_from_seed("Kauri"),
-		get_account_id_from_seed("Rimu"),
-		get_account_id_from_seed("cennznet-js-test"),
+		// pre seeded accounts
+		get_account_id_from_address("5FkXqvea1mmAUGNJ9nJyqp2xJjsU4pmACxP35txnHAVtXKGU"),
+		get_account_id_from_address("5D2WWEwn8oUMbSiwuHBUnsyDLytwSrpahta9jvJamjYgAfcf"),
+		get_account_id_from_address("5HBmFpcdL3WjUNTUtyAKWDJE96YnA4D3BokkvRRNBBZbPMWE"),
+		get_account_id_from_address("5HEdJWWiggQKUSnstM7uRYFkYuAoAesdGh2NMLcFeSnm4zQR"),
+		get_account_id_from_address("5EvzCqpvGgayVF8W3iBddUqwmXMQqQmP8ktJhFKEEzA6xfWg"),
 	];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
@@ -148,7 +151,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				102, // CERTI
 				103, // ARDA
 			],
-			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			initial_balance: 250_000 * DOLLARS,
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			// ids smaller than 1_000_000 are reserved
 			next_asset_id: 1_000_000,
@@ -170,19 +173,6 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 	}
 }
 
-fn config_genesis() -> GenesisConfig {
-	// TODO: update this
-	genesis(
-		vec![
-			get_authority_keys_from_seed("Andrea"),
-			get_authority_keys_from_seed("Brooke"),
-			get_authority_keys_from_seed("Courtney"),
-			get_authority_keys_from_seed("Drew"),
-		],
-		get_account_id_from_seed("Rimu").into(),
-	)
-}
-
 pub fn config() -> Result<ChainSpec, String> {
 	ChainSpec::from_embedded(include_bytes!("../../genesis/main/genesis.json"))
 		.map_err(|e| format!("Error loading genesis for CENNZnet {}", e))
@@ -193,7 +183,7 @@ pub fn latest_config() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::from_genesis(
 		"CENNZnet",
 		"cennznet",
-		config_genesis,
+		genesis,
 		vec![
 			String::from(
 				"/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2",

@@ -59,7 +59,7 @@ decl_module! {
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			// Buyer is also recipient
-			let sold_amount = Self::make_asset_to_core_output(
+			let _ = Self::make_asset_to_core_output(
 				&buyer,
 				&recipient.unwrap_or_else(|| buyer.clone()),
 				&asset_id,
@@ -67,7 +67,6 @@ decl_module! {
 				max_sale,
 				Self::fee_rate()
 			)?;
-			Self::deposit_event(RawEvent::CoreAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
 		}
@@ -86,7 +85,7 @@ decl_module! {
 			#[compact] max_sale: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
-			let sold_amount = Self::make_core_to_asset_output(
+			let _ = Self::make_core_to_asset_output(
 				&buyer,
 				&recipient.unwrap_or_else(|| buyer.clone()),
 				&asset_id,
@@ -94,7 +93,6 @@ decl_module! {
 				max_sale,
 				Self::fee_rate()
 			)?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, buyer, sold_amount, buy_amount));
 
 			Ok(())
 		}
@@ -245,7 +243,7 @@ decl_module! {
 			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let core_received = Self::make_asset_to_core_input(
+			let _ = Self::make_asset_to_core_input(
 				&seller,
 				&recipient.unwrap_or_else(|| seller.clone()),
 				&asset_id,
@@ -253,7 +251,6 @@ decl_module! {
 				min_sale,
 				Self::fee_rate()
 			)?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, core_received));
 
 			Ok(())
 		}
@@ -272,7 +269,7 @@ decl_module! {
 			#[compact] min_sale: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
-			let asset_received = Self::make_core_to_asset_input(
+			let _ = Self::make_core_to_asset_input(
 				&seller,
 				&recipient.unwrap_or_else(|| seller.clone()),
 				&asset_id,
@@ -280,7 +277,6 @@ decl_module! {
 				min_sale,
 				Self::fee_rate()
 			)?;
-			Self::deposit_event(RawEvent::TradeAssetPurchase(asset_id, seller, sell_amount, asset_received));
 
 			Ok(())
 		}
@@ -441,6 +437,13 @@ impl<T: Trait> Module<T> {
 			<generic_asset::Module<T>>::make_transfer(asset_id, &exchange_address, recipient, sale_value),
 		);
 
+		Self::deposit_event(RawEvent::TradeAssetPurchase(
+			*asset_id,
+			seller.clone(),
+			sell_amount,
+			sale_value,
+		));
+
 		Ok(sale_value)
 	}
 
@@ -477,6 +480,13 @@ impl<T: Trait> Module<T> {
 		let _ = <generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sold_amount).and(
 			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, recipient, buy_amount),
 		);
+
+		Self::deposit_event(RawEvent::CoreAssetPurchase(
+			*asset_id,
+			buyer.clone(),
+			sold_amount,
+			buy_amount,
+		));
 
 		Ok(sold_amount)
 	}
@@ -516,6 +526,13 @@ impl<T: Trait> Module<T> {
 		let _ = <generic_asset::Module<T>>::make_transfer(&core_asset_id, buyer, &exchange_address, sold_amount).and(
 			<generic_asset::Module<T>>::make_transfer(asset_id, &exchange_address, recipient, buy_amount),
 		);
+
+		Self::deposit_event(RawEvent::TradeAssetPurchase(
+			*asset_id,
+			buyer.clone(),
+			sold_amount,
+			buy_amount,
+		));
 
 		Ok(sold_amount)
 	}
@@ -629,6 +646,13 @@ impl<T: Trait> Module<T> {
 			<generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, recipient, sale_value),
 		);
 
+		Self::deposit_event(RawEvent::CoreAssetPurchase(
+			*asset_id,
+			buyer.clone(),
+			sell_amount,
+			sale_value,
+		));
+
 		Ok(sale_value)
 	}
 
@@ -696,6 +720,7 @@ impl<T: Trait> Module<T> {
 			asset_b_received,  // bought amount
 			sale_value_a,      // core amount
 		));
+
 		Ok(asset_b_received)
 	}
 
