@@ -8,9 +8,9 @@ use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
 use runtime_primitives::generic::{CheckedExtrinsic, Era};
 use runtime_primitives::traits::{
-	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic, Verify
+	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic,
+	Verify,
 };
-//use crate::AccountId;
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
 const MASK_VERSION: u8 = 0b0000_1111;
@@ -56,9 +56,18 @@ pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance
 	pub fee_exchange: Option<FeeExchange<Balance>>,
 }
 
-impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact> CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance> {
+impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact>
+	CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
+{
 	/// New instance of a signed extrinsic aka "transaction".
-	pub fn new_signed(index: Index, function: Call, signed: Address, signature: Signature, era: Era, doughnut: Option<Doughnut<AccountId, Signature>>) -> Self {
+	pub fn new_signed(
+		index: Index,
+		function: Call,
+		signed: Address,
+		signature: Signature,
+		era: Era,
+		doughnut: Option<Doughnut<AccountId, Signature>>,
+	) -> Self {
 		CennznetExtrinsic {
 			signature: Some((signed, signature, index.into(), era)),
 			function,
@@ -107,7 +116,8 @@ where
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
 		Ok(match self.signature {
 			Some((signed, signature, index, era)) => {
-				let h = context.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
+				let h = context
+					.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
 					.ok_or("transaction birth block ancient")?;
 				let signed = context.lookup(signed)?;
 				if let Some(ref doughnut) = self.doughnut {
@@ -119,7 +129,7 @@ where
 							signature.verify(payload, &signed)
 						}
 					}) {
-						return Err("bad signature in extrinsic")
+						return Err("bad signature in extrinsic");
 					}
 				} else {
 					let raw_payload = (&index, &self.function, era, h);
@@ -130,7 +140,7 @@ where
 							signature.verify(payload, &signed)
 						}
 					}) {
-						return Err("bad signature in extrinsic")
+						return Err("bad signature in extrinsic");
 					}
 				}
 				match self.doughnut {
@@ -141,7 +151,7 @@ where
 					None => CheckedExtrinsic {
 						signed: Some((signed, index.0)),
 						function: self.function,
-					}
+					},
 				}
 			}
 			None => CheckedExtrinsic {
@@ -152,7 +162,8 @@ where
 	}
 }
 
-impl<AccountId, Address, Index, Call, Signature, Balance> Decode for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Balance> Decode
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
 	AccountId: Decode,
 	Address: Decode,
@@ -203,7 +214,8 @@ where
 	}
 }
 
-impl<AccountId, Address, Index, Call, Signature, Balance> Encode for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
+impl<AccountId, Address, Index, Call, Signature, Balance> Encode
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 where
 	AccountId: Encode,
 	Address: Encode,
@@ -279,7 +291,6 @@ where
 	}
 }
 
-
 // derive Debug to meet the requirement of deposit_event
 #[derive(Clone, Eq, PartialEq, Default, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -300,11 +311,10 @@ pub struct Doughnut<AccountId, Signature> {
 	pub signature: Signature,
 }
 
-impl<AccountId, Signature> Decode
-for Doughnut<AccountId, Signature>
-	where
-		AccountId: Decode,
-		Signature: Decode
+impl<AccountId, Signature> Decode for Doughnut<AccountId, Signature>
+where
+	AccountId: Decode,
+	Signature: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		Some(Doughnut {
@@ -314,14 +324,19 @@ for Doughnut<AccountId, Signature>
 	}
 }
 
-impl<AccountId, Signature> Doughnut<AccountId, Signature> where
-	Signature: Verify<Signer=AccountId> + Encode,
-	AccountId: Encode {
-	pub fn validate(&self, now:u64) -> support::dispatch::Result {
+impl<AccountId, Signature> Doughnut<AccountId, Signature>
+where
+	Signature: Verify<Signer = AccountId> + Encode,
+	AccountId: Encode,
+{
+	pub fn validate(&self, now: u64) -> support::dispatch::Result {
 		if self.certificate.expires > now {
 			let valid = self.certificate.not_before <= now;
 			if valid {
-				if self.signature.verify(self.certificate.encode().as_slice(), &self.certificate.issuer) {
+				if self
+					.signature
+					.verify(self.certificate.encode().as_slice(), &self.certificate.issuer)
+				{
 					// TODO: ensure doughnut hasn't been revoked
 					return Ok(());
 				} else {

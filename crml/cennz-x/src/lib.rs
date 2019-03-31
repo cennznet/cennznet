@@ -25,8 +25,14 @@ use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, Stora
 use system::ensure_signed;
 
 /// A nice type alias for CennznetExtrinsic
-pub type CennznetExtrinsicOf<T> =
-	CennznetExtrinsic<<T as system::Trait>::AccountId, <T as system::Trait>::AccountId, Index, <T as Trait>::Call, Signature, Balance>;
+pub type CennznetExtrinsicOf<T> = CennznetExtrinsic<
+	<T as system::Trait>::AccountId,
+	<T as system::Trait>::AccountId,
+	Index,
+	<T as Trait>::Call,
+	Signature,
+	Balance,
+>;
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
