@@ -1,5 +1,5 @@
 //!
-//! CENNZ-X Types
+//! CENNZX-SPOT Types
 //!
 use parity_codec::{Compact, CompactAs, Decode, Encode};
 use runtime_primitives::traits::As;

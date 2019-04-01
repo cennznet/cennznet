@@ -1,5 +1,5 @@
 //!
-//! CENNZ-X Tests
+//! CENNZX-SPOT Tests
 //!
 use crate::{
 	impls::impl_tests::MockModule,

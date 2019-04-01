@@ -44,7 +44,7 @@ pub use runtime_primitives::{Perbill, Permill};
 pub use srml_support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
-pub use cennz_x::{ExchangeAddressGenerator, FeeRate};
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
 pub use contract::Schedule;
 pub use sylo::device as sylo_device;
 pub use sylo::e2ee as sylo_e2ee;
@@ -188,12 +188,12 @@ impl generic_asset::Trait for Runtime {
 impl fees::Trait for Runtime {
 	type Event = Event;
 	type OnFeeCharged = ();
-	type TransferAsset = cennz_x::Module<Runtime>;
+	type TransferAsset = cennzx_spot::Module<Runtime>;
 }
 
 impl rewards::Trait for Runtime {}
 
-impl cennz_x::Trait for Runtime {
+impl cennzx_spot::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
@@ -240,7 +240,7 @@ construct_runtime!(
 		Fees: fees::{Module, Storage, Config<T>, Event<T>},
 		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
-		SpotExchange: cennz_x::{Module, Call, Storage, Config<T>, Event<T>},
+		SpotExchange: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
 		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},

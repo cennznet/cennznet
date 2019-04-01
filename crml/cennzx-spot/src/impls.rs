@@ -1,5 +1,5 @@
 //!
-//! Extra CENNZ-X trait + implementations
+//! Extra CENNZX-SPOT trait + implementations
 //!
 use super::{Module, Trait};
 use rstd::{marker::PhantomData, mem, prelude::*};
@@ -9,12 +9,12 @@ use support::{
 	traits::{ArithmeticType, TransferAsset, WithdrawReason},
 };
 
-/// A function that generates an `AccountId` for a CENNZ-X exchange / (core, asset) pair
+/// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
 pub trait ExchangeAddressFor<AssetId: Sized, AccountId: Sized> {
 	fn exchange_address_for(core_asset_id: AssetId, asset_id: AssetId) -> AccountId;
 }
 
-// A CENNZ-X exchange address generator implementation
+// A CENNZX-SPOT exchange address generator implementation
 pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
 
 impl<T: Trait> ExchangeAddressFor<T::AssetId, T::AccountId> for ExchangeAddressGenerator<T>
