@@ -142,22 +142,22 @@ fn genesis() -> GenesisConfig {
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
 				// Staking token
-				0, // CENNZ
+				16000, // CENNZ-T
 				// Spending token
-				10, // CENTRAPAY
+				16001, // CENTRAPAY-T
 				// Reserve Tokens
-				100, // PLUG
-				101, // SYLO
-				102, // CERTI
-				103, // ARDA
+				16002, // PLUG-T
+				16003, // SYLO-T
+				16004, // CERTI-T
+				16005, // ARDA-T
 			],
 			initial_balance: 250_000 * DOLLARS,
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
-			// ids smaller than 1_000_000 are reserved
-			next_asset_id: 1_000_000,
+			next_asset_id: 17000,
 			create_asset_stake: 1000,
 			transfer_fee: 480 * MICRO_DOLLARS,
-			next_reserved_asset_id: 100_000,
+			staking_asset_id: 16000,
+			spending_asset_id: 16001,
 		}),
 		fees: Some(FeesConfig {
 			transaction_base_fee: 1000 * MICRO_DOLLARS,
@@ -165,7 +165,7 @@ fn genesis() -> GenesisConfig {
 		}),
 		cennzx_spot: Some(SpotExchangeConfig {
 			fee_rate: FeeRate::from_milli(3),
-			core_asset_id: 10,
+			core_asset_id: 16001,
 		}),
 		rewards: Some(RewardsConfig {
 			block_reward: 10 * DOLLARS,

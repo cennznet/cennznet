@@ -15,7 +15,7 @@ use runtime_primitives::{
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
-use support::{impl_outer_origin, StorageValue};
+use support::{additional_traits::DummyChargeFee, impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -51,6 +51,7 @@ impl generic_asset::Trait for Test {
 	type Balance = u128;
 	type AssetId = u32;
 	type Event = ();
+	type ChargeFee = DummyChargeFee<H256, u128>;
 }
 
 impl Trait for Test {
@@ -78,6 +79,21 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
 		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
+		t.extend(
+			generic_asset::GenesisConfig::<Test> {
+				assets: Vec::new(),
+				initial_balance: 0,
+				endowed_accounts: Vec::new(),
+				next_asset_id: 100,
+				create_asset_stake: 1000,
+				transfer_fee: 0,
+				staking_asset_id: 0,
+				spending_asset_id: 10,
+			}
+			.build_storage()
+			.unwrap()
+			.0,
+		);
 		t.extend(
 			GenesisConfig::<Test> {
 				core_asset_id: self.core_asset_id,

@@ -183,6 +183,7 @@ impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type Event = Event;
 	type AssetId = u32;
+	type ChargeFee = fees::Module<Self>;
 }
 
 impl fees::Trait for Runtime {

@@ -98,8 +98,8 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait> ChargeBytesFee<T::AccountId> for Module<T> {
-	fn charge_base_bytes_fee(transactor: &T::AccountId, encoded_len: usize) -> Result {
+impl<T: Trait, Extrinsic> ChargeBytesFee<T::AccountId, Extrinsic> for Module<T> {
+	fn charge_base_bytes_fee(transactor: &T::AccountId, encoded_len: usize, _extrinsic: &Extrinsic) -> Result {
 		let bytes_fee = Self::transaction_byte_fee()
 			.checked_mul(&<AssetOf<T> as As<u64>>::sa(encoded_len as u64))
 			.ok_or_else(|| "bytes fee overflow")?;
