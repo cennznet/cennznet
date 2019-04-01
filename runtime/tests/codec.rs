@@ -60,7 +60,7 @@ fn should_support_add_new_variant_to_enum() {
 }
 
 #[test]
-fn shoul_support_depdent_type_upgrades() {
+fn should_support_dependent_type_upgrades() {
 	assert_upgrade(
 		EnumV3::C(1, EnumV1::A) as EnumV3<EnumV1>,
 		EnumV3::C(1, EnumV2::A) as EnumV3<EnumV2>,

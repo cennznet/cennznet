@@ -19,7 +19,9 @@ use grandpa::fg_primitives::{self, ScheduledChange};
 use parity_codec::{Decode, Encode};
 use rstd::prelude::*;
 use runtime_primitives::generic;
-use runtime_primitives::traits::{BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup};
+use runtime_primitives::traits::{
+	BlakeTwo256, Block as BlockT, Checkable, Convert, DigestFor, NumberFor, StaticLookup,
+};
 use runtime_primitives::transaction_validity::TransactionValidity;
 use runtime_primitives::ApplyResult;
 #[cfg(feature = "std")]
@@ -35,7 +37,7 @@ use substrate_primitives::OpaqueMetadata;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-use generic_asset::{RewardAssetCurrency, StakingAssetCurrency};
+use generic_asset::{RewardAssetCurrency, SpendingAssetCurrency, StakingAssetCurrency};
 
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
@@ -187,9 +189,11 @@ impl generic_asset::Trait for Runtime {
 }
 
 impl fees::Trait for Runtime {
+	type Call = Call;
 	type Event = Event;
 	type OnFeeCharged = ();
-	type TransferAsset = cennzx_spot::Module<Runtime>;
+	type TransferAsset = SpendingAssetCurrency<Self>;
+	type BuyFeeAsset = cennzx_spot::Module<Self>;
 }
 
 impl rewards::Trait for Runtime {}
@@ -238,7 +242,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
-		Fees: fees::{Module, Storage, Config<T>, Event<T>},
+		Fees: fees::{Module, Call, Storage, Config<T>, Event<T>},
 		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		SpotExchange: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
@@ -263,7 +267,7 @@ pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
+pub type CheckedExtrinsic = <<Block as BlockT>::Extrinsic as Checkable<system::ChainContext<Runtime>>>::Checked;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Fees, AllModules>;
 

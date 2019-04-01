@@ -6,7 +6,7 @@ use std::fmt;
 use rstd::prelude::*;
 use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
-use runtime_primitives::generic::{CheckedExtrinsic, Era};
+use runtime_primitives::generic::Era;
 use runtime_primitives::traits::{
 	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic,
 	Verify,
@@ -52,8 +52,47 @@ pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance
 	pub function: Call,
 	/// Doughnut attached
 	pub doughnut: Option<Doughnut<AccountId, Signature>>,
-	/// Signal fee payment to use the spot exchange (CENNZ-X)
+	/// Signals fee payment should use the CENNZX-Spot exchange
 	pub fee_exchange: Option<FeeExchange<Balance>>,
+}
+
+/// Definition of something that the external world might want to say; its
+/// existence implies that it has been checked and is good, particularly with
+/// regards to the signature.
+#[derive(PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct CheckedCennznetExtrinsic<AccountId, Index, Call, Balance: HasCompact> {
+	/// Who this purports to be from and the number of extrinsics that have come before
+	/// from the same signer, if anyone (note this is not a signature).
+	pub signed: Option<(AccountId, Index)>,
+	/// The function that should be called.
+	pub function: Call,
+	/// Signals fee payment should use the CENNZX-Spot exchange
+	pub fee_exchange: Option<FeeExchange<Balance>>,
+}
+
+impl<AccountId, Index, Call, Balance> traits::Applyable for CheckedCennznetExtrinsic<AccountId, Index, Call, Balance>
+where
+	AccountId: Member + MaybeDisplay,
+	Index: Member + MaybeDisplay + SimpleArithmetic,
+	Call: Member,
+	Balance: Member + HasCompact,
+{
+	type Index = Index;
+	type AccountId = AccountId;
+	type Call = Call;
+
+	fn index(&self) -> Option<&Self::Index> {
+		self.signed.as_ref().map(|x| &x.1)
+	}
+
+	fn sender(&self) -> Option<&Self::AccountId> {
+		self.signed.as_ref().map(|x| &x.0)
+	}
+
+	fn deconstruct(self) -> (Self::Call, Option<Self::AccountId>) {
+		(self.function, self.signed.map(|x| x.0))
+	}
 }
 
 impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact>
@@ -111,7 +150,7 @@ where
 		+ CurrentHeight<BlockNumber = BlockNumber>
 		+ BlockNumberToHash<BlockNumber = BlockNumber, Hash = Hash>,
 {
-	type Checked = CheckedExtrinsic<AccountId, Index, Call>;
+	type Checked = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance>;
 
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
 		Ok(match self.signature {
@@ -144,19 +183,22 @@ where
 					}
 				}
 				match self.doughnut {
-					Some(d) => CheckedExtrinsic {
+					Some(d) => Self::Checked {
 						signed: Some((d.certificate.issuer, index.0)),
 						function: self.function,
+						fee_exchange: self.fee_exchange,
 					},
-					None => CheckedExtrinsic {
+					None => Self::Checked {
 						signed: Some((signed, index.0)),
 						function: self.function,
+						fee_exchange: self.fee_exchange,
 					},
 				}
 			}
-			None => CheckedExtrinsic {
+			None => Self::Checked {
 				signed: None,
 				function: self.function,
+				fee_exchange: self.fee_exchange,
 			},
 		})
 	}
@@ -357,9 +399,10 @@ where
 	}
 }
 
-/// Signals a fee payment requiring the spot exchange, intended to embed within CENNZnet extrinsics.
-/// Specifies the input asset ID and the max. input amount only. Actual fee amount and to/from is given-
-/// as part of the `TransferAsset::transfer` call.
+/// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
+/// embed within CENNZnet extrinsics.
+/// Is specifies input asset ID and the max. input asset to pay. The actual
+/// fee amount to pay is calculated via the fees module and current exchange prices.
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct FeeExchange<Balance: HasCompact> {

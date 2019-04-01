@@ -18,8 +18,10 @@
 
 #![cfg(test)]
 
-use crate::{system, GenesisConfig, Module, OnFeeCharged, Trait};
+use crate::{system, BuyFeeAsset, GenesisConfig, Module, OnFeeCharged, Trait};
+use cennznet_primitives::{Balance, FeeExchange};
 use primitives::{Blake2Hasher, H256};
+use rstd::marker::PhantomData;
 use runtime_io;
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
@@ -27,7 +29,9 @@ use runtime_primitives::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 use support::{
-	decl_module, decl_storage, impl_outer_event, impl_outer_origin,
+	decl_module, decl_storage,
+	dispatch::Result,
+	impl_outer_event, impl_outer_origin,
 	traits::{ArithmeticType, TransferAsset, WithdrawReason},
 	StorageValue,
 };
@@ -37,7 +41,7 @@ impl_outer_origin! {
 }
 
 mod fees {
-	pub use crate::Event;
+	pub use crate::{Call, Event};
 }
 
 impl_outer_event! {
@@ -51,13 +55,13 @@ pub struct TransferAssetMock;
 impl<AccountId> TransferAsset<AccountId> for TransferAssetMock {
 	type Amount = u64;
 
-	fn transfer(_: &AccountId, _: &AccountId, _: Self::Amount) -> Result<(), &'static str> {
+	fn transfer(_: &AccountId, _: &AccountId, _: Self::Amount) -> Result {
 		Ok(())
 	}
-	fn withdraw(_: &AccountId, _: Self::Amount, _: WithdrawReason) -> Result<(), &'static str> {
+	fn withdraw(_: &AccountId, _: Self::Amount, _: WithdrawReason) -> Result {
 		Ok(())
 	}
-	fn deposit(_: &AccountId, _: Self::Amount) -> Result<(), &'static str> {
+	fn deposit(_: &AccountId, _: Self::Amount) -> Result {
 		Ok(())
 	}
 }
@@ -86,7 +90,9 @@ impl system::Trait for Test {
 pub trait OnFeeChargedMockTrait: system::Trait {}
 
 decl_module! {
-	pub struct OnFeeChargedMockModule<T: OnFeeChargedMockTrait> for enum Call where origin: T::Origin {}
+	pub struct OnFeeChargedMockModule<T: OnFeeChargedMockTrait> for enum Call where origin: T::Origin {
+		pub fn do_nothing() -> Result { Ok(()) }
+	}
 }
 
 decl_storage! {
@@ -104,9 +110,11 @@ impl<T: OnFeeChargedMockTrait> OnFeeCharged<u64> for OnFeeChargedMockModule<T> {
 impl OnFeeChargedMockTrait for Test {}
 
 impl Trait for Test {
+	type Call = Call<Self>;
 	type Event = TestEvent;
 	type TransferAsset = TransferAssetMock;
 	type OnFeeCharged = OnFeeChargedMock;
+	type BuyFeeAsset = BuyFeeAssetMock<Test>;
 }
 
 pub type System = system::Module<Test>;
@@ -146,5 +154,14 @@ impl ExtBuilder {
 			.0,
 		);
 		t.into()
+	}
+}
+
+// A NOOP BuyFeeAsset implementor
+pub struct BuyFeeAssetMock<T: Trait>(PhantomData<T>);
+
+impl<T: Trait> BuyFeeAsset<T::AccountId, Balance> for BuyFeeAssetMock<T> {
+	fn buy_fee_asset(_who: &T::AccountId, _amount: Balance, _fee_exchange: &FeeExchange<Balance>) -> Result {
+		Ok(())
 	}
 }

@@ -23,8 +23,10 @@ use runtime_io::with_externalities;
 use runtime_primitives::traits::OnFinalise;
 use system::{EventRecord, Phase};
 
-use mock::{ExtBuilder, Fees, OnFeeChargedMock, System, Test};
+use mock::{Call, ExtBuilder, Fees, OnFeeChargedMock, System, Test};
 use support::{additional_traits::FeeAmounts, assert_err, assert_ok, StorageValue};
+
+type MockCheckedExtrinsic = CheckedCennznetExtrinsic<u64, u64, Call<Test>, u128>;
 
 #[test]
 fn charge_base_bytes_fee_should_work() {
@@ -34,16 +36,22 @@ fn charge_base_bytes_fee_should_work() {
 			.transaction_byte_fee(5)
 			.build(),
 		|| {
+			let xt = MockCheckedExtrinsic {
+				signed: None,
+				function: tests::Call::do_nothing(),
+				fee_exchange: None,
+			};
+
 			System::set_extrinsic_index(0);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 7, &()));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 7, &xt));
 			assert_eq!(Fees::current_transaction_fee(0), 3 + 5 * 7);
 
 			System::set_extrinsic_index(1);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 11, &()));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 11, &xt));
 			assert_eq!(Fees::current_transaction_fee(1), 3 + 5 * 11);
 
 			System::set_extrinsic_index(3);
-			assert_ok!(Fees::charge_base_bytes_fee(&0, 13, &()));
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 13, &xt));
 			assert_eq!(Fees::current_transaction_fee(3), 3 + 5 * 13);
 		},
 	);
@@ -51,6 +59,12 @@ fn charge_base_bytes_fee_should_work() {
 
 #[test]
 fn charge_base_bytes_fee_should_not_work_if_bytes_fee_overflow() {
+	let xt = MockCheckedExtrinsic {
+		signed: None,
+		function: tests::Call::do_nothing(),
+		fee_exchange: None,
+	};
+
 	// bytes fee overflows.
 	with_externalities(
 		&mut ExtBuilder::default()
@@ -59,13 +73,19 @@ fn charge_base_bytes_fee_should_not_work_if_bytes_fee_overflow() {
 			.build(),
 		|| {
 			System::set_extrinsic_index(0);
-			assert_err!(Fees::charge_base_bytes_fee(&0, 2, &()), "bytes fee overflow");
+			assert_err!(Fees::charge_base_bytes_fee(&0, 2, &xt), "bytes fee overflow");
 		},
 	);
 }
 
 #[test]
 fn charge_base_bytes_fee_should_not_work_if_overall_fee_overflow() {
+	let xt = MockCheckedExtrinsic {
+		signed: None,
+		function: tests::Call::do_nothing(),
+		fee_exchange: None,
+	};
+
 	// bytes fee doesn't overflow, but overall fee (bytes_fee + base_fee) does
 	with_externalities(
 		&mut ExtBuilder::default()
@@ -74,7 +94,7 @@ fn charge_base_bytes_fee_should_not_work_if_overall_fee_overflow() {
 			.build(),
 		|| {
 			System::set_extrinsic_index(0);
-			assert_err!(Fees::charge_base_bytes_fee(&0, 1, &()), "bytes fee overflow");
+			assert_err!(Fees::charge_base_bytes_fee(&0, 1, &xt), "bytes fee overflow");
 		},
 	);
 }
@@ -189,6 +209,26 @@ fn fee_amounts_impl_works() {
 
 			assert_eq!(Fees::base_fee(), 7);
 			assert_eq!(Fees::byte_fee(), 11);
+		},
+	);
+}
+
+#[test]
+fn charge_base_bytes_fee_should_work_with_fee_exchange() {
+	with_externalities(
+		&mut ExtBuilder::default()
+			.transaction_base_fee(3)
+			.transaction_byte_fee(5)
+			.build(),
+		|| {
+			let xt = MockCheckedExtrinsic {
+				signed: None,
+				function: tests::Call::do_nothing(),
+				fee_exchange: Some(FeeExchange::new(0, 1_000_000)),
+			};
+
+			System::set_extrinsic_index(0);
+			assert_ok!(Fees::charge_base_bytes_fee(&0, 7, &xt));
 		},
 	);
 }
