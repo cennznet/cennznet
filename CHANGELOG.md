@@ -1,13 +1,15 @@
 # Runtime version 16 (master)
-- Substrate commit: xxxx
+- Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
-	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI.
-		- Test CENNZ is now `16000` and Test CENTRAPAY is now `16001`.
+	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI
+		- Test CENNZ is now `16000` and Test CENTRAPAY is now `16001`
 - New features:
 	- GA:
 		- Transfer fee should be correctly applied now
-		- Create new Asset now requires certain amount of CENNZ to be staked.
+		- Create new Asset now requires certain amount of CENNZ to be staked
+	- Initial implementation of CennznetExtrinsic with Doughnut and CENNZX support (WIP)
 - New notable Substreate changes:
+	- No upstream substrate changes merged
 
 # Runtime version 15 (Kauri)
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
