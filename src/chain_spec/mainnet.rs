@@ -163,7 +163,7 @@ fn genesis() -> GenesisConfig {
 			transaction_base_fee: 1000 * MICRO_DOLLARS,
 			transaction_byte_fee: 5 * MICRO_DOLLARS,
 		}),
-		cennz_x: Some(SpotExchangeConfig {
+		cennzx_spot: Some(SpotExchangeConfig {
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
 		}),

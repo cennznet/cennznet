@@ -49,7 +49,7 @@ pub struct CennznetExtrinsic<Address, Index, Call, Signature, Balance: HasCompac
 	pub signature: Option<(Address, Signature, Compact<Index>, Era)>,
 	/// The function that should be called.
 	pub function: Call,
-	/// Signal fee payment to use the spot exchange (CENNZ-X)
+	/// Signal fee payment to use the spot exchange (CENNZX-SPOT)
 	pub fee_exchange: Option<FeeExchange<Balance>>,
 }
 

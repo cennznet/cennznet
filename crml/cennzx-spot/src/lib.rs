@@ -1,5 +1,5 @@
 //!
-//! CENNZ-X
+//! CENNZX-SPOT
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 

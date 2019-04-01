@@ -136,7 +136,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			transaction_base_fee: 1,
 			transaction_byte_fee: 1,
 		}),
-		cennz_x: Some(SpotExchangeConfig {
+		cennzx_spot: Some(SpotExchangeConfig {
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 10,
 		}),
