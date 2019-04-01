@@ -260,7 +260,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<Address, Index, Call, Signature, Balance>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Index, Call>;
 /// Executive: handles dispatch to the various modules.

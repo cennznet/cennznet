@@ -110,8 +110,14 @@ pub(crate) mod impl_tests {
 			}
 		}
 	}
-	type MockExtrinsic<T> =
-		CennznetExtrinsic<<T as system::Trait>::AccountId, Index, <T as Trait>::Call, Signature, u128>;
+	type MockExtrinsic<T> = CennznetExtrinsic<
+		<T as system::Trait>::AccountId,
+		<T as system::Trait>::AccountId,
+		Index,
+		<T as Trait>::Call,
+		Signature,
+		u128,
+	>;
 
 	impl mock_module::Trait for Test {
 		type Origin = Origin;
