@@ -6,7 +6,7 @@
 
 mod cennznet_extrinsic;
 
-pub use cennznet_extrinsic::{CennznetExtrinsic, FeeExchange};
+pub use cennznet_extrinsic::{CennznetExtrinsic, CheckedCennznetExtrinsic, FeeExchange};
 
 use runtime_primitives::generic;
 use runtime_primitives::{traits::BlakeTwo256, OpaqueExtrinsic};

@@ -1,11 +1,11 @@
 //!
 //! CENNZX-SPOT Tests
 //!
+#![cfg(test)]
 use crate::{
-	impls::impl_tests::MockModule,
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	types::FeeRate,
-	DefaultFeeRate, GenesisConfig, Module, Trait,
+	Call, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
 use generic_asset;
 use runtime_io::with_externalities;
@@ -19,12 +19,6 @@ use support::{additional_traits::DummyChargeFee, impl_outer_origin, StorageValue
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
-}
-
-impl_outer_dispatch! {
-	pub enum Call for Test where origin: Origin {
-		mock_module::MockModule,
-	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -55,7 +49,7 @@ impl generic_asset::Trait for Test {
 }
 
 impl Trait for Test {
-	type Call = Call;
+	type Call = Call<Self>;
 	type Event = ();
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 }

@@ -3,13 +3,16 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use cennznet_primitives::{CheckedCennznetExtrinsic, Balance, Index, FeeExchange};
+use parity_codec::HasCompact;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, Zero};
 use support::{
 	additional_traits::FeeAmounts,
 	decl_event, decl_module, decl_storage,
-	dispatch::Result,
+	dispatch::{Dispatchable, Result},
 	for_each_tuple,
 	traits::{ArithmeticType, ChargeBytesFee, ChargeFee, TransferAsset, WithdrawReason},
+	Parameter,
 	StorageMap,
 };
 use system;
@@ -18,6 +21,8 @@ mod mock;
 mod tests;
 
 type AssetOf<T> = <<T as Trait>::TransferAsset as ArithmeticType>::Type;
+pub type CheckedExtrinsicOf<T> =
+	CheckedCennznetExtrinsic<<T as system::Trait>::AccountId, Index, <T as Trait>::Call, Balance>;
 
 pub trait OnFeeCharged<Amount> {
 	fn on_fee_charged(fee: &Amount);
@@ -41,12 +46,26 @@ macro_rules! impl_fee_charged {
 
 for_each_tuple!(impl_fee_charged);
 
+/// A trait which enables buying some fee asset using another asset.
+/// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
+pub trait BuyFeeAsset<AccountId, Balance: HasCompact> {
+	/// Buy `amount` of fee asset for `who` using asset info from `fee_exchange.
+	/// Note: It does not charge the fee asset, that is left to a `ChargeFee` implementation
+	fn buy_fee_asset(who: &AccountId, amount: Balance, fee_exchange: &FeeExchange<Balance>) -> Result;
+}
+
 pub trait Trait: system::Trait {
+	/// Needed for to give `<T as Trait>::Call` for `CheckedExtrinsicOf`
+	type Call: Parameter + Dispatchable<Origin=<Self as system::Trait>::Origin>;
+
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
 	/// A function does the asset transfer between accounts
 	type TransferAsset: ArithmeticType + TransferAsset<Self::AccountId, Amount = AssetOf<Self>>;
+
+	/// A function which buys fee asset if signalled by the extrinsic
+	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, Balance>;
 
 	/// A function invoked in `on_finalise`, with accumulated fees of the whole block.
 	type OnFeeCharged: OnFeeCharged<AssetOf<Self>>;
@@ -98,15 +117,21 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait, Extrinsic> ChargeBytesFee<T::AccountId, Extrinsic> for Module<T> {
-	fn charge_base_bytes_fee(transactor: &T::AccountId, encoded_len: usize, _extrinsic: &Extrinsic) -> Result {
+impl<T: Trait> ChargeBytesFee<T::AccountId, CheckedExtrinsicOf<T>> for Module<T> {
+
+	fn charge_base_bytes_fee(transactor: &T::AccountId, encoded_len: usize, extrinsic: &CheckedExtrinsicOf<T>) -> Result {
 		let bytes_fee = Self::transaction_byte_fee()
 			.checked_mul(&<AssetOf<T> as As<u64>>::sa(encoded_len as u64))
 			.ok_or_else(|| "bytes fee overflow")?;
-		let overall = Self::transaction_base_fee()
+		let total_fee = Self::transaction_base_fee()
 			.checked_add(&bytes_fee)
 			.ok_or_else(|| "bytes fee overflow")?;
-		Self::charge_fee(transactor, overall)
+
+		if let Some(ref op) = &extrinsic.fee_exchange {
+			let _ = T::BuyFeeAsset::buy_fee_asset(transactor, total_fee.as_() as u128, op)?;
+		}
+
+		Self::charge_fee(transactor, total_fee)
 	}
 }
 

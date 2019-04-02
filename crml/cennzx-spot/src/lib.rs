@@ -1,12 +1,10 @@
 //!
-//! CENNZX-SPOT
+//! CENNZX-Spot exchange
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(test)]
 #[macro_use]
 mod tests;
-
 mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
@@ -15,24 +13,12 @@ pub use types::FeeRate;
 #[macro_use]
 extern crate srml_support as support;
 
-use cennznet_primitives::{Balance, CennznetExtrinsic, Index, Signature};
 use generic_asset;
-use parity_codec::Decode;
 use rstd::prelude::*;
 use runtime_io::twox_128;
 use runtime_primitives::traits::{As, Bounded, One, Zero};
 use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
-
-/// A nice type alias for CennznetExtrinsic
-pub type CennznetExtrinsicOf<T> = CennznetExtrinsic<
-	<T as system::Trait>::AccountId,
-	<T as system::Trait>::AccountId,
-	Index,
-	<T as Trait>::Call,
-	Signature,
-	Balance,
->;
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
@@ -882,12 +868,5 @@ impl<T: Trait> Module<T> {
 		);
 
 		Ok(output_amount)
-	}
-
-	/// Get the currently executing extrinsic
-	fn current_extrinsic() -> rstd::result::Result<CennznetExtrinsicOf<T>, &'static str> {
-		let extrinsic_index: u32 = <system::Module<T>>::extrinsic_index().ok_or("No extrinsic index found")?;
-		let extrinsic_data: Vec<u8> = <system::Module<T>>::extrinsic_data(extrinsic_index);
-		Decode::decode(&mut &extrinsic_data[..]).ok_or("Got extrinsic with bad encoding")
 	}
 }
