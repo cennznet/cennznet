@@ -1,4 +1,4 @@
-# Runtime version 16 (master)
+# Runtime version 17 (master)
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI
@@ -10,6 +10,9 @@
 	- Initial implementation of CennznetExtrinsic with Doughnut and CENNZX support (WIP)
 - New notable Substreate changes:
 	- No upstream substrate changes merged
+
+# Runtime version 16 (master)
+- No changes
 
 # Runtime version 15 (Kauri)
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
