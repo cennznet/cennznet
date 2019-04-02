@@ -245,7 +245,7 @@ construct_runtime!(
 		Fees: fees::{Module, Call, Storage, Config<T>, Event<T>},
 		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
-		SpotExchange: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
+		CennzxSpot: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
 		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
 		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
