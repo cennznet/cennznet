@@ -3,6 +3,8 @@
 - Breaking changes:
 	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI
 		- Test CENNZ is now `16000` and Test CENTRAPAY is now `16001`
+		- Moved `attestation` and `fees` under new module named `prml` and they should be referred as `prml-attestation`
+and `prml-fees`.
 - New features:
 	- GA:
 		- Transfer fee should be correctly applied now
