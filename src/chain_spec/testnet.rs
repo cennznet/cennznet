@@ -1,9 +1,9 @@
 use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, TELEMETRY_URL};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
-	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
-	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule, SessionConfig,
-	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
+	SessionConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use primitives::Ed25519AuthorityId as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
@@ -160,7 +160,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			transaction_base_fee: 1000 * MICRO_DOLLARS,
 			transaction_byte_fee: 5 * MICRO_DOLLARS,
 		}),
-		cennzx_spot: Some(SpotExchangeConfig {
+		cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 16001,
 		}),
@@ -229,8 +229,8 @@ pub fn kauri_latest_config() -> Result<ChainSpec, String> {
 
 pub fn rimu_latest_config() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::from_genesis(
-		"Rimu CENNZnet 0.9.15",
-		"rimu-9.15",
+		"Rimu CENNZnet 0.9.16",
+		"rimu-9.16",
 		rimu_config_genesis,
 		vec![
 				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),

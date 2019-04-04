@@ -1,4 +1,10 @@
-# Runtime version 16 (master)
+# Runtime version 18 (master)
+- Substrate commit: xxx
+- Breaking changes:
+- New features:
+- New notable Substreate changes:
+
+# Runtime version 17
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI
@@ -13,7 +19,10 @@ and `prml-fees`.
 - New notable Substreate changes:
 	- No upstream substrate changes merged
 
-# Runtime version 15 (Kauri)
+# Runtime version 16
+- No changes
+
+# Runtime version 15
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- Some types are renamed to avoid ambiguity
@@ -38,7 +47,7 @@ and `prml-fees`.
 - New notable Substreate changes:
 	- No upstream substrate changes merged
 
-# Runtime version 13 (Rimu)
+# Runtime version 13
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
 - Breaking changes:
 	- GA

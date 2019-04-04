@@ -1,8 +1,8 @@
 use super::{get_account_id_from_address, get_account_keys_from_address, ChainSpec, GenesisConfig, TELEMETRY_URL};
 use cennznet_runtime::{
-	ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, FeeRate, FeesConfig,
-	GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule, SessionConfig,
-	SpotExchangeConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
+	SessionConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use substrate_telemetry::TelemetryEndpoints;
 
@@ -163,7 +163,7 @@ fn genesis() -> GenesisConfig {
 			transaction_base_fee: 1000 * MICRO_DOLLARS,
 			transaction_byte_fee: 5 * MICRO_DOLLARS,
 		}),
-		cennzx_spot: Some(SpotExchangeConfig {
+		cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::from_milli(3),
 			core_asset_id: 16001,
 		}),

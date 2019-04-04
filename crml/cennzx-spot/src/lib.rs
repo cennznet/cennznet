@@ -356,7 +356,7 @@ impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as CennzX {
+	trait Store for Module<T: Trait> as CennzxSpot {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
