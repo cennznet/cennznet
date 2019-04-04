@@ -1,6 +1,8 @@
 # Runtime version 18 (master)
 - Substrate commit: xxx
 - Breaking changes:
+	- Moved `attestation` and `fees` under new module named `prml` and they should be referred as `prml-attestation`
+and `prml-fees`.
 - New features:
 - New notable Substreate changes:
 
@@ -9,8 +11,6 @@
 - Breaking changes:
 	- Updated Generic Asset Config for `dev.rs`, `testnet.rs` , `mainnet.rs` with test asset ids for CENNZ, CENTRAPAY, PLUG, SYLO, ARDA and CERTI
 		- Test CENNZ is now `16000` and Test CENTRAPAY is now `16001`
-		- Moved `attestation` and `fees` under new module named `prml` and they should be referred as `prml-attestation`
-and `prml-fees`.
 - New features:
 	- GA:
 		- Transfer fee should be correctly applied now
@@ -28,7 +28,6 @@ and `prml-fees`.
 	- Some types are renamed to avoid ambiguity
 		- Sylo `vault::{Key, Val}` has been renamed to `VaultKey` and `VaultValue`
 		- Attestation `Topic` and `Value` has been renamed to `AttestationTopic` and `AttestationValue`
-- New features:
 	- New Sylo changes
 	- New CENNXZ changes
 - New notable Substreate changes:
