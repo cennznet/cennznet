@@ -229,8 +229,8 @@ pub fn kauri_latest_config() -> Result<ChainSpec, String> {
 
 pub fn rimu_latest_config() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::from_genesis(
-		"Rimu CENNZnet 0.9.16",
-		"rimu-9.16",
+		"Rimu CENNZnet 0.9.17",
+		"rimu-9.17",
 		rimu_config_genesis,
 		vec![
 				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
