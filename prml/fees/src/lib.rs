@@ -7,11 +7,11 @@ use cennznet_primitives::{CheckedCennznetExtrinsic, Balance, Index, FeeExchange}
 use parity_codec::HasCompact;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, Zero};
 use support::{
-	additional_traits::FeeAmounts,
+	additional_traits::ChargeFee,
 	decl_event, decl_module, decl_storage,
 	dispatch::{Dispatchable, Result},
 	for_each_tuple,
-	traits::{ArithmeticType, ChargeBytesFee, ChargeFee, TransferAsset, WithdrawReason},
+	traits::{Currency, MakePayment, WithdrawReason, ExistenceRequirement},
 	Parameter,
 	StorageMap,
 };
@@ -20,7 +20,7 @@ use system;
 mod mock;
 mod tests;
 
-type AssetOf<T> = <<T as Trait>::TransferAsset as ArithmeticType>::Type;
+type AssetOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 pub type CheckedExtrinsicOf<T> =
 	CheckedCennznetExtrinsic<<T as system::Trait>::AccountId, Index, <T as Trait>::Call, Balance>;
 
@@ -61,8 +61,8 @@ pub trait Trait: system::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-	/// A function does the asset transfer between accounts
-	type TransferAsset: ArithmeticType + TransferAsset<Self::AccountId, Amount = AssetOf<Self>>;
+	/// The Currency used for assets transfers.
+	type Currency: Currency<Self::AccountId>;
 
 	/// A function which buys fee asset if signalled by the extrinsic
 	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, Balance>;
@@ -117,9 +117,8 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait> ChargeBytesFee<T::AccountId, CheckedExtrinsicOf<T>> for Module<T> {
-
-	fn charge_base_bytes_fee(transactor: &T::AccountId, encoded_len: usize, extrinsic: &CheckedExtrinsicOf<T>) -> Result {
+impl<T: Trait> MakePayment<T::AccountId, CheckedExtrinsicOf<T>> for Module<T> {
+	fn make_payment(transactor: &T::AccountId, encoded_len: usize, extrinsic: &CheckedExtrinsicOf<T>) -> Result {
 		let bytes_fee = Self::transaction_byte_fee()
 			.checked_mul(&<AssetOf<T> as As<u64>>::sa(encoded_len as u64))
 			.ok_or_else(|| "bytes fee overflow")?;
@@ -145,7 +144,7 @@ impl<T: Trait> ChargeFee<T::AccountId> for Module<T> {
 			.checked_add(&amount)
 			.ok_or_else(|| "fee got overflow after charge")?;
 
-		T::TransferAsset::withdraw(transactor, amount, WithdrawReason::TransactionPayment)?;
+		T::Currency::withdraw(transactor, amount, WithdrawReason::TransactionPayment, ExistenceRequirement::KeepAlive)?;
 
 		<CurrentTransactionFee<T>>::insert(extrinsic_index, new_fee);
 		Ok(())
@@ -158,21 +157,9 @@ impl<T: Trait> ChargeFee<T::AccountId> for Module<T> {
 			.checked_sub(&amount)
 			.ok_or_else(|| "fee got underflow after refund")?;
 
-		T::TransferAsset::deposit(transactor, amount)?;
+		T::Currency::deposit_into_existing(transactor, amount)?;
 
 		<CurrentTransactionFee<T>>::insert(extrinsic_index, new_fee);
 		Ok(())
-	}
-}
-
-impl<T: Trait> FeeAmounts for Module<T> {
-	type Amount = AssetOf<T>;
-
-	fn base_fee() -> Self::Amount {
-		Self::transaction_base_fee()
-	}
-
-	fn byte_fee() -> Self::Amount {
-		Self::transaction_byte_fee()
 	}
 }

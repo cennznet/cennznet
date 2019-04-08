@@ -32,9 +32,9 @@ use support::{
 	decl_module, decl_storage,
 	dispatch::Result,
 	impl_outer_event, impl_outer_origin,
-	traits::{ArithmeticType, TransferAsset, WithdrawReason},
 	StorageValue,
 };
+use generic_asset::SpendingAssetCurrency;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -46,28 +46,8 @@ mod fees {
 
 impl_outer_event! {
 	pub enum TestEvent for Test {
-		fees<T>,
+		fees<T>, generic_asset<T>,
 	}
-}
-
-pub struct TransferAssetMock;
-
-impl<AccountId> TransferAsset<AccountId> for TransferAssetMock {
-	type Amount = u64;
-
-	fn transfer(_: &AccountId, _: &AccountId, _: Self::Amount) -> Result {
-		Ok(())
-	}
-	fn withdraw(_: &AccountId, _: Self::Amount, _: WithdrawReason) -> Result {
-		Ok(())
-	}
-	fn deposit(_: &AccountId, _: Self::Amount) -> Result {
-		Ok(())
-	}
-}
-
-impl ArithmeticType for TransferAssetMock {
-	type Type = u64;
 }
 
 // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
@@ -85,6 +65,13 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = TestEvent;
 	type Log = DigestItem;
+}
+
+impl generic_asset::Trait for Test {
+	type Balance = u64;
+	type AssetId = u32;
+	type ChargeFee = Fees;
+	type Event = TestEvent;
 }
 
 pub trait OnFeeChargedMockTrait: system::Trait {}
@@ -112,7 +99,7 @@ impl OnFeeChargedMockTrait for Test {}
 impl Trait for Test {
 	type Call = Call<Self>;
 	type Event = TestEvent;
-	type TransferAsset = TransferAssetMock;
+	type Currency = SpendingAssetCurrency<Test>;
 	type OnFeeCharged = OnFeeChargedMock;
 	type BuyFeeAsset = BuyFeeAssetMock<Test>;
 }
