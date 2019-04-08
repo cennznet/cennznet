@@ -3,7 +3,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::{CheckedCennznetExtrinsic, Balance, Index, FeeExchange};
+use cennznet_primitives::{Balance, CheckedCennznetExtrinsic, FeeExchange, Index};
 use parity_codec::HasCompact;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, Zero};
 use support::{
@@ -11,9 +11,8 @@ use support::{
 	decl_event, decl_module, decl_storage,
 	dispatch::{Dispatchable, Result},
 	for_each_tuple,
-	traits::{Currency, MakePayment, WithdrawReason, ExistenceRequirement},
-	Parameter,
-	StorageMap,
+	traits::{Currency, ExistenceRequirement, MakePayment, WithdrawReason},
+	Parameter, StorageMap,
 };
 use system;
 
@@ -56,7 +55,7 @@ pub trait BuyFeeAsset<AccountId, Balance: HasCompact> {
 
 pub trait Trait: system::Trait {
 	/// Needed for to give `<T as Trait>::Call` for `CheckedExtrinsicOf`
-	type Call: Parameter + Dispatchable<Origin=<Self as system::Trait>::Origin>;
+	type Call: Parameter + Dispatchable<Origin = <Self as system::Trait>::Origin>;
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -95,7 +94,7 @@ decl_module! {
 decl_event!(
 	pub enum Event<T>
 	where
-		Amount = AssetOf<T>
+		Amount = AssetOf<T>,
 	{
 		/// Fee charged (extrinsic_index, fee_amount)
 		Charged(u32, Amount),
@@ -144,7 +143,12 @@ impl<T: Trait> ChargeFee<T::AccountId> for Module<T> {
 			.checked_add(&amount)
 			.ok_or_else(|| "fee got overflow after charge")?;
 
-		T::Currency::withdraw(transactor, amount, WithdrawReason::TransactionPayment, ExistenceRequirement::KeepAlive)?;
+		T::Currency::withdraw(
+			transactor,
+			amount,
+			WithdrawReason::TransactionPayment,
+			ExistenceRequirement::KeepAlive,
+		)?;
 
 		<CurrentTransactionFee<T>>::insert(extrinsic_index, new_fee);
 		Ok(())

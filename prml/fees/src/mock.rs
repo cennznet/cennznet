@@ -20,6 +20,7 @@
 
 use crate::{system, BuyFeeAsset, GenesisConfig, Module, OnFeeCharged, Trait};
 use cennznet_primitives::{Balance, FeeExchange};
+use generic_asset::SpendingAssetCurrency;
 use primitives::{Blake2Hasher, H256};
 use rstd::marker::PhantomData;
 use runtime_io;
@@ -28,13 +29,7 @@ use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use support::{
-	decl_module, decl_storage,
-	dispatch::Result,
-	impl_outer_event, impl_outer_origin,
-	StorageValue,
-};
-use generic_asset::SpendingAssetCurrency;
+use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
