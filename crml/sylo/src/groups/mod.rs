@@ -15,7 +15,7 @@ extern crate parity_codec;
 mod tests;
 
 use self::parity_codec::{Decode, Encode};
-use groups::sr_primitives::Ed25519Signature;
+use groups::substrate_primitives::ed25519;
 use groups::substrate_primitives::hash::{H256, H512};
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
@@ -259,10 +259,10 @@ decl_module! {
 				.find(|invite| invite.invite_key == invite_key)
 				.ok_or("Invite not found")?;
 
-			let sig = Ed25519Signature::from(signature);
+			let sig = ed25519::Signature(signature.into());
 			// TODO ensure payload is encoded properly
 			ensure!(
-				sig.verify(payload.encode().as_slice(), &invite.invite_key),
+				sig.verify(payload.encode().as_slice(), &ed25519::Public(invite.invite_key.into())),
 				"Failed to verify invite"
 			);
 
