@@ -135,11 +135,13 @@ impl ExtBuilder {
 			initial_balance: u64::max_value(),
 			next_asset_id: 10_000,
 			transfer_fee: 0,
-		}.assimilate_storage(&mut t, &mut c);
+		}
+		.assimilate_storage(&mut t, &mut c);
 		let _ = GenesisConfig::<Test> {
 			transaction_base_fee: self.transaction_base_fee,
 			transaction_byte_fee: self.transaction_byte_fee,
-		}.assimilate_storage(&mut t, &mut c);
+		}
+		.assimilate_storage(&mut t, &mut c);
 		t.into()
 	}
 }
