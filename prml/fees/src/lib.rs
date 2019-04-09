@@ -74,7 +74,7 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-		fn on_finalise() {
+		fn on_finalize() {
 			let extrinsic_count = <system::Module<T>>::extrinsic_count();
 			// the accumulated fee of the whole block
 			let mut block_fee = <AssetOf<T>>::sa(0);

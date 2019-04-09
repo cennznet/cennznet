@@ -125,16 +125,21 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
-		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
-		t.extend(
-			GenesisConfig::<Test> {
-				transaction_base_fee: self.transaction_base_fee,
-				transaction_byte_fee: self.transaction_byte_fee,
-			}
-			.build_storage()
-			.unwrap()
-			.0,
-		);
+		let (mut t, mut c) = system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let _ = generic_asset::GenesisConfig::<Test> {
+			staking_asset_id: 16_000,
+			spending_asset_id: 16_001,
+			assets: vec![16_001],
+			endowed_accounts: vec![0],
+			create_asset_stake: 10,
+			initial_balance: u64::max_value(),
+			next_asset_id: 10_000,
+			transfer_fee: 0,
+		}.assimilate_storage(&mut t, &mut c);
+		let _ = GenesisConfig::<Test> {
+			transaction_base_fee: self.transaction_base_fee,
+			transaction_byte_fee: self.transaction_byte_fee,
+		}.assimilate_storage(&mut t, &mut c);
 		t.into()
 	}
 }
