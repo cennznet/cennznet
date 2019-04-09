@@ -5,6 +5,7 @@ use cennznet_runtime::{
 	SessionConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
 use substrate_telemetry::TelemetryEndpoints;
+use hex_literal::{hex, hex_impl};
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
 const MICRO_DOLLARS: u128 = DOLLARS / 1_000_000;
@@ -15,22 +16,27 @@ const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
 
 fn genesis() -> GenesisConfig {
-	let initial_authorities = vec![
-		// TODO: change to real address
-		get_account_keys_from_address(
-			"5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi",
-			"5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi",
-		),
-	];
-	// TODO: change to real address
-	let root_key = get_account_id_from_address("5G39vCzSK17vWyD3xMN2NgeefMngiLBdMMiGGBgEjiz5jGCi");
-	let endowed_accounts = vec![
-		// pre seeded accounts
-		get_account_id_from_address("5FkXqvea1mmAUGNJ9nJyqp2xJjsU4pmACxP35txnHAVtXKGU"),
-		get_account_id_from_address("5D2WWEwn8oUMbSiwuHBUnsyDLytwSrpahta9jvJamjYgAfcf"),
-		get_account_id_from_address("5HBmFpcdL3WjUNTUtyAKWDJE96YnA4D3BokkvRRNBBZbPMWE"),
-		get_account_id_from_address("5HEdJWWiggQKUSnstM7uRYFkYuAoAesdGh2NMLcFeSnm4zQR"),
-		get_account_id_from_address("5EvzCqpvGgayVF8W3iBddUqwmXMQqQmP8ktJhFKEEzA6xfWg"),
+	// TODO: change to real addresses
+	let initial_authorities: Vec<(AccountId, AccountId, AuthorityId)> = vec![(
+		hex!["72b52eb36f57b4bae756e4f064cf2e97df80d5f9c2f06ff31206a9be8c7b371c"].unchecked_into(),
+		hex!["f0fae46aeb1a7ce8ca65f2bf885d09cd7f525bc00e9f6e73b5ea74402a2c4c19"].unchecked_into(),
+		hex!["e29624233b2cba342750217aa1883f6ec624134dd306efd230a988e5cb37d9ed"].unchecked_into(),
+	),(
+		hex!["2254035a15597c1c19968be71593d2d0131e18ae90049e49178970f583ac3e17"].unchecked_into(),
+		hex!["eacb8edf6b05cb909a3d2bd8c6bffb13be3069ec6a69f1fa25e46103c5190267"].unchecked_into(),
+		hex!["e19b6b89729a41638e57dead9c993425287d386fa4963306b63f018732843495"].unchecked_into(),
+	),(
+		hex!["fe6211db8bd436e0d1cf37398eac655833fb47497e0f72ec00ab160c88966b7e"].unchecked_into(),
+		hex!["f06dd616c75cc4b2b01f325accf79b4f66a525ede0a59f48dcce2322b8798f5c"].unchecked_into(),
+		hex!["1be80f2d4513a1fbe0e5163874f729baa5498486ac3914ac3fe2e1817d7b3f44"].unchecked_into(),
+	),(
+		hex!["60779817899466dbd476a0bc3a38cc64b7774d5fb646c3d291684171e67a0743"].unchecked_into(),
+		hex!["2a32622a5da54a80dc704a05f2d761c96d4748beedd83f61ca20a90f4a257678"].unchecked_into(),
+		hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into(),
+	)];
+	let root_key = hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"];
+	let endowed_accounts: Vec<AccountId> = vec![
+		hex!["c224ccba63292331623bbf06a55f46607824c2580071a80a17c53cab2f999e2f"].unchecked_into(),
 	];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
