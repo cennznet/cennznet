@@ -25,7 +25,7 @@ decl_module! {
 			<BlockReward<T>>::put(reward);
 		}
 
-		fn on_finalise() {
+		fn on_finalize() {
 			// Mint and issue block reward.
 			<CurrentEraReward<T>>::mutate(|reward| *reward += Self::block_reward());
 		}

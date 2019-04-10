@@ -10,7 +10,7 @@ use runtime_io;
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, CurrencyToVoteHandler, IdentityLookup},
 };
 use session::OnSessionChange;
 use staking;
@@ -43,10 +43,10 @@ impl timestamp::Trait for Test {
 	type OnTimestampSet = ();
 }
 impl generic_asset::Trait for Test {
-	type Balance = u64;
+	type Balance = u128;
 	type AssetId = u32;
 	type Event = ();
-	type ChargeFee = DummyChargeFee<u64, u64>;
+	type ChargeFee = DummyChargeFee<u64, u128>;
 }
 impl consensus::Trait for Test {
 	type Log = DigestItem;
@@ -60,8 +60,11 @@ impl session::Trait for Test {
 }
 impl staking::Trait for Test {
 	type Currency = AssetCurrency<Test, RewardAssetIdProvider<Test>>;
+	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = ();
 	type Event = ();
+	type Slash = ();
+	type Reward = ();
 }
 
 impl Trait for Test {}
@@ -72,8 +75,8 @@ pub type Staking = staking::Module<Test>;
 // A mock to trigger `on_fee_charged` function.
 pub struct ChargeFeeMock;
 impl ChargeFeeMock {
-	pub fn trigger_rewards_on_fee_charged(amount: u64) {
-		<Rewards as OnFeeCharged<u64>>::on_fee_charged(&amount);
+	pub fn trigger_rewards_on_fee_charged(amount: u128) {
+		<Rewards as OnFeeCharged<u128>>::on_fee_charged(&amount);
 	}
 }
 
@@ -86,7 +89,7 @@ impl SessionChangeMock {
 }
 
 pub struct ExtBuilder {
-	block_reward: u64,
+	block_reward: u128,
 }
 
 impl Default for ExtBuilder {
@@ -96,7 +99,7 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn block_reward(mut self, reward: u64) -> Self {
+	pub fn block_reward(mut self, reward: u128) -> Self {
 		self.block_reward = reward;
 		self
 	}

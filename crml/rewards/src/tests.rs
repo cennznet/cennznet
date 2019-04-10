@@ -6,7 +6,7 @@ use super::*;
 use runtime_io::with_externalities;
 
 use crate::mock::{ChargeFeeMock, ExtBuilder, Rewards, SessionChangeMock, Staking, Test};
-use runtime_primitives::traits::OnFinalise;
+use runtime_primitives::traits::OnFinalize;
 use support::{assert_ok, StorageValue};
 
 #[test]
@@ -19,12 +19,12 @@ fn set_block_reward_works() {
 }
 
 #[test]
-fn mint_block_reward_on_finalise_works() {
+fn mint_block_reward_on_finalize_works() {
 	with_externalities(&mut ExtBuilder::default().block_reward(3).build(), || {
 		assert_eq!(Staking::current_era_reward(), 0);
-		Rewards::on_finalise(0);
+		Rewards::on_finalize(0);
 		assert_eq!(Staking::current_era_reward(), 3);
-		Rewards::on_finalise(1);
+		Rewards::on_finalize(1);
 		assert_eq!(Staking::current_era_reward(), 6);
 	})
 }
