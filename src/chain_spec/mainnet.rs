@@ -121,7 +121,7 @@ fn genesis() -> GenesisConfig {
 			create_base_fee: 800,
 			gas_price: 1 * MICRO_DOLLARS,
 			max_depth: 1024,
-			block_gas_limit: 10_000_000,
+			block_gas_limit: 1_000_000_000_000,
 			current_schedule: Schedule {
 				version: 0,
 				put_code_per_byte_cost: 50,
