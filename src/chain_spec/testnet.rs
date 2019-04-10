@@ -3,9 +3,9 @@ use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
-	SessionConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
-use primitives::Ed25519AuthorityId as AuthorityId;
+use primitives::ed25519::Public as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
@@ -46,7 +46,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				.collect::<Vec<_>>(),
 		}),
 		session: Some(SessionConfig {
-			validators: initial_authorities.iter().map(|x| x.1.into()).collect(),
+			validators: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 			session_length: 5 * MINUTES,
 			keys: initial_authorities
 				.iter()
@@ -61,14 +61,13 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			bonding_duration: 30 * MINUTES,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
-			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 3,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.into(), x.1.into(), 1_000_000_000))
+				.map(|x| (x.0.clone(), x.1.clone(), 1_000_000_000, StakerStatus::Validator))
 				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.1.into()).collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 5 * MINUTES,
@@ -104,7 +103,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: SECS_PER_BLOCK / 2, // due to the nature of aura the slots are 2*period
+			minimum_period: SECS_PER_BLOCK / 2, // due to the nature of aura the slots are 2*period
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
@@ -116,6 +115,10 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			contract_fee: 500 * MICRO_DOLLARS,
 			call_base_fee: 500,
 			create_base_fee: 800,
+			creation_fee: 0,         // TODO: how much?
+			transaction_base_fee: 1, // TODO: duplication with fees module
+			transaction_byte_fee: 1, // TODO: duplication with fees module
+			transfer_fee: 0,         // TODO: how much?
 			gas_price: 1 * MICRO_DOLLARS,
 			max_depth: 1024,
 			block_gas_limit: 10_000_000,
@@ -127,7 +130,8 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				return_data_per_byte_cost: 2,
 				sandbox_data_read_cost: 1,
 				sandbox_data_write_cost: 2,
-				log_event_per_byte_cost: 5,
+				event_data_per_byte_cost: 1, // TODO: how much?
+				event_data_base_cost: 1,     // TODO: how much?
 				max_stack_height: 64 * 1024,
 				max_memory_pages: 16,
 			},

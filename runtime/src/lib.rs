@@ -41,6 +41,7 @@ pub use consensus::Call as ConsensusCall;
 pub use runtime_primitives::BuildStorage;
 pub use runtime_primitives::{Perbill, Permill};
 pub use srml_support::StorageValue;
+pub use staking::StakerStatus;
 pub use timestamp::Call as TimestampCall;
 
 pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
