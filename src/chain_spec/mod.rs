@@ -2,7 +2,7 @@
 
 use cennznet_primitives::AccountId;
 pub use cennznet_runtime::GenesisConfig;
-use primitives::{crypto::Ss58Codec, ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
+use primitives::{ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
 
 pub mod dev;
