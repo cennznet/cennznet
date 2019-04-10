@@ -10,7 +10,7 @@
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use staking::CurrentEraReward;
-use support::{decl_module, decl_storage, StorageValue, traits::Currency};
+use support::{decl_module, decl_storage, traits::Currency, StorageValue};
 
 mod mock;
 mod tests;

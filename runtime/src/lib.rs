@@ -10,19 +10,19 @@ extern crate srml_support;
 extern crate runtime_primitives;
 
 use cennznet_primitives::{
-	AuthorityId, AuthoritySignature, AccountId, AccountIndex, Balance, BlockNumber, CennznetExtrinsic, Hash, Index, Signature,
+	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetExtrinsic, Hash, Index,
+	Signature,
 };
 #[cfg(feature = "std")]
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
 use rstd::prelude::*;
-use runtime_primitives::{ApplyResult, generic};
 use runtime_primitives::traits::{
-	BlakeTwo256, Block as BlockT, Checkable, DigestFor, NumberFor, StaticLookup, CurrencyToVoteHandler,
-	AuthorityIdFor,
+	AuthorityIdFor, BlakeTwo256, Block as BlockT, Checkable, CurrencyToVoteHandler, DigestFor, NumberFor, StaticLookup,
 };
 use runtime_primitives::transaction_validity::TransactionValidity;
+use runtime_primitives::{generic, ApplyResult};
 use substrate_client::impl_runtime_apis;
 use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},

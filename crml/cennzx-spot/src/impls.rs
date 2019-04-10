@@ -4,9 +4,9 @@
 use super::{Module, Trait};
 use cennznet_primitives::FeeExchange;
 use fees::BuyFeeAsset;
-use substrate_primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, mem, prelude::*};
 use runtime_primitives::traits::{As, Hash};
+use substrate_primitives::crypto::{UncheckedFrom, UncheckedInto};
 use support::dispatch::Result;
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
