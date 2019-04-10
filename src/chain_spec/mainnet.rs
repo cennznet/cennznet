@@ -146,8 +146,8 @@ fn genesis() -> GenesisConfig {
 				grow_mem_cost: 2,
 				regular_op_cost: 1,
 				return_data_per_byte_cost: 2,
-				event_data_per_byte_cost: 1, // TODO: how much?
-				event_data_base_cost: 1,     // TODO: how much?
+				event_data_per_byte_cost: 5,
+				event_data_base_cost: 20,
 				sandbox_data_read_cost: 1,
 				sandbox_data_write_cost: 2,
 				max_stack_height: 64 * 1024,

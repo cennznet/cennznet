@@ -133,8 +133,8 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				return_data_per_byte_cost: 2,
 				sandbox_data_read_cost: 1,
 				sandbox_data_write_cost: 2,
-				event_data_per_byte_cost: 1, // TODO: how much?
-				event_data_base_cost: 1,     // TODO: how much?
+				event_data_per_byte_cost: 5,
+				event_data_base_cost: 20,
 				max_stack_height: 64 * 1024,
 				max_memory_pages: 16,
 			},
