@@ -29,6 +29,9 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		get_account_id_from_seed("Rimu"),
 		get_account_id_from_seed("cennznet-js-test"),
 	];
+	let transaction_base_fee = 1;
+	let transaction_byte_fee = 1;
+	let transfer_fee = 480 * MICRO_DOLLARS;
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!(
@@ -115,10 +118,10 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			contract_fee: 500 * MICRO_DOLLARS,
 			call_base_fee: 500,
 			create_base_fee: 800,
-			creation_fee: 0,         // TODO: how much?
-			transaction_base_fee: 1, // TODO: duplication with fees module
-			transaction_byte_fee: 1, // TODO: duplication with fees module
-			transfer_fee: 0,         // TODO: how much?
+			creation_fee: 0,
+			transaction_base_fee,
+			transaction_byte_fee,
+			transfer_fee,
 			gas_price: 1 * MICRO_DOLLARS,
 			max_depth: 1024,
 			block_gas_limit: 10_000_000,
@@ -156,7 +159,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
-			transfer_fee: 480 * MICRO_DOLLARS,
+			transfer_fee,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),

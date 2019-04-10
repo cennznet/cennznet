@@ -16,6 +16,9 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 		get_account_id_from_seed("Eve"),
 		get_account_id_from_seed("Ferdie"),
 	];
+	let transaction_base_fee = 1;
+	let transaction_byte_fee = 1;
+	let transfer_fee = 20;
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!(
@@ -102,10 +105,10 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			contract_fee: 21,
 			call_base_fee: 135,
 			create_base_fee: 175,
-			creation_fee: 0,         // TODO: how much?
-			transaction_base_fee: 1, // TODO: duplication with fees module
-			transaction_byte_fee: 1, // TODO: duplication with fees module
-			transfer_fee: 0,         // TODO: how much?
+			creation_fee: 0,
+			transaction_base_fee,
+			transaction_byte_fee,
+			transfer_fee,
 			gas_price: 1,
 			max_depth: 1024,
 			block_gas_limit: 10_000_000,
@@ -131,7 +134,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
-			transfer_fee: 20,
+			transfer_fee,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),
