@@ -105,7 +105,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			create_base_fee: 175,
 			gas_price: 1,
 			max_depth: 1024,
-			block_gas_limit: 10_000_000,
+			block_gas_limit: 10_000_000_000,
 			current_schedule: Default::default(),
 		}),
 		sudo: Some(SudoConfig { key: root_key }),
