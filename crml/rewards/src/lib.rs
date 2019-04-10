@@ -10,12 +10,12 @@
 use fees::OnFeeCharged;
 use session::OnSessionChange;
 use staking::CurrentEraReward;
-use support::{decl_module, decl_storage, traits::ArithmeticType, StorageValue};
+use support::{decl_module, decl_storage, StorageValue, traits::Currency};
 
 mod mock;
 mod tests;
 
-type AmountOf<T> = <<T as staking::Trait>::Currency as ArithmeticType>::Type;
+type AmountOf<T> = <<T as staking::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 pub trait Trait: staking::Trait {}
 

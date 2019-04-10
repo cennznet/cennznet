@@ -4,6 +4,7 @@
 use super::{Module, Trait};
 use cennznet_primitives::FeeExchange;
 use fees::BuyFeeAsset;
+use substrate_primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, mem, prelude::*};
 use runtime_primitives::traits::{As, Hash};
 use support::dispatch::Result;
@@ -18,7 +19,7 @@ pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
 
 impl<T: Trait> ExchangeAddressFor<T::AssetId, T::AccountId> for ExchangeAddressGenerator<T>
 where
-	T::AccountId: From<T::Hash> + AsRef<[u8]>,
+	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
 	/// Generates an exchange address for the given core / asset pair
 	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
@@ -27,7 +28,7 @@ where
 		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(core_asset_id)));
 		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(asset_id)));
 
-		T::Hashing::hash(&buf[..]).into()
+		T::Hashing::hash(&buf[..]).unchecked_into()
 	}
 }
 

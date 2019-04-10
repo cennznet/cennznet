@@ -10,22 +10,19 @@ extern crate srml_support;
 extern crate runtime_primitives;
 
 use cennznet_primitives::{
-	AccountId, AccountIndex, Balance, BlockNumber, CennznetExtrinsic, Hash, Index, SessionKey, Signature,
+	AuthorityId, AuthoritySignature, AccountId, AccountIndex, Balance, BlockNumber, CennznetExtrinsic, Hash, Index, Signature,
 };
 #[cfg(feature = "std")]
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
-use parity_codec::{Decode, Encode};
 use rstd::prelude::*;
-use runtime_primitives::generic;
+use runtime_primitives::{ApplyResult, generic};
 use runtime_primitives::traits::{
-	BlakeTwo256, Block as BlockT, Checkable, Convert, DigestFor, NumberFor, StaticLookup,
+	BlakeTwo256, Block as BlockT, Checkable, DigestFor, NumberFor, StaticLookup, CurrencyToVoteHandler,
+	AuthorityIdFor,
 };
 use runtime_primitives::transaction_validity::TransactionValidity;
-use runtime_primitives::ApplyResult;
-#[cfg(feature = "std")]
-use srml_support::{Deserialize, Serialize};
 use substrate_client::impl_runtime_apis;
 use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
@@ -94,7 +91,7 @@ impl aura::Trait for Runtime {
 
 impl consensus::Trait for Runtime {
 	type Log = Log;
-	type SessionKey = SessionKey;
+	type SessionKey = AuthorityId;
 
 	// the aura module handles offline-reports internally
 	// rather than using an explicit report system.
@@ -113,24 +110,19 @@ impl timestamp::Trait for Runtime {
 	type OnTimestampSet = Aura;
 }
 
-/// Session key conversion.
-pub struct SessionKeyConversion;
-impl Convert<AccountId, SessionKey> for SessionKeyConversion {
-	fn convert(a: AccountId) -> SessionKey {
-		a.to_fixed_bytes().into()
-	}
-}
-
 impl session::Trait for Runtime {
-	type ConvertAccountIdToSessionKey = SessionKeyConversion;
+	type ConvertAccountIdToSessionKey = ();
 	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
 	type Event = Event;
 }
 
 impl staking::Trait for Runtime {
 	type Currency = RewardAssetCurrency<Self>;
+	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = Treasury;
 	type Event = Event;
+	type Slash = ();
+	type Reward = ();
 }
 
 impl democracy::Trait for Runtime {
@@ -141,6 +133,8 @@ impl democracy::Trait for Runtime {
 
 impl council::Trait for Runtime {
 	type Event = Event;
+	type BadPresentation = ();
+	type BadReaper = ();
 }
 
 impl council::voting::Trait for Runtime {
@@ -158,16 +152,19 @@ impl treasury::Trait for Runtime {
 	type ApproveOrigin = council_motions::EnsureMembers<_4>;
 	type RejectOrigin = council_motions::EnsureMembers<_2>;
 	type Event = Event;
+	type MintedForSpending = ();
+	type ProposalRejection = ();
 }
 
 impl contract::Trait for Runtime {
+	type Currency = SpendingAssetCurrency<Self>;
 	type Call = Call;
 	type Event = Event;
 	type Gas = u64;
 	type DetermineContractAddress = contract::SimpleAddressDeterminator<Runtime>;
 	type ComputeDispatchFee = contract::DefaultDispatchFeeComputor<Runtime>;
-	type ChargeFee = fees::Module<Self>;
-	type FeeAmounts = fees::Module<Self>;
+	type TrieIdGenerator = contract::TrieIdFromParentCounter<Runtime>;
+	type GasPayment = ();
 }
 
 impl sudo::Trait for Runtime {
@@ -176,24 +173,24 @@ impl sudo::Trait for Runtime {
 }
 
 impl grandpa::Trait for Runtime {
-	type SessionKey = SessionKey;
 	type Log = Log;
+	type SessionKey = AuthorityId;
 	type Event = Event;
 }
 
 impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
-	type Event = Event;
 	type AssetId = u32;
 	type ChargeFee = fees::Module<Self>;
+	type Event = Event;
 }
 
 impl fees::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
-	type OnFeeCharged = ();
-	type TransferAsset = SpendingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type BuyFeeAsset = cennzx_spot::Module<Self>;
+	type OnFeeCharged = ();
 }
 
 impl rewards::Trait for Runtime {}
@@ -220,7 +217,7 @@ impl sylo::inbox::Trait for Runtime {}
 impl sylo::vault::Trait for Runtime {}
 
 construct_runtime!(
-	pub enum Runtime with Log(InternalLog: DigestItem<Hash, SessionKey>) where
+	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
 		NodeBlock = cennznet_primitives::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
@@ -277,16 +274,16 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn authorities() -> Vec<SessionKey> {
-			Consensus::authorities()
-		}
-
 		fn execute_block(block: Block) {
 			Executive::execute_block(block)
 		}
 
-		fn initialise_block(header: &<Block as BlockT>::Header) {
-			Executive::initialise_block(header)
+		fn initialize_block(header: &<Block as BlockT>::Header) {
+			Executive::initialize_block(header)
+		}
+
+		fn authorities() -> Vec<AuthorityIdFor<Block>> {
+			panic!("Deprecated, please use `AuthoritiesApi`.")
 		}
 	}
 
@@ -301,8 +298,8 @@ impl_runtime_apis! {
 			Executive::apply_extrinsic(extrinsic)
 		}
 
-		fn finalise_block() -> <Block as BlockT>::Header {
-			Executive::finalise_block()
+		fn finalize_block() -> <Block as BlockT>::Header {
+			Executive::finalize_block()
 		}
 
 		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
@@ -321,6 +318,12 @@ impl_runtime_apis! {
 	impl client_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
 			Executive::validate_transaction(tx)
+		}
+	}
+
+	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+		fn offchain_worker(number: NumberFor<Block>) {
+			Executive::offchain_worker(number)
 		}
 	}
 
@@ -353,7 +356,7 @@ impl_runtime_apis! {
 			None
 		}
 
-		fn grandpa_authorities() -> Vec<(SessionKey, u64)> {
+		fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
 			Grandpa::grandpa_authorities()
 		}
 	}
@@ -361,6 +364,12 @@ impl_runtime_apis! {
 	impl consensus_aura::AuraApi<Block> for Runtime {
 		fn slot_duration() -> u64 {
 			Aura::slot_duration()
+		}
+	}
+
+	impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityIdFor<Block>> {
+			Consensus::authorities()
 		}
 	}
 }
