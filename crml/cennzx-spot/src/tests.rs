@@ -7,6 +7,7 @@ use crate::{
 	types::FeeRate,
 	Call, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
+use cennznet_primitives::AccountId;
 use generic_asset;
 use runtime_io::with_externalities;
 use runtime_primitives::{
@@ -14,9 +15,8 @@ use runtime_primitives::{
 	traits::{BlakeTwo256, IdentityLookup, Zero},
 	BuildStorage,
 };
-use substrate_primitives::{Blake2Hasher, H256, crypto::UncheckedInto};
+use substrate_primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
 use support::{additional_traits::DummyChargeFee, impl_outer_origin, StorageValue};
-use cennznet_primitives::AccountId;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -1009,10 +1009,10 @@ fn asset_to_asset_transfer_output() {
 		assert_ok!(CennzXSpot::asset_to_asset_swap_output(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
-			TRADE_ASSET_A,   // asset_sold
-			TRADE_ASSET_B,   // asset_bought
-			150,             // buy_amount: T::Balance,
-			300,             // maximum asset A to sell
+			TRADE_ASSET_A,           // asset_sold
+			TRADE_ASSET_B,           // asset_bought
+			150,                     // buy_amount: T::Balance,
+			300,                     // maximum asset A to sell
 		));
 
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 823, TRADE_ASSET_A => 1216);
@@ -1121,10 +1121,10 @@ fn asset_to_asset_transfer_input() {
 		assert_ok!(CennzXSpot::asset_to_asset_swap_input(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
-			TRADE_ASSET_A,   // asset_sold
-			TRADE_ASSET_B,   // asset_bought
-			150,             // sell_amount
-			100,             // min buy limit for asset B
+			TRADE_ASSET_A,           // asset_sold
+			TRADE_ASSET_B,           // asset_bought
+			150,                     // sell_amount
+			100,                     // min buy limit for asset B
 		));
 
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 870, TRADE_ASSET_A => 1150);
