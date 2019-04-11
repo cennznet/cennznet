@@ -110,8 +110,8 @@ macro_rules! with_exchange (
 			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for($a1, $a2);
 			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
 			// an account. Use `deposit` instead when ga module fn supports.
-			<generic_asset::Module<Test>>::reward(&$a1, &exchange_address, $b1);
-			<generic_asset::Module<Test>>::reward(&$a2, &exchange_address, $b2);
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &exchange_address, $b1));
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &exchange_address, $b2));
 		}
 	};
 );
@@ -139,8 +139,8 @@ macro_rules! with_account (
 		{
 			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
 			// an account. Use `deposit` instead when ga module fn supports.
-			<generic_asset::Module<Test>>::reward(&$a1, &H256::from_low_u64_be(1).unchecked_into(), $b1);
-			<generic_asset::Module<Test>>::reward(&$a2, &H256::from_low_u64_be(1).unchecked_into(), $b2);
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &H256::from_low_u64_be(1).unchecked_into(), $b1));
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &H256::from_low_u64_be(1).unchecked_into(), $b2));
 			H256::from_low_u64_be(1).unchecked_into()
 		}
 	};
@@ -154,8 +154,8 @@ macro_rules! with_account (
 			};
 			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
 			// an account. Use `deposit` instead when ga module fn supports.
-			<generic_asset::Module<Test>>::reward(&$a1, &account, $b1);
-			<generic_asset::Module<Test>>::reward(&$a2, &account, $b2);
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &account, $b1));
+			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &account, $b2));
 			account
 		}
 	};
