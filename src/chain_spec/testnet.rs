@@ -124,7 +124,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			transfer_fee,
 			gas_price: 1 * MICRO_DOLLARS,
 			max_depth: 1024,
-			block_gas_limit: 10_000_000,
+			block_gas_limit: 1_000_000_000_000,
 			current_schedule: Schedule {
 				version: 0,
 				put_code_per_byte_cost: 50,
@@ -192,8 +192,6 @@ fn kauri_config_genesis() -> GenesisConfig {
 		vec![
 			get_authority_keys_from_seed("Andrea"),
 			get_authority_keys_from_seed("Brooke"),
-			get_authority_keys_from_seed("Courtney"),
-			get_authority_keys_from_seed("Drew"),
 		],
 		get_account_id_from_seed("Kauri").into(),
 	)

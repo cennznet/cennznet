@@ -247,7 +247,7 @@
       "rewards": {
         "blockReward": 1000000000000000000
       },
-      "cennzX": {
+      "cennzxSpot": {
         "coreAssetId": 10,
         "feeRate": 3000
       }

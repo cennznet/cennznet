@@ -153,53 +153,54 @@ where
 	type Checked = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance>;
 
 	fn check(self, context: &Context) -> Result<Self::Checked, &'static str> {
-		Ok(match self.signature {
-			Some((signed, signature, index, era)) => {
-				let h = context
-					.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
-					.ok_or("transaction birth block ancient")?;
-				let signed = context.lookup(signed)?;
-				if let Some(ref doughnut) = self.doughnut {
-					let raw_payload = (&index, &self.function, era, h, doughnut);
-					if !raw_payload.using_encoded(|payload| {
-						if payload.len() > 256 {
-							signature.verify(&blake2_256(payload)[..], &signed)
-						} else {
-							signature.verify(payload, &signed)
-						}
-					}) {
-						return Err("bad signature in extrinsic");
-					}
-				} else {
-					let raw_payload = (&index, &self.function, era, h);
-					if !raw_payload.using_encoded(|payload| {
-						if payload.len() > 256 {
-							signature.verify(&blake2_256(payload)[..], &signed)
-						} else {
-							signature.verify(payload, &signed)
-						}
-					}) {
-						return Err("bad signature in extrinsic");
-					}
-				}
-				match self.doughnut {
-					Some(d) => Self::Checked {
-						signed: Some((d.certificate.issuer, index.0)),
-						function: self.function,
-						fee_exchange: self.fee_exchange,
-					},
-					None => Self::Checked {
-						signed: Some((signed, index.0)),
-						function: self.function,
-						fee_exchange: self.fee_exchange,
-					},
-				}
-			}
-			None => Self::Checked {
+		// There's no signature so we're done
+		if self.signature.is_none() {
+			return Ok(Self::Checked {
 				signed: None,
 				function: self.function,
 				fee_exchange: self.fee_exchange,
-			},
+			});
+		};
+
+		let (signed, signature, index, era) = self.signature.unwrap();
+		let h = context
+			.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
+			.ok_or("transaction birth block ancient")?;
+		let mut signed = context.lookup(signed)?;
+
+		let verify_signature = |payload: &[u8]| {
+			if payload.len() > 256 {
+				signature.verify(&blake2_256(payload)[..], &signed)
+			} else {
+				signature.verify(payload, &signed)
+			}
+		};
+
+		// Signature may be standard, contain a doughnut and/or a fee exchange operation
+		let verified = match (&self.doughnut, &self.fee_exchange) {
+			(Some(doughnut), Some(fee_exchange)) => {
+				(&index, &self.function, era, h, doughnut, fee_exchange).using_encoded(verify_signature)
+			}
+			(Some(doughnut), None) => (&index, &self.function, era, h, doughnut).using_encoded(verify_signature),
+			(None, Some(fee_exchange)) => {
+				(&index, &self.function, era, h, fee_exchange).using_encoded(verify_signature)
+			}
+			(None, None) => (&index, &self.function, era, h).using_encoded(verify_signature),
+		};
+
+		if !verified {
+			return Err("bad signature in extrinsic");
+		}
+
+		// Doughnuts are signed by their issuer
+		if let Some(d) = self.doughnut {
+			signed = d.certificate.issuer;
+		}
+
+		Ok(Self::Checked {
+			signed: Some((signed, index.0)),
+			function: self.function,
+			fee_exchange: self.fee_exchange,
 		})
 	}
 }
@@ -401,7 +402,7 @@ where
 
 /// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
 /// embed within CENNZnet extrinsics.
-/// Is specifies input asset ID and the max. input asset to pay. The actual
+/// It specifies input asset ID and the max. input asset to pay. The actual
 /// fee amount to pay is calculated via the fees module and current exchange prices.
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
