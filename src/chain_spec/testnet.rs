@@ -28,6 +28,16 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		get_account_id_from_seed("Kauri"),
 		get_account_id_from_seed("Rimu"),
 		get_account_id_from_seed("cennznet-js-test"),
+		get_account_id_from_seed("Andrea//stash"),
+		get_account_id_from_seed("Brooke//stash"),
+		get_account_id_from_seed("Courtney//stash"),
+		get_account_id_from_seed("Drew//stash"),
+		get_account_id_from_seed("Emily//stash"),
+		get_account_id_from_seed("Frank//stash"),
+		get_account_id_from_seed("Centrality//stash"),
+		get_account_id_from_seed("Kauri//stash"),
+		get_account_id_from_seed("Rimu//stash"),
+		get_account_id_from_seed("cennznet-js-test//stash"),
 	];
 	let transaction_base_fee = 1;
 	let transaction_byte_fee = 1;

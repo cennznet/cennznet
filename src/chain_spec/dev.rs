@@ -15,6 +15,12 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 		get_account_id_from_seed("Dave"),
 		get_account_id_from_seed("Eve"),
 		get_account_id_from_seed("Ferdie"),
+		get_account_id_from_seed("Alice//stash"),
+		get_account_id_from_seed("Bob//stash"),
+		get_account_id_from_seed("Charlie//stash"),
+		get_account_id_from_seed("Dave//stash"),
+		get_account_id_from_seed("Eve//stash"),
+		get_account_id_from_seed("Ferdie//stash"),
 	];
 	let transaction_base_fee = 1;
 	let transaction_byte_fee = 1;
