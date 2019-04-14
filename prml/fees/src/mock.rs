@@ -20,6 +20,7 @@
 
 use crate::{system, BuyFeeAsset, GenesisConfig, Module, OnFeeCharged, Trait};
 use cennznet_primitives::{Balance, FeeExchange};
+use generic_asset::SpendingAssetCurrency;
 use primitives::{Blake2Hasher, H256};
 use rstd::marker::PhantomData;
 use runtime_io;
@@ -28,13 +29,7 @@ use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use support::{
-	decl_module, decl_storage,
-	dispatch::Result,
-	impl_outer_event, impl_outer_origin,
-	traits::{ArithmeticType, TransferAsset, WithdrawReason},
-	StorageValue,
-};
+use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -46,28 +41,8 @@ mod fees {
 
 impl_outer_event! {
 	pub enum TestEvent for Test {
-		fees<T>,
+		fees<T>, generic_asset<T>,
 	}
-}
-
-pub struct TransferAssetMock;
-
-impl<AccountId> TransferAsset<AccountId> for TransferAssetMock {
-	type Amount = u64;
-
-	fn transfer(_: &AccountId, _: &AccountId, _: Self::Amount) -> Result {
-		Ok(())
-	}
-	fn withdraw(_: &AccountId, _: Self::Amount, _: WithdrawReason) -> Result {
-		Ok(())
-	}
-	fn deposit(_: &AccountId, _: Self::Amount) -> Result {
-		Ok(())
-	}
-}
-
-impl ArithmeticType for TransferAssetMock {
-	type Type = u64;
 }
 
 // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
@@ -85,6 +60,13 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = TestEvent;
 	type Log = DigestItem;
+}
+
+impl generic_asset::Trait for Test {
+	type Balance = u64;
+	type AssetId = u32;
+	type ChargeFee = Fees;
+	type Event = TestEvent;
 }
 
 pub trait OnFeeChargedMockTrait: system::Trait {}
@@ -112,7 +94,7 @@ impl OnFeeChargedMockTrait for Test {}
 impl Trait for Test {
 	type Call = Call<Self>;
 	type Event = TestEvent;
-	type TransferAsset = TransferAssetMock;
+	type Currency = SpendingAssetCurrency<Test>;
 	type OnFeeCharged = OnFeeChargedMock;
 	type BuyFeeAsset = BuyFeeAssetMock<Test>;
 }
@@ -143,16 +125,23 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
-		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
-		t.extend(
-			GenesisConfig::<Test> {
-				transaction_base_fee: self.transaction_base_fee,
-				transaction_byte_fee: self.transaction_byte_fee,
-			}
-			.build_storage()
-			.unwrap()
-			.0,
-		);
+		let (mut t, mut c) = system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let _ = generic_asset::GenesisConfig::<Test> {
+			staking_asset_id: 16_000,
+			spending_asset_id: 16_001,
+			assets: vec![16_001],
+			endowed_accounts: vec![0],
+			create_asset_stake: 10,
+			initial_balance: u64::max_value(),
+			next_asset_id: 10_000,
+			transfer_fee: 0,
+		}
+		.assimilate_storage(&mut t, &mut c);
+		let _ = GenesisConfig::<Test> {
+			transaction_base_fee: self.transaction_base_fee,
+			transaction_byte_fee: self.transaction_byte_fee,
+		}
+		.assimilate_storage(&mut t, &mut c);
 		t.into()
 	}
 }

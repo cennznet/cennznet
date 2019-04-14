@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
 	use groups::sr_io::with_externalities;
-	use groups::substrate_primitives::ed25519::Pair;
+	use groups::substrate_primitives::{ed25519, Pair};
 	use groups::substrate_primitives::{Blake2Hasher, H256};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
@@ -211,7 +211,7 @@ mod tests {
 			let encoded = payload.encode();
 			let message = encoded.as_slice();
 			let (invite_key, signature) = {
-				let pair = Pair::generate();
+				let pair = ed25519::Pair::generate();
 				(H256::from(pair.public().0), pair.sign(&message[..]))
 			};
 
@@ -235,7 +235,7 @@ mod tests {
 			assert_eq!(invites.len(), 1);
 			assert_eq!(invites[0].invite_key, invite_key.clone());
 
-			let wrong_sig = Pair::generate().sign(&message[..]);
+			let wrong_sig = ed25519::Pair::generate().sign(&message[..]);
 			// Check generating diff signature
 			assert_ne!(signature, wrong_sig);
 

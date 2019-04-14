@@ -3,9 +3,9 @@ use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
-	SessionConfig, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
-use primitives::Ed25519AuthorityId as AuthorityId;
+use primitives::ed25519::Public as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
@@ -28,7 +28,20 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		get_account_id_from_seed("Kauri"),
 		get_account_id_from_seed("Rimu"),
 		get_account_id_from_seed("cennznet-js-test"),
+		get_account_id_from_seed("Andrea//stash"),
+		get_account_id_from_seed("Brooke//stash"),
+		get_account_id_from_seed("Courtney//stash"),
+		get_account_id_from_seed("Drew//stash"),
+		get_account_id_from_seed("Emily//stash"),
+		get_account_id_from_seed("Frank//stash"),
+		get_account_id_from_seed("Centrality//stash"),
+		get_account_id_from_seed("Kauri//stash"),
+		get_account_id_from_seed("Rimu//stash"),
+		get_account_id_from_seed("cennznet-js-test//stash"),
 	];
+	let transaction_base_fee = 1;
+	let transaction_byte_fee = 1;
+	let transfer_fee = 480 * MICRO_DOLLARS;
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!(
@@ -46,7 +59,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				.collect::<Vec<_>>(),
 		}),
 		session: Some(SessionConfig {
-			validators: initial_authorities.iter().map(|x| x.1.into()).collect(),
+			validators: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 			session_length: 5 * MINUTES,
 			keys: initial_authorities
 				.iter()
@@ -61,14 +74,13 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			bonding_duration: 30 * MINUTES,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
-			current_offline_slash: 0,
 			current_session_reward: 0,
 			offline_slash_grace: 3,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.into(), x.1.into(), 1_000_000_000))
+				.map(|x| (x.0.clone(), x.1.clone(), 1_000_000_000, StakerStatus::Validator))
 				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.1.into()).collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 		}),
 		democracy: Some(DemocracyConfig {
 			launch_period: 5 * MINUTES,
@@ -104,7 +116,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			period: SECS_PER_BLOCK / 2, // due to the nature of aura the slots are 2*period
+			minimum_period: SECS_PER_BLOCK / 2, // due to the nature of aura the slots are 2*period
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
@@ -116,6 +128,10 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			contract_fee: 500 * MICRO_DOLLARS,
 			call_base_fee: 500,
 			create_base_fee: 800,
+			creation_fee: 0,
+			transaction_base_fee,
+			transaction_byte_fee,
+			transfer_fee,
 			gas_price: 1 * MICRO_DOLLARS,
 			max_depth: 1024,
 			block_gas_limit: 1_000_000_000_000,
@@ -127,7 +143,8 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				return_data_per_byte_cost: 2,
 				sandbox_data_read_cost: 1,
 				sandbox_data_write_cost: 2,
-				log_event_per_byte_cost: 5,
+				event_data_per_byte_cost: 5,
+				event_data_base_cost: 20,
 				max_stack_height: 64 * 1024,
 				max_memory_pages: 16,
 			},
@@ -152,7 +169,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
-			transfer_fee: 480 * MICRO_DOLLARS,
+			transfer_fee,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),

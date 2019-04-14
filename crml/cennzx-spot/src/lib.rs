@@ -15,7 +15,6 @@ extern crate srml_support as support;
 
 use generic_asset;
 use rstd::prelude::*;
-use runtime_io::twox_128;
 use runtime_primitives::traits::{As, Bounded, One, Zero};
 use support::{dispatch::Result, Dispatchable, Parameter, StorageDoubleMap, StorageMap, StorageValue};
 use system::ensure_signed;
@@ -224,27 +223,6 @@ decl_event!(
 	}
 );
 
-/// Asset balance of each user in each exchange pool.
-/// Key: `(core asset id, trade asset id), account_id`
-pub(crate) struct LiquidityBalance<T>(rstd::marker::PhantomData<T>);
-
-/// store all user's liquidity in each exchange pool
-impl<T: Trait> StorageDoubleMap for LiquidityBalance<T> {
-	const PREFIX: &'static [u8] = b"cennz-x-spot:liquidity";
-	type Key1 = ExchangeKey<T>;
-	// Delete the whole pool
-	type Key2 = T::AccountId;
-	type Value = T::Balance;
-
-	fn derive_key1(key1_data: Vec<u8>) -> Vec<u8> {
-		twox_128(&key1_data).to_vec()
-	}
-
-	fn derive_key2(key2_data: Vec<u8>) -> Vec<u8> {
-		key2_data
-	}
-}
-
 decl_storage! {
 	trait Store for Module<T: Trait> as CennzxSpot {
 		/// AssetId of Core Asset
@@ -255,6 +233,10 @@ decl_storage! {
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
 		pub TotalSupply get(total_supply): map ExchangeKey<T> => T::Balance;
+
+		/// Asset balance of each user in each exchange pool.
+		/// Key: `(core_asset_id, trade_asset_id), account_id`
+		pub LiquidityBalance get(liquidity_balance): double_map  ExchangeKey<T>, twox_128(T::AccountId) => T::Balance;
 	}
 }
 
@@ -279,7 +261,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	pub fn get_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId) -> T::Balance {
-		<LiquidityBalance<T>>::get(exchange_key, who).unwrap_or_else(Default::default)
+		<LiquidityBalance<T>>::get(exchange_key, who)
 	}
 
 	/// Trade core asset for asset (`asset_id`) at the given `fee_rate`.

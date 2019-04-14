@@ -11,7 +11,7 @@ use client;
 use consensus::{import_queue, start_aura, AuraImportQueue, NothingExtra, SlotDuration};
 use grandpa;
 use inherents::InherentDataProviders;
-use primitives::ed25519::Pair;
+use primitives::{ed25519, Pair};
 use substrate_service::{
 	FactoryFullConfiguration, FullBackend, FullClient, FullComponents, FullExecutor, LightBackend, LightClient,
 	LightComponents, LightExecutor, TaskExecutor,
@@ -68,7 +68,7 @@ construct_service_factory! {
 			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
 				FullComponents::<Factory>::new(config, executor) },
 		AuthoritySetup = {
-			|mut service: Self::FullService, executor: TaskExecutor, local_key: Option<Arc<Pair>>| {
+			|mut service: Self::FullService, executor: TaskExecutor, local_key: Option<Arc<ed25519::Pair>>| {
 				let (block_import, link_half) = service.config.custom.grandpa_import_setup.take()
 					.expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
@@ -77,6 +77,7 @@ construct_service_factory! {
 					let proposer = Arc::new(substrate_basic_authorship::ProposerFactory {
 						client: service.client(),
 						transaction_pool: service.transaction_pool(),
+						inherents_pool: service.inherents_pool(),
 					});
 
 					let client = service.client();
@@ -89,21 +90,28 @@ construct_service_factory! {
 						service.network(),
 						service.on_exit(),
 						service.config.custom.inherent_data_providers.clone(),
+						service.config.force_authoring,
 					)?);
 
 					info!("Running Grandpa session as Authority {}", key.public());
 				}
 
+				let local_key = if service.config.disable_grandpa {
+					None
+				} else {
+					local_key
+				};
+
 				executor.spawn(grandpa::run_grandpa(
 					grandpa::Config {
 						local_key,
 						// FIXME #1578 make this available through chainspec
-						gossip_duration: Duration::new(4, 0),
+						gossip_duration: Duration::new(2, 0),
 						justification_period: 4096,
 						name: Some(service.config.name.clone())
 					},
 					link_half,
-					grandpa::NetworkBridge::new(service.network()),
+					service.network(),
 					service.config.custom.inherent_data_providers.clone(),
 					service.on_exit(),
 				)?);
@@ -125,7 +133,7 @@ construct_service_factory! {
 
 				config.custom.grandpa_import_setup = Some((block_import.clone(), link_half));
 
-				import_queue(
+				import_queue::<_, _, _, ed25519::Pair>(
 					slot_duration,
 					block_import,
 					Some(justification_import),
@@ -136,16 +144,16 @@ construct_service_factory! {
 			}},
 		LightImportQueue = AuraImportQueue<Self::Block>
 			{ |config: &FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-					import_queue(
-						SlotDuration::get_or_compute(&*client)?,
-						client.clone(),
-						None,
-						client,
-						NothingExtra,
-						config.custom.inherent_data_providers.clone(),
-					).map_err(Into::into)
-				}
-			},
+				import_queue::<_, _, _, ed25519::Pair>(
+					SlotDuration::get_or_compute(&*client)?,
+					client.clone(),
+					None,
+					client,
+					NothingExtra,
+					config.custom.inherent_data_providers.clone(),
+				).map_err(Into::into)
+			}
+		},
 	}
 }
 
