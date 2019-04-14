@@ -1,10 +1,19 @@
-# Runtime version 18 (master)
+# Runtime version 19 (master)
 - Substrate commit: xxx
 - Breaking changes:
-	- Moved `attestation` and `fees` under new module named `prml` and they should be referred as `prml-attestation`
-and `prml-fees`.
 - New features:
 - New notable Substrate changes:
+
+# Runtime version 18
+- Substrate commit: https://github.com/paritytech/substrate/commit/7c6474663cdba40422760d21ae0119bfad425e40
+- Breaking changes:
+	- Update Substrate to v1.0rc
+		- Use sr25519 instead of ed25519
+		- Update address format checksum
+	- Moved `attestation` and `fees` under new module named `prml` and they should be referred as `prml-attestation` and `prml-fees`.
+- New features:
+- New notable Substrate changes:
+	- Many bug fixes in consensus and libp2p part
 
 # Runtime version 17
 - Substrate commit: https://github.com/paritytech/substrate/commit/c4ca27f7121f37172ae0d2d92280a947ca77edd8
