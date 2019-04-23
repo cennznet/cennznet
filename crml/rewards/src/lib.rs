@@ -8,9 +8,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use fees::OnFeeCharged;
+use runtime_primitives::{
+	traits::{As, CheckedAdd, CheckedMul, One},
+	Perbill,
+};
 use session::OnSessionChange;
 use staking::CurrentEraReward;
-use support::{decl_module, decl_storage, traits::Currency, StorageValue};
+use support::{decl_module, decl_storage, dispatch::Result, traits::Currency, StorageValue};
 
 mod mock;
 mod tests;
@@ -21,8 +25,36 @@ pub trait Trait: staking::Trait {}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		pub fn set_block_reward(#[compact] reward: AmountOf<T>) {
-			<BlockReward<T>>::put(reward);
+		/// Calculate and then set `BlockReward` and `FeeRewardMultiplier`.
+		pub fn set_parameters(#[compact] s: AmountOf<T>, #[compact] k: AmountOf<T>, #[compact] qmax: AmountOf<T>) -> Result {
+			let s_plus_one = s + One::one();
+
+			// block_reward = (s_plus_one + k) * qmax / (s_plus_one * qmax + k)
+			let block_reward_divident = (s_plus_one + k)
+				.checked_mul(&qmax)
+				.ok_or_else(|| "block reward calculation overflow")?;
+			let block_reward_divisor = s_plus_one
+				.checked_mul(&qmax)
+				.and_then(|x| x.checked_add(&k))
+				.ok_or_else(|| "block reward calculation overflow")?;
+			let block_reward = block_reward_divident / block_reward_divisor;
+			<BlockReward<T>>::put(block_reward);
+
+			// fee_reward_multiplier = s_plus_one * qmax * 1_000_000_000 / (s_plus_one * qmax + k)
+			let fee_reward_multiplier_divident = s_plus_one
+				.checked_mul(&qmax)
+				.and_then(|x| x.checked_add(&<AmountOf<T>>::sa(1_000_000_000)))
+				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
+			let fee_reward_multiplier_divisor = s_plus_one
+				.checked_mul(&qmax)
+				.and_then(|x| x.checked_add(&k))
+				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
+			let fee_reward_multiplier_bill = fee_reward_multiplier_divident / fee_reward_multiplier_divisor;
+			<FeeRewardMultiplier<T>>::put(
+				Perbill::from_billionths(fee_reward_multiplier_bill.as_() as u32),
+			);
+
+			Ok(())
 		}
 
 		fn on_finalize() {
@@ -38,6 +70,8 @@ decl_storage! {
 		SessionTransactionFee get(session_transaction_fee): AmountOf<T>;
 		/// A fixed amount of currency minted and issued every block.
 		BlockReward get(block_reward) config(): AmountOf<T>;
+		/// A multiplier applied on transaction fees to calculate total validator rewards.
+		FeeRewardMultiplier get(fee_reward_multiplier) config(): Perbill;
 	}
 }
 
