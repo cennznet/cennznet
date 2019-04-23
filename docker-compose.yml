@@ -13,6 +13,7 @@ services:
       - --key=Andrea
       - --name=‼️${HOSTNAME:-localhost}-0
       - --node-key=0000000000000000000000000000000000000000000000000000000000000001
+      - --node-key-type=secp256k1
       - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
       - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
       - --validator
@@ -36,6 +37,7 @@ services:
       - --key=Brooke
       - --name=❤️${HOSTNAME:-localhost}-1
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
+      - --node-key-type=secp256k1
       - --validator
       - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/node-2/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC
@@ -57,6 +59,7 @@ services:
       - --key=Courtney
       - --name=☺️${HOSTNAME:-localhost}-2
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
+      - --node-key-type=secp256k1
       - --validator
       - --bootnodes=/dns4/node-0/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN
       - --bootnodes=/dns4/node-1/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK
