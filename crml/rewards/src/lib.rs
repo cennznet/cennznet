@@ -84,6 +84,7 @@ impl<T: Trait> OnFeeCharged<AmountOf<T>> for Module<T> {
 impl<T: Trait, U> OnSessionChange<U> for Module<T> {
 	fn on_session_change(_: U, _: bool) {
 		let session_transaction_fee = <SessionTransactionFee<T>>::take();
-		<CurrentEraReward<T>>::mutate(|reward| *reward += session_transaction_fee);
+		let multiplier = <FeeRewardMultiplier<T>>::get();
+		<CurrentEraReward<T>>::mutate(|reward| *reward += multiplier * session_transaction_fee);
 	}
 }
