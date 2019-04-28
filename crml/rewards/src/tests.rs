@@ -10,12 +10,28 @@ use runtime_primitives::traits::OnFinalize;
 use support::{assert_ok, StorageValue};
 
 #[test]
-fn set_block_reward_works() {
-	with_externalities(&mut ExtBuilder::default().block_reward(3).build(), || {
-		assert_eq!(Rewards::block_reward(), 3);
-		assert_ok!(Rewards::set_block_reward(5));
-		assert_eq!(Rewards::block_reward(), 5);
-	})
+fn set_reward_parameters_works() {
+	with_externalities(
+		&mut ExtBuilder::default()
+			.block_reward(1000)
+			.fee_reward_multiplier(Perbill::one())
+			.build(),
+		|| {
+			assert_eq!(Rewards::block_reward(), 1000);
+			assert_eq!(Rewards::fee_reward_multiplier(), Perbill::one());
+
+			// typical ranges: s in 2~4, k in 80~150, m in 150~135.
+			let (s, k, m) = (2, 139, 347);
+			assert_ok!(Rewards::set_parameters(s, k, m));
+
+			let s_plus_one = s + 1;
+			assert_eq!(Rewards::block_reward(), (s_plus_one + k) * m / (s_plus_one * m + k));
+			assert_eq!(
+				Rewards::fee_reward_multiplier(),
+				Perbill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
+			);
+		},
+	)
 }
 
 #[test]

@@ -11,6 +11,7 @@ use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
 	traits::{BlakeTwo256, CurrencyToVoteHandler, IdentityLookup},
+	Perbill,
 };
 use session::OnSessionChange;
 use staking;
@@ -90,11 +91,15 @@ impl SessionChangeMock {
 
 pub struct ExtBuilder {
 	block_reward: u128,
+	fee_reward_multiplier: Perbill,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { block_reward: 0 }
+		Self {
+			block_reward: 0,
+			fee_reward_multiplier: Perbill::one(),
+		}
 	}
 }
 
@@ -104,11 +109,17 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn fee_reward_multiplier(mut self, multiplier: Perbill) -> Self {
+		self.fee_reward_multiplier = multiplier;
+		self
+	}
+
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
 		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
 		t.extend(
 			GenesisConfig::<Test> {
 				block_reward: self.block_reward,
+				fee_reward_multiplier: self.fee_reward_multiplier,
 			}
 			.build_storage()
 			.unwrap()

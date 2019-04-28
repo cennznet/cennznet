@@ -43,15 +43,16 @@ decl_module! {
 			// fee_reward_multiplier = s_plus_one * qmax * 1_000_000_000 / (s_plus_one * qmax + k)
 			let fee_reward_multiplier_divident = s_plus_one
 				.checked_mul(&qmax)
-				.and_then(|x| x.checked_add(&<AmountOf<T>>::sa(1_000_000_000)))
+				.and_then(|x| x.checked_mul(&<AmountOf<T>>::sa(1_000_000)))
 				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
 			let fee_reward_multiplier_divisor = s_plus_one
 				.checked_mul(&qmax)
 				.and_then(|x| x.checked_add(&k))
 				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
 			let fee_reward_multiplier_bill = fee_reward_multiplier_divident / fee_reward_multiplier_divisor;
+
 			<FeeRewardMultiplier<T>>::put(
-				Perbill::from_billionths(fee_reward_multiplier_bill.as_() as u32),
+				Perbill::from_millionths(fee_reward_multiplier_bill.as_() as u32),
 			);
 
 			Ok(())
