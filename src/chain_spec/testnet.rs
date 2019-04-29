@@ -147,6 +147,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 				event_data_base_cost: 20,
 				max_stack_height: 64 * 1024,
 				max_memory_pages: 16,
+				enable_println: false,
 			},
 		}),
 		sudo: Some(SudoConfig { key: root_key }),
