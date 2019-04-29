@@ -35,7 +35,7 @@ decl_module! {
 				.and_then(|x| x.checked_mul(&qmax))
 				.ok_or_else(|| "block reward calculation overflow")?;
 			// Given s/k/qmax are all integers, if (s_plus_one + k) * qmax doesn't overflow,
-			// (s_plus_one * qmax + k) cannot overflow, as the later one is always bigger.
+			// (s_plus_one * qmax + k) cannot overflow, as the former one is always bigger.
 			let reward_divisor = s_plus_one * qmax + k;
 			let block_reward = block_reward_divident / reward_divisor;
 
@@ -44,7 +44,7 @@ decl_module! {
 				.checked_mul(&qmax)
 				.and_then(|x| x.checked_mul(&<AmountOf<T>>::sa(1_000_000)))
 				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
-			let fee_reward_multiplier_bill = fee_reward_multiplier_divident / reward_divisor;
+			let fee_reward_multiplier_mill = fee_reward_multiplier_divident / reward_divisor;
 
 			<BlockReward<T>>::put(block_reward);
 			<FeeRewardMultiplier<T>>::put(
