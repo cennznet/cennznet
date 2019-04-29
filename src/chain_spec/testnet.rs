@@ -71,7 +71,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			minimum_validator_count: 4,
 			validator_count: 10,
 			sessions_per_era: 6, // 30 min
-			bonding_duration: 30 * MINUTES,
+			bonding_duration: 2,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
 			current_session_reward: 0,
