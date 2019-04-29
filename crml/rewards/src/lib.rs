@@ -26,7 +26,9 @@ pub trait Trait: staking::Trait {}
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Calculate and then set `BlockReward` and `FeeRewardMultiplier`.
-		pub fn set_parameters(#[compact] s: AmountOf<T>, #[compact] k: AmountOf<T>, #[compact] qmax: AmountOf<T>) -> Result {
+		/// `s` is storage / CPU ratio; k is empty_block / CCC ratio; `qmax` is target transaction count in a block;
+		/// `cost` is the average spending tokens it costs per transaction.
+		pub fn set_parameters(#[compact] s: AmountOf<T>, #[compact] k: AmountOf<T>, #[compact] qmax: AmountOf<T>, #[compact] cost: AmountOf<T>) -> Result {
 			let s_plus_one = s + One::one();
 
 			// block_reward = (s_plus_one + k) * qmax / (s_plus_one * qmax + k)
@@ -35,9 +37,11 @@ decl_module! {
 				.and_then(|x| x.checked_mul(&qmax))
 				.ok_or_else(|| "block reward calculation overflow")?;
 			// Given s/k/qmax are all integers, if (s_plus_one + k) * qmax doesn't overflow,
-			// (s_plus_one * qmax + k) cannot overflow, as the former one is always bigger.
+			// (s_plus_one * qmax + k) cannot overflow, as the former one is always larger.
 			let reward_divisor = s_plus_one * qmax + k;
-			let block_reward = block_reward_divident / reward_divisor;
+			let block_reward = (block_reward_divident / reward_divisor)
+				.checked_mul(&cost)
+				.ok_or_else(|| "block reward calculation overflow")?;
 
 			// fee_reward_multiplier = s_plus_one * qmax * 1_000_000 / (s_plus_one * qmax + k)
 			let fee_reward_multiplier_divident = s_plus_one
@@ -71,6 +75,8 @@ decl_storage! {
 		BlockReward get(block_reward) config(): AmountOf<T>;
 		/// A multiplier applied on transaction fees to calculate total validator rewards.
 		FeeRewardMultiplier get(fee_reward_multiplier) config(): Perbill;
+		/// Average cost of spending tokens for each transaction.
+		AverageCostPerTransaction get(average_cost_per_transaction) config(): AmountOf<T>;
 	}
 }
 

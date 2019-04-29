@@ -92,6 +92,7 @@ impl SessionChangeMock {
 pub struct ExtBuilder {
 	block_reward: u128,
 	fee_reward_multiplier: Perbill,
+	average_cost_per_transaction: u128,
 }
 
 impl Default for ExtBuilder {
@@ -99,6 +100,7 @@ impl Default for ExtBuilder {
 		Self {
 			block_reward: 0,
 			fee_reward_multiplier: Perbill::one(),
+			average_cost_per_transaction: 1,
 		}
 	}
 }
@@ -114,12 +116,18 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn average_cost_per_transaction(mut self, cost: u128) -> Self {
+		self.average_cost_per_transaction = cost;
+		self
+	}
+
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
 		let mut t = system::GenesisConfig::<Test>::default().build_storage().unwrap().0;
 		t.extend(
 			GenesisConfig::<Test> {
 				block_reward: self.block_reward,
 				fee_reward_multiplier: self.fee_reward_multiplier,
+				average_cost_per_transaction: self.average_cost_per_transaction,
 			}
 			.build_storage()
 			.unwrap()

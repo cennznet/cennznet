@@ -15,17 +15,19 @@ fn set_reward_parameters_works() {
 		&mut ExtBuilder::default()
 			.block_reward(1000)
 			.fee_reward_multiplier(Perbill::one())
+			.average_cost_per_transaction(1)
 			.build(),
 		|| {
 			assert_eq!(Rewards::block_reward(), 1000);
 			assert_eq!(Rewards::fee_reward_multiplier(), Perbill::one());
+			assert_eq!(Rewards::average_cost_per_transaction(), 1);
 
 			// typical ranges: s in 2~4, k in 80~150, m in 150~135.
-			let (s, k, m) = (4, 139, 347);
-			assert_ok!(Rewards::set_parameters(s, k, m));
+			let (s, k, m, cost) = (4, 139, 347, 7);
+			assert_ok!(Rewards::set_parameters(s, k, m, cost));
 
 			let s_plus_one = s + 1;
-			assert_eq!(Rewards::block_reward(), (s_plus_one + k) * m / (s_plus_one * m + k));
+			assert_eq!(Rewards::block_reward(), (s_plus_one + k) * m / (s_plus_one * m + k) * 7);
 			assert_eq!(
 				Rewards::fee_reward_multiplier(),
 				Perbill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
@@ -39,13 +41,15 @@ fn set_reward_parameters_should_fail_if_overflow() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
 		let block_reward_overflow = "block reward calculation overflow";
 		// (s_plus_one + k) overflows
-		assert_noop!(Rewards::set_parameters(1, u128::max_value(), 2), block_reward_overflow);
+		assert_noop!(Rewards::set_parameters(1, u128::max_value(), 2, 1), block_reward_overflow);
 		// (s_plus_one + k) doesn't overflow, but (s_plus_one + k) * m does.
-		assert_noop!(Rewards::set_parameters(1, 1, u128::max_value()), block_reward_overflow);
+		assert_noop!(Rewards::set_parameters(1, 1, u128::max_value(), 1), block_reward_overflow);
+		// Overflow after multiplies `average_cost_per_tx`
+		assert_noop!(Rewards::set_parameters(1, 11, 13, u128::max_value()), block_reward_overflow);
 
 		// (s_plus_one * qmax * 1_000_000) overflows
 		assert_noop!(
-			Rewards::set_parameters(2, 1, u128::max_value() / 10_000),
+			Rewards::set_parameters(2, 1, u128::max_value() / 10_000, 1),
 			"fee reward multiplier calculation overflow"
 		);
 	});
