@@ -41,11 +41,20 @@ fn set_reward_parameters_should_fail_if_overflow() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
 		let block_reward_overflow = "block reward calculation overflow";
 		// (s_plus_one + k) overflows
-		assert_noop!(Rewards::set_parameters(1, u128::max_value(), 2, 1), block_reward_overflow);
+		assert_noop!(
+			Rewards::set_parameters(1, u128::max_value(), 2, 1),
+			block_reward_overflow
+		);
 		// (s_plus_one + k) doesn't overflow, but (s_plus_one + k) * m does.
-		assert_noop!(Rewards::set_parameters(1, 1, u128::max_value(), 1), block_reward_overflow);
+		assert_noop!(
+			Rewards::set_parameters(1, 1, u128::max_value(), 1),
+			block_reward_overflow
+		);
 		// Overflow after multiplies `average_cost_per_tx`
-		assert_noop!(Rewards::set_parameters(1, 11, 13, u128::max_value()), block_reward_overflow);
+		assert_noop!(
+			Rewards::set_parameters(1, 11, 13, u128::max_value()),
+			block_reward_overflow
+		);
 
 		// (s_plus_one * qmax * 1_000_000) overflows
 		assert_noop!(
