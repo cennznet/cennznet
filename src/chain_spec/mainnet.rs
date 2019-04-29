@@ -76,7 +76,7 @@ fn genesis() -> GenesisConfig {
 			minimum_validator_count: 4,
 			validator_count: 10,
 			sessions_per_era: 6, // 6hr
-			bonding_duration: 6 * HOURS,
+			bonding_duration: 12,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
 			current_session_reward: 0,
