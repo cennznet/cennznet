@@ -32,6 +32,9 @@ fn set_reward_parameters_works() {
 				Rewards::fee_reward_multiplier(),
 				Perbill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
 			);
+
+			// large range (unlikely to happen, but it should work)
+			assert_ok!(Rewards::set_parameters(10_000, 10_000, 10_000, 100u128.pow(18)));
 		},
 	);
 }
