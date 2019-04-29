@@ -254,7 +254,7 @@ pub fn rimu_latest_config() -> Result<ChainSpec, String> {
 				String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
 			],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		None,
+		Some("rimu17"), // protocol id, unique for each chain
 		None,
 		None,
 	))
@@ -267,7 +267,7 @@ pub fn kauri_dev_config() -> Result<ChainSpec, String> {
 		kauri_config_genesis,
 		vec![],
 		None,
-		None,
+		Some("kauri"), // protocol id, unique for each chain
 		None,
 		None,
 	))

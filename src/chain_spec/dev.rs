@@ -173,7 +173,7 @@ pub fn config() -> Result<ChainSpec, String> {
 		config_genesis,
 		vec![],
 		None,
-		None,
+		Some("dev"), // protocol id, unique for each chain
 		None,
 		None,
 	))

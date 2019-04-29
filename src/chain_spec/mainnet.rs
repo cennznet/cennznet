@@ -216,7 +216,7 @@ pub fn latest_config() -> Result<ChainSpec, String> {
 			),
 		],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		None,
+		Some("cennz"), // protocol id, unique for each chain
 		None,
 		None,
 	))
