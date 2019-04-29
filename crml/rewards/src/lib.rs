@@ -30,28 +30,26 @@ decl_module! {
 			let s_plus_one = s + One::one();
 
 			// block_reward = (s_plus_one + k) * qmax / (s_plus_one * qmax + k)
-			let block_reward_divident = (s_plus_one + k)
-				.checked_mul(&qmax)
+			let block_reward_divident = s_plus_one
+				.checked_add(&k)
+				.and_then(|x| x.checked_mul(&qmax))
 				.ok_or_else(|| "block reward calculation overflow")?;
-			let block_reward_divisor = s_plus_one
-				.checked_mul(&qmax)
-				.and_then(|x| x.checked_add(&k))
-				.ok_or_else(|| "block reward calculation overflow")?;
-			let block_reward = block_reward_divident / block_reward_divisor;
-			<BlockReward<T>>::put(block_reward);
+			// Given s/k/qmax are all integers, if (s_plus_one + k) * qmax doesn't overflow,
+			// (s_plus_one * qmax + k) cannot overflow, as the later one is always bigger.
+			let reward_divisor = s_plus_one * qmax + k;
+			let block_reward = block_reward_divident / reward_divisor;
 
-			// fee_reward_multiplier = s_plus_one * qmax * 1_000_000_000 / (s_plus_one * qmax + k)
+			// fee_reward_multiplier = s_plus_one * qmax * 1_000_000 / (s_plus_one * qmax + k)
 			let fee_reward_multiplier_divident = s_plus_one
 				.checked_mul(&qmax)
 				.and_then(|x| x.checked_mul(&<AmountOf<T>>::sa(1_000_000)))
 				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
-			let fee_reward_multiplier_divisor = s_plus_one
-				.checked_mul(&qmax)
-				.and_then(|x| x.checked_add(&k))
-				.ok_or_else(|| "fee reward multiplier calculation overflow")?;
-			let fee_reward_multiplier_bill = fee_reward_multiplier_divident / fee_reward_multiplier_divisor;
+			let fee_reward_multiplier_bill = fee_reward_multiplier_divident / reward_divisor;
 
+			<BlockReward<T>>::put(block_reward);
 			<FeeRewardMultiplier<T>>::put(
+				// `fee_reward_multiplier_bill` cannot overflow u32, since (s_plus_one * qmax)/(s_plus_one * qmax + k)
+				// always smaller than 1.
 				Perbill::from_millionths(fee_reward_multiplier_bill.as_() as u32),
 			);
 
