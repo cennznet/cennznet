@@ -189,6 +189,7 @@ fn genesis() -> GenesisConfig {
 		}),
 		rewards: Some(RewardsConfig {
 			block_reward: 10 * DOLLARS,
+			fee_reward_multiplier: Perbill::one(),
 		}),
 	}
 }

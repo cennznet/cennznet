@@ -154,6 +154,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 		}),
 		rewards: Some(RewardsConfig {
 			block_reward: 10u128.pow(18),
+			fee_reward_multiplier: Perbill::one(),
 		}),
 	}
 }
