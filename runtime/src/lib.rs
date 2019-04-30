@@ -56,8 +56,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 19,
-	impl_version: 19,
+	spec_version: 20,
+	impl_version: 20,
 	apis: RUNTIME_API_VERSIONS,
 };
 

@@ -1,4 +1,11 @@
-# Runtime version 19 (master)
+# Runtime version 20 (master)
+- Substrate commit: xxx
+- Breaking changes:
+- New features:
+- New notable Substrate changes:
+
+
+# Runtime version 19
 - Substrate commit: https://github.com/paritytech/substrate/commit/7d523bad168fe6867fdd6130e77ab749c38b9101
 - Breaking changes:
 	- Use ed25519 by default for network keys: https://github.com/paritytech/substrate/pull/2290
@@ -9,6 +16,7 @@
 		- Needs update SDK version
 - New features:
 	- Start rework fees module
+	- Update protocol id to avoid libp2p issues
 - New notable Substrate changes:
 	- Add `StorageValue::append` and speed-up `deposit_event`: https://github.com/paritytech/substrate/pull/2282
 
