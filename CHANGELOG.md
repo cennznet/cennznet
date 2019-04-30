@@ -1,7 +1,9 @@
 # Runtime version 20 (master)
 - Substrate commit: xxx
 - Breaking changes:
+	- Removed `set_block_reward` in rewards module.
 - New features:
+	- Added `set_parameters` in rewards module, to calculate and set block reward and fee reward multiplier. 
 - New notable Substrate changes:
 
 
