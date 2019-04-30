@@ -26,8 +26,9 @@ pub trait Trait: staking::Trait {}
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Calculate and then set `BlockReward` and `FeeRewardMultiplier`.
+		///
 		/// `s` is storage / CPU ratio; k is empty_block / CCC ratio; `qmax` is target transaction count in a block;
-		/// `cost` is the average spending tokens it costs per transaction.
+		/// `cost` is the estimated average spending tokens cost per transaction.
 		pub fn set_parameters(#[compact] s: AmountOf<T>, #[compact] k: AmountOf<T>, #[compact] qmax: AmountOf<T>, #[compact] cost: AmountOf<T>) -> Result {
 			let s_plus_one = s + One::one();
 
@@ -75,8 +76,6 @@ decl_storage! {
 		BlockReward get(block_reward) config(): AmountOf<T>;
 		/// A multiplier applied on transaction fees to calculate total validator rewards.
 		FeeRewardMultiplier get(fee_reward_multiplier) config(): Perbill;
-		/// Average cost of spending tokens for each transaction.
-		AverageCostPerTransaction get(average_cost_per_transaction) config(): AmountOf<T>;
 	}
 }
 
