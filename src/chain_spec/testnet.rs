@@ -71,7 +71,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			minimum_validator_count: 4,
 			validator_count: 10,
 			sessions_per_era: 6, // 30 min
-			bonding_duration: 30 * MINUTES,
+			bonding_duration: 2,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
 			current_session_reward: 0,
@@ -238,7 +238,7 @@ pub fn kauri_latest_config() -> Result<ChainSpec, String> {
 			),
 		],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		None,
+		Some("kauri"), // protocol id, unique for each chain
 		None,
 		None,
 	))
@@ -255,7 +255,7 @@ pub fn rimu_latest_config() -> Result<ChainSpec, String> {
 				String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
 			],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		None,
+		Some("rimu17"), // protocol id, unique for each chain
 		None,
 		None,
 	))
@@ -268,7 +268,7 @@ pub fn kauri_dev_config() -> Result<ChainSpec, String> {
 		kauri_config_genesis,
 		vec![],
 		None,
-		None,
+		Some("kauri"), // protocol id, unique for each chain
 		None,
 		None,
 	))

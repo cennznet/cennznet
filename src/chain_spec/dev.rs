@@ -54,7 +54,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			minimum_validator_count: 1,
 			validator_count: 4,
 			sessions_per_era: 5,
-			bonding_duration: 2 * 60 * 12,
+			bonding_duration: 12,
 			offline_slash: Perbill::from_billionths(1000),
 			session_reward: Perbill::from_billionths(1000000),
 			current_session_reward: 0,
@@ -174,7 +174,7 @@ pub fn config() -> Result<ChainSpec, String> {
 		config_genesis,
 		vec![],
 		None,
-		None,
+		Some("dev"), // protocol id, unique for each chain
 		None,
 		None,
 	))

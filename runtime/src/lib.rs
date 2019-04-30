@@ -4,11 +4,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
-#[macro_use]
-extern crate srml_support;
-#[macro_use]
-extern crate runtime_primitives;
-
 use cennznet_primitives::{
 	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetExtrinsic, Hash, Index,
 	Signature,
@@ -19,10 +14,10 @@ use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
 use rstd::prelude::*;
 use runtime_primitives::traits::{
-	AuthorityIdFor, BlakeTwo256, Block as BlockT, Checkable, CurrencyToVoteHandler, DigestFor, NumberFor, StaticLookup,
+	AuthorityIdFor, BlakeTwo256, Block as BlockT, Checkable, Convert, DigestFor, NumberFor, StaticLookup,
 };
 use runtime_primitives::transaction_validity::TransactionValidity;
-use runtime_primitives::{generic, ApplyResult};
+use runtime_primitives::{create_runtime_str, generic, ApplyResult};
 use substrate_client::impl_runtime_apis;
 use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
@@ -30,6 +25,9 @@ use substrate_client::{
 };
 use substrate_primitives::u32_trait::{_2, _4};
 use substrate_primitives::OpaqueMetadata;
+use support::construct_runtime;
+use support::traits::Currency;
+
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
 use version::RuntimeVersion;
@@ -40,8 +38,8 @@ pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
 pub use runtime_primitives::{Perbill, Permill};
-pub use srml_support::StorageValue;
 pub use staking::StakerStatus;
+pub use support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
 pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
@@ -58,8 +56,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 19,
-	impl_version: 19,
+	spec_version: 20,
+	impl_version: 20,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -69,6 +67,26 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion {
 		runtime_version: VERSION,
 		can_author_with: Default::default(),
+	}
+}
+
+pub struct CurrencyToVoteHandler;
+
+impl CurrencyToVoteHandler {
+	fn factor() -> u128 {
+		(<StakingAssetCurrency<Runtime>>::total_issuance() / u64::max_value() as u128).max(1)
+	}
+}
+
+impl Convert<u128, u64> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u64 {
+		(x / Self::factor()) as u64
+	}
+}
+
+impl Convert<u128, u128> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u128 {
+		x * Self::factor()
 	}
 }
 

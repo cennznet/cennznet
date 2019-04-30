@@ -10,7 +10,7 @@ use runtime_io;
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
-	traits::{BlakeTwo256, CurrencyToVoteHandler, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	Permill,
 };
 use session::OnSessionChange;
@@ -20,6 +20,20 @@ use support::impl_outer_origin;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+pub struct CurrencyToVoteHandler;
+
+impl Convert<u128, u64> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u64 {
+		x as u64
+	}
+}
+
+impl Convert<u128, u128> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u128 {
+		x
+	}
 }
 
 // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
