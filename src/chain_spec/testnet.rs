@@ -237,7 +237,7 @@ pub fn kauri_latest_config() -> Result<ChainSpec, String> {
 			),
 		],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		None,
+		Some("kauri"), // protocol id, unique for each chain
 		None,
 		None,
 	))
