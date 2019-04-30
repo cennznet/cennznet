@@ -14,13 +14,11 @@ fn set_reward_parameters_works() {
 	with_externalities(
 		&mut ExtBuilder::default()
 			.block_reward(1000)
-			.fee_reward_multiplier(Perbill::one())
-			.average_cost_per_transaction(1)
+			.fee_reward_multiplier(Permill::from_percent(100))
 			.build(),
 		|| {
 			assert_eq!(Rewards::block_reward(), 1000);
-			assert_eq!(Rewards::fee_reward_multiplier(), Perbill::one());
-			assert_eq!(Rewards::average_cost_per_transaction(), 1);
+			assert_eq!(Rewards::fee_reward_multiplier(), Permill::from_percent(100));
 
 			// typical ranges: s in 2~4, k in 80~150, m in 150~135.
 			let (s, k, m, cost) = (4, 139, 347, 7);
@@ -30,7 +28,7 @@ fn set_reward_parameters_works() {
 			assert_eq!(Rewards::block_reward(), (s_plus_one + k) * m / (s_plus_one * m + k) * 7);
 			assert_eq!(
 				Rewards::fee_reward_multiplier(),
-				Perbill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
+				Permill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
 			);
 
 			// large range (unlikely to happen, but it should work)

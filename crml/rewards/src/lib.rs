@@ -10,7 +10,7 @@
 use fees::OnFeeCharged;
 use runtime_primitives::{
 	traits::{As, CheckedAdd, CheckedMul, One},
-	Perbill,
+	Permill,
 };
 use session::OnSessionChange;
 use staking::CurrentEraReward;
@@ -55,7 +55,7 @@ decl_module! {
 			<FeeRewardMultiplier<T>>::put(
 				// `fee_reward_multiplier_bill` cannot overflow u32, since (s_plus_one * qmax)/(s_plus_one * qmax + k)
 				// always smaller than 1.
-				Perbill::from_millionths(fee_reward_multiplier_mill.as_() as u32),
+				Permill::from_millionths(fee_reward_multiplier_mill.as_() as u32),
 			);
 
 			Ok(())
@@ -75,7 +75,7 @@ decl_storage! {
 		/// A fixed amount of currency minted and issued every block.
 		BlockReward get(block_reward) config(): AmountOf<T>;
 		/// A multiplier applied on transaction fees to calculate total validator rewards.
-		FeeRewardMultiplier get(fee_reward_multiplier) config(): Perbill;
+		FeeRewardMultiplier get(fee_reward_multiplier) config(): Permill;
 	}
 }
 

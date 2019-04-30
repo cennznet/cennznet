@@ -11,7 +11,7 @@ use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
 	traits::{BlakeTwo256, CurrencyToVoteHandler, IdentityLookup},
-	Perbill,
+	Permill,
 };
 use session::OnSessionChange;
 use staking;
@@ -91,16 +91,14 @@ impl SessionChangeMock {
 
 pub struct ExtBuilder {
 	block_reward: u128,
-	fee_reward_multiplier: Perbill,
-	average_cost_per_transaction: u128,
+	fee_reward_multiplier: Permill,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			block_reward: 0,
-			fee_reward_multiplier: Perbill::one(),
-			average_cost_per_transaction: 1,
+			fee_reward_multiplier: Permill::from_percent(100),
 		}
 	}
 }
@@ -111,13 +109,8 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn fee_reward_multiplier(mut self, multiplier: Perbill) -> Self {
+	pub fn fee_reward_multiplier(mut self, multiplier: Permill) -> Self {
 		self.fee_reward_multiplier = multiplier;
-		self
-	}
-
-	pub fn average_cost_per_transaction(mut self, cost: u128) -> Self {
-		self.average_cost_per_transaction = cost;
 		self
 	}
 
@@ -127,7 +120,6 @@ impl ExtBuilder {
 			GenesisConfig::<Test> {
 				block_reward: self.block_reward,
 				fee_reward_multiplier: self.fee_reward_multiplier,
-				average_cost_per_transaction: self.average_cost_per_transaction,
 			}
 			.build_storage()
 			.unwrap()
