@@ -14,6 +14,8 @@
 	- move storage maps to blake2_128: https://github.com/paritytech/substrate/pull/2268
 		- Metadata V4
 		- Needs update SDK version
+	- Enable CORS checks: https://github.com/paritytech/substrate/pull/2248
+		- Please use `--rpc-cors=all` to disable CORS if this causes any issue for you
 - New features:
 	- Start rework fees module
 	- Update protocol id to avoid libp2p issues
