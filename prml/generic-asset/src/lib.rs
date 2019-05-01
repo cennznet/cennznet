@@ -1,12 +1,136 @@
 // TODO: add legal and license info.
 
-//! Generic asset module for runtime.
+//! # Generic Asset Module
 //!
-//! This module provides asset/token features, which includes issuing a token,
-//! interacting with tokens such as transferring, spending by other parties.
+//! The Generic Asset module provides functionality for handling accounts and asset balances.
 //!
-//! Generic asset module is the foundation of other token related modules/features.
-//! It supports dual token economy in CENNZnet, dApp tokens and their token economy.
+//! ## Overview
+//!
+//! The Generic Asset module provides functions for:
+//!
+//! - Creating a new kind of asset.
+//! - Set permissions of an asset.
+//! - Getting and setting free balances.
+//! - Retrieving total, reserved and unreserved balances.
+//! - Repatriating a reserved balance to a beneficiary account.
+//! - Transferring a balance between accounts (when not reserved).
+//! - Slashing an account balance.
+//! - Managing total issuance.
+//! - Setting and managing locks.
+//!
+//! ### Terminology
+//!
+//! - **Staking Asset:** The asset for staking, to participate as Validators in the network.
+//! - **Spending Asset:** The asset for payment, such as paying transfer fees, gas fees, etc.
+//! - **Permissions:** A set of rules for a kind of asset, defining the allowed operations to the asset, and which
+//! accounts are allowed.
+//! - **Total Issuance:** The total number of units in existence in a system.
+//! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only balance that matters
+//! for most operations. When this balance falls below the existential deposit, most functionality of the account is
+//! removed. When both it and the reserved balance are deleted, then the account is said to be dead.
+//! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended. Reserved balance
+//! can still be slashed, but only after all the free balance has been slashed. If the reserved balance falls below the
+//! existential deposit then it and any related functionality will be deleted. When both it and the free balance are
+//! deleted, then the account is said to be dead.
+//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite accounting
+//! (i.e. a difference between total issuance and account balances). Functions that result in an imbalance will
+//! return an object of the `Imbalance` trait that must be handled.
+//! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block number. Multiple
+//! locks always operate over the same funds, so they "overlay" rather than "stack".
+//!
+//! ### Implementations
+//!
+//! The Generic Asset module provides `AssetCurrency`, which implements the following traits. If these traits provide
+//! the functionality that you need, you can avoid coupling with the Generic Asset module.
+//!
+//! - `Currency`: Functions for dealing with a fungible assets system.
+//! - `ReservedCurrency`: Functions for dealing with assets that can be reserved from an account.
+//! - `LockableCurrency`: Functions for dealing with accounts that allow liquidity restrictions.
+//! - `Imbalance`: Functions for handling imbalances between total issuance in the system and account balances.
+//! Must be used when a function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
+//!
+//! The Generic Asset module provides three types of `AssetCurrency` as follows.
+//! - `StakingAssetCurrency`: Currency for staking.
+//! - `SpendingAssetCurrency`: Currency for payments such as transfer fee, gas fee.
+//! - `RewardAssetCurrency`: Currency for staking rewards.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `create`: Create a new kind of asset.
+//! - `transfer`: Transfer some liquid free balance to another account.
+//! - `update_permission`: Updates permission for a given asset_id and an account. The origin of this call
+//! must have update permissions.
+//! - `mint`: Mint an asset, increases its total issuance. The origin of this call must have mint permissions.
+//! - `burn`: Burn an asset, decreases its total issuance. The origin of this call must have burn permissions.
+//! - `create_reserved`: Create a new kind of reserved asset. The origin of this call must be root.
+//!
+//! ### Public Functions
+//!
+//! - `total_balance`: Get an account's total balance of an asset kind.
+//! - `free_balance`: Get an account's free balance of an asset kind.
+//! - `reserved_balance`: Get an account's reserved balance of an asset kind.
+//! - `create_asset`: Creates an asset.
+//! - `make_transfer`: Transfer some liquid free balance from one account to another. This will not charge
+//! transfer fee and will not emit Transferred event.
+//! - `make_transfer_with_fee`: Transfer some liquid free balance from one account to another. This will
+//! charge transfer fee and will emit Transferred event.
+//! - `reserve`: Moves an amount from free balance to reserved balance.
+//! - `unreserve`: Move up to an amount from reserved balance to free balance. This function cannot fail.
+//! - `slash`: Deduct up to an amount from the combined balance of `who`, preferring to deduct from the
+//!	free balance. This function cannot fail.
+//! - `reward`: Add up to an amount to the free balance of an account.
+//! - `slash_reserved`: Deduct up to an amount from reserved balance of an account. This function cannot fail.
+//! - `repatriate_reserved`: Move up to an amount from reserved balance of an account to free balance of another
+//! account.
+//! - `check_permission`: Check permission to perform burn, mint or update.
+//! - `ensure_can_withdraw`: Check if the account is able to make a withdrawal of the given amount
+//!	for the given reason.
+//!
+//! ### Usage
+//!
+//! The following examples show how to use the Generic Asset module in your custom module.
+//!
+//! ### Examples from the PRML
+//!
+//! The Fees module uses the `Currency` trait to handle fee charge/refund, and its types inherit from `Currency`:
+//!
+//! ```
+//! use support::{
+//! 	traits::{Currency, ExistenceRequirement, WithdrawReason},
+//! 	dispatch::Result,
+//! };
+//! # pub trait Trait: system::Trait {
+//! # 	type Currency: Currency<Self::AccountId>;
+//! # }
+//! type AssetOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+//!
+//! fn charge_fee<T: Trait>(transactor: &T::AccountId, amount: AssetOf<T>) -> Result {
+//! 	// ...
+//! 	T::Currency::withdraw(
+//!			transactor,
+//!			amount,
+//!			WithdrawReason::TransactionPayment,
+//!			ExistenceRequirement::KeepAlive,
+//!		)?;
+//! 	// ...
+//! 	Ok(())
+//! }
+//!
+//! fn refund_fee<T: Trait>(transactor: &T::AccountId, amount: AssetOf<T>) -> Result {
+//! 	// ...
+//! 	T::Currency::deposit_into_existing(transactor, amount)?;
+//! 	// ...
+//! 	Ok(())
+//! }
+//!
+//! # fn main() {}
+//! ```
+//!
+//! ## Genesis config
+//!
+//! The Generic Asset module depends on the `GenesisConfig`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -147,8 +271,8 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
+		/// Create a new kind of asset.
 		fn create(origin, options: AssetOptions<T::Balance, T::AccountId>) -> Result {
-
 			let origin = ensure_signed(origin)?;
 			let id = Self::next_asset_id();
 
@@ -177,7 +301,7 @@ decl_module! {
 		}
 
 		/// Updates permission for a given asset_id and an account.
-		/// The origin (account_id) should have `update` permission.
+		/// The origin must have `update` permission.
 		fn update_permission(origin, #[compact] asset_id: T::AssetId, new_permission: PermissionLatest<T::AccountId>) -> Result {
 			let origin = ensure_signed(origin)?;
 
@@ -191,8 +315,8 @@ decl_module! {
 			}
 		}
 
-		/// Mints an asset, increases its amount.
-		/// The origin should have `mint` permissions.
+		/// Mints an asset, increases its total issuance.
+		/// The origin must have `mint` permissions.
 		fn mint(origin, #[compact] asset_id: T::AssetId, to: T::AccountId, amount: T::Balance) -> Result {
 			let origin = ensure_signed(origin)?;
 			if Self::check_permission(&asset_id, &origin, &PermissionType::Mint) {
@@ -211,8 +335,8 @@ decl_module! {
 			}
 		}
 
-		/// Burns an asset, decreases its amount.
-		/// The origin should have `burn` permissions.
+		/// Burns an asset, decreases its total issuance.
+		/// The origin must have `burn` permissions.
 		fn burn(origin, #[compact] asset_id: T::AssetId, to: T::AccountId, amount: T::Balance) -> Result {
 			let origin = ensure_signed(origin)?;
 
@@ -321,14 +445,17 @@ decl_event!(
 impl<T: Trait> Module<T> {
 	// PUBLIC IMMUTABLES
 
+	/// Get an account's total balance of an asset kind.
 	pub fn total_balance(asset_id: &T::AssetId, who: &T::AccountId) -> T::Balance {
 		Self::free_balance(asset_id, who) + Self::reserved_balance(asset_id, who)
 	}
 
+	/// Get an account's free balance of an asset kind.
 	pub fn free_balance(asset_id: &T::AssetId, who: &T::AccountId) -> T::Balance {
 		<FreeBalance<T>>::get(asset_id, who)
 	}
 
+	/// Get an account's reserved balance of an asset kind.
 	pub fn reserved_balance(asset_id: &T::AssetId, who: &T::AccountId) -> T::Balance {
 		<ReservedBalance<T>>::get(asset_id, who)
 	}
@@ -412,7 +539,7 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Moves `amount` from balance to reserved balance.
+	/// Move `amount` from free balance to reserved balance.
 	///
 	/// If the free balance is lower than `amount`, then no funds will be moved and an `Err` will
 	/// be returned to notify of this. This is different behaviour to `unreserve`.
@@ -430,7 +557,7 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Moves up to `amount` from reserved balance to balance. This function cannot fail.
+	/// Move up to `amount` from reserved balance to free balance. This function cannot fail.
 	///
 	/// As much funds up to `amount` will be deducted as possible, `remaining` will be returned.
 	/// NOTE: This is different to `reserve`.
@@ -444,7 +571,7 @@ impl<T: Trait> Module<T> {
 		amount - actual
 	}
 
-	/// Deducts up to `amount` from the combined balance of `who`, preferring to deduct from the
+	/// Deduct up to `amount` from the combined balance of `who`, preferring to deduct from the
 	/// free balance. This function cannot fail.
 	///
 	/// As much funds up to `amount` will be deducted as possible. If this is less than `amount`,
@@ -476,7 +603,7 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Deducts up to `amount` from reserved balance of `who`. This function cannot fail.
+	/// Deduct up to `amount` from reserved balance of `who`. This function cannot fail.
 	///
 	/// As much funds up to `amount` will be deducted as possible. If this is less than `amount`,
 	/// then `Some(remaining)` will be returned. Full completion is given by `None`.
@@ -494,7 +621,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	/// Moves up to `amount` from reserved balance of account `who` to free balance of account
+	/// Move up to `amount` from reserved balance of account `who` to free balance of account
 	/// `beneficiary`. `beneficiary` must exist for this to succeed. If it does not, `Err` will be
 	/// returned.
 	///
@@ -518,7 +645,7 @@ impl<T: Trait> Module<T> {
 		Ok(amount - slash)
 	}
 
-	/// Checks permission to perfrom burn, mint or update
+	/// Check permission to perform burn, mint or update.
 	///
 	/// # Arguments
 	/// * `asset_id` -  A T::AssetId type contains the asset_id which the permission embedded.
@@ -555,7 +682,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	/// Returns `Ok` iff the account is able to make a withdrawal of the given amount
+	/// Return `Ok` iff the account is able to make a withdrawal of the given amount
 	/// for the given reason.
 	///
 	/// `Err(...)` with the reason why not otherwise.
