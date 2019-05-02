@@ -145,7 +145,7 @@ use rstd::{cmp, result};
 use support::dispatch::Result;
 use support::{
 	additional_traits::{ChargeFee, DummyChargeFee},
-	decl_event, decl_module, decl_storage, ensure,
+	decl_event, decl_fee, decl_module, decl_storage, ensure,
 	traits::{
 		Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency, ReservableCurrency,
 		SignedImbalance, UpdateBalanceOutcome, WithdrawReason, WithdrawReasons,
@@ -199,6 +199,13 @@ pub struct AssetOptions<Balance: HasCompact, AccountId> {
 	pub initial_issuance: Balance,
 	pub permissions: PermissionLatest<AccountId>,
 }
+
+decl_fee!(
+	pub enum Fee {
+		/// A fee for creating a new account
+		Transfer,
+	}
+);
 
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq)]

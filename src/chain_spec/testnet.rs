@@ -1,7 +1,7 @@
 use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, TELEMETRY_URL};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
-	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
@@ -39,8 +39,8 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		get_account_id_from_seed("Rimu//stash"),
 		get_account_id_from_seed("cennznet-js-test//stash"),
 	];
-	let transaction_base_fee = 1;
-	let transaction_byte_fee = 1;
+	let transaction_base_fee = 1000 * MICRO_DOLLARS;
+	let transaction_byte_fee = 5 * MICRO_DOLLARS;
 	let transfer_fee = 480 * MICRO_DOLLARS;
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
@@ -125,6 +125,12 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			burn: Permill::from_percent(50),
 		}),
 		contract: Some(ContractConfig {
+			signed_claim_handicap: 2,
+			rent_byte_price: 4,
+			rent_deposit_offset: 1000,
+			storage_size_offset: 8,
+			surcharge_reward: 150,
+			tombstone_deposit: 16,
 			contract_fee: 500 * MICRO_DOLLARS,
 			call_base_fee: 500,
 			create_base_fee: 800,
@@ -175,8 +181,12 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			spending_asset_id: 16001,
 		}),
 		fees: Some(FeesConfig {
-			transaction_base_fee: 1000 * MICRO_DOLLARS,
-			transaction_byte_fee: 5 * MICRO_DOLLARS,
+			_genesis_phantom_data: Default::default(),
+			fee_registry: vec![
+				(Fee::fees(fees::Fee::Base), transaction_base_fee),
+				(Fee::fees(fees::Fee::Bytes), transaction_byte_fee),
+				(Fee::generic_asset(generic_asset::Fee::Transfer), transfer_fee),
+			],
 		}),
 		cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::from_milli(3),

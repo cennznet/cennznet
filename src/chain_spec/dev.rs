@@ -1,7 +1,7 @@
 use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
-	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
@@ -108,6 +108,12 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			burn: Permill::from_percent(50),
 		}),
 		contract: Some(ContractConfig {
+			signed_claim_handicap: 2,
+			rent_byte_price: 1,
+			rent_deposit_offset: 1000,
+			storage_size_offset: 8,
+			surcharge_reward: 150,
+			tombstone_deposit: 16,
 			contract_fee: 21,
 			call_base_fee: 135,
 			create_base_fee: 175,
@@ -145,8 +151,12 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			spending_asset_id: 16001,
 		}),
 		fees: Some(FeesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 1,
+			_genesis_phantom_data: Default::default(),
+			fee_registry: vec![
+				(Fee::fees(fees::Fee::Base), transaction_base_fee),
+				(Fee::fees(fees::Fee::Bytes), transaction_byte_fee),
+				(Fee::generic_asset(generic_asset::Fee::Transfer), transfer_fee),
+			],
 		}),
 		cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::from_milli(3),

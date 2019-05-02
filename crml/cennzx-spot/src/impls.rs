@@ -40,6 +40,7 @@ impl<T: Trait> ExchangeAddressGenerator<T> {
 }
 
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
+	type FeeExchange = FeeExchange<T::Balance>;
 	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
 	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &FeeExchange<T::Balance>) -> Result {
 		// TODO: Hard coded to use spending asset ID
