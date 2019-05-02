@@ -182,7 +182,6 @@ fn genesis() -> GenesisConfig {
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
-			transfer_fee,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),

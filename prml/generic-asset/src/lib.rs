@@ -72,10 +72,8 @@
 //! - `free_balance`: Get an account's free balance of an asset kind.
 //! - `reserved_balance`: Get an account's reserved balance of an asset kind.
 //! - `create_asset`: Creates an asset.
-//! - `make_transfer`: Transfer some liquid free balance from one account to another. This will not charge
-//! transfer fee and will not emit Transferred event.
-//! - `make_transfer_with_fee`: Transfer some liquid free balance from one account to another. This will
-//! charge transfer fee and will emit Transferred event.
+//! - `make_transfer`: Transfer some liquid free balance from one account to another. This will not emit Transferred event.
+//! - `make_transfer_with_event`: Transfer some liquid free balance from one account to another. This will emit Transferred event.
 //! - `reserve`: Moves an amount from free balance to reserved balance.
 //! - `unreserve`: Move up to an amount from reserved balance to free balance. This function cannot fail.
 //! - `slash`: Deduct up to an amount from the combined balance of `who`, preferring to deduct from the
@@ -144,7 +142,6 @@ use rstd::prelude::*;
 use rstd::{cmp, result};
 use support::dispatch::Result;
 use support::{
-	additional_traits::{ChargeFee, DummyChargeFee},
 	decl_event, decl_fee, decl_module, decl_storage, ensure,
 	traits::{
 		Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency, ReservableCurrency,
@@ -169,7 +166,6 @@ pub trait Trait: system::Trait {
 		+ As<u128>
 		+ MaybeSerializeDebug;
 	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + As<u32>;
-	type ChargeFee: ChargeFee<Self::AccountId, Amount = Self::Balance>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -304,7 +300,7 @@ decl_module! {
 		/// Transfer some liquid free balance to another account.
 		pub fn transfer(origin, #[compact] asset_id: T::AssetId, to: T::AccountId, #[compact] amount: T::Balance) {
 			let origin = ensure_signed(origin)?;
-			Self::make_transfer_with_fee(&asset_id, &origin, &to, amount)?;
+			Self::make_transfer_with_event(&asset_id, &origin, &to, amount)?;
 		}
 
 		/// Updates permission for a given asset_id and an account.
@@ -402,8 +398,6 @@ decl_storage! {
 		pub Permissions get(get_permission): map T::AssetId => PermissionVersions<T::AccountId>;
 
 		pub CreateAssetStakes get(create_asset_stake) config(): T::Balance;
-
-		pub TransferFee get(transfer_fee) config(): T::Balance;
 
 		/// Any liquidity locks on some account balances.
 		pub Locks get(locks): map T::AccountId => Vec<BalanceLock<T::Balance, T::BlockNumber>>;
@@ -505,10 +499,12 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Transfer some liquid free balance from one account to another.
-	/// This will not charge transfer fee and will not emit Transferred event.
+	/// This will not emit Transferred event.
 	pub fn make_transfer(asset_id: &T::AssetId, from: &T::AccountId, to: &T::AccountId, amount: T::Balance) -> Result {
-		let from_balance = Self::free_balance(asset_id, from);
-		ensure!(from_balance >= amount, "balance too low to send amount");
+		let new_balance = Self::free_balance(asset_id, from)
+			.checked_sub(&amount)
+			.ok_or_else(|| "balance too low to send amount")?;
+		Self::ensure_can_withdraw(asset_id, from, amount, WithdrawReason::Transfer, new_balance)?;
 
 		if from != to {
 			<FreeBalance<T>>::mutate(asset_id, from, |balance| *balance -= amount);
@@ -519,24 +515,19 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Transfer some liquid free balance from one account to another.
-	/// This will charge transfer fee and will emit Transferred event.
-	pub fn make_transfer_with_fee(
+	/// This will emit Transferred event.
+	pub fn make_transfer_with_event(
 		asset_id: &T::AssetId,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: T::Balance,
 	) -> Result {
-		ensure!(!amount.is_zero(), "cannot transfer zero amount");
-
-		let from_balance = Self::free_balance(asset_id, from);
-		let total_amount = amount
-			.checked_add(&Self::transfer_fee())
-			.ok_or_else(|| "transfer amount plus fee overflow")?;
-		ensure!(from_balance >= total_amount, "balance too low to send amount");
+		let new_balance = Self::free_balance(asset_id, from)
+			.checked_sub(&amount)
+			.ok_or_else(|| "balance too low to send amount")?;
+		Self::ensure_can_withdraw(asset_id, from, amount, WithdrawReason::Transfer, new_balance)?;
 
 		if from != to {
-			T::ChargeFee::charge_fee(from, Self::transfer_fee())?;
-
 			<FreeBalance<T>>::mutate(asset_id, from, |balance| *balance -= amount);
 			<FreeBalance<T>>::mutate(asset_id, to, |balance| *balance += amount);
 
@@ -1013,7 +1004,6 @@ impl<T: Subtrait> system::Trait for ElevatedTrait<T> {
 impl<T: Subtrait> Trait for ElevatedTrait<T> {
 	type Balance = T::Balance;
 	type AssetId = T::AssetId;
-	type ChargeFee = DummyChargeFee<T::AccountId, T::Balance>;
 	type Event = ();
 }
 
@@ -1066,7 +1056,7 @@ where
 		reason: WithdrawReason,
 		_: ExistenceRequirement, // no existential deposit policy for generic asset
 	) -> result::Result<Self::NegativeImbalance, &'static str> {
-		let new_balance = <Module<T>>::free_balance(&U::asset_id(), who)
+		let new_balance = Self::free_balance(who)
 			.checked_sub(&value)
 			.ok_or_else(|| "account has too few funds")?;
 		Self::ensure_can_withdraw(who, value, reason, new_balance)?;

@@ -202,7 +202,6 @@ impl grandpa::Trait for Runtime {
 impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = u32;
-	type ChargeFee = fees::Module<Self>;
 	type Event = Event;
 }
 
