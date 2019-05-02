@@ -581,9 +581,6 @@ impl<T: Trait> Module<T> {
 		let free_slash = rstd::cmp::min(free_balance, amount);
 		let new_free_balance = free_balance - free_slash;
 		Self::set_free_balance(asset_id, who, new_free_balance);
-		// TODO: implement staking here
-		// Self::decrease_total_stake_by(free_slash);
-		// Question: are we slashing reserved in this case?
 		if free_slash < amount {
 			Self::slash_reserved(asset_id, who, amount - free_slash)
 		} else {
@@ -592,14 +589,11 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Adds up to `amount` to the free balance of `who`.
-	///
-	/// If `who` doesn't exist, nothing is done and an Err returned.
 	pub fn reward(asset_id: &T::AssetId, who: &T::AccountId, amount: T::Balance) -> Result {
 		let original_free_balance = Self::free_balance(asset_id, who);
 		let new_free_balance = original_free_balance + amount;
 		Self::set_free_balance(asset_id, who, new_free_balance);
-		// TODO: implement staking here
-		// Self::increase_total_stake_by(amount);
+		<TotalIssuance<T>>::mutate(asset_id, |x| *x = x.saturating_add(amount));
 		Ok(())
 	}
 
@@ -612,8 +606,6 @@ impl<T: Trait> Module<T> {
 		let slash = rstd::cmp::min(original_reserve_balance, amount);
 		let new_reserve_balance = original_reserve_balance - slash;
 		Self::set_reserved_balance(asset_id, who, new_reserve_balance);
-		// TODO: implement staking here
-		// Self::decrease_total_stake_by(slash);
 		if amount == slash {
 			None
 		} else {
@@ -1079,8 +1071,8 @@ where
 		who: &T::AccountId,
 		value: Self::Balance,
 	) -> result::Result<Self::PositiveImbalance, &'static str> {
-		<Module<T>>::set_free_balance(&U::asset_id(), who, Self::free_balance(who) + value);
-		Ok(PositiveImbalance::new(value))
+		// No existential deposit rule and creation fee in GA. `deposit_into_existing` is same with `deposit_creating`.
+		Ok(Self::deposit_creating(who, value))
 	}
 
 	fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
