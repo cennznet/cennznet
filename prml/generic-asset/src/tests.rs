@@ -11,14 +11,9 @@ use primitives::{
 };
 use runtime_io::with_externalities;
 use substrate_primitives::{Blake2Hasher, H256};
-use support::{
-	additional_traits::ChargeFee,
-	assert_noop, assert_ok, impl_outer_origin,
-	traits::{ExistenceRequirement, WithdrawReason},
-};
+use support::{assert_noop, assert_ok, impl_outer_origin};
 
 use super::*;
-use std::marker::PhantomData;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -44,29 +39,9 @@ impl system::Trait for Test {
 	type Log = DigestItem;
 }
 
-pub struct ChargeFeeMock<T, U>(PhantomData<T>, PhantomData<U>);
-impl ChargeFee<u64> for ChargeFeeMock<u64, u64> {
-	type Amount = u64;
-
-	fn charge_fee(transactor: &u64, amount: Self::Amount) -> Result {
-		let _ = <SpendingAssetCurrency<Test>>::withdraw(
-			transactor,
-			amount,
-			WithdrawReason::Transfer,
-			ExistenceRequirement::KeepAlive,
-		)?;
-		Ok(())
-	}
-	fn refund_fee(transactor: &u64, amount: Self::Amount) -> Result {
-		let _ = <SpendingAssetCurrency<Test>>::deposit_into_existing(transactor, amount)?;
-		Ok(())
-	}
-}
-
 impl Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
-	type ChargeFee = ChargeFeeMock<u64, u64>;
 	type Event = ();
 }
 
@@ -77,7 +52,6 @@ pub struct ExtBuilder {
 	next_asset_id: u32,
 	accounts: Vec<u64>,
 	initial_balance: u64,
-	transfer_fee: u64,
 }
 
 // Returns default values for genesis config
@@ -88,7 +62,6 @@ impl Default for ExtBuilder {
 			next_asset_id: 1000,
 			accounts: vec![0],
 			initial_balance: 0,
-			transfer_fee: 0,
 		}
 	}
 }
@@ -99,11 +72,6 @@ impl ExtBuilder {
 		self.asset_id = free_balance.0;
 		self.accounts = vec![free_balance.1];
 		self.initial_balance = free_balance.2;
-		self
-	}
-
-	pub fn transfer_fee(mut self, amount: u64) -> Self {
-		self.transfer_fee = amount;
 		self
 	}
 
@@ -121,7 +89,6 @@ impl ExtBuilder {
 				assets: vec![self.asset_id],
 				endowed_accounts: self.accounts,
 				initial_balance: self.initial_balance,
-				transfer_fee: self.transfer_fee,
 				next_asset_id: self.next_asset_id,
 				create_asset_stake: 10,
 				staking_asset_id: 16000,
@@ -1300,25 +1267,6 @@ fn create_asset_should_create_a_user_asset() {
 		);
 		assert_eq!(<TotalIssuance<Test>>::get(created_user_asset_id), initial_issuance);
 	});
-}
-
-#[test]
-fn charge_transfer_fee_works() {
-	with_externalities(
-		&mut ExtBuilder::default()
-			.free_balance((16001, 1, 11))
-			.transfer_fee(3)
-			.build(),
-		|| {
-			let alice = 1;
-			let bob = 2;
-			let spending_asset_id = GenericAsset::spending_asset_id();
-			assert_eq!(GenericAsset::free_balance(&spending_asset_id, &alice), 11);
-			assert_ok!(GenericAsset::transfer(Origin::signed(alice), spending_asset_id, bob, 5));
-			assert_eq!(GenericAsset::free_balance(&spending_asset_id, &alice), 11 - 5 - 3);
-			assert_eq!(GenericAsset::free_balance(&spending_asset_id, &bob), 5);
-		},
-	);
 }
 
 #[test]

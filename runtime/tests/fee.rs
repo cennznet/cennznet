@@ -191,7 +191,6 @@ impl ExtBuilder {
 			create_asset_stake: 10,
 			initial_balance: u128::max_value(),
 			next_asset_id: 10_000,
-			transfer_fee: 0,
 		}
 		.assimilate_storage(&mut t, &mut c);
 		let _ = fees::GenesisConfig::<Runtime> {

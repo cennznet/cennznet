@@ -69,7 +69,6 @@ impl system::Trait for Test {
 impl generic_asset::Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
-	type ChargeFee = Fees;
 	type Event = TestEvent;
 }
 
@@ -132,7 +131,6 @@ impl ExtBuilder {
 			create_asset_stake: 10,
 			initial_balance: u64::max_value(),
 			next_asset_id: 10_000,
-			transfer_fee: 0,
 		}
 		.assimilate_storage(&mut t, &mut c);
 		let _ = GenesisConfig::<Test> {

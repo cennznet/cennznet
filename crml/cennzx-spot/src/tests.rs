@@ -16,7 +16,7 @@ use runtime_primitives::{
 	BuildStorage,
 };
 use substrate_primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
-use support::{additional_traits::DummyChargeFee, impl_outer_origin, StorageValue};
+use support::{impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -46,7 +46,6 @@ impl generic_asset::Trait for Test {
 	type Balance = u128;
 	type AssetId = u32;
 	type Event = ();
-	type ChargeFee = DummyChargeFee<AccountId, u128>;
 }
 
 impl Trait for Test {
@@ -81,7 +80,6 @@ impl ExtBuilder {
 				endowed_accounts: Vec::new(),
 				next_asset_id: 100,
 				create_asset_stake: 1000,
-				transfer_fee: 0,
 				staking_asset_id: 0,
 				spending_asset_id: 10,
 			}
