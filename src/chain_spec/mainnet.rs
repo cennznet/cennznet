@@ -1,7 +1,7 @@
 use super::{ChainSpec, GenesisConfig, TELEMETRY_URL};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
-	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
+	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
 };
@@ -44,8 +44,9 @@ fn genesis() -> GenesisConfig {
 	let root_key = hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into();
 	let endowed_accounts: Vec<AccountId> =
 		vec![hex!["c224ccba63292331623bbf06a55f46607824c2580071a80a17c53cab2f999e2f"].unchecked_into()];
-	let transaction_base_fee = 1;
-	let transaction_byte_fee = 1;
+
+	let transaction_base_fee = 1000 * MICRO_DOLLARS;
+	let transaction_byte_fee = 5 * MICRO_DOLLARS;
 	let transfer_fee = 480 * MICRO_DOLLARS;
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
@@ -130,6 +131,12 @@ fn genesis() -> GenesisConfig {
 			burn: Permill::from_percent(50),
 		}),
 		contract: Some(ContractConfig {
+			signed_claim_handicap: 2,
+			rent_byte_price: 4,
+			rent_deposit_offset: 1000,
+			storage_size_offset: 8,
+			surcharge_reward: 150,
+			tombstone_deposit: 16,
 			contract_fee: 500 * MICRO_DOLLARS,
 			call_base_fee: 500,
 			create_base_fee: 800,
@@ -175,13 +182,16 @@ fn genesis() -> GenesisConfig {
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
-			transfer_fee,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
 		}),
 		fees: Some(FeesConfig {
-			transaction_base_fee: 1000 * MICRO_DOLLARS,
-			transaction_byte_fee: 5 * MICRO_DOLLARS,
+			_genesis_phantom_data: Default::default(),
+			fee_registry: vec![
+				(Fee::fees(fees::Fee::Base), transaction_base_fee),
+				(Fee::fees(fees::Fee::Bytes), transaction_byte_fee),
+				(Fee::generic_asset(generic_asset::Fee::Transfer), transfer_fee),
+			],
 		}),
 		cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::from_milli(3),

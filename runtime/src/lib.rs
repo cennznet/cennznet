@@ -51,6 +51,8 @@ pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
 
+mod fee;
+
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
@@ -200,16 +202,15 @@ impl grandpa::Trait for Runtime {
 impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = u32;
-	type ChargeFee = fees::Module<Self>;
 	type Event = Event;
 }
 
 impl fees::Trait for Runtime {
-	type Call = Call;
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
 	type BuyFeeAsset = cennzx_spot::Module<Self>;
 	type OnFeeCharged = ();
+	type Fee = Fee;
 }
 
 impl rewards::Trait for Runtime {}
@@ -244,7 +245,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Aura: aura::{Module, Inherent(Timestamp)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
-		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		GenericAsset: generic_asset::{Module, Call, Storage, Config<T>, Event<T>, Fee},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Indices: indices,
 		Session: session,
@@ -258,7 +259,7 @@ construct_runtime!(
 		Treasury: treasury,
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
-		Fees: fees::{Module, Call, Storage, Config<T>, Event<T>},
+		Fees: fees::{Module, Call, Fee, Storage, Config<T>, Event<T>},
 		Rewards: rewards::{Module, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		CennzxSpot: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
@@ -284,8 +285,11 @@ pub type BlockId = generic::BlockId<Block>;
 pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = <<Block as BlockT>::Extrinsic as Checkable<system::ChainContext<Runtime>>>::Checked;
+/// A type that handles payment for extrinsic fees
+pub type ExtrinsicFeePayment = fee::ExtrinsicFeeCharger;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Fees, AllModules>;
+pub type Executive =
+	executive::Executive<Runtime, Block, system::ChainContext<Runtime>, ExtrinsicFeePayment, AllModules>;
 
 impl_runtime_apis! {
 	impl client_api::Core<Block> for Runtime {

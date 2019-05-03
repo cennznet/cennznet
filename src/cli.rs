@@ -81,7 +81,7 @@ where
 		"cennznet-node",
 		args,
 		exit,
-		|exit, _custom_args, config| {
+		|exit, _cli_args, _custom_args, config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
 			info!("  by {}", version.author);

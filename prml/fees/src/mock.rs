@@ -15,14 +15,12 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Test utilities
-
 #![cfg(test)]
 
-use crate::{system, BuyFeeAsset, GenesisConfig, Module, OnFeeCharged, Trait};
-use cennznet_primitives::{Balance, FeeExchange};
+use crate::{system, GenesisConfig, Module, OnFeeCharged, Trait};
 use generic_asset::SpendingAssetCurrency;
+use parity_codec::{Decode, Encode};
 use primitives::{Blake2Hasher, H256};
-use rstd::marker::PhantomData;
 use runtime_io;
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
@@ -45,6 +43,12 @@ impl_outer_event! {
 	}
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+pub enum MockFee {
+	Base,
+	Bytes,
+}
+
 // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Test;
@@ -65,7 +69,6 @@ impl system::Trait for Test {
 impl generic_asset::Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
-	type ChargeFee = Fees;
 	type Event = TestEvent;
 }
 
@@ -92,11 +95,11 @@ impl<T: OnFeeChargedMockTrait> OnFeeCharged<u64> for OnFeeChargedMockModule<T> {
 impl OnFeeChargedMockTrait for Test {}
 
 impl Trait for Test {
-	type Call = Call<Self>;
 	type Event = TestEvent;
 	type Currency = SpendingAssetCurrency<Test>;
 	type OnFeeCharged = OnFeeChargedMock;
-	type BuyFeeAsset = BuyFeeAssetMock<Test>;
+	type BuyFeeAsset = ();
+	type Fee = MockFee;
 }
 
 pub type System = system::Module<Test>;
@@ -107,6 +110,7 @@ pub struct ExtBuilder {
 	transaction_base_fee: u64,
 	transaction_byte_fee: u64,
 }
+
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
@@ -115,15 +119,8 @@ impl Default for ExtBuilder {
 		}
 	}
 }
+
 impl ExtBuilder {
-	pub fn transaction_base_fee(mut self, transaction_base_fee: u64) -> Self {
-		self.transaction_base_fee = transaction_base_fee;
-		self
-	}
-	pub fn transaction_byte_fee(mut self, transaction_byte_fee: u64) -> Self {
-		self.transaction_byte_fee = transaction_byte_fee;
-		self
-	}
 	pub fn build(self) -> runtime_io::TestExternalities<Blake2Hasher> {
 		let (mut t, mut c) = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let _ = generic_asset::GenesisConfig::<Test> {
@@ -134,23 +131,17 @@ impl ExtBuilder {
 			create_asset_stake: 10,
 			initial_balance: u64::max_value(),
 			next_asset_id: 10_000,
-			transfer_fee: 0,
 		}
 		.assimilate_storage(&mut t, &mut c);
 		let _ = GenesisConfig::<Test> {
-			transaction_base_fee: self.transaction_base_fee,
-			transaction_byte_fee: self.transaction_byte_fee,
+			_genesis_phantom_data: rstd::marker::PhantomData::<Test>,
+			fee_registry: vec![
+				(MockFee::Base, self.transaction_base_fee),
+				(MockFee::Bytes, self.transaction_byte_fee),
+			],
 		}
 		.assimilate_storage(&mut t, &mut c);
+
 		t.into()
-	}
-}
-
-// A NOOP BuyFeeAsset implementor
-pub struct BuyFeeAssetMock<T: Trait>(PhantomData<T>);
-
-impl<T: Trait> BuyFeeAsset<T::AccountId, Balance> for BuyFeeAssetMock<T> {
-	fn buy_fee_asset(_who: &T::AccountId, _amount: Balance, _fee_exchange: &FeeExchange<Balance>) -> Result {
-		Ok(())
 	}
 }
