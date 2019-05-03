@@ -81,7 +81,8 @@ where
 		"cennznet-node",
 		args,
 		exit,
-		|exit, _cli_args, _custom_args, config| {
+		|exit, _cli_args, _custom_args, mut config| {
+			config.rpc_cors = None; // TODO: remove this when we figured out how react native plays with CORS
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
 			info!("  by {}", version.author);
