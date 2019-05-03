@@ -300,6 +300,7 @@ decl_module! {
 		/// Transfer some liquid free balance to another account.
 		pub fn transfer(origin, #[compact] asset_id: T::AssetId, to: T::AccountId, #[compact] amount: T::Balance) {
 			let origin = ensure_signed(origin)?;
+			ensure!(!amount.is_zero(), "cannot transfer zero amount");
 			Self::make_transfer_with_event(&asset_id, &origin, &to, amount)?;
 		}
 
