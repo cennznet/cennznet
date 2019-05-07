@@ -799,9 +799,6 @@ impl<T: Trait> Module<T> {
 pub trait AssetIdProvider {
 	type AssetId;
 	fn asset_id() -> Self::AssetId;
-	fn reward_asset_id() -> Self::AssetId {
-		Self::asset_id()
-	}
 }
 
 // wrapping these imbalanes in a private module is necessary to ensure absolute privacy
@@ -1129,7 +1126,7 @@ where
 	}
 
 	fn reserve(who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str> {
-		<Module<T>>::reserve(&U::reward_asset_id(), who, value)
+		<Module<T>>::reserve(&U::asset_id(), who, value)
 	}
 
 	fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
@@ -1171,52 +1168,7 @@ impl<T: Trait> AssetIdProvider for SpendingAssetIdProvider<T> {
 	}
 }
 
-/// STAKE for balance, SPEND for reward
-pub struct RewardAssetIdProvider<T>(rstd::marker::PhantomData<T>);
-
-impl<T: Trait> AssetIdProvider for RewardAssetIdProvider<T> {
-	type AssetId = T::AssetId;
-	fn asset_id() -> Self::AssetId {
-		<Module<T>>::staking_asset_id()
-	}
-	fn reward_asset_id() -> Self::AssetId {
-		<Module<T>>::spending_asset_id()
-	}
-}
-
 impl<T> LockableCurrency<T::AccountId> for AssetCurrency<T, StakingAssetIdProvider<T>>
-where
-	T: Trait,
-	T::Balance: MaybeSerializeDebug,
-{
-	type Moment = T::BlockNumber;
-
-	fn set_lock(
-		id: LockIdentifier,
-		who: &T::AccountId,
-		amount: T::Balance,
-		until: T::BlockNumber,
-		reasons: WithdrawReasons,
-	) {
-		<Module<T>>::set_lock(id, who, amount, until, reasons)
-	}
-
-	fn extend_lock(
-		id: LockIdentifier,
-		who: &T::AccountId,
-		amount: T::Balance,
-		until: T::BlockNumber,
-		reasons: WithdrawReasons,
-	) {
-		<Module<T>>::extend_lock(id, who, amount, until, reasons)
-	}
-
-	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-		<Module<T>>::remove_lock(id, who)
-	}
-}
-
-impl<T> LockableCurrency<T::AccountId> for AssetCurrency<T, RewardAssetIdProvider<T>>
 where
 	T: Trait,
 	T::Balance: MaybeSerializeDebug,
@@ -1250,4 +1202,3 @@ where
 
 pub type StakingAssetCurrency<T> = AssetCurrency<T, StakingAssetIdProvider<T>>;
 pub type SpendingAssetCurrency<T> = AssetCurrency<T, SpendingAssetIdProvider<T>>;
-pub type RewardAssetCurrency<T> = AssetCurrency<T, RewardAssetIdProvider<T>>;

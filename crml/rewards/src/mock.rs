@@ -4,7 +4,7 @@
 
 use crate::{GenesisConfig, Module, Trait};
 use fees::OnFeeCharged;
-use generic_asset::{StakingAssetCurrency, SpendingAssetCurrency};
+use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
 use runtime_primitives::BuildStorage;
