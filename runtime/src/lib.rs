@@ -32,7 +32,7 @@ use support::traits::Currency;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-use generic_asset::{RewardAssetCurrency, SpendingAssetCurrency, StakingAssetCurrency};
+use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
@@ -138,7 +138,9 @@ impl session::Trait for Runtime {
 }
 
 impl staking::Trait for Runtime {
-	type Currency = RewardAssetCurrency<Self>;
+	type Currency = StakingAssetCurrency<Self>;
+	type RewardCurrency = SpendingAssetCurrency<Self>;
+	type CurrencyToReward = Balance;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = Treasury;
 	type Event = Event;

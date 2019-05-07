@@ -4,7 +4,7 @@
 
 use crate::{GenesisConfig, Module, Trait};
 use fees::OnFeeCharged;
-use generic_asset::{AssetCurrency, RewardAssetIdProvider};
+use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
 use runtime_primitives::BuildStorage;
@@ -72,7 +72,9 @@ impl session::Trait for Test {
 	type Event = ();
 }
 impl staking::Trait for Test {
-	type Currency = AssetCurrency<Test, RewardAssetIdProvider<Test>>;
+	type Currency = StakingAssetCurrency<Test>;
+	type RewardCurrency = SpendingAssetCurrency<Test>;
+	type CurrencyToReward = u128;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = ();
 	type Event = ();
