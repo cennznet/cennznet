@@ -49,10 +49,9 @@
 //! - `Imbalance`: Functions for handling imbalances between total issuance in the system and account balances.
 //! Must be used when a function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
 //!
-//! The Generic Asset module provides three types of `AssetCurrency` as follows.
+//! The Generic Asset module provides two types of `AssetCurrency` as follows.
 //! - `StakingAssetCurrency`: Currency for staking.
 //! - `SpendingAssetCurrency`: Currency for payments such as transfer fee, gas fee.
-//! - `RewardAssetCurrency`: Currency for staking rewards.
 //!
 //! ## Interface
 //!
