@@ -151,6 +151,7 @@ use support::{
 };
 use system::ensure_signed;
 
+mod mock;
 mod tests;
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
