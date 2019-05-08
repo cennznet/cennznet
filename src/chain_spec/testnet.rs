@@ -60,7 +60,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		}),
 		session: Some(SessionConfig {
 			validators: initial_authorities.iter().map(|x| x.1.clone()).collect(),
-			session_length: 5 * MINUTES,
+			session_length: 2 * MINUTES,
 			keys: initial_authorities
 				.iter()
 				.map(|x| (x.1.clone(), x.2.clone()))
@@ -70,7 +70,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			current_era: 0,
 			minimum_validator_count: 4,
 			validator_count: 10,
-			sessions_per_era: 6, // 30 min
+			sessions_per_era: 5,
 			bonding_duration: 2,
 			offline_slash: Perbill::from_billionths(1000000),
 			session_reward: Perbill::from_billionths(1000),
@@ -78,7 +78,7 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			offline_slash_grace: 3,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), 1_000_000_000, StakerStatus::Validator))
+				.map(|x| (x.0.clone(), x.1.clone(), 100 * DOLLARS, StakerStatus::Validator))
 				.collect(),
 			invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 		}),
