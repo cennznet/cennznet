@@ -84,7 +84,7 @@ fn genesis() -> GenesisConfig {
 			offline_slash_grace: 3,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), 1_000_000_000, StakerStatus::Validator))
+				.map(|x| (x.0.clone(), x.1.clone(), 100 * DOLLARS, StakerStatus::Validator))
 				.collect(),
 			invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
 		}),
