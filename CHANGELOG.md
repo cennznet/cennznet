@@ -2,11 +2,13 @@
 - Substrate commit: xxx
 - Breaking changes:
 	- Removed `set_block_reward` in rewards module.
+	- optimize double map first key hash: https://github.com/paritytech/substrate/pull/2451
 - New features:
 	- Added `set_parameters` in rewards module, to calculate and set block reward and fee reward multiplier.
 	- New Fees Registry allow module to create a `Fee` enum with `decl_fee` macro and register it in `construct_runtime` macro.
 - New notable Substrate changes:
 	- contract accounting removal: https://github.com/paritytech/substrate/pull/2230
+	- Clean up random seed to make a bit more flexible: https://github.com/paritytech/substrate/pull/2456
 
 # Runtime version 19
 - Substrate commit: https://github.com/paritytech/substrate/commit/7d523bad168fe6867fdd6130e77ab749c38b9101
