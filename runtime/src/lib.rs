@@ -211,7 +211,7 @@ impl fees::Trait for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
 	type BuyFeeAsset = cennzx_spot::Module<Self>;
-	type OnFeeCharged = ();
+	type OnFeeCharged = rewards::Module<Self>;
 	type Fee = Fee;
 }
 
