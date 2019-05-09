@@ -213,6 +213,8 @@ fn kauri_config_genesis() -> GenesisConfig {
 		vec![
 			get_authority_keys_from_seed("Andrea"),
 			get_authority_keys_from_seed("Brooke"),
+			get_authority_keys_from_seed("Courtney"),
+			get_authority_keys_from_seed("Drew"),
 		],
 		get_account_id_from_seed("Kauri").into(),
 	)
