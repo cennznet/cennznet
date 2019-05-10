@@ -192,8 +192,8 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 			core_asset_id: 16001,
 		}),
 		rewards: Some(RewardsConfig {
-			block_reward: 10 * DOLLARS,
-			fee_reward_multiplier: Permill::from_percent(100),
+			block_reward: 1 * DOLLARS,
+			fee_reward_multiplier: Permill::from_percent(70),
 		}),
 	}
 }
