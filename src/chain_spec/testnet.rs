@@ -11,7 +11,7 @@ use substrate_telemetry::TelemetryEndpoints;
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
 const MICRO_DOLLARS: u128 = DOLLARS / 1_000_000;
 
-const SECS_PER_BLOCK: u64 = 6;
+const SECS_PER_BLOCK: u64 = 10;
 const MINUTES: u64 = 60 / SECS_PER_BLOCK;
 const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
