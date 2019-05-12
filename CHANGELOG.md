@@ -1,5 +1,13 @@
-# Runtime version 21 (master)
+# Runtime version 22 (master)
 - Substrate commit: xxx
+- Breaking changes:
+- New features:
+- New notable Substrate changes:
+
+# Runtime version 21
+- Substrate commit: https://github.com/paritytech/substrate/commit/d14f56adc642e295786144d9de574995b7df6a86
+- Bug fixes:
+	- Fix rewards module transaction fee distribution
 - Breaking changes:
 - New features:
 - New notable Substrate changes:
