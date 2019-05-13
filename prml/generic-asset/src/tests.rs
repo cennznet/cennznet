@@ -1153,7 +1153,7 @@ fn create_asset_should_create_a_user_asset() {
 			}
 		));
 
-		// Test for sideâ‰  effects.
+		// Test for side effects.
 		assert_eq!(<FreeBalance<Test>>::get(&reserved_asset_id, &created_account_id), 0);
 		assert_eq!(
 			<FreeBalance<Test>>::get(&created_user_asset_id, &created_account_id),
