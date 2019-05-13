@@ -1,6 +1,7 @@
 # Runtime version 22 (master)
 - Substrate commit: xxx
 - Breaking changes:
+	- Remove treasury module
 - New features:
 - New notable Substrate changes:
 

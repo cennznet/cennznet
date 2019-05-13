@@ -23,7 +23,6 @@ use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	runtime_api as client_api,
 };
-use substrate_primitives::u32_trait::{_2, _4};
 use substrate_primitives::OpaqueMetadata;
 use support::construct_runtime;
 use support::traits::Currency;
@@ -142,7 +141,7 @@ impl staking::Trait for Runtime {
 	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type CurrencyToReward = Balance;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type OnRewardMinted = Treasury;
+	type OnRewardMinted = ();
 	type Event = Event;
 	type Slash = ();
 	type Reward = ();
@@ -168,15 +167,6 @@ impl council::motions::Trait for Runtime {
 	type Origin = Origin;
 	type Proposal = Call;
 	type Event = Event;
-}
-
-impl treasury::Trait for Runtime {
-	type Currency = StakingAssetCurrency<Self>;
-	type ApproveOrigin = council_motions::EnsureMembers<_4>;
-	type RejectOrigin = council_motions::EnsureMembers<_2>;
-	type Event = Event;
-	type MintedForSpending = ();
-	type ProposalRejection = ();
 }
 
 impl contract::Trait for Runtime {
@@ -258,7 +248,6 @@ construct_runtime!(
 		CouncilMotions: council_motions::{Module, Call, Storage, Event<T>, Origin},
 		CouncilSeats: council_seats::{Config<T>},
 		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
-		Treasury: treasury,
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Fees: fees::{Module, Call, Fee, Storage, Config<T>, Event<T>},

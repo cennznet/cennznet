@@ -3,7 +3,7 @@ use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
-	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig, TreasuryConfig,
+	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
 use primitives::ed25519::Public as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
@@ -117,12 +117,6 @@ fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_k
 		}),
 		timestamp: Some(TimestampConfig {
 			minimum_period: SECS_PER_BLOCK / 2, // due to the nature of aura the slots are 2*period
-		}),
-		treasury: Some(TreasuryConfig {
-			proposal_bond: Permill::from_percent(5),
-			proposal_bond_minimum: 1 * DOLLARS,
-			spend_period: 20 * MINUTES,
-			burn: Permill::from_percent(50),
 		}),
 		contract: Some(ContractConfig {
 			signed_claim_handicap: 2,
