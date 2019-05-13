@@ -56,7 +56,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			sessions_per_era: 5,
 			bonding_duration: 12,
 			offline_slash: Perbill::from_billionths(1000),
-			session_reward: Perbill::from_billionths(1000000),
+			session_reward: Perbill::from_billionths(10000),
 			current_session_reward: 0,
 			offline_slash_grace: 0,
 			stakers: initial_authorities
@@ -162,7 +162,7 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			core_asset_id: 16001,
 		}),
 		rewards: Some(RewardsConfig {
-			block_reward: 10u128.pow(18),
+			block_reward: 1000,
 			fee_reward_multiplier: Permill::from_percent(100),
 		}),
 	}
