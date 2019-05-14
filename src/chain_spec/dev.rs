@@ -2,7 +2,7 @@ use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, G
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
-	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig,
+	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
 use primitives::ed25519::Public as AuthorityId;
@@ -118,7 +118,10 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			gas_price: 1,
 			max_depth: 1024,
 			block_gas_limit: 10_000_000_000,
-			current_schedule: Default::default(),
+			current_schedule: Schedule {
+				enable_println: true,
+				..Default::default()
+			},
 		}),
 		sudo: Some(SudoConfig { key: root_key }),
 		grandpa: Some(GrandpaConfig {
