@@ -1,12 +1,13 @@
-use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, NetworkKeyConfig, TELEMETRY_URL};
-use cennznet_primitives::AccountId;
+use super::{
+	get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, NetworkKeys, TELEMETRY_URL,
+};
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
 use hex_literal::{hex, hex_impl};
-use primitives::ed25519::Public as AuthorityId;
+use primitives::crypto::UncheckedInto;
 use substrate_telemetry::TelemetryEndpoints;
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
@@ -282,38 +283,51 @@ fn kauri_keys() -> NetworkKeys {
 		get_authority_keys_from_seed("Drew"),
 	];
 	let root_key = get_account_id_from_seed("Kauri");
-	return NetworkKeyConfig { endowed_accounts, initial_authorities, root_key };
+	return NetworkKeys {
+		endowed_accounts,
+		initial_authorities,
+		root_key,
+	};
 }
 
 fn rimu_keys() -> NetworkKeys {
+	// TODO: change placeholder keys to real keys
 	let endowed_accounts = vec![
-		get_account_id_from_seed("Andrea"),
-		get_account_id_from_seed("Brooke"),
-		get_account_id_from_seed("Courtney"),
-		get_account_id_from_seed("Drew"),
-		get_account_id_from_seed("Emily"),
-		get_account_id_from_seed("Frank"),
-		get_account_id_from_seed("Centrality"),
-		get_account_id_from_seed("Kauri"),
-		get_account_id_from_seed("Rimu"),
-		get_account_id_from_seed("cennznet-js-test"),
-		get_account_id_from_seed("Andrea//stash"),
-		get_account_id_from_seed("Brooke//stash"),
-		get_account_id_from_seed("Courtney//stash"),
-		get_account_id_from_seed("Drew//stash"),
-		get_account_id_from_seed("Emily//stash"),
-		get_account_id_from_seed("Frank//stash"),
-		get_account_id_from_seed("Centrality//stash"),
-		get_account_id_from_seed("Kauri//stash"),
-		get_account_id_from_seed("Rimu//stash"),
-		get_account_id_from_seed("cennznet-js-test//stash"),
+		hex!["00002ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["11112ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["22222ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["33332ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["aaaa2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["bbbb2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["cccc2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		hex!["dddd2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
 	];
 	let initial_authorities = vec![
-		get_authority_keys_from_seed("Andrea"),
-		get_authority_keys_from_seed("Brooke"),
-		get_authority_keys_from_seed("Courtney"),
-		get_authority_keys_from_seed("Drew"),
+		(
+			hex!["00002ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["00003ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["00004ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		),
+		(
+			hex!["11112ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["11113ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["11114ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		),
+		(
+			hex!["22222ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["22223ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["22224ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		),
+		(
+			hex!["33332ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["33333ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+			hex!["33334ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into(),
+		),
 	];
-	let root_key = get_account_id_from_seed("Kauri");
-	return NetworkKeyConfig { endowed_accounts, initial_authorities, root_key };
+	let root_key = hex!["99992ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].unchecked_into();
+	return NetworkKeys {
+		endowed_accounts,
+		initial_authorities,
+		root_key,
+	};
 }
