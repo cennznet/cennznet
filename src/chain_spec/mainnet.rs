@@ -1,12 +1,11 @@
-use super::{ChainSpec, GenesisConfig, TELEMETRY_URL};
-use cennznet_primitives::AccountId;
+use super::{ChainSpec, GenesisConfig, NetworkKeys, TELEMETRY_URL};
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
 use hex_literal::{hex, hex_impl};
-use primitives::{crypto::UncheckedInto, ed25519::Public as AuthorityId};
+use primitives::crypto::UncheckedInto;
 use substrate_telemetry::TelemetryEndpoints;
 
 const DOLLARS: u128 = 1_000_000_000_000_000_000;
@@ -17,33 +16,10 @@ const MINUTES: u64 = 60 / SECS_PER_BLOCK;
 const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
 
-fn genesis() -> GenesisConfig {
-	// TODO: change to real addresses
-	let initial_authorities: Vec<(AccountId, AccountId, AuthorityId)> = vec![
-		(
-			hex!["72b52eb36f57b4bae756e4f064cf2e97df80d5f9c2f06ff31206a9be8c7b371c"].unchecked_into(),
-			hex!["f0fae46aeb1a7ce8ca65f2bf885d09cd7f525bc00e9f6e73b5ea74402a2c4c19"].unchecked_into(),
-			hex!["e29624233b2cba342750217aa1883f6ec624134dd306efd230a988e5cb37d9ed"].unchecked_into(),
-		),
-		(
-			hex!["2254035a15597c1c19968be71593d2d0131e18ae90049e49178970f583ac3e17"].unchecked_into(),
-			hex!["eacb8edf6b05cb909a3d2bd8c6bffb13be3069ec6a69f1fa25e46103c5190267"].unchecked_into(),
-			hex!["e19b6b89729a41638e57dead9c993425287d386fa4963306b63f018732843495"].unchecked_into(),
-		),
-		(
-			hex!["fe6211db8bd436e0d1cf37398eac655833fb47497e0f72ec00ab160c88966b7e"].unchecked_into(),
-			hex!["f06dd616c75cc4b2b01f325accf79b4f66a525ede0a59f48dcce2322b8798f5c"].unchecked_into(),
-			hex!["1be80f2d4513a1fbe0e5163874f729baa5498486ac3914ac3fe2e1817d7b3f44"].unchecked_into(),
-		),
-		(
-			hex!["60779817899466dbd476a0bc3a38cc64b7774d5fb646c3d291684171e67a0743"].unchecked_into(),
-			hex!["2a32622a5da54a80dc704a05f2d761c96d4748beedd83f61ca20a90f4a257678"].unchecked_into(),
-			hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into(),
-		),
-	];
-	let root_key = hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into();
-	let endowed_accounts: Vec<AccountId> =
-		vec![hex!["c224ccba63292331623bbf06a55f46607824c2580071a80a17c53cab2f999e2f"].unchecked_into()];
+fn genesis(keys: NetworkKeys) -> GenesisConfig {
+	let endowed_accounts = keys.endowed_accounts;
+	let initial_authorities = keys.initial_authorities;
+	let root_key = keys.root_key;
 
 	let transaction_base_fee = 1000 * MICRO_DOLLARS;
 	let transaction_byte_fee = 5 * MICRO_DOLLARS;
@@ -203,12 +179,16 @@ pub fn config() -> Result<ChainSpec, String> {
 		.map_err(|e| format!("Error loading genesis for CENNZnet {}", e))
 }
 
+fn mainnet_config_genesis() -> GenesisConfig {
+	genesis(mainnet_keys())
+}
+
 pub fn latest_config() -> Result<ChainSpec, String> {
 	// TODO: update this
 	Ok(ChainSpec::from_genesis(
 		"CENNZnet",
 		"cennznet",
-		genesis,
+		mainnet_config_genesis,
 		vec![
 			String::from(
 				"/dns4/cennznet-bootnode-0.centrality.me/tcp/30333/p2p/Qmdpvn9xttHZ5SQePVhhsk8dFMHCUaS3EDQcGDZ8MuKbx2",
@@ -225,4 +205,38 @@ pub fn latest_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 	))
+}
+
+fn mainnet_keys() -> NetworkKeys {
+	// TODO: change placeholder keys to real keys
+	let endowed_accounts =
+		vec![hex!["c224ccba63292331623bbf06a55f46607824c2580071a80a17c53cab2f999e2f"].unchecked_into()];
+	let initial_authorities = vec![
+		(
+			hex!["72b52eb36f57b4bae756e4f064cf2e97df80d5f9c2f06ff31206a9be8c7b371c"].unchecked_into(),
+			hex!["f0fae46aeb1a7ce8ca65f2bf885d09cd7f525bc00e9f6e73b5ea74402a2c4c19"].unchecked_into(),
+			hex!["e29624233b2cba342750217aa1883f6ec624134dd306efd230a988e5cb37d9ed"].unchecked_into(),
+		),
+		(
+			hex!["2254035a15597c1c19968be71593d2d0131e18ae90049e49178970f583ac3e17"].unchecked_into(),
+			hex!["eacb8edf6b05cb909a3d2bd8c6bffb13be3069ec6a69f1fa25e46103c5190267"].unchecked_into(),
+			hex!["e19b6b89729a41638e57dead9c993425287d386fa4963306b63f018732843495"].unchecked_into(),
+		),
+		(
+			hex!["fe6211db8bd436e0d1cf37398eac655833fb47497e0f72ec00ab160c88966b7e"].unchecked_into(),
+			hex!["f06dd616c75cc4b2b01f325accf79b4f66a525ede0a59f48dcce2322b8798f5c"].unchecked_into(),
+			hex!["1be80f2d4513a1fbe0e5163874f729baa5498486ac3914ac3fe2e1817d7b3f44"].unchecked_into(),
+		),
+		(
+			hex!["60779817899466dbd476a0bc3a38cc64b7774d5fb646c3d291684171e67a0743"].unchecked_into(),
+			hex!["2a32622a5da54a80dc704a05f2d761c96d4748beedd83f61ca20a90f4a257678"].unchecked_into(),
+			hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into(),
+		),
+	];
+	let root_key = hex!["f54d9f5ed217ce07c0c5faa5277a0356f8bfd884d201f9d2c9e171568e1bf077"].unchecked_into();;
+	return NetworkKeys {
+		endowed_accounts,
+		initial_authorities,
+		root_key,
+	};
 }
