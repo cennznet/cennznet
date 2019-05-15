@@ -1,10 +1,11 @@
-use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, TELEMETRY_URL};
+use super::{get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, GenesisConfig, NetworkKeyConfig, TELEMETRY_URL};
 use cennznet_primitives::AccountId;
 use cennznet_runtime::{
 	CennzxSpotConfig, ConsensusConfig, ContractConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig, Fee,
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
+use hex_literal::{hex, hex_impl};
 use primitives::ed25519::Public as AuthorityId;
 use substrate_telemetry::TelemetryEndpoints;
 
@@ -16,29 +17,11 @@ const MINUTES: u64 = 60 / SECS_PER_BLOCK;
 const HOURS: u64 = MINUTES * 60;
 const DAYS: u64 = HOURS * 24;
 
-fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, root_key: AccountId) -> GenesisConfig {
-	let endowed_accounts = vec![
-		get_account_id_from_seed("Andrea"),
-		get_account_id_from_seed("Brooke"),
-		get_account_id_from_seed("Courtney"),
-		get_account_id_from_seed("Drew"),
-		get_account_id_from_seed("Emily"),
-		get_account_id_from_seed("Frank"),
-		get_account_id_from_seed("Centrality"),
-		get_account_id_from_seed("Kauri"),
-		get_account_id_from_seed("Rimu"),
-		get_account_id_from_seed("cennznet-js-test"),
-		get_account_id_from_seed("Andrea//stash"),
-		get_account_id_from_seed("Brooke//stash"),
-		get_account_id_from_seed("Courtney//stash"),
-		get_account_id_from_seed("Drew//stash"),
-		get_account_id_from_seed("Emily//stash"),
-		get_account_id_from_seed("Frank//stash"),
-		get_account_id_from_seed("Centrality//stash"),
-		get_account_id_from_seed("Kauri//stash"),
-		get_account_id_from_seed("Rimu//stash"),
-		get_account_id_from_seed("cennznet-js-test//stash"),
-	];
+fn genesis(keys: NetworkKeys) -> GenesisConfig {
+	let endowed_accounts = keys.endowed_accounts;
+	let initial_authorities = keys.initial_authorities;
+	let root_key = keys.root_key;
+
 	let transaction_base_fee = 1000 * MICRO_DOLLARS;
 	let transaction_byte_fee = 5 * MICRO_DOLLARS;
 	let transfer_fee = 480 * MICRO_DOLLARS;
@@ -203,27 +186,11 @@ pub fn rimu_config() -> Result<ChainSpec, String> {
 }
 
 fn kauri_config_genesis() -> GenesisConfig {
-	genesis(
-		vec![
-			get_authority_keys_from_seed("Andrea"),
-			get_authority_keys_from_seed("Brooke"),
-			get_authority_keys_from_seed("Courtney"),
-			get_authority_keys_from_seed("Drew"),
-		],
-		get_account_id_from_seed("Kauri").into(),
-	)
+	genesis(kauri_keys())
 }
 
 fn rimu_config_genesis() -> GenesisConfig {
-	genesis(
-		vec![
-			get_authority_keys_from_seed("Andrea"),
-			get_authority_keys_from_seed("Brooke"),
-			get_authority_keys_from_seed("Courtney"),
-			get_authority_keys_from_seed("Drew"),
-		],
-		get_account_id_from_seed("Rimu").into(),
-	)
+	genesis(rimu_keys())
 }
 
 pub fn kauri_latest_config() -> Result<ChainSpec, String> {
@@ -255,10 +222,16 @@ pub fn rimu_latest_config() -> Result<ChainSpec, String> {
 		"rimu-0.9.20",
 		rimu_config_genesis,
 		vec![
-				String::from("/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"),
-				String::from("/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"),
-				String::from("/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC")
-			],
+			String::from(
+				"/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"
+			),
+			String::from(
+				"/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"
+			),
+			String::from(
+				"/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
+			)
+		],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
 		Some("rimu20"), // protocol id, unique for each chain
 		None,
@@ -277,4 +250,70 @@ pub fn kauri_dev_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 	))
+}
+
+fn kauri_keys() -> NetworkKeys {
+	let endowed_accounts = vec![
+		get_account_id_from_seed("Andrea"),
+		get_account_id_from_seed("Brooke"),
+		get_account_id_from_seed("Courtney"),
+		get_account_id_from_seed("Drew"),
+		get_account_id_from_seed("Emily"),
+		get_account_id_from_seed("Frank"),
+		get_account_id_from_seed("Centrality"),
+		get_account_id_from_seed("Kauri"),
+		get_account_id_from_seed("Rimu"),
+		get_account_id_from_seed("cennznet-js-test"),
+		get_account_id_from_seed("Andrea//stash"),
+		get_account_id_from_seed("Brooke//stash"),
+		get_account_id_from_seed("Courtney//stash"),
+		get_account_id_from_seed("Drew//stash"),
+		get_account_id_from_seed("Emily//stash"),
+		get_account_id_from_seed("Frank//stash"),
+		get_account_id_from_seed("Centrality//stash"),
+		get_account_id_from_seed("Kauri//stash"),
+		get_account_id_from_seed("Rimu//stash"),
+		get_account_id_from_seed("cennznet-js-test//stash"),
+	];
+	let initial_authorities = vec![
+		get_authority_keys_from_seed("Andrea"),
+		get_authority_keys_from_seed("Brooke"),
+		get_authority_keys_from_seed("Courtney"),
+		get_authority_keys_from_seed("Drew"),
+	];
+	let root_key = get_account_id_from_seed("Kauri");
+	return NetworkKeyConfig { endowed_accounts, initial_authorities, root_key };
+}
+
+fn rimu_keys() -> NetworkKeys {
+	let endowed_accounts = vec![
+		get_account_id_from_seed("Andrea"),
+		get_account_id_from_seed("Brooke"),
+		get_account_id_from_seed("Courtney"),
+		get_account_id_from_seed("Drew"),
+		get_account_id_from_seed("Emily"),
+		get_account_id_from_seed("Frank"),
+		get_account_id_from_seed("Centrality"),
+		get_account_id_from_seed("Kauri"),
+		get_account_id_from_seed("Rimu"),
+		get_account_id_from_seed("cennznet-js-test"),
+		get_account_id_from_seed("Andrea//stash"),
+		get_account_id_from_seed("Brooke//stash"),
+		get_account_id_from_seed("Courtney//stash"),
+		get_account_id_from_seed("Drew//stash"),
+		get_account_id_from_seed("Emily//stash"),
+		get_account_id_from_seed("Frank//stash"),
+		get_account_id_from_seed("Centrality//stash"),
+		get_account_id_from_seed("Kauri//stash"),
+		get_account_id_from_seed("Rimu//stash"),
+		get_account_id_from_seed("cennznet-js-test//stash"),
+	];
+	let initial_authorities = vec![
+		get_authority_keys_from_seed("Andrea"),
+		get_authority_keys_from_seed("Brooke"),
+		get_authority_keys_from_seed("Courtney"),
+		get_authority_keys_from_seed("Drew"),
+	];
+	let root_key = get_account_id_from_seed("Kauri");
+	return NetworkKeyConfig { endowed_accounts, initial_authorities, root_key };
 }

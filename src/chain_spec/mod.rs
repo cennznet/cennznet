@@ -14,6 +14,12 @@ pub const TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 
+pub struct NetworkKeys {
+	pub endowed_accounts: Vec<AccountId>,
+	pub initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
+	pub root_key: AccountId,
+}
+
 /// Helper function to generate AccountId from seed
 pub fn get_account_id_from_seed(seed: &str) -> AccountId {
 	sr25519::Pair::from_string(&format!("//{}", seed), None)
