@@ -251,7 +251,7 @@ construct_runtime!(
 		Contract: contract::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: sudo,
 		Fees: fees::{Module, Call, Fee, Storage, Config<T>, Event<T>},
-		Rewards: rewards::{Module, Storage, Config<T>},
+		Rewards: rewards::{Module, Call, Storage, Config<T>},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		CennzxSpot: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
