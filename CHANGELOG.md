@@ -1,7 +1,16 @@
-# Runtime version 22 (master)
+# Runtime version 23 (master)
 - Substrate commit: xxx
 - Breaking changes:
+- New features:
+- New notable Substrate changes:
+
+# Runtime version 22
+- Substrate commit: https://github.com/paritytech/substrate/commit/d14f56adc642e295786144d9de574995b7df6a86
+- Breaking changes:
 	- Remove treasury module
+- Bug fixes:
+	- Add Reward Call
+	- Reduce reward and staking amount to workaround overflow issue in staking module
 - New features:
 - New notable Substrate changes:
 
