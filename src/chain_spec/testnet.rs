@@ -10,7 +10,8 @@ use hex_literal::{hex, hex_impl};
 use primitives::crypto::UncheckedInto;
 use substrate_telemetry::TelemetryEndpoints;
 
-const DOLLARS: u128 = 1_000_000_000_000_000_000;
+// should be 1_000_000_000_000_000_000 but remove some zeros to make number smaller to reduce the chance of overflow issue
+const DOLLARS: u128 = 1_000_000_000_000;
 const MICRO_DOLLARS: u128 = DOLLARS / 1_000_000;
 
 const SECS_PER_BLOCK: u64 = 10;
@@ -57,7 +58,7 @@ fn genesis(keys: NetworkKeys) -> GenesisConfig {
 			sessions_per_era: 5,
 			bonding_duration: 2,
 			offline_slash: Perbill::from_billionths(1000000),
-			session_reward: Perbill::from_billionths(1000),
+			session_reward: Perbill::from_billionths(10),
 			current_session_reward: 0,
 			offline_slash_grace: 3,
 			stakers: initial_authorities
@@ -150,7 +151,7 @@ fn genesis(keys: NetworkKeys) -> GenesisConfig {
 				16004, // CERTI-T
 				16005, // ARDA-T
 			],
-			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			initial_balance: 10u128.pow(9) * DOLLARS, // 1 billion token
 			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
 			next_asset_id: 17000,
 			create_asset_stake: 1000,
@@ -170,7 +171,7 @@ fn genesis(keys: NetworkKeys) -> GenesisConfig {
 			core_asset_id: 16001,
 		}),
 		rewards: Some(RewardsConfig {
-			block_reward: 1 * DOLLARS,
+			block_reward: 10 * MICRO_DOLLARS,
 			fee_reward_multiplier: Permill::from_percent(70),
 		}),
 	}
