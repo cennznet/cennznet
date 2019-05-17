@@ -28,7 +28,7 @@ fn set_reward_parameters_works() {
 			assert_eq!(Rewards::block_reward(), (s_plus_one + k) * m / (s_plus_one * m + k) * 7);
 			assert_eq!(
 				Rewards::fee_reward_multiplier(),
-				Permill::from_millionths((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
+				Permill::from_parts((s_plus_one * m * 1_000_000 / (s_plus_one * m + k)) as u32,)
 			);
 
 			// large range (unlikely to happen, but it should work)
