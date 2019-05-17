@@ -55,7 +55,7 @@ decl_module! {
 			<FeeRewardMultiplier<T>>::put(
 				// `fee_reward_multiplier_bill` cannot overflow u32, since (s_plus_one * qmax)/(s_plus_one * qmax + k)
 				// always smaller than 1.
-				Permill::from_millionths(fee_reward_multiplier_mill.as_() as u32),
+				Permill::from_parts(fee_reward_multiplier_mill.as_() as u32),
 			);
 
 			Ok(())

@@ -55,8 +55,8 @@ pub fn genesis(initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>, ro
 			validator_count: 4,
 			sessions_per_era: 5,
 			bonding_duration: 12,
-			offline_slash: Perbill::from_billionths(1000),
-			session_reward: Perbill::from_billionths(10000),
+			offline_slash: Perbill::from_parts(1000),
+			session_reward: Perbill::from_parts(10000),
 			current_session_reward: 0,
 			offline_slash_grace: 0,
 			stakers: initial_authorities

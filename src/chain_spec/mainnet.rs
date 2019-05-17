@@ -54,8 +54,8 @@ fn genesis(keys: NetworkKeys) -> GenesisConfig {
 			validator_count: 10,
 			sessions_per_era: 6, // 6hr
 			bonding_duration: 12,
-			offline_slash: Perbill::from_billionths(1000000),
-			session_reward: Perbill::from_billionths(1000),
+			offline_slash: Perbill::from_parts(1000000),
+			session_reward: Perbill::from_parts(1000),
 			current_session_reward: 0,
 			offline_slash_grace: 3,
 			stakers: initial_authorities
