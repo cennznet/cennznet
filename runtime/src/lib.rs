@@ -132,7 +132,7 @@ impl timestamp::Trait for Runtime {
 
 impl session::Trait for Runtime {
 	type ConvertAccountIdToSessionKey = ();
-	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+	type OnSessionChange = (rewards::Module<Self>, Staking, grandpa::SyncedAuthorities<Runtime>);
 	type Event = Event;
 }
 
