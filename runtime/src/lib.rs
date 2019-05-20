@@ -132,7 +132,7 @@ impl timestamp::Trait for Runtime {
 
 impl session::Trait for Runtime {
 	type ConvertAccountIdToSessionKey = ();
-	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+	type OnSessionChange = (Rewards, Staking, grandpa::SyncedAuthorities<Runtime>);
 	type Event = Event;
 }
 
@@ -140,6 +140,8 @@ impl staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
 	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type CurrencyToReward = Balance;
+	type BalanceToU128 = Balance;
+	type U128ToBalance = Balance;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = ();
 	type Event = Event;
@@ -200,8 +202,8 @@ impl generic_asset::Trait for Runtime {
 impl fees::Trait for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
-	type BuyFeeAsset = cennzx_spot::Module<Self>;
-	type OnFeeCharged = rewards::Module<Self>;
+	type BuyFeeAsset = CennzxSpot;
+	type OnFeeCharged = Rewards;
 	type Fee = Fee;
 }
 
