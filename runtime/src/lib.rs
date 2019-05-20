@@ -140,6 +140,8 @@ impl staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
 	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type CurrencyToReward = Balance;
+	type BalanceToU128 = Balance;
+	type U128ToBalance = Balance;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = ();
 	type Event = Event;

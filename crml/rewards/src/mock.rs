@@ -75,6 +75,8 @@ impl staking::Trait for Test {
 	type Currency = StakingAssetCurrency<Test>;
 	type RewardCurrency = SpendingAssetCurrency<Test>;
 	type CurrencyToReward = u128;
+	type BalanceToU128 = u128;
+	type U128ToBalance = u128;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type OnRewardMinted = ();
 	type Event = ();
