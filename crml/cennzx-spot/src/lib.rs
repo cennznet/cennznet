@@ -43,14 +43,14 @@ decl_module! {
 		/// `asset_sold` - asset ID 1 to sell
 		/// `asset_bought` - asset ID 2 to buy
 		/// `buy_amount` - The amount of asset '2' to purchase
-		/// `max_asset_sale` - Maximum trade asset '1' to sell
+		/// `max_paying_amount` - Maximum trade asset '1' to sell
 		pub fn asset_swap_output(
 			origin,
 			recipient: Option<T::AccountId>,
 			#[compact] asset_sold: T::AssetId,
 			#[compact] asset_bought: T::AssetId,
 			#[compact] buy_amount: T::Balance,
-			#[compact] max_asset_sale: T::Balance
+			#[compact] max_paying_amount: T::Balance
 		) -> Result {
 			let buyer = ensure_signed(origin)?;
 			let _ = Self::make_asset_swap_output(
@@ -59,7 +59,7 @@ decl_module! {
 				&asset_sold,
 				&asset_bought,
 				buy_amount,
-				max_asset_sale,
+				max_paying_amount,
 				Self::fee_rate()
 			)?;
 			Ok(())
@@ -72,14 +72,14 @@ decl_module! {
 		/// `asset_sold` - asset ID 1 to sell
 		/// `asset_bought` - asset ID 2 to buy
 		/// `sell_amount` - The amount of asset '1' to sell
-		/// `min_asset_sale` - Minimum trade asset '2' to receive from sale
+		/// `min_receive` - Minimum trade asset '2' to receive from sale
 		pub fn asset_swap_input(
 			origin,
 			recipient: Option<T::AccountId>,
 			#[compact] asset_sold: T::AssetId,
 			#[compact] asset_bought: T::AssetId,
 			#[compact] sell_amount: T::Balance,
-			#[compact] min_asset_sale: T::Balance
+			#[compact] min_receive: T::Balance
 		) -> Result {
 			let seller = ensure_signed(origin)?;
 			let _ = Self::make_asset_swap_input(
@@ -88,7 +88,7 @@ decl_module! {
 				&asset_sold,
 				&asset_bought,
 				sell_amount,
-				min_asset_sale,
+				min_receive,
 				Self::fee_rate()
 			)?;
 			Ok(())
@@ -269,14 +269,14 @@ impl<T: Trait> Module<T> {
 	/// `recipient` - The address receiving payment of output asset
 	/// `asset_id` - The asset ID to trade
 	/// `sell_amount` - Amount of core asset to sell (input)
-	/// `min_sale` -  The minimum trade asset value of the sale (output)
+	/// `min_receive` -  The minimum trade asset value of the sale (output)
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_input(
 		seller: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
-		min_sale: T::Balance,
+		min_receive: T::Balance,
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let sale_value = Self::get_core_to_asset_input_price(asset_id, sell_amount, fee_rate)?;
@@ -286,7 +286,7 @@ impl<T: Trait> Module<T> {
 			"Asset sale value should be greater than zero"
 		);
 		ensure!(
-			sale_value >= min_sale,
+			sale_value >= min_receive,
 			"The sale value of input is less than the required min."
 		);
 		let core_asset_id = Self::core_asset_id();
@@ -315,14 +315,14 @@ impl<T: Trait> Module<T> {
 	/// Trade asset (`asset_id`) to core asset at the given `fee_rate`
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
-	/// `max_sale` -  Maximum asset to sell (input)
+	/// `max_paying_amount` -  Maximum asset to sell (input)
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_asset_to_core_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		max_sale: T::Balance,
+		max_paying_amount: T::Balance,
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount, fee_rate)?;
@@ -331,7 +331,7 @@ impl<T: Trait> Module<T> {
 			"Amount of asset sold should be greater than zero"
 		);
 		ensure!(
-			max_sale >= sold_amount,
+			max_paying_amount >= sold_amount,
 			"Amount of asset sold would exceed the specified max. limit"
 		);
 		ensure!(
@@ -362,14 +362,14 @@ impl<T: Trait> Module<T> {
 	/// `recipient` - Account receiving trade asset
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
-	/// `max_sale` -  Maximum asset to sell (input)
+	/// `max_paying_amount` -  Maximum asset to sell (input)
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		max_sale: T::Balance,
+		max_paying_amount: T::Balance,
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
@@ -378,7 +378,7 @@ impl<T: Trait> Module<T> {
 			"Amount of core asset sold should be greater than zero"
 		);
 		ensure!(
-			max_sale >= sold_amount,
+			max_paying_amount >= sold_amount,
 			"Amount of core asset sold would exceed the specified max. limit"
 		);
 		let core_asset_id = Self::core_asset_id();
@@ -478,13 +478,13 @@ impl<T: Trait> Module<T> {
 	///
 	/// `asset_id` - Trade asset ID
 	/// `sell_amount` - Exact amount of trade asset to be sold
-	/// `min_sale` - Minimum amount of core asset to receive from sale
+	/// `min_receive` - Minimum amount of core asset to receive from sale
 	fn make_asset_to_core_input(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
-		min_sale: T::Balance,
+		min_receive: T::Balance,
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		ensure!(
@@ -495,7 +495,7 @@ impl<T: Trait> Module<T> {
 		let sale_value = Self::get_asset_to_core_input_price(asset_id, sell_amount, fee_rate)?;
 
 		ensure!(
-			sale_value >= min_sale,
+			sale_value >= min_receive,
 			"The sale value of input is less than the required min."
 		);
 
@@ -749,7 +749,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_sold` - asset ID 1 to sell
 	/// `asset_bought` - asset ID 2 to buy
 	/// `buy_amount` - The amount of asset '2' to purchase
-	/// `max_asset_sale` - Maximum trade asset '1' to sell
+	/// `max_paying_amount` - Maximum trade asset '1' to sell
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_swap_output(
 		buyer: &T::AccountId,
@@ -757,17 +757,17 @@ impl<T: Trait> Module<T> {
 		asset_sold: &T::AssetId,
 		asset_bought: &T::AssetId,
 		buy_amount: T::Balance,
-		max_asset_sale: T::Balance,
+		max_paying_amount: T::Balance,
 		fee_rate: FeeRate,
 	) -> Result {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
 		if *asset_sold == core_asset {
 			let _ =
-				Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_asset_sale, fee_rate)?;
+				Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount, fee_rate)?;
 		} else if *asset_bought == core_asset {
 			let _ =
-				Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_asset_sale, fee_rate)?;
+				Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount, fee_rate)?;
 		} else {
 			let _ = Self::make_asset_to_asset_output(
 				buyer,
@@ -775,7 +775,7 @@ impl<T: Trait> Module<T> {
 				asset_sold,
 				asset_bought,
 				buy_amount,
-				max_asset_sale,
+				max_paying_amount,
 				fee_rate,
 			)?;
 		}
@@ -790,7 +790,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_sold` - asset ID 1 to sell
 	/// `asset_bought` - asset ID 2 to buy
 	/// `sell_amount` - The amount of asset '1' to sell
-	/// `min_asset_sale` - Minimum trade asset '2' to receive from sale
+	/// `min_receive` - Minimum trade asset '2' to receive from sale
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_swap_input(
 		seller: &T::AccountId,
@@ -798,17 +798,17 @@ impl<T: Trait> Module<T> {
 		asset_sold: &T::AssetId,
 		asset_bought: &T::AssetId,
 		sell_amount: T::Balance,
-		min_asset_sale: T::Balance,
+		min_receive: T::Balance,
 		fee_rate: FeeRate,
 	) -> Result {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
 		if *asset_sold == core_asset {
 			let _ =
-				Self::make_core_to_asset_input(seller, recipient, asset_bought, sell_amount, min_asset_sale, fee_rate)?;
+				Self::make_core_to_asset_input(seller, recipient, asset_bought, sell_amount, min_receive, fee_rate)?;
 		} else if *asset_bought == core_asset {
 			let _ =
-				Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_asset_sale, fee_rate)?;
+				Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_receive, fee_rate)?;
 		} else {
 			let _ = Self::make_asset_to_asset_input(
 				seller,
@@ -816,7 +816,7 @@ impl<T: Trait> Module<T> {
 				asset_sold,
 				asset_bought,
 				sell_amount,
-				min_asset_sale,
+				min_receive,
 				fee_rate,
 			)?;
 		}
