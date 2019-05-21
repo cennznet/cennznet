@@ -43,7 +43,7 @@ decl_module! {
 		/// `asset_sold` - asset ID 1 to sell
 		/// `asset_bought` - asset ID 2 to buy
 		/// `buy_amount` - The amount of asset '2' to purchase
-		/// `max_paying_amount` - Maximum trade asset '1' to sell
+		/// `max_paying_amount` - Maximum trade asset '1' to pay
 		pub fn asset_swap_output(
 			origin,
 			recipient: Option<T::AccountId>,
@@ -269,7 +269,7 @@ impl<T: Trait> Module<T> {
 	/// `recipient` - The address receiving payment of output asset
 	/// `asset_id` - The asset ID to trade
 	/// `sell_amount` - Amount of core asset to sell (input)
-	/// `min_receive` -  The minimum trade asset value of the sale (output)
+	/// `min_receive` -  The minimum trade asset value to receive from sale (output)
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_input(
 		seller: &T::AccountId,
@@ -315,7 +315,7 @@ impl<T: Trait> Module<T> {
 	/// Trade asset (`asset_id`) to core asset at the given `fee_rate`
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
-	/// `max_paying_amount` -  Maximum asset to sell (input)
+	/// `max_paying_amount` -  Maximum asset to pay
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_asset_to_core_output(
 		buyer: &T::AccountId,
@@ -362,7 +362,7 @@ impl<T: Trait> Module<T> {
 	/// `recipient` - Account receiving trade asset
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
-	/// `max_paying_amount` -  Maximum asset to sell (input)
+	/// `max_paying_amount` -  Maximum asset to pay
 	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_output(
 		buyer: &T::AccountId,
@@ -749,7 +749,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_sold` - asset ID 1 to sell
 	/// `asset_bought` - asset ID 2 to buy
 	/// `buy_amount` - The amount of asset '2' to purchase
-	/// `max_paying_amount` - Maximum trade asset '1' to sell
+	/// `max_paying_amount` - Maximum trade asset '1' to pay
 	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_swap_output(
 		buyer: &T::AccountId,
