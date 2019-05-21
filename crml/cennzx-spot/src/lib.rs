@@ -763,8 +763,14 @@ impl<T: Trait> Module<T> {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
 		if *asset_sold == core_asset {
-			let _ =
-				Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount, fee_rate)?;
+			let _ = Self::make_core_to_asset_output(
+				buyer,
+				recipient,
+				asset_bought,
+				buy_amount,
+				max_paying_amount,
+				fee_rate,
+			)?;
 		} else if *asset_bought == core_asset {
 			let _ =
 				Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount, fee_rate)?;
@@ -807,8 +813,7 @@ impl<T: Trait> Module<T> {
 			let _ =
 				Self::make_core_to_asset_input(seller, recipient, asset_bought, sell_amount, min_receive, fee_rate)?;
 		} else if *asset_bought == core_asset {
-			let _ =
-				Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_receive, fee_rate)?;
+			let _ = Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_receive, fee_rate)?;
 		} else {
 			let _ = Self::make_asset_to_asset_input(
 				seller,
