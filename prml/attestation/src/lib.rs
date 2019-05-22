@@ -1,26 +1,26 @@
 //! # Attestation Module
-//! 
+//!
 //! The Attestation module provides functionality for entities to create attestation claims about one another.  
-//! 
+//!
 //! This module borrows heavily from ERC 780 https://github.com/ethereum/EIPs/issues/780
-//! 
+//!
 //! ## Terminology
-//! 
+//!
 //! Issuer: the entity creating the claim  
 //! Holder: the entity that the claim is about  
 //! Topic: the topic which the claim is about ie isOver18  
 //! Value: any value pertaining to the claim
-//! 
+//!
 //! ## Usage
-//! 
-//! Topic and Value are U256 integers. This means that Topic and Value can technically store any value that can be represented in 256 bits. 
-//! 
-//! The user of the module must convert whatever value that they would like to store into a value that can be stored as a U256. 
-//! 
+//!
+//! Topic and Value are U256 integers. This means that Topic and Value can technically store any value that can be represented in 256 bits.
+//!
+//! The user of the module must convert whatever value that they would like to store into a value that can be stored as a U256.
+//!
 //! It is recommended that Topic be a string value converted to hex and stored on the blockchain as a U256.  
 //! Value is typically the hash of an off-chain attestation document but can be any value that fits the application's needs.
-//! 
-//! 
+//!
+//!
 //! We recommend that you use the Attestation Javascript SDK when working with this module. The SDK can be found at ''
 // TODO add the SDK github link
 
@@ -33,8 +33,8 @@ extern crate srml_support as runtime_support;
 
 extern crate sr_io as io;
 extern crate sr_primitives as primitives;
-extern crate substrate_primitives;
 extern crate srml_system as system;
+extern crate substrate_primitives;
 
 use runtime_support::rstd::prelude::*;
 use runtime_support::{dispatch::Result, StorageMap};
