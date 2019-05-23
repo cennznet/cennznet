@@ -23,8 +23,8 @@ use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
 use runtime_primitives::generic::Era;
 use runtime_primitives::traits::{
-	self, BlockNumberToHash, Checkable, CurrentHeight, Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic,
-	Verify,
+	self, BlockNumberToHash, Checkable, CurrentHeight, Doughnuted, Extrinsic, Lookup, MaybeDisplay, Member,
+	SimpleArithmetic, Verify,
 };
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
@@ -440,6 +440,15 @@ impl<Balance: HasCompact> FeeExchange<Balance> {
 	/// Create a new FeeExchange
 	pub fn new(asset_id: u32, max_payment: Balance) -> Self {
 		Self { asset_id, max_payment }
+	}
+}
+
+impl<AccountId: Encode + Clone, Address, Index, Call, Signature: Encode + Clone, Balance: HasCompact> Doughnuted
+	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
+{
+	type Doughnut = Doughnut<AccountId, Signature>;
+	fn doughnut(&self) -> Option<&Doughnut<AccountId, Signature>> {
+		self.doughnut.as_ref()
 	}
 }
 

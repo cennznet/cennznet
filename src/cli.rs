@@ -33,15 +33,11 @@ pub enum ChainSpec {
 
 	/// The CENNZnet Kauri testnet.
 	CennznetKauri,
-	/// The CENNZnet Rumi testnet.
-	CennznetRimu,
 	/// The CENNZnet Kauri for local test purpose
 	CennznetKauriDev,
 
 	/// The CENNZnet Kauri testnet, with latest runtime
 	CennznetKauriLatest,
-	/// The CENNZnet Rumi testnet, with latest runtime
-	CennznetRimuLatest,
 	/// The CENNZnet to be mainnet, with latest runtime
 	CennznetMainLatest,
 }
@@ -53,10 +49,8 @@ impl ChainSpec {
 			ChainSpec::CennznetMain => chain_spec::mainnet::config(),
 			ChainSpec::Development => chain_spec::dev::config(),
 			ChainSpec::CennznetKauri => chain_spec::testnet::kauri_config(),
-			ChainSpec::CennznetRimu => chain_spec::testnet::rimu_config(),
 			ChainSpec::CennznetKauriDev => chain_spec::testnet::kauri_dev_config(),
 			ChainSpec::CennznetKauriLatest => chain_spec::testnet::kauri_latest_config(),
-			ChainSpec::CennznetRimuLatest => chain_spec::testnet::rimu_latest_config(),
 			ChainSpec::CennznetMainLatest => chain_spec::mainnet::latest_config(),
 		}
 	}
@@ -64,12 +58,10 @@ impl ChainSpec {
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"main" | "cennznet" => Some(ChainSpec::CennznetMain),
-			"dev" => Some(ChainSpec::Development),
+			"" | "dev" => Some(ChainSpec::Development),
 			"kauri" => Some(ChainSpec::CennznetKauri),
-			"" | "rimu" => Some(ChainSpec::CennznetRimu),
 			"kauri-dev" => Some(ChainSpec::CennznetKauriDev),
 			"kauri-latest" => Some(ChainSpec::CennznetKauriLatest),
-			"rimu-latest" => Some(ChainSpec::CennznetRimuLatest),
 			"main-latest" => Some(ChainSpec::CennznetMainLatest),
 			_ => None,
 		}

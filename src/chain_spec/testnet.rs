@@ -197,17 +197,8 @@ pub fn kauri_config() -> Result<ChainSpec, String> {
 		.map_err(|e| format!("Error loading genesis for Kauri CENNZnet testnet {}", e))
 }
 
-pub fn rimu_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_embedded(include_bytes!("../../genesis/rimu/genesis.json"))
-		.map_err(|e| format!("Error loading genesis for Rimu CENNZnet testnet {}", e))
-}
-
 fn kauri_config_genesis() -> GenesisConfig {
 	genesis(kauri_keys())
-}
-
-fn rimu_config_genesis() -> GenesisConfig {
-	genesis(rimu_keys())
 }
 
 pub fn kauri_latest_config() -> Result<ChainSpec, String> {
@@ -228,29 +219,6 @@ pub fn kauri_latest_config() -> Result<ChainSpec, String> {
 		],
 		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
 		Some("kauri"), // protocol id, unique for each chain
-		None,
-		None,
-	))
-}
-
-pub fn rimu_latest_config() -> Result<ChainSpec, String> {
-	Ok(ChainSpec::from_genesis(
-		"Rimu CENNZnet 0.9.20",
-		"rimu-0.9.20",
-		rimu_config_genesis,
-		vec![
-			String::from(
-				"/dns4/cennznet-bootnode-0.centrality.cloud/tcp/30333/p2p/QmQZ8TjTqeDj3ciwr93EJ95hxfDsb9pEYDizUAbWpigtQN"
-			),
-			String::from(
-				"/dns4/cennznet-bootnode-1.centrality.cloud/tcp/30333/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"
-			),
-			String::from(
-				"/dns4/cennznet-bootnode-2.centrality.cloud/tcp/30333/p2p/QmYcHeEWuqtr6Gb5EbK7zEhnaCm5p6vA2kWcVjFKbhApaC"
-			)
-		],
-		Some(TelemetryEndpoints::new(vec![(TELEMETRY_URL.into(), 0)])),
-		Some("rimu20"), // protocol id, unique for each chain
 		None,
 		None,
 	))
