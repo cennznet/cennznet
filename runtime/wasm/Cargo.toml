@@ -1,0 +1,28 @@
+[package]
+name = "cennznet-runtime-wasm"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[lib]
+name = "cennznet_runtime"
+crate-type = ["cdylib"]
+
+[dependencies]
+cennznet-runtime = { path = "..", default-features = false }
+
+[features]
+default = ["core"]
+core = [
+	"cennznet-runtime/core",
+]
+std = [
+	"cennznet-runtime/std",
+]
+
+[profile.release]
+panic = "abort"
+lto = true
+
+[workspace]
+members = []

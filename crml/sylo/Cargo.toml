@@ -1,0 +1,33 @@
+[package]
+name = "crml-sylo"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+
+[dependencies]
+serde = { version = "1.0", default-features = false }
+parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-std = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-support = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-system = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-balances = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+
+[dev-dependencies]
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"parity-codec/std",
+	"substrate-primitives/std",
+	"sr-std/std",
+	"sr-io/std",
+	"sr-primitives/std",
+	"srml-support/std",
+	"srml-system/std",
+	"srml-balances/std",
+]

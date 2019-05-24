@@ -1,0 +1,56 @@
+[package]
+name = "cennznet"
+version = "0.9.24-beta"
+authors = ["Centrality Developers <support@centrality.ai>"]
+build = "build.rs"
+edition = "2018"
+
+[[bin]]
+name = "cennznet"
+path = "src/main.rs"
+
+[dependencies]
+error-chain = "0.12"
+futures = "0.1"
+ctrlc = { version = "3.0", features = ["termination"] }
+log = "0.4"
+tokio = "0.1.7"
+exit-future = "0.1"
+hex-literal = "0.1"
+slog = "^2"
+app_dirs = "1.2"
+parity-codec = { version = "3.1" }
+trie-root = { git = "https://github.com/paritytech/trie" }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain.git" }
+sr-primitives = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-cli = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-executor = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-service = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-transaction-pool = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-network = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-consensus-aura = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-keystore = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-client = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+substrate-consensus-common = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-finality-grandpa = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-basic-authorship = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-inherents = { git = "https://github.com/cennznet/plug-blockchain.git" }
+substrate-telemetry = { git = "https://github.com/cennznet/plug-blockchain.git" }
+srml-grandpa = { git = "https://github.com/cennznet/plug-blockchain.git" }
+structopt = "0.2.13"
+cennznet-runtime = { path = "runtime" }
+cennznet-primitives = { path = "primitives" }
+generic-asset = { package = "prml-generic-asset", path = "prml/generic-asset" }
+fees = { package = "prml-fees", path = "prml/fees" }
+
+[build-dependencies]
+vergen = "2"
+
+[workspace]
+members = [ "runtime", "primitives", "crml/*", "prml/*" ]
+exclude = [ "runtime/wasm" ]
+
+[profile.release]
+# Substrate runtime requires unwinding.
+panic = "unwind"

@@ -1,0 +1,34 @@
+[package]
+name = "crml-cennzx-spot"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+cennznet-primitives = { path = "../../primitives", default-features = false }
+fees = { package="prml-fees", path = "../../prml/fees", default-features = false }
+serde = { version = "1.0", optional = true }
+parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+rstd = { package="sr-std", git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+runtime_io = { package="sr-io", git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+runtime_primitives = { package="sr-primitives", git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+system = { package="srml-system", git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+generic-asset = { package="prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"cennznet-primitives/std",
+	"fees/std",
+	"serde",
+	"parity-codec/std",
+	"substrate-primitives/std",
+	"runtime_primitives/std",
+	"runtime_io/std",
+	"rstd/std",
+	"srml-support/std",
+	"system/std",
+	"generic-asset/std",
+]

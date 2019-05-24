@@ -1,0 +1,26 @@
+[package]
+name = "prml-attestation"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-primitives = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-std = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-support = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+srml-system = { git = "https://github.com/cennznet/plug-blockchain.git", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"parity-codec/std",
+	"substrate-primitives/std",
+	"sr-primitives/std",
+	"sr-std/std",
+	"sr-io/std",
+	"srml-support/std",
+	"srml-system/std",
+]
