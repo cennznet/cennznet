@@ -3,9 +3,3 @@ reorder_imports = true
 hard_tabs = true
 max_width = 120
 license_template_path = "LICENSE_TEMPLATE"
-
-# Temp workaround for https://github.com/paritytech/substrate/issues/2114
-# REMOVE THIS RULE WHEN FIXED
-ignore = [
-	"prml/fees/src/lib.rs"
-]
