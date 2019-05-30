@@ -1,6 +1,7 @@
 # Runtime version 24 (master)
 - Substrate commit: xxxx
 - Breaking changes:
+	- Default base path parent folder changed from substrate to cennznet
 - Bug fixes:
 - New features:
 - New notable Substrate changes:
