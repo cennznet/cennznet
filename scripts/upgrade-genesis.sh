@@ -16,11 +16,7 @@ elif [ "$1" == "rimu" ]; then
 	echo Updaing Rimu genesis
 	cargo run -- build-spec --chain=rimu-latest > ./genesis/rimu/readable.json
 	cargo run -- build-spec --chain=./genesis/rimu/readable.json --raw > ./genesis/rimu/genesis.json
-elif [ "$1" == "main" ]; then
-	echo Updaing Mainnet genesis
-	cargo run -- build-spec --chain=main-latest > ./genesis/main/readable.json
-	cargo run -- build-spec --chain=./genesis/main/readable.json --raw > ./genesis/main/genesis.json
 else
-	echo "please provide chain name, valid values are: local, kauri, rimu, main"
+	echo "please provide chain name, valid values are: local, kauri, rimu"
     exit 1
 fi
