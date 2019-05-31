@@ -8,7 +8,7 @@
   ],
   "telemetryEndpoints": [
     [
-      "ws://cennznet-telemetry.centrality.me:1024",
+		"wss://telemetry.polkadot.io/submit/",
       0
     ]
   ],
