@@ -25,44 +25,43 @@ use tokio::runtime::Runtime;
 /// The chain specification option.
 #[derive(Clone, Debug)]
 pub enum ChainSpec {
-	/// The CENNZnet to be mainnet
-	CennznetMain,
-
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
 
 	/// The CENNZnet Kauri testnet.
 	CennznetKauri,
+	/// The CENNZnet Rumi testnet.
+	CennznetRimu,
 	/// The CENNZnet Kauri for local test purpose
 	CennznetKauriDev,
 
 	/// The CENNZnet Kauri testnet, with latest runtime
 	CennznetKauriLatest,
-	/// The CENNZnet to be mainnet, with latest runtime
-	CennznetMainLatest,
+	/// The CENNZnet Rumi testnet, with latest runtime
+	CennznetRimuLatest,
 }
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		match self {
-			ChainSpec::CennznetMain => chain_spec::mainnet::config(),
 			ChainSpec::Development => chain_spec::dev::config(),
 			ChainSpec::CennznetKauri => chain_spec::testnet::kauri_config(),
+			ChainSpec::CennznetRimu => chain_spec::testnet::rimu_config(),
 			ChainSpec::CennznetKauriDev => chain_spec::testnet::kauri_dev_config(),
 			ChainSpec::CennznetKauriLatest => chain_spec::testnet::kauri_latest_config(),
-			ChainSpec::CennznetMainLatest => chain_spec::mainnet::latest_config(),
+			ChainSpec::CennznetRimuLatest => chain_spec::testnet::rimu_latest_config(),
 		}
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
-			"main" | "cennznet" => Some(ChainSpec::CennznetMain),
-			"" | "dev" => Some(ChainSpec::Development),
+			"dev" => Some(ChainSpec::Development),
 			"kauri" => Some(ChainSpec::CennznetKauri),
+			"" | "rimu" => Some(ChainSpec::CennznetRimu),
 			"kauri-dev" => Some(ChainSpec::CennznetKauriDev),
 			"kauri-latest" => Some(ChainSpec::CennznetKauriLatest),
-			"main-latest" => Some(ChainSpec::CennznetMainLatest),
+			"rimu-latest" => Some(ChainSpec::CennznetRimuLatest),
 			_ => None,
 		}
 	}

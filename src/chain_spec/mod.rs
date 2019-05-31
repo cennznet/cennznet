@@ -21,10 +21,9 @@ use primitives::{ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
 
 pub mod dev;
-pub mod mainnet;
 pub mod testnet;
 
-pub const TELEMETRY_URL: &str = "ws://cennznet-telemetry.centrality.me:1024";
+pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialised `ChainSpec`.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
