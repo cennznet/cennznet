@@ -2,7 +2,7 @@
   "name": "Rimu CENNZnet 0.9.20",
   "id": "rimu-0.9.20",
   "bootNodes": [
-	"/dns4/cennznet-bootnode-0.rimu.cennznet.com/tcp/30333/p2p/QmNT8nuygWaiaeryw5J5ZLAKrsij3tXCvdwGRxMiEibzqk",
+    "/dns4/cennznet-bootnode-0.rimu.cennznet.com/tcp/30333/p2p/QmNT8nuygWaiaeryw5J5ZLAKrsij3tXCvdwGRxMiEibzqk",
     "/dns4/cennznet-bootnode-1.rimu.cennznet.com/tcp/30333/p2p/QmQzHJTTB4DdSp1VGWzLiQukLeTK3gGQKdCdbBawr7HEt1",
     "/dns4/cennznet-bootnode-2.rimu.cennznet.com/tcp/30333/p2p/QmQwXguMXwvVxxHwyhfdkhRtu3i5hYSgxz7g3La5y1S9ux",
     "/dns4/cennznet-bootnode-3.rimu.cennznet.com/tcp/30333/p2p/QmdaANAbaitFgVc5CmHhAk9DngoTqzLKpxyJeawJfkwoMW"
