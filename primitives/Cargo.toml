@@ -5,15 +5,15 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 serde = { version = "1.0", default-features = false }
 serde_derive = { version = "1.0", optional = true }
 parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
 
-primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 
 [features]
 default = ["std"]

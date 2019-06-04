@@ -7,12 +7,12 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", default-features = false }
 parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-runtime_io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-system = { package = "srml-system", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+runtime_io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+system = { package = "srml-system", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 
 [features]
 default = ["std"]
