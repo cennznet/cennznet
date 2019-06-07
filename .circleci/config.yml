@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:stretch
+      - image: cennznet/rust-builder
     steps:
       - checkout
       - run:
@@ -10,10 +10,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Init
-          command: ./scripts/init.sh
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}=
       - run:
           name: Build WASM
           command: ./scripts/build.sh
@@ -26,6 +23,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
+            - runtime/wasm/target/wasm32-unknown-unknown/release/
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run tests
