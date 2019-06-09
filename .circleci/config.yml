@@ -1,30 +1,35 @@
 version: 2
 jobs:
   build:
-    docker:
-      - image: cennznet/rust-builder
+    machine:
+      image: ubuntu-1604:201903-01
     steps:
       - checkout
       - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}=
+          name: Install rust
+          command: |
+            echo 'deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-8 main' | sudo tee /etc/apt/sources.list.d/llvm.list
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| sudo apt-key add -
+            sudo apt-get update
+            sudo apt-get remove --purge -y clang llvm
+            sudo apt-get autoremove
+            sudo apt-get -f -y install apt-utils cmake pkg-config libssl-dev git llvm clang-8 || sudo apt-get install -f
+            sudo ln -s /usr/bin/clang-8 /usr/bin/clang
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            rustup default nightly
+            rustup target add wasm32-unknown-unknown --toolchain nightly
+            cargo install --git https://github.com/alexcrichton/wasm-gc
+            rustup target add x86_64-unknown-linux-musl --toolchain=nightly
+            rustup component add rustfmt
+            rustc --version; cargo --version; rustup --version
       - run:
           name: Build WASM
           command: ./scripts/build.sh
       - run:
           name: Build
-          command: cargo build
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - runtime/wasm/target/wasm32-unknown-unknown/release/
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          command: |
+            cargo build
+          no_output_timeout: 30m
       - run:
           name: Run tests
           command: cargo test --all --verbose --locked
