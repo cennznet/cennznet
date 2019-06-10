@@ -13,8 +13,6 @@ export CARGO_INCREMENTAL=0
 # Save current directory.
 pushd .
 
-cd $ROOT
-
 for SRC in "${SRCS[@]}"
 do
   echo "*** Building wasm binaries in $SRC"
