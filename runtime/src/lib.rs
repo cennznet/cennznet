@@ -65,6 +65,7 @@ pub use sylo::inbox as sylo_inbox;
 pub use sylo::response as sylo_response;
 pub use sylo::vault as sylo_vault;
 
+mod doughnut;
 mod fee;
 
 /// Runtime version.
@@ -118,7 +119,7 @@ impl system::Trait for Runtime {
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
-	type Signature = Signature;
+	type DoughnutVerifier = Runtime;
 }
 
 impl aura::Trait for Runtime {

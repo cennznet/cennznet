@@ -18,13 +18,14 @@
 #[cfg(feature = "std")]
 use std::fmt;
 
+use crate::Doughnut;
 use rstd::prelude::*;
 use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
 use runtime_primitives::generic::Era;
 use runtime_primitives::traits::{
-	self, BlockNumberToHash, Checkable, CurrentHeight, Doughnuted, Extrinsic, Lookup, MaybeDisplay, Member,
-	SimpleArithmetic, Verify,
+	self, BlockNumberToHash, Checkable, CurrentHeight, Doughnuted, DoughnutApi,
+	Extrinsic, Lookup, MaybeDisplay, Member, SimpleArithmetic, Verify,
 };
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
@@ -66,9 +67,10 @@ pub struct CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance
 	/// The function that should be called.
 	pub function: Call,
 	/// Doughnut attached
-	pub doughnut: Option<Doughnut<AccountId, Signature>>,
+	pub doughnut: Option<Doughnut>,
 	/// Signals fee payment should use the CENNZX-Spot exchange
 	pub fee_exchange: Option<FeeExchange<Balance>>,
+	phantom: rstd::marker::PhantomData<AccountId>,
 }
 
 /// Definition of something that the external world might want to say; its
@@ -84,6 +86,17 @@ pub struct CheckedCennznetExtrinsic<AccountId, Index, Call, Balance: HasCompact>
 	pub function: Call,
 	/// Signals fee payment should use the CENNZX-Spot exchange
 	pub fee_exchange: Option<FeeExchange<Balance>>,
+	/// An attached doughnut, if any
+	pub doughnut: Option<Doughnut>,
+}
+
+impl<AccountId, Index, Call, Balance: HasCompact> Doughnuted
+	for CheckedCennznetExtrinsic<AccountId, Index, Call, Balance>
+{
+	type Doughnut = Doughnut;
+	fn doughnut(&self) -> Option<&Self::Doughnut> {
+		self.doughnut.as_ref()
+	}
 }
 
 impl<AccountId, Index, Call, Balance> traits::Applyable for CheckedCennznetExtrinsic<AccountId, Index, Call, Balance>
@@ -124,13 +137,14 @@ impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact>
 		signed: Address,
 		signature: Signature,
 		era: Era,
-		doughnut: Option<Doughnut<AccountId, Signature>>,
+		doughnut: Option<Doughnut>,
 	) -> Self {
 		CennznetExtrinsic {
 			signature: Some((signed, signature, index.into(), era)),
 			function,
 			doughnut,
 			fee_exchange: None,
+			phantom: rstd::marker::PhantomData,
 		}
 	}
 
@@ -141,6 +155,7 @@ impl<AccountId, Address, Index, Call, Signature, Balance: HasCompact>
 			function,
 			doughnut: None,
 			fee_exchange: None,
+			phantom: rstd::marker::PhantomData,
 		}
 	}
 }
@@ -161,8 +176,8 @@ where
 	Index: Member + MaybeDisplay + SimpleArithmetic,
 	Compact<Index>: Encode,
 	Call: Encode + Member,
-	Signature: Member + traits::Verify<Signer = AccountId> + Encode,
-	AccountId: Member + MaybeDisplay + Encode,
+	Signature: Member + traits::Verify<Signer = AccountId> + Encode + Decode,
+	AccountId: Member + MaybeDisplay + Decode + Encode,
 	BlockNumber: SimpleArithmetic,
 	Hash: Encode,
 	Context: Lookup<Source = Address, Target = AccountId>
@@ -178,9 +193,11 @@ where
 				signed: None,
 				function: self.function,
 				fee_exchange: self.fee_exchange,
+				doughnut: None,
 			});
 		};
 
+		// If doughnut signer switch is needed. This index will become stale...
 		let (signed, signature, index, era) = self.signature.unwrap();
 		let h = context
 			.block_number_to_hash(BlockNumber::sa(era.birth(context.current_height().as_())))
@@ -211,15 +228,25 @@ where
 			return Err("bad signature in extrinsic");
 		}
 
-		// Doughnuts are signed by their issuer
-		if let Some(d) = self.doughnut {
-			signed = d.certificate.issuer;
+		// Verify doughnut signature. It should be signed by the issuer.
+		if let Some(d) = self.doughnut.clone() {
+			let holder = AccountId::decode(&mut &d.holder()[..]).ok_or("Invalid holder")?;
+			if holder != signed {
+				return Err("bad signature in extrinsic");
+			}
+			// Replace extrinsic `signed` with `issuer`
+			signed = Decode::decode(&mut &d.issuer()[..]).ok_or("Invalid issuer")?;
+			let signature = Signature::decode(&mut &d.signature()[..]).ok_or("Invalid signature")?;
+			if !signature.verify(d.payload().as_ref(), &signed) {
+				return Err("bad signature in doughnut");
+			}
 		}
 
 		Ok(Self::Checked {
 			signed: Some((signed, index.0)),
 			function: self.function,
 			fee_exchange: self.fee_exchange,
+			doughnut: self.doughnut,
 		})
 	}
 }
@@ -272,6 +299,7 @@ where
 			function,
 			doughnut,
 			fee_exchange,
+			phantom: rstd::marker::PhantomData,
 		})
 	}
 }
@@ -366,59 +394,6 @@ pub struct Certificate<AccountId> {
 	pub issuer: AccountId,
 }
 
-#[derive(Clone, Eq, PartialEq, Default, Encode)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Doughnut<AccountId, Signature> {
-	pub certificate: Certificate<AccountId>,
-	pub signature: Signature,
-}
-
-impl<AccountId, Signature> Decode for Doughnut<AccountId, Signature>
-where
-	AccountId: Decode,
-	Signature: Decode,
-{
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(Doughnut {
-			certificate: Decode::decode(input)?,
-			signature: Decode::decode(input)?,
-		})
-	}
-}
-
-impl<AccountId, Signature> Doughnut<AccountId, Signature>
-where
-	Signature: Verify<Signer = AccountId> + Encode,
-	AccountId: Encode,
-{
-	pub fn validate(&self, now: u64) -> support::dispatch::Result {
-		if self.certificate.expires > now {
-			let valid = self.certificate.not_before <= now;
-			if valid {
-				if self
-					.signature
-					.verify(self.certificate.encode().as_slice(), &self.certificate.issuer)
-				{
-					// TODO: ensure doughnut hasn't been revoked
-					return Ok(());
-				} else {
-					return Err("invalid signature");
-				}
-			}
-		}
-		return Err("invalid doughnut");
-	}
-	pub fn validate_permission(&self) -> support::dispatch::Result {
-		// not efficient, optimize later
-		for permission_pair in &self.certificate.permissions {
-			if permission_pair.0 == "cennznet".encode() {
-				return Ok(());
-			}
-		}
-		return Err("no permission");
-	}
-}
-
 /// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
 /// embed within CENNZnet extrinsics.
 /// It specifies input asset ID and the max. input asset to pay. The actual
@@ -446,8 +421,8 @@ impl<Balance: HasCompact> FeeExchange<Balance> {
 impl<AccountId: Encode + Clone, Address, Index, Call, Signature: Encode + Clone, Balance: HasCompact> Doughnuted
 	for CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>
 {
-	type Doughnut = Doughnut<AccountId, Signature>;
-	fn doughnut(&self) -> Option<&Doughnut<AccountId, Signature>> {
+	type Doughnut = Doughnut;
+	fn doughnut(&self) -> Option<&Doughnut> {
 		self.doughnut.as_ref()
 	}
 }

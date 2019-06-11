@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), feature(alloc))]
 
 use runtime_primitives::{
-	generic,
+	doughnut, generic,
 	traits::{BlakeTwo256, Verify},
 	AnySignature, OpaqueExtrinsic,
 };
@@ -72,3 +72,6 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// Opaque, encoded, unchecked extrinsic.
 pub type UncheckedExtrinsic = OpaqueExtrinsic;
+
+/// The runtime supported doughnut type
+pub type Doughnut = doughnut::DoughnutV0;

@@ -5,7 +5,7 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", branch = "go-live/doughnut", default-features = false }
 serde = { version = "1.0", default-features = false }
 serde_derive = { version = "1.0", optional = true }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
