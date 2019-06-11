@@ -25,7 +25,7 @@ use primitives::{
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
-use support::impl_outer_origin;
+use support::{impl_outer_origin, impl_outer_event};
 
 use super::*;
 
@@ -59,7 +59,7 @@ impl system::Trait for Test {
 	type AccountId = u64;
 	type Lookup = IdentityLookup<u64>;
 	type Header = Header;
-	type Event = ();
+	type Event = TestEvent;
 	type Log = DigestItem;
 	type Signature = Signature;
 }
@@ -67,10 +67,22 @@ impl system::Trait for Test {
 impl Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
-	type Event = ();
+	type Event = TestEvent;
+}
+
+mod generic_asset {
+	pub use crate::Event;
+}
+
+impl_outer_event!{
+	pub enum TestEvent for Test {
+		generic_asset<T>,
+	}
 }
 
 pub type GenericAsset = Module<Test>;
+
+pub type System = system::Module<Test>;
 
 pub struct ExtBuilder {
 	asset_id: u32,
