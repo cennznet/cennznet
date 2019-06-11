@@ -8,14 +8,11 @@ jobs:
       - run:
           name: Install rust
           command: |
-            echo 'deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-8 main' | sudo tee /etc/apt/sources.list.d/llvm.list
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| sudo apt-key add -
             sudo apt-get update
-            sudo apt-get remove --purge -y clang llvm
             sudo apt-get autoremove
-            sudo apt-get -f -y install apt-utils cmake pkg-config libssl-dev git llvm clang-8 || sudo apt-get install -f
-            sudo ln -s /usr/bin/clang-8 /usr/bin/clang
+            sudo apt-get -y install apt-utils cmake pkg-config libssl-dev git llvm clang
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
             rustup default nightly
             rustup target add wasm32-unknown-unknown --toolchain nightly
             cargo install --git https://github.com/alexcrichton/wasm-gc
@@ -24,12 +21,17 @@ jobs:
             rustc --version; cargo --version; rustup --version
       - run:
           name: Build WASM
-          command: ./scripts/build.sh
+          command: |
+            source $HOME/.cargo/env
+            ./scripts/build.sh
       - run:
           name: Build
           command: |
+            source $HOME/.cargo/env
             cargo build
           no_output_timeout: 30m
       - run:
           name: Run tests
-          command: cargo test --all --verbose --locked
+          command: |
+            source $HOME/.cargo/env
+            cargo test --all --verbose --locked
