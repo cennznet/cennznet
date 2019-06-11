@@ -17,15 +17,15 @@
 
 #![cfg(test)]
 
-use parity_codec::{Encode, Decode};
-use serde::{Serialize, Deserialize};
+use parity_codec::{Decode, Encode};
 use primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup, Verify, Lazy},
+	traits::{BlakeTwo256, IdentityLookup, Lazy, Verify},
 	BuildStorage,
 };
+use serde::{Deserialize, Serialize};
 use substrate_primitives::{Blake2Hasher, H256};
-use support::{impl_outer_origin, impl_outer_event};
+use support::{impl_outer_event, impl_outer_origin};
 
 use super::*;
 
@@ -74,7 +74,7 @@ mod generic_asset {
 	pub use crate::Event;
 }
 
-impl_outer_event!{
+impl_outer_event! {
 	pub enum TestEvent for Test {
 		generic_asset<T>,
 	}

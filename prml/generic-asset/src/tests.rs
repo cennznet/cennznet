@@ -18,7 +18,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate::mock::{new_test_ext, ExtBuilder, GenericAsset, Origin, Test, System, TestEvent};
+use crate::mock::{new_test_ext, ExtBuilder, GenericAsset, Origin, System, Test, TestEvent};
 use runtime_io::with_externalities;
 use support::{assert_noop, assert_ok};
 
@@ -1260,11 +1260,8 @@ fn update_permission_should_raise_event() {
 			));
 
 			// Assert
-			assert!(
-				System::events().iter().any(
-					|record| record.event ==
-						TestEvent::generic_asset(
-							RawEvent::PermissionUpdated(asset_id, permissions.clone()))));
+			assert!(System::events().iter().any(|record| record.event
+				== TestEvent::generic_asset(RawEvent::PermissionUpdated(asset_id, permissions.clone()))));
 		},
 	);
 }
@@ -1299,19 +1296,12 @@ fn mint_should_raise_event() {
 			));
 
 			// Act
-			assert_ok!(GenericAsset::mint(
-				Origin::signed(origin),
-				asset_id,
-				to,
-				amount
-			));
+			assert_ok!(GenericAsset::mint(Origin::signed(origin), asset_id, to, amount));
 
 			// Assert
-			assert!(
-				System::events().iter().any(
-					|record| record.event ==
-						TestEvent::generic_asset(
-							RawEvent::Minted(asset_id, to, amount))));
+			assert!(System::events()
+				.iter()
+				.any(|record| record.event == TestEvent::generic_asset(RawEvent::Minted(asset_id, to, amount))));
 		},
 	);
 }
@@ -1345,19 +1335,12 @@ fn burn_should_raise_event() {
 			));
 
 			// Act
-			assert_ok!(GenericAsset::burn(
-				Origin::signed(origin),
-				asset_id,
-				origin,
-				amount
-			));
+			assert_ok!(GenericAsset::burn(Origin::signed(origin), asset_id, origin, amount));
 
 			// Assert
-			assert!(
-				System::events().iter().any(
-					|record| record.event ==
-						TestEvent::generic_asset(
-							RawEvent::Burned(asset_id, origin, amount))));
+			assert!(System::events()
+				.iter()
+				.any(|record| record.event == TestEvent::generic_asset(RawEvent::Burned(asset_id, origin, amount))));
 		},
 	);
 }
