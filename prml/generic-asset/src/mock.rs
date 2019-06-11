@@ -17,9 +17,11 @@
 
 #![cfg(test)]
 
+use parity_codec::{Encode, Decode};
+use serde::{Serialize, Deserialize};
 use primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Verify, Lazy},
 	BuildStorage,
 };
 use substrate_primitives::{Blake2Hasher, H256};
@@ -29,6 +31,16 @@ use super::*;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+pub struct Signature;
+
+impl Verify for Signature {
+	type Signer = u64;
+	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+		true
+	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -49,6 +61,7 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = ();
 	type Log = DigestItem;
+	type Signature = Signature;
 }
 
 impl Trait for Test {
