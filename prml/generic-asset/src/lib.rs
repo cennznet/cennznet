@@ -327,7 +327,10 @@ decl_module! {
 			let permissions: PermissionVersions<T::AccountId> = new_permission.into();
 
 			if Self::check_permission(&asset_id, &origin, &PermissionType::Update) {
-				<Permissions<T>>::insert(asset_id, permissions);
+				<Permissions<T>>::insert(asset_id, &permissions);
+
+				Self::deposit_event(RawEvent::PermissionUpdated(asset_id, permissions.into()));
+
 				Ok(())
 			} else {
 				return Err("Origin does not have enough permission to update permissions.");
@@ -348,6 +351,8 @@ decl_module! {
 				<TotalIssuance<T>>::insert(asset_id, new_total_issuance);
 				Self::set_free_balance(&asset_id, &to, value);
 
+				Self::deposit_event(RawEvent::Minted(asset_id, to, amount));
+
 				Ok(())
 			} else {
 				return Err("The origin does not have permission to mint an asset, Permission error.");
@@ -367,8 +372,9 @@ decl_module! {
 				let value = original_free_balance.checked_sub(&amount).ok_or_else(|| "free_balance got underflow after burning")?;
 
 				<TotalIssuance<T>>::insert(asset_id, new_total_issuance);
-
 				Self::set_free_balance(&asset_id, &to, value);
+
+				Self::deposit_event(RawEvent::Burned(asset_id, to, amount));
 
 				Ok(())
 			} else {
@@ -453,8 +459,11 @@ decl_event!(
 		Created(AssetId, AccountId, AssetOptions),
 		/// Asset transfer succeeded (asset_id, from, to, amount).
 		Transferred(AssetId, AccountId, AccountId, Balance),
+		/// Asset permissions updated (asset_id, new_permissions).
 		PermissionUpdated(AssetId, PermissionLatest<AccountId>),
+		/// Asset minted (asset_id, to, amount).
 		Minted(AssetId, AccountId, Balance),
+		/// Asset burned (asset_id, to, amount).
 		Burned(AssetId, AccountId, Balance),
 	}
 );
