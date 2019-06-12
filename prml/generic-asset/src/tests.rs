@@ -18,7 +18,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate::mock::{new_test_ext, ExtBuilder, GenericAsset, Origin, Test};
+use crate::mock::{new_test_ext, ExtBuilder, GenericAsset, Origin, System, Test, TestEvent};
 use runtime_io::with_externalities;
 use support::{assert_noop, assert_ok};
 
@@ -1221,6 +1221,126 @@ fn create_should_reserve_stake_asset() {
 				GenericAsset::reserved_balance(&GenericAsset::staking_asset_id(), &1),
 				GenericAsset::create_asset_stake()
 			);
+		},
+	);
+}
+
+#[test]
+fn update_permission_should_raise_event() {
+	// Arrange
+	let staking_asset_id = 16000;
+	let asset_id = 1000;
+	let origin = 1;
+	let initial_balance = 1000;
+	let permissions = PermissionLatest {
+		update: Owner::Address(origin),
+		mint: Owner::Address(origin),
+		burn: Owner::Address(origin),
+	};
+
+	with_externalities(
+		&mut ExtBuilder::default()
+			.next_asset_id(asset_id)
+			.free_balance((staking_asset_id, origin, initial_balance))
+			.build(),
+		|| {
+			assert_ok!(GenericAsset::create(
+				Origin::signed(origin),
+				AssetOptions {
+					initial_issuance: 0,
+					permissions: permissions.clone(),
+				}
+			));
+
+			// Act
+			assert_ok!(GenericAsset::update_permission(
+				Origin::signed(origin),
+				asset_id,
+				permissions.clone()
+			));
+
+			// Assert
+			assert!(System::events().iter().any(|record| record.event
+				== TestEvent::generic_asset(RawEvent::PermissionUpdated(asset_id, permissions.clone()))));
+		},
+	);
+}
+
+#[test]
+fn mint_should_raise_event() {
+	// Arrange
+	let staking_asset_id = 16000;
+	let asset_id = 1000;
+	let origin = 1;
+	let initial_balance = 1000;
+	let permissions = PermissionLatest {
+		update: Owner::Address(origin),
+		mint: Owner::Address(origin),
+		burn: Owner::Address(origin),
+	};
+	let to = 2;
+	let amount = 100;
+
+	with_externalities(
+		&mut ExtBuilder::default()
+			.next_asset_id(asset_id)
+			.free_balance((staking_asset_id, origin, initial_balance))
+			.build(),
+		|| {
+			assert_ok!(GenericAsset::create(
+				Origin::signed(origin),
+				AssetOptions {
+					initial_issuance: 0,
+					permissions: permissions.clone(),
+				}
+			));
+
+			// Act
+			assert_ok!(GenericAsset::mint(Origin::signed(origin), asset_id, to, amount));
+
+			// Assert
+			assert!(System::events()
+				.iter()
+				.any(|record| record.event == TestEvent::generic_asset(RawEvent::Minted(asset_id, to, amount))));
+		},
+	);
+}
+
+#[test]
+fn burn_should_raise_event() {
+	// Arrange
+	let staking_asset_id = 16000;
+	let asset_id = 1000;
+	let origin = 1;
+	let initial_balance = 1000;
+	let permissions = PermissionLatest {
+		update: Owner::Address(origin),
+		mint: Owner::Address(origin),
+		burn: Owner::Address(origin),
+	};
+	let amount = 100;
+
+	with_externalities(
+		&mut ExtBuilder::default()
+			.next_asset_id(asset_id)
+			.free_balance((staking_asset_id, origin, initial_balance))
+			.build(),
+		|| {
+			assert_ok!(GenericAsset::create(
+				Origin::signed(origin),
+				AssetOptions {
+					initial_issuance: amount,
+					permissions: permissions.clone(),
+				}
+			));
+
+			// Act
+			assert_ok!(GenericAsset::burn(Origin::signed(origin), asset_id, origin, amount));
+
+			// Assert
+			assert!(System::events()
+				.iter()
+				.any(|record| record.event == TestEvent::generic_asset(RawEvent::Burned(asset_id, origin, amount))));
 		},
 	);
 }
