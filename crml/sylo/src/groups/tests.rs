@@ -15,6 +15,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #[cfg(test)]
 mod tests {
+	use codec::Decode;
+	use serde::{Deserialize, Serialize};
+	use primitives::traits::{Verify, Lazy};
 	use groups::sr_io::with_externalities;
 	use groups::substrate_primitives::{ed25519, Pair};
 	use groups::substrate_primitives::{Blake2Hasher, H256};
@@ -38,6 +41,16 @@ mod tests {
 		pub enum Event for Test {}
 	}
 
+	#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+	pub struct Signature;
+
+	impl Verify for Signature {
+		type Signer = H256;
+		fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+			true
+		}
+	}
+
 	// For testing the module, we construct most of a mock runtime. This means
 	// first constructing a configuration type (`Test`) which `impl`s each of the
 	// configuration traits of modules we want to use.
@@ -55,6 +68,7 @@ mod tests {
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
+		type Signature = Signature;
 	}
 	impl Trait for Test {}
 	impl device::Trait for Test {
