@@ -31,9 +31,22 @@ use runtime_primitives::{
 use session::OnSessionChange;
 use staking;
 use support::impl_outer_origin;
+use parity_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
+use runtime_primitives::traits::{Verify, Lazy};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+pub struct Signature;
+
+impl Verify for Signature {
+	type Signer = u64;
+	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+		true
+	}
 }
 
 pub struct CurrencyToVoteHandler;
@@ -66,6 +79,7 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = ();
 	type Log = DigestItem;
+	type Signature = Signature;
 }
 impl timestamp::Trait for Test {
 	type Moment = u64;

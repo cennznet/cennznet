@@ -28,6 +28,8 @@ use runtime_primitives::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
+use serde::{Deserialize, Serialize};
+use runtime_primitives::traits::{Verify, Lazy};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -40,6 +42,16 @@ mod fees {
 impl_outer_event! {
 	pub enum TestEvent for Test {
 		fees<T>, generic_asset<T>,
+	}
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+pub struct Signature;
+
+impl Verify for Signature {
+	type Signer = u64;
+	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+		true
 	}
 }
 
@@ -64,6 +76,7 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = TestEvent;
 	type Log = DigestItem;
+	type Signature = Signature;
 }
 
 impl generic_asset::Trait for Test {
