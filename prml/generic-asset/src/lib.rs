@@ -23,7 +23,7 @@
 //! The Generic Asset module provides functions for:
 //!
 //! - Creating a new kind of asset.
-//! - Set permissions of an asset.
+//! - Setting permissions of an asset.
 //! - Getting and setting free balances.
 //! - Retrieving total, reserved and unreserved balances.
 //! - Repatriating a reserved balance to a beneficiary account.
@@ -37,7 +37,7 @@
 //! - **Staking Asset:** The asset for staking, to participate as Validators in the network.
 //! - **Spending Asset:** The asset for payment, such as paying transfer fees, gas fees, etc.
 //! - **Permissions:** A set of rules for a kind of asset, defining the allowed operations to the asset, and which
-//! accounts are allowed.
+//! accounts are allowed to possess it.
 //! - **Total Issuance:** The total number of units in existence in a system.
 //! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only balance that matters
 //! for most operations. When this balance falls below the existential deposit, most functionality of the account is
@@ -46,9 +46,10 @@
 //! can still be slashed, but only after all the free balance has been slashed. If the reserved balance falls below the
 //! existential deposit then it and any related functionality will be deleted. When both it and the free balance are
 //! deleted, then the account is said to be dead.
-//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite accounting
+//! - **Imbalance:** A condition when some assets were credited or debited without equal and opposite accounting
 //! (i.e. a difference between total issuance and account balances). Functions that result in an imbalance will
-//! return an object of the `Imbalance` trait that must be handled.
+//! return an object of the `Imbalance` trait that can be managed within your runtime logic. (If an imbalance is
+//! simply dropped, it should automatically maintain any book-keeping such as total issuance.)
 //! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block number. Multiple
 //! locks always operate over the same funds, so they "overlay" rather than "stack".
 //!
@@ -61,9 +62,10 @@
 //! - `ReservedCurrency`: Functions for dealing with assets that can be reserved from an account.
 //! - `LockableCurrency`: Functions for dealing with accounts that allow liquidity restrictions.
 //! - `Imbalance`: Functions for handling imbalances between total issuance in the system and account balances.
-//! Must be used when a function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
+//! Must be used when a function creates new assets (e.g. a reward) or destroys some assets (e.g. a system fee).
 //!
 //! The Generic Asset module provides two types of `AssetCurrency` as follows.
+//!
 //! - `StakingAssetCurrency`: Currency for staking.
 //! - `SpendingAssetCurrency`: Currency for payments such as transfer fee, gas fee.
 //!
@@ -73,7 +75,7 @@
 //!
 //! - `create`: Create a new kind of asset.
 //! - `transfer`: Transfer some liquid free balance to another account.
-//! - `update_permission`: Updates permission for a given asset_id and an account. The origin of this call
+//! - `update_permission`: Updates permission for a given `asset_id` and an account. The origin of this call
 //! must have update permissions.
 //! - `mint`: Mint an asset, increases its total issuance. The origin of this call must have mint permissions.
 //! - `burn`: Burn an asset, decreases its total issuance. The origin of this call must have burn permissions.
@@ -85,8 +87,10 @@
 //! - `free_balance`: Get an account's free balance of an asset kind.
 //! - `reserved_balance`: Get an account's reserved balance of an asset kind.
 //! - `create_asset`: Creates an asset.
-//! - `make_transfer`: Transfer some liquid free balance from one account to another. This will not emit Transferred event.
-//! - `make_transfer_with_event`: Transfer some liquid free balance from one account to another. This will emit Transferred event.
+//! - `make_transfer`: Transfer some liquid free balance from one account to another.
+//! This will not emit the `Transferred` event.
+//! - `make_transfer_with_event`: Transfer some liquid free balance from one account to another.
+//! This will emit the `Transferred` event.
 //! - `reserve`: Moves an amount from free balance to reserved balance.
 //! - `unreserve`: Move up to an amount from reserved balance to free balance. This function cannot fail.
 //! - `slash`: Deduct up to an amount from the combined balance of `who`, preferring to deduct from the
@@ -141,14 +145,14 @@
 //!
 //! ## Genesis config
 //!
-//! The Generic Asset module depends on the `GenesisConfig`.
+//! The Generic Asset module depends on the [`GenesisConfig`](./struct.GenesisConfig.html).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use parity_codec::{Decode, Encode, HasCompact};
 
 use primitives::traits::{
-	As, CheckedAdd, CheckedSub, MaybeSerializeDebug, Member, One, Saturating, SimpleArithmetic, Zero,
+	CheckedAdd, CheckedSub, MaybeSerializeDebug, Member, One, Saturating, SimpleArithmetic, Zero,
 };
 
 use rstd::prelude::*;
@@ -175,11 +179,8 @@ pub trait Trait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ As<usize>
-		+ As<u64>
-		+ As<u128>
-		+ MaybeSerializeDebug;
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + As<u32>;
+		+ MaybeSerializeDebug + From<u32>;
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + From<u32>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -189,11 +190,8 @@ pub trait Subtrait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ As<usize>
-		+ As<u64>
-		+ As<u128>
-		+ MaybeSerializeDebug;
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + As<u32>;
+		+ MaybeSerializeDebug + From<u32>;
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy+ From<u32>;
 }
 
 impl<T: Trait> Subtrait for T {
@@ -205,22 +203,20 @@ impl<T: Trait> Subtrait for T {
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq)]
 pub struct AssetOptions<Balance: HasCompact, AccountId> {
+	/// Initial issuance of this asset. All deposit to the creater of the asset.
 	#[codec(compact)]
 	pub initial_issuance: Balance,
+	/// Which accounts are allowed to possess this asset.
 	pub permissions: PermissionLatest<AccountId>,
 }
 
-decl_fee!(
-	pub enum Fee {
-		/// A fee for creating a new account
-		Transfer,
-	}
-);
-
+/// Owner of an asset.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq)]
 pub enum Owner<AccountId> {
+	/// No owner.
 	None,
+	/// Owned by an AccountId
 	Address(AccountId),
 }
 
@@ -230,27 +226,36 @@ impl<AccountId> Default for Owner<AccountId> {
 	}
 }
 
+/// Asset permissions
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq)]
 pub struct PermissionsV1<AccountId> {
+	/// Who have permission to update asset permission
 	pub update: Owner<AccountId>,
+	/// Who have permission to mint new asset
 	pub mint: Owner<AccountId>,
+	/// Who have permission to burn asset
 	pub burn: Owner<AccountId>,
 }
 
+/// Versioned asset permission
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq)]
 pub enum PermissionVersions<AccountId> {
 	V1(PermissionsV1<AccountId>),
 }
 
-/// Permissions Types in GenericAsset.
+/// Asset permission types
 pub enum PermissionType {
+	/// Permission to update asset permission
 	Burn,
+	/// Permission to mint new asset
 	Mint,
+	/// Permission to burn asset
 	Update,
 }
 
+/// Alias to latest asset permissions
 pub type PermissionLatest<AccountId> = PermissionsV1<AccountId>;
 
 impl<AccountId> Default for PermissionVersions<AccountId> {
@@ -283,6 +288,13 @@ impl<AccountId> Into<PermissionVersions<AccountId>> for PermissionLatest<Account
 		PermissionVersions::V1(self)
 	}
 }
+
+decl_fee!(
+	pub enum Fee {
+		/// A fee for creating a new account
+		Transfer,
+	}
+);
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -318,9 +330,13 @@ decl_module! {
 			Self::make_transfer_with_event(&asset_id, &origin, &to, amount)?;
 		}
 
-		/// Updates permission for a given asset_id and an account.
+		/// Updates permission for a given `asset_id` and an account.
 		/// The origin must have `update` permission.
-		fn update_permission(origin, #[compact] asset_id: T::AssetId, new_permission: PermissionLatest<T::AccountId>) -> Result {
+		fn update_permission(
+			origin,
+			#[compact] asset_id: T::AssetId,
+			new_permission: PermissionLatest<T::AccountId>
+		) -> Result {
 			let origin = ensure_signed(origin)?;
 
 			let permissions: PermissionVersions<T::AccountId> = new_permission.into();
@@ -344,8 +360,10 @@ decl_module! {
 
 				let original_free_balance = Self::free_balance(&asset_id, &to);
 				let current_total_issuance = <TotalIssuance<T>>::get(asset_id);
-				let new_total_issuance = current_total_issuance.checked_add(&amount).ok_or_else(|| "total_issuance got overflow after minting.")?;
-				let value = original_free_balance.checked_add(&amount).ok_or_else(|| "free balance got overflow after minting.")?;
+				let new_total_issuance = current_total_issuance.checked_add(&amount)
+					.ok_or_else(|| "total_issuance got overflow after minting.")?;
+				let value = original_free_balance.checked_add(&amount)
+					.ok_or_else(|| "free balance got overflow after minting.")?;
 
 				<TotalIssuance<T>>::insert(asset_id, new_total_issuance);
 				Self::set_free_balance(&asset_id, &to, value);
@@ -367,10 +385,13 @@ decl_module! {
 				let original_free_balance = Self::free_balance(&asset_id, &to);
 
 				let current_total_issuance = <TotalIssuance<T>>::get(asset_id);
-				let new_total_issuance = current_total_issuance.checked_sub(&amount).ok_or_else(|| "total_issuance got underflow after burning")?;
-				let value = original_free_balance.checked_sub(&amount).ok_or_else(|| "free_balance got underflow after burning")?;
+				let new_total_issuance = current_total_issuance.checked_sub(&amount)
+					.ok_or_else(|| "total_issuance got underflow after burning")?;
+				let value = original_free_balance.checked_sub(&amount)
+					.ok_or_else(|| "free_balance got underflow after burning")?;
 
 				<TotalIssuance<T>>::insert(asset_id, new_total_issuance);
+
 				Self::set_free_balance(&asset_id, &to, value);
 
 				Self::deposit_event(RawEvent::Burned(asset_id, to, amount));
@@ -382,7 +403,7 @@ decl_module! {
 		}
 
 		/// Can be used to create reserved tokens.
-		/// Requires Root call
+		/// Requires Root call.
 		fn create_reserved(asset_id: T::AssetId, options: AssetOptions<T::Balance, T::AccountId>) -> Result {
 			Self::create_asset(Some(asset_id), None, options)
 		}
@@ -402,7 +423,7 @@ decl_storage! {
 	trait Store for Module<T: Trait> as GenericAsset {
 		/// Total issuance of a given asset.
 		pub TotalIssuance get(total_issuance) build(|config: &GenesisConfig<T>| {
-			let issuance = config.initial_balance * As::sa(config.endowed_accounts.len());
+			let issuance = config.initial_balance * (config.endowed_accounts.len() as u32).into();
 			config.assets.iter().map(|id| (id.clone(), issuance)).collect::<Vec<_>>()
 		}): map T::AssetId => T::Balance;
 
@@ -412,10 +433,10 @@ decl_storage! {
 		/// The reserved balance of a given asset under an account.
 		pub ReservedBalance: double_map T::AssetId, twox_128(T::AccountId) => T::Balance;
 
-		/// Next available id for user created asset.
+		/// Next available ID for user-created asset.
 		pub NextAssetId get(next_asset_id) config(): T::AssetId;
 
-		/// PermissionOptions for a given asset.
+		/// Permission options for a given asset.
 		pub Permissions get(get_permission): map T::AssetId => PermissionVersions<T::AccountId>;
 
 		pub CreateAssetStakes get(create_asset_stake) config(): T::Balance;
@@ -423,10 +444,10 @@ decl_storage! {
 		/// Any liquidity locks on some account balances.
 		pub Locks get(locks): map T::AccountId => Vec<BalanceLock<T::Balance, T::BlockNumber>>;
 
-		/// Staking Asset Id
+		/// Staking Asset ID.
 		pub StakingAssetId get(staking_asset_id) config(): T::AssetId;
 
-		/// Spending Asset Id.
+		/// Spending Asset ID.
 		pub SpendingAssetId get(spending_asset_id) config(): T::AssetId;
 	}
 	add_extra_genesis {
@@ -434,7 +455,10 @@ decl_storage! {
 		config(initial_balance): T::Balance;
 		config(endowed_accounts): Vec<T::AccountId>;
 
-		build(|storage: &mut primitives::StorageOverlay, _: &mut primitives::ChildrenStorageOverlay, config: &GenesisConfig<T>| {
+		build(|
+			storage: &mut primitives::StorageOverlay,
+			_: &mut primitives::ChildrenStorageOverlay,
+			config: &GenesisConfig<T>| {
 			config.assets.iter().for_each(|asset_id| {
 				config.endowed_accounts.iter().for_each(|account_id| {
 					storage.insert(
@@ -458,11 +482,11 @@ decl_event!(
 		Created(AssetId, AccountId, AssetOptions),
 		/// Asset transfer succeeded (asset_id, from, to, amount).
 		Transferred(AssetId, AccountId, AccountId, Balance),
-		/// Asset permissions updated (asset_id, new_permissions).
+		/// Asset permission updated (asset_id, new_permissions).
 		PermissionUpdated(AssetId, PermissionLatest<AccountId>),
-		/// Asset minted (asset_id, to, amount).
+		/// New asset minted (asset_id, account, amount).
 		Minted(AssetId, AccountId, Balance),
-		/// Asset burned (asset_id, to, amount).
+		/// Asset burned (asset_id, account, amount).
 		Burned(AssetId, AccountId, Balance),
 	}
 );
@@ -488,9 +512,10 @@ impl<T: Trait> Module<T> {
 	/// Creates an asset.
 	///
 	/// # Arguments
-	/// * `asset_id` An id of reserved asset. If not provided, an user generated asset would be created with next available id.
-	/// * `from_account` An option value can have the account_id or None.
-	/// * `asset_options` A struct which has the balance and permissions for the asset.
+	/// * `asset_id`: An ID of a reserved asset.
+	/// If not provided, a user-generated asset will be created with the next available ID.
+	/// * `from_account`: The initiator account of this call
+	/// * `asset_options`: Asset creation options.
 	///
 	pub fn create_asset(
 		asset_id: Option<T::AssetId>,
@@ -523,7 +548,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Transfer some liquid free balance from one account to another.
-	/// This will not emit Transferred event.
+	/// This will not emit the `Transferred` event.
 	pub fn make_transfer(asset_id: &T::AssetId, from: &T::AccountId, to: &T::AccountId, amount: T::Balance) -> Result {
 		let new_balance = Self::free_balance(asset_id, from)
 			.checked_sub(&amount)
@@ -539,7 +564,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Transfer some liquid free balance from one account to another.
-	/// This will emit Transferred event.
+	/// This will emit the `Transferred` event.
 	pub fn make_transfer_with_event(
 		asset_id: &T::AssetId,
 		from: &T::AccountId,
@@ -564,7 +589,7 @@ impl<T: Trait> Module<T> {
 	/// Move `amount` from free balance to reserved balance.
 	///
 	/// If the free balance is lower than `amount`, then no funds will be moved and an `Err` will
-	/// be returned to notify of this. This is different behaviour to `unreserve`.
+	/// be returned. This is different behavior than `unreserve`.
 	pub fn reserve(asset_id: &T::AssetId, who: &T::AccountId, amount: T::Balance) -> Result {
 		// Do we need to consider that this is an atomic transaction?
 		let original_reserve_balance = Self::reserved_balance(asset_id, who);
@@ -579,10 +604,11 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Move up to `amount` from reserved balance to free balance. This function cannot fail.
+	/// Moves up to `amount` from reserved balance to free balance. This function cannot fail.
 	///
-	/// As much funds up to `amount` will be deducted as possible, `remaining` will be returned.
-	/// NOTE: This is different to `reserve`.
+	/// As many assets up to `amount` will be moved as possible. If the reserve balance of `who`
+	/// is less than `amount`, then the remaining amount will be returned.
+	/// NOTE: This is different behavior than `reserve`.
 	pub fn unreserve(asset_id: &T::AssetId, who: &T::AccountId, amount: T::Balance) -> T::Balance {
 		let b = Self::reserved_balance(asset_id, who);
 		let actual = rstd::cmp::min(b, amount);
@@ -596,7 +622,7 @@ impl<T: Trait> Module<T> {
 	/// Deduct up to `amount` from the combined balance of `who`, preferring to deduct from the
 	/// free balance. This function cannot fail.
 	///
-	/// As much funds up to `amount` will be deducted as possible. If this is less than `amount`,
+	/// As much funds up to `amount` will be deducted as possible. If this is less than `amount`
 	/// then `Some(remaining)` will be returned. Full completion is given by `None`.
 	pub fn slash(asset_id: &T::AssetId, who: &T::AccountId, amount: T::Balance) -> Option<T::Balance> {
 		let free_balance = Self::free_balance(asset_id, who);
@@ -619,10 +645,10 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Deduct up to `amount` from reserved balance of `who`. This function cannot fail.
+	/// Deducts up to `amount` from reserved balance of `who`. This function cannot fail.
 	///
-	/// As much funds up to `amount` will be deducted as possible. If this is less than `amount`,
-	/// then `Some(remaining)` will be returned. Full completion is given by `None`.
+	/// As much funds up to `amount` will be deducted as possible. If the reserve balance of `who`
+	/// is less than `amount`, then a non-zero second item will be returned.
 	pub fn slash_reserved(asset_id: &T::AssetId, who: &T::AccountId, amount: T::Balance) -> Option<T::Balance> {
 		let original_reserve_balance = Self::reserved_balance(asset_id, who);
 		let slash = rstd::cmp::min(original_reserve_balance, amount);
@@ -662,12 +688,12 @@ impl<T: Trait> Module<T> {
 	/// Check permission to perform burn, mint or update.
 	///
 	/// # Arguments
-	/// * `asset_id` -  A T::AssetId type contains the asset_id which the permission embedded.
-	/// * `who` - A T::AccountId type contains the account_id that the permission going to check.
-	/// * `what` - A string slice contains the permission type.
+	/// * `asset_id`:  A `T::AssetId` type that contains the `asset_id`, which has the permission embedded.
+	/// * `who`: A `T::AccountId` type that contains the `account_id` for which to check permissions.
+	/// * `what`: A string slice that contains the permission type.
 	///
 	pub fn check_permission(asset_id: &T::AssetId, who: &T::AccountId, what: &PermissionType) -> bool {
-		let permission_versions: PermissionVersions<T::AccountId> = Self::get_permission(asset_id); // This returns an enum.
+		let permission_versions: PermissionVersions<T::AccountId> = Self::get_permission(asset_id);
 		let permission = permission_versions.into();
 
 		match (what, permission) {
