@@ -69,6 +69,10 @@ impl<T: Trait> Module<T> {
 pub(super) mod tests {
 	use super::*;
 
+	use codec::{Decode, Encode};
+	use serde::{Deserialize, Serialize};
+	use primitives::traits::{Verify, Lazy};
+
 	use self::sr_io::with_externalities;
 	use self::substrate_primitives::{Blake2Hasher, H256};
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -81,6 +85,16 @@ pub(super) mod tests {
 
 	impl_outer_origin! {
 		pub enum Origin for Test {}
+	}
+
+	#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+	pub struct Signature;
+
+	impl Verify for Signature {
+		type Signer = H256;
+		fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+			true
+		}
 	}
 
 	// For testing the module, we construct most of a mock runtime. This means
@@ -100,6 +114,7 @@ pub(super) mod tests {
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
+		type Signature = Signature;
 	}
 	impl Trait for Test {}
 	type Responses = Module<Test>;
