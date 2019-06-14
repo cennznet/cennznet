@@ -7,7 +7,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v1-cargo-global-cache
+            - v3-cargo-global-cache-{{ checksum "Cargo.lock" }}
+            - v3-cargo-global-cache-
       - run:
           name: Install rust
           command: |
@@ -19,14 +20,14 @@ jobs:
             rustup update stable
             rustup install nightly
             rustup target add wasm32-unknown-unknown --toolchain nightly
-            cargo install --git https://github.com/alexcrichton/wasm-gc
+            command -v wasm-gc || cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
             rustup target add x86_64-unknown-linux-musl --toolchain=nightly
             rustup component add rustfmt --toolchain=nightly
             rustc --version; cargo --version; rustup --version
       - save_cache:
           paths:
-            - /usr/local/cargo
-          key: v1-cargo-global-cache
+            - /home/circleci/.cargo
+          key: v3-cargo-global-cache-{{ checksum "Cargo.lock" }}
       - restore_cache:
           keys:
             - v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
