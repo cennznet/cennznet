@@ -124,7 +124,7 @@ pub(crate) mod impl_tests {
 	#[test]
 	fn u64_to_bytes_works() {
 		assert_eq!(
-			<ExchangeAddressGenerator<Test>>::u64_to_bytes(80_000),
+			u64_to_bytes(80_000),
 			[128, 56, 1, 0, 0, 0, 0, 0]
 		);
 	}
