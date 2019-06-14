@@ -156,7 +156,7 @@ use primitives::traits::{
 };
 
 use rstd::prelude::*;
-use rstd::{cmp, result};
+use rstd::{cmp, result, convert::TryInto};
 use support::dispatch::Result;
 use support::{
 	decl_event, decl_fee, decl_module, decl_storage, ensure,
@@ -179,8 +179,8 @@ pub trait Trait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ MaybeSerializeDebug + From<u32>;
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + From<u32>;
+		+ MaybeSerializeDebug + From<u32> + TryInto<u128>;
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + From<u32> + Into<u64>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -190,8 +190,8 @@ pub trait Subtrait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ MaybeSerializeDebug + From<u32>;
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy+ From<u32>;
+		+ MaybeSerializeDebug + From<u32> + TryInto<u128>;
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy+ From<u32> + Into<u64>;
 }
 
 impl<T: Trait> Subtrait for T {

@@ -20,7 +20,7 @@ use super::{Module, Trait};
 use cennznet_primitives::FeeExchange;
 use fees::BuyFeeAsset;
 use rstd::{marker::PhantomData, mem, prelude::*};
-use runtime_primitives::traits::{As, Hash};
+use runtime_primitives::traits::Hash;
 use substrate_primitives::crypto::{UncheckedFrom, UncheckedInto};
 use support::dispatch::Result;
 
@@ -40,18 +40,15 @@ where
 	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(core_asset_id)));
-		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(asset_id)));
+		buf.extend_from_slice(&u64_to_bytes(core_asset_id.into()));
+		buf.extend_from_slice(&u64_to_bytes(asset_id.into()));
 
 		T::Hashing::hash(&buf[..]).unchecked_into()
 	}
 }
 
-impl<T: Trait> ExchangeAddressGenerator<T> {
-	/// Convert a `u64` into its byte array representation
-	fn u64_to_bytes(x: u64) -> [u8; 8] {
-		unsafe { mem::transmute(x.to_le()) }
-	}
+fn u64_to_bytes(x: u64) -> [u8; 8] {
+	unsafe { mem::transmute(x.to_le()) }
 }
 
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
@@ -63,8 +60,7 @@ impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
 		Self::make_asset_swap_output(
 			&who,
 			&who,
-			// TODO: hack `T::AssetID` missing `As<u32>` impl
-			&T::AssetId::sa(u64::from(exchange_op.asset_id)),
+			&T::AssetId::from(exchange_op.asset_id),
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment,
