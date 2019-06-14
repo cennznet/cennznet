@@ -7,7 +7,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v1-cargo-cache
+            - v1-cargo-global-cache
       - run:
           name: Install rust
           command: |
@@ -26,7 +26,7 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo
-          key: v1-cargo-cache
+          key: v1-cargo-global-cache
       - restore_cache:
           keys:
             - v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -34,7 +34,7 @@ jobs:
           name: Check format
           command: |
             source $HOME/.cargo/env
-            cargo fmt
+            cargo +nightly fmt
       - run:
           name: Build WASM
           command: |
