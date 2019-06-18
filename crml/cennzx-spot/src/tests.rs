@@ -82,6 +82,7 @@ impl Trait for Test {
 	type Call = Call<Self>;
 	type Event = ();
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
+	type AsBalance = u128;
 }
 
 pub type CennzXSpot = Module<Test>;

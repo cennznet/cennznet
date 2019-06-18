@@ -45,6 +45,8 @@ pub trait Trait: system::Trait + generic_asset::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
 	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
+	// TODO: this is just a quick workaround for type conversion issue. should be replaced with proper From/TryFrom Into/TryInfo bounds
+	type AsBalance: From<<Self as generic_asset::Trait>::Balance> + Into<<Self as generic_asset::Trait>::Balance> + As<u128>;
 }
 
 decl_module! {
@@ -675,7 +677,11 @@ impl<T: Trait> Module<T> {
 		let denominator = output_reserve - output_amount;
 		let output: T::Balance = numerator / denominator + One::one();
 
-		(FeeRate::one() + fee_rate) * output
+		let output: T::AsBalance = output.into();
+		let output: u128 = output.as_();
+		let result = (FeeRate::one() + fee_rate) * output;
+		let result: T::AsBalance = As::sa(result);
+		Into::<T::Balance>::into(result)
 	}
 
 	fn get_input_price(
@@ -691,13 +697,14 @@ impl<T: Trait> Module<T> {
 		// This operation rounds away necessary decimal points. In order to-
 		// counteract this, we scale the input amount
 		let input_amount_less_fee_scaled = FeeRate::div(
-			input_amount * T::Balance::sa(1_000_000), // scale up
+			Into::<T::AsBalance>::into(input_amount * 1_000_000.into()), // scale up
 			div_rate,
 		);
-		let numerator: T::Balance = input_amount_less_fee_scaled * output_reserve;
-		let denominator: T::Balance = FeeRate::div(input_amount, div_rate) + input_reserve;
+		let numerator: T::Balance = input_amount_less_fee_scaled.into() * output_reserve;
+		let denominator: T::Balance =
+			FeeRate::div(Into::<T::AsBalance>::into(input_amount), div_rate).into() + input_reserve;
 
-		numerator / denominator / T::Balance::sa(1_000_000) // undo scaling
+		numerator / denominator / 1_000_000.into() // undo scaling
 	}
 
 	/// `asset_id` - Trade asset
