@@ -20,13 +20,13 @@ use cennznet_primitives::CheckedCennznetExtrinsic;
 use cennznet_runtime::{Call, ExtrinsicFeePayment, Fee, Runtime};
 use runtime_io::with_externalities;
 use runtime_primitives::BuildStorage;
-use substrate_primitives::{sr25519::Public, Blake2Hasher};
+use primitives::{sr25519::Public, Blake2Hasher};
 use support::{additional_traits::ChargeExtrinsicFee, assert_err, assert_ok};
 
 // A default address for ChargeExtrinsicFee `transactor`
 const DEFAULT_TRANSACTOR: Public = Public([0u8; 32]);
 
-type MockCheckedExtrinsic = CheckedCennznetExtrinsic<substrate_primitives::sr25519::Public, u64, Call, u128>;
+type MockCheckedExtrinsic = CheckedCennznetExtrinsic<primitives::sr25519::Public, u64, Call, u128>;
 type System = system::Module<Runtime>;
 type Fees = fees::Module<Runtime>;
 

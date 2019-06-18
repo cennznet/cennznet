@@ -30,7 +30,7 @@ use runtime_primitives::{
 	traits::{BlakeTwo256, IdentityLookup, Zero},
 	BuildStorage,
 };
-use substrate_primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
+use primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
 use support::{impl_outer_origin, StorageValue};
 
 use parity_codec::{Decode, Encode};
