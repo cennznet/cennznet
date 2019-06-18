@@ -147,7 +147,7 @@
 
 use parity_codec::{Decode, Encode, HasCompact};
 
-use primitives::traits::{
+use runtime_primitives::traits::{
 	As, CheckedAdd, CheckedSub, MaybeSerializeDebug, Member, One, Saturating, SimpleArithmetic, Zero,
 };
 
@@ -434,7 +434,7 @@ decl_storage! {
 		config(initial_balance): T::Balance;
 		config(endowed_accounts): Vec<T::AccountId>;
 
-		build(|storage: &mut primitives::StorageOverlay, _: &mut primitives::ChildrenStorageOverlay, config: &GenesisConfig<T>| {
+		build(|storage: &mut runtime_primitives::StorageOverlay, _: &mut runtime_primitives::ChildrenStorageOverlay, config: &GenesisConfig<T>| {
 			config.assets.iter().for_each(|asset_id| {
 				config.endowed_accounts.iter().for_each(|account_id| {
 					storage.insert(

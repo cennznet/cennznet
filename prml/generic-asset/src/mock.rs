@@ -18,13 +18,13 @@
 #![cfg(test)]
 
 use parity_codec::{Decode, Encode};
-use primitives::{
+use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
 	traits::{BlakeTwo256, IdentityLookup, Lazy, Verify},
 	BuildStorage,
 };
 use serde::{Deserialize, Serialize};
-use substrate_primitives::{Blake2Hasher, H256};
+use primitives::{Blake2Hasher, H256};
 use support::{impl_outer_event, impl_outer_origin};
 
 use super::*;
