@@ -17,9 +17,9 @@
 #[cfg(test)]
 extern crate sr_io;
 
-extern crate substrate_primitives;
+extern crate primitives;
 // Needed for various traits. In our case, `OnFinalise`.
-extern crate sr_primitives;
+extern crate runtime_primitives;
 
 // `system` module provides us with all sorts of useful stuff and macros
 // depend on it being around.
@@ -30,8 +30,8 @@ extern crate parity_codec;
 mod tests;
 
 use self::parity_codec::{Decode, Encode};
-use groups::substrate_primitives::ed25519;
-use groups::substrate_primitives::hash::H256;
+use groups::primitives::ed25519;
+use groups::primitives::hash::H256;
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use vault::{VaultKey, VaultValue};

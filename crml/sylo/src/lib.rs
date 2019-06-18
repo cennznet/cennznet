@@ -21,10 +21,10 @@ extern crate serde;
 extern crate parity_codec as codec;
 extern crate sr_io as runtime_io;
 extern crate sr_std as rstd;
-extern crate substrate_primitives;
+extern crate primitives;
 #[macro_use]
 extern crate srml_support;
-extern crate sr_primitives as primitives;
+extern crate runtime_primitives;
 extern crate srml_balances as balances;
 extern crate srml_system as system;
 
