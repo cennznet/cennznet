@@ -11,12 +11,9 @@ LABEL maintainer="support@centrality.ai"
 
 RUN apt-get update && apt-get install -y ca-certificates openssl && \
         mkdir -p /root/.local/share/cennznet && \
-      ln -s /root/.local/share/cennznet /data && \
-        groupadd -g 1000 cennznet && \
-        useradd -ms /bin/bash -u 1000 -g 1000 cennznet
+      ln -s /root/.local/share/cennznet /data
 
 COPY --from=0 /cennznet/target/release/cennznet /usr/local/bin
-USER cennznet
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 ENTRYPOINT ["/usr/local/bin/cennznet"]
