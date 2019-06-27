@@ -19,7 +19,7 @@ exit-future = "0.1"
 hex-literal = "0.1"
 slog = "^2"
 app_dirs = "1.2"
-parity-codec = { version = "3.1" }
+parity-codec = { version = "3.5.4" }
 trie-root = { git = "https://github.com/paritytech/trie" }
 sr-io = { git = "https://github.com/cennznet/plug-blockchain" }
 sr-primitives = { git = "https://github.com/cennznet/plug-blockchain" }

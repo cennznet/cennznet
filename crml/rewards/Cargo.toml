@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 serde = { version = "1.0", default-features = false }
-parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
+parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
 rstd = { package="sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 runtime_io = { package="sr-io", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 runtime_primitives = { package="sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }

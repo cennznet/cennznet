@@ -5,7 +5,7 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
+parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
 substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 sr-std = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
