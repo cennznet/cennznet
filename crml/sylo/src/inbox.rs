@@ -18,10 +18,10 @@ use system::ensure_signed;
 
 extern crate sr_io;
 extern crate sr_std;
-extern crate substrate_primitives;
+extern crate primitives;
 
 // Needed for various traits. In our case, `OnFinalise`.
-extern crate sr_primitives;
+extern crate runtime_primitives;
 
 // `system` module provides us with all sorts of useful stuff and macros
 // depend on it being around.
@@ -115,11 +115,15 @@ impl<T: Trait> Module<T> {
 mod tests {
 	use super::*;
 
+	use codec::{Decode, Encode};
+	use serde::{Deserialize, Serialize};
+	use runtime_primitives::traits::{Verify, Lazy};
+
 	use self::sr_io::with_externalities;
-	use self::substrate_primitives::{Blake2Hasher, H256};
+	use self::primitives::{Blake2Hasher, H256};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
-	use self::sr_primitives::{
+	use self::runtime_primitives::{
 		testing::{Digest, DigestItem, Header},
 		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage,
@@ -127,6 +131,16 @@ mod tests {
 
 	impl_outer_origin! {
 		pub enum Origin for Test {}
+	}
+
+	#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+	pub struct Signature;
+
+	impl Verify for Signature {
+		type Signer = H256;
+		fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+			true
+		}
 	}
 
 	// For testing the module, we construct most of a mock runtime. This means
@@ -146,6 +160,7 @@ mod tests {
 		type Header = Header;
 		type Event = ();
 		type Log = DigestItem;
+		type Signature = Signature;
 	}
 	impl Trait for Test {}
 	type Inbox = Module<Test>;

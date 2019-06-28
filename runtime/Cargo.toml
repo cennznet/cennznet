@@ -8,7 +8,7 @@ edition = "2018"
 integer-sqrt = { version = "0.1.2" }
 safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 substrate-client = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
@@ -52,7 +52,7 @@ core = [
 ]
 std = [
 	"parity-codec/std",
-	"substrate-primitives/std",
+	"primitives/std",
 	"rstd/std",
 	"runtime-primitives/std",
 	"support/std",
@@ -79,6 +79,8 @@ std = [
 	"hex-literal",
 	"serde",
 	"substrate-keyring",
+	"offchain-primitives/std",
+	"consensus_authorities/std",
 	"attestation/std",
 	"cennzx-spot/std",
 	"sylo/std",

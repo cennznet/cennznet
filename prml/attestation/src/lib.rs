@@ -47,13 +47,13 @@ extern crate parity_codec as codec;
 extern crate srml_support as runtime_support;
 
 extern crate sr_io as io;
-extern crate sr_primitives as primitives;
+extern crate runtime_primitives;
 extern crate srml_system as system;
-extern crate substrate_primitives;
+extern crate primitives;
 
 use runtime_support::rstd::prelude::*;
 use runtime_support::{dispatch::Result, StorageMap};
-use substrate_primitives::uint::U256;
+use primitives::uint::U256;
 use system::ensure_signed;
 
 pub trait Trait: system::Trait {

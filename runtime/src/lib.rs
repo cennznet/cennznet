@@ -38,7 +38,7 @@ use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	runtime_api as client_api,
 };
-use substrate_primitives::OpaqueMetadata;
+use primitives::OpaqueMetadata;
 use support::construct_runtime;
 use support::traits::Currency;
 
@@ -229,6 +229,7 @@ impl cennzx_spot::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
+	type AsBalance = Balance;
 }
 
 impl attestation::Trait for Runtime {

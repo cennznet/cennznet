@@ -1,32 +1,70 @@
 version: 2
 jobs:
   build:
-    docker:
-      - image: circleci/rust:stretch
+    machine:
+      image: ubuntu-1604:201903-01
     steps:
       - checkout
-      - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-cargo-global-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-cargo-global-cache-
       - run:
-          name: Init
-          command: ./scripts/init.sh
+          name: Install rust
+          command: |
+            sudo apt-get update
+            sudo apt-get -y install apt-utils cmake pkg-config libssl-dev git llvm clang
+            if [ ! -d /home/circleci/.cargo ]; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            fi
+            source $HOME/.cargo/env
+            rustup default nightly
+            rustup update nightly
+            rustup target add wasm32-unknown-unknown --toolchain nightly
+            command -v wasm-gc || cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
+            rustup target add x86_64-unknown-linux-musl --toolchain=nightly
+            rustup component add rustfmt --toolchain=nightly
+            rustc --version; cargo --version; rustup --version
+      - run:
+          name: Check format
+          command: |
+            source $HOME/.cargo/env
+            cargo +nightly fmt
+      - restore_cache:
+          keys:
+            - v1-cargo-wasm-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build WASM
-          command: ./scripts/build.sh
-      - run:
-          name: Build
-          command: cargo build
+          command: |
+            source $HOME/.cargo/env
+            ./scripts/build.sh
       - save_cache:
           paths:
-            - /usr/local/cargo/registry
+            - runtime/wasm/target/
+          key: v1-cargo-wasm-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - restore_cache:
+          keys:
+            - v1-target-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-target-cache-
+      - run:
+          name: Build binary
+          command: |
+            source $HOME/.cargo/env
+            cargo build
+          no_output_timeout: 30m
+      - save_cache:
+          paths:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - target/debug/incremental
+          key: v1-target-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - save_cache:
+          paths:
+            - /home/circleci/.cargo
+          key: v1-cargo-global-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run tests
-          command: cargo test --all --verbose --locked
+          command: |
+            source $HOME/.cargo/env
+            cargo test --all --verbose --locked

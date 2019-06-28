@@ -17,18 +17,30 @@
 
 #![cfg(test)]
 
-use primitives::{
+use parity_codec::{Decode, Encode};
+use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Lazy, Verify},
 	BuildStorage,
 };
-use substrate_primitives::{Blake2Hasher, H256};
-use support::impl_outer_origin;
+use serde::{Deserialize, Serialize};
+use primitives::{Blake2Hasher, H256};
+use support::{impl_outer_event, impl_outer_origin};
 
 use super::*;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+pub struct Signature;
+
+impl Verify for Signature {
+	type Signer = u64;
+	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+		true
+	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -47,17 +59,30 @@ impl system::Trait for Test {
 	type AccountId = u64;
 	type Lookup = IdentityLookup<u64>;
 	type Header = Header;
-	type Event = ();
+	type Event = TestEvent;
 	type Log = DigestItem;
+	type Signature = Signature;
 }
 
 impl Trait for Test {
 	type Balance = u64;
 	type AssetId = u32;
-	type Event = ();
+	type Event = TestEvent;
+}
+
+mod generic_asset {
+	pub use crate::Event;
+}
+
+impl_outer_event! {
+	pub enum TestEvent for Test {
+		generic_asset<T>,
+	}
 }
 
 pub type GenericAsset = Module<Test>;
+
+pub type System = system::Module<Test>;
 
 pub struct ExtBuilder {
 	asset_id: u32,
