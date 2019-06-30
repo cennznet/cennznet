@@ -1,30 +1,28 @@
 //!
-//! The DoughnutVerifier impl for the CENNZnet permission domain
+//! The DispatchVerifier impl for the doughnuts in the CENNZnet permission domain
 //!
 use crate::Runtime;
 use cennznet_primitives::Doughnut;
 use cennznut::CENNZnutV0;
 use parity_codec::Decode;
-use support::additional_traits::DoughnutVerifier;
+use runtime_primitives::traits::DoughnutApi;
+use support::additional_traits::DispatchVerifier;
 
-impl DoughnutVerifier<Doughnut> for Runtime {
+impl DispatchVerifier<Doughnut> for Runtime {
 	const DOMAIN: &'static str = "cennznet";
 
-	fn verify_doughnut(doughnut: &Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
-		if !doughnut.domains.contains_key(Self::DOMAIN) {
-			return Err("Doughnut does not grant permission for domain");
-		}
-		let cennznut: CENNZnutV0 = Decode::decode(&mut &doughnut.domains[Self::DOMAIN][..]).ok_or("Bad CENNZnut encoding")?;
-		// TODO: Strip `[p|s|c]rml-` quick fix. Need research into better options
-		if !cennznut.modules.contains_key(&module[5..]) {
-			return Err("Doughnut does not grant permission for module");
-		}
-		if !cennznut.modules[&module[5..]].methods.contains_key(method) {
-			return Err("Doughnut does not grant permission for method");
-		}
-
-		Ok(())
+	fn verify(doughnut: &Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
+		let mut domain = doughnut
+			.get_domain(Self::DOMAIN)
+			.ok_or("Doughnut does not grant permission for cennznet domain")?;
+		let cennznut: CENNZnutV0 = Decode::decode(&mut domain).ok_or("Bad CENNZnut encoding")?;
+		// Strips [c|p|s]rml- prefix
+		let module = cennznut
+			.get_module(&module[5..])
+			.ok_or("Doughnut does not grant permission for module")?;
+		module
+			.get_method(method)
+			.map(|_| ())
+			.ok_or("Doughnut does not grant permission for method")
 	}
 }
-
-// TODO: Do we have a race condition / threading issue where doughnut is being shared??

@@ -20,8 +20,8 @@
 #![recursion_limit = "512"]
 
 use cennznet_primitives::{
-	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetExtrinsic, Hash, Index,
-	Signature,
+	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetExtrinsic,
+	CheckedCennznetExtrinsic, Doughnut, Hash, Index, Signature,
 };
 #[cfg(feature = "std")]
 use council::seats as council_seats;
@@ -30,7 +30,7 @@ use grandpa::fg_primitives::{self, ScheduledChange};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
 use runtime_primitives::traits::{
-	AuthorityIdFor, BlakeTwo256, Block as BlockT, Checkable, Convert, DigestFor, NumberFor, StaticLookup,
+	AuthorityIdFor, BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor, StaticLookup,
 };
 use runtime_primitives::transaction_validity::TransactionValidity;
 use runtime_primitives::{create_runtime_str, generic, ApplyResult};
@@ -119,7 +119,8 @@ impl system::Trait for Runtime {
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
-	type DoughnutVerifier = Runtime;
+	type Doughnut = Doughnut;
+	type DispatchVerifier = Runtime;
 }
 
 impl aura::Trait for Runtime {
@@ -294,14 +295,14 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance, Doughnut>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = <<Block as BlockT>::Extrinsic as Checkable<system::ChainContext<Runtime>>>::Checked;
+pub type CheckedExtrinsic = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance, Doughnut>;
 /// A type that handles payment for extrinsic fees
 pub type ExtrinsicFeePayment = fee::ExtrinsicFeeCharger;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
-	executive::Executive<Runtime, Block, system::ChainContext<Runtime>, ExtrinsicFeePayment, AllModules>;
+	executive::DoughnutExecutive<Runtime, Block, system::ChainContext<Runtime>, ExtrinsicFeePayment, AllModules>;
 
 impl_runtime_apis! {
 	impl client_api::Core<Block> for Runtime {

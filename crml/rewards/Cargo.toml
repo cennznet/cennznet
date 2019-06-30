@@ -19,8 +19,8 @@ fees = { package = "prml-fees", path = "../../prml/fees", default-features = fal
 
 [dev-dependencies]
 generic-asset = { package = "prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
-timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", branch = "go-live/doughnut", default-features = false }
-consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", branch = "go-live/doughnut", default-features = false }
+timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
 
 [features]
 default = ["std"]

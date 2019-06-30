@@ -78,6 +78,7 @@ mod tests {
 	use super::*;
 
 	use codec::{Decode, Encode};
+	use primitives::traits::{Lazy, Verify};
 	use serde::{Deserialize, Serialize};
 	use runtime_primitives::traits::{Verify, Lazy};
 

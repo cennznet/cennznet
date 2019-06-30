@@ -33,7 +33,7 @@ consensus_aura = { package = "substrate-consensus-aura-primitives", git = "https
 rustc-hex = { version = "2.0", optional = true }
 hex-literal = { version = "0.1.0", optional = true }
 serde = { version = "1.0", optional = true }
-substrate-keyring = {git = "https://github.com/cennznet/plug-blockchain", branch = "go-live/doughnut", optional = true }
+substrate-keyring = {git = "https://github.com/cennznet/plug-blockchain", optional = true }
 cennznet-primitives = { path = "../primitives", default-features = false }
 rewards = { package = "crml-rewards", path = "../crml/rewards", default-features = false }
 generic-asset = { package = "prml-generic-asset", path = "../prml/generic-asset", default-features = false }
@@ -41,7 +41,7 @@ fees = { package = "prml-fees", path = "../prml/fees", default-features = false 
 attestation = { package = "prml-attestation", path = "../prml/attestation", default-features = false }
 sylo = { package = "crml-sylo", path = "../crml/sylo", default-features = false }
 cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", default-features = false }
-cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.0", default-features = false }
+cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.1", default-features = false }
 
 [dev-dependencies]
 runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain" }

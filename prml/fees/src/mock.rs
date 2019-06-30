@@ -22,14 +22,14 @@ use generic_asset::SpendingAssetCurrency;
 use parity_codec::{Decode, Encode};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
+use runtime_primitives::traits::{Lazy, Verify};
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
 use serde::{Deserialize, Serialize};
-use runtime_primitives::traits::{Verify, Lazy};
+use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
