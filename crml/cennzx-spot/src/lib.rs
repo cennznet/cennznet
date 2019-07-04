@@ -231,11 +231,11 @@ decl_event!(
 		<T as generic_asset::Trait>::AssetId,
 		<T as generic_asset::Trait>::Balance
 	{
-		// Provider, core asset amount, trade asset id, trade asset amount
+		/// Provider, core asset amount, trade asset id, trade asset amount
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
-		// Provider, core asset amount, trade asset id, trade asset amount
+		/// Provider, core asset amount, trade asset id, trade asset amount
 		RemoveLiquidity(AccountId, Balance, AssetId, Balance),
-	    // AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
+	    /// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
 		AssetPurchase(AssetId, AssetId, AccountId, Balance, Balance),
 	}
 );
