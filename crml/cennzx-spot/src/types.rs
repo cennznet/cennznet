@@ -60,11 +60,11 @@ impl FeeRate {
 
 	/// Divide a `u128` supported numeric by a FeeRate
 	pub fn safe_div<N: Into<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
-		let lhs_u128 = lhs.into();
-		let lhs_uint = U256::from(lhs_u128);
-		let scale_factor_uint = U256::from(SCALE_FACTOR);
-		let rhs_uint = U256::from(rhs.0);
-		let res: Result<u128, &'static str> = (lhs_uint * scale_factor_uint / rhs_uint).try_into();
+		let lhs = lhs.into();
+		let lhs = U256::from(lhs);
+		let scale_factor = U256::from(SCALE_FACTOR);
+		let rhs = U256::from(rhs.0);
+		let res: Result<u128, &'static str> = (lhs * scale_factor / rhs).try_into();
 
 		ensure!(res.is_ok(), "Overflow error");
 		Ok(res.unwrap())

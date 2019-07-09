@@ -675,7 +675,7 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
-			return Result::Err("Pool is empty");
+			return Err("Pool is empty");
 		}
 
 		// Special case, in theory price should progress towards infinity
@@ -683,13 +683,11 @@ impl<T: Trait> Module<T> {
 			return Ok(T::Balance::max_value());
 		}
 
-		let output_amount_u128: u128 = T::BalanceToU128::from(output_amount).into();
+		let amount = U256::from(T::BalanceToU128::from(output_amount).into());
+		let input_reserve = U256::from(T::BalanceToU128::from(input_reserve).into());
+		let denominator = U256::from(T::BalanceToU128::from(output_reserve - output_amount).into());
 
-		let output_amount_uint = U256::from(output_amount_u128);
-		let input_reserve_uint = U256::from(T::BalanceToU128::from(input_reserve).into());
-		let denominator_uint = U256::from(T::BalanceToU128::from(output_reserve - output_amount).into());
-
-		let res: Result<u128, &'static str> = (input_reserve_uint * output_amount_uint / denominator_uint).try_into();
+		let res: Result<u128, &'static str> = (input_reserve * amount / denominator).try_into();
 
 		ensure!(res.is_ok(), "Overflow error");
 		let price = T::U128ToBalance::from(res.unwrap()).into();
@@ -698,6 +696,7 @@ impl<T: Trait> Module<T> {
 		Ok(T::U128ToBalance::from(output).into())
 	}
 
+
 	fn get_input_price(
 		input_amount: T::Balance,
 		input_reserve: T::Balance,
@@ -705,7 +704,7 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate,
 	) -> rstd::result::Result<T::Balance, &'static str> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
-			return Result::Err("Pool is empty");
+			return Err("Pool is empty");
 		}
 
 		let div_rate = FeeRate::one() + fee_rate;
@@ -717,14 +716,14 @@ impl<T: Trait> Module<T> {
 			div_rate,
 		)?;
 		let input_reserve: u128 = T::BalanceToU128::from(input_reserve).into();
-		let output_reserve_uint = U256::from(T::BalanceToU128::from(output_reserve).into());
-		let input_amount_uint = U256::from(input_amount_less_fee_scaled);
+		let output_reserve = U256::from(T::BalanceToU128::from(output_reserve).into());
+		let input_amount = U256::from(input_amount_less_fee_scaled);
 		let denominator: Result<u128, &'static str> =
-			(U256::from(input_amount_less_fee_scaled) + U256::from(input_reserve)).try_into();
+			(input_amount + U256::from(input_reserve)).try_into();
 		ensure!(denominator.is_ok(), "Overflow error");
 
 		let res: Result<u128, &'static str> =
-			(output_reserve_uint * input_amount_uint / denominator.unwrap()).try_into();
+			(output_reserve * input_amount / denominator.unwrap()).try_into();
 
 		ensure!(res.is_ok(), "Overflow error");
 		Ok(T::U128ToBalance::from(res.unwrap()).into())

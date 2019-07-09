@@ -266,11 +266,12 @@ fn get_output_price_zero_cases() {
 	});
 }
 
-#[test]
-fn get_output_price() {
-	with_externalities(&mut ExtBuilder::default().build(), || {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
 
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// and apply fee rate to the price
+#[test]
+fn get_output_price_for_valid_data() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_ok!(
 			CennzXSpot::get_output_price(123, 1000, 1000, <DefaultFeeRate<Test>>::get()),
 			141
@@ -285,7 +286,14 @@ fn get_output_price() {
 			),
 			589396433540516
 		);
+	});
+}
 
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// and apply fee rate to the price
+#[test]
+fn get_output_price_for_max_reserve_balance() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_ok!(
 			CennzXSpot::get_output_price(
 				u128::max_value() / 2,
@@ -295,7 +303,15 @@ fn get_output_price() {
 			),
 			170651607010850639426882365627031758044
 		);
+	});
+}
 
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// and apply fee rate to the price
+// Overflows as the both input and output reserve is at max capacity and output amount is little less than max of u128
+#[test]
+fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
+			with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_err!(
 			CennzXSpot::get_output_price(
 				u128::max_value() - 100,
@@ -308,6 +324,8 @@ fn get_output_price() {
 	});
 }
 
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// and apply fee rate to the price
 #[test]
 fn get_output_price_max_withdrawal() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
@@ -735,8 +753,10 @@ fn core_to_asset_transfer_output() {
 	});
 }
 
+/// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
 #[test]
-fn get_input_price() {
+fn get_input_price_for_valid_data() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_ok!(
 			CennzXSpot::get_input_price(123, 1000, 1000, <DefaultFeeRate<Test>>::get()),
@@ -768,7 +788,16 @@ fn get_input_price() {
 			),
 			281017019450612581324176880746747822
 		);
+	});
+}
 
+
+/// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
+// Input amount is half of max(u128) and output reserve is max(u128) and input reserve is half of max(u128)
+#[test]
+fn get_input_price_for_max_reserve_balance() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_ok!(
 			CennzXSpot::get_input_price(
 				u128::max_value() / 2,
@@ -778,7 +807,16 @@ fn get_input_price() {
 			),
 			169886353929574869427545984738775941814
 		);
+	});
+}
 
+
+/// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
+// Overflows as the input reserve, output reserve and input amount is at max capacity(u128)
+#[test]
+fn get_input_price_should_fail_with_max_reserve_and_max_amount() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_err!(
 			CennzXSpot::get_input_price(
 				u128::max_value(),
