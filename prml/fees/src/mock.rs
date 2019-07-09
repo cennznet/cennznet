@@ -22,11 +22,10 @@ use generic_asset::SpendingAssetCurrency;
 use parity_codec::{Decode, Encode};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
-use runtime_primitives::traits::{Lazy, Verify};
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Lazy, Verify},
 };
 use serde::{Deserialize, Serialize};
 use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
@@ -76,7 +75,8 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = TestEvent;
 	type Log = DigestItem;
-	type Signature = Signature;
+	type DispatchVerifier = ();
+	type Doughnut = ();
 }
 
 impl generic_asset::Trait for Test {

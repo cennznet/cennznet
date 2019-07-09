@@ -61,7 +61,8 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = TestEvent;
 	type Log = DigestItem;
-	type Signature = Signature;
+	type DispatchVerifier = ();
+	type Doughnut = ();
 }
 
 impl Trait for Test {

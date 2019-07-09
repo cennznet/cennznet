@@ -29,27 +29,16 @@ use primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
 use runtime_io::with_externalities;
 use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Zero},
 	BuildStorage,
 };
 use support::{impl_outer_origin, StorageValue};
 
 use parity_codec::{Decode, Encode};
-use runtime_primitives::traits::{Lazy, Verify};
 use serde::{Deserialize, Serialize};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
-}
-
-#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
-pub struct Signature;
-
-impl Verify for Signature {
-	type Signer = AccountId;
-	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
-		true
-	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -70,7 +59,8 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = ();
 	type Log = DigestItem;
-	type Signature = Signature;
+	type Doughnut = ();
+	type DispatchVerifier = ();
 }
 
 impl generic_asset::Trait for Test {

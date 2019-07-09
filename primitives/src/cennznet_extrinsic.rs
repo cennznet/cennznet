@@ -18,7 +18,6 @@
 #[cfg(feature = "std")]
 use std::fmt;
 
-use rstd::borrow::Borrow;
 use rstd::prelude::*;
 use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
@@ -189,7 +188,7 @@ where
 		+ BlockNumberToHash<BlockNumber = BlockNumber, Hash = Hash>,
 	Doughnut: Encode + DoughnutApi,
 	<Doughnut as DoughnutApi>::AccountId: AsRef<[u8]>,
-	<Doughnut as DoughnutApi>::Signature: Borrow<[u8; 64]>,
+	<Doughnut as DoughnutApi>::Signature: AsRef<[u8]>,
 {
 	type Checked = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance, Doughnut>;
 
@@ -244,7 +243,7 @@ where
 			}
 			let issuer = AccountId::decode(&mut d.issuer().as_ref())
 				.ok_or("doughnut issuer incompatible with runtime AccountId")?;
-			let signature = Signature::decode(&mut &d.signature().borrow()[..])
+			let signature = Signature::decode(&mut d.signature().as_ref())
 				.ok_or("doughnut signature incompatible with runtime Signature")?;
 			if !signature.verify(d.payload().as_ref(), &issuer) {
 				return Err("bad signature in doughnut");
@@ -435,7 +434,7 @@ mod tests {
 
 	#[test]
 	fn it_works_with_fee_exchange() {
-		let mut extrinsic = CennznetExtrinsic::<H256, H256, u32, (), (), u128>::new_unsigned(());
+		let mut extrinsic = CennznetExtrinsic::<H256, H256, u32, (), (), u128, ()>::new_unsigned(());
 		extrinsic.fee_exchange = Some(FeeExchange::new(0, 1_000_000));
 		let buf = Encode::encode(&extrinsic);
 		let decoded = Decode::decode(&mut &buf[..]).unwrap();

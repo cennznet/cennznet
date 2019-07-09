@@ -19,14 +19,14 @@
 use cennznet_primitives::CheckedCennznetExtrinsic;
 use cennznet_runtime::{Call, ExtrinsicFeePayment, Fee, Runtime};
 use runtime_io::with_externalities;
-use runtime_primitives::BuildStorage;
+use runtime_primitives::{BuildStorage, doughnut::DoughnutV0};
 use primitives::{sr25519::Public, Blake2Hasher};
 use support::{additional_traits::ChargeExtrinsicFee, assert_err, assert_ok};
 
 // A default address for ChargeExtrinsicFee `transactor`
 const DEFAULT_TRANSACTOR: Public = Public([0u8; 32]);
 
-type MockCheckedExtrinsic = CheckedCennznetExtrinsic<primitives::sr25519::Public, u64, Call, u128>;
+type MockCheckedExtrinsic = CheckedCennznetExtrinsic<primitives::sr25519::Public, u64, Call, u128, DoughnutV0>;
 type System = system::Module<Runtime>;
 type Fees = fees::Module<Runtime>;
 
@@ -44,6 +44,7 @@ fn charge_extrinsic_fee_works() {
 				signed: None,
 				function: Call::Timestamp(timestamp::Call::<Runtime>::set(0)), // An arbitrarily chosen Runtime call
 				fee_exchange: None,
+				doughnut: None,
 			};
 
 			System::set_extrinsic_index(0);
@@ -83,6 +84,7 @@ fn charge_extrinsic_fee_for_generic_asset_transfer() {
 				signed: None,
 				function: Call::GenericAsset(generic_asset::Call::<Runtime>::transfer(0, DEFAULT_TRANSACTOR, 10)),
 				fee_exchange: None,
+				doughnut: None,
 			};
 
 			System::set_extrinsic_index(0);
@@ -110,6 +112,7 @@ fn charge_extrinsic_fee_for_generic_asset_transfer_overflow() {
 				signed: None,
 				function: Call::GenericAsset(generic_asset::Call::<Runtime>::transfer(0, DEFAULT_TRANSACTOR, 10)),
 				fee_exchange: None,
+				doughnut: None,
 			};
 
 			System::set_extrinsic_index(0);
@@ -127,6 +130,7 @@ fn charge_extrinsic_fee_fails_with_bytes_fee_overflow() {
 		signed: None,
 		function: Call::Timestamp(timestamp::Call::<Runtime>::set(0)),
 		fee_exchange: None,
+		doughnut: None,
 	};
 
 	// bytes fee overflows.
@@ -151,6 +155,7 @@ fn charge_extrinsic_fee_fails_with_total_fee_overflow() {
 		signed: None,
 		function: Call::Timestamp(timestamp::Call::<Runtime>::set(0)),
 		fee_exchange: None,
+		doughnut: None,
 	};
 
 	// bytes fee doesn't overflow, but total fee (bytes_fee + BASE_FEE) does

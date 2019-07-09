@@ -23,11 +23,10 @@ use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use parity_codec::{Decode, Encode};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
-use runtime_primitives::traits::{Lazy, Verify};
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup, Lazy, Verify},
 	Permill,
 };
 use serde::{Deserialize, Serialize};
@@ -79,7 +78,8 @@ impl system::Trait for Test {
 	type Header = Header;
 	type Event = ();
 	type Log = DigestItem;
-	type Signature = Signature;
+	type Doughnut = ();
+	type DispatchVerifier = ();
 }
 impl timestamp::Trait for Test {
 	type Moment = u64;

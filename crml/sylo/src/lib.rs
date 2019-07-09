@@ -35,4 +35,7 @@ pub mod inbox;
 pub mod response;
 pub mod vault;
 
+#[cfg(test)]
+pub(crate) mod mock;
+
 pub use rstd::vec;

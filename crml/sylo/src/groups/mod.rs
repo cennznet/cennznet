@@ -30,8 +30,8 @@ extern crate parity_codec;
 mod tests;
 
 use self::parity_codec::{Decode, Encode};
-use groups::primitives::ed25519;
-use groups::primitives::hash::H256;
+use primitives::ed25519;
+use primitives::hash::H256;
 use srml_support::runtime_primitives::traits::Verify;
 use srml_support::{dispatch::Result, dispatch::Vec, StorageMap};
 use vault::{VaultKey, VaultValue};
