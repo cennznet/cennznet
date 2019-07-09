@@ -18,9 +18,9 @@
 //!
 use cennznet_primitives::CheckedCennznetExtrinsic;
 use cennznet_runtime::{Call, ExtrinsicFeePayment, Fee, Runtime};
-use runtime_io::with_externalities;
-use runtime_primitives::{BuildStorage, doughnut::DoughnutV0};
 use primitives::{sr25519::Public, Blake2Hasher};
+use runtime_io::with_externalities;
+use runtime_primitives::{doughnut::DoughnutV0, BuildStorage};
 use support::{additional_traits::ChargeExtrinsicFee, assert_err, assert_ok};
 
 // A default address for ChargeExtrinsicFee `transactor`
