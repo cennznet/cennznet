@@ -16,10 +16,8 @@
 //!
 //! CENNZX-SPOT Types
 //!
-//#[macro_use]
-//extern crate uint;
+use uint:: construct_uint;
 use core::convert::TryInto;
-//
 construct_uint! {
 	/// 128-bit unsigned integer.
 	pub struct U128(2);
@@ -64,10 +62,9 @@ impl FeeRate {
 		let lhs = U256::from(lhs);
 		let scale_factor = U256::from(SCALE_FACTOR);
 		let rhs = U256::from(rhs.0);
-		let res: Result<u128, &'static str> = (lhs * scale_factor / rhs).try_into();
+		let res: u128 = (lhs * scale_factor / rhs).try_into().map_err(|_| "Overflow error")?;
 
-		ensure!(res.is_ok(), "Overflow error");
-		Ok(res.unwrap())
+		Ok(res)
 	}
 
 	//Self - lhs and N - rhs

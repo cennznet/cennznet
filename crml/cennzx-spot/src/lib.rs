@@ -23,7 +23,7 @@ mod tests;
 mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
-pub use types::FeeRate;
+pub use types::{FeeRate, U256};
 
 #[macro_use]
 extern crate srml_support as support;
@@ -40,16 +40,6 @@ use system::ensure_signed;
 #[macro_use]
 extern crate uint;
 use core::convert::TryInto;
-
-construct_uint! {
-	/// 128-bit unsigned integer.
-	pub struct U128(2);
-}
-
-construct_uint! {
-	/// 256-bit unsigned integer.
-	pub struct U256(4);
-}
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
@@ -687,10 +677,9 @@ impl<T: Trait> Module<T> {
 		let input_reserve = U256::from(T::BalanceToU128::from(input_reserve).into());
 		let denominator = U256::from(T::BalanceToU128::from(output_reserve - output_amount).into());
 
-		let res: Result<u128, &'static str> = (input_reserve * amount / denominator).try_into();
+		let res: u128 = (input_reserve * amount / denominator).try_into().map_err(|_| "Overflow error")?;
 
-		ensure!(res.is_ok(), "Overflow error");
-		let price = T::U128ToBalance::from(res.unwrap()).into();
+		let price = T::U128ToBalance::from(res).into();
 		let price_plus_one = T::BalanceToU128::from(price + One::one());
 		let output = FeeRate::safe_mul(FeeRate::one() + fee_rate, price_plus_one);
 		Ok(T::U128ToBalance::from(output).into())
@@ -718,15 +707,12 @@ impl<T: Trait> Module<T> {
 		let input_reserve: u128 = T::BalanceToU128::from(input_reserve).into();
 		let output_reserve = U256::from(T::BalanceToU128::from(output_reserve).into());
 		let input_amount = U256::from(input_amount_less_fee_scaled);
-		let denominator: Result<u128, &'static str> =
-			(input_amount + U256::from(input_reserve)).try_into();
-		ensure!(denominator.is_ok(), "Overflow error");
 
-		let res: Result<u128, &'static str> =
-			(output_reserve * input_amount / denominator.unwrap()).try_into();
+		let denominator: u128 = (input_amount + U256::from(input_reserve)).try_into().map_err(|_| "Overflow error")?;
 
-		ensure!(res.is_ok(), "Overflow error");
-		Ok(T::U128ToBalance::from(res.unwrap()).into())
+		let res: u128 = (output_reserve * input_amount / denominator).try_into().map_err(|_| "Overflow error")?;
+
+		Ok(T::U128ToBalance::from(res).into())
 	}
 
 	/// `asset_id` - Trade asset
