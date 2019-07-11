@@ -246,7 +246,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "cennznet-primitives"
 version = "0.1.0"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -266,7 +266,7 @@ dependencies = [
  "crml-sylo 0.1.0",
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "prml-attestation 0.1.0",
  "prml-fees 0.1.0",
  "prml-generic-asset 0.1.0",
@@ -346,7 +346,7 @@ name = "crml-cennzx-spot"
 version = "0.1.0"
 dependencies = [
  "cennznet-primitives 0.1.0",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "prml-fees 0.1.0",
  "prml-generic-asset 0.1.0",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -362,7 +362,7 @@ dependencies = [
 name = "crml-rewards"
 version = "0.1.0"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "prml-fees 0.1.0",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -379,7 +379,7 @@ dependencies = [
 name = "crml-sylo"
 version = "0.1.0"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -858,7 +858,7 @@ name = "impl-codec"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1525,7 +1525,7 @@ source = "git+https://github.com/paritytech/parity-common?rev=b0317f649ab2c665b7
 
 [[package]]
 name = "parity-codec"
-version = "3.5.1"
+version = "3.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "arrayvec 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1709,7 +1709,7 @@ dependencies = [
 name = "prml-attestation"
 version = "0.1.0"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -1723,7 +1723,7 @@ name = "prml-fees"
 version = "0.1.0"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -1737,7 +1737,7 @@ dependencies = [
 name = "prml-generic-asset"
 version = "0.1.0"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2282,7 +2282,7 @@ dependencies = [
  "environmental 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "libsecp256k1 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2299,7 +2299,7 @@ dependencies = [
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2311,7 +2311,7 @@ name = "sr-sandbox"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2332,7 +2332,7 @@ version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
  "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2343,7 +2343,7 @@ name = "srml-aura"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2360,7 +2360,7 @@ name = "srml-balances"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2375,7 +2375,7 @@ name = "srml-consensus"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2390,7 +2390,7 @@ name = "srml-contract"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "pwasm-utils 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2410,7 +2410,7 @@ name = "srml-council"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2427,7 +2427,7 @@ name = "srml-democracy"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2442,7 +2442,7 @@ name = "srml-executive"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2457,7 +2457,7 @@ name = "srml-finality-tracker"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2471,7 +2471,7 @@ name = "srml-grandpa"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2489,7 +2489,7 @@ name = "srml-indices"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2506,7 +2506,7 @@ name = "srml-metadata"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2517,7 +2517,7 @@ name = "srml-session"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2533,7 +2533,7 @@ name = "srml-staking"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2552,7 +2552,7 @@ name = "srml-sudo"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2569,7 +2569,7 @@ source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17
 dependencies = [
  "bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "paste 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2619,7 +2619,7 @@ name = "srml-system"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2634,7 +2634,7 @@ name = "srml-timestamp"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2750,7 +2750,7 @@ dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "kvdb 0.1.0 (git+https://github.com/paritytech/parity-common?rev=b0317f649ab2c665b7987b8475878fc4d2e1f81d)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2780,7 +2780,7 @@ name = "substrate-consensus-authorities"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2800,7 +2800,7 @@ dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "libp2p 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2818,7 +2818,7 @@ dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libsecp256k1 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2836,7 +2836,7 @@ name = "substrate-finality-grandpa-primitives"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2848,7 +2848,7 @@ name = "substrate-inherents"
 version = "1.0.0"
 source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
 dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2897,7 +2897,7 @@ dependencies = [
  "hash256-std-hasher 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2928,7 +2928,7 @@ source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2962,7 +2962,7 @@ source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "trie-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3735,7 +3735,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum owning_ref 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "cdf84f41639e037b484f93433aa3897863b561ed65c6e59c7073d7c561710f37"
 "checksum owning_ref 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "49a4b8ea2179e6a2e27411d3bca09ca6dd630821cf6894c6c7c8467a8ee7ef13"
 "checksum parity-bytes 0.1.0 (git+https://github.com/paritytech/parity-common?rev=b0317f649ab2c665b7987b8475878fc4d2e1f81d)" = "<none>"
-"checksum parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dcb43c05fb71c03b4ea7327bf15694da1e0f23f19d5b1e95bab6c6d74097e336"
+"checksum parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)" = "2b9df1283109f542d8852cd6b30e9341acc2137481eb6157d2e62af68b0afec9"
 "checksum parity-codec-derive 3.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "00a486fd383382ddcb2de928364b1f82571c1e48274fc43b7667a4738ee4056c"
 "checksum parity-multiaddr 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b574ca9f0c0235c04de4c5110542959f64c9b8882f638b70f6c6be52c75bdc46"
 "checksum parity-multihash 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "eb83358a0c05e52c44d658981fec2d146d3516d1adffd9e553684f8c8e9e8fa5"
