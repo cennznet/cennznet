@@ -68,24 +68,13 @@ impl FeeRate {
 	}
 
 	//Self - lhs and N - rhs
-	pub fn safe_mul<N: Into<u128>>(lhs: FeeRate, rhs: N) -> u128 {
-		let rhs_u128 = rhs.into();
-		let million = SCALE_FACTOR;
-		let part = lhs.0;
+	pub fn safe_mul<N: Into<u128>>(lhs: FeeRate, rhs: N) -> rstd::result::Result<u128, &'static str> {
+		let rhs = U256::from(rhs.into());
+		let scale_factor = U256::from(SCALE_FACTOR);
+		let lhs = U256::from(lhs.0);
+		let res: u128 = (lhs * rhs / scale_factor).try_into().map_err(|_| "Overflow error")?;
 
-		let rem_multiplied_divided = {
-			let rem = rhs_u128 % million;
-
-			// `rem` is inferior to one million, thus it fits into u128
-			let rem_u128: u128 = rem;
-
-			// `lhs` and `rem` are inferior to one million, thus the product fits into u128
-			let rem_multiplied_u128 = rem_u128 * lhs.0;
-
-			rem_multiplied_u128 / 1_000_000
-		};
-
-		(rhs_u128 / million) * part + rem_multiplied_divided
+		Ok(res)
 	}
 
 	/// Returns the equivalent of 1 or 100%
@@ -160,6 +149,6 @@ mod tests {
 	fn safe_mul_works() {
 		let fee_rate = FeeRate::from_percent(50);
 		let rhs: u128 = 2;
-		assert_eq!(FeeRate::safe_mul(fee_rate, rhs), 1 as u128);
+		assert_ok!(FeeRate::safe_mul(fee_rate, rhs), 1 as u128);
 	}
 }

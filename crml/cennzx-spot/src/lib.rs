@@ -681,7 +681,7 @@ impl<T: Trait> Module<T> {
 
 		let price = T::U128ToBalance::from(res).into();
 		let price_plus_one = T::BalanceToU128::from(price + One::one());
-		let output = FeeRate::safe_mul(FeeRate::one() + fee_rate, price_plus_one);
+		let output = FeeRate::safe_mul(FeeRate::one() + fee_rate, price_plus_one)?;
 		Ok(T::U128ToBalance::from(output).into())
 	}
 
