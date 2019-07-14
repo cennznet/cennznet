@@ -140,6 +140,13 @@ mod tests {
 	}
 
 	#[test]
+	fn safe_div_overflow_works() {
+		let fee_rate = FeeRate::from_percent(10);
+		let lhs: u128 = u128::max_value();
+		assert_err!(FeeRate::safe_div(lhs, fee_rate), "Overflow error");
+	}
+
+	#[test]
 	fn add_works() {
 		let fee_rate = FeeRate::from_percent(50) + FeeRate::from_percent(12);
 		assert_eq!(fee_rate, FeeRate::from_percent(62));
@@ -150,5 +157,12 @@ mod tests {
 		let fee_rate = FeeRate::from_percent(50);
 		let rhs: u128 = 2;
 		assert_ok!(FeeRate::safe_mul(fee_rate, rhs), 1 as u128);
+	}
+
+	#[test]
+	fn safe_mul_overflow_works() {
+		let fee_rate = FeeRate::from_percent(200);
+		let rhs: u128 = u128::max_value();
+		assert_err!(FeeRate::safe_mul(fee_rate, rhs), "Overflow error");
 	}
 }
