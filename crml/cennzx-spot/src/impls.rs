@@ -19,9 +19,9 @@
 use super::{Module, Trait};
 use cennznet_primitives::FeeExchange;
 use fees::BuyFeeAsset;
+use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, mem, prelude::*};
 use runtime_primitives::traits::Hash;
-use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use support::dispatch::Result;
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
@@ -76,8 +76,8 @@ pub(crate) mod impl_tests {
 	use super::*;
 	use crate::tests::{CennzXSpot, ExtBuilder, Test};
 	use cennznet_primitives::FeeExchange;
-	use runtime_io::with_externalities;
 	use primitives::H256;
+	use runtime_io::with_externalities;
 
 	const CORE_ASSET: u32 = 0;
 	const OTHER_ASSET: u32 = 1;
@@ -123,9 +123,6 @@ pub(crate) mod impl_tests {
 
 	#[test]
 	fn u64_to_bytes_works() {
-		assert_eq!(
-			u64_to_bytes(80_000),
-			[128, 56, 1, 0, 0, 0, 0, 0]
-		);
+		assert_eq!(u64_to_bytes(80_000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 }
