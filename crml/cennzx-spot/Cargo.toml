@@ -16,6 +16,7 @@ runtime_primitives = { package="sr-primitives", git = "https://github.com/cennzn
 srml-support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 system = { package="srml-system", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 generic-asset = { package="prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
+uint = { version = "0.7.1", default-features = false }
 
 [features]
 default = ["std"]

@@ -249,11 +249,11 @@ dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -273,29 +273,29 @@ dependencies = [
  "rustc-hex 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-aura 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-contract 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-council 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-executive 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-grandpa 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-indices 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-sudo 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-consensus-aura-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-consensus-authorities 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-offchain-primitives 0.1.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-aura 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-contract 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-council 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-executive 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-grandpa 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-indices 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-sudo 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-consensus-aura-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-consensus-authorities 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-offchain-primitives 0.1.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -350,12 +350,13 @@ dependencies = [
  "prml-fees 0.1.0",
  "prml-generic-asset 0.1.0",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "uint 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -365,14 +366,14 @@ dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "prml-fees 0.1.0",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -381,13 +382,13 @@ version = "0.1.0"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-balances 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-balances 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -1710,12 +1711,12 @@ name = "prml-attestation"
 version = "0.1.0"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -1725,12 +1726,12 @@ dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -1739,12 +1740,12 @@ version = "0.1.0"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -2265,7 +2266,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "sr-api-macros"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2277,51 +2278,51 @@ dependencies = [
 [[package]]
 name = "sr-io"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "environmental 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "libsecp256k1 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "tiny-keccak 1.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sr-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "sr-sandbox"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sr-std"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2329,285 +2330,285 @@ dependencies = [
 [[package]]
 name = "sr-version"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-aura"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-balances"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-consensus"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-contract"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "pwasm-utils 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-sandbox 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-sandbox 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "wasmi-validation 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "srml-council"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-democracy"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-executive"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-finality-tracker"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-grandpa"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-finality-tracker 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-finality-grandpa-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-finality-tracker 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-finality-grandpa-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-indices"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-metadata"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-session"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-staking"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "uint 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "srml-sudo"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-support"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "paste 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-metadata 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-metadata 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-support-procedural"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support-procedural-tools 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support-procedural-tools 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "syn 0.15.38 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "srml-support-procedural-tools"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "srml-support-procedural-tools-derive 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "srml-support-procedural-tools-derive 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "syn 0.15.38 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "srml-support-procedural-tools-derive"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2617,30 +2618,30 @@ dependencies = [
 [[package]]
 name = "srml-system"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "srml-timestamp"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
@@ -2741,7 +2742,7 @@ dependencies = [
 [[package]]
 name = "substrate-client"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "derive_more 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2752,48 +2753,48 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-consensus-common 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-executor 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-telemetry 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-consensus-common 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-executor 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-telemetry 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-consensus-aura-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-consensus-authorities"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-consensus-common"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2801,17 +2802,17 @@ dependencies = [
  "libp2p 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "tokio-timer 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "substrate-executor"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2820,13 +2821,13 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-serializer 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-serializer 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "tiny-keccak 1.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2834,51 +2835,51 @@ dependencies = [
 [[package]]
 name = "substrate-finality-grandpa-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-inherents"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-keyring"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "strum 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strum_macros 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-offchain-primitives"
 version = "0.1.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
- "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
 ]
 
 [[package]]
 name = "substrate-panic-handler"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "backtrace 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2887,12 +2888,11 @@ dependencies = [
 [[package]]
 name = "substrate-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "ed25519-dalek 1.0.0-pre.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash256-std-hasher 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2901,21 +2901,23 @@ dependencies = [
  "primitive-types 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ring 0.14.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hex 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "schnorrkel 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "substrate-bip39 0.2.1 (git+https://github.com/paritytech/substrate-bip39)",
  "tiny-bip39 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "twox-hash 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "untrusted 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "substrate-serializer"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2924,15 +2926,15 @@ dependencies = [
 [[package]]
 name = "substrate-state-machine"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "trie-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "trie-root 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2940,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "substrate-telemetry"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2958,13 +2960,13 @@ dependencies = [
 [[package]]
 name = "substrate-trie"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain?branch=stable#dd8a778027f9e4a1958aa99c52bf3cffc2b888aa"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
- "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)",
  "trie-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "trie-root 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -3812,32 +3814,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum snow 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5a64f02fd208ef15bd2d1a65861df4707e416151e1272d02c8faafad1c138100"
 "checksum sourcefile 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "4bf77cb82ba8453b42b6ae1d692e4cdc92f9a47beaf89a847c8be83f4e328ad3"
 "checksum spin 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "44363f6f51401c34e7be73db0db371c04705d35efbe9f7d6082e03a921a32c55"
-"checksum sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum sr-sandbox 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-aura 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-balances 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-contract 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-council 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-executive 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-finality-tracker 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-grandpa 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-indices 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-metadata 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-sudo 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-support-procedural-tools 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-support-procedural-tools-derive 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
+"checksum sr-api-macros 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum sr-sandbox 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum sr-version 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-aura 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-balances 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-consensus 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-contract 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-council 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-democracy 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-executive 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-finality-tracker 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-grandpa 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-indices 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-metadata 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-session 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-staking 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-sudo 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-support-procedural 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-support-procedural-tools 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-support-procedural-tools-derive 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum srml-timestamp 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum static_assertions 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "c19be23126415861cb3a23e501d34a708f7f9b2183c5252d690941c2e69199d5"
 "checksum static_slice 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "92a7e0c5e3dfb52e8fbe0e63a1b947bbb17b4036408b151353c4491374931362"
@@ -3849,21 +3851,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum strum 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1810e25f576e7ffce1ff5243b37066da5ded0310b3274c20baaeccb1145b2806"
 "checksum strum_macros 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "572a2f4e53dd4c3483fd79e5cc10ddd773a3acb1169bbfe8762365e107110579"
 "checksum substrate-bip39 0.2.1 (git+https://github.com/paritytech/substrate-bip39)" = "<none>"
-"checksum substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-consensus-aura-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-consensus-authorities 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-consensus-common 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-executor 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-finality-grandpa-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-offchain-primitives 0.1.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-serializer 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-telemetry 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
-"checksum substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain)" = "<none>"
+"checksum substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-consensus-aura-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-consensus-authorities 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-consensus-common 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-executor 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-finality-grandpa-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-inherents 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-offchain-primitives 0.1.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-panic-handler 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-serializer 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-state-machine 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-telemetry 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
+"checksum substrate-trie 1.0.0 (git+https://github.com/cennznet/plug-blockchain?branch=stable)" = "<none>"
 "checksum subtle 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
 "checksum subtle 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "01dca13cf6c3b179864ab3292bd794e757618d35a7766b7c46050c614ba00829"
 "checksum syn 0.15.38 (registry+https://github.com/rust-lang/crates.io-index)" = "37ea458a750f59ab679b47fef9b6722c586c5742f4cfe18a120bbc807e5e01fd"
