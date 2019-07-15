@@ -128,6 +128,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit_reverse"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "bitflags"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,6 +266,7 @@ name = "cennznet-runtime"
 version = "0.9.24-beta"
 dependencies = [
  "cennznet-primitives 0.1.0",
+ "cennznut 0.1.1 (git+https://github.com/cennznet/cennznut-rs?tag=v0.1.1)",
  "crml-cennzx-spot 0.1.0",
  "crml-rewards 0.1.0",
  "crml-sylo 0.1.0",
@@ -303,6 +309,15 @@ name = "cennznet-runtime-wasm"
 version = "0.1.0"
 dependencies = [
  "cennznet-runtime 0.9.24-beta",
+]
+
+[[package]]
+name = "cennznut"
+version = "0.1.1"
+source = "git+https://github.com/cennznet/cennznut-rs?tag=v0.1.1#2adfffd9f70177ebccee270e543b591a2f862878"
+dependencies = [
+ "bit_reverse 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -356,6 +371,7 @@ dependencies = [
  "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "uint 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -564,6 +580,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "doughnut_rs"
+version = "0.1.5"
+source = "git+https://github.com/cennznet/doughnut-rs#280df32bc5c3e34cec93072deff1cac8e42c3d20"
+dependencies = [
+ "bit_reverse 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "primitive-types 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2265,7 +2291,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "sr-api-macros"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2277,7 +2303,7 @@ dependencies = [
 [[package]]
 name = "sr-io"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "environmental 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2294,8 +2320,9 @@ dependencies = [
 [[package]]
 name = "sr-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
+ "doughnut_rs 0.1.5 (git+https://github.com/cennznet/doughnut-rs)",
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2309,7 +2336,7 @@ dependencies = [
 [[package]]
 name = "sr-sandbox"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2321,7 +2348,7 @@ dependencies = [
 [[package]]
 name = "sr-std"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2329,7 +2356,7 @@ dependencies = [
 [[package]]
 name = "sr-version"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2341,7 +2368,7 @@ dependencies = [
 [[package]]
 name = "srml-aura"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2358,7 +2385,7 @@ dependencies = [
 [[package]]
 name = "srml-balances"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2373,7 +2400,7 @@ dependencies = [
 [[package]]
 name = "srml-consensus"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2388,7 +2415,7 @@ dependencies = [
 [[package]]
 name = "srml-contract"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2408,7 +2435,7 @@ dependencies = [
 [[package]]
 name = "srml-council"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2425,7 +2452,7 @@ dependencies = [
 [[package]]
 name = "srml-democracy"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2440,7 +2467,7 @@ dependencies = [
 [[package]]
 name = "srml-executive"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2455,7 +2482,7 @@ dependencies = [
 [[package]]
 name = "srml-finality-tracker"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2469,7 +2496,7 @@ dependencies = [
 [[package]]
 name = "srml-grandpa"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2487,7 +2514,7 @@ dependencies = [
 [[package]]
 name = "srml-indices"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2504,7 +2531,7 @@ dependencies = [
 [[package]]
 name = "srml-metadata"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2515,7 +2542,7 @@ dependencies = [
 [[package]]
 name = "srml-session"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2531,7 +2558,7 @@ dependencies = [
 [[package]]
 name = "srml-staking"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2550,7 +2577,7 @@ dependencies = [
 [[package]]
 name = "srml-sudo"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2565,7 +2592,7 @@ dependencies = [
 [[package]]
 name = "srml-support"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2583,7 +2610,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2595,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2607,7 +2634,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools-derive"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2617,7 +2644,7 @@ dependencies = [
 [[package]]
 name = "srml-system"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2632,7 +2659,7 @@ dependencies = [
 [[package]]
 name = "srml-timestamp"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2741,7 +2768,7 @@ dependencies = [
 [[package]]
 name = "substrate-client"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "derive_more 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2769,7 +2796,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-aura-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2778,7 +2805,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-authorities"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2793,7 +2820,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-common"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2811,7 +2838,7 @@ dependencies = [
 [[package]]
 name = "substrate-executor"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2834,7 +2861,7 @@ dependencies = [
 [[package]]
 name = "substrate-finality-grandpa-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2846,7 +2873,7 @@ dependencies = [
 [[package]]
 name = "substrate-inherents"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2857,7 +2884,7 @@ dependencies = [
 [[package]]
 name = "substrate-keyring"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2869,7 +2896,7 @@ dependencies = [
 [[package]]
 name = "substrate-offchain-primitives"
 version = "0.1.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-client 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
@@ -2878,7 +2905,7 @@ dependencies = [
 [[package]]
 name = "substrate-panic-handler"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "backtrace 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2887,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "substrate-primitives"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2915,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "substrate-serializer"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2924,7 +2951,7 @@ dependencies = [
 [[package]]
 name = "substrate-state-machine"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2940,7 +2967,7 @@ dependencies = [
 [[package]]
 name = "substrate-telemetry"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2958,7 +2985,7 @@ dependencies = [
 [[package]]
 name = "substrate-trie"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/plug-blockchain#20d0684f973fb39834ef17d13c8a9d3e18c802bf"
+source = "git+https://github.com/cennznet/plug-blockchain#a097dac4f6cbd4612c877fe493026dd2bfc563c1"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3597,6 +3624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum base-x 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "76f4eae81729e69bb1819a26c6caac956cc429238388091f98cb6cd858f16443"
 "checksum base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5024ee8015f02155eee35c711107ddd9a9bf3cb689cf2a9089c97e79b6e1ae83"
 "checksum bigint 4.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ebecac13b3c745150d7b6c3ea7572d372f09d627c2077e893bf26c5c7f70d282"
+"checksum bit_reverse 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "99528ca30abb9495c7e106bf7c3177b257c62040fc0f2909fe470b0f43097296"
 "checksum bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3d155346769a6855b86399e9bc3814ab343cd3d62c7e985113d46a0ec3c281fd"
 "checksum bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5da9b3d9f6f585199287a473f4f8dfab6566cf827d15c00c219f53c645687ead"
 "checksum blake2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "91721a6330935673395a0607df4d49a9cb90ae12d259f1b3e0a3f6e1d486872e"
@@ -3614,6 +3642,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)" = "206fdffcfa2df7cbe15601ef46c813fce0965eb3286db6b56c583b814b51c81c"
 "checksum c_linked_list 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4964518bd3b4a8190e832886cdc0da9794f12e8e6c1613a9e90ff331c4c8724b"
 "checksum cc 1.0.26 (registry+https://github.com/rust-lang/crates.io-index)" = "389803e36973d242e7fecb092b2de44a3d35ac62524b3b9339e51d577d668e02"
+"checksum cennznut 0.1.1 (git+https://github.com/cennznet/cennznut-rs?tag=v0.1.1)" = "<none>"
 "checksum cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "b486ce3ccf7ffd79fdeb678eac06a9e6c09fc88d33836340becb8fffe87c5e33"
 "checksum chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "45912881121cb26fad7c38c17ba7daa18764771836b34fab7d3fbd93ed633878"
 "checksum clear_on_drop 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "97276801e127ffb46b66ce23f35cc96bd454fa311294bced4bbace7baa8b1d17"
@@ -3639,6 +3668,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum digest 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "05f47366984d3ad862010e22c7ce81a7dbcaebbdfb37241a620f8b6596ee135c"
 "checksum discard 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 "checksum dns-parser 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c4d33be9473d06f75f58220f71f7a9317aca647dc061dbd3c361b0bef505fbea"
+"checksum doughnut_rs 0.1.5 (git+https://github.com/cennznet/doughnut-rs)" = "<none>"
 "checksum ed25519-dalek 1.0.0-pre.1 (registry+https://github.com/rust-lang/crates.io-index)" = "81956bcf7ef761fb4e1d88de3fa181358a0d26cbcb9755b587a08f9119824b86"
 "checksum either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5527cfe0d098f36e3f8839852688e63c8fff1c90b2b405aef730615f9a7bcf7b"
 "checksum elastic-array 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "073be79b6538296faf81c631872676600616073817dd9a440c477ad09b408983"

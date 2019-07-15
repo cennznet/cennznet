@@ -41,6 +41,7 @@ fees = { package = "prml-fees", path = "../prml/fees", default-features = false 
 attestation = { package = "prml-attestation", path = "../prml/attestation", default-features = false }
 sylo = { package = "crml-sylo", path = "../crml/sylo", default-features = false }
 cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", default-features = false }
+cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.1", default-features = false }
 
 [dev-dependencies]
 runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain" }

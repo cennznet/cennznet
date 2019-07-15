@@ -13,29 +13,27 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#![cfg_attr(not(feature = "std"), no_std)]
+use parity_codec::Encode;
+use rstd::prelude::*;
 
-#[cfg(feature = "std")]
-extern crate serde;
+pub fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8> {
+	let size = ::rstd::mem::size_of::<T>();
+	let reserve = match size {
+		x if x <= 0b0011_1111 => 1,
+		x if x <= 0b0011_1111_1111_1111 => 2,
+		_ => 4,
+	};
+	let mut v = Vec::with_capacity(reserve + size);
+	v.resize(reserve, 0);
+	encoder(&mut v);
 
-extern crate parity_codec as codec;
-extern crate primitives;
-extern crate sr_io as runtime_io;
-extern crate sr_std as rstd;
-#[macro_use]
-extern crate srml_support;
-extern crate runtime_primitives;
-extern crate srml_balances as balances;
-extern crate srml_system as system;
+	// need to prefix with the total length to ensure it's binary compatible with
+	// Vec<u8>.
+	let mut length: Vec<()> = Vec::new();
+	length.resize(v.len() - reserve, ());
+	length.using_encoded(|s| {
+		v.splice(0..reserve, s.iter().cloned());
+	});
 
-pub mod device;
-pub mod e2ee;
-pub mod groups;
-pub mod inbox;
-pub mod response;
-pub mod vault;
-
-#[cfg(test)]
-pub(crate) mod mock;
-
-pub use rstd::vec;
+	v
+}

@@ -16,8 +16,8 @@
 //!
 //! CENNZX-SPOT Types
 //!
-use uint:: construct_uint;
 use core::convert::TryInto;
+use uint::construct_uint;
 construct_uint! {
 	/// 128-bit unsigned integer.
 	pub struct U128(2);

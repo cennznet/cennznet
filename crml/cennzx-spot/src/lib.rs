@@ -677,14 +677,15 @@ impl<T: Trait> Module<T> {
 		let input_reserve = U256::from(T::BalanceToU128::from(input_reserve).into());
 		let denominator = U256::from(T::BalanceToU128::from(output_reserve - output_amount).into());
 
-		let res: u128 = (input_reserve * amount / denominator).try_into().map_err(|_| "Overflow error")?;
+		let res: u128 = (input_reserve * amount / denominator)
+			.try_into()
+			.map_err(|_| "Overflow error")?;
 
 		let price = T::U128ToBalance::from(res).into();
 		let price_plus_one = T::BalanceToU128::from(price + One::one());
 		let output = FeeRate::safe_mul(FeeRate::one() + fee_rate, price_plus_one)?;
 		Ok(T::U128ToBalance::from(output).into())
 	}
-
 
 	fn get_input_price(
 		input_amount: T::Balance,
@@ -700,17 +701,18 @@ impl<T: Trait> Module<T> {
 
 		let lhs = T::BalanceToU128::from(input_amount);
 
-		let input_amount_less_fee_scaled = FeeRate::safe_div(
-			lhs,
-			div_rate,
-		)?;
+		let input_amount_less_fee_scaled = FeeRate::safe_div(lhs, div_rate)?;
 		let input_reserve: u128 = T::BalanceToU128::from(input_reserve).into();
 		let output_reserve = U256::from(T::BalanceToU128::from(output_reserve).into());
 		let input_amount = U256::from(input_amount_less_fee_scaled);
 
-		let denominator: u128 = (input_amount + U256::from(input_reserve)).try_into().map_err(|_| "Overflow error")?;
+		let denominator: u128 = (input_amount + U256::from(input_reserve))
+			.try_into()
+			.map_err(|_| "Overflow error")?;
 
-		let res: u128 = (output_reserve * input_amount / denominator).try_into().map_err(|_| "Overflow error")?;
+		let res: u128 = (output_reserve * input_amount / denominator)
+			.try_into()
+			.map_err(|_| "Overflow error")?;
 
 		Ok(T::U128ToBalance::from(res).into())
 	}

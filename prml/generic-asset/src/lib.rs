@@ -156,7 +156,7 @@ use runtime_primitives::traits::{
 };
 
 use rstd::prelude::*;
-use rstd::{cmp, result, convert::TryInto};
+use rstd::{cmp, convert::TryInto, result};
 use support::dispatch::Result;
 use support::{
 	decl_event, decl_fee, decl_module, decl_storage, ensure,
@@ -179,7 +179,9 @@ pub trait Trait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ MaybeSerializeDebug + From<u32> + TryInto<u128>;
+		+ MaybeSerializeDebug
+		+ From<u32>
+		+ TryInto<u128>;
 	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + From<u32> + Into<u64>;
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -190,8 +192,10 @@ pub trait Subtrait: system::Trait {
 		+ SimpleArithmetic
 		+ Default
 		+ Copy
-		+ MaybeSerializeDebug + From<u32> + TryInto<u128>;
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy+ From<u32> + Into<u64>;
+		+ MaybeSerializeDebug
+		+ From<u32>
+		+ TryInto<u128>;
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy + From<u32> + Into<u64>;
 }
 
 impl<T: Trait> Subtrait for T {
@@ -1047,7 +1051,8 @@ impl<T: Subtrait> system::Trait for ElevatedTrait<T> {
 	type Header = T::Header;
 	type Event = ();
 	type Log = T::Log;
-	type Signature = T::Signature;
+	type Doughnut = ();
+	type DispatchVerifier = ();
 }
 impl<T: Subtrait> Trait for ElevatedTrait<T> {
 	type Balance = T::Balance;
