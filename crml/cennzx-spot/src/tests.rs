@@ -29,13 +29,10 @@ use primitives::{crypto::UncheckedInto, Blake2Hasher, H256};
 use runtime_io::with_externalities;
 use runtime_primitives::{
 	testing::{Digest, DigestItem, Header},
-	traits::{BlakeTwo256, IdentityLookup, Zero},
+	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
 use support::{impl_outer_origin, StorageValue};
-
-use parity_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -256,7 +253,6 @@ fn get_output_price_zero_cases() {
 	});
 }
 
-
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
@@ -301,7 +297,7 @@ fn get_output_price_for_max_reserve_balance() {
 // Overflows as the both input and output reserve is at max capacity and output amount is little less than max of u128
 #[test]
 fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
-			with_externalities(&mut ExtBuilder::default().build(), || {
+	with_externalities(&mut ExtBuilder::default().build(), || {
 		assert_err!(
 			CennzXSpot::get_output_price(
 				u128::max_value() - 100,
@@ -744,7 +740,7 @@ fn core_to_asset_transfer_output() {
 }
 
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
-/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 #[test]
 fn get_input_price_for_valid_data() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
@@ -781,9 +777,8 @@ fn get_input_price_for_valid_data() {
 	});
 }
 
-
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
-/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 // Input amount is half of max(u128) and output reserve is max(u128) and input reserve is half of max(u128)
 #[test]
 fn get_input_price_for_max_reserve_balance() {
@@ -800,9 +795,8 @@ fn get_input_price_for_max_reserve_balance() {
 	});
 }
 
-
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
-/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee) 
+/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 // Overflows as the input reserve, output reserve and input amount is at max capacity(u128)
 #[test]
 fn get_input_price_should_fail_with_max_reserve_and_max_amount() {

@@ -16,17 +16,17 @@
 //!
 //! Fee integration tests
 //!
-use cennznet_primitives::CheckedCennznetExtrinsic;
+use cennznet_primitives::{CennznetDoughnut, CheckedCennznetExtrinsic};
 use cennznet_runtime::{Call, ExtrinsicFeePayment, Fee, Runtime};
 use primitives::{sr25519::Public, Blake2Hasher};
 use runtime_io::with_externalities;
-use runtime_primitives::{doughnut::DoughnutV0, BuildStorage};
+use runtime_primitives::BuildStorage;
 use support::{additional_traits::ChargeExtrinsicFee, assert_err, assert_ok};
 
 // A default address for ChargeExtrinsicFee `transactor`
 const DEFAULT_TRANSACTOR: Public = Public([0u8; 32]);
 
-type MockCheckedExtrinsic = CheckedCennznetExtrinsic<primitives::sr25519::Public, u64, Call, u128, DoughnutV0>;
+type MockCheckedExtrinsic = CheckedCennznetExtrinsic<primitives::sr25519::Public, u64, Call, u128, CennznetDoughnut>;
 type System = system::Module<Runtime>;
 type Fees = fees::Module<Runtime>;
 

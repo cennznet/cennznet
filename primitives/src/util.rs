@@ -13,17 +13,27 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//! Low-level types for CENNZNET
+use parity_codec::Encode;
+use rstd::prelude::*;
 
-#![warn(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
+pub fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8> {
+	let size = ::rstd::mem::size_of::<T>();
+	let reserve = match size {
+		x if x <= 0b0011_1111 => 1,
+		x if x <= 0b0011_1111_1111_1111 => 2,
+		_ => 4,
+	};
+	let mut v = Vec::with_capacity(reserve + size);
+	v.resize(reserve, 0);
+	encoder(&mut v);
 
-mod cennznet_extrinsic;
-mod doughnut;
-mod types;
-mod util;
+	// need to prefix with the total length to ensure it's binary compatible with
+	// Vec<u8>.
+	let mut length: Vec<()> = Vec::new();
+	length.resize(v.len() - reserve, ());
+	length.using_encoded(|s| {
+		v.splice(0..reserve, s.iter().cloned());
+	});
 
-pub use cennznet_extrinsic::{CennznetExtrinsic, CheckedCennznetExtrinsic, FeeExchange};
-pub use doughnut::CennznetDoughnut;
-pub use types::*;
+	v
+}

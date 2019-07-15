@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 use std::fmt;
 
+use crate::util::encode_with_vec_prefix;
 use rstd::prelude::*;
 use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
@@ -32,28 +33,6 @@ const MASK_VERSION: u8 = 0b0000_1111;
 const BIT_SIGNED: u8 = 0b1000_0000;
 const BIT_DOUGHNUT: u8 = 0b0100_0000;
 const BIT_CENNZ_X: u8 = 0b0010_0000;
-
-fn encode_with_vec_prefix<T: Encode, F: Fn(&mut Vec<u8>)>(encoder: F) -> Vec<u8> {
-	let size = ::rstd::mem::size_of::<T>();
-	let reserve = match size {
-		x if x <= 0b0011_1111 => 1,
-		x if x <= 0b0011_1111_1111_1111 => 2,
-		_ => 4,
-	};
-	let mut v = Vec::with_capacity(reserve + size);
-	v.resize(reserve, 0);
-	encoder(&mut v);
-
-	// need to prefix with the total length to ensure it's binary compatible with
-	// Vec<u8>.
-	let mut length: Vec<()> = Vec::new();
-	length.resize(v.len() - reserve, ());
-	length.using_encoded(|s| {
-		v.splice(0..reserve, s.iter().cloned());
-	});
-
-	v
-}
 
 /// A extrinsic right from the external world. This is unchecked and so
 /// can contain a signature.
@@ -236,6 +215,7 @@ where
 
 		// Verify doughnut signature. It should be signed by the issuer.
 		if let Some(ref d) = self.doughnut {
+			// TODO: Move this check into the doughnut crate
 			let holder = AccountId::decode(&mut d.holder().as_ref())
 				.ok_or("doughnut holder incompatible with runtime AccountId")?;
 			if holder != signed {

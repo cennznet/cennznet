@@ -20,8 +20,8 @@
 #![recursion_limit = "512"]
 
 use cennznet_primitives::{
-	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetExtrinsic,
-	CheckedCennznetExtrinsic, Doughnut, Hash, Index, Signature,
+	AccountId, AccountIndex, AuthorityId, AuthoritySignature, Balance, BlockNumber, CennznetDoughnut,
+	CennznetExtrinsic, CheckedCennznetExtrinsic, Hash, Index, Moment, Signature,
 };
 #[cfg(feature = "std")]
 use council::seats as council_seats;
@@ -119,7 +119,7 @@ impl system::Trait for Runtime {
 	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	type Event = Event;
 	type Log = Log;
-	type Doughnut = Doughnut;
+	type Doughnut = CennznetDoughnut;
 	type DispatchVerifier = Runtime;
 }
 
@@ -144,7 +144,7 @@ impl indices::Trait for Runtime {
 }
 
 impl timestamp::Trait for Runtime {
-	type Moment = u64;
+	type Moment = Moment;
 	type OnTimestampSet = Aura;
 }
 
@@ -295,9 +295,9 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance, Doughnut>;
+pub type UncheckedExtrinsic = CennznetExtrinsic<AccountId, Address, Index, Call, Signature, Balance, CennznetDoughnut>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance, Doughnut>;
+pub type CheckedExtrinsic = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance, CennznetDoughnut>;
 /// A type that handles payment for extrinsic fees
 pub type ExtrinsicFeePayment = fee::ExtrinsicFeeCharger;
 /// Executive: handles dispatch to the various modules.
