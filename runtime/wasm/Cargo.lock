@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "0.9.24"
+version = "0.9.25-beta"
 dependencies = [
  "cennznet-primitives 0.1.0",
  "cennznut 0.1.1 (git+https://github.com/cennznet/cennznut-rs?tag=v0.1.1)",
@@ -308,7 +308,7 @@ dependencies = [
 name = "cennznet-runtime-wasm"
 version = "0.1.0"
 dependencies = [
- "cennznet-runtime 0.9.24",
+ "cennznet-runtime 0.9.25-beta",
 ]
 
 [[package]]
