@@ -258,7 +258,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "0.9.24-beta"
+version = "0.9.24"
 dependencies = [
  "cennznet-primitives 0.1.0",
  "crml-cennzx-spot 0.1.0",
@@ -302,7 +302,7 @@ dependencies = [
 name = "cennznet-runtime-wasm"
 version = "0.1.0"
 dependencies = [
- "cennznet-runtime 0.9.24-beta",
+ "cennznet-runtime 0.9.24",
 ]
 
 [[package]]
@@ -356,6 +356,7 @@ dependencies = [
  "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "uint 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
