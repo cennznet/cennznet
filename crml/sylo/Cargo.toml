@@ -5,28 +5,28 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 
 [dependencies]
 serde = { version = "1.0", default-features = false }
-parity-codec = { version = "3.1", default-features = false, features = ["derive"] }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 sr-std = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 srml-support = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 srml-system = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 srml-balances = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 
 [dev-dependencies]
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"parity-codec/std",
-	"substrate-primitives/std",
+	"primitives/std",
 	"sr-std/std",
 	"sr-io/std",
-	"sr-primitives/std",
+	"runtime-primitives/std",
 	"srml-support/std",
 	"srml-system/std",
 	"srml-balances/std",

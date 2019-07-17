@@ -16,6 +16,18 @@
 //!
 //! CENNZX-SPOT Types
 //!
+use uint:: construct_uint;
+use core::convert::TryInto;
+construct_uint! {
+	/// 128-bit unsigned integer.
+	pub struct U128(2);
+}
+
+construct_uint! {
+	/// 256-bit unsigned integer.
+	pub struct U256(4);
+}
+
 use parity_codec::{Compact, CompactAs, Decode, Encode};
 use runtime_primitives::traits::As;
 
@@ -44,6 +56,27 @@ impl FeeRate {
 		N::sa(lhs.as_() * SCALE_FACTOR / rhs.0)
 	}
 
+	/// Divide a `u128` supported numeric by a FeeRate
+	pub fn safe_div<N: Into<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
+		let lhs = lhs.into();
+		let lhs = U256::from(lhs);
+		let scale_factor = U256::from(SCALE_FACTOR);
+		let rhs = U256::from(rhs.0);
+		let res: u128 = (lhs * scale_factor / rhs).try_into().map_err(|_| "Overflow error")?;
+
+		Ok(res)
+	}
+
+	//Self - lhs and N - rhs
+	pub fn safe_mul<N: Into<u128>>(lhs: FeeRate, rhs: N) -> rstd::result::Result<u128, &'static str> {
+		let rhs = U256::from(rhs.into());
+		let scale_factor = U256::from(SCALE_FACTOR);
+		let lhs = U256::from(lhs.0);
+		let res: u128 = (lhs * rhs / scale_factor).try_into().map_err(|_| "Overflow error")?;
+
+		Ok(res)
+	}
+
 	/// Returns the equivalent of 1 or 100%
 	pub fn one() -> FeeRate {
 		FeeRate(SCALE_FACTOR)
@@ -64,16 +97,6 @@ impl rstd::ops::Add<Self> for FeeRate {
 	type Output = Self;
 	fn add(self, rhs: FeeRate) -> Self::Output {
 		FeeRate(self.0 + rhs.0)
-	}
-}
-
-impl<N> rstd::ops::Mul<N> for FeeRate
-where
-	N: As<u128>,
-{
-	type Output = N;
-	fn mul(self, rhs: N) -> Self::Output {
-		N::sa(N::as_(rhs).saturating_mul(self.0) / SCALE_FACTOR)
 	}
 }
 
@@ -107,14 +130,39 @@ mod tests {
 	}
 
 	#[test]
-	fn mul_works() {
-		let fee_rate = FeeRate::from_percent(50);
-		assert_eq!(fee_rate * 2, 1);
+	fn safe_div_works() {
+		let fee_rate = FeeRate::from_percent(110);
+		let lhs: u128 = 10;
+		assert_ok!(FeeRate::safe_div(lhs, fee_rate), 9 as u128); // Float value would be 9.0909
+
+		let fee_rate = FeeRate::from_percent(10);
+		assert_ok!(FeeRate::safe_div(lhs, fee_rate), 100 as u128);
+	}
+
+	#[test]
+	fn safe_div_overflow_works() {
+		let fee_rate = FeeRate::from_percent(10);
+		let lhs: u128 = u128::max_value();
+		assert_err!(FeeRate::safe_div(lhs, fee_rate), "Overflow error");
 	}
 
 	#[test]
 	fn add_works() {
 		let fee_rate = FeeRate::from_percent(50) + FeeRate::from_percent(12);
 		assert_eq!(fee_rate, FeeRate::from_percent(62));
+	}
+
+	#[test]
+	fn safe_mul_works() {
+		let fee_rate = FeeRate::from_percent(50);
+		let rhs: u128 = 2;
+		assert_ok!(FeeRate::safe_mul(fee_rate, rhs), 1 as u128);
+	}
+
+	#[test]
+	fn safe_mul_overflow_works() {
+		let fee_rate = FeeRate::from_percent(200);
+		let rhs: u128 = u128::max_value();
+		assert_err!(FeeRate::safe_mul(fee_rate, rhs), "Overflow error");
 	}
 }

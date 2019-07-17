@@ -1,14 +1,21 @@
-# Runtime version 24 (master)
-- Substrate commit: xxxx
+# Runtime version 25 (master)
+- Breaking changes:
+- Bug fixes:
+- New features:
+- New notable Substrate changes:
+# Runtime version 24
+- Substrate commit: https://github.com/paritytech/substrate/commit/4559c8eb5862d97993ee9525d26d51d6ac0b7de5
+	- And cherry-picked #2575 #2548 #2594 #2501
 - Breaking changes:
 	- Default base path parent folder changed from substrate to cennznet
 - Bug fixes:
+  - Fix overflowing issue in cennzx-spot module
 - New features:
 - New notable Substrate changes:
 
 # Runtime version 23
 - Substrate commit: https://github.com/paritytech/substrate/commit/d14f56adc642e295786144d9de574995b7df6a86
- - And cherry-picked #2406 #2575 #2548 #2594 #2501
+	- And cherry-picked #2406 #2575 #2548 #2594 #2501
 - Breaking changes:
 - Bug fixes:
 	- Fixes staking module overflowing issue

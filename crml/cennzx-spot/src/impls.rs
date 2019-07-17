@@ -19,9 +19,9 @@
 use super::{Module, Trait};
 use cennznet_primitives::FeeExchange;
 use fees::BuyFeeAsset;
+use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, mem, prelude::*};
-use runtime_primitives::traits::{As, Hash};
-use substrate_primitives::crypto::{UncheckedFrom, UncheckedInto};
+use runtime_primitives::traits::Hash;
 use support::dispatch::Result;
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
@@ -40,18 +40,15 @@ where
 	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(core_asset_id)));
-		buf.extend_from_slice(&Self::u64_to_bytes(As::as_(asset_id)));
+		buf.extend_from_slice(&u64_to_bytes(core_asset_id.into()));
+		buf.extend_from_slice(&u64_to_bytes(asset_id.into()));
 
 		T::Hashing::hash(&buf[..]).unchecked_into()
 	}
 }
 
-impl<T: Trait> ExchangeAddressGenerator<T> {
-	/// Convert a `u64` into its byte array representation
-	fn u64_to_bytes(x: u64) -> [u8; 8] {
-		unsafe { mem::transmute(x.to_le()) }
-	}
+fn u64_to_bytes(x: u64) -> [u8; 8] {
+	unsafe { mem::transmute(x.to_le()) }
 }
 
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
@@ -63,8 +60,7 @@ impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
 		Self::make_asset_swap_output(
 			&who,
 			&who,
-			// TODO: hack `T::AssetID` missing `As<u32>` impl
-			&T::AssetId::sa(u64::from(exchange_op.asset_id)),
+			&T::AssetId::from(exchange_op.asset_id),
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment,
@@ -80,8 +76,8 @@ pub(crate) mod impl_tests {
 	use super::*;
 	use crate::tests::{CennzXSpot, ExtBuilder, Test};
 	use cennznet_primitives::FeeExchange;
+	use primitives::H256;
 	use runtime_io::with_externalities;
-	use substrate_primitives::H256;
 
 	const CORE_ASSET: u32 = 0;
 	const OTHER_ASSET: u32 = 1;
@@ -127,9 +123,6 @@ pub(crate) mod impl_tests {
 
 	#[test]
 	fn u64_to_bytes_works() {
-		assert_eq!(
-			<ExchangeAddressGenerator<Test>>::u64_to_bytes(80_000),
-			[128, 56, 1, 0, 0, 0, 0, 0]
-		);
+		assert_eq!(u64_to_bytes(80_000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 }

@@ -27,6 +27,7 @@ use cennznet_primitives::{
 use council::seats as council_seats;
 use council::{motions as council_motions, voting as council_voting};
 use grandpa::fg_primitives::{self, ScheduledChange};
+use primitives::OpaqueMetadata;
 use rstd::prelude::*;
 use runtime_primitives::traits::{
 	AuthorityIdFor, BlakeTwo256, Block as BlockT, Checkable, Convert, DigestFor, NumberFor, StaticLookup,
@@ -38,7 +39,6 @@ use substrate_client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	runtime_api as client_api,
 };
-use substrate_primitives::OpaqueMetadata;
 use support::construct_runtime;
 use support::traits::Currency;
 
@@ -229,6 +229,8 @@ impl cennzx_spot::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
+	type BalanceToU128 = Balance;
+	type U128ToBalance = Balance;
 }
 
 impl attestation::Trait for Runtime {
