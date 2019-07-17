@@ -1,4 +1,4 @@
-FROM cennznet/rust-builder AS builder
+FROM cennznet/rust-builder:20190714 AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 RUN cd /cennznet/runtime/wasm && \
