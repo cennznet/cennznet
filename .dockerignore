@@ -1,7 +1,5 @@
 doc
 target/
-!target/debug/cennznet
-!target/release/cennznet
 .idea/
 Dockerfile
 .dockerignore
