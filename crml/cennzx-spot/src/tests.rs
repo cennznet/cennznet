@@ -210,29 +210,60 @@ const DEFAULT_EXCHANGE_KEY: (u32, u32) = (CORE_ASSET_ID, TRADE_ASSET_A);
 #[test]
 fn investor_can_add_liquidity() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+		let investor: AccountId = with_account!(CORE_ASSET_ID => 340_000_000_000_000_000_000_000_000_000_000_000_100, TRADE_ASSET_A => 340_000_000_000_000_000_000_000_000_000_000_000_100);
 
 		// First investment
 		assert_ok!(CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
 			TRADE_ASSET_A,
-			2,  // min_liquidity: T::Balance,
-			15, // max_asset_amount: T::Balance,
-			10, // core_amount: T::Balance,
+			2,                                                   // min_liquidity: T::Balance,
+			170_000_000_000_000_000_000_000_000_000_000_000_000, // max_asset_amount: T::Balance,
+			100_000_000_000_000_000_000,                         // core_amount: T::Balance,
 		));
 
-		// Second investment
-		// because a round up, second time asset amount become 15 + 1
 		assert_ok!(CennzXSpot::add_liquidity(
-			Origin::signed(H256::from_low_u64_be(1).unchecked_into()),
+			Origin::signed(investor.clone()),
 			TRADE_ASSET_A,
-			2,  // min_liquidity: T::Balance,
-			16, // max_asset_amount: T::Balance,
-			10, // core_amount: T::Balance,
+			2,                                             // min_liquidity: T::Balance,
+			1_700_000_000_000_000_000_000_000_000_000_001, // max_asset_amount: T::Balance,
+			1_000_000_000_000_000,                         // core_amount: T::Balance,
 		));
 
-		assert_exchange_balance_eq!(CORE_ASSET_ID => 20, TRADE_ASSET_A => 31);
-		assert_eq!(CennzXSpot::get_liquidity(&DEFAULT_EXCHANGE_KEY, &investor), 20);
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 100_001_000_000_000_000_000, TRADE_ASSET_A => 170_001_700_000_000_000_000_000_000_000_000_000_001);
+		assert_eq!(
+			CennzXSpot::get_liquidity(&DEFAULT_EXCHANGE_KEY, &investor),
+			100_001_000_000_000_000_000
+		);
+	});
+}
+
+#[test]
+fn investor_can_add_liquidity_overflow_amount() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
+		let investor: AccountId = with_account!(CORE_ASSET_ID => u128::max_value(), TRADE_ASSET_A => u128::max_value());
+
+		// First investment
+		assert_ok!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			TRADE_ASSET_A,
+			2,                         // min_liquidity: T::Balance,
+			u128::max_value() / 2 - 1, // max_asset_amount: T::Balance,
+			100,                       // core_amount: T::Balance,
+		));
+
+		assert_err!(
+			CennzXSpot::add_liquidity(
+				Origin::signed(investor.clone()),
+				TRADE_ASSET_A,
+				2,                         // min_liquidity: T::Balance,
+				u128::max_value() / 2 + 1, // max_asset_amount: T::Balance,
+				u128::max_value() / 2,     // core_amount: T::Balance,
+			),
+			"Overflow error"
+		);
+
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 170_141_183_460_469_231_731_687_303_715_884_105_726);
+		assert_eq!(CennzXSpot::get_liquidity(&DEFAULT_EXCHANGE_KEY, &investor), 100);
 	});
 }
 
@@ -577,29 +608,56 @@ fn make_core_to_asset_output() {
 }
 
 #[test]
+fn remove_all_liquidity() {
+	with_externalities(&mut ExtBuilder::default().build(), || {
+		//		let investor: AccountId = with_account!(CORE_ASSET_ID => 340_000_000_000_000_000_000_000_000_000_000_000_100, TRADE_ASSET_A => 340_000_000_000_000_000_000_000_000_000_000_000_100);
+		let investor: AccountId = with_account!(CORE_ASSET_ID => u128::max_value(), TRADE_ASSET_A => u128::max_value());
+
+		// First investment
+		assert_ok!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			TRADE_ASSET_A,
+			2,                 // min_liquidity: T::Balance,
+			u128::max_value(), // max_asset_amount: T::Balance,
+			u128::max_value(), // core_amount: T::Balance,
+		));
+
+		assert_ok!(CennzXSpot::remove_liquidity(
+			Origin::signed(investor.clone()),
+			TRADE_ASSET_A,
+			u128::max_value(), //`asset_amount` - Amount of exchange asset to burn
+			4,                 //`min_asset_withdraw` - The minimum trade asset withdrawn
+			4                  //`min_core_withdraw` -  The minimum core asset withdrawn
+		));
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 0, TRADE_ASSET_A => 0);
+		assert_balance_eq!(investor, TRADE_ASSET_A => u128::max_value());
+		assert_balance_eq!(investor, CORE_ASSET_ID => u128::max_value());
+	});
+}
+
+#[test]
 fn remove_liquidity() {
 	with_externalities(&mut ExtBuilder::default().build(), || {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+		let investor: AccountId = with_account!(CORE_ASSET_ID => 340_000_000_000_000_000_000_000_000_000_000_000_100, TRADE_ASSET_A => 340_000_000_000_000_000_000_000_000_000_000_000_100);
 		// investment
 		let _ = CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
 			TRADE_ASSET_A,
-			2,  // min_liquidity: T::Balance,
-			15, // max_asset_amount: T::Balance,
-			10, // core_amount: T::Balance,
+			2,                                                   // min_liquidity: T::Balance,
+			340_000_000_000_000_000_000_000_000_000_000_000_000, // max_asset_amount: T::Balance,
+			100_000_000_000_000_000_000,                         // core_amount: T::Balance,
 		);
 
 		assert_ok!(CennzXSpot::remove_liquidity(
 			Origin::signed(investor.clone()),
 			TRADE_ASSET_A,
-			10, //`asset_amount` - Amount of exchange asset to burn
-			4,  //`min_asset_withdraw` - The minimum trade asset withdrawn
-			4   //`min_core_withdraw` -  The minimum core asset withdrawn
+			50_000_000_000_000_000_000, //`asset_amount` - Amount of exchange asset to burn
+			4,                          //`min_asset_withdraw` - The minimum trade asset withdrawn
+			4                           //`min_core_withdraw` -  The minimum core asset withdrawn
 		));
-		assert_exchange_balance_eq!(CORE_ASSET_ID => 0, TRADE_ASSET_A => 0);
-		assert_balance_eq!(investor, TRADE_ASSET_A => 100);
-		assert_balance_eq!(investor, CORE_ASSET_ID => 100);
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 50_000_000_000_000_000_000, TRADE_ASSET_A => 170_000_000_000_000_000_000_000_000_000_000_000_000);
+		assert_balance_eq!(investor, TRADE_ASSET_A => 170_000_000_000_000_000_000_000_000_000_000_000_100);
+		assert_balance_eq!(investor, CORE_ASSET_ID => 339_999_999_999_999_999_950_000_000_000_000_000_100);
 	});
 }
 

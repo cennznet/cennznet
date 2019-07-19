@@ -167,8 +167,18 @@ decl_module! {
 				// TODO: shall i use total_balance instead? in which case the exchange address will have reserve balance?
 				let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 				let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
-				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
+				let core_amount_cal =  U256::from(T::BalanceToU128::from(core_amount).into());
+				let trade_asset_reserve = U256::from(T::BalanceToU128::from(trade_asset_reserve).into());
+				let core_asset_reserve = U256::from(T::BalanceToU128::from(core_asset_reserve).into());
+				let res: u128 = (core_amount_cal * trade_asset_reserve / core_asset_reserve)
+					.try_into()
+					.map_err(|_| "Overflow error")?;
+				let trade_asset_amount = T::U128ToBalance::from(res).into() + One::one();
+				let total_liquidity = U256::from(T::BalanceToU128::from(total_liquidity).into());
+				let res = (core_amount_cal * total_liquidity / core_asset_reserve)
+					.try_into()
+					.map_err(|_| "Overflow error")?;
+				let liquidity_minted = T::U128ToBalance::from(res).into();
 				ensure!(liquidity_minted >= min_liquidity, "Minimum liquidity is required");
 				ensure!(max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
 
@@ -210,8 +220,20 @@ decl_module! {
 
 			let trade_asset_reserve = <generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
+			let liquidity_withdrawn_cal = U256::from(T::BalanceToU128::from(liquidity_withdrawn).into());
+			let trade_asset_reserve = U256::from(T::BalanceToU128::from(trade_asset_reserve).into());
+			let core_asset_reserve = U256::from(T::BalanceToU128::from(core_asset_reserve).into());
+			let total_liquidity = U256::from(T::BalanceToU128::from(total_liquidity).into());
+			let res: u128 = (liquidity_withdrawn_cal * core_asset_reserve / total_liquidity)
+					.try_into()
+					.map_err(|_| "Overflow error")?;
+			let core_asset_amount = T::U128ToBalance::from(res).into();
+
+			let res: u128 = (liquidity_withdrawn_cal * trade_asset_reserve / total_liquidity)
+					.try_into()
+					.map_err(|_| "Overflow error")?;
+			let trade_asset_amount = T::U128ToBalance::from(res).into();
+
 			ensure!(core_asset_amount >= min_core_withdraw, "Minimum core asset is required");
 			ensure!(trade_asset_amount >= min_asset_withdraw, "Minimum trade asset is required");
 
