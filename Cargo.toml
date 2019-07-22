@@ -16,7 +16,7 @@ ctrlc = { version = "3.0", features = ["termination"] }
 log = "0.4"
 tokio = "0.1.7"
 exit-future = "0.1"
-hex-literal = "0.1"
+hex-literal = "0.2"
 slog = "^2"
 app_dirs = "1.2"
 parity-codec = { version = "3.5.4" }
