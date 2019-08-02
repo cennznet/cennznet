@@ -462,6 +462,7 @@ dependencies = [
  "substrate-keyring 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-offchain-primitives 0.1.0 (git+https://github.com/cennznet/plug-blockchain)",
  "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "trustcodes 0.1.0",
 ]
 
 [[package]]
@@ -4607,6 +4608,20 @@ version = "0.14.0"
 source = "git+https://github.com/paritytech/trie#283bf5ccf2d251bf2aa9cb51b42d3e728cc88a8f"
 dependencies = [
  "hash-db 0.14.0 (git+https://github.com/paritytech/trie)",
+]
+
+[[package]]
+name = "trustcodes"
+version = "0.1.0"
+dependencies = [
+ "parity-codec 3.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.97 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-io 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "sr-std 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "srml-support 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "srml-system 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
+ "substrate-primitives 1.0.0 (git+https://github.com/cennznet/plug-blockchain)",
 ]
 
 [[package]]

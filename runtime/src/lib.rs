@@ -73,8 +73,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("centrality-cennznet"),
 	authoring_version: 1,
-	spec_version: 25,
-	impl_version: 25,
+	spec_version: 26,
+	impl_version: 26,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -239,6 +239,10 @@ impl attestation::Trait for Runtime {
 	type Event = Event;
 }
 
+impl trustcodes::Trait for Runtime {
+	type Event = Event;
+}
+
 impl sylo::groups::Trait for Runtime {}
 impl sylo::e2ee::Trait for Runtime {
 	type Event = Event;
@@ -282,6 +286,7 @@ construct_runtime!(
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
+		TrustCodes: trustcodes::{Module, Call, Storage, Event<T>},
 	}
 );
 

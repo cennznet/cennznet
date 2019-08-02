@@ -39,6 +39,7 @@ rewards = { package = "crml-rewards", path = "../crml/rewards", default-features
 generic-asset = { package = "prml-generic-asset", path = "../prml/generic-asset", default-features = false }
 fees = { package = "prml-fees", path = "../prml/fees", default-features = false }
 attestation = { package = "prml-attestation", path = "../prml/attestation", default-features = false }
+trustcodes = { package = "trustcodes", path = "../prml/trustcodes", default-features = false }
 sylo = { package = "crml-sylo", path = "../crml/sylo", default-features = false }
 cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", default-features = false }
 cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.1", default-features = false }
@@ -89,4 +90,5 @@ std = [
 	"fees/std",
 	"rewards/std",
 	"cennznut/std",
+	"trustcodes/std",
 ]
