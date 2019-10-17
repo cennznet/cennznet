@@ -17,7 +17,6 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 
 mod cennznet_extrinsic;
 mod doughnut;
