@@ -1,0 +1,94 @@
+version: 2.1
+commands:
+  install-rust:
+    steps:
+      - run:
+          name: Install Rust
+          command: |
+            sudo apt-get update
+            sudo apt-get -y install apt-utils cmake pkg-config libssl-dev git llvm clang
+            if [ ! -d /home/circleci/.cargo ]; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            fi
+            source ~/.cargo/env
+            rustup install $RUST_VERSION
+            rustup default $RUST_VERSION
+            rustup target add wasm32-unknown-unknown --toolchain=$RUST_VERSION
+            export RUSTC_WRAPPER=""
+            command -v wasm-gc || cargo install --git https://github.com/alexcrichton/wasm-gc --force
+            rustup target add x86_64-unknown-linux-musl --toolchain=$RUST_VERSION
+            rustc --version; cargo --version; rustup --version
+  install-sccache:
+    steps:
+      - run:
+          name: Install sccache
+          command: |
+            curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar -xz
+            chmod +x sccache-0.2.10-x86_64-unknown-linux-musl/sccache
+            mv sccache-0.2.10-x86_64-unknown-linux-musl/sccache ~/.cargo/bin/sccache
+            sccache --version
+  restore-cache:
+    steps:
+      - restore_cache:
+          name: Restore sccache
+          key: sccache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+  save-cache:
+    steps:
+      - save_cache:
+          name: Save sccache
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: sccache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - "~/.cache/sccache"
+  save-target-cache:
+    steps:
+      - save_cache:
+          name: Save target cache
+          paths:
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/debug/incremental
+            - runtime/wasm/target/
+          key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}-{{ epoch }}
+  restore-target-cache:
+    steps:
+      - restore_cache:
+          name: Restore target cache
+          key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}
+
+jobs:
+  build:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      BASH_ENV: ~/.cargo/env
+      RUST_VERSION: nightly-2019-10-14
+      RUSTC_WRAPPER: sccache
+      SCCACHE_CACHE_SIZE: 10G
+    steps:
+      - checkout
+      - install-rust
+      - install-sccache
+      - restore-cache
+      - restore-target-cache
+      - run:
+          name: Build
+          command: |
+            cargo check
+          no_output_timeout: 30m
+      - save-cache
+      - save-target-cache
+      - run:
+          name: Build tests
+          command: |
+            cargo test --no-run --all
+      - save-cache
+      - save-target-cache
+      - run:
+          name: Run tests
+          command: |
+            cargo test --all

@@ -1,0 +1,4 @@
+# Conform to: https://wiki.parity.io/Substrate-Style-Guide
+reorder_imports = true
+hard_tabs = true
+max_width = 120
