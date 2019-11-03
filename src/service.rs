@@ -24,11 +24,14 @@ use client;
 use consensus::{import_queue, start_aura, AuraImportQueue, NothingExtra, SlotDuration};
 use grandpa;
 use inherents::InherentDataProviders;
+use log::info;
+use network::construct_simple_protocol;
 use primitives::{ed25519, Pair};
+use substrate_executor::native_executor_instance;
 use substrate_service::TelemetryOnConnect;
 use substrate_service::{
-	FactoryFullConfiguration, FullBackend, FullClient, FullComponents, FullExecutor, LightBackend, LightClient,
-	LightComponents, LightExecutor, TaskExecutor,
+	construct_service_factory, FactoryFullConfiguration, FullBackend, FullClient, FullComponents, FullExecutor,
+	LightBackend, LightClient, LightComponents, LightExecutor, TaskExecutor,
 };
 use transaction_pool::{self, txpool::Pool as TransactionPool};
 

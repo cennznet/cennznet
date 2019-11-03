@@ -24,18 +24,18 @@ trie-root = { git = "https://github.com/paritytech/trie" }
 sr-io = { git = "https://github.com/cennznet/plug-blockchain" }
 sr-primitives = { git = "https://github.com/cennznet/plug-blockchain" }
 substrate-cli = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain" }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain" }
 substrate-executor = { git = "https://github.com/cennznet/plug-blockchain" }
 substrate-service = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-transaction-pool = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-network = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-consensus-aura = { git = "https://github.com/cennznet/plug-blockchain" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/cennznet/plug-blockchain" }
+network = { package = "substrate-network", git = "https://github.com/cennznet/plug-blockchain" }
 substrate-keystore = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-client = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-substrate-consensus-common = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-finality-grandpa = { git = "https://github.com/cennznet/plug-blockchain" }
+client = { package = "substrate-client", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+consensus = { package = "substrate-consensus-aura", git = "https://github.com/cennznet/plug-blockchain" }
+grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/cennznet/plug-blockchain" }
 substrate-basic-authorship = { git = "https://github.com/cennznet/plug-blockchain" }
-substrate-inherents = { git = "https://github.com/cennznet/plug-blockchain" }
+consensus-common = { package = "substrate-consensus-common", git = "https://github.com/cennznet/plug-blockchain" }
+inherents = { package = "substrate-inherents", git = "https://github.com/cennznet/plug-blockchain" }
 substrate-telemetry = { git = "https://github.com/cennznet/plug-blockchain" }
 srml-grandpa = { git = "https://github.com/cennznet/plug-blockchain" }
 structopt = "0.2.13"
