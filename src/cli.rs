@@ -17,10 +17,13 @@ use futures::{future, sync::oneshot, Future};
 use log::info;
 use std::cell::RefCell;
 use std::ops::Deref;
+use std::cell::RefCell;
 use substrate_cli as cli;
+use futures::{future, sync::oneshot, Future};
 pub use substrate_cli::{error, IntoExit, NoCustom, VersionInfo};
 use substrate_service::{Roles as ServiceRoles, ServiceFactory};
 use tokio::runtime::Runtime;
+use log::info;
 
 /// The chain specification option.
 #[derive(Clone, Debug)]
@@ -143,7 +146,6 @@ where
 
 // handles ctrl-c
 pub struct Exit;
-
 impl IntoExit for Exit {
 	type Exit = future::MapErr<oneshot::Receiver<()>, fn(oneshot::Canceled) -> ()>;
 	fn into_exit(self) -> Self::Exit {
