@@ -22,7 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use aura_primitives::sr25519::AuthorityId as AuraId;
+use babe_primitives::{AuthorityId as BabeId, BabeConfiguration};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -98,8 +98,8 @@ pub mod opaque {
 
 	impl_opaque_keys! {
 		pub struct SessionKeys {
-			#[id(key_types::AURA)]
-			pub aura: AuraId,
+			#[id(key_types::BABE)]
+			pub babe: BabeId,
 			#[id(key_types::GRANDPA)]
 			pub grandpa: GrandpaId,
 		}
@@ -196,8 +196,10 @@ parameter_types! {
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 }
 
-impl aura::Trait for Runtime {
-	type AuthorityId = AuraId;
+impl babe::Trait for Runtime {
+	type EpochDuration = EpochDuration;
+	type ExpectedBlockTime = ExpectedBlockTime;
+	type EpochChangeTrigger = babe::ExternalTrigger;
 }
 
 impl grandpa::Trait for Runtime {
@@ -223,7 +225,7 @@ parameter_types! {
 impl timestamp::Trait for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = Babe;
 	type MinimumPeriod = MinimumPeriod;
 }
 
@@ -276,7 +278,7 @@ construct_runtime!(
 	{
 		System: system::{Module, Call, Storage, Config, Event},
 		Timestamp: timestamp::{Module, Call, Storage, Inherent},
-		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
+		Babe: babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
 		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
 		Indices: indices::{default, Config<T>},
 		Balances: balances::{default, Error},
@@ -368,12 +370,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl aura_primitives::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> u64 {
-			Aura::slot_duration()
-		}
-		fn authorities() -> Vec<AuraId> {
-			Aura::authorities()
+	impl babe_primitives::BabeApi<Block> for Runtime {
+		fn configuration() -> BabeConfiguration {
+			BabeConfiguration {
+				slot_duration: Babe::slot_duration(),
+				epoch_length: Babe::current_slot(),
+				c: PRIMARY_PROBABILITY,
+				genesis_authorities: Babe::authorities(),
+				randomness: Babe::randomness(),
+				secondary_slots: true,
+			}
 		}
 	}
 

@@ -15,8 +15,8 @@ support = { package = "srml-support", git = "https://github.com/plugblockchain/p
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
 substrate-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 balances = { package = "srml-balances", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
-aura = { package = "srml-aura", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
-aura-primitives = { package = "substrate-consensus-aura-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
+babe = { package = "srml-babe", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
+babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
 grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
 executive = { package = "srml-executive", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
 indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", default_features = false, branch = "1.0.0-rc1" }
@@ -42,8 +42,8 @@ std = [
 	"runtime-io/std",
 	"support/std",
 	"balances/std",
-	"aura/std",
-	"aura-primitives/std",
+	"babe/std",
+	"babe-primitives/std",
 	"grandpa/std",
 	"executive/std",
 	"indices/std",
