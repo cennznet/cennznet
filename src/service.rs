@@ -34,7 +34,6 @@ use substrate_service::{
 	LightBackend, LightClient, LightComponents, LightExecutor, TaskExecutor,
 };
 use transaction_pool::{self, txpool::Pool as TransactionPool};
-use log::info;
 
 pub use substrate_executor::NativeExecutor;
 native_executor_instance!(
