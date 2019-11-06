@@ -18,10 +18,10 @@ client = { package = "substrate-client", git = "https://github.com/plugblockchai
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 inherents = { package = "substrate-inherents", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 cennznet-runtime = { path = "../runtime" }
-# cennznet-rpc = { path = "../rpc" }
+cennznet-rpc = { path = "../rpc" }
 cennznet-primitives = { path = "../primitives" }
 hex-literal = "0.2.1"
-# substrate-rpc = { package = "substrate-rpc", path = "../../core/rpc" }
+substrate-rpc = { package = "substrate-rpc", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 substrate-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 substrate-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 chain-spec = { package = "substrate-chain-spec", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }

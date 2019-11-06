@@ -51,7 +51,7 @@ construct_simple_protocol! {
 /// be able to perform chain operations.
 macro_rules! new_full_start {
 	($config:expr) => {{
-		// type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
+		type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
 		let mut import_setup = None;
 		let inherent_data_providers = inherents::InherentDataProviders::new();
 
@@ -98,10 +98,8 @@ macro_rules! new_full_start {
 
 			import_setup = Some((block_import, grandpa_link, babe_link));
 			Ok(import_queue)
-		})?;
-		// .with_rpc_extensions(|client, pool| -> RpcExtension {
-		// 	cennznet_rpc::create(client, pool)
-		// })?;
+		})?
+		.with_rpc_extensions(|client, pool| -> RpcExtension { cennznet_rpc::create(client, pool) })?;
 
 		(builder, import_setup, inherent_data_providers)
 		}};
@@ -260,7 +258,7 @@ pub fn new_full<C: Send + Default + 'static>(
 pub fn new_light<C: Send + Default + 'static>(
 	config: NodeConfiguration<C>,
 ) -> Result<impl AbstractService, ServiceError> {
-	// type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
+	type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
 	let inherent_data_providers = InherentDataProviders::new();
 
 	let service = ServiceBuilder::new_light::<Block, RuntimeApi, cennznet_executor::Executor>(config)?
@@ -308,9 +306,7 @@ pub fn new_light<C: Send + Default + 'static>(
 		.with_finality_proof_provider(|client, backend| {
 			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)
 		})?
-		// .with_rpc_extensions(|client, pool| -> RpcExtension {
-		// 	cennznet_rpc::create(client, pool)
-		// })?
+		.with_rpc_extensions(|client, pool| -> RpcExtension { cennznet_rpc::create(client, pool) })?
 		.build()?;
 
 	Ok(service)

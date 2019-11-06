@@ -22,8 +22,8 @@ members = [
 	"cli",
 	"executor",
 	"primitives",
-	# "rpc",
-	# "rpc-client",
+	"rpc",
+	"rpc-client",
 	"runtime",
 	"testing",
 ]
