@@ -1,5 +1,5 @@
 [package]
-name = "node-testing"
+name = "cennznet-testing"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "Test utilities for CENNZnet node."
@@ -12,9 +12,9 @@ contracts = { package = "srml-contracts", git = "https://github.com/plugblockcha
 grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 keyring = { package = "substrate-keyring", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-node-executor = { path = "../executor" }
-node-primitives = { path = "../primitives" }
-node-runtime = { path = "../runtime" }
+cennznet-executor = { path = "../executor" }
+cennznet-primitives = { path = "../primitives" }
+cennznet-runtime = { path = "../runtime" }
 codec = { package = "parity-scale-codec", version = "1.0.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }

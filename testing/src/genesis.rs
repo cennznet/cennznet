@@ -17,12 +17,12 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use keyring::{Ed25519Keyring, Sr25519Keyring};
-use node_runtime::constants::currency::*;
-use node_runtime::{
+use cennznet_runtime::constants::currency::*;
+use cennznet_runtime::{
 	BalancesConfig, ContractsConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, StakingConfig,
 	SystemConfig, WASM_BINARY,
 };
+use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
 use sr_primitives::Perbill;
 

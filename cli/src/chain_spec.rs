@@ -17,25 +17,25 @@
 //! Substrate chain configurations.
 
 use babe_primitives::AuthorityId as BabeId;
-use chain_spec::ChainSpecExtension;
-use grandpa_primitives::AuthorityId as GrandpaId;
-use hex_literal::hex;
-use im_online::sr25519::AuthorityId as ImOnlineId;
-use node_runtime::constants::{currency::*, time::*};
-use node_runtime::Block;
-use node_runtime::{
+use cennznet_runtime::constants::{currency::*, time::*};
+use cennznet_runtime::Block;
+use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
 	ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
+use chain_spec::ChainSpecExtension;
+use grandpa_primitives::AuthorityId as GrandpaId;
+use hex_literal::hex;
+use im_online::sr25519::AuthorityId as ImOnlineId;
 use primitives::{crypto::UncheckedInto, Pair, Public};
 use serde::{Deserialize, Serialize};
 use sr_primitives::Perbill;
 use substrate_service;
 use substrate_telemetry::TelemetryEndpoints;
 
-pub use node_primitives::{AccountId, Balance};
-pub use node_runtime::GenesisConfig;
+pub use cennznet_primitives::{AccountId, Balance};
+pub use cennznet_runtime::GenesisConfig;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 

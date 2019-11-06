@@ -1,5 +1,5 @@
 [package]
-name = "node-runtime"
+name = "cennznet-runtime"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
@@ -15,7 +15,7 @@ serde = { version = "1.0.101", optional = true }
 authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-node-primitives = { path = "../primitives", default-features = false }
+cennznet-primitives = { path = "../primitives", default-features = false }
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 primitives = { package = "substrate-primitives",  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 rstd = { package = "sr-std", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
@@ -80,7 +80,7 @@ std = [
 	"im-online/std",
 	"indices/std",
 	"membership/std",
-	"node-primitives/std",
+	"cennznet-primitives/std",
 	"offchain-primitives/std",
 	"offences/std",
 	"primitives/std",

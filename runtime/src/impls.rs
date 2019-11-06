@@ -18,7 +18,7 @@
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{Authorship, Balances, MaximumBlockWeight, NegativeImbalance};
-use node_primitives::Balance;
+use cennznet_primitives::Balance;
 use sr_primitives::traits::{Convert, Saturating};
 use sr_primitives::weights::Weight;
 use sr_primitives::Fixed64;

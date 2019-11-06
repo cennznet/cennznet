@@ -1,5 +1,5 @@
 [package]
-name = "node-cli"
+name = "cennznet-cli"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 build = "build.rs"
@@ -17,9 +17,9 @@ sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1
 client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 inherents = { package = "substrate-inherents", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-node-runtime = { path = "../runtime" }
-# node-rpc = { path = "../rpc" }
-node-primitives = { path = "../primitives" }
+cennznet-runtime = { path = "../runtime" }
+# cennznet-rpc = { path = "../rpc" }
+cennznet-primitives = { path = "../primitives" }
 hex-literal = "0.2.1"
 # substrate-rpc = { package = "substrate-rpc", path = "../../core/rpc" }
 substrate-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
@@ -32,7 +32,7 @@ babe-primitives = { package = "substrate-consensus-babe-primitives", git = "http
 grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 grandpa_primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-node-executor = { path = "../executor" }
+cennznet-executor = { path = "../executor" }
 substrate-telemetry = { package = "substrate-telemetry", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 structopt = "0.3.3"
 transaction-factory = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }

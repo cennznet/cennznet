@@ -1,5 +1,5 @@
 [package]
-name = "node-executor"
+name = "cennznet-executor"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
@@ -12,11 +12,11 @@ state_machine = { package = "substrate-state-machine", git = "https://github.com
 substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 trie = { package = "substrate-trie", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-node-primitives = { path = "../primitives" }
-node-runtime = { path = "../runtime" }
+cennznet-primitives = { path = "../primitives" }
+cennznet-runtime = { path = "../runtime" }
 
 [dev-dependencies]
-node-testing = { path = "../testing" }
+cennznet-testing = { path = "../testing" }
 test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 runtime_support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }

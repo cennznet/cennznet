@@ -22,6 +22,7 @@
 
 use authority_discovery_primitives::{AuthorityId as EncodedAuthorityId, Signature as EncodedSignature};
 use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature};
+use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -30,7 +31,6 @@ use codec::{Decode, Encode};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityWeight as GrandpaWeight};
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use node_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature};
 use primitives::u32_trait::{_1, _2, _3, _4};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
@@ -494,7 +494,7 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
-		NodeBlock = node_primitives::Block,
+		NodeBlock = cennznet_primitives::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		System: system::{Module, Call, Storage, Config, Event},

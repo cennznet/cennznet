@@ -1,5 +1,5 @@
 [package]
-name = "node-primitives"
+name = "cennznet-primitives"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"

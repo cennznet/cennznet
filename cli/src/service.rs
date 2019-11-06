@@ -21,20 +21,20 @@
 use std::sync::Arc;
 
 use babe;
+use cennznet_executor;
+use cennznet_primitives::Block;
+use cennznet_runtime::{GenesisConfig, RuntimeApi};
 use client::{self, LongestChain};
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
-use node_executor;
-use node_primitives::Block;
-use node_runtime::{GenesisConfig, RuntimeApi};
 use substrate_service::{config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder};
 use transaction_pool::{self, txpool::Pool as TransactionPool};
 
+use cennznet_executor::NativeExecutor;
 use client::{Client, LocalCallExecutor};
 use client_db::Backend;
 use network::NetworkService;
-use node_executor::NativeExecutor;
 use offchain::OffchainWorkers;
 use primitives::Blake2Hasher;
 use sr_primitives::traits::Block as BlockT;
@@ -56,9 +56,9 @@ macro_rules! new_full_start {
 		let inherent_data_providers = inherents::InherentDataProviders::new();
 
 		let builder = substrate_service::ServiceBuilder::new_full::<
-			node_primitives::Block,
-			node_runtime::RuntimeApi,
-			node_executor::Executor,
+			cennznet_primitives::Block,
+			cennznet_runtime::RuntimeApi,
+			cennznet_executor::Executor,
 		>($config)?
 		.with_select_chain(|_config, backend| Ok(client::LongestChain::new(backend.clone())))?
 		.with_transaction_pool(|config, client| {
@@ -71,11 +71,12 @@ macro_rules! new_full_start {
 			let select_chain = select_chain
 				.take()
 				.ok_or_else(|| substrate_service::Error::SelectChainRequired)?;
-			let (grandpa_block_import, grandpa_link) = grandpa::block_import::<_, _, _, node_runtime::RuntimeApi, _, _>(
-				client.clone(),
-				&*client,
-				select_chain,
-			)?;
+			let (grandpa_block_import, grandpa_link) =
+				grandpa::block_import::<_, _, _, cennznet_runtime::RuntimeApi, _, _>(
+					client.clone(),
+					&*client,
+					select_chain,
+				)?;
 			let justification_import = grandpa_block_import.clone();
 
 			let (block_import, babe_link) = babe::block_import(
@@ -99,7 +100,7 @@ macro_rules! new_full_start {
 			Ok(import_queue)
 		})?;
 		// .with_rpc_extensions(|client, pool| -> RpcExtension {
-		// 	node_rpc::create(client, pool)
+		// 	cennznet_rpc::create(client, pool)
 		// })?;
 
 		(builder, import_setup, inherent_data_providers)
@@ -219,13 +220,13 @@ macro_rules! new_full {
 }
 
 #[allow(dead_code)]
-type ConcreteBlock = node_primitives::Block;
+type ConcreteBlock = cennznet_primitives::Block;
 #[allow(dead_code)]
 type ConcreteClient = Client<
 	Backend<ConcreteBlock>,
-	LocalCallExecutor<Backend<ConcreteBlock>, NativeExecutor<node_executor::Executor>>,
+	LocalCallExecutor<Backend<ConcreteBlock>, NativeExecutor<cennznet_executor::Executor>>,
 	ConcreteBlock,
-	node_runtime::RuntimeApi,
+	cennznet_runtime::RuntimeApi,
 >;
 #[allow(dead_code)]
 type ConcreteBackend = Backend<ConcreteBlock>;
@@ -262,7 +263,7 @@ pub fn new_light<C: Send + Default + 'static>(
 	// type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
 	let inherent_data_providers = InherentDataProviders::new();
 
-	let service = ServiceBuilder::new_light::<Block, RuntimeApi, node_executor::Executor>(config)?
+	let service = ServiceBuilder::new_light::<Block, RuntimeApi, cennznet_executor::Executor>(config)?
 		.with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
 		.with_transaction_pool(|config, client| {
 			Ok(TransactionPool::new(
@@ -308,7 +309,7 @@ pub fn new_light<C: Send + Default + 'static>(
 			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)
 		})?
 		// .with_rpc_extensions(|client, pool| -> RpcExtension {
-		// 	node_rpc::create(client, pool)
+		// 	cennznet_rpc::create(client, pool)
 		// })?
 		.build()?;
 
@@ -319,13 +320,13 @@ pub fn new_light<C: Send + Default + 'static>(
 mod tests {
 	use crate::service::new_full;
 	use babe::CompatibleDigestItem;
+	use cennznet_primitives::{Block, DigestItem};
+	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
+	use cennznet_runtime::{BalancesCall, Call, UncheckedExtrinsic};
 	use codec::{Decode, Encode};
 	use consensus_common::{BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer};
 	use finality_tracker;
 	use keyring::AccountKeyring;
-	use node_primitives::{Block, DigestItem};
-	use node_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
-	use node_runtime::{BalancesCall, Call, UncheckedExtrinsic};
 	use primitives::{crypto::Pair as CryptoPair, sr25519::Public as AddressPublic, H256};
 	use sr_primitives::{
 		generic::{BlockId, Digest, Era, SignedPayload},

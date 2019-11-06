@@ -16,10 +16,10 @@
 
 //! Test accounts.
 
+use cennznet_primitives::{AccountId, Balance, Index};
+use cennznet_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
-use node_primitives::{AccountId, Balance, Index};
-use node_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use sr_primitives::generic::Era;
 
 /// Alice's account id.

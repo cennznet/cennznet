@@ -29,22 +29,22 @@ pub use substrate_executor::NativeExecutor;
 // equivalent wasm code.
 native_executor_instance!(
 	pub Executor,
-	node_runtime::api::dispatch,
-	node_runtime::native_version
+	cennznet_runtime::api::dispatch,
+	cennznet_runtime::native_version
 );
 
 #[cfg(test)]
 mod tests {
 	use super::Executor;
-	use codec::{Decode, Encode, Joiner};
-	use contracts::ContractAddressFor;
-	use node_primitives::{Balance, BlockNumber, Hash};
-	use node_runtime::{
+	use cennznet_primitives::{Balance, BlockNumber, Hash};
+	use cennznet_runtime::{
 		constants::currency::*, impls::WeightToFee, Balances, Block, BuildStorage, Call, CheckedExtrinsic, Event,
 		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment, TransferFee,
 		UncheckedExtrinsic,
 	};
-	use node_testing::keyring::*;
+	use cennznet_testing::keyring::*;
+	use codec::{Decode, Encode, Joiner};
+	use contracts::ContractAddressFor;
 	use primitives::{
 		map,
 		storage::well_known_keys,
@@ -71,23 +71,23 @@ mod tests {
 	/// making the binary slimmer. There is a convention to use compact version of the runtime
 	/// as canonical. This is why `native_executor_instance` also uses the compact version of the
 	/// runtime.
-	const COMPACT_CODE: &[u8] = node_runtime::WASM_BINARY;
+	const COMPACT_CODE: &[u8] = cennznet_runtime::WASM_BINARY;
 
 	/// The wasm runtime binary which hasn't undergone the compacting process.
 	///
 	/// The idea here is to pass it as the current runtime code to the executor so the executor will
 	/// have to execute provided wasm code instead of the native equivalent. This trick is used to
 	/// test code paths that differ between native and wasm versions.
-	const BLOATY_CODE: &[u8] = node_runtime::WASM_BINARY_BLOATY;
+	const BLOATY_CODE: &[u8] = cennznet_runtime::WASM_BINARY_BLOATY;
 
 	const GENESIS_HASH: [u8; 32] = [69u8; 32];
 
-	const VERSION: u32 = node_runtime::VERSION.spec_version;
+	const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
 
 	type TestExternalities<H> = CoreTestExternalities<H, u64>;
 
 	fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-		node_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
+		cennznet_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
 	}
 
 	/// Default transfer fee
@@ -336,7 +336,7 @@ mod tests {
 	fn new_test_ext(code: &[u8], support_changes_trie: bool) -> TestExternalities<Blake2Hasher> {
 		let mut ext = TestExternalities::new_with_code(
 			code,
-			node_testing::genesis::config(support_changes_trie, Some(code))
+			cennznet_testing::genesis::config(support_changes_trie, Some(code))
 				.build_storage()
 				.unwrap(),
 		);
@@ -946,12 +946,12 @@ mod tests {
 
 	#[test]
 	fn should_import_block_with_test_client() {
-		use node_testing::client::{consensus::BlockOrigin, ClientExt, TestClientBuilder, TestClientBuilderExt};
+		use cennznet_testing::client::{consensus::BlockOrigin, ClientExt, TestClientBuilder, TestClientBuilderExt};
 
 		let client = TestClientBuilder::new().build();
 		let block1 = changes_trie_block();
 		let block_data = block1.0;
-		let block = node_primitives::Block::decode(&mut &block_data[..]).unwrap();
+		let block = cennznet_primitives::Block::decode(&mut &block_data[..]).unwrap();
 
 		client.import(BlockOrigin::Own, block).unwrap();
 	}
@@ -1123,7 +1123,7 @@ mod tests {
 	fn block_weight_capacity_report() {
 		// Just report how many transfer calls you could fit into a block. The number should at least
 		// be a few hundred (250 at the time of writing but can change over time). Runs until panic.
-		use node_primitives::Index;
+		use cennznet_primitives::Index;
 
 		// execution ext.
 		let mut t = new_test_ext(COMPACT_CODE, false);
@@ -1184,7 +1184,7 @@ mod tests {
 		// Just report how big a block can get. Executes until panic. Should be ignored unless if
 		// manually inspected. The number should at least be a few megabytes (5 at the time of
 		// writing but can change over time).
-		use node_primitives::Index;
+		use cennznet_primitives::Index;
 
 		// execution ext.
 		let mut t = new_test_ext(COMPACT_CODE, false);
