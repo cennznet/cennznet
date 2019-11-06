@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The Substrate runtime. This can be compiled with ``#[no_std]`, ready for Wasm.
+//! The CENNZnet runtime. This can be compiled with ``#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -70,15 +70,15 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node"),
-	impl_name: create_runtime_str!("plug-node"),
-	authoring_version: 10,
+	spec_name: create_runtime_str!("cennznet"),
+	impl_name: create_runtime_str!("cennznet-node"),
+	authoring_version: 1,
 	// Per convention: if the runtime behavior changes, increment spec_version
 	// and set impl_version to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 182,
-	impl_version: 182,
+	spec_version: 26,
+	impl_version: 26,
 	apis: RUNTIME_API_VERSIONS,
 };
 
