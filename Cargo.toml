@@ -1,3 +1,7 @@
+[[bin]]
+name = "cennznet"
+path = "src/main.rs"
+
 [package]
 name = "cennznet"
 version = "1.0.0"
@@ -5,43 +9,30 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 build = "build.rs"
 edition = "2018"
 
-[[bin]]
-name = "cennznet"
-path = "src/main.rs"
-
 [dependencies]
-derive_more = "0.15.0"
+cli = { package = "node-cli", path = "cli" }
 futures = "0.1.29"
 ctrlc = { version = "3.1.3", features = ["termination"] }
-log = "0.4.8"
-tokio = "0.1.22"
-exit-future = "0.1.4"
-parking_lot = "0.9.0"
-codec = { package = "parity-scale-codec", version = "1.0.0" }
-trie-root = "0.15.2"
-sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-cli = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-inherents = { package = "substrate-inherents", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-network = { package = "substrate-network", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-aura = { package = "substrate-consensus-aura", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-aura-primitives = { package = "substrate-consensus-aura-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa-primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-client = {  git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-cennznet-runtime = { path = "runtime" }
 
 [build-dependencies]
-vergen = "3"
+vergen = "3.0.4"
 
 [workspace]
 members = [
-    "runtime",
+	"cli",
+	"executor",
+	"primitives",
+	# "rpc",
+	# "rpc-client",
+	"runtime",
+	"testing",
 ]
+
+[badges]
+travis-ci = { repository = "cennznet/cennznet", branch = "develop" }
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "cennznet/cennznet" }
+is-it-maintained-open-issues = { repository = "cennznet/cennznet" }
 
 [profile.release]
 # Substrate runtime requires unwinding.

@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Parity Technologies (UK) Ltd.
+// Copyright 2019 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use vergen::{generate_cargo_keys, ConstantsFlags};
+//! A set of testing utilities for Substrate Node.
 
-const ERROR_MSG: &str = "Failed to generate metadata files";
+#![warn(missing_docs)]
 
-fn main() {
-	generate_cargo_keys(ConstantsFlags::all()).expect(ERROR_MSG);
-	println!("cargo:rerun-if-changed=.git/HEAD");
-}
+pub mod client;
+pub mod genesis;
+pub mod keyring;
