@@ -1,4 +1,4 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
+// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{Authorship, Balances, MaximumBlockWeight, NegativeImbalance};
-use node_primitives::Balance;
+use cennznet_primitives::Balance;
 use sr_primitives::traits::{Convert, Saturating};
 use sr_primitives::weights::Weight;
 use sr_primitives::Fixed64;
@@ -68,7 +68,7 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 pub struct WeightToFee;
 impl Convert<Weight, Balance> for WeightToFee {
 	fn convert(x: Weight) -> Balance {
-		// substrate-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
+		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
 		// fees, hence:
 		Balance::from(x).saturating_mul(1_000)
 	}

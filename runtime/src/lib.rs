@@ -1,16 +1,18 @@
-// Copyright 2019 Centrality Investments Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! The CENNZnet runtime. This can be compiled with ``#[no_std]`, ready for Wasm.
 
@@ -20,6 +22,7 @@
 
 use authority_discovery_primitives::{AuthorityId as EncodedAuthorityId, Signature as EncodedSignature};
 use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature};
+use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -28,7 +31,6 @@ use codec::{Decode, Encode};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityWeight as GrandpaWeight};
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use node_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature};
 use primitives::u32_trait::{_1, _2, _3, _4};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
@@ -68,15 +70,15 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node"),
-	impl_name: create_runtime_str!("substrate-node"),
-	authoring_version: 10,
+	spec_name: create_runtime_str!("cennznet"),
+	impl_name: create_runtime_str!("cennznet-node"),
+	authoring_version: 1,
 	// Per convention: if the runtime behavior changes, increment spec_version
 	// and set impl_version to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 182,
-	impl_version: 182,
+	spec_version: 26,
+	impl_version: 26,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -492,7 +494,7 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
-		NodeBlock = node_primitives::Block,
+		NodeBlock = cennznet_primitives::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		System: system::{Module, Call, Storage, Config, Event},

@@ -1,0 +1,14 @@
+[package]
+name = "cennznet-rpc-client"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+env_logger = "0.7.0"
+futures = "0.1.29"
+hyper = "0.12.35"
+jsonrpc-core-client = { version = "13.1.0", features = ["http", "ws"] }
+log = "0.4.8"
+cennznet-primitives = { path = "../primitives" }
+substrate-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", version = "2.0.0", branch = "1.0.0-rc1" }

@@ -1,0 +1,39 @@
+[[bin]]
+name = "cennznet"
+path = "src/main.rs"
+
+[package]
+name = "cennznet"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+build = "build.rs"
+edition = "2018"
+
+[dependencies]
+cli = { package = "cennznet-cli", path = "cli" }
+futures = "0.1.29"
+ctrlc = { version = "3.1.3", features = ["termination"] }
+
+[build-dependencies]
+vergen = "3.0.4"
+
+[workspace]
+members = [
+	"cli",
+	"executor",
+	"primitives",
+	"rpc",
+	"rpc-client",
+	"runtime",
+	"testing",
+]
+
+[badges]
+circle-ci = { repository = "cennznet/cennznet", branch = "develop" }
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "cennznet/cennznet" }
+is-it-maintained-open-issues = { repository = "cennznet/cennznet" }
+
+[profile.release]
+# Substrate runtime requires unwinding.
+panic = "unwind"
