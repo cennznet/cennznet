@@ -23,7 +23,7 @@ jobs:
             rustup toolchain install $RUST_VERSION
             rustup default $RUST_VERSION
             rustup target add wasm32-unknown-unknown --toolchain=$RUST_VERSION
-            command -v wasm-gc || cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
+            command -v wasm-gc || cargo install --git https://github.com/alexcrichton/wasm-gc --force
             rustup target add x86_64-unknown-linux-musl --toolchain=$RUST_VERSION
             rustup component add rustfmt --toolchain=$RUST_VERSION
             rustc --version; cargo --version; rustup --version
