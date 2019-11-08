@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-sr-std = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-srml-support = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-srml-system = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+sr-std = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+srml-support = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+srml-system = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
 
 [features]
 default = ["std"]

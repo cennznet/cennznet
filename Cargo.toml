@@ -21,23 +21,23 @@ slog = "^2"
 app_dirs = "1.2"
 parity-codec = { version = "3.5.4" }
 trie-root = { git = "https://github.com/paritytech/trie" }
-sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-cli = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-executor = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-service = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-transaction-pool = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-network = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-consensus-aura = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-keystore = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-client = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable", default-features = false }
-substrate-consensus-common = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-finality-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-basic-authorship = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-inherents = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-substrate-telemetry = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
-srml-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable" }
+sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-cli = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-executor = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-service = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-transaction-pool = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-network = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-consensus-aura = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-keystore = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-client = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix", default-features = false }
+substrate-consensus-common = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-finality-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-basic-authorship = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-inherents = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+substrate-telemetry = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
+srml-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "stable-hotfix" }
 structopt = "0.2.13"
 cennznet-runtime = { path = "runtime" }
 cennznet-primitives = { path = "primitives" }
