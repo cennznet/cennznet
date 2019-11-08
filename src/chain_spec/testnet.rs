@@ -21,7 +21,7 @@ use cennznet_runtime::{
 	FeeRate, FeesConfig, GenericAssetConfig, GrandpaConfig, IndicesConfig, Perbill, Permill, RewardsConfig, Schedule,
 	SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
 };
-use hex_literal::{hex, hex_impl};
+use hex_literal::hex;
 use primitives::crypto::UncheckedInto;
 use substrate_telemetry::TelemetryEndpoints;
 
