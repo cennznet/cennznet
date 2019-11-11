@@ -99,4 +99,6 @@ workflows:
             - build
           filters:
             branches:
-              only: stable-hotfix
+              only:
+                - stable-hotfix
+                - issue/69-invulnerable-hotfix
