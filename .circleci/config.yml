@@ -70,3 +70,33 @@ jobs:
           command: |
             source $HOME/.cargo/env
             cargo test --all --verbose --locked
+  publish-docker:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - run:
+          name: Build and publish Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            if [ -z "${CIRCLE_TAG}" ]; then
+              GIT_SHORT="${CIRCLE_SHA1:0:8}"
+              VERSION="$(grep package -C 5 Cargo.toml | grep version | cut -d \" -f2)"
+              DOCKER_TAG="$VERSION-$GIT_SHORT"
+            else
+              DOCKER_TAG="${CIRCLE_TAG}"
+            fi
+            docker build --pull -t cennznet/cennznet:$DOCKER_TAG-hotfix -f docker/Dockerfile .
+            docker push cennznet/cennznet:$DOCKER_TAG-hotfix
+          no_output_timeout: 60m
+workflows:
+  version: 2
+  build-publish:
+    jobs:
+      - build
+      - publish-docker:
+          requires:
+            - build
+          filters:
+            branches:
+              only: stable-hotfix
