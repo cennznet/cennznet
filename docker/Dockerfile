@@ -1,6 +1,6 @@
 FROM rustlang/rust:nightly AS builder
 WORKDIR /cennznet
-ENV RUST_VERSION: nightly-2019-07-14
+ENV RUST_VERSION="nightly-2019-07-14"
 RUN apt-get update && \
       apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
       rustup toolchain install $RUST_VERSION && \
