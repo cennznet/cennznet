@@ -21,8 +21,8 @@ use cennznet_runtime::constants::{currency::*, time::*};
 use cennznet_runtime::Block;
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use chain_spec::ChainSpecExtension;
 use grandpa_primitives::AuthorityId as GrandpaId;
@@ -257,6 +257,25 @@ pub fn testnet_genesis(
 		authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		membership_Instance1: Some(Default::default()),
+		generic_asset: Some(GenericAssetConfig {
+			assets: vec![
+				// Staking token
+				16000, // CENNZ-T
+				// Spending token
+				16001, // CENTRAPAY-T
+				// Reserve Tokens
+				16002, // PLUG-T
+				16003, // SYLO-T
+				16004, // CERTI-T
+				16005, // ARDA-T
+			],
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
+			next_asset_id: 17000,
+			// create_asset_stake: 1000, // removed upstream
+			staking_asset_id: 16000,
+			spending_asset_id: 16001,
+		}),
 	}
 }
 
