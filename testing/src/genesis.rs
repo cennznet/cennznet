@@ -19,8 +19,8 @@
 use crate::keyring::*;
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	BalancesConfig, ContractsConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, StakingConfig,
-	SystemConfig, WASM_BINARY,
+	BalancesConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig,
+	StakingConfig, SystemConfig, WASM_BINARY,
 };
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
@@ -91,5 +91,13 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 		membership_Instance1: Some(Default::default()),
 		elections_phragmen: Some(Default::default()),
 		sudo: Some(Default::default()),
+		generic_asset: Some(GenericAssetConfig {
+			assets: vec![16000, 16001, 16002, 16003, 16004, 16005],
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: vec![alice(), bob(), charlie()],
+			next_asset_id: 17000,
+			staking_asset_id: 16000,
+			spending_asset_id: 16001,
+		}),
 	}
 }
