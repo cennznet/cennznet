@@ -270,7 +270,7 @@ pub fn testnet_genesis(
 				16005, // ARDA-T
 			],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
-			endowed_accounts: endowed_accounts.clone().into_iter().map(Into::into).collect(),
+			endowed_accounts: endowed_accounts.clone(),
 			next_asset_id: 17000,
 			// create_asset_stake: 1000, // removed upstream
 			staking_asset_id: 16000,
