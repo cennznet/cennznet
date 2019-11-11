@@ -513,6 +513,7 @@ dependencies = [
  "srml-elections-phragmen 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
  "srml-executive 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
  "srml-finality-tracker 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-generic-asset 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
  "srml-grandpa 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
  "srml-im-online 0.1.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
  "srml-indices 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
@@ -3886,6 +3887,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "srml-generic-asset"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1#2c18dfb984df5f4c42adfb8fc734fea91df6a38b"
+dependencies = [
+ "parity-scale-codec 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-primitives 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "sr-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-support 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-system 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+]
+
+[[package]]
 name = "srml-grandpa"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1#2c18dfb984df5f4c42adfb8fc734fea91df6a38b"
@@ -6448,6 +6462,7 @@ dependencies = [
 "checksum srml-elections-phragmen 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
 "checksum srml-executive 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
 "checksum srml-finality-tracker 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
+"checksum srml-generic-asset 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
 "checksum srml-grandpa 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
 "checksum srml-im-online 0.1.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"
 "checksum srml-indices 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)" = "<none>"

@@ -28,6 +28,7 @@ use client::{
 	impl_runtime_apis, runtime_api as client_api,
 };
 use codec::{Decode, Encode};
+use generic_asset::SpendingAssetCurrency;
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityWeight as GrandpaWeight};
 use im_online::sr25519::AuthorityId as ImOnlineId;
@@ -157,6 +158,12 @@ impl indices::Trait for Runtime {
 	type AccountIndex = AccountIndex;
 	type IsDeadAccount = Balances;
 	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
+	type Event = Event;
+}
+
+impl generic_asset::Trait for Runtime {
+	type Balance = Balance;
+	type AssetId = u32;
 	type Event = Event;
 }
 
@@ -394,7 +401,7 @@ parameter_types! {
 }
 
 impl contracts::Trait for Runtime {
-	type Currency = Balances;
+	type Currency = SpendingAssetCurrency<Self>;
 	type Time = Timestamp;
 	type Randomness = RandomnessCollectiveFlip;
 	type Call = Call;
@@ -505,6 +512,7 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances::{default, Error},
 		TransactionPayment: transaction_payment::{Module, Storage},
+		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>, Config<T>, Fee},
 		Staking: staking::{default, OfflineWorker},
 		Session: session::{Module, Call, Storage, Event, Config<T>},
 		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
