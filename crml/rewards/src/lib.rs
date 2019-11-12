@@ -28,7 +28,7 @@ use runtime_primitives::{
 	traits::{As, CheckedAdd, CheckedMul, One},
 	Permill,
 };
-use session::OnSessionChange;
+use session::SessionHandler;
 use staking::CurrentEraReward;
 use support::{decl_module, decl_storage, dispatch::Result, traits::Currency, StorageValue};
 
@@ -102,10 +102,20 @@ decl_storage! {
 // 	}
 // }
 
-impl<T: Trait, U> OnSessionChange<U> for Module<T> {
-	fn on_session_change(_: U, _: bool) {
-		let session_transaction_fee = <SessionTransactionFee<T>>::take();
-		let multiplier = <FeeRewardMultiplier<T>>::get();
-		<CurrentEraReward<T>>::mutate(|reward| *reward += multiplier * session_transaction_fee);
+// impl<T: Trait, U> SessionHandler<U> for Module<T> {
+// 	fn on_new_session(: U, _: bool) {
+// 		let session_transaction_fee = <SessionTransactionFee<T>>::take();
+// 		let multiplier = <FeeRewardMultiplier<T>>::get();
+// 		<CurrentEraReward<T>>::mutate(|reward| *reward += multiplier * session_transaction_fee);
+// 	}
+// }
+
+impl<T: Trait, U> SessionHandler<U> for Module<T> {
+	fn on_new_session<T: OpaqueKeys>(changed: bool, _, _) {
+		if changed {
+			let session_transaction_fee = <SessionTransactionFee<T>>::take();
+			let multiplier = <FeeRewardMultiplier<T>>::get();
+			<CurrentEraReward<T>>::mutate(|reward| *reward += multiplier * session_transaction_fee);
+		}
 	}
 }
