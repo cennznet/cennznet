@@ -15,12 +15,11 @@ support = { package="srml-support", git = "https://github.com/plugblockchain/plu
 system = { package="srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
-fees = { package = "prml-fees", path = "../../prml/fees", default-features = false }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+# fees = { package = "prml-fees", path = "../../prml/fees", default-features = false }
 
 [dev-dependencies]
-generic-asset = { package = "prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
 timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
-consensus = { package = "srml-consensus", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 
 [features]
 default = ["std"]
@@ -35,5 +34,5 @@ std =[
 	"system/std",
 	"staking/std",
 	"session/std",
-	"fees/std",
+	#"fees/std",
 ]

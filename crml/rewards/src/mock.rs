@@ -90,11 +90,12 @@ impl generic_asset::Trait for Test {
 	type AssetId = u32;
 	type Event = ();
 }
-impl consensus::Trait for Test {
-	type Log = DigestItem;
-	type SessionKey = UintAuthorityId;
-	type InherentOfflineReport = ();
-}
+// FIXME:
+// impl consensus::Trait for Test {
+// 	type Log = DigestItem;
+// 	type SessionKey = UintAuthorityId;
+// 	type InherentOfflineReport = ();
+// }
 impl session::Trait for Test {
 	type ConvertAccountIdToSessionKey = ConvertUintAuthorityId;
 	type OnSessionChange = Staking;

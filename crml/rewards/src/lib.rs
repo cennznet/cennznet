@@ -22,7 +22,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use fees::OnFeeCharged;
+// FIXME:
+// use fees::OnFeeCharged;
 use runtime_primitives::{
 	traits::{As, CheckedAdd, CheckedMul, One},
 	Permill,
@@ -94,11 +95,12 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait> OnFeeCharged<AmountOf<T>> for Module<T> {
-	fn on_fee_charged(fee: &AmountOf<T>) {
-		<SessionTransactionFee<T>>::mutate(|current| *current += *fee);
-	}
-}
+// FIXME:
+// impl<T: Trait> OnFeeCharged<AmountOf<T>> for Module<T> {
+// 	fn on_fee_charged(fee: &AmountOf<T>) {
+// 		<SessionTransactionFee<T>>::mutate(|current| *current += *fee);
+// 	}
+// }
 
 impl<T: Trait, U> OnSessionChange<U> for Module<T> {
 	fn on_session_change(_: U, _: bool) {
