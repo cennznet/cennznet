@@ -451,6 +451,8 @@ impl grandpa::Trait for Runtime {
 	type Event = Event;
 }
 
+impl rewards::Trait for Runtime {}
+
 parameter_types! {
 	pub const WindowSize: BlockNumber = 101;
 	pub const ReportLatency: BlockNumber = 1000;
@@ -521,6 +523,8 @@ construct_runtime!(
 		AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
 		Offences: offences::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+
+		Rewards: rewards::{Module, Call, Storage, Config<T>},
 	}
 );
 
