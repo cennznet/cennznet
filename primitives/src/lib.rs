@@ -42,14 +42,17 @@ pub type AccountIndex = u32;
 /// Balance of an account.
 pub type Balance = u128;
 
-/// The runtime supported proof of delegation format
+/// Asset ID for generic asset module.
+pub type AssetId = u32;
+
+/// The runtime supported proof of delegation format.
 pub type Doughnut = DoughnutV0;
 
 /// Type used for expressing timestamp.
 pub type Moment = u64;
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Index = u64;
 
 /// A hash of some data used by the chain.
 pub type Hash = primitives::H256;
