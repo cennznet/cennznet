@@ -3,6 +3,8 @@ jobs:
   build:
     machine:
       image: ubuntu-1604:201903-01
+    environment:
+      RUST_VERSION: nightly-2019-07-14
     steps:
       - checkout
       - restore_cache:
@@ -18,18 +20,18 @@ jobs:
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             fi
             source $HOME/.cargo/env
-            rustup default nightly
-            rustup update nightly
-            rustup target add wasm32-unknown-unknown --toolchain nightly
-            command -v wasm-gc || cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
-            rustup target add x86_64-unknown-linux-musl --toolchain=nightly
-            rustup component add rustfmt --toolchain=nightly
+            rustup toolchain install $RUST_VERSION
+            rustup default $RUST_VERSION
+            rustup target add wasm32-unknown-unknown --toolchain=$RUST_VERSION
+            command -v wasm-gc || cargo install --git https://github.com/alexcrichton/wasm-gc --force
+            rustup target add x86_64-unknown-linux-musl --toolchain=$RUST_VERSION
+            rustup component add rustfmt --toolchain=$RUST_VERSION
             rustc --version; cargo --version; rustup --version
       - run:
           name: Check format
           command: |
             source $HOME/.cargo/env
-            cargo +nightly fmt
+            cargo fmt
       - restore_cache:
           keys:
             - v1-cargo-wasm-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -68,3 +70,34 @@ jobs:
           command: |
             source $HOME/.cargo/env
             cargo test --all --verbose --locked
+  publish-docker:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - run:
+          name: Build and publish Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            if [ -z "${CIRCLE_TAG}" ]; then
+              GIT_SHORT="${CIRCLE_SHA1:0:8}"
+              VERSION="$(grep package -C 5 Cargo.toml | grep version | cut -d \" -f2)"
+              DOCKER_TAG="$VERSION-$GIT_SHORT"
+            else
+              DOCKER_TAG="${CIRCLE_TAG}"
+            fi
+            docker build --pull -t cennznet/cennznet:$DOCKER_TAG-hotfix -f docker/Dockerfile .
+            docker push cennznet/cennznet:$DOCKER_TAG-hotfix
+          no_output_timeout: 60m
+workflows:
+  version: 2
+  build-publish:
+    jobs:
+      - build
+      - publish-docker:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - stable-hotfix
