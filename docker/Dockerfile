@@ -11,10 +11,10 @@ RUN apt-get update && \
 ENV CARGO_HOME=/cennznet/.cargo
 COPY . /cennznet
 RUN cd /cennznet/runtime/wasm && \
-      cargo build --frozen --target=wasm32-unknown-unknown --release && \
+      cargo build --target=wasm32-unknown-unknown --release && \
       wasm-gc target/wasm32-unknown-unknown/release/cennznet_runtime.wasm target/wasm32-unknown-unknown/release/cennznet_runtime.compact.wasm && \
       cd /cennznet && \
-      cargo build --frozen --release
+      cargo build --release
 
 FROM debian:stretch-slim
 LABEL maintainer="support@centrality.ai"
