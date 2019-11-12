@@ -101,4 +101,3 @@ workflows:
             branches:
               only:
                 - stable-hotfix
-                - issue/69-invulnerable-hotfix
