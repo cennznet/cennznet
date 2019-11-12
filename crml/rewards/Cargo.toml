@@ -1,0 +1,39 @@
+[package]
+name = "crml-rewards"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0.101", default-features = false }
+parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
+rstd = { package="sr-std", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+runtime_io = { package="sr-io", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+runtime_primitives = { package="sr-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+support = { package="srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+system = { package="srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+fees = { package = "prml-fees", path = "../../prml/fees", default-features = false }
+
+[dev-dependencies]
+generic-asset = { package = "prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
+timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+consensus = { package = "srml-consensus", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
+
+[features]
+default = ["std"]
+std =[
+	"serde/std",
+	"parity-codec/std",
+	"runtime_primitives/std",
+	"primitives/std",
+	"runtime_io/std",
+	"rstd/std",
+	"support/std",
+	"system/std",
+	"staking/std",
+	"session/std",
+	"fees/std",
+]
