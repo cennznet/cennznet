@@ -17,19 +17,13 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Authorship, Balances, MaximumBlockWeight, NegativeImbalance};
+use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::Balance;
+use generic_asset::StakingAssetCurrency;
 use sr_primitives::traits::{Convert, Saturating};
 use sr_primitives::weights::Weight;
 use sr_primitives::Fixed64;
-use support::traits::{Currency, OnUnbalanced};
-
-pub struct Author;
-impl OnUnbalanced<NegativeImbalance> for Author {
-	fn on_unbalanced(amount: NegativeImbalance) {
-		Balances::resolve_creating(&Authorship::author(), amount);
-	}
-}
+use support::traits::Currency;
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -37,7 +31,7 @@ pub struct CurrencyToVoteHandler;
 
 impl CurrencyToVoteHandler {
 	fn factor() -> Balance {
-		(Balances::total_issuance() / u64::max_value() as Balance).max(1)
+		(<StakingAssetCurrency<Runtime>>::total_issuance() / u64::max_value() as Balance).max(1)
 	}
 }
 
