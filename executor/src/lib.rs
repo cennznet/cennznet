@@ -36,7 +36,7 @@ native_executor_instance!(
 #[cfg(test)]
 mod tests {
 	use super::Executor;
-	use cennznet_primitives::{Balance, BlockNumber, Hash};
+	use cennznet_primitives::{Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
 		constants::currency::*, impls::WeightToFee, Balances, Block, BuildStorage, Call, CheckedExtrinsic, Event,
 		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment, TransferFee,
@@ -463,7 +463,7 @@ mod tests {
 		(block1, block2)
 	}
 
-	fn block_with_size(time: u64, nonce: u32, size: usize) -> (Vec<u8>, Hash) {
+	fn block_with_size(time: Timestamp, nonce: Index, size: usize) -> (Vec<u8>, Hash) {
 		construct_block(
 			&mut new_test_ext(COMPACT_CODE, false),
 			1,
