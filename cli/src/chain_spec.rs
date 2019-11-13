@@ -20,9 +20,9 @@ use babe_primitives::AuthorityId as BabeId;
 use cennznet_runtime::constants::{currency::*, time::*};
 use cennznet_runtime::Block;
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	AuthorityDiscoveryConfig, BabeConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
+	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use chain_spec::ChainSpecExtension;
 use grandpa_primitives::AuthorityId as GrandpaId;
@@ -194,15 +194,6 @@ pub fn testnet_genesis(
 		system: Some(SystemConfig {
 			code: WASM_BINARY.to_vec(),
 			changes_trie_config: Default::default(),
-		}),
-		balances: Some(BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, ENDOWMENT))
-				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
-			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts
