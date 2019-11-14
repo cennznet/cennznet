@@ -19,8 +19,8 @@
 use crate::keyring::*;
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	BalancesConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig,
-	StakingConfig, SystemConfig, WASM_BINARY,
+	ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, StakingConfig,
+	SystemConfig, WASM_BINARY,
 };
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
@@ -42,17 +42,6 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 		}),
 		indices: Some(IndicesConfig {
 			ids: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
-		}),
-		balances: Some(BalancesConfig {
-			balances: vec![
-				(alice(), 111 * DOLLARS),
-				(bob(), 100 * DOLLARS),
-				(charlie(), 100_000_000 * DOLLARS),
-				(dave(), 111 * DOLLARS),
-				(eve(), 101 * DOLLARS),
-				(ferdie(), 100 * DOLLARS),
-			],
-			vesting: vec![],
 		}),
 		session: Some(SessionConfig {
 			keys: vec![
