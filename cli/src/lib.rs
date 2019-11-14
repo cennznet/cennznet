@@ -26,13 +26,11 @@ mod service;
 
 use cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
 pub use cli::{ExecutionStrategyParam, IntoExit, NoCustom, SharedParams, VersionInfo};
-use client::ExecutionStrategies;
 use log::info;
 use structopt::{clap::App, StructOpt};
 use substrate_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use tokio::prelude::Future;
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
-use transaction_factory::RuntimeAdapter;
 
 /// The chain specification option.
 #[derive(Clone, Debug, PartialEq)]
