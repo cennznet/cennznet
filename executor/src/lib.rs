@@ -36,11 +36,10 @@ native_executor_instance!(
 #[cfg(test)]
 mod tests {
 	use super::Executor;
-	use cennznet_primitives::{Balance, BlockNumber, Hash, Index, Timestamp, AssetId};
+	use cennznet_primitives::{AssetId, Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
-		constants::currency::*, impls::WeightToFee, GenericAsset, Block, BuildStorage, Call, CheckedExtrinsic, Event,
-		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment,
-		UncheckedExtrinsic,
+		constants::currency::*, impls::WeightToFee, Block, BuildStorage, Call, CheckedExtrinsic, Event, GenericAsset,
+		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
@@ -51,7 +50,6 @@ mod tests {
 		traits::{CodeExecutor, Externalities},
 		Blake2Hasher, NativeOrEncoded, NeverNativeValue,
 	};
-	use runtime_support::{traits::Currency, Hashable, StorageMap, StorageValue};
 	use sr_primitives::{
 		traits::{Convert, Hash as HashT, Header as HeaderT},
 		transaction_validity::InvalidTransaction,
@@ -61,9 +59,10 @@ mod tests {
 	use state_machine::TestExternalities as CoreTestExternalities;
 	use substrate_executor::error::Result;
 	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
+	use support::{traits::Currency, Hashable, StorageMap, StorageValue};
 	use system::{EventRecord, Phase};
 	use wabt;
-	use {generic_asset, contracts, indices, system, timestamp};
+	use {contracts, generic_asset, indices, system, timestamp};
 
 	/// The wasm runtime code.
 	///
@@ -103,7 +102,7 @@ mod tests {
 	}
 
 	fn default_transfer_call() -> generic_asset::Call<Runtime> {
-		generic_asset::Call::transfer::<Runtime>(bob().into(), 69 * DOLLARS)
+		generic_asset::Call::transfer::<Runtime>(0, bob().into(), 69 * DOLLARS)
 	}
 
 	fn xt() -> UncheckedExtrinsic {
@@ -511,11 +510,11 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+						ASSET_ID,
 						alice().into(),
 						bob().into(),
 						69 * DOLLARS,
-						1 * CENTS,
 					)),
 					topics: vec![],
 				},
@@ -541,7 +540,10 @@ mod tests {
 				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm),
 			);
-			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 179 * DOLLARS - transfer_fee(&xt(), fm),);
+			assert_eq!(
+				GenericAsset::total_balance(&ASSET_ID, &bob()),
+				179 * DOLLARS - transfer_fee(&xt(), fm),
+			);
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
@@ -550,11 +552,11 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+						ASSET_ID,
 						bob().into(),
 						alice().into(),
 						5 * DOLLARS,
-						1 * CENTS,
 					)),
 					topics: vec![],
 				},
@@ -565,11 +567,11 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+						ASSET_ID,
 						alice().into(),
 						bob().into(),
 						15 * DOLLARS,
-						1 * CENTS,
 					)),
 					topics: vec![],
 				},
@@ -656,7 +658,6 @@ mod tests {
 				(i32.const 0)
 				(i32.const 4)
 			)
-
 
 			(br_if $fail
 				(i32.ne
