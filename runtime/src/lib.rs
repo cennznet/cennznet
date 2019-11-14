@@ -49,6 +49,7 @@ use version::NativeVersion;
 use version::RuntimeVersion;
 
 pub use contracts::Gas;
+pub use generic_asset::Call as GenericAssetCall;
 
 #[cfg(any(feature = "std", test))]
 pub use sr_primitives::BuildStorage;

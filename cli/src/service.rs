@@ -318,7 +318,7 @@ mod tests {
 	use babe::CompatibleDigestItem;
 	use cennznet_primitives::{Block, DigestItem};
 	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
-	use cennznet_runtime::{BalancesCall, Call, UncheckedExtrinsic};
+	use cennznet_runtime::{Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::{Decode, Encode};
 	use consensus_common::{BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer};
 	use finality_tracker;
@@ -373,7 +373,11 @@ mod tests {
 		let extrinsic_factory = |service: &SyncService<<Factory as service::ServiceFactory>::FullService>| {
 			let payload = (
 				0,
-				Call::Balances(BalancesCall::transfer(RawAddress::Id(bob.public().0.into()), 69.into())),
+				Call::GenericAsset(GenericAssetCall::transfer(
+					0,
+					RawAddress::Id(bob.public().0.into()),
+					69.into(),
+				)),
 				Era::immortal(),
 				service.client().genesis_hash(),
 			);
@@ -514,7 +518,7 @@ mod tests {
 					.spec_version;
 				let signer = charlie.clone();
 
-				let function = Call::Balances(BalancesCall::transfer(to.into(), amount));
+				let function = Call::GenericAsset(GenericAssetCall::transfer(0, to.into(), amount));
 
 				let check_version = system::CheckVersion::new();
 				let check_genesis = system::CheckGenesis::new();
