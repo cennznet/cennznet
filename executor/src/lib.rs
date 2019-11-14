@@ -83,7 +83,7 @@ mod tests {
 
 	const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
 
-	const ASSET_ID: AssetId = 0;
+	const ASSET_ID: AssetId = 16001;
 
 	type TestExternalities<H> = CoreTestExternalities<H, u64>;
 
@@ -102,7 +102,7 @@ mod tests {
 	}
 
 	fn default_transfer_call() -> generic_asset::Call<Runtime> {
-		generic_asset::Call::transfer::<Runtime>(0, bob().into(), 69 * DOLLARS)
+		generic_asset::Call::transfer::<Runtime>(ASSET_ID, bob().into(), 69)
 	}
 
 	fn xt() -> UncheckedExtrinsic {
