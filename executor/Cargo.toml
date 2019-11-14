@@ -20,7 +20,7 @@ cennznet-testing = { path = "../testing" }
 test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 runtime_support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-balances = { package = "srml-balances", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
