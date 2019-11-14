@@ -36,10 +36,10 @@ native_executor_instance!(
 #[cfg(test)]
 mod tests {
 	use super::Executor;
-	use cennznet_primitives::{Balance, BlockNumber, Hash, Index, Timestamp};
+	use cennznet_primitives::{Balance, BlockNumber, Hash, Index, Timestamp, AssetId};
 	use cennznet_runtime::{
-		constants::currency::*, impls::WeightToFee, Balances, Block, BuildStorage, Call, CheckedExtrinsic, Event,
-		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment, TransferFee,
+		constants::currency::*, impls::WeightToFee, GenericAsset, Block, BuildStorage, Call, CheckedExtrinsic, Event,
+		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment,
 		UncheckedExtrinsic,
 	};
 	use cennznet_testing::keyring::*;
@@ -63,7 +63,7 @@ mod tests {
 	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
 	use system::{EventRecord, Phase};
 	use wabt;
-	use {balances, contracts, indices, system, timestamp};
+	use {generic_asset, contracts, indices, system, timestamp};
 
 	/// The wasm runtime code.
 	///
@@ -84,6 +84,8 @@ mod tests {
 
 	const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
 
+	const ASSET_ID: AssetId = 0;
+
 	type TestExternalities<H> = CoreTestExternalities<H, u64>;
 
 	fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
@@ -97,17 +99,17 @@ mod tests {
 		let weight = default_transfer_call().get_dispatch_info().weight;
 		let weight_fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(weight);
 
-		fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee) + TransferFee::get()
+		fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 	}
 
-	fn default_transfer_call() -> balances::Call<Runtime> {
-		balances::Call::transfer::<Runtime>(bob().into(), 69 * DOLLARS)
+	fn default_transfer_call() -> generic_asset::Call<Runtime> {
+		generic_asset::Call::transfer::<Runtime>(bob().into(), 69 * DOLLARS)
 	}
 
 	fn xt() -> UncheckedExtrinsic {
 		sign(CheckedExtrinsic {
 			signed: Some((alice(), signed_extra(0, 0))),
-			function: Call::Balances(default_transfer_call()),
+			function: Call::GenericAsset(default_transfer_call()),
 		})
 	}
 
@@ -149,10 +151,10 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						69_u128.encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						69_u128.encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
@@ -194,10 +196,10 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						69_u128.encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						69_u128.encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
@@ -239,10 +241,10 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						(111 * DOLLARS).encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
@@ -276,10 +278,10 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 69 * DOLLARS);
 		});
 	}
 
@@ -289,10 +291,10 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						(111 * DOLLARS).encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
@@ -326,10 +328,10 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 69 * DOLLARS);
 		});
 	}
 
@@ -410,7 +412,7 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::Balances(balances::Call::transfer(bob().into(), 69 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 69 * DOLLARS)),
 				},
 			],
 		)
@@ -432,7 +434,7 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::Balances(balances::Call::transfer(bob().into(), 69 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 69 * DOLLARS)),
 				},
 			],
 		);
@@ -447,11 +449,11 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((bob(), signed_extra(0, 0))),
-					function: Call::Balances(balances::Call::transfer(alice().into(), 5 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, alice().into(), 5 * DOLLARS)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(1, 0))),
-					function: Call::Balances(balances::Call::transfer(bob().into(), 15 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 15 * DOLLARS)),
 				},
 			],
 		);
@@ -496,11 +498,11 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(Balances::total_balance(&bob()), 169 * DOLLARS);
-			alice_last_known_balance = Balances::total_balance(&alice());
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 169 * DOLLARS);
+			alice_last_known_balance = GenericAsset::total_balance(&ASSET_ID, &alice());
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
@@ -509,7 +511,7 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::balances(balances::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
 						alice().into(),
 						bob().into(),
 						69 * DOLLARS,
@@ -536,10 +538,10 @@ mod tests {
 			// NOTE: fees differ slightly in tests that execute more than one block due to the
 			// weight update. Hence, using `assert_eq_error_rate`.
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm),
 			);
-			assert_eq!(Balances::total_balance(&bob()), 179 * DOLLARS - transfer_fee(&xt(), fm),);
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 179 * DOLLARS - transfer_fee(&xt(), fm),);
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
@@ -548,7 +550,7 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::balances(balances::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
 						bob().into(),
 						alice().into(),
 						5 * DOLLARS,
@@ -563,7 +565,7 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::balances(balances::RawEvent::Transfer(
+					event: Event::generic_asset(generic_asset::RawEvent::Transfer(
 						alice().into(),
 						bob().into(),
 						15 * DOLLARS,
@@ -596,11 +598,11 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(Balances::total_balance(&bob()), 169 * DOLLARS);
-			alice_last_known_balance = Balances::total_balance(&alice());
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 169 * DOLLARS);
+			alice_last_known_balance = GenericAsset::total_balance(&ASSET_ID, &alice());
 		});
 
 		fm = t.execute_with(TransactionPayment::next_fee_multiplier);
@@ -611,11 +613,11 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm),
 			);
 			assert_eq!(
-				Balances::total_balance(&bob()),
+				GenericAsset::total_balance(&ASSET_ID, &bob()),
 				179 * DOLLARS - 1 * transfer_fee(&xt(), fm),
 			);
 		});
@@ -829,10 +831,10 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						0_u128.encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						0_u128.encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
@@ -871,10 +873,10 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						(111 * DOLLARS).encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
@@ -911,10 +913,10 @@ mod tests {
 
 		t.execute_with(|| {
 			assert_eq!(
-				Balances::total_balance(&alice()),
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - 1 * transfer_fee(&xt(), fm)
 			);
-			assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 69 * DOLLARS);
 		});
 	}
 
@@ -1048,13 +1050,13 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<balances::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(alice()) => {
 						(100 * DOLLARS).encode()
 					},
-					<balances::FreeBalance<Runtime>>::hashed_key_for(bob()) => {
+					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(bob()) => {
 						(10 * DOLLARS).encode()
 					},
-					<balances::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
+					<generic_asset::TotalIssuance<Runtime>>::hashed_key().to_vec() => {
 						(110 * DOLLARS).encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
@@ -1067,7 +1069,7 @@ mod tests {
 		let tip = 1_000_000;
 		let xt = sign(CheckedExtrinsic {
 			signed: Some((alice(), signed_extra(0, tip))),
-			function: Call::Balances(default_transfer_call()),
+			function: Call::GenericAsset(default_transfer_call()),
 		});
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -1091,8 +1093,8 @@ mod tests {
 		assert!(r.is_ok());
 
 		t.execute_with(|| {
-			assert_eq!(Balances::total_balance(&bob()), (10 + 69) * DOLLARS);
-			// Components deducted from alice's balances:
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), (10 + 69) * DOLLARS);
+			// Components deducted from alice's generic_asset:
 			// - Weight fee
 			// - Length fee
 			// - Tip
@@ -1111,9 +1113,8 @@ mod tests {
 			balance_alice -= weight_fee;
 
 			balance_alice -= tip;
-			balance_alice -= TransferFee::get();
 
-			assert_eq!(Balances::total_balance(&alice()), balance_alice);
+			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &alice()), balance_alice);
 		});
 	}
 
@@ -1141,7 +1142,7 @@ mod tests {
 			let mut xts = (0..num_transfers)
 				.map(|i| CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(nonce + i as Index, 0))),
-					function: Call::Balances(balances::Call::transfer(bob().into(), 0)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 0)),
 				})
 				.collect::<Vec<CheckedExtrinsic>>();
 
