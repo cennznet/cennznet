@@ -83,7 +83,7 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![16000, 16001, 16002, 16003, 16004, 16005],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
-			endowed_accounts: vec![alice(), bob(), charlie()],
+			endowed_accounts: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
 			next_asset_id: 17000,
 			staking_asset_id: 16000,
 			spending_asset_id: 16001,
