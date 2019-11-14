@@ -6,7 +6,6 @@ description = "Test utilities for CENNZnet node."
 edition = "2018"
 
 [dependencies]
-balances = { package = "srml-balances", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
