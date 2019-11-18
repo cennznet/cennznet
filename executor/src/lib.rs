@@ -38,8 +38,9 @@ mod tests {
 	use super::Executor;
 	use cennznet_primitives::{AssetId, Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
-		constants::currency::*, impls::WeightToFee, Block, BuildStorage, Call, CheckedExtrinsic, Event, GenericAsset,
-		Header, Runtime, System, TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+		constants::currency::*, impls::WeightToFee, Block, BuildStorage, Call, CheckedExtrinsic,
+		Event, GenericAsset, Header, Runtime, System, TransactionBaseFee, TransactionByteFee,
+		TransactionPayment, UncheckedExtrinsic,
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
@@ -59,7 +60,7 @@ mod tests {
 	use state_machine::TestExternalities as CoreTestExternalities;
 	use substrate_executor::error::Result;
 	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
-	use support::{traits::Currency, Hashable, StorageMap, StorageValue, StorageDoubleMap};
+	use support::{traits::Currency, Hashable, StorageDoubleMap, StorageMap, StorageValue};
 	use system::{EventRecord, Phase};
 	use wabt;
 	use {contracts, generic_asset, indices, system, timestamp};
@@ -93,7 +94,8 @@ mod tests {
 
 	/// Default transfer fee
 	fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64) -> Balance {
-		let length_fee = TransactionBaseFee::get() + TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
+		let length_fee = TransactionBaseFee::get()
+			+ TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
 		let weight_fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(weight);
@@ -127,7 +129,10 @@ mod tests {
 	}
 
 	fn set_heap_pages<E: Externalities>(ext: &mut E, heap_pages: u64) {
-		ext.place_storage(well_known_keys::HEAP_PAGES.to_vec(), Some(heap_pages.encode()));
+		ext.place_storage(
+			well_known_keys::HEAP_PAGES.to_vec(),
+			Some(heap_pages.encode()),
+		);
 	}
 
 	fn executor_call<
@@ -360,9 +365,10 @@ mod tests {
 		let extrinsics = extrinsics.into_iter().map(sign).collect::<Vec<_>>();
 
 		// calculate the header fields that we can.
-		let extrinsics_root = Layout::<Blake2Hasher>::ordered_trie_root(extrinsics.iter().map(Encode::encode))
-			.to_fixed_bytes()
-			.into();
+		let extrinsics_root =
+			Layout::<Blake2Hasher>::ordered_trie_root(extrinsics.iter().map(Encode::encode))
+				.to_fixed_bytes()
+				.into();
 
 		let header = Header {
 			parent_hash,
@@ -373,14 +379,26 @@ mod tests {
 		};
 
 		// execute the block to get the real header.
-		executor_call::<NeverNativeValue, fn() -> _>(env, "Core_initialize_block", &header.encode(), true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			env,
+			"Core_initialize_block",
+			&header.encode(),
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
 		for i in extrinsics.iter() {
-			executor_call::<NeverNativeValue, fn() -> _>(env, "BlockBuilder_apply_extrinsic", &i.encode(), true, None)
-				.0
-				.unwrap();
+			executor_call::<NeverNativeValue, fn() -> _>(
+				env,
+				"BlockBuilder_apply_extrinsic",
+				&i.encode(),
+				true,
+				None,
+			)
+			.0
+			.unwrap();
 		}
 
 		let header = match executor_call::<NeverNativeValue, fn() -> _>(
@@ -413,7 +431,11 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 69 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(
+						ASSET_ID,
+						bob().into(),
+						69 * DOLLARS,
+					)),
 				},
 			],
 		)
@@ -435,7 +457,11 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 69 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(
+						ASSET_ID,
+						bob().into(),
+						69 * DOLLARS,
+					)),
 				},
 			],
 		);
@@ -450,11 +476,19 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((bob(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, alice().into(), 5 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(
+						ASSET_ID,
+						alice().into(),
+						5 * DOLLARS,
+					)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(1, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 15 * DOLLARS)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(
+						ASSET_ID,
+						bob().into(),
+						15 * DOLLARS,
+					)),
 				},
 			],
 		);
@@ -493,16 +527,25 @@ mod tests {
 		let mut alice_last_known_balance: Balance = Default::default();
 		let mut fm = t.execute_with(TransactionPayment::next_fee_multiplier);
 
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block1.0, true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block1.0,
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
 		t.execute_with(|| {
 			assert_eq!(
 				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 180 * DOLLARS);
+			assert_eq!(
+				GenericAsset::total_balance(&ASSET_ID, &bob()),
+				180 * DOLLARS
+			);
 			alice_last_known_balance = GenericAsset::total_balance(&ASSET_ID, &alice());
 			let events = vec![
 				EventRecord {
@@ -531,9 +574,15 @@ mod tests {
 
 		fm = t.execute_with(TransactionPayment::next_fee_multiplier);
 
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block2.0, true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block2.0,
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
 		t.execute_with(|| {
 			// NOTE: fees differ slightly in tests that execute more than one block due to the
@@ -596,24 +645,39 @@ mod tests {
 		let mut alice_last_known_balance: Balance = Default::default();
 		let mut fm = t.execute_with(TransactionPayment::next_fee_multiplier);
 
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block1.0, false, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block1.0,
+			false,
+			None,
+		)
+		.0
+		.unwrap();
 
 		t.execute_with(|| {
 			assert_eq!(
 				GenericAsset::total_balance(&ASSET_ID, &alice()),
 				42 * DOLLARS - transfer_fee(&xt(), fm)
 			);
-			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), 180 * DOLLARS);
+			assert_eq!(
+				GenericAsset::total_balance(&ASSET_ID, &bob()),
+				180 * DOLLARS
+			);
 			alice_last_known_balance = GenericAsset::total_balance(&ASSET_ID, &alice());
 		});
 
 		fm = t.execute_with(TransactionPayment::next_fee_multiplier);
 
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block2.0, false, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block2.0,
+			false,
+			None,
+		)
+		.0
+		.unwrap();
 
 		t.execute_with(|| {
 			assert_eq!(
@@ -740,7 +804,10 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(0, 0))),
-					function: Call::Contracts(contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
+					function: Call::Contracts(contracts::Call::put_code::<Runtime>(
+						10_000,
+						transfer_code,
+					)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(1, 0))),
@@ -765,9 +832,15 @@ mod tests {
 
 		let mut t = new_test_ext(COMPACT_CODE, false);
 
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &b.0, false, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&b.0,
+			false,
+			None,
+		)
+		.0
+		.unwrap();
 
 		t.execute_with(|| {
 			// Verify that the contract constructor worked well and code of TRANSFER contract is actually deployed.
@@ -931,11 +1004,21 @@ mod tests {
 		let block = Block::decode(&mut &block_data[..]).unwrap();
 
 		let mut t = new_test_ext(COMPACT_CODE, true);
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.encode(), true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block.encode(),
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
-		assert!(t.ext().storage_changes_root(GENESIS_HASH.into()).unwrap().is_some());
+		assert!(t
+			.ext()
+			.storage_changes_root(GENESIS_HASH.into())
+			.unwrap()
+			.is_some());
 	}
 
 	#[test]
@@ -943,16 +1026,28 @@ mod tests {
 		let block1 = changes_trie_block();
 
 		let mut t = new_test_ext(COMPACT_CODE, true);
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block1.0, false, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block1.0,
+			false,
+			None,
+		)
+		.0
+		.unwrap();
 
-		assert!(t.ext().storage_changes_root(GENESIS_HASH.into()).unwrap().is_some());
+		assert!(t
+			.ext()
+			.storage_changes_root(GENESIS_HASH.into())
+			.unwrap()
+			.is_some());
 	}
 
 	#[test]
 	fn should_import_block_with_test_client() {
-		use cennznet_testing::client::{consensus::BlockOrigin, ClientExt, TestClientBuilder, TestClientBuilderExt};
+		use cennznet_testing::client::{
+			consensus::BlockOrigin, ClientExt, TestClientBuilder, TestClientBuilderExt,
+		};
 
 		let client = TestClientBuilder::new().build();
 		let block1 = changes_trie_block();
@@ -1016,9 +1111,15 @@ mod tests {
 		);
 
 		// execute a big block.
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block1.0, true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block1.0,
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
 		// weight multiplier is increased for next block.
 		t.execute_with(|| {
@@ -1029,9 +1130,15 @@ mod tests {
 		});
 
 		// execute a big block.
-		executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block2.0, true, None)
-			.0
-			.unwrap();
+		executor_call::<NeverNativeValue, fn() -> _>(
+			&mut t,
+			"Core_execute_block",
+			&block2.0,
+			true,
+			None,
+		)
+		.0
+		.unwrap();
 
 		// weight multiplier is increased for next block.
 		t.execute_with(|| {
@@ -1098,7 +1205,10 @@ mod tests {
 		assert!(r.is_ok());
 
 		t.execute_with(|| {
-			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &bob()), (10 + 69) * DOLLARS);
+			assert_eq!(
+				GenericAsset::total_balance(&ASSET_ID, &bob()),
+				(10 + 69) * DOLLARS
+			);
 			// Components deducted from alice's generic_asset:
 			// - Weight fee
 			// - Length fee
@@ -1106,8 +1216,8 @@ mod tests {
 			// - Creation-fee of bob's account.
 			let mut balance_alice = (100 - 69) * DOLLARS;
 
-			let length_fee =
-				TransactionBaseFee::get() + TransactionByteFee::get() * (xt.clone().encode().len() as Balance);
+			let length_fee = TransactionBaseFee::get()
+				+ TransactionByteFee::get() * (xt.clone().encode().len() as Balance);
 			balance_alice -= length_fee;
 
 			let weight = default_transfer_call().get_dispatch_info().weight;
@@ -1119,7 +1229,10 @@ mod tests {
 
 			balance_alice -= tip;
 
-			assert_eq!(GenericAsset::total_balance(&ASSET_ID, &alice()), balance_alice);
+			assert_eq!(
+				GenericAsset::total_balance(&ASSET_ID, &alice()),
+				balance_alice
+			);
 		});
 	}
 
@@ -1147,7 +1260,11 @@ mod tests {
 			let mut xts = (0..num_transfers)
 				.map(|i| CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(nonce + i as Index, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(ASSET_ID, bob().into(), 0)),
+					function: Call::GenericAsset(generic_asset::Call::transfer(
+						ASSET_ID,
+						bob().into(),
+						0,
+					)),
 				})
 				.collect::<Vec<CheckedExtrinsic>>();
 
@@ -1171,7 +1288,14 @@ mod tests {
 				len / 1024 / 1024,
 			);
 
-			let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
+			let r = executor_call::<NeverNativeValue, fn() -> _>(
+				&mut t,
+				"Core_execute_block",
+				&block.0,
+				true,
+				None,
+			)
+			.0;
 
 			println!(" || Result = {:?}", r);
 			assert!(r.is_ok());
@@ -1216,7 +1340,11 @@ mod tests {
 					},
 					CheckedExtrinsic {
 						signed: Some((charlie(), signed_extra(nonce, 0))),
-						function: Call::System(system::Call::remark(vec![0u8; (block_number * factor) as usize])),
+						function: Call::System(system::Call::remark(vec![
+							0u8;
+							(block_number * factor)
+								as usize
+						])),
 					},
 				],
 			);
@@ -1229,7 +1357,14 @@ mod tests {
 				len / 1024 / 1024,
 			);
 
-			let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
+			let r = executor_call::<NeverNativeValue, fn() -> _>(
+				&mut t,
+				"Core_execute_block",
+				&block.0,
+				true,
+				None,
+			)
+			.0;
 
 			println!(" || Result = {:?}", r);
 			assert!(r.is_ok());
