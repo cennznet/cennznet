@@ -7,28 +7,28 @@ edition = "2018"
 [dependencies]
 trie-root = "0.15.2"
 codec = { package = "parity-scale-codec", version = "1.0.0" }
-runtime_io = { package = "sr-io", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-state_machine = { package = "substrate-state-machine", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-trie = { package = "substrate-trie", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+runtime_io = { package = "sr-io", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+trie = { package = "substrate-trie", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 
 [dev-dependencies]
 cennznet-testing = { path = "../testing" }
-test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
-indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 wabt = "0.9.2"
 
 [features]
