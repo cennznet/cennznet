@@ -19,8 +19,8 @@
 use crate::keyring::*;
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, StakingConfig,
-	SystemConfig, WASM_BINARY,
+	ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig,
+	SessionConfig, StakingConfig, SystemConfig, WASM_BINARY,
 };
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
@@ -38,15 +38,23 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 			} else {
 				None
 			},
-			code: code.map(|x| x.to_vec()).unwrap_or_else(|| WASM_BINARY.to_vec()),
+			code: code
+				.map(|x| x.to_vec())
+				.unwrap_or_else(|| WASM_BINARY.to_vec()),
 		}),
 		indices: Some(IndicesConfig {
 			ids: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
 		}),
 		session: Some(SessionConfig {
 			keys: vec![
-				(alice(), to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice)),
-				(bob(), to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob)),
+				(
+					alice(),
+					to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice),
+				),
+				(
+					bob(),
+					to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob),
+				),
 				(
 					charlie(),
 					to_session_keys(&Ed25519Keyring::Charlie, &Sr25519Keyring::Charlie),
@@ -56,9 +64,24 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 		staking: Some(StakingConfig {
 			current_era: 0,
 			stakers: vec![
-				(dave(), alice(), 111 * DOLLARS, staking::StakerStatus::Validator),
-				(eve(), bob(), 100 * DOLLARS, staking::StakerStatus::Validator),
-				(ferdie(), charlie(), 100 * DOLLARS, staking::StakerStatus::Validator),
+				(
+					dave(),
+					alice(),
+					111 * DOLLARS,
+					staking::StakerStatus::Validator,
+				),
+				(
+					eve(),
+					bob(),
+					100 * DOLLARS,
+					staking::StakerStatus::Validator,
+				),
+				(
+					ferdie(),
+					charlie(),
+					100 * DOLLARS,
+					staking::StakerStatus::Validator,
+				),
 			],
 			validator_count: 3,
 			minimum_validator_count: 0,
@@ -71,7 +94,9 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 			gas_price: 1 * MILLICENTS,
 		}),
 		babe: Some(Default::default()),
-		grandpa: Some(GrandpaConfig { authorities: vec![] }),
+		grandpa: Some(GrandpaConfig {
+			authorities: vec![],
+		}),
 		im_online: Some(Default::default()),
 		authority_discovery: Some(Default::default()),
 		democracy: Some(Default::default()),

@@ -28,7 +28,9 @@ use client::{self, LongestChain};
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
-use substrate_service::{config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder};
+use substrate_service::{
+	config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder,
+};
 use transaction_pool::{self, txpool::Pool as TransactionPool};
 
 use cennznet_executor::NativeExecutor;
@@ -99,7 +101,9 @@ macro_rules! new_full_start {
 			import_setup = Some((block_import, grandpa_link, babe_link));
 			Ok(import_queue)
 		})?
-		.with_rpc_extensions(|client, pool| -> RpcExtension { cennznet_rpc::create(client, pool) })?;
+		.with_rpc_extensions(|client, pool| -> RpcExtension {
+			cennznet_rpc::create(client, pool)
+		})?;
 
 		(builder, import_setup, inherent_data_providers)
 		}};
@@ -241,7 +245,11 @@ pub fn new_full<C: Send + Default + 'static>(
 		ConcreteClient,
 		LongestChain<ConcreteBackend, ConcreteBlock>,
 		NetworkStatus<ConcreteBlock>,
-		NetworkService<ConcreteBlock, crate::service::NodeProtocol, <ConcreteBlock as BlockT>::Hash>,
+		NetworkService<
+			ConcreteBlock,
+			crate::service::NodeProtocol,
+			<ConcreteBlock as BlockT>::Hash,
+		>,
 		TransactionPool<transaction_pool::FullChainApi<ConcreteClient, ConcreteBlock>>,
 		OffchainWorkers<
 			ConcreteClient,
@@ -261,53 +269,61 @@ pub fn new_light<C: Send + Default + 'static>(
 	type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
 	let inherent_data_providers = InherentDataProviders::new();
 
-	let service = ServiceBuilder::new_light::<Block, RuntimeApi, cennznet_executor::Executor>(config)?
-		.with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
-		.with_transaction_pool(|config, client| {
-			Ok(TransactionPool::new(
-				config,
-				transaction_pool::FullChainApi::new(client),
-			))
-		})?
-		.with_import_queue_and_fprb(|_config, client, backend, fetcher, _select_chain, _tx_pool| {
-			let fetch_checker = fetcher
-				.map(|fetcher| fetcher.checker().clone())
-				.ok_or_else(|| "Trying to start light import queue without active fetch checker")?;
-			let grandpa_block_import = grandpa::light_block_import::<_, _, _, RuntimeApi, _>(
-				client.clone(),
-				backend,
-				Arc::new(fetch_checker),
-				client.clone(),
-			)?;
+	let service =
+		ServiceBuilder::new_light::<Block, RuntimeApi, cennznet_executor::Executor>(config)?
+			.with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
+			.with_transaction_pool(|config, client| {
+				Ok(TransactionPool::new(
+					config,
+					transaction_pool::FullChainApi::new(client),
+				))
+			})?
+			.with_import_queue_and_fprb(
+				|_config, client, backend, fetcher, _select_chain, _tx_pool| {
+					let fetch_checker = fetcher
+						.map(|fetcher| fetcher.checker().clone())
+						.ok_or_else(|| {
+							"Trying to start light import queue without active fetch checker"
+						})?;
+					let grandpa_block_import = grandpa::light_block_import::<_, _, _, RuntimeApi, _>(
+						client.clone(),
+						backend,
+						Arc::new(fetch_checker),
+						client.clone(),
+					)?;
 
-			let finality_proof_import = grandpa_block_import.clone();
-			let finality_proof_request_builder = finality_proof_import.create_finality_proof_request_builder();
+					let finality_proof_import = grandpa_block_import.clone();
+					let finality_proof_request_builder =
+						finality_proof_import.create_finality_proof_request_builder();
 
-			let (babe_block_import, babe_link) = babe::block_import(
-				babe::Config::get_or_compute(&*client)?,
-				grandpa_block_import,
-				client.clone(),
-				client.clone(),
-			)?;
+					let (babe_block_import, babe_link) = babe::block_import(
+						babe::Config::get_or_compute(&*client)?,
+						grandpa_block_import,
+						client.clone(),
+						client.clone(),
+					)?;
 
-			let import_queue = babe::import_queue(
-				babe_link,
-				babe_block_import,
-				None,
-				Some(Box::new(finality_proof_import)),
-				client.clone(),
-				client,
-				inherent_data_providers.clone(),
-			)?;
+					let import_queue = babe::import_queue(
+						babe_link,
+						babe_block_import,
+						None,
+						Some(Box::new(finality_proof_import)),
+						client.clone(),
+						client,
+						inherent_data_providers.clone(),
+					)?;
 
-			Ok((import_queue, finality_proof_request_builder))
-		})?
-		.with_network_protocol(|_| Ok(NodeProtocol::new()))?
-		.with_finality_proof_provider(|client, backend| {
-			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)
-		})?
-		.with_rpc_extensions(|client, pool| -> RpcExtension { cennznet_rpc::create(client, pool) })?
-		.build()?;
+					Ok((import_queue, finality_proof_request_builder))
+				},
+			)?
+			.with_network_protocol(|_| Ok(NodeProtocol::new()))?
+			.with_finality_proof_provider(|client, backend| {
+				Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)
+			})?
+			.with_rpc_extensions(|client, pool| -> RpcExtension {
+				cennznet_rpc::create(client, pool)
+			})?
+			.build()?;
 
 	Ok(service)
 }
@@ -320,7 +336,9 @@ mod tests {
 	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
 	use cennznet_runtime::{Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::{Decode, Encode};
-	use consensus_common::{BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer};
+	use consensus_common::{
+		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer,
+	};
 	use finality_tracker;
 	use keyring::AccountKeyring;
 	use primitives::{crypto::Pair as CryptoPair, sr25519::Public as AddressPublic, H256};
@@ -370,27 +388,28 @@ mod tests {
 				auxiliary: Vec::new(),
 			}
 		};
-		let extrinsic_factory = |service: &SyncService<<Factory as service::ServiceFactory>::FullService>| {
-			let payload = (
-				0,
-				Call::GenericAsset(GenericAssetCall::transfer(
+		let extrinsic_factory =
+			|service: &SyncService<<Factory as service::ServiceFactory>::FullService>| {
+				let payload = (
 					0,
-					RawAddress::Id(bob.public().0.into()),
-					69.into(),
-				)),
-				Era::immortal(),
-				service.client().genesis_hash(),
-			);
-			let signature = alice.sign(&payload.encode()).into();
-			let id = alice.public().0.into();
-			let xt = UncheckedExtrinsic {
-				signature: Some((RawAddress::Id(id), signature, payload.0, Era::immortal())),
-				function: payload.1,
-			}
-			.encode();
-			let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
-			OpaqueExtrinsic(v)
-		};
+					Call::GenericAsset(GenericAssetCall::transfer(
+						0,
+						RawAddress::Id(bob.public().0.into()),
+						69.into(),
+					)),
+					Era::immortal(),
+					service.client().genesis_hash(),
+				);
+				let signature = alice.sign(&payload.encode()).into();
+				let id = alice.public().0.into();
+				let xt = UncheckedExtrinsic {
+					signature: Some((RawAddress::Id(id), signature, payload.0, Era::immortal())),
+					function: payload.1,
+				}
+				.encode();
+				let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
+				OpaqueExtrinsic(v)
+			};
 		service_test::sync(
 			chain_spec::integration_test_config(),
 			|config| new_full(config),
@@ -428,10 +447,13 @@ mod tests {
 			chain_spec,
 			|config| {
 				let mut setup_handles = None;
-				new_full!(config, |block_import: &babe::BabeBlockImport<_, _, Block, _, _, _>,
-				                   babe_link: &babe::BabeLink<Block>| {
-					setup_handles = Some((block_import.clone(), babe_link.clone()));
-				})
+				new_full!(
+					config,
+					|block_import: &babe::BabeBlockImport<_, _, Block, _, _, _>,
+					 babe_link: &babe::BabeLink<Block>| {
+						setup_handles = Some((block_import.clone(), babe_link.clone()));
+					}
+				)
 				.map(move |(node, x)| (node, (x, setup_handles.unwrap())))
 			},
 			|mut config| {
@@ -457,7 +479,8 @@ mod tests {
 				// even though there's only one authority some slots might be empty,
 				// so we must keep trying the next slots until we can claim one.
 				let babe_pre_digest = loop {
-					inherent_data.replace_data(timestamp::INHERENT_IDENTIFIER, &(slot_num * SLOT_DURATION));
+					inherent_data
+						.replace_data(timestamp::INHERENT_IDENTIFIER, &(slot_num * SLOT_DURATION));
 					if let Some(babe_pre_digest) = babe::test_helpers::claim_slot(
 						slot_num,
 						&parent_header,
@@ -471,7 +494,9 @@ mod tests {
 					slot_num += 1;
 				};
 
-				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(babe_pre_digest));
+				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(
+					babe_pre_digest,
+				));
 
 				let mut proposer = proposer_factory.init(&parent_header).unwrap();
 				let new_block = futures03::executor::block_on(proposer.propose(
@@ -543,7 +568,9 @@ mod tests {
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, extra, _) = raw_payload.deconstruct();
-				let xt = UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra).encode();
+				let xt =
+					UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
+						.encode();
 				let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
 
 				index += 1;

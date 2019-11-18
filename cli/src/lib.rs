@@ -167,22 +167,29 @@ where
 					.build()
 					.map_err(|e| format!("{:?}", e))?;
 				match config.roles {
-					ServiceRoles::LIGHT => run_until_exit(runtime, service::new_light(config)?, exit),
+					ServiceRoles::LIGHT => {
+						run_until_exit(runtime, service::new_light(config)?, exit)
+					}
 					_ => run_until_exit(runtime, service::new_full(config)?, exit),
 				}
 			},
 		),
 		ParseAndPrepare::BuildSpec(cmd) => cmd.run(load_spec),
-		ParseAndPrepare::ExportBlocks(cmd) => {
-			cmd.run_with_builder(|config: Config<_, _>| Ok(new_full_start!(config).0), load_spec, exit)
-		}
-		ParseAndPrepare::ImportBlocks(cmd) => {
-			cmd.run_with_builder(|config: Config<_, _>| Ok(new_full_start!(config).0), load_spec, exit)
-		}
+		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(
+			|config: Config<_, _>| Ok(new_full_start!(config).0),
+			load_spec,
+			exit,
+		),
+		ParseAndPrepare::ImportBlocks(cmd) => cmd.run_with_builder(
+			|config: Config<_, _>| Ok(new_full_start!(config).0),
+			load_spec,
+			exit,
+		),
 		ParseAndPrepare::PurgeChain(cmd) => cmd.run(load_spec),
-		ParseAndPrepare::RevertChain(cmd) => {
-			cmd.run_with_builder(|config: Config<_, _>| Ok(new_full_start!(config).0), load_spec)
-		}
+		ParseAndPrepare::RevertChain(cmd) => cmd.run_with_builder(
+			|config: Config<_, _>| Ok(new_full_start!(config).0),
+			load_spec,
+		),
 		ParseAndPrepare::CustomCommand(_) => Ok(()),
 	}
 }

@@ -20,10 +20,13 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-use authority_discovery_primitives::{AuthorityId as EncodedAuthorityId, Signature as EncodedSignature};
+use authority_discovery_primitives::{
+	AuthorityId as EncodedAuthorityId, Signature as EncodedSignature,
+};
 use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature};
 use cennznet_primitives::{
-	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
+	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment,
+	Signature,
 };
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
@@ -38,10 +41,14 @@ use primitives::u32_trait::{_1, _2, _3, _4};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
 use sr_primitives::curve::PiecewiseLinear;
-use sr_primitives::traits::{self, BlakeTwo256, Block as BlockT, NumberFor, SaturatedConversion, StaticLookup};
+use sr_primitives::traits::{
+	self, BlakeTwo256, Block as BlockT, NumberFor, SaturatedConversion, StaticLookup,
+};
 use sr_primitives::transaction_validity::TransactionValidity;
 use sr_primitives::weights::Weight;
-use sr_primitives::{create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill};
+use sr_primitives::{
+	create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill,
+};
 use support::{construct_runtime, parameter_types, traits::Randomness};
 use system::offchain::TransactionSubmitter;
 #[cfg(any(feature = "std", test))]
@@ -283,15 +290,19 @@ impl democracy::Trait for Runtime {
 	/// A straight majority of the council can decide what their next motion is.
 	type ExternalOrigin = collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-	type ExternalMajorityOrigin = collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
+	type ExternalMajorityOrigin =
+		collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
 	/// A unanimous council can have the next scheduled referendum be a straight default-carries
 	/// (NTB) vote.
-	type ExternalDefaultOrigin = collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
+	type ExternalDefaultOrigin =
+		collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
 	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
-	type FastTrackOrigin = collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+	type FastTrackOrigin =
+		collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
 	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-	type CancellationOrigin = collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
+	type CancellationOrigin =
+		collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
 	// Any single technical committee member may veto a coming council proposal, however they can
 	// only do it once and it lasts only for the cooloff period.
 	type VetoOrigin = collective::EnsureMember<AccountId, TechnicalCollective>;
@@ -447,7 +458,10 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 		call: Call,
 		account: AccountId,
 		index: Index,
-	) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
+	) -> Option<(
+		Call,
+		<UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload,
+	)> {
 		let period = 1 << 8;
 		let current_block = System::block_number().saturated_into::<u64>();
 		let tip = 0;
@@ -531,7 +545,8 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
+pub type Executive =
+	executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
 	impl client_api::Core<Block> for Runtime {
