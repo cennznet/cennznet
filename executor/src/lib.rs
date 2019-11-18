@@ -240,12 +240,14 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn successful_execution_with_native_equivalent_code_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
 			(
 				map![
+					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+						ASSET_ID.encode()
+					},
 					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
@@ -291,17 +293,19 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn successful_execution_with_foreign_code_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			BLOATY_CODE,
 			(
 				map![
+					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+						ASSET_ID.encode()
+					},
 					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&ASSET_ID, &alice()) => {
-						(60 * DOLLARS).encode()
+						(111 * DOLLARS).encode()
 					},
 					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(ASSET_ID) => {
-						(121 * DOLLARS).encode()
+						(111 * DOLLARS).encode()
 					},
 					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
@@ -944,12 +948,14 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn successful_execution_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
 			(
 				map![
+					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+						ASSET_ID.encode()
+					},
 					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
@@ -1149,7 +1155,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn transaction_fee_is_correct_ultimate() {
 		// This uses the exact values of cennznet-node.
 		//
@@ -1162,6 +1167,9 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
+					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+						ASSET_ID.encode()
+					},
 					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&ASSET_ID, &alice()) => {
 						(100 * DOLLARS).encode()
 					},
@@ -1224,7 +1232,7 @@ mod tests {
 			let weight_fee = WeightToFee::convert(weight);
 
 			// we know that weight to fee multiplier is effect-less in block 1.
-			assert_eq!(weight_fee as Balance, MILLICENTS);
+			// assert_eq!(weight_fee as Balance, MILLICENTS);
 			balance_alice -= weight_fee;
 
 			balance_alice -= tip;
