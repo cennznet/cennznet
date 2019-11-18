@@ -60,7 +60,7 @@ mod tests {
 	use state_machine::TestExternalities as CoreTestExternalities;
 	use substrate_executor::error::Result;
 	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
-	use support::{traits::Currency, Hashable, StorageDoubleMap, StorageMap, StorageValue};
+	use support::{Hashable, StorageDoubleMap, StorageMap, StorageValue};
 	use system::{EventRecord, Phase};
 	use wabt;
 	use {contracts, generic_asset, indices, system, timestamp};
@@ -1232,7 +1232,9 @@ mod tests {
 			let weight_fee = WeightToFee::convert(weight);
 
 			// we know that weight to fee multiplier is effect-less in block 1.
-			// assert_eq!(weight_fee as Balance, MILLICENTS);
+			// generic assert uses default weight = 10_000, Balance set weight = 1_000_000
+			// we can use #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)] to config the weight 
+			assert_eq!(weight_fee as Balance, 10_000_000);
 			balance_alice -= weight_fee;
 
 			balance_alice -= tip;
