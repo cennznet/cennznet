@@ -11,55 +11,55 @@ tokio = "0.1.22"
 futures = "0.1.29"
 exit-future = "0.1.4"
 jsonrpc-core = "13.2.0"
-cli = { package = "substrate-cli", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+cli = { package = "substrate-cli", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 codec = { package = "parity-scale-codec", version = "1.0.0" }
-sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-inherents = { package = "substrate-inherents", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+sr-io = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+inherents = { package = "substrate-inherents", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 cennznet-runtime = { path = "../runtime" }
 cennznet-rpc = { path = "../rpc" }
 cennznet-primitives = { path = "../primitives" }
 hex-literal = "0.2.1"
-substrate-rpc = { package = "substrate-rpc", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-chain-spec = { package = "substrate-chain-spec", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-network = { package = "substrate-network", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-babe = { package = "substrate-consensus-babe", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa_primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+substrate-rpc = { package = "substrate-rpc", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+substrate-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+substrate-service = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+chain-spec = { package = "substrate-chain-spec", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+network = { package = "substrate-network", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+babe = { package = "substrate-consensus-babe", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+grandpa_primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 cennznet-executor = { path = "../executor" }
-substrate-telemetry = { package = "substrate-telemetry", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+substrate-telemetry = { package = "substrate-telemetry", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 structopt = "0.3.3"
-transaction-factory = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-keyring = { package = "substrate-keyring", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+transaction-factory = { git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+keyring = { package = "substrate-keyring", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
 rand = "0.7.2"
-finality_tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-im_online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-sr-authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-authority-discovery = { package = "substrate-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+finality_tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
+contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
+im_online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
+sr-authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false,branch = "chore/add-doublemap-key-getter" }
+authority-discovery = { package = "substrate-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 serde = { version = "1.0.101", features = [ "derive" ] }
-client_db = { package = "substrate-client-db", git = "https://github.com/plugblockchain/plug-blockchain", features = ["kvdb-rocksdb"], branch = "1.0.0-rc1" }
-offchain = { package = "substrate-offchain", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+client_db = { package = "substrate-client-db", git = "https://github.com/plugblockchain/plug-blockchain", features = ["kvdb-rocksdb"],branch = "chore/add-doublemap-key-getter" }
+offchain = { package = "substrate-offchain", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 
 [dev-dependencies]
-keystore = { package = "substrate-keystore", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-babe = { package = "substrate-consensus-babe", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"], branch = "1.0.0-rc1" }
-consensus-common = { package = "substrate-consensus-common", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-service-test = { package = "substrate-service-test", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+keystore = { package = "substrate-keystore", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+babe = { package = "substrate-consensus-babe", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"],branch = "chore/add-doublemap-key-getter" }
+consensus-common = { package = "substrate-consensus-common", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
+service-test = { package = "substrate-service-test", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 futures03 = { package = "futures-preview", version = "0.3.0-alpha.19" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-cli = { package = "substrate-cli", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+cli = { package = "substrate-cli", git = "https://github.com/plugblockchain/plug-blockchain",branch = "chore/add-doublemap-key-getter" }
 structopt = "0.3.3"
