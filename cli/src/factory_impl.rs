@@ -146,7 +146,6 @@ impl RuntimeAdapter for FactoryState<Number> {
 				function: Call::GenericAsset(GenericAssetCall::transfer(
 					SPENDING_ASSET_ID,
 					destination.clone().into(),
-					// indices::address::Address::Id(destination.clone().into()).into(),
 					(*amount).into(),
 				)),
 			},
