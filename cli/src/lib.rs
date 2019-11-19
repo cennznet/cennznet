@@ -23,14 +23,18 @@ pub use cli::error;
 pub mod chain_spec;
 #[macro_use]
 mod service;
+mod factory_impl;
 
+use crate::factory_impl::FactoryState;
 use cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
 pub use cli::{ExecutionStrategyParam, IntoExit, NoCustom, SharedParams, VersionInfo};
+use client::ExecutionStrategies;
 use log::info;
 use structopt::{clap::App, StructOpt};
 use substrate_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use tokio::prelude::Future;
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
+use transaction_factory::RuntimeAdapter;
 
 /// The chain specification option.
 #[derive(Clone, Debug, PartialEq)]
@@ -183,7 +187,35 @@ where
 		ParseAndPrepare::RevertChain(cmd) => {
 			cmd.run_with_builder(|config: Config<_, _>| Ok(new_full_start!(config).0), load_spec)
 		}
-		ParseAndPrepare::CustomCommand(_) => Ok(()),
+		ParseAndPrepare::CustomCommand(CustomSubcommands::Factory(cli_args)) => {
+			let mut config: Config<_, _> =
+				cli::create_config_with_db_path(load_spec, &cli_args.shared_params, &version)?;
+			config.execution_strategies = ExecutionStrategies {
+				importing: cli_args.execution.into(),
+				block_construction: cli_args.execution.into(),
+				other: cli_args.execution.into(),
+				..Default::default()
+			};
+
+			match ChainSpec::from(config.chain_spec.id()) {
+				Some(ref c) if c == &ChainSpec::Development || c == &ChainSpec::LocalTestnet => {}
+				_ => panic!("Factory is only supported for development and local testnet."),
+			}
+
+			let factory_state = FactoryState::new(cli_args.mode.clone(), cli_args.num, cli_args.rounds);
+
+			let service_builder = new_full_start!(config).0;
+			transaction_factory::factory::<FactoryState<_>, _, _, _, _, _>(
+				factory_state,
+				service_builder.client(),
+				service_builder
+					.select_chain()
+					.expect("The select_chain is always initialized by new_full_start!; QED"),
+			)
+			.map_err(|e| format!("Error in transaction factory: {}", e))?;
+
+			Ok(())
+		}
 	}
 }
 
