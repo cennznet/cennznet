@@ -22,7 +22,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 use cennznet_runtime::{
-	BalancesCall, Call, CheckedExtrinsic, ExistentialDeposit, MinimumPeriod, SignedExtra, UncheckedExtrinsic,
+	constants::asset::SPENDING_ASSET_ID, Call, CheckedExtrinsic, GenericAssetCall, MinimumPeriod, SignedExtra,
+	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use finality_tracker;
@@ -31,7 +32,7 @@ use keyring::sr25519::Keyring;
 use primitives::{crypto::Pair, sr25519};
 use sr_primitives::{
 	generic::Era,
-	traits::{Block as BlockT, Header as HeaderT, SignedExtension},
+	traits::{Block as BlockT, Header as HeaderT, SignedExtension, Zero},
 };
 use timestamp;
 use transaction_factory::modes::Mode;
@@ -142,8 +143,9 @@ impl RuntimeAdapter for FactoryState<Number> {
 		sign::<Self>(
 			CheckedExtrinsic {
 				signed: Some((sender.clone(), Self::build_extra(index, phase))),
-				function: Call::Balances(BalancesCall::transfer(
-					indices::address::Address::Id(destination.clone().into()),
+				function: Call::GenericAsset(GenericAssetCall::transfer(
+					SPENDING_ASSET_ID,
+					destination.clone().into(),
 					(*amount).into(),
 				)),
 			},
@@ -175,7 +177,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 	}
 
 	fn minimum_balance() -> Self::Balance {
-		ExistentialDeposit::get()
+		Zero::zero()
 	}
 
 	fn master_account_id() -> Self::AccountId {

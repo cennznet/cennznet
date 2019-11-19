@@ -17,11 +17,11 @@
 //! CENNZnet chain configurations.
 
 use babe_primitives::AuthorityId as BabeId;
-use cennznet_runtime::constants::{currency::*, time::*};
+use cennznet_runtime::constants::{asset::*, currency::*, time::*};
 use cennznet_runtime::Block;
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
+	AuthorityDiscoveryConfig, BabeConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use chain_spec::ChainSpecExtension;
@@ -187,22 +187,12 @@ pub fn testnet_genesis(
 		]
 	});
 
-	const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 	const STASH: Balance = 100 * DOLLARS;
 
 	GenesisConfig {
 		system: Some(SystemConfig {
 			code: WASM_BINARY.to_vec(),
 			changes_trie_config: Default::default(),
-		}),
-		balances: Some(BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, ENDOWMENT))
-				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
-			vesting: vec![],
 		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts
@@ -257,6 +247,23 @@ pub fn testnet_genesis(
 		authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		membership_Instance1: Some(Default::default()),
+		generic_asset: Some(GenericAssetConfig {
+			assets: vec![
+				CENNZ_ASSET_ID,
+				CENTRAPAY_ASSET_ID,
+				PLUG_ASSET_ID,
+				SYLO_ASSET_ID,
+				CERTI_ASSET_ID,
+				ARDA_ASSET_ID,
+				NEXT_ASSET_ID,
+			],
+			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
+			endowed_accounts: endowed_accounts.clone(),
+			next_asset_id: NEXT_ASSET_ID,
+			// create_asset_stake: 1000, // removed upstream
+			staking_asset_id: STAKING_ASSET_ID,
+			spending_asset_id: SPENDING_ASSET_ID,
+		}),
 	}
 }
 

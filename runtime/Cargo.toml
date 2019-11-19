@@ -29,7 +29,6 @@ authority-discovery = { package = "srml-authority-discovery", git = "https://git
 authorship = { package = "srml-authorship", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 attestation = { package = "prml-attestation", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 babe = { package = "srml-babe", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-balances = { package = "srml-balances", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 collective = { package = "srml-collective", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 contracts-rpc-runtime-api = { package = "srml-contracts-rpc-runtime-api", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
@@ -37,6 +36,7 @@ democracy = { package = "srml-democracy", git = "https://github.com/plugblockcha
 elections-phragmen = { package = "srml-elections-phragmen", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 executive = { package = "srml-executive", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 im-online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
@@ -68,7 +68,6 @@ std = [
 	"attestation/std",
 	"babe-primitives/std",
 	"babe/std",
-	"balances/std",
 	"client/std",
 	"codec/std",
 	"collective/std",
@@ -78,6 +77,7 @@ std = [
 	"elections-phragmen/std",
 	"executive/std",
 	"finality-tracker/std",
+	"generic-asset/std",
 	"grandpa/std",
 	"im-online/std",
 	"indices/std",

@@ -22,12 +22,15 @@
 
 use authority_discovery_primitives::{AuthorityId as EncodedAuthorityId, Signature as EncodedSignature};
 use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature};
-use cennznet_primitives::{AccountId, AccountIndex, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature};
+use cennznet_primitives::{
+	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
+};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
 };
 use codec::{Decode, Encode};
+use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityWeight as GrandpaWeight};
 use im_online::sr25519::AuthorityId as ImOnlineId;
@@ -39,17 +42,15 @@ use sr_primitives::traits::{self, BlakeTwo256, Block as BlockT, NumberFor, Satur
 use sr_primitives::transaction_validity::TransactionValidity;
 use sr_primitives::weights::Weight;
 use sr_primitives::{create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill};
-use support::{
-	construct_runtime, parameter_types,
-	traits::{Currency, Randomness, SplitTwoWays},
-};
+use support::{construct_runtime, parameter_types, traits::Randomness};
 use system::offchain::TransactionSubmitter;
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use balances::Call as BalancesCall;
 pub use contracts::Gas;
+pub use generic_asset::Call as GenericAssetCall;
+
 #[cfg(any(feature = "std", test))]
 pub use sr_primitives::BuildStorage;
 pub use staking::StakerStatus;
@@ -58,7 +59,7 @@ pub use timestamp::Call as TimestampCall;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{Author, CurrencyToVoteHandler, FeeMultiplierUpdateHandler, WeightToFee};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, WeightToFee};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -90,17 +91,6 @@ pub fn native_version() -> NativeVersion {
 		can_author_with: Default::default(),
 	}
 }
-
-type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
-
-pub type DealWithFees = SplitTwoWays<
-	Balance,
-	NegativeImbalance,
-	_4,
-	Treasury, // 4 parts (80%) goes to the treasury.
-	_1,
-	Author, // 1 part (20%) goes to the block author.
->;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
@@ -159,27 +149,15 @@ impl babe::Trait for Runtime {
 
 impl indices::Trait for Runtime {
 	type AccountIndex = AccountIndex;
-	type IsDeadAccount = Balances;
+	type IsDeadAccount = ();
 	type ResolveHint = indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
 	type Event = Event;
 }
 
-parameter_types! {
-	pub const ExistentialDeposit: Balance = 1 * DOLLARS;
-	pub const TransferFee: Balance = 1 * CENTS;
-	pub const CreationFee: Balance = 1 * CENTS;
-}
-
-impl balances::Trait for Runtime {
+impl generic_asset::Trait for Runtime {
 	type Balance = Balance;
-	type OnFreeBalanceZero = ((Staking, Contracts), Session);
-	type OnNewAccount = Indices;
+	type AssetId = AssetId;
 	type Event = Event;
-	type DustRemoval = ();
-	type TransferPayment = ();
-	type ExistentialDeposit = ExistentialDeposit;
-	type TransferFee = TransferFee;
-	type CreationFee = CreationFee;
 }
 
 parameter_types! {
@@ -188,8 +166,8 @@ parameter_types! {
 }
 
 impl transaction_payment::Trait for Runtime {
-	type Currency = Balances;
-	type OnTransactionPayment = DealWithFees;
+	type Currency = SpendingAssetCurrency<Self>;
+	type OnTransactionPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToFee;
@@ -273,8 +251,8 @@ parameter_types! {
 }
 
 impl staking::Trait for Runtime {
-	type Currency = Balances;
-	type RewardCurrency = Balances;
+	type Currency = StakingAssetCurrency<Self>;
+	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type CurrencyToReward = Balance;
 	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
@@ -300,7 +278,7 @@ parameter_types! {
 impl democracy::Trait for Runtime {
 	type Proposal = Call;
 	type Event = Event;
-	type Currency = Balances;
+	type Currency = StakingAssetCurrency<Self>;
 	type EnactmentPeriod = EnactmentPeriod;
 	type LaunchPeriod = LaunchPeriod;
 	type VotingPeriod = VotingPeriod;
@@ -338,7 +316,7 @@ parameter_types! {
 
 impl elections_phragmen::Trait for Runtime {
 	type Event = Event;
-	type Currency = Balances;
+	type Currency = StakingAssetCurrency<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type CandidacyBond = CandidacyBond;
 	type VotingBond = VotingBond;
@@ -373,7 +351,7 @@ parameter_types! {
 }
 
 impl treasury::Trait for Runtime {
-	type Currency = Balances;
+	type Currency = StakingAssetCurrency<Self>;
 	type ApproveOrigin = collective::EnsureMembers<_4, AccountId, CouncilCollective>;
 	type RejectOrigin = collective::EnsureMembers<_2, AccountId, CouncilCollective>;
 	type Event = Event;
@@ -398,7 +376,7 @@ parameter_types! {
 }
 
 impl contracts::Trait for Runtime {
-	type Currency = Balances;
+	type Currency = SpendingAssetCurrency<Self>;
 	type Time = Timestamp;
 	type Randomness = RandomnessCollectiveFlip;
 	type Call = Call;
@@ -508,8 +486,8 @@ construct_runtime!(
 		Authorship: authorship::{Module, Call, Storage, Inherent},
 		Attestation: attestation::{Module, Call, Storage, Event<T>},
 		Indices: indices,
-		Balances: balances::{default, Error},
 		TransactionPayment: transaction_payment::{Module, Storage},
+		GenericAsset: generic_asset::{Module, Call, Storage, Event<T>, Config<T>, Fee},
 		Staking: staking::{default, OfflineWorker},
 		Session: session::{Module, Call, Storage, Event, Config<T>},
 		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
