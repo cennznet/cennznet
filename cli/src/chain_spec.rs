@@ -17,7 +17,7 @@
 //! CENNZnet chain configurations.
 
 use babe_primitives::AuthorityId as BabeId;
-use cennznet_runtime::constants::{currency::*, time::*};
+use cennznet_runtime::constants::{asset::*, currency::*, time::*};
 use cennznet_runtime::Block;
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
@@ -249,22 +249,20 @@ pub fn testnet_genesis(
 		membership_Instance1: Some(Default::default()),
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
-				// Staking token
-				16000, // CENNZ-T
-				// Spending token
-				16001, // CENTRAPAY-T
-				// Reserve Tokens
-				16002, // PLUG-T
-				16003, // SYLO-T
-				16004, // CERTI-T
-				16005, // ARDA-T
+				CENNZ_ASSET_ID,
+				CENTRAPAY_ASSET_ID,
+				PLUG_ASSET_ID,
+				SYLO_ASSET_ID,
+				CERTI_ASSET_ID,
+				ARDA_ASSET_ID,
+				NEXT_ASSET_ID,
 			],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
 			endowed_accounts: endowed_accounts.clone(),
-			next_asset_id: 17000,
+			next_asset_id: NEXT_ASSET_ID,
 			// create_asset_stake: 1000, // removed upstream
-			staking_asset_id: 16000,
-			spending_asset_id: 16001,
+			staking_asset_id: STAKING_ASSET_ID,
+			spending_asset_id: SPENDING_ASSET_ID,
 		}),
 	}
 }
