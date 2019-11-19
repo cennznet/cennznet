@@ -1233,7 +1233,7 @@ mod tests {
 
 			// we know that weight to fee multiplier is effect-less in block 1.
 			// generic assert uses default weight = 10_000, Balance set weight = 1_000_000
-			// we can use #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)] to config the weight
+			// we can use #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)] to config the weight 
 			assert_eq!(weight_fee as Balance, 10_000_000);
 			balance_alice -= weight_fee;
 

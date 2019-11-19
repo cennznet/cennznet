@@ -59,11 +59,7 @@ pub trait TestClientBuilderExt: Sized {
 }
 
 impl TestClientBuilderExt
-	for test_client::TestClientBuilder<
-		client::LocalCallExecutor<Backend, Executor>,
-		Backend,
-		GenesisParameters,
-	>
+	for test_client::TestClientBuilder<client::LocalCallExecutor<Backend, Executor>, Backend, GenesisParameters>
 {
 	fn new() -> Self {
 		Self::default()

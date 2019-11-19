@@ -201,10 +201,7 @@ mod tests {
 			}
 			iterations += 1;
 		}
-		println!(
-			"iteration {}, new fm = {:?}. Weight fee is now zero",
-			iterations, fm
-		);
+		println!("iteration {}, new fm = {:?}. Weight fee is now zero", iterations, fm);
 	}
 
 	#[test]
@@ -292,18 +289,9 @@ mod tests {
 
 	#[test]
 	fn stateful_weight_mil_collapse_to_minus_one() {
-		assert_eq!(
-			FeeMultiplierUpdateHandler::convert((0, Fixed64::default())),
-			fm(-10000)
-		);
-		assert_eq!(
-			FeeMultiplierUpdateHandler::convert((0, fm(-10000))),
-			fm(-20000)
-		);
-		assert_eq!(
-			FeeMultiplierUpdateHandler::convert((0, fm(-20000))),
-			fm(-30000)
-		);
+		assert_eq!(FeeMultiplierUpdateHandler::convert((0, Fixed64::default())), fm(-10000));
+		assert_eq!(FeeMultiplierUpdateHandler::convert((0, fm(-10000))), fm(-20000));
+		assert_eq!(FeeMultiplierUpdateHandler::convert((0, fm(-20000))), fm(-30000));
 		// ...
 		assert_eq!(
 			FeeMultiplierUpdateHandler::convert((0, fm(1_000_000_000 * -1))),

@@ -53,10 +53,7 @@ pub fn ferdie() -> AccountId {
 }
 
 /// Convert keyrings into `SessionKeys`.
-pub fn to_session_keys(
-	ed25519_keyring: &Ed25519Keyring,
-	sr25519_keyring: &Sr25519Keyring,
-) -> SessionKeys {
+pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr25519Keyring) -> SessionKeys {
 	SessionKeys {
 		grandpa: ed25519_keyring.to_owned().public().into(),
 		babe: sr25519_keyring.to_owned().public().into(),
@@ -82,13 +79,7 @@ pub fn signed_extra(nonce: Index, extra_fee: Balance) -> SignedExtra {
 pub fn sign(xt: CheckedExtrinsic, version: u32, genesis_hash: [u8; 32]) -> UncheckedExtrinsic {
 	match xt.signed {
 		Some((signed, extra)) => {
-			let payload = (
-				xt.function,
-				extra.clone(),
-				version,
-				genesis_hash,
-				genesis_hash,
-			);
+			let payload = (xt.function, extra.clone(), version, genesis_hash, genesis_hash);
 			let key = AccountKeyring::from_public(&signed).unwrap();
 			let signature = payload
 				.using_encoded(|b| {
