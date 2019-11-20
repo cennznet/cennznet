@@ -35,8 +35,8 @@ const SCALE_FACTOR: u128 = 1_000_000;
 
 /// FeeRate (based on Permill), uses a scale factor
 /// Inner type is `u128` in order to support compatibility with `generic_asset::Balance` type
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug)]
 pub struct FeeRate(u128);
 
 impl FeeRate {
