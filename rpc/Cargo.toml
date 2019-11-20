@@ -5,10 +5,10 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
 jsonrpc-core = "13.2.0"
 cennznet-primitives = { path = "../primitives" }
-sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-srml-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-srml-system-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+srml-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+srml-system-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
