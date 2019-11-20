@@ -57,6 +57,13 @@ pub use staking::StakerStatus;
 pub use support::StorageValue;
 pub use timestamp::Call as TimestampCall;
 
+pub use sylo::device as sylo_device;
+pub use sylo::e2ee as sylo_e2ee;
+pub use sylo::groups as sylo_groups;
+pub use sylo::inbox as sylo_inbox;
+pub use sylo::response as sylo_response;
+pub use sylo::vault as sylo_vault;
+
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, WeightToFee};
@@ -140,6 +147,17 @@ parameter_types! {
 impl attestation::Trait for Runtime {
 	type Event =  Event;
 }
+
+impl sylo::groups::Trait for Runtime {}
+impl sylo::e2ee::Trait for Runtime {
+	type Event = Event;
+}
+impl sylo::device::Trait for Runtime {
+	type Event = Event;
+}
+impl sylo::response::Trait for Runtime {}
+impl sylo::inbox::Trait for Runtime {}
+impl sylo::vault::Trait for Runtime {}
 
 impl babe::Trait for Runtime {
 	type EpochDuration = EpochDuration;
@@ -504,6 +522,12 @@ construct_runtime!(
 		AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
 		Offences: offences::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+		SyloGroups: sylo_groups::{Module, Call, Storage},
+		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
+		SyloDevice: sylo_device::{Module, Call, Event<T>, Storage},
+		SyloInbox: sylo_inbox::{Module, Call, Storage},
+		SyloResponse: sylo_response::{Module, Call, Storage},
+		SyloVault: sylo_vault::{Module, Call, Storage},
 	}
 );
 
