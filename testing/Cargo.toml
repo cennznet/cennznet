@@ -6,25 +6,25 @@ description = "Test utilities for CENNZnet node."
 edition = "2018"
 
 [dependencies]
-client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-keyring = { package = "substrate-keyring", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+keyring = { package = "substrate-keyring", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
 cennznet-executor = { path = "../executor" }
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 codec = { package = "parity-scale-codec", version = "1.0.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-runtime_support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+runtime_support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
+transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/add-generic-asset-reward-method" }
 wabt = "0.9.2"
