@@ -50,10 +50,11 @@ impl FeeRate {
 		FeeRate(x * SCALE_FACTOR / 100)
 	}
 
-	// /// Divide a `As::as_<u128>` supported numeric by a FeeRate
-	// pub fn div<N: As<u128>>(lhs: N, rhs: FeeRate) -> N {
-	// 	N::sa(lhs.as_() * SCALE_FACTOR / rhs.0)
-	// }
+	/// Divide a `TryInto<u128>` supported numeric by a FeeRate
+	pub fn div<N: TryInto<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
+		let n = lhs.try_into().map_err(|_| "Overflow error")?;
+		Ok(n * SCALE_FACTOR / rhs.0)
+	}
 
 	/// Divide a `u128` supported numeric by a FeeRate
 	pub fn safe_div<N: Into<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
@@ -82,16 +83,6 @@ impl FeeRate {
 	}
 }
 
-// impl As<u128> for FeeRate {
-// 	fn as_(self) -> u128 {
-// 		self.0
-// 	}
-// 	/// Convert `u128` into a FeeRate
-// 	fn sa(x: u128) -> Self {
-// 		FeeRate(x)
-// 	}
-// }
-
 impl rstd::ops::Add<Self> for FeeRate {
 	type Output = Self;
 	fn add(self, rhs: FeeRate) -> Self::Output {
@@ -119,14 +110,14 @@ impl From<Compact<FeeRate>> for FeeRate {
 mod tests {
 	use super::*;
 
-	// #[test]
-	// fn div_works() {
-	// 	let fee_rate = FeeRate::from_percent(110);
-	// 	assert_eq!(FeeRate::div(10, fee_rate), 9); // Float value would be 9.0909
+	#[test]
+	fn div_works() {
+		let fee_rate = FeeRate::from_percent(110);
+		assert_ok!(FeeRate::div(10, fee_rate), 9_u128); // Float value would be 9.0909
 
-	// 	let fee_rate = FeeRate::from_percent(10);
-	// 	assert_eq!(FeeRate::div(10, fee_rate), 100);
-	// }
+		let fee_rate = FeeRate::from_percent(10);
+		assert_ok!(FeeRate::div(10, fee_rate), 100_u128);
+	}
 
 	#[test]
 	fn safe_div_works() {
