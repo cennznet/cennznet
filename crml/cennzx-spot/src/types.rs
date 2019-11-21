@@ -50,12 +50,6 @@ impl FeeRate {
 		FeeRate(x * SCALE_FACTOR / 100)
 	}
 
-	/// Divide a `TryInto<u128>` supported numeric by a FeeRate
-	pub fn div<N: TryInto<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
-		let n = lhs.try_into().map_err(|_| "Overflow error")?;
-		Ok(n * SCALE_FACTOR / rhs.0)
-	}
-
 	/// Divide a `u128` supported numeric by a FeeRate
 	pub fn safe_div<N: Into<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
 		let lhs = lhs.into();
@@ -109,15 +103,6 @@ impl From<Compact<FeeRate>> for FeeRate {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn div_works() {
-		let fee_rate = FeeRate::from_percent(110);
-		assert_ok!(FeeRate::div(10, fee_rate), 9_u128); // Float value would be 9.0909
-
-		let fee_rate = FeeRate::from_percent(10);
-		assert_ok!(FeeRate::div(10, fee_rate), 100_u128);
-	}
 
 	#[test]
 	fn safe_div_works() {
