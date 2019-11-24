@@ -93,7 +93,6 @@ impl<T: Trait> Module<T> {}
 
 #[cfg(test)]
 pub(super) mod tests {
-	use runtime_io::with_externalities;
 	use super::*;
 	use mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
@@ -113,7 +112,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_add_device() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,

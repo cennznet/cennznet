@@ -48,8 +48,8 @@ impl_outer_origin! {
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-	system::GenesisConfig::<Test>::default()
+pub fn new_test_ext() -> sr_io::TestExternalities {
+	system::GenesisConfig::default()
 		.build_storage()
 		.unwrap()
 		.0
