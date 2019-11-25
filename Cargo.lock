@@ -705,7 +705,7 @@ name = "crml-cennzx-spot"
 version = "1.0.0"
 dependencies = [
  "parity-scale-codec 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=chore/add-generic-asset-reward-method)",
  "sr-primitives 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=chore/add-generic-asset-reward-method)",
  "sr-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=chore/add-generic-asset-reward-method)",
