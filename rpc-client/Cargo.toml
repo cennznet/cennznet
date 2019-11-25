@@ -11,4 +11,4 @@ hyper = "0.12.35"
 jsonrpc-core-client = { version = "13.1.0", features = ["http", "ws"] }
 log = "0.4.8"
 cennznet-primitives = { path = "../primitives" }
-substrate-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", version = "2.0.0", branch = "chore/add-generic-asset-reward-method" }
+substrate-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", version = "2.0.0", branch = "1.0.0-rc1" }
