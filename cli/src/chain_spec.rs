@@ -18,13 +18,12 @@
 
 use babe_primitives::AuthorityId as BabeId;
 use cennznet_runtime::constants::{asset::*, currency::*, time::*};
-use cennznet_runtime::{Block, FeeRate};
 use cennznet_runtime::{
-	CennzxSpotConfig,
-	AuthorityDiscoveryConfig, BabeConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
+	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
+use cennznet_runtime::{Block, FeeRate};
 use chain_spec::ChainSpecExtension;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
