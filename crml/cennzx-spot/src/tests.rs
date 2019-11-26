@@ -19,20 +19,21 @@
 #![cfg(test)]
 use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
+	support::StorageMap,
 	types::FeeRate,
 	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
+use codec::{alloc::collections::HashMap, Encode};
 use core::convert::TryInto;
 use generic_asset;
-use primitives::{crypto::UncheckedInto, sr25519, H256};
+use primitives::{crypto::UncheckedInto, map, sr25519, Blake2Hasher, H256};
 use runtime_primitives::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, Verify},
 	Perbill,
 };
-use support::{impl_outer_origin, StorageValue};
-
-use runtime_primitives::traits::Verify;
+use state_machine::TestExternalities;
+use support::{impl_outer_origin, StorageDoubleMap, StorageValue};
 
 pub type AccountId = <sr25519::Signature as Verify>::Signer;
 
@@ -139,16 +140,43 @@ impl ExtBuilder {
 	}
 }
 
+/// Builds storage as a HashMap based on `account_1` and `account_2`.
+/// The function is primarily used in with_exchange! and with_account! macros.
+fn map_build(account_1: (u32, AccountId, u128), account_2: (u32, AccountId, u128)) -> HashMap<Vec<u8>, Vec<u8>> {
+	map![
+		<generic_asset::FreeBalance<Test>>::hashed_key_for(&account_1.0, &account_1.1) => account_1.2.encode(),
+		<generic_asset::FreeBalance<Test>>::hashed_key_for(&account_2.0, &account_2.1) => account_2.2.encode(),
+		<generic_asset::TotalIssuance<Test>>::hashed_key_for(account_1.0) => account_1.2.encode(),
+		<generic_asset::TotalIssuance<Test>>::hashed_key_for(account_2.0) => account_2.2.encode(),
+		<system::BlockHash<Test>>::hashed_key_for(0).to_vec() => vec![0u8; 32],
+		<CoreAssetId::<Test>>::hashed_key().to_vec() => 0.encode(),
+		DefaultFeeRate::hashed_key().to_vec() => FeeRate::from_milli(3).encode(),
+	]
+}
+
+/// Returns TestExternalities based on `storage`.
+fn ext_build(storage: HashMap<Vec<u8>, Vec<u8>>) -> TestExternalities<Blake2Hasher, u64> {
+	TestExternalities::<Blake2Hasher, u64>::new((storage, map![]))
+}
+
+/// Merges multiple HashMaps into a single HashMap.
+macro_rules! merge (
+	($map:expr, $( $maps:expr ), +) => {
+		$map.into_iter()
+		$(
+			.chain($maps)
+		)*
+		.collect::<HashMap<Vec<u8>, Vec<u8>>>()
+	};
+);
+
 /// Initializes an exchange pair with the given liquidity
 /// `with_exchange!(asset1_id => balance, asset2_id => balance)`
 macro_rules! with_exchange (
 	($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
 			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for($a1, $a2);
-			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
-			// an account. Use `deposit` instead when ga module fn supports.
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &exchange_address, $b1));
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &exchange_address, $b2));
+			map_build(($a1, exchange_address.clone(), $b1), ($a2, exchange_address, $b2))
 		}
 	};
 );
@@ -174,26 +202,25 @@ macro_rules! assert_exchange_balance_eq (
 macro_rules! with_account (
 	($a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
-			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
-			// an account. Use `deposit` instead when ga module fn supports.
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &H256::from_low_u64_be(1).unchecked_into(), $b1));
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &H256::from_low_u64_be(1).unchecked_into(), $b2));
-			H256::from_low_u64_be(1).unchecked_into()
+			let account: AccountId = H256::from_low_u64_be(1).unchecked_into();
+			(
+				account.clone(),
+				map_build(($a1, account.clone(), $b1), ($a2, account.clone(), $b2)),
+			)
 		}
 	};
 	($name:expr, $a1:expr => $b1:expr, $a2:expr => $b2:expr) => {
 		{
-			let account = match $name {
+			let account: AccountId = match $name {
 				"andrea" => H256::from_low_u64_be(1).unchecked_into(),
 				"bob" => H256::from_low_u64_be(2).unchecked_into(),
 				"charlie" => H256::from_low_u64_be(3).unchecked_into(),
 				_ => H256::from_low_u64_be(1).unchecked_into(), // default back to "andrea"
 			};
-			// TODO: `set_free_balance` changed to private fn. This is a workaround to deposit into
-			// an account. Use `deposit` instead when ga module fn supports.
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a1, &account, $b1));
-			assert_ok!(<generic_asset::Module<Test>>::reward(&$a2, &account, $b2));
-			account
+			(
+				account.clone(),
+				map_build(($a1, account.clone(), $b1), ($a2, account.clone(), $b2)),
+			)
 		}
 	};
 );
@@ -216,9 +243,8 @@ const DEFAULT_EXCHANGE_KEY: (u32, u32) = (CORE_ASSET_ID, TRADE_ASSET_A);
 
 #[test]
 fn investor_can_add_liquidity() {
-	ExtBuilder::default().build().execute_with(|| {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let (investor, map) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	ext_build(map).execute_with(|| {
 		// First investment
 		assert_ok!(CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
@@ -245,7 +271,8 @@ fn investor_can_add_liquidity() {
 
 #[test]
 fn get_output_price_zero_cases() {
-	ExtBuilder::default().build().execute_with(|| {
+	let map = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	ext_build(map).execute_with(|| {
 		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
 
 		assert_err!(
@@ -321,9 +348,8 @@ fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
 /// and apply fee rate to the price
 #[test]
 fn get_output_price_max_withdrawal() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-
+	let map = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_output_price(1000, 1000, 1000, DefaultFeeRate::get()),
 			<Test as generic_asset::Trait>::Balance::max_value()
@@ -338,9 +364,8 @@ fn get_output_price_max_withdrawal() {
 
 #[test]
 fn asset_swap_output_price() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-
+	let map = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_asset_to_core_output_price(&TRADE_ASSET_A, 123, DefaultFeeRate::get()),
 			141
@@ -369,9 +394,8 @@ fn asset_swap_output_zero_buy_amount() {
 
 #[test]
 fn asset_swap_output_insufficient_reserve() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-
+	let map = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_asset_to_core_output_price(
 				&TRADE_ASSET_A,
@@ -394,10 +418,10 @@ fn asset_swap_output_insufficient_reserve() {
 
 #[test]
 fn asset_to_core_swap_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// asset to core swap output
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(trader.clone()),
@@ -415,10 +439,10 @@ fn asset_to_core_swap_output() {
 
 #[test]
 fn make_asset_to_core_swap_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = map1.into_iter().chain(map2).collect();
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_asset_to_core_output(
 				&trader, // buyer
@@ -438,9 +462,12 @@ fn make_asset_to_core_swap_output() {
 
 #[test]
 fn asset_swap_output_zero_asset_sold() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = map1.into_iter().chain(map2).collect();
+	ext_build(map).execute_with(|| {
+		// with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+		// let trader: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
 
 		// asset to core swap output
 		assert_err!(
@@ -471,10 +498,10 @@ fn asset_swap_output_zero_asset_sold() {
 
 #[test]
 fn asset_swap_output_insufficient_balance() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_A => 500);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_A => 500);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
+	let map = map1.into_iter().chain(map2).collect();
+	ext_build(map).execute_with(|| {
 		// asset to core swap output
 		assert_err!(
 			CennzXSpot::asset_swap_output(
@@ -504,10 +531,10 @@ fn asset_swap_output_insufficient_balance() {
 
 #[test]
 fn asset_swap_output_exceed_max_sale() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_A => 50);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_A => 50);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// asset to core swap output
 		assert_err!(
 			CennzXSpot::asset_swap_output(
@@ -538,10 +565,10 @@ fn asset_swap_output_exceed_max_sale() {
 
 #[test]
 fn core_to_asset_swap_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 10);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 10);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// core to asset swap output
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(trader.clone()),
@@ -560,11 +587,11 @@ fn core_to_asset_swap_output() {
 
 #[test]
 fn make_core_to_asset_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 10);
-		let buyer = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient = with_account!("bob", CORE_ASSET_ID => 0, TRADE_ASSET_A => 0);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 10);
+	let (buyer, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 0, TRADE_ASSET_A => 0);
+	let map = map1.into_iter().chain(map2).chain(map3).collect();
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_core_to_asset_output(
 				&buyer,
@@ -585,9 +612,8 @@ fn make_core_to_asset_output() {
 
 #[test]
 fn remove_liquidity() {
-	ExtBuilder::default().build().execute_with(|| {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let (investor, map) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	ext_build(map).execute_with(|| {
 		// investment
 		let _ = CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
@@ -612,9 +638,8 @@ fn remove_liquidity() {
 
 #[test]
 fn remove_liquidity_fails_min_core_asset_limit() {
-	ExtBuilder::default().build().execute_with(|| {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let (investor, map) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	ext_build(map).execute_with(|| {
 		// investment
 		let _ = CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
@@ -642,9 +667,8 @@ fn remove_liquidity_fails_min_core_asset_limit() {
 
 #[test]
 fn remove_liquidity_fails_min_trade_asset_limit() {
-	ExtBuilder::default().build().execute_with(|| {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let (investor, map) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	ext_build(map).execute_with(|| {
 		// investment
 		let _ = CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
@@ -672,9 +696,8 @@ fn remove_liquidity_fails_min_trade_asset_limit() {
 
 #[test]
 fn remove_liquidity_fails_on_overdraw_liquidity() {
-	ExtBuilder::default().build().execute_with(|| {
-		let investor: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let (investor, map) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	ext_build(map).execute_with(|| {
 		// investment
 		let _ = CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
@@ -702,11 +725,11 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 
 #[test]
 fn asset_transfer_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
-		let buyer: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
+	let (buyer, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		// asset to core swap output
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(buyer.clone()),
@@ -725,11 +748,11 @@ fn asset_transfer_output() {
 
 #[test]
 fn core_to_asset_transfer_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
-		let buyer: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient: AccountId = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
+	let (buyer, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		// core to asset swap output
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(buyer.clone()),
@@ -819,9 +842,8 @@ fn get_input_price_should_fail_with_max_reserve_and_max_amount() {
 
 #[test]
 fn asset_swap_input_price() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-
+	let map = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_asset_to_core_input_price(&TRADE_ASSET_A, 123, DefaultFeeRate::get()),
 			108
@@ -850,10 +872,10 @@ fn asset_swap_input_zero_sell_amount() {
 
 #[test]
 fn asset_swap_input_insufficient_balance() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-
-		let trader = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::make_asset_to_core_input(
 				&trader, // seller
@@ -882,10 +904,10 @@ fn asset_swap_input_insufficient_balance() {
 
 #[test]
 fn asset_to_core_swap_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// asset to core swap input
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
@@ -903,10 +925,10 @@ fn asset_to_core_swap_input() {
 
 #[test]
 fn core_to_asset_swap_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// core to asset swap input
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
@@ -925,10 +947,10 @@ fn core_to_asset_swap_input() {
 
 #[test]
 fn make_asset_to_core_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_asset_to_core_input(
 				&trader, // buyer
@@ -949,10 +971,10 @@ fn make_asset_to_core_input() {
 
 #[test]
 fn make_core_to_asset_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_core_to_asset_input(
 				&trader, // buyer
@@ -973,9 +995,10 @@ fn make_core_to_asset_input() {
 
 #[test]
 fn asset_swap_input_zero_asset_sold() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// asset to core swap input
 		assert_err!(
 			CennzXSpot::asset_swap_input(
@@ -1005,10 +1028,10 @@ fn asset_swap_input_zero_asset_sold() {
 
 #[test]
 fn asset_swap_input_less_than_min_sale() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_A => 50);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 50, TRADE_ASSET_A => 50);
+	let map = merge!(map1, map2);
+	ext_build(map).execute_with(|| {
 		// asset to core swap input
 		assert_err!(
 			CennzXSpot::asset_swap_input(
@@ -1038,11 +1061,11 @@ fn asset_swap_input_less_than_min_sale() {
 
 #[test]
 fn asset_to_core_transfer_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient: AccountId = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		// asset to core swap input
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
@@ -1061,11 +1084,11 @@ fn asset_to_core_transfer_input() {
 
 #[test]
 fn core_to_asset_transfer_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient: AccountId = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		// core to asset swap input
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
@@ -1084,11 +1107,11 @@ fn core_to_asset_transfer_input() {
 
 #[test]
 fn asset_to_asset_swap_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(trader.clone()),
 			None,          // Account to receive asset_bought, defaults to origin if None
@@ -1108,11 +1131,11 @@ fn asset_to_asset_swap_output() {
 
 #[test]
 fn asset_to_asset_swap_output_zero_asset_sold() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_output(
 				Origin::signed(trader),
@@ -1129,11 +1152,11 @@ fn asset_to_asset_swap_output_zero_asset_sold() {
 
 #[test]
 fn asset_to_asset_swap_output_insufficient_balance() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_output(
 				Origin::signed(trader),
@@ -1150,11 +1173,11 @@ fn asset_to_asset_swap_output_insufficient_balance() {
 
 #[test]
 fn asset_to_asset_swap_output_exceed_max_sale() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_output(
 				Origin::signed(trader),
@@ -1171,12 +1194,12 @@ fn asset_to_asset_swap_output_exceed_max_sale() {
 
 #[test]
 fn asset_to_asset_transfer_output() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient: AccountId = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_B => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map4) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_B => 100);
+	let map = merge!(map1, map2, map3, map4);
+	ext_build(map).execute_with(|| {
 		assert_ok!(CennzXSpot::asset_swap_output(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
@@ -1196,11 +1219,11 @@ fn asset_to_asset_transfer_output() {
 
 #[test]
 fn asset_to_asset_swap_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
 			None,          // Trader is also recipient so passing None in this case
@@ -1220,11 +1243,11 @@ fn asset_to_asset_swap_input() {
 
 #[test]
 fn asset_to_asset_swap_input_zero_asset_sold() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_input(
 				Origin::signed(trader),
@@ -1241,11 +1264,11 @@ fn asset_to_asset_swap_input_zero_asset_sold() {
 
 #[test]
 fn asset_to_asset_swap_input_insufficient_balance() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_input(
 				Origin::signed(trader),
@@ -1262,11 +1285,11 @@ fn asset_to_asset_swap_input_insufficient_balance() {
 
 #[test]
 fn asset_to_asset_swap_input_less_than_min_sale() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 200);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 200);
+	let map = merge!(map1, map2, map3);
+	ext_build(map).execute_with(|| {
 		assert_err!(
 			CennzXSpot::asset_swap_input(
 				Origin::signed(trader),
@@ -1283,12 +1306,12 @@ fn asset_to_asset_swap_input_less_than_min_sale() {
 
 #[test]
 fn asset_to_asset_transfer_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
-		with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
-		let trader: AccountId = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-		let recipient: AccountId = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_B => 100);
-
+	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
+	let map2 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_B => 1000);
+	let (trader, map3) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
+	let (recipient, map4) = with_account!("bob", CORE_ASSET_ID => 100, TRADE_ASSET_B => 100);
+	let map = merge!(map1, map2, map3, map4);
+	ext_build(map).execute_with(|| {
 		assert_ok!(CennzXSpot::asset_swap_input(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
