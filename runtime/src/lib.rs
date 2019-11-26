@@ -25,7 +25,7 @@ use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature
 use cennznet_primitives::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
 };
-use cennznut::CENNZnutV0;
+use cennznut::{CENNZnutV0, Validate};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -487,19 +487,11 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 	fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
 		let mut domain = doughnut
 			.get_domain(Self::DOMAIN)
-			.ok_or("Doughnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnutV0 = Decode::decode(&mut domain).map_err(|_| "Bad Doughnut encoding")?;
+			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
+		let cennznut: CENNZnutV0 = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Strips [c|p|s]rml- prefix
-		let module = cennznut
-			.get_module(&module[5..])
-			.ok_or("Doughnut does not grant permission for module")?;
-
-		module
-			.get_method(method)
-			.ok_or("Doughnut does not grant permission for method")?;
-
-		Ok(())
+		cennznut.validate(&module[5..], method, &[])
 	}
 }
 

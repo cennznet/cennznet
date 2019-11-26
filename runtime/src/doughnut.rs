@@ -56,7 +56,7 @@ mod test {
 		let doughnut = make_doughnut("test", Default::default());
 		assert_err!(
 			verify_dispatch(&doughnut, "trml-module", "method"),
-			"Doughnut does not grant permission for cennznet domain"
+			"CENNZnut does not grant permission for cennznet domain"
 		);
 	}
 
@@ -65,7 +65,7 @@ mod test {
 		let doughnut = make_doughnut("cennznet", vec![1, 2, 3, 4, 5]);
 		assert_err!(
 			verify_dispatch(&doughnut, "trml-module", "method"),
-			"Bad Doughnut encoding"
+			"Bad CENNZnut encoding"
 		);
 	}
 
@@ -75,7 +75,7 @@ mod test {
 		let doughnut = make_doughnut("cennznet", cennznut.encode());
 		assert_err!(
 			verify_dispatch(&doughnut, "trml-generic-asset", "attest"),
-			"Doughnut does not grant permission for module"
+			"CENNZnut does not grant permission for module"
 		);
 	}
 
@@ -85,7 +85,7 @@ mod test {
 		let doughnut = make_doughnut("cennznet", cennznut.encode());
 		assert_err!(
 			verify_dispatch(&doughnut, "trml-attestation", "remove"),
-			"Doughnut does not grant permission for method"
+			"CENNZnut does not grant permission for method"
 		);
 	}
 }
