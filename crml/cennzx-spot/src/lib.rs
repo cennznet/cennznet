@@ -28,6 +28,7 @@ pub use types::{FeeRate, U256};
 #[macro_use]
 extern crate support;
 
+use core::convert::TryInto;
 use generic_asset;
 use rstd::prelude::*;
 use runtime_primitives::traits::{Bounded, One, Zero};
@@ -36,11 +37,6 @@ use support::{
 	Parameter, StorageDoubleMap, StorageMap, StorageValue,
 };
 use system::{ensure_root, ensure_signed};
-
-// TODO: remove this temp fix for overflow issue when upstream fix ready
-// #[macro_use]
-// extern crate uint;
-use core::convert::TryInto;
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (
@@ -53,11 +49,8 @@ pub trait Trait: system::Trait + generic_asset::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
 	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
-	// TODO: remove this temp fix for overflow issue when upstream fix ready
 	type BalanceToU128: From<<Self as generic_asset::Trait>::Balance> + Into<u128>;
 	type U128ToBalance: From<u128> + Into<<Self as generic_asset::Trait>::Balance>;
-
-	//	type AsBalance: From<<Self as generic_asset::Trait>::Balance> + Into<<Self as generic_asset::Trait>::Balance> + As<u128>;
 }
 
 decl_module! {
