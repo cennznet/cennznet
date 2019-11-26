@@ -16,9 +16,6 @@ runtime-primitives = { package="sr-primitives", git = "https://github.com/plugbl
 support = { package="srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 system = { package="srml-system", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 
-[dev-dependencies]
-state-machine = { package = "substrate-state-machine", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-
 [features]
 default = ["std"]
 std = [
