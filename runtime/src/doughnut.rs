@@ -1,0 +1,91 @@
+#[cfg(test)]
+mod test {
+	use crate::{CennznetDoughnut, Runtime};
+	use cennznut::CENNZnutV0;
+	use cennznut::{self};
+	use codec::Encode;
+	use sr_primitives::DoughnutV0;
+	use support::additional_traits::DelegatedDispatchVerifier;
+	use support::{assert_err, assert_ok};
+
+	// A helper to make test doughnuts
+	fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut {
+		let doughnut = DoughnutV0 {
+			holder: Default::default(),
+			issuer: Default::default(),
+			domains: vec![(domain.to_string(), domain_payload)],
+			expiry: 0,
+			not_before: 0,
+			payload_version: 0,
+			signature_version: 0,
+			signature: Default::default(),
+		};
+		CennznetDoughnut::new(doughnut)
+	}
+
+	fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
+		<Runtime as DelegatedDispatchVerifier<CennznetDoughnut>>::verify_dispatch(doughnut, module, method)
+	}
+
+	// A helper to make test CENNZnuts
+	fn make_cennznut(module: &str, method: &str) -> CENNZnutV0 {
+		let method_obj = cennznut::Method {
+			name: method.to_string(),
+			block_cooldown: None,
+			constraints: None,
+		};
+		let module_obj = cennznut::Module {
+			name: module.to_string(),
+			block_cooldown: None,
+			methods: vec![(method.to_string(), method_obj)],
+		};
+		CENNZnutV0 {
+			modules: vec![(module.to_string(), module_obj)],
+		}
+	}
+
+	#[test]
+	fn it_works() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_ok!(verify_dispatch(&doughnut, "trml-attestation", "attest"));
+	}
+
+	#[test]
+	fn it_fails_when_not_using_the_cennznet_domain() {
+		let doughnut = make_doughnut("test", Default::default());
+		assert_err!(
+			verify_dispatch(&doughnut, "trml-module", "method"),
+			"CENNZnut does not grant permission for cennznet domain"
+		);
+	}
+
+	#[test]
+	fn it_fails_with_bad_cennznut_encoding() {
+		let doughnut = make_doughnut("cennznet", vec![1, 2, 3, 4, 5]);
+		assert_err!(
+			verify_dispatch(&doughnut, "trml-module", "method"),
+			"Bad CENNZnut encoding"
+		);
+	}
+
+	#[test]
+	fn it_fails_when_module_is_not_authorized() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "trml-generic-asset", "attest"),
+			"CENNZnut does not grant permission for module"
+		);
+	}
+
+	#[test]
+	fn it_fails_when_method_is_not_authorized() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "trml-attestation", "remove"),
+			"CENNZnut does not grant permission for method"
+		);
+	}
+}

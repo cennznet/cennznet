@@ -25,6 +25,7 @@ use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature
 use cennznet_primitives::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
 };
+use cennznut::{CENNZnutV0, Validate};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -38,11 +39,13 @@ use primitives::u32_trait::{_1, _2, _3, _4};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
 use sr_primitives::curve::PiecewiseLinear;
-use sr_primitives::traits::{self, BlakeTwo256, Block as BlockT, NumberFor, SaturatedConversion, StaticLookup};
+use sr_primitives::traits::{
+	self, BlakeTwo256, Block as BlockT, DoughnutApi, NumberFor, SaturatedConversion, StaticLookup,
+};
 use sr_primitives::transaction_validity::TransactionValidity;
 use sr_primitives::weights::Weight;
 use sr_primitives::{create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill};
-use support::{construct_runtime, parameter_types, traits::Randomness};
+use support::{additional_traits, construct_runtime, parameter_types, traits::Randomness};
 use system::offchain::TransactionSubmitter;
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
@@ -64,6 +67,8 @@ use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, WeightToFee};
 /// Constant values used within the runtime.
 pub mod constants;
 use constants::{currency::*, time::*};
+
+mod doughnut;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -100,6 +105,8 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
+type CennznetDoughnut = prml_doughnut::PlugDoughnut<Doughnut, Runtime>;
+
 impl system::Trait for Runtime {
 	type Origin = Origin;
 	type Call = Call;
@@ -112,7 +119,7 @@ impl system::Trait for Runtime {
 	type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	type Event = Event;
 	type BlockHashCount = BlockHashCount;
-	type Doughnut = prml_doughnut::PlugDoughnut<Doughnut, Runtime>;
+	type Doughnut = CennznetDoughnut;
 	type DelegatedDispatchVerifier = prml_doughnut::PlugDoughnutDispatcher<Runtime>;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
@@ -138,7 +145,7 @@ parameter_types! {
 }
 
 impl attestation::Trait for Runtime {
-	type Event =  Event;
+	type Event = Event;
 }
 
 impl babe::Trait for Runtime {
@@ -473,6 +480,21 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 	}
 }
 
+/// Verify a Doughnut proof authorizes method dispatch given some input parameters
+impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime {
+	const DOMAIN: &'static str = "cennznet";
+
+	fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
+		let mut domain = doughnut
+			.get_domain(Self::DOMAIN)
+			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
+		let cennznut: CENNZnutV0 = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
+
+		// Strips [c|p|s]rml- prefix
+		cennznut.validate(&module[5..], method, &[])
+	}
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -520,7 +542,7 @@ pub type BlockId = generic::BlockId<Block>;
 /// The `SignedExtension` payload for transactions in the plug runtime.
 /// It can contain a doughnut delegation proof as it's second value.
 pub type SignedExtra = (
-	Option<<Runtime as system::Trait>::Doughnut>,
+	Option<CennznetDoughnut>,
 	system::CheckVersion<Runtime>,
 	system::CheckGenesis<Runtime>,
 	system::CheckEra<Runtime>,
