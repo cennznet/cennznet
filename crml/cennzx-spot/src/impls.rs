@@ -52,13 +52,6 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 #[cfg(test)]
 pub(crate) mod impl_tests {
 	use super::*;
-	use crate::tests::{ExtBuilder, Test};
-	use primitives::H256;
-
-	const CORE_ASSET: u32 = 0;
-	const OTHER_ASSET: u32 = 1;
-	// TODO: Hard coded fee asset ID to match `TransferAsset::transfer` implementation
-	const FEE_ASSET: u32 = 10;
 
 	#[test]
 	fn u64_to_bytes_works() {
