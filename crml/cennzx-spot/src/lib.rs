@@ -18,8 +18,10 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod mock;
 #[macro_use]
 mod tests;
+
 mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
@@ -34,7 +36,7 @@ use rstd::prelude::*;
 use runtime_primitives::traits::{Bounded, One, Zero};
 use support::{
 	dispatch::{Dispatchable, Result as DispatchResult},
-	Parameter, StorageDoubleMap, StorageMap, StorageValue,
+	Parameter, StorageDoubleMap,
 };
 use system::{ensure_root, ensure_signed};
 
