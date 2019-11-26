@@ -116,16 +116,12 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn build(self, balance: Option<(Vec<AccountId>, u128)>) -> runtime_io::TestExternalities {
+	pub fn build(self) -> runtime_io::TestExternalities {
 		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		let bal_cfg = match balance {
-			Some(cfg) => cfg,
-			None => (Vec::new(), 0),
-		};
 		generic_asset::GenesisConfig::<Test> {
-			assets: vec![CORE_ASSET_ID, TRADE_ASSET_A, TRADE_ASSET_B],
-			initial_balance: bal_cfg.1,
-			endowed_accounts: bal_cfg.0,
+			assets: Vec::new(),
+			initial_balance: 0,
+			endowed_accounts: Vec::new(),
 			next_asset_id: 100,
 			// create_asset_stake: 1000,
 			staking_asset_id: 0,
