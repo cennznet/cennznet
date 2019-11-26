@@ -441,7 +441,7 @@ fn asset_to_core_swap_output() {
 fn make_asset_to_core_swap_output() {
 	let map1 = with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A => 1000);
 	let (trader, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
-	let map = map1.into_iter().chain(map2).collect();
+	let map = merge!(map1, map2);
 	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_asset_to_core_output(
@@ -464,7 +464,7 @@ fn make_asset_to_core_swap_output() {
 fn asset_swap_output_zero_asset_sold() {
 	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
 	let (trader, map2) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
-	let map = map1.into_iter().chain(map2).collect();
+	let map = merge!(map1, map2);
 	ext_build(map).execute_with(|| {
 		// with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 1000);
 		// let trader: AccountId = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 100);
@@ -500,7 +500,7 @@ fn asset_swap_output_zero_asset_sold() {
 fn asset_swap_output_insufficient_balance() {
 	let map1 = with_exchange!(CORE_ASSET_ID => 500, TRADE_ASSET_A => 500);
 	let (trader, map2) = with_account!(CORE_ASSET_ID => 100, TRADE_ASSET_A => 50);
-	let map = map1.into_iter().chain(map2).collect();
+	let map = merge!(map1, map2);
 	ext_build(map).execute_with(|| {
 		// asset to core swap output
 		assert_err!(
@@ -590,7 +590,7 @@ fn make_core_to_asset_output() {
 	let map1 = with_exchange!(CORE_ASSET_ID => 1000, TRADE_ASSET_A => 10);
 	let (buyer, map2) = with_account!(CORE_ASSET_ID => 2200, TRADE_ASSET_A => 2200);
 	let (recipient, map3) = with_account!("bob", CORE_ASSET_ID => 0, TRADE_ASSET_A => 0);
-	let map = map1.into_iter().chain(map2).chain(map3).collect();
+	let map = merge!(map1, map2, map3);
 	ext_build(map).execute_with(|| {
 		assert_ok!(
 			CennzXSpot::make_core_to_asset_output(
