@@ -707,7 +707,6 @@ impl<T: Trait> Module<T> {
 		Ok(T::U128ToBalance::from(output).into())
 	}
 
-
 	fn get_input_price(
 		input_amount: T::Balance,
 		input_reserve: T::Balance,

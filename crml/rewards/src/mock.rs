@@ -21,6 +21,7 @@ use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use parity_codec::{Decode, Encode};
 use primitives::{Blake2Hasher, H256};
 use runtime_io;
+use runtime_primitives::traits::{Lazy, Verify};
 use runtime_primitives::BuildStorage;
 use runtime_primitives::{
 	testing::{ConvertUintAuthorityId, Digest, DigestItem, Header, UintAuthorityId},
@@ -28,12 +29,10 @@ use runtime_primitives::{
 	Permill,
 };
 use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use session::OnSessionChange;
 use staking;
 use support::impl_outer_origin;
-use parity_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
-use runtime_primitives::traits::{Verify, Lazy};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}

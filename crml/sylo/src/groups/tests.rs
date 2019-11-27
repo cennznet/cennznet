@@ -14,12 +14,12 @@
 #[cfg(test)]
 mod tests {
 	use codec::Decode;
-	use serde::{Deserialize, Serialize};
-	use runtime_primitives::traits::{Verify, Lazy};
 	use groups::sr_io::with_externalities;
 	use groups::{vault, AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
 	use mock::{new_test_ext, Origin, Test};
 	use primitives::{ed25519, Pair, H256};
+	use runtime_primitives::traits::{Lazy, Verify};
+	use serde::{Deserialize, Serialize};
 
 	type Groups = Module<Test>;
 	type Vault = vault::Module<Test>;
