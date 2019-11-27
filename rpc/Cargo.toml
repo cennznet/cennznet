@@ -11,4 +11,4 @@ cennznet-primitives = { path = "../primitives" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 srml-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 srml-system-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }

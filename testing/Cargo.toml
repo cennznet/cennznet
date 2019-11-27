@@ -18,7 +18,7 @@ codec = { package = "parity-scale-codec", version = "1.0.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-runtime_support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+runtime-support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
