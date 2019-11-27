@@ -11,6 +11,7 @@ integer-sqrt = { version = "0.1.2" }
 rustc-hex = { version = "2.0", optional = true }
 safe-mix = { version = "1.0", default-features = false }
 serde = { version = "1.0.101", optional = true }
+sylo = { package = "crml-sylo", path = "../crml/sylo", default-features = false }
 cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", default-features = false }
 
 authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
