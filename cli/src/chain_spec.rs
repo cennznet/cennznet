@@ -18,12 +18,12 @@
 
 use babe_primitives::AuthorityId as BabeId;
 use cennznet_runtime::constants::{asset::*, currency::*, time::*};
-use cennznet_runtime::Block;
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
+	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
+use cennznet_runtime::{Block, FeeRate};
 use chain_spec::ChainSpecExtension;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
@@ -263,6 +263,10 @@ pub fn testnet_genesis(
 			// create_asset_stake: 1000, // removed upstream
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
+		}),
+		cennzx_spot: Some(CennzxSpotConfig {
+			fee_rate: FeeRate::from_milli(3),
+			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
 	}
 }

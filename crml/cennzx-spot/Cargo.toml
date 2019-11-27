@@ -1,0 +1,31 @@
+[package]
+name = "crml-cennzx-spot"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0", optional = true }
+uint = { version = "0.8", default-features = false }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+rstd = { package="sr-std", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+runtime-io = { package="sr-io", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+runtime-primitives = { package="sr-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+support = { package="srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+system = { package="srml-system", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"serde",
+	"generic-asset/std",
+	"primitives/std",
+	"rstd/std",
+	"runtime-io/std",
+	"runtime-primitives/std",
+	"support/std",
+	"system/std",
+]
