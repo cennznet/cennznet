@@ -497,6 +497,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives 1.0.0",
  "cennznut 0.2.0 (git+https://github.com/cennznet/cennznut-rs?branch=0.2.0)",
+ "crml-cennzx-spot 1.0.0",
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "prml-attestation 0.1.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
