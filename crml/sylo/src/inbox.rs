@@ -37,8 +37,8 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
-		NextIndexes: map(T::AccountId) => u32;
-		AccountValues: map(T::AccountId) => Vec<(T::AccountId, u32)>;
+		NextIndexes: map T::AccountId => u32;
+		AccountValues: map T::AccountId => Vec<(T::AccountId, u32)>;
 		Values get(values): map T::AccountId => Vec<(u32, Vec<u8>)>;
 	}
 }
@@ -99,16 +99,16 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-	use runtime_io::with_externalities;
 	use super::*;
-	use mock::{new_test_ext, Origin, Test};
+	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
+	use support::assert_ok;	
 
 	type Inbox = Module<Test>;
 
 	#[test]
 	fn it_works_adding_values_to_an_inbox() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			// Add a value to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -132,7 +132,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_inbox() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			// Add values to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -172,7 +172,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_empty_inbox() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			// Remove a value that doesn't exist
 			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
 		});

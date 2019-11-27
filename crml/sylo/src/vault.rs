@@ -70,17 +70,17 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-	use runtime_io::with_externalities;
 	use super::*;
-	use mock::{new_test_ext, Origin, Test};
+	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
+	use support::assert_ok;
 
 	impl Trait for Test {}
 	type Vault = Module<Test>;
 
 	#[test]
 	fn should_upsert_values() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
@@ -113,7 +113,7 @@ mod tests {
 
 	#[test]
 	fn should_replace_existing_keys() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
@@ -138,7 +138,7 @@ mod tests {
 
 	#[test]
 	fn should_delete_keys() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();

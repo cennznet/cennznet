@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Needed for tests (`with_externalities`).
-#[cfg(test)]
-use runtime_io;
-
 use rstd::vec;
 use primitives;
 use system::ensure_signed;

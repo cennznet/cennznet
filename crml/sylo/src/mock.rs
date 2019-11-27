@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use primitives::{Blake2Hasher, H256};
+#![cfg(test)]
+
+use support::{impl_outer_origin, parameter_types};
+use primitives::H256;
 
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sr_primitives::{
-	testing::{Digest, DigestItem, Header},
+	Perbill,
+	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup}
 };
 
@@ -26,20 +30,32 @@ use sr_primitives::{
 // configuration traits of modules we want to use.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
+
+parameter_types! {
+	pub const BlockHashCount: u64 = 250;
+	pub const MaximumBlockWeight: u32 = 1024;
+	pub const MaximumBlockLength: u32 = 2 * 1024;
+	pub const AvailableBlockRatio: Perbill = Perbill::one();
+}
+
 impl system::Trait for Test {
 	type Origin = Origin;
 	type Index = u64;
+	type Call = ();
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type Digest = Digest;
 	type AccountId = H256;
 	type Lookup = IdentityLookup<H256>;
 	type Header = Header;
 	type Event = ();
-	type Log = DigestItem;
+	type BlockHashCount = BlockHashCount;
 	type Doughnut = ();
-	type DispatchVerifier = ();
+	type DelegatedDispatchVerifier = ();
+	type MaximumBlockWeight = MaximumBlockWeight;
+	type MaximumBlockLength = MaximumBlockLength;
+	type AvailableBlockRatio = AvailableBlockRatio;
+	type Version = ();
 }
 
 impl_outer_origin! {
@@ -48,10 +64,9 @@ impl_outer_origin! {
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sr_io::TestExternalities {
+pub fn new_test_ext() -> runtime_io::TestExternalities {
 	system::GenesisConfig::default()
-		.build_storage()
+		.build_storage::<Test>()
 		.unwrap()
-		.0
 		.into()
 }

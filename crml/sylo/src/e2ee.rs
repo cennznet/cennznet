@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use system::{self, ensure_signed};
-use support::{decl_module, decl_storage, decl_event, ensure, dispatch::Vec, StorageMap};
+use support::{decl_module, decl_storage, decl_event, ensure, dispatch::Vec};
 
 use crate::{device, inbox, response, groups};
 
@@ -94,9 +94,10 @@ impl<T: Trait> Module<T> {}
 #[cfg(test)]
 pub(super) mod tests {
 	use super::*;
-	use mock::{new_test_ext, Origin, Test};
+	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
-
+	use support::assert_ok;
+		
 	impl Trait for Test {
 		type Event = ();
 	}
@@ -132,7 +133,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_replenish_pkbs() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -153,7 +154,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_withdraw_pkbs() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,

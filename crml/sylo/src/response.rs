@@ -59,16 +59,16 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 pub(super) mod tests {
-	use runtime_io::with_externalities;
 	use super::*;
-	use mock::{new_test_ext, Origin, Test};
+	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
+	use support::assert_ok;
 
 	type Responses = Module<Test>;
 
 	#[test]
 	fn should_set_response() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let request_id = H256::from([1; 32]);
 			let resp_number = Response::DeviceId(111);
 

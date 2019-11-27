@@ -13,18 +13,18 @@
 // limitations under the License.
 #[cfg(test)]
 mod tests {
-	use runtime_io::with_externalities;
 	use crate::vault;
 	use crate::groups::{AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
-	use mock::{new_test_ext, Origin, Test};
-	use primitives::{ed25519, Pair, H256};
+	use crate::mock::{new_test_ext, Origin, Test};
+	use primitives::{ed25519, H256, Pair};
+	use support::assert_ok;
 
 	type Groups = Module<Test>;
 	type Vault = vault::Module<Test>;
 
 	#[test]
 	fn it_works_creating_a_group() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let group_id = H256::from([1; 32]);
 			//Create a group
@@ -70,7 +70,7 @@ mod tests {
 
 	#[test]
 	fn it_works_modifying_meta() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let mut meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let mut meta_2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
@@ -115,7 +115,7 @@ mod tests {
 
 	#[test]
 	fn should_leave_group() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -155,7 +155,7 @@ mod tests {
 
 	#[test]
 	fn should_accept_invite() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let group_id = H256::from([2; 32]);
 
 			//Create a group
@@ -173,8 +173,8 @@ mod tests {
 			let encoded = payload.encode();
 			let message = encoded.as_slice();
 			let (invite_key, signature) = {
-				let pair = ed25519::Pair::generate();
-				(H256::from(pair.public().0), pair.sign(&message[..]))
+				let key = ed25519::Pair::generate().0;
+				(H256::from(key.public()), key.sign(&message[..]))
 			};
 
 			let invite = Invite {
@@ -197,7 +197,8 @@ mod tests {
 			assert_eq!(invites.len(), 1);
 			assert_eq!(invites[0].invite_key, invite_key.clone());
 
-			let wrong_sig = ed25519::Pair::generate().sign(&message[..]);
+			let key = ed25519::Pair::generate().0;
+			let wrong_sig = key.sign(&message[..]);
 			// Check generating diff signature
 			assert_ne!(signature, wrong_sig);
 
@@ -249,7 +250,7 @@ mod tests {
 
 	#[test]
 	fn should_revoke_invites() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -300,7 +301,7 @@ mod tests {
 
 	#[test]
 	fn should_update_member() {
-		with_externalities(&mut new_test_ext(), || {
+		new_test_ext().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
