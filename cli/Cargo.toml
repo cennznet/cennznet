@@ -25,12 +25,12 @@ substrate-rpc = { package = "substrate-rpc", git = "https://github.com/plugblock
 substrate-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 substrate-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 chain-spec = { package = "substrate-chain-spec", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 network = { package = "substrate-network", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 babe = { package = "substrate-consensus-babe", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 grandpa = { package = "substrate-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-grandpa_primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+grandpa-primitives = { package = "substrate-finality-grandpa-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 cennznet-executor = { path = "../executor" }
 substrate-telemetry = { package = "substrate-telemetry", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
@@ -40,16 +40,16 @@ keyring = { package = "substrate-keyring", git = "https://github.com/plugblockch
 indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 rand = "0.7.2"
-finality_tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-im_online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+im-online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 sr-authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 authority-discovery = { package = "substrate-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 serde = { version = "1.0.101", features = [ "derive" ] }
-client_db = { package = "substrate-client-db", git = "https://github.com/plugblockchain/plug-blockchain", features = ["kvdb-rocksdb"], branch = "1.0.0-rc1" }
+client-db = { package = "substrate-client-db", git = "https://github.com/plugblockchain/plug-blockchain", features = ["kvdb-rocksdb"], branch = "1.0.0-rc1" }
 offchain = { package = "substrate-offchain", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 
 [dev-dependencies]

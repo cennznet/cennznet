@@ -7,8 +7,8 @@ edition = "2018"
 [dependencies]
 trie-root = "0.15.2"
 codec = { package = "parity-scale-codec", version = "1.0.0" }
-runtime_io = { package = "sr-io", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-state_machine = { package = "substrate-state-machine", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+runtime-io = { package = "sr-io", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+state-machine = { package = "substrate-state-machine", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 substrate-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 trie = { package = "substrate-trie", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
