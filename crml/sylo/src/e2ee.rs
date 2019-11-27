@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use support::{decl_event, decl_module, decl_storage, dispatch::Vec, ensure};
 use system::{self, ensure_signed};
-use support::{decl_module, decl_storage, decl_event, ensure, dispatch::Vec};
 
-use crate::{device, inbox, response, groups};
+use crate::{device, groups, inbox, response};
 
 const MAX_PKBS: usize = 50;
 
@@ -97,7 +97,7 @@ pub(super) mod tests {
 	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
 	use support::assert_ok;
-		
+
 	impl Trait for Test {
 		type Event = ();
 	}

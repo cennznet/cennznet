@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use system::{self, ensure_signed};
 use support::{decl_module, decl_storage, dispatch::Result, dispatch::Vec};
+use system::{self, ensure_signed};
 
 pub trait Trait: system::Trait {
 	// add code here
@@ -102,7 +102,7 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Origin, Test};
 	use primitives::H256;
-	use support::assert_ok;	
+	use support::assert_ok;
 
 	type Inbox = Module<Test>;
 

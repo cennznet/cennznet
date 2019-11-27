@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, dispatch::Vec, ensure};
 use system;
-use support::{decl_module, decl_storage, decl_event, ensure, dispatch::Result, dispatch::Vec};
 
 const MAX_DEVICES: usize = 1000;
 

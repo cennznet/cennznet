@@ -13,10 +13,10 @@
 // limitations under the License.
 #[cfg(test)]
 mod tests {
-	use crate::vault;
 	use crate::groups::{AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
 	use crate::mock::{new_test_ext, Origin, Test};
-	use primitives::{ed25519, H256, Pair};
+	use crate::vault;
+	use primitives::{ed25519, Pair, H256};
 	use support::assert_ok;
 
 	type Groups = Module<Test>;

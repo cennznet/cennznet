@@ -145,7 +145,7 @@ parameter_types! {
 }
 
 impl attestation::Trait for Runtime {
-	type Event =  Event;
+	type Event = Event;
 }
 
 impl sylo::groups::Trait for Runtime {}

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use support::{decl_module, decl_storage, dispatch::Vec, ensure};
 use system::{self, ensure_signed};
-use support::{decl_module, decl_storage, ensure, dispatch::Vec};
 
 pub const KEYS_MAX: usize = 100;
 

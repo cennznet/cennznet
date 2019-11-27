@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rstd::vec;
-use primitives;
-use system::ensure_signed;
 use codec::{Decode, Encode};
+use primitives;
 use primitives::{ed25519, hash::H256};
+use rstd::vec;
 use sr_primitives::traits::Verify;
-use support::{decl_module, decl_storage, ensure, dispatch::Result, dispatch::Vec, StorageMap};
+use support::{decl_module, decl_storage, dispatch::Result, dispatch::Vec, ensure, StorageMap};
+use system::ensure_signed;
 
 use crate::{device, inbox, vault};
 use vault::{VaultKey, VaultValue};

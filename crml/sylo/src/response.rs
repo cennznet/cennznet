@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use system::{self, ensure_signed};
 use support::{decl_module, decl_storage, dispatch::Result, dispatch::Vec};
+use system::{self, ensure_signed};
 
 pub trait Trait: system::Trait {}
 
