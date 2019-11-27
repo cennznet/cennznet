@@ -17,10 +17,13 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, StakingConfig,
-	SystemConfig, WASM_BINARY,
+	constants::{asset::*, currency::*},
+	FeeRate,
+};
+use cennznet_runtime::{
+	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig,
+	StakingConfig, SystemConfig, WASM_BINARY,
 };
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
@@ -94,6 +97,10 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
+		}),
+		cennzx_spot: Some(CennzxSpotConfig {
+			fee_rate: FeeRate::from_milli(3),
+			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
 	}
 }

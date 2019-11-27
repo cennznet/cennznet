@@ -51,6 +51,7 @@ use system::offchain::TransactionSubmitter;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
 pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
@@ -139,13 +140,21 @@ impl utility::Trait for Runtime {
 	type Call = Call;
 }
 
-parameter_types! {
-	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
-	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+impl cennzx_spot::Trait for Runtime {
+	type Call = Call;
+	type Event = Event;
+	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
+	type BalanceToU128 = Balance;
+	type U128ToBalance = Balance;
 }
 
 impl attestation::Trait for Runtime {
 	type Event = Event;
+}
+
+parameter_types! {
+	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
+	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 }
 
 impl babe::Trait for Runtime {
@@ -526,6 +535,7 @@ construct_runtime!(
 		AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
 		Offences: offences::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+		CennzxSpot: cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
 

@@ -701,6 +701,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-cennzx-spot"
+version = "1.0.0"
+dependencies = [
+ "parity-scale-codec 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "sr-primitives 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "sr-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-generic-asset 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-support 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "srml-system 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "substrate-primitives 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc1)",
+ "uint 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
