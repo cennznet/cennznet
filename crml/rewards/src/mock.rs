@@ -31,6 +31,9 @@ use serde::{Deserialize, Serialize};
 use session::OnSessionChange;
 use staking;
 use support::impl_outer_origin;
+use parity_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
+use runtime_primitives::traits::{Verify, Lazy};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}

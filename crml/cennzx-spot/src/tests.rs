@@ -32,8 +32,22 @@ use runtime_primitives::{
 };
 use support::{impl_outer_origin, StorageValue};
 
+use parity_codec::{Decode, Encode};
+use runtime_primitives::traits::{Lazy, Verify};
+use serde::{Deserialize, Serialize};
+
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+pub struct Signature;
+
+impl Verify for Signature {
+	type Signer = AccountId;
+	fn verify<L: Lazy<[u8]>>(&self, _msg: L, _signer: &Self::Signer) -> bool {
+		true
+	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means

@@ -88,9 +88,8 @@ jobs:
             else
               DOCKER_TAG="${CIRCLE_TAG}"
             fi
-            docker build --pull -t cennznet/cennznet:latest -t cennznet/cennznet:$DOCKER_TAG -f docker/Dockerfile .
-            docker push cennznet/cennznet:$DOCKER_TAG
-            docker push cennznet/cennznet:latest
+            docker build --pull -t cennznet/cennznet:$DOCKER_TAG-hotfix -f docker/Dockerfile .
+            docker push cennznet/cennznet:$DOCKER_TAG-hotfix
           no_output_timeout: 60m
 workflows:
   version: 2
@@ -102,4 +101,5 @@ workflows:
             - build
           filters:
             branches:
-              only: master
+              only:
+                - master-hotfix

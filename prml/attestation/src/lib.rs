@@ -47,6 +47,7 @@ extern crate srml_system as system;
 use primitives::uint::U256;
 use runtime_support::rstd::prelude::*;
 use runtime_support::{dispatch::Result, StorageMap};
+use primitives::uint::U256;
 use system::ensure_signed;
 
 pub trait Trait: system::Trait {

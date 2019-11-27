@@ -7,20 +7,20 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-rstd = { package="sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-runtime_io = { package="sr-io", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-runtime_primitives = { package="sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-system = { package="srml-system", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-staking = { package = "srml-staking", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-session = { package = "srml-session", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+rstd = { package="sr-std", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+runtime_io = { package="sr-io", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+runtime_primitives = { package="sr-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+support = { package="srml-support", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+system = { package="srml-system", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+staking = { package = "srml-staking", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+session = { package = "srml-session", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
 fees = { package = "prml-fees", path = "../../prml/fees", default-features = false }
 
 [dev-dependencies]
 generic-asset = { package = "prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
-timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
 
 [features]
 default = ["std"]

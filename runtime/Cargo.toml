@@ -8,32 +8,32 @@ edition = "2018"
 integer-sqrt = { version = "0.1.2" }
 safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-substrate-client = { git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-version = { package = "sr-version", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-support = { package = "srml-support", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-aura = { package = "srml-aura", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-contract = { package= "srml-contract", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-council = { package = "srml-council", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-democracy = { package = "srml-democracy", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-executive = { package = "srml-executive", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-grandpa = { package = "srml-grandpa", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-indices = { package = "srml-indices", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-session = { package = "srml-session", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-staking = { package = "srml-staking", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-system = { package = "srml-system", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-sudo = { package = "srml-sudo", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
-consensus_aura = { package = "substrate-consensus-aura-primitives", git = "https://github.com/cennznet/plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+substrate-client = { git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+version = { package = "sr-version", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+support = { package = "srml-support", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+aura = { package = "srml-aura", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+consensus = { package = "srml-consensus", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+contract = { package= "srml-contract", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+council = { package = "srml-council", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+democracy = { package = "srml-democracy", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+executive = { package = "srml-executive", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+grandpa = { package = "srml-grandpa", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+indices = { package = "srml-indices", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+session = { package = "srml-session", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+staking = { package = "srml-staking", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+system = { package = "srml-system", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+timestamp = { package = "srml-timestamp", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+sudo = { package = "srml-sudo", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
+consensus_aura = { package = "substrate-consensus-aura-primitives", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", default-features = false }
 rustc-hex = { version = "2.0", optional = true }
-hex-literal = { version = "0.2", optional = true }
+hex-literal = { version = "0.2.0", optional = true }
 serde = { version = "1.0", optional = true }
-substrate-keyring = {git = "https://github.com/cennznet/plug-blockchain", optional = true }
+substrate-keyring = {git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6", optional = true }
 cennznet-primitives = { path = "../primitives", default-features = false }
 rewards = { package = "crml-rewards", path = "../crml/rewards", default-features = false }
 generic-asset = { package = "prml-generic-asset", path = "../prml/generic-asset", default-features = false }
@@ -44,7 +44,7 @@ cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", defa
 cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.1", default-features = false }
 
 [dev-dependencies]
-runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain" }
+runtime-io = { package = "sr-io", git = "https://github.com/cennznet/plug-blockchain", rev = "ca14f9e6" }
 
 [features]
 default = ["std"]

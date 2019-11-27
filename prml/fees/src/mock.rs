@@ -27,6 +27,8 @@ use runtime_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use support::{decl_module, decl_storage, dispatch::Result, impl_outer_event, impl_outer_origin, StorageValue};
+use serde::{Deserialize, Serialize};
+use runtime_primitives::traits::{Verify, Lazy};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
