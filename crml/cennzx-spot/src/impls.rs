@@ -18,7 +18,7 @@
 //!
 use super::Trait;
 use primitives::crypto::{UncheckedFrom, UncheckedInto};
-use rstd::{marker::PhantomData, mem, prelude::*};
+use rstd::{marker::PhantomData, prelude::*};
 use runtime_primitives::traits::Hash;
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
@@ -46,7 +46,7 @@ where
 }
 
 fn u64_to_bytes(x: u64) -> [u8; 8] {
-	unsafe { mem::transmute(x.to_le()) }
+	x.to_le_bytes()
 }
 
 #[cfg(test)]
