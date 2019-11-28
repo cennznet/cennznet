@@ -58,7 +58,6 @@ impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
 	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &Self::FeeExchange) -> Result {
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id: T::AssetId = <generic_asset::Module<T>>::spending_asset_id();
-		println!("{:?}", fee_asset_id);
 		Self::make_asset_swap_output(
 			&who,
 			&who,
