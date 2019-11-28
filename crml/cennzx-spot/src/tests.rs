@@ -145,6 +145,7 @@ macro_rules! resolve_asset_id (
 	(CoreAssetCurrency) => { CORE_ASSET_ID };
 	(TradeAssetCurrencyA) => { TRADE_ASSET_A_ID };
 	(TradeAssetCurrencyB) => { TRADE_ASSET_B_ID };
+	(FeeAssetCurrency) => { FEE_ASSET_ID };
 	($unknown:literal) => { panic!("cannot resolve asset ID for unknown currency: {}", $unknown) };
 );
 
