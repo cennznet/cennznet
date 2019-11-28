@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 primitives = { package = "substrate-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 
 [dev-dependencies]
 substrate-serializer = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
@@ -17,4 +18,5 @@ default = ["std"]
 std = [
 	"primitives/std",
 	"sr-primitives/std",
+	"support/std",
 ]

@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd.
+// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Low-level types used throughout the Substrate code.
+//! Low-level types used by CENNZnet node.
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+pub mod traits;
 
 use sr_primitives::{
 	generic,
