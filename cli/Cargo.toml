@@ -43,7 +43,7 @@ rand = "0.7.2"
 finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+transaction-payment = { package = "crml-transaction-payment", path="../crml/transaction-payment", default-features = false }
 support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 im-online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 sr-authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }

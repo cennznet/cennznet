@@ -56,7 +56,7 @@ system-rpc-runtime-api = { package = "srml-system-rpc-runtime-api", git = "https
 timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 utility = { package = "srml-utility", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+transaction-payment = { package = "crml-transaction-payment", path="../crml/transaction-payment", default-features = false }
 cennznut = { git = "https://github.com/cennznet/cennznut-rs", default-features = false, branch = "0.2.0" }
 
 [build-dependencies]

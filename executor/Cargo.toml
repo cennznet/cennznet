@@ -21,7 +21,7 @@ test-client = { package = "substrate-test-client", git = "https://github.com/plu
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+transaction-payment = { package = "crml-transaction-payment", path="../crml/transaction-payment", default-features = false }
 session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
