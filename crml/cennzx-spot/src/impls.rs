@@ -17,9 +17,12 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use super::Trait;
+use crate::Module;
+use cennznet_primitives::traits::BuyFeeAsset;
 use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, prelude::*};
 use runtime_primitives::traits::Hash;
+use support::dispatch::Result;
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
 pub trait ExchangeAddressFor<AssetId: Sized, AccountId: Sized> {
@@ -47,6 +50,13 @@ where
 
 fn u64_to_bytes(x: u64) -> [u8; 8] {
 	x.to_le_bytes()
+}
+
+impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
+	type FeeExchange = ();
+	fn buy_fee_asset(_who: &T::AccountId, _amount: T::Balance, _exchange_op: &Self::FeeExchange) -> Result {
+		unimplemented!();
+	}
 }
 
 #[cfg(test)]
