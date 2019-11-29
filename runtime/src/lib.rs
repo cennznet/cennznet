@@ -205,6 +205,7 @@ impl transaction_payment::Trait for Runtime {
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToFee;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
+	type BuyFeeAsset = ();
 }
 
 parameter_types! {

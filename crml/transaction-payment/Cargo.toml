@@ -5,6 +5,7 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
+cennznet-primitives = { path = "../../primitives", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
 rstd = { package = "sr-std", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
@@ -19,6 +20,7 @@ balances = { package = "srml-balances", git = "https://github.com/plugblockchain
 [features]
 default = ["std"]
 std = [
+	"cennznet-primitives/std",
 	"codec/std",
 	"rstd/std",
 	"sr-primitives/std",
