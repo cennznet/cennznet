@@ -23,6 +23,7 @@ use generic_asset::{AssetCurrency, AssetIdProvider};
 pub const CORE_ASSET_ID: u32 = 0;
 pub const TRADE_ASSET_A_ID: u32 = 1;
 pub const TRADE_ASSET_B_ID: u32 = 2;
+pub const FEE_ASSET_ID: u32 = 10;
 
 /// A mock core currency. This is the network spending type e.g. CPAY it is a generic asset
 pub(crate) type CoreAssetCurrency<T> = AssetCurrency<T, CoreAssetIdProvider<T>>;
@@ -30,6 +31,8 @@ pub(crate) type CoreAssetCurrency<T> = AssetCurrency<T, CoreAssetIdProvider<T>>;
 pub(crate) type TradeAssetCurrencyA<T> = AssetCurrency<T, TradeAssetAIdProvider<T>>;
 /// A mock trade currency 'B'. It is a generic asset
 pub(crate) type TradeAssetCurrencyB<T> = AssetCurrency<T, TradeAssetBIdProvider<T>>;
+/// A mock fee currency. It is a generic asset
+pub(crate) type FeeAssetCurrency<T> = AssetCurrency<T, FeeAssetIdProvider<T>>;
 
 pub struct CoreAssetIdProvider<T>(rstd::marker::PhantomData<T>);
 impl<T: Trait> AssetIdProvider for CoreAssetIdProvider<T> {
@@ -52,5 +55,13 @@ impl<T: Trait> AssetIdProvider for TradeAssetBIdProvider<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
 		TRADE_ASSET_B_ID.into()
+	}
+}
+
+pub struct FeeAssetIdProvider<T>(rstd::marker::PhantomData<T>);
+impl<T: Trait> AssetIdProvider for FeeAssetIdProvider<T> {
+	type AssetId = T::AssetId;
+	fn asset_id() -> Self::AssetId {
+		FEE_ASSET_ID.into()
 	}
 }

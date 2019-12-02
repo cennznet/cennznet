@@ -507,6 +507,7 @@ version = "1.0.0"
 dependencies = [
  "pretty_assertions",
  "sr-primitives",
+ "srml-support",
  "substrate-primitives",
  "substrate-serializer",
 ]
@@ -766,6 +767,7 @@ dependencies = [
 name = "crml-cennzx-spot"
 version = "1.0.0"
 dependencies = [
+ "cennznet-primitives",
  "parity-scale-codec",
  "serde",
  "sr-io",
@@ -796,6 +798,7 @@ dependencies = [
 name = "crml-transaction-payment"
 version = "1.0.0"
 dependencies = [
+ "cennznet-primitives",
  "parity-scale-codec",
  "sr-io",
  "sr-primitives",

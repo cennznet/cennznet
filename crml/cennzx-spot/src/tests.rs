@@ -145,6 +145,7 @@ macro_rules! resolve_asset_id (
 	(CoreAssetCurrency) => { CORE_ASSET_ID };
 	(TradeAssetCurrencyA) => { TRADE_ASSET_A_ID };
 	(TradeAssetCurrencyB) => { TRADE_ASSET_B_ID };
+	(FeeAssetCurrency) => { FEE_ASSET_ID };
 	($unknown:literal) => { panic!("cannot resolve asset ID for unknown currency: {}", $unknown) };
 );
 
@@ -172,8 +173,10 @@ macro_rules! assert_exchange_balance_eq (
 				resolve_asset_id!($a1),
 				resolve_asset_id!($a2),
 			);
-			let _ = $a1::free_balance(&exchange_address);
-			let _ = $a2::free_balance(&exchange_address);
+			let bal1 = $a1::free_balance(&exchange_address);
+			let bal2 = $a2::free_balance(&exchange_address);
+			assert_eq!(bal1, $b1);
+			assert_eq!(bal2, $b2);
 		}
 	};
 );
