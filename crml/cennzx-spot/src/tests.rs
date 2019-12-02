@@ -173,8 +173,10 @@ macro_rules! assert_exchange_balance_eq (
 				resolve_asset_id!($a1),
 				resolve_asset_id!($a2),
 			);
-			let _ = $a1::free_balance(&exchange_address);
-			let _ = $a2::free_balance(&exchange_address);
+			let bal1 = $a1::free_balance(&exchange_address);
+			let bal2 = $a2::free_balance(&exchange_address);
+			assert_eq!(bal1, $b1);
+			assert_eq!(bal2, $b2);
 		}
 	};
 );

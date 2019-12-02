@@ -90,22 +90,64 @@ pub(crate) mod impl_tests {
 	#[test]
 	fn buy_fee_asset() {
 		ExtBuilder::default().build().execute_with(|| {
-			with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-			with_exchange!(CoreAssetCurrency => 1000, FeeAssetCurrency => 1000);
+			with_exchange!(CoreAssetCurrency => 10_000, TradeAssetCurrencyA => 10_000);
+			with_exchange!(CoreAssetCurrency => 10_000, FeeAssetCurrency => 10_000);
 
-			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 100);
+			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 1_000);
+			let target_fee = 510;
+			let scale_factor = 1_000_000;
+			let fee_rate = 3_000; // fee is 0.3%
+			let fee_rate_factor = scale_factor + fee_rate; // 1_000_000 + 3_000
 
 			assert_ok!(<CennzXSpot as BuyFeeAsset<_, _>>::buy_fee_asset(
 				&user,
-				51,
-				&FeeExchange::new(TRADE_ASSET_A_ID, 1_000_000),
+				target_fee,
+				&FeeExchange::new(TRADE_ASSET_A_ID, 2_000_000),
 			));
 
-			assert_exchange_balance_eq!(CoreAssetCurrency => 946, TradeAssetCurrencyA => 1058);
-			assert_exchange_balance_eq!(CoreAssetCurrency => 1054, FeeAssetCurrency => 949);
+			// For more detail, see `fn get_output_price` in lib.rs
+			let core_asset_price = {
+				let output_amount = target_fee;
+				let input_reserve = 10_000; // CoreAssetCurrency reserve
+				let output_reserve = 10_000; // FeeAssetCurrency reserve
+				let denom = output_reserve - output_amount; // 10000 - 510 = 9490
+				let res = (input_reserve * output_amount) / denom; // 537 (decimals truncated)
+				let price = res + 1; // 537 + 1 = 538
+				(price * fee_rate_factor) / scale_factor // price adjusted with fee
+			};
 
+			let trade_asset_price = {
+				let output_amount = core_asset_price;
+				let input_reserve = 10_000; // TradeAssetCurrencyA reserve
+				let output_reserve = 10_000; // CoreAssetCurrency reserve
+				let denom = output_reserve - output_amount; // 10000 - 539 = 9461
+				let res = (input_reserve * output_amount) / denom; // 569 (decimals truncated)
+				let price = res + 1; // 569 + 1 = 570
+				(price * fee_rate_factor) / scale_factor // price adjusted with fee
+			};
+
+			assert_eq!(core_asset_price, 539);
+			assert_eq!(trade_asset_price, 571);
+
+			let exchange1_core = 10_000 - core_asset_price;
+			let exchange1_trade = 10_000 + trade_asset_price;
+
+			let exchange2_core = 10_000 + core_asset_price;
+			let exchange2_fee = 10_000 - target_fee;
+
+			assert_exchange_balance_eq!(
+				CoreAssetCurrency => exchange1_core,
+				TradeAssetCurrencyA => exchange1_trade
+			);
+			assert_exchange_balance_eq!(
+				CoreAssetCurrency => exchange2_core,
+				FeeAssetCurrency => exchange2_fee
+			);
+
+			let trade_asset_remainder = 1_000 - trade_asset_price;
 			assert_balance_eq!(user, CoreAssetCurrency => 0);
-			assert_balance_eq!(user, TradeAssetCurrencyA => 42);
+			assert_balance_eq!(user, FeeAssetCurrency => target_fee);
+			assert_balance_eq!(user, TradeAssetCurrencyA => trade_asset_remainder);
 		});
 	}
 
