@@ -21,23 +21,23 @@ slog = "^2"
 app_dirs = "1.2"
 parity-codec = { version = "3.5.4" }
 trie-root = { git = "https://github.com/paritytech/trie" }
-sr-io = { path = "../cennznet-plug-blockchain" }
-sr-primitives = { path = "../cennznet-plug-blockchain" }
-substrate-cli = { path = "../cennznet-plug-blockchain" }
-substrate-primitives = { path = "../cennznet-plug-blockchain" }
-substrate-executor = { path = "../cennznet-plug-blockchain" }
-substrate-service = { path = "../cennznet-plug-blockchain" }
-substrate-transaction-pool = { path = "../cennznet-plug-blockchain" }
-substrate-network = { path = "../cennznet-plug-blockchain" }
-substrate-consensus-aura = { path = "../cennznet-plug-blockchain" }
-substrate-keystore = { path = "../cennznet-plug-blockchain" }
-substrate-client = { path = "../cennznet-plug-blockchain", default-features = false }
-substrate-consensus-common = { path = "../cennznet-plug-blockchain" }
-substrate-finality-grandpa = { path = "../cennznet-plug-blockchain" }
-substrate-basic-authorship = { path = "../cennznet-plug-blockchain" }
-substrate-inherents = { path = "../cennznet-plug-blockchain" }
-substrate-telemetry = { path = "../cennznet-plug-blockchain" }
-srml-grandpa = { path = "../cennznet-plug-blockchain" }
+sr-io = { path = "../plug-blockchain/core/sr-io" }
+sr-primitives = { path = "../plug-blockchain/core/sr-primitives" }
+substrate-cli = { path = "../plug-blockchain/core/cli" }
+substrate-primitives = { path = "../plug-blockchain/core/primitives" }
+substrate-executor = { path = "../plug-blockchain/core/executor" }
+substrate-service = { path = "../plug-blockchain/core/service" }
+substrate-transaction-pool = { path = "../plug-blockchain/core/transaction-pool" }
+substrate-network = { path = "../plug-blockchain/core/network" }
+substrate-consensus-aura = { path = "../plug-blockchain/core/consensus/aura" }
+substrate-keystore = { path = "../plug-blockchain/core/keystore" }
+substrate-client = { path = "../plug-blockchain/core/client", default-features = false }
+substrate-consensus-common = { path = "../plug-blockchain/core/consensus/common" }
+substrate-finality-grandpa = { path = "../plug-blockchain/core/finality-grandpa" }
+substrate-basic-authorship = { path = "../plug-blockchain/core/basic-authorship" }
+substrate-inherents = { path = "../plug-blockchain/core/inherents" }
+substrate-telemetry = { path = "../plug-blockchain/core/telemetry" }
+srml-grandpa = { path = "../plug-blockchain/srml/grandpa" }
 structopt = "0.2.13"
 cennznet-runtime = { path = "runtime" }
 cennznet-primitives = { path = "primitives" }

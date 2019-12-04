@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-primitives = { package = "substrate-primitives", path = "../../../cennznet-plug-blockchain", default-features = false }
-runtime-primitives = { package = "sr-primitives", path = "../../../cennznet-plug-blockchain", default-features = false }
-sr-std = { path = "../../../cennznet-plug-blockchain", default-features = false }
-sr-io = { path = "../../../cennznet-plug-blockchain", default-features = false }
-srml-support = { path = "../../../cennznet-plug-blockchain", default-features = false }
-srml-system = { path = "../../../cennznet-plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", path = "../../../plug-blockchain/core/primitives", default-features = false }
+runtime-primitives = { package = "sr-primitives", path = "../../../plug-blockchain/core/sr-primitives", default-features = false }
+sr-std = { path = "../../../plug-blockchain/core/sr-std", default-features = false }
+sr-io = { path = "../../../plug-blockchain/core/sr-io", default-features = false }
+srml-support = { path = "../../../plug-blockchain/srml/support", default-features = false }
+srml-system = { path = "../../../plug-blockchain/srml/system", default-features = false }
 
 [features]
 default = ["std"]

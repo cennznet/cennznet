@@ -8,32 +8,32 @@ edition = "2018"
 integer-sqrt = { version = "0.1.2" }
 safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-primitives = { package = "substrate-primitives", path = "../../cennznet-plug-blockchain", default-features = false }
-substrate-client = { path = "../../cennznet-plug-blockchain", default-features = false }
-rstd = { package = "sr-std", path = "../../cennznet-plug-blockchain", default-features = false }
-runtime-primitives = { package = "sr-primitives", path = "../../cennznet-plug-blockchain", default-features = false }
-offchain-primitives = { package = "substrate-offchain-primitives", path = "../../cennznet-plug-blockchain", default-features = false }
-consensus_authorities = { package = "substrate-consensus-authorities", path = "../../cennznet-plug-blockchain", default-features = false }
-version = { package = "sr-version", path = "../../cennznet-plug-blockchain", default-features = false }
-support = { package = "srml-support", path = "../../cennznet-plug-blockchain", default-features = false }
-aura = { package = "srml-aura", path = "../../cennznet-plug-blockchain", default-features = false }
-consensus = { package = "srml-consensus", path = "../../cennznet-plug-blockchain", default-features = false }
-contract = { package= "srml-contract", path = "../../cennznet-plug-blockchain", default-features = false }
-council = { package = "srml-council", path = "../../cennznet-plug-blockchain", default-features = false }
-democracy = { package = "srml-democracy", path = "../../cennznet-plug-blockchain", default-features = false }
-executive = { package = "srml-executive", path = "../../cennznet-plug-blockchain", default-features = false }
-grandpa = { package = "srml-grandpa", path = "../../cennznet-plug-blockchain", default-features = false }
-indices = { package = "srml-indices", path = "../../cennznet-plug-blockchain", default-features = false }
-session = { package = "srml-session", path = "../../cennznet-plug-blockchain", default-features = false }
-staking = { package = "srml-staking", path = "../../cennznet-plug-blockchain", default-features = false }
-system = { package = "srml-system", path = "../../cennznet-plug-blockchain", default-features = false }
-timestamp = { package = "srml-timestamp", path = "../../cennznet-plug-blockchain", default-features = false }
-sudo = { package = "srml-sudo", path = "../../cennznet-plug-blockchain", default-features = false }
-consensus_aura = { package = "substrate-consensus-aura-primitives", path = "../../cennznet-plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", path = "../../plug-blockchain/core/primitives", default-features = false }
+substrate-client = { path = "../../plug-blockchain/core/client", default-features = false }
+rstd = { package = "sr-std", path = "../../plug-blockchain/core/sr-std", default-features = false }
+runtime-primitives = { package = "sr-primitives", path = "../../plug-blockchain/core/sr-primitives", default-features = false }
+offchain-primitives = { package = "substrate-offchain-primitives", path = "../../plug-blockchain/core/offchain/primitives", default-features = false }
+consensus_authorities = { package = "substrate-consensus-authorities", path = "../../plug-blockchain/core/consensus/authorities", default-features = false }
+version = { package = "sr-version", path = "../../plug-blockchain/core/sr-version", default-features = false }
+support = { package = "srml-support", path = "../../plug-blockchain/srml/support", default-features = false }
+aura = { package = "srml-aura", path = "../../plug-blockchain/srml/aura", default-features = false }
+consensus = { package = "srml-consensus", path = "../../plug-blockchain/srml/consensus", default-features = false }
+contract = { package= "srml-contract", path = "../../plug-blockchain/srml/contract", default-features = false }
+council = { package = "srml-council", path = "../../plug-blockchain/srml/council", default-features = false }
+democracy = { package = "srml-democracy", path = "../../plug-blockchain/srml/democracy", default-features = false }
+executive = { package = "srml-executive", path = "../../plug-blockchain/srml/executive", default-features = false }
+grandpa = { package = "srml-grandpa", path = "../../plug-blockchain/srml/grandpa", default-features = false }
+indices = { package = "srml-indices", path = "../../plug-blockchain/srml/indices", default-features = false }
+session = { package = "srml-session", path = "../../plug-blockchain/srml/session", default-features = false }
+staking = { package = "srml-staking", path = "../../plug-blockchain/srml/staking", default-features = false }
+system = { package = "srml-system", path = "../../plug-blockchain/srml/system", default-features = false }
+timestamp = { package = "srml-timestamp", path = "../../plug-blockchain/srml/timestamp", default-features = false }
+sudo = { package = "srml-sudo", path = "../../plug-blockchain/srml/sudo", default-features = false }
+consensus_aura = { package = "substrate-consensus-aura-primitives", path = "../../plug-blockchain/core/consensus/aura/primitives", default-features = false }
 rustc-hex = { version = "2.0", optional = true }
 hex-literal = { version = "0.2", optional = true }
 serde = { version = "1.0", optional = true }
-substrate-keyring = {path = "../../cennznet-plug-blockchain", optional = true }
+substrate-keyring = {path = "../../plug-blockchain/core/keyring", optional = true }
 cennznet-primitives = { path = "../primitives", default-features = false }
 rewards = { package = "crml-rewards", path = "../crml/rewards", default-features = false }
 generic-asset = { package = "prml-generic-asset", path = "../prml/generic-asset", default-features = false }
@@ -44,7 +44,7 @@ cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", defa
 cennznut = { git = "https://github.com/cennznet/cennznut-rs", tag = "v0.1.1", default-features = false }
 
 [dev-dependencies]
-runtime-io = { package = "sr-io", path = "../../cennznet-plug-blockchain" }
+runtime-io = { package = "sr-io", path = "../../plug-blockchain/core/sr-io" }
 
 [features]
 default = ["std"]
