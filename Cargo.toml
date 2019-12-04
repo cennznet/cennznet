@@ -21,23 +21,23 @@ slog = "^2"
 app_dirs = "1.2"
 parity-codec = { version = "3.5.4" }
 trie-root = { git = "https://github.com/paritytech/trie" }
-sr-io = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-sr-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-cli = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-primitives = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-executor = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-service = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-transaction-pool = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-network = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-consensus-aura = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-keystore = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-client = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu", default-features = false }
-substrate-consensus-common = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-finality-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-basic-authorship = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-inherents = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-substrate-telemetry = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
-srml-grandpa = { git = "https://github.com/cennznet/plug-blockchain", branch = "rimu" }
+sr-io = { path = "../cennznet-plug-blockchain" }
+sr-primitives = { path = "../cennznet-plug-blockchain" }
+substrate-cli = { path = "../cennznet-plug-blockchain" }
+substrate-primitives = { path = "../cennznet-plug-blockchain" }
+substrate-executor = { path = "../cennznet-plug-blockchain" }
+substrate-service = { path = "../cennznet-plug-blockchain" }
+substrate-transaction-pool = { path = "../cennznet-plug-blockchain" }
+substrate-network = { path = "../cennznet-plug-blockchain" }
+substrate-consensus-aura = { path = "../cennznet-plug-blockchain" }
+substrate-keystore = { path = "../cennznet-plug-blockchain" }
+substrate-client = { path = "../cennznet-plug-blockchain", default-features = false }
+substrate-consensus-common = { path = "../cennznet-plug-blockchain" }
+substrate-finality-grandpa = { path = "../cennznet-plug-blockchain" }
+substrate-basic-authorship = { path = "../cennznet-plug-blockchain" }
+substrate-inherents = { path = "../cennznet-plug-blockchain" }
+substrate-telemetry = { path = "../cennznet-plug-blockchain" }
+srml-grandpa = { path = "../cennznet-plug-blockchain" }
 structopt = "0.2.13"
 cennznet-runtime = { path = "runtime" }
 cennznet-primitives = { path = "primitives" }
