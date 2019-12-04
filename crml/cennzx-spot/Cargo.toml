@@ -9,12 +9,12 @@ cennznet-primitives = { path = "../../primitives", default-features = false }
 fees = { package="prml-fees", path = "../../prml/fees", default-features = false }
 serde = { version = "1.0", optional = true }
 parity-codec = { version = "3.5.4", default-features = false, features = ["derive"] }
-primitives = { package = "substrate-primitives", path = "../../../cennznet-plug-blockchain", default-features = false }
-rstd = { package="sr-std", path = "../../../cennznet-plug-blockchain", default-features = false }
-runtime_io = { package="sr-io", path = "../../../cennznet-plug-blockchain", default-features = false }
-runtime_primitives = { package="sr-primitives", path = "../../../cennznet-plug-blockchain", default-features = false }
-srml-support = { package="srml-support", path = "../../../cennznet-plug-blockchain", default-features = false }
-system = { package="srml-system", path = "../../../cennznet-plug-blockchain", default-features = false }
+primitives = { package = "substrate-primitives", path = "../../../cennznet-plug-blockchain/core/primitives", default-features = false }
+rstd = { package="sr-std", path = "../../../cennznet-plug-blockchain/srml/core/sr-std", default-features = false }
+runtime_io = { package="sr-io", path = "../../../cennznet-plug-blockchain/core/sr-io", default-features = false }
+runtime_primitives = { package="sr-primitives", path = "../../../cennznet-plug-blockchain/core/sr-primitives", default-features = false }
+srml-support = { package="srml-support", path = "../../../cennznet-plug-blockchain/srml/support", default-features = false }
+system = { package="srml-system", path = "../../../cennznet-plug-blockchain/srml/system", default-features = false }
 generic-asset = { package="prml-generic-asset", path = "../../prml/generic-asset", default-features = false }
 uint = { version = "0.7.1", default-features = false }
 
