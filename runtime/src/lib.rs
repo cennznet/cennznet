@@ -25,7 +25,7 @@ use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature
 use cennznet_primitives::types::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
 };
-use cennznut::{CENNZnutV0, Validate};
+use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
@@ -51,7 +51,7 @@ use system::offchain::TransactionSubmitter;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMill, PerMilli};
 pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
@@ -151,8 +151,8 @@ impl cennzx_spot::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
-	type BalanceToU128 = Balance;
-	type U128ToBalance = Balance;
+	type BalanceToUnsignedInt = Balance;
+	type UnsignedIntToBalance = Balance;
 }
 
 impl attestation::Trait for Runtime {
@@ -199,13 +199,15 @@ parameter_types! {
 }
 
 impl transaction_payment::Trait for Runtime {
+	type Balance = Balance;
+	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToFee;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
-	type BuyFeeAsset = ();
+	type BuyFeeAsset = CennzxSpot;
 }
 
 parameter_types! {
@@ -496,7 +498,7 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 			system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			system::CheckNonce::<Runtime>::from(index),
 			system::CheckWeight::<Runtime>::new(),
-			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip, None),
 			Default::default(),
 		);
 		let raw_payload = SignedPayload::new(call, extra).ok()?;
@@ -515,10 +517,18 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 		let mut domain = doughnut
 			.get_domain(Self::DOMAIN)
 			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnutV0 = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
+		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Strips [c|p|s]rml- prefix
-		cennznut.validate(&module[5..], method, &[])
+		match cennznut.validate(&module[5..], method, &[]) {
+			Ok(r) => Ok(r),
+			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
+			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),
+			Err(ValidationErr::NoPermission(Domain::Module)) => Err("CENNZnut does not grant permission for module"),
+			Err(ValidationErr::NoPermission(Domain::MethodArguments)) => {
+				Err("CENNZnut does not grant permission for method arguments")
+			}
+		}
 	}
 }
 

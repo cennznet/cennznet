@@ -16,6 +16,7 @@
 
 //! Low-level types used by CENNZnet node.
 
+use codec::{Decode, Encode};
 use sr_primitives::{
 	generic,
 	traits::{BlakeTwo256, Verify},
@@ -67,3 +68,26 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, OpaqueExtrinsic>;
 /// Block ID.
 pub type BlockId = generic::BlockId<Block>;
+
+/// The outer `FeeExchange` type. It is versioned to provide flexbility for future iterations
+/// while maintaining backward compatability.
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+pub enum FeeExchange {
+	/// A V1 FeeExchange
+	#[codec(compact)]
+	V1(FeeExchangeV1),
+}
+
+/// A v1 FeeExchange
+/// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
+/// embed within CENNZnet extrinsic payload.
+/// It specifies input asset ID and the max. limit of input asset to pay
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+pub struct FeeExchangeV1 {
+	/// The Asset ID to exchange for network fee asset
+	#[codec(compact)]
+	pub asset_id: AssetId,
+	/// The maximum `asset_id` to pay, given the exchange rate
+	#[codec(compact)]
+	pub max_payment: Balance,
+}

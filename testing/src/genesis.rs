@@ -19,12 +19,13 @@
 use crate::keyring::*;
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	FeeRate,
+	FeeRate, PerMill, PerMilli,
 };
 use cennznet_runtime::{
 	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig,
 	StakingConfig, SystemConfig, WASM_BINARY,
 };
+use core::convert::TryFrom;
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
 use sr_primitives::Perbill;
@@ -99,7 +100,7 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 			spending_asset_id: SPENDING_ASSET_ID,
 		}),
 		cennzx_spot: Some(CennzxSpotConfig {
-			fee_rate: FeeRate::from_milli(3),
+			fee_rate: FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
 	}

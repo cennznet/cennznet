@@ -505,6 +505,7 @@ dependencies = [
 name = "cennznet-primitives"
 version = "1.0.0"
 dependencies = [
+ "parity-scale-codec",
  "pretty_assertions",
  "sr-primitives",
  "srml-support",
@@ -625,8 +626,8 @@ dependencies = [
 
 [[package]]
 name = "cennznut"
-version = "0.2.0"
-source = "git+https://github.com/cennznet/cennznut-rs?branch=0.2.0#e09a993add8a831ecb574e068e730df76ac8c757"
+version = "0.3.0"
+source = "git+https://github.com/cennznet/cennznut-rs?branch=0.3.0#f0452fff499a57096da315953926dfcca8cf7b8f"
 dependencies = [
  "bit_reverse",
  "pact",
@@ -769,6 +770,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "parity-scale-codec",
+ "primitive-types",
  "serde",
  "sr-io",
  "sr-primitives",
@@ -777,7 +779,6 @@ dependencies = [
  "srml-support",
  "srml-system",
  "substrate-primitives",
- "uint",
 ]
 
 [[package]]
