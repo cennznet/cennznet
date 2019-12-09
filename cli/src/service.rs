@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use babe;
 use cennznet_executor;
-use cennznet_primitives::Block;
+use cennznet_primitives::types::Block;
 use cennznet_runtime::{GenesisConfig, RuntimeApi};
 use client::{self, LongestChain};
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
@@ -56,7 +56,7 @@ macro_rules! new_full_start {
 		let inherent_data_providers = inherents::InherentDataProviders::new();
 
 		let builder = substrate_service::ServiceBuilder::new_full::<
-			cennznet_primitives::Block,
+			cennznet_primitives::types::Block,
 			cennznet_runtime::RuntimeApi,
 			cennznet_executor::Executor,
 		>($config)?
@@ -218,7 +218,7 @@ macro_rules! new_full {
 }
 
 #[allow(dead_code)]
-type ConcreteBlock = cennznet_primitives::Block;
+type ConcreteBlock = cennznet_primitives::types::Block;
 #[allow(dead_code)]
 type ConcreteClient = Client<
 	Backend<ConcreteBlock>,
@@ -316,7 +316,7 @@ pub fn new_light<C: Send + Default + 'static>(
 mod tests {
 	use crate::service::new_full;
 	use babe::CompatibleDigestItem;
-	use cennznet_primitives::{Block, DigestItem};
+	use cennznet_primitives::types::{Block, DigestItem};
 	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::CENTS, time::SLOT_DURATION};
 	use cennznet_runtime::{Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::{Decode, Encode};

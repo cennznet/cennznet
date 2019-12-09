@@ -36,7 +36,7 @@ native_executor_instance!(
 #[cfg(test)]
 mod tests {
 	use super::Executor;
-	use cennznet_primitives::{Balance, BlockNumber, Hash, Index, Timestamp};
+	use cennznet_primitives::types::{Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
 		constants::{asset::SPENDING_ASSET_ID, currency::*},
 		impls::WeightToFee,
@@ -979,7 +979,7 @@ mod tests {
 		let client = TestClientBuilder::new().build();
 		let block1 = changes_trie_block();
 		let block_data = block1.0;
-		let block = cennznet_primitives::Block::decode(&mut &block_data[..]).unwrap();
+		let block = cennznet_primitives::types::Block::decode(&mut &block_data[..]).unwrap();
 
 		client.import(BlockOrigin::Own, block).unwrap();
 	}
@@ -1158,7 +1158,7 @@ mod tests {
 	fn block_weight_capacity_report() {
 		// Just report how many transfer calls you could fit into a block. The number should at least
 		// be a few hundred (250 at the time of writing but can change over time). Runs until panic.
-		use cennznet_primitives::Index;
+		use cennznet_primitives::types::Index;
 
 		// execution ext.
 		let mut t = new_test_ext(COMPACT_CODE, false);
@@ -1219,7 +1219,7 @@ mod tests {
 		// Just report how big a block can get. Executes until panic. Should be ignored unless if
 		// manually inspected. The number should at least be a few megabytes (5 at the time of
 		// writing but can change over time).
-		use cennznet_primitives::Index;
+		use cennznet_primitives::types::Index;
 
 		// execution ext.
 		let mut t = new_test_ext(COMPACT_CODE, false);
