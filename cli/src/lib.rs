@@ -199,7 +199,9 @@ where
 
 			match ChainSpec::from(config.chain_spec.id()) {
 				Some(ref c)
-					if c == &ChainSpec::Development || c == &ChainSpec::CennznetKauri || c == &ChainSpec::CennznetRimu => {}
+					if c == &ChainSpec::Development
+						|| c == &ChainSpec::CennznetKauri
+						|| c == &ChainSpec::CennznetRimu => {}
 				_ => panic!("Factory is only supported for dev, kauri and rimu"),
 			}
 
