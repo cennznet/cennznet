@@ -60,29 +60,33 @@ commands:
           name: Restore target cache
           key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}
   cargo-check:
-    - run:
-        name: Build
-        command: |
-          cargo check
-        no_output_timeout: 30m
+    steps:
+      - run:
+          name: Build
+          command: |
+            cargo check
+          no_output_timeout: 30m
   cargo-build-test:
-    - run:
-        name: Build tests
-        command: |
-          cargo test --no-run --all
+    steps:
+      - run:
+          name: Build tests
+          command: |
+            cargo test --no-run --all
   cargo-run-test:
-    - run:
-        name: Run tests
-        command: |
-          cargo test --all
+    steps:
+      - run:
+          name: Run tests
+          command: |
+            cargo test --all
   docker-build-and-publish:
-    - run:
-        name: Build and publish Docker image
-        command: |
-          docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-          docker build --pull -t cennznet/cennznet:dev -f docker/Dockerfile .
-          docker push cennznet/cennznet:dev
-        no_output_timeout: 60m
+    steps:
+      - run:
+          name: Build and publish Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            docker build --pull -t cennznet/cennznet:dev -f docker/Dockerfile .
+            docker push cennznet/cennznet:dev
+          no_output_timeout: 60m
 
 jobs:
   build-bin:
