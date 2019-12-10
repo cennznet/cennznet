@@ -25,13 +25,13 @@ pub use test_client::*;
 pub type Executor = substrate_executor::NativeExecutor<cennznet_executor::Executor>;
 
 /// Default backend type.
-pub type Backend = client_db::Backend<cennznet_primitives::Block>;
+pub type Backend = client_db::Backend<cennznet_primitives::types::Block>;
 
 /// Test client type.
 pub type Client = client::Client<
 	Backend,
 	client::LocalCallExecutor<Backend, Executor>,
-	cennznet_primitives::Block,
+	cennznet_primitives::types::Block,
 	cennznet_runtime::RuntimeApi,
 >;
 

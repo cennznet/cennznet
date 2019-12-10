@@ -21,7 +21,7 @@
 //! This module shows how you can write a Rust RPC client that connects to a running
 //! CENNZnet node and use staticly typed RPC wrappers.
 
-use cennznet_primitives::Hash;
+use cennznet_primitives::types::Hash;
 use futures::Future;
 use hyper::rt;
 use jsonrpc_core_client::{transports::http, RpcError};

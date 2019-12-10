@@ -34,7 +34,7 @@ use sr_primitives::Perbill;
 use substrate_service;
 use substrate_telemetry::TelemetryEndpoints;
 
-pub use cennznet_primitives::{AccountId, Balance};
+pub use cennznet_primitives::types::{AccountId, Balance};
 pub use cennznet_runtime::GenesisConfig;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";

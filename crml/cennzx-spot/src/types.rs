@@ -16,7 +16,7 @@
 //!
 //! CENNZX-SPOT Types
 //!
-use cennznet_primitives::AssetId;
+use cennznet_primitives::types::AssetId;
 use core::convert::TryInto;
 use uint::construct_uint;
 construct_uint! {

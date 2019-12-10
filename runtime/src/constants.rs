@@ -18,7 +18,7 @@
 
 /// Asset.
 pub mod asset {
-	use cennznet_primitives::AssetId;
+	use cennznet_primitives::types::AssetId;
 
 	pub const CENNZ_ASSET_ID: AssetId = 16000;
 	pub const CENTRAPAY_ASSET_ID: AssetId = 16001;
@@ -34,7 +34,7 @@ pub mod asset {
 
 /// Money matters.
 pub mod currency {
-	use cennznet_primitives::Balance;
+	use cennznet_primitives::types::Balance;
 
 	pub const MILLICENTS: Balance = 1_000_000_000;
 	pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
@@ -43,7 +43,7 @@ pub mod currency {
 
 /// Time.
 pub mod time {
-	use cennznet_primitives::{BlockNumber, Moment};
+	use cennznet_primitives::types::{BlockNumber, Moment};
 
 	/// Since BABE is probabilistic this is the average expected block time that
 	/// we are targetting. Blocks will be produced at a minimum duration defined
