@@ -89,6 +89,11 @@ commands:
           no_output_timeout: 60m
 
 jobs:
+  build:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - run: echo "successfully build and tested"
   build-bin:
     machine:
       image: ubuntu-1604:201903-01
@@ -141,3 +146,8 @@ workflows:
           filters:
             branches:
               only: develop
+      - build:
+          requires:
+            - build-bin
+            - build-test-and-run
+            - build-docker-and-publish
