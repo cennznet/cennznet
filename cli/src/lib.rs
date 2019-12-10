@@ -19,8 +19,8 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+use crate::chain_spec;
 pub use cli::error;
-pub mod chain_spec;
 #[macro_use]
 mod service;
 mod factory_impl;
@@ -123,7 +123,7 @@ impl AugmentClap for FactoryCmd {
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		Ok(match self {
-			ChainSpec::Development => chain_spec::development_config(),
+			ChainSpec::Development => chain_spec::dev_config(),
 			ChainSpec::CennznetKauri => chain_spec::kauri_config(),
 			ChainSpec::CennznetRimu => chain_spec::rimu_config(),
 		})
@@ -199,7 +199,7 @@ where
 
 			match ChainSpec::from(config.chain_spec.id()) {
 				Some(ref c)
-					if c == &ChainSpec::Development || c == &ChainSpec::CennznetKauri || &ChainSpec::CennznetRimu => {}
+					if c == &ChainSpec::Development || c == &ChainSpec::CennznetKauri || c == &ChainSpec::CennznetRimu => {}
 				_ => panic!("Factory is only supported for dev, kauri and rimu"),
 			}
 

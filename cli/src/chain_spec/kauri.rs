@@ -1,4 +1,6 @@
-use super::{get_account_id_from_seed, get_authority_keys_from_seed, testnet_genesis, GenesisConfig, NetworkKeys};
+use genesis_config::{
+	config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, GenesisConfig, NetworkKeys,
+};
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
@@ -40,10 +42,5 @@ fn network_keys() -> NetworkKeys {
 
 fn kauri_config_genesis() -> GenesisConfig {
 	let keys = network_keys();
-	testnet_genesis(
-		keys.initial_authorities,
-		keys.root_key,
-		keys.endowed_accounts,
-		false
-	)
+	config_genesis(keys.initial_authorities, keys.root_key, keys.endowed_accounts, false)
 }

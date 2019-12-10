@@ -1,4 +1,4 @@
-use super::{get_authority_keys_from_seed, testnet_genesis, GenesisConfig, get_account_id_from_seed, NetworkKeys};
+use genesis_config::{get_authority_keys_from_seed, get_account_id_from_seed, config_genesis, GenesisConfig, NetworkKeys};
 
 /// kauri genesis config
 fn network_keys() -> NetworkKeys {
@@ -33,10 +33,5 @@ fn network_keys() -> NetworkKeys {
 /// dev genesis config (single validator Alice)
 fn development_config_genesis() -> GenesisConfig {
     let keys = network_keys();
-	testnet_genesis(
-		keys.initial_authorities,
-		keys.root_key,
-		keys.endowed_accounts,
-		true,
-	)
+	config_genesis(keys.initial_authorities, keys.root_key, keys.endowed_accounts, true)
 }

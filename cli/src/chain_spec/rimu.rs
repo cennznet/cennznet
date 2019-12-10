@@ -1,4 +1,4 @@
-use super::{get_authority_keys_from_seed, GenesisConfig, NetworkKeys};
+use genesis_config::{config_genesis, GenesisConfig, NetworkKeys};
 
 /// rimu genesis config
 fn network_keys() -> NetworkKeys {
@@ -67,10 +67,5 @@ fn network_keys() -> NetworkKeys {
 
 fn rimu_config_genesis() -> GenesisConfig {
 	let keys = network_keys();
-	testnet_genesis(
-		keys.initial_authorities, 
-		keys.root_key, 
-		keys.endowed_accounts, 
-		false
-	)
+	config_genesis(keys.initial_authorities, keys.root_key, keys.endowed_accounts, false)
 }
