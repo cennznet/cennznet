@@ -59,6 +59,30 @@ commands:
       - restore_cache:
           name: Restore target cache
           key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}
+  cargo-check:
+    - run:
+        name: Build
+        command: |
+          cargo check
+        no_output_timeout: 30m
+  cargo-build-test:
+    - run:
+        name: Build tests
+        command: |
+          cargo test --no-run --all
+  cargo-run-test:
+    - run:
+        name: Run tests
+        command: |
+          cargo test --all
+  docker-build-and-publish:
+    - run:
+        name: Build and publish Docker image
+        command: |
+          docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+          docker build --pull -t cennznet/cennznet:dev -f docker/Dockerfile .
+          docker push cennznet/cennznet:dev
+        no_output_timeout: 60m
 
 jobs:
   build-bin:
@@ -75,14 +99,10 @@ jobs:
       - install-sccache
       - restore-cache
       - restore-target-cache
-      - run:
-          name: Build
-          command: |
-            cargo check
-          no_output_timeout: 30m
+      - cargo-check
       - save-cache
       - save-target-cache
-  build-test:
+  build-test-and-run:
     machine:
       image: ubuntu-1604:201903-01
     environment:
@@ -96,20 +116,24 @@ jobs:
       - install-sccache
       - restore-cache
       - restore-target-cache
-      - run:
-          name: Build tests
-          command: |
-            cargo test --no-run --all
+      - cargo-build-test
       - save-cache
       - save-target-cache
-      - run:
-          name: Run tests
-          command: |
-            cargo test --all
+      - cargo-run-test
+  build-docker-and-publish:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - docker-build-and-publish
 
 workflows:
   version: 2
-  build-test:
+  build-test-publish:
     jobs:
       - build-bin
-      - build-test
+      - build-test-and-run
+      - build-docker-and-publish:
+          filters:
+            branches:
+              only: develop
