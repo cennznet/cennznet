@@ -31,7 +31,6 @@ fn network_keys() -> NetworkKeys {
 }
 
 /// dev genesis config (single validator Alice)
-fn development_config_genesis() -> GenesisConfig {
-    let keys = network_keys();
-	config_genesis(keys.initial_authorities, keys.root_key, keys.endowed_accounts, true)
+fn dev_config_genesis() -> GenesisConfig {
+	config_genesis(network_keys(), true)
 }

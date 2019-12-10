@@ -53,7 +53,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 }
 
 pub fn get_account_id_from_seed(seed: &str) -> AccountId {
-	get_account_id_from_seed(seed)
+	get_from_seed::<AccountId>(seed)
 }
 
 /// Helper function to generate stash, controller and session key from seed
@@ -77,13 +77,11 @@ fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> Sess
 }
 
 /// Helper function to create GenesisConfig for testing
-pub fn config_genesis(
-	initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-	enable_println: bool,
-) -> GenesisConfig {
+pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> GenesisConfig {
 	const STASH: Balance = 100 * DOLLARS;
+	let initial_authorities = network_keys.initial_authorities;
+	let endowed_accounts = network_keys.root_key;
+	let root_key = network_keys.root_key;
 
 	GenesisConfig {
 		system: Some(SystemConfig {

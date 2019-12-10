@@ -41,6 +41,5 @@ fn network_keys() -> NetworkKeys {
 }
 
 fn kauri_config_genesis() -> GenesisConfig {
-	let keys = network_keys();
-	config_genesis(keys.initial_authorities, keys.root_key, keys.endowed_accounts, false)
+	config_genesis(network_keys(), false)
 }
