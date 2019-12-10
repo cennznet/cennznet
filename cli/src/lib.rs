@@ -41,10 +41,10 @@ use transaction_factory::RuntimeAdapter;
 pub enum ChainSpec {
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
-	LocalTestnet,
-	/// Whatever the current runtime is with the "global testnet" defaults.
-	StagingTestnet,
+	/// The CENNZnet Kauri testnet.
+	CennznetKauri,
+	/// The CENNZnet Rumi testnet.
+	CennznetRimu,
 }
 
 /// Custom subcommands.
@@ -124,16 +124,16 @@ impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		Ok(match self {
 			ChainSpec::Development => chain_spec::development_config(),
-			ChainSpec::LocalTestnet => chain_spec::local_testnet_config(),
-			ChainSpec::StagingTestnet => chain_spec::staging_testnet_config(),
+			ChainSpec::CennznetKauri => chain_spec::kauri_config(),
+			ChainSpec::CennznetRimu => chain_spec::rimu_config(),
 		})
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(ChainSpec::Development),
-			"local" => Some(ChainSpec::LocalTestnet),
-			"staging" => Some(ChainSpec::StagingTestnet),
+			"kauri" => Some(ChainSpec::CennznetKauri),
+			"rimu" => Some(ChainSpec::CennznetRimu),
 			_ => None,
 		}
 	}
@@ -198,8 +198,9 @@ where
 			};
 
 			match ChainSpec::from(config.chain_spec.id()) {
-				Some(ref c) if c == &ChainSpec::Development || c == &ChainSpec::LocalTestnet => {}
-				_ => panic!("Factory is only supported for development and local testnet."),
+				Some(ref c)
+					if c == &ChainSpec::Development || c == &ChainSpec::CennznetKauri || &ChainSpec::CennznetRimu => {}
+				_ => panic!("Factory is only supported for dev, kauri and rimu"),
 			}
 
 			let factory_state = FactoryState::new(cli_args.mode.clone(), cli_args.num, cli_args.rounds);
