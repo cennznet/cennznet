@@ -84,7 +84,11 @@ commands:
           name: Build and publish Docker image
           command: |
             IMAGE_NAME="cennznet/cennznet"
-            IMAGE_TAG="${CIRCLE_BRANCH////-}-${CIRCLE_SHA1:0:7}"
+            if [ "${CIRCLE_BRANCH}" == "develop" ]; then
+              IMAGE_TAG="latest"
+            else
+              IMAGE_TAG="${CIRCLE_BRANCH////-}-${CIRCLE_SHA1:0:7}"
+            fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
             docker push $IMAGE_NAME:$IMAGE_TAG
