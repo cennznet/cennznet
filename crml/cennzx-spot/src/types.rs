@@ -101,22 +101,37 @@ impl From<Compact<FeeRate>> for FeeRate {
 	}
 }
 
+/// The outer `FeeExchange` type. It is versioned to provide flexbility for future iterations
+/// while maintaining backward compatability.
+#[derive(Encode, Decode)]
+pub enum FeeExchange<T: HasCompact> {
+	// A V1 FeeExchange, it may be `None` meaning no fee exchange is required
+	#[codec(compact)]
+	V1(Option<FeeExchangeV1<T>>),
+}
+
+/// A v1 FeeExchange
+/// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
+/// embed within CENNZnet extrinsic payload.
+/// It specifies input asset ID and the max. limit of input asset to pay
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct FeeExchange<Balance: HasCompact> {
+pub struct FeeExchangeV1<Balance: HasCompact> {
+	/// An optional tip to increase transaction priority
+	#[codec(compact)]
+	pub tip: Balance,
 	/// The asset ID to pay in exchange for fee asset
 	#[codec(compact)]
 	pub asset_id: AssetId,
-	/// The max. amount of `asset_id` to pay for the needed fee amount.
-	/// The operation should fail otherwise.
+	/// The maximum `asset_id` to pay, given the exchange rate
 	#[codec(compact)]
 	pub max_payment: Balance,
 }
 
-impl<Balance: HasCompact> FeeExchange<Balance> {
+impl<Balance: HasCompact> FeeExchangeV1<Balance> {
 	/// Create a new FeeExchange
-	pub fn new(asset_id: AssetId, max_payment: Balance) -> Self {
-		Self { asset_id, max_payment }
+	pub fn new(tip: Balance, asset_id: AssetId, max_payment: Balance) -> Self {
+		Self { tip, asset_id, max_payment }
 	}
 }
 

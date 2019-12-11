@@ -17,7 +17,7 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use super::Trait;
-use crate::{types::FeeExchange, Module};
+use crate::{types::FeeExchangeV1, Module};
 use cennznet_primitives::traits::BuyFeeAsset;
 use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, prelude::*};
@@ -53,7 +53,7 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 }
 
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
-	type FeeExchange = FeeExchange<T::Balance>;
+	type FeeExchange = FeeExchangeV1<T::Balance>;
 	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
 	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &Self::FeeExchange) -> Result {
 		// TODO: Hard coded to use spending asset ID
@@ -78,7 +78,7 @@ pub(crate) mod impl_tests {
 	use crate::{
 		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
-		types::FeeExchange,
+		types::FeeExchangeV1,
 	};
 	use primitives::H256;
 	use support::traits::Currency;
@@ -102,7 +102,7 @@ pub(crate) mod impl_tests {
 			assert_ok!(<CennzXSpot as BuyFeeAsset<_, _>>::buy_fee_asset(
 				&user,
 				target_fee,
-				&FeeExchange::new(TRADE_ASSET_A_ID, 2_000_000),
+				&FeeExchangeV1::new(0, TRADE_ASSET_A_ID, 2_000_000),
 			));
 
 			// For more detail, see `fn get_output_price` in lib.rs
@@ -160,7 +160,7 @@ pub(crate) mod impl_tests {
 				<CennzXSpot as BuyFeeAsset<_, _>>::buy_fee_asset(
 					&user,
 					51,
-					&FeeExchange::new(TRADE_ASSET_A_ID, 1_000_000)
+					&FeeExchangeV1::new(0, TRADE_ASSET_A_ID, 1_000_000)
 				),
 				"Failed to charge transaction fees during conversion"
 			);
