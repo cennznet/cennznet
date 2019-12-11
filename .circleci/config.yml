@@ -93,7 +93,7 @@ jobs:
     machine:
       image: ubuntu-1604:201903-01
     steps:
-      - run: echo "successfully build and tested"
+      - run: echo "successfully built and tested"
   build-bin:
     machine:
       image: ubuntu-1604:201903-01
