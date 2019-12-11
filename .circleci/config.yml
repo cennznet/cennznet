@@ -144,7 +144,10 @@ workflows:
     jobs:
       - build-bin
       - build-test-and-run
-      - build-docker-and-publish
+      - build-docker-and-publish:
+          filters:
+            branches:
+              only: master
       - build:
           requires:
             - build-bin
