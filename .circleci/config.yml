@@ -83,8 +83,10 @@ commands:
       - run:
           name: Build and publish Docker image
           command: |
+            IMAGE_NAME="cennznet/cennznet"
+            IMAGE_TAG="${CIRCLE_BRANCH}-${CIRCLE_SHA1:0:7}"
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-            docker build --pull -t cennznet/cennznet:dev -f docker/Dockerfile .
+            docker build --pull -t $IMAGE_NAME:$IMAGE_TAG -f docker/Dockerfile .
             docker push cennznet/cennznet:dev
           no_output_timeout: 60m
 
