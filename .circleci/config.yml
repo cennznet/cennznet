@@ -87,7 +87,7 @@ commands:
             IMAGE_TAG="${CIRCLE_BRANCH////-}-${CIRCLE_SHA1:0:7}"
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --pull -t $IMAGE_NAME:$IMAGE_TAG -f docker/Dockerfile .
-            docker push cennznet/cennznet:dev
+            docker push $IMAGE_NAME:$IMAGE_TAG
           no_output_timeout: 60m
 
 jobs:
