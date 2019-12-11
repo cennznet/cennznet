@@ -1,6 +1,4 @@
-use genesis_config::{
-	config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, GenesisConfig, NetworkKeys,
-};
+use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
@@ -33,6 +31,9 @@ fn network_keys() -> NetworkKeys {
 	];
 	let root_key = get_account_id_from_seed("Kauri");
 
+	// DEBUG:
+	println!("endowed_accounts: {:?}", endowed_accounts);
+
 	NetworkKeys {
 		endowed_accounts,
 		initial_authorities,
@@ -40,6 +41,15 @@ fn network_keys() -> NetworkKeys {
 	}
 }
 
-fn kauri_config_genesis() -> GenesisConfig {
-	config_genesis(network_keys(), false)
+pub fn config() -> ChainSpec {
+	ChainSpec::from_genesis(
+		"Kauri CENNZnet",
+		"Kauri",
+		|| config_genesis(network_keys(), false),
+		vec![],
+		None,
+		Some("kauri"),
+		None,
+		Default::default(),
+	)
 }

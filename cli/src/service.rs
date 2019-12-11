@@ -49,6 +49,7 @@ construct_simple_protocol! {
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
+#[macro_export]
 macro_rules! new_full_start {
 	($config:expr) => {{
 		type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;

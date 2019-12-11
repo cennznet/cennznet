@@ -1,4 +1,4 @@
-use genesis_config::{get_authority_keys_from_seed, get_account_id_from_seed, config_genesis, GenesisConfig, NetworkKeys};
+use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
 
 /// kauri genesis config
 fn network_keys() -> NetworkKeys {
@@ -18,10 +18,8 @@ fn network_keys() -> NetworkKeys {
 		get_account_id_from_seed("Eve//stash"),
 		get_account_id_from_seed("Ferdie//stash"),
 	];
-	let initial_authorities = vec![
-        get_authority_keys_from_seed("Alice"),
-	];
-	let root_key = get_account_id_from_seed("Alice"),
+	let initial_authorities = vec![get_authority_keys_from_seed("Alice")];
+	let root_key = get_account_id_from_seed("Alice");
 
 	NetworkKeys {
 		endowed_accounts,
@@ -31,6 +29,15 @@ fn network_keys() -> NetworkKeys {
 }
 
 /// dev genesis config (single validator Alice)
-fn dev_config_genesis() -> GenesisConfig {
-	config_genesis(network_keys(), true)
+pub fn config() -> ChainSpec {
+	ChainSpec::from_genesis(
+		"Development",
+		"dev",
+		|| config_genesis(network_keys(), true),
+		vec![],
+		None,
+		None,
+		None,
+		Default::default(),
+	)
 }

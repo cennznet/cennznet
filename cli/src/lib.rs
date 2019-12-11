@@ -19,11 +19,11 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-use crate::chain_spec;
 pub use cli::error;
 #[macro_use]
-mod service;
+mod chain_spec;
 mod factory_impl;
+mod service;
 
 use crate::factory_impl::FactoryState;
 use cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
@@ -123,9 +123,9 @@ impl AugmentClap for FactoryCmd {
 impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		Ok(match self {
-			ChainSpec::Development => chain_spec::dev_config(),
-			ChainSpec::CennznetKauri => chain_spec::kauri_config(),
-			ChainSpec::CennznetRimu => chain_spec::rimu_config(),
+			ChainSpec::Development => chain_spec::dev::config(),
+			ChainSpec::CennznetKauri => chain_spec::kauri::config(),
+			ChainSpec::CennznetRimu => chain_spec::rimu::config(),
 		})
 	}
 
