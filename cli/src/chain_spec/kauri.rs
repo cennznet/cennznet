@@ -31,9 +31,6 @@ fn network_keys() -> NetworkKeys {
 	];
 	let root_key = get_account_id_from_seed("Kauri");
 
-	// DEBUG:
-	println!("endowed_accounts: {:?}", endowed_accounts);
-
 	NetworkKeys {
 		endowed_accounts,
 		initial_authorities,
