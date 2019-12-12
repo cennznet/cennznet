@@ -16,7 +16,6 @@
 //!
 //! CENNZX-SPOT Types
 //!
-use cennznet_primitives::types::AssetId;
 use core::convert::TryInto;
 use uint::construct_uint;
 construct_uint! {
@@ -29,7 +28,7 @@ construct_uint! {
 	pub struct U256(4);
 }
 
-use codec::{Compact, CompactAs, Decode, Encode, HasCompact};
+use codec::{Compact, CompactAs, Decode, Encode};
 
 /// FeeRate S.F precision
 const SCALE_FACTOR: u128 = 1_000_000;
@@ -98,25 +97,6 @@ impl CompactAs for FeeRate {
 impl From<Compact<FeeRate>> for FeeRate {
 	fn from(x: Compact<FeeRate>) -> FeeRate {
 		x.0
-	}
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct FeeExchange<Balance: HasCompact> {
-	/// The asset ID to pay in exchange for fee asset
-	#[codec(compact)]
-	pub asset_id: AssetId,
-	/// The max. amount of `asset_id` to pay for the needed fee amount.
-	/// The operation should fail otherwise.
-	#[codec(compact)]
-	pub max_payment: Balance,
-}
-
-impl<Balance: HasCompact> FeeExchange<Balance> {
-	/// Create a new FeeExchange
-	pub fn new(asset_id: AssetId, max_payment: Balance) -> Self {
-		Self { asset_id, max_payment }
 	}
 }
 

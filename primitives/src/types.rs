@@ -67,3 +67,28 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, OpaqueExtrinsic>;
 /// Block ID.
 pub type BlockId = generic::BlockId<Block>;
+
+/// The outer `FeeExchange` type. It is versioned to provide flexbility for future iterations
+/// while maintaining backward compatability.
+pub enum FeeExchange<T> {
+	/// A V1 FeeExchange, it may be `None` meaning no fee exchange is required
+	V1(FeeExchangeV1<T>),
+}
+
+/// A v1 FeeExchange
+/// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
+/// embed within CENNZnet extrinsic payload.
+/// It specifies input asset ID and the max. limit of input asset to pay
+pub struct FeeExchangeV1<T> {
+	/// The Asset ID to exchange for network fee asset
+	pub asset_id: AssetId,
+	/// The maximum `asset_id` to pay, given the exchange rate
+	pub max_payment: T,
+}
+
+impl<T> FeeExchangeV1<T> {
+	/// Create a new FeeExchange
+	pub fn new(asset_id: AssetId, max_payment: T) -> Self {
+		Self { asset_id, max_payment }
+	}
+}

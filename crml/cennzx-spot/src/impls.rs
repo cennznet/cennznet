@@ -17,8 +17,8 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use super::Trait;
-use crate::{types::FeeExchange, Module};
-use cennznet_primitives::traits::BuyFeeAsset;
+use crate::Module;
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchangeV1 as FeeExchange};
 use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, prelude::*};
 use runtime_primitives::traits::Hash;
@@ -78,8 +78,8 @@ pub(crate) mod impl_tests {
 	use crate::{
 		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
-		types::FeeExchange,
 	};
+	use cennznet_primitives::types::FeeExchangeV1 as FeeExchange;
 	use primitives::H256;
 	use support::traits::Currency;
 
