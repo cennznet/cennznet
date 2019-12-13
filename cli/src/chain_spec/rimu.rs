@@ -1,8 +1,25 @@
+// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Rimu genesis config
+
 use super::{config_genesis, ChainSpec, NetworkKeys};
 use hex_literal::hex;
 use primitives::crypto::UncheckedInto;
 
-/// rimu genesis config
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
 		hex!["3aebf8155bd297575b4ce00c1e620d5e1701600bda1eb70f72b547ee18c6682e"].unchecked_into(),

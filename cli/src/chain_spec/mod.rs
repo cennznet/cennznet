@@ -167,7 +167,6 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
 			endowed_accounts: endowed_accounts.clone(),
 			next_asset_id: NEXT_ASSET_ID,
-			// create_asset_stake: 1000, // removed upstream
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 		}),

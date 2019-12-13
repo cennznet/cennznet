@@ -43,7 +43,7 @@ pub enum ChainSpec {
 	Development,
 	/// The CENNZnet Kauri testnet.
 	CennznetKauri,
-	/// The CENNZnet Rumi testnet.
+	/// The CENNZnet Rimu testnet.
 	CennznetRimu,
 }
 
