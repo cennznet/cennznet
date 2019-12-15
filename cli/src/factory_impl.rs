@@ -49,10 +49,10 @@ pub struct FactoryState<N> {
 	num: u32,
 }
 
-type Number = <<cennznet_primitives::Block as BlockT>::Header as HeaderT>::Number;
+type Number = <<cennznet_primitives::types::Block as BlockT>::Header as HeaderT>::Number;
 
 impl<Number> FactoryState<Number> {
-	fn build_extra(index: cennznet_primitives::Index, phase: u64) -> cennznet_runtime::SignedExtra {
+	fn build_extra(index: cennznet_primitives::types::Index, phase: u64) -> cennznet_runtime::SignedExtra {
 		(
 			None,
 			system::CheckVersion::new(),
@@ -67,12 +67,12 @@ impl<Number> FactoryState<Number> {
 }
 
 impl RuntimeAdapter for FactoryState<Number> {
-	type AccountId = cennznet_primitives::AccountId;
-	type Balance = cennznet_primitives::Balance;
-	type Block = cennznet_primitives::Block;
+	type AccountId = cennznet_primitives::types::AccountId;
+	type Balance = cennznet_primitives::types::Balance;
+	type Block = cennznet_primitives::types::Block;
 	type Phase = sr_primitives::generic::Phase;
 	type Secret = sr25519::Pair;
-	type Index = cennznet_primitives::Index;
+	type Index = cennznet_primitives::types::Index;
 
 	type Number = Number;
 

@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use sr_primitives::Perbill;
 use substrate_service;
 
-pub use cennznet_primitives::{AccountId, Balance};
+pub use cennznet_primitives::types::{AccountId, Balance};
 pub use cennznet_runtime::GenesisConfig;
 
 pub mod dev;
