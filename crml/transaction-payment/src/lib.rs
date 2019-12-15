@@ -31,6 +31,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use cennznet_primitives::types::FeeExchangeV1 as FeeExchange;
 use codec::{Decode, Encode};
 use rstd::prelude::*;
 use sr_primitives::{
@@ -50,7 +51,7 @@ type Multiplier = Fixed64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + generic_asset::Trait {
 	/// The currency type in which fees will be paid.
 	type Currency: Currency<Self::AccountId>;
 
@@ -102,12 +103,16 @@ impl<T: Trait> Module<T> {}
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct ChargeTransactionPayment<T: Trait + Send + Sync>(#[codec(compact)] BalanceOf<T>);
+pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
+	#[codec(compact)]
+	tip: BalanceOf<T>,
+	fee_exchange: Option<FeeExchange<T::Balance>>,
+}
 
 impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee)
+	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange<T::Balance>>) -> Self {
+		Self { tip, fee_exchange }
 	}
 
 	/// Compute the final fee value for a particular transaction.
@@ -148,7 +153,7 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 impl<T: Trait + Send + Sync> rstd::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
-		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
+		write!(f, "ChargeTransactionPayment<{:?}>", self.tip)
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
@@ -176,7 +181,7 @@ where
 		len: usize,
 	) -> TransactionValidity {
 		// pay any fees.
-		let fee = Self::compute_fee(len, info, self.0);
+		let fee = Self::compute_fee(len, info, self.tip);
 		let imbalance = match T::Currency::withdraw(
 			who,
 			fee,
@@ -261,6 +266,12 @@ mod tests {
 		type ExistentialDeposit = ExistentialDeposit;
 		type TransferFee = TransferFee;
 		type CreationFee = CreationFee;
+	}
+
+	impl generic_asset::Trait for Runtime {
+		type Balance = u128;
+		type AssetId = u32;
+		type Event = ();
 	}
 
 	thread_local! {
@@ -372,12 +383,12 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
 					.pre_dispatch(&1, CALL, info_from_weight(5), len)
 					.is_ok());
 				assert_eq!(Balances::free_balance(&1), 100 - 5 - 5 - 10);
 
-				assert!(ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
+				assert!(ChargeTransactionPayment::<Runtime>::from(5, None)
 					.pre_dispatch(&2, CALL, info_from_weight(3), len)
 					.is_ok());
 				assert_eq!(Balances::free_balance(&2), 200 - 5 - 10 - 3 - 5);
@@ -394,7 +405,7 @@ mod tests {
 				use sr_primitives::weights::Weight;
 
 				// maximum weight possible
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
 					.pre_dispatch(&1, CALL, info_from_weight(Weight::max_value()), 10)
 					.is_ok());
 				// fee will be proportional to what is the actual maximum weight in the runtime.
@@ -421,7 +432,7 @@ mod tests {
 					class: DispatchClass::Operational,
 				};
 				let len = 100;
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
 					.validate(&1, CALL, operational_transaction, len)
 					.is_ok());
 
@@ -430,7 +441,7 @@ mod tests {
 					weight: 0,
 					class: DispatchClass::Normal,
 				};
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
 					.validate(&1, CALL, free_transaction, len)
 					.is_err());
 			});
@@ -447,7 +458,7 @@ mod tests {
 				NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
 				let len = 10;
 
-				assert!(ChargeTransactionPayment::<Runtime>::from(10) // tipped
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, None)
 					.pre_dispatch(&1, CALL, info_from_weight(3), len)
 					.is_ok());
 				assert_eq!(Balances::free_balance(&1), 100 - 10 - (5 + 10 + 3) * 3 / 2);

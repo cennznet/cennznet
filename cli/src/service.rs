@@ -525,7 +525,7 @@ mod tests {
 				let check_era = system::CheckEra::from(Era::Immortal);
 				let check_nonce = system::CheckNonce::from(index);
 				let check_weight = system::CheckWeight::new();
-				let payment = transaction_payment::ChargeTransactionPayment::from(0);
+				let payment = transaction_payment::ChargeTransactionPayment::from(0, None);
 				let extra = (
 					None,
 					check_version,

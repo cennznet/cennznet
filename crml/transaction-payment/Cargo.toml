@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 cennznet-primitives = { path = "../../primitives", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
@@ -22,6 +23,7 @@ default = ["std"]
 std = [
 	"cennznet-primitives/std",
 	"codec/std",
+	"generic-asset/std",
 	"rstd/std",
 	"sr-primitives/std",
 	"support/std",
