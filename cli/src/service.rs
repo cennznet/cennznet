@@ -49,6 +49,7 @@ construct_simple_protocol! {
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
+#[macro_export]
 macro_rules! new_full_start {
 	($config:expr) => {{
 		type RpcExtension = jsonrpc_core::IoHandler<substrate_rpc::Metadata>;
@@ -414,7 +415,7 @@ mod tests {
 			.insert_ephemeral_from_seed::<babe::AuthorityPair>("//Alice")
 			.expect("Creates authority pair");
 
-		let chain_spec = crate::chain_spec::tests::integration_test_config_with_single_authority();
+		let chain_spec = crate::chain_spec::dev::config();
 
 		// For the block factory
 		let mut slot_num = 1u64;
@@ -556,14 +557,19 @@ mod tests {
 	#[ignore]
 	fn test_consensus() {
 		service_test::consensus(
-			crate::chain_spec::tests::integration_test_config_with_two_authorities(),
+			crate::chain_spec::kauri::config(),
 			|config| new_full(config),
 			|mut config| {
 				// light nodes are unsupported
 				config.roles = Roles::FULL;
 				new_full(config)
 			},
-			vec!["//Alice".into(), "//Bob".into()],
+			vec![
+				"//Andrea".into(),
+				"//Brooke".into(),
+				"//Courtney".into(),
+				"//Drew".into(),
+			],
 		)
 	}
 }
