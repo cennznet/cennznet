@@ -33,9 +33,12 @@
 
 use cennznet_primitives::types::FeeExchangeV1 as FeeExchange;
 use codec::{Decode, Encode};
-use rstd::prelude::*;
+use rstd::{fmt::Debug, prelude::*};
 use sr_primitives::{
-	traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
+	traits::{
+		Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension, SimpleArithmetic,
+		Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -45,13 +48,20 @@ use sr_primitives::{
 use support::{
 	decl_module, decl_storage,
 	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	Parameter,
 };
 
 type Multiplier = Fixed64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
-pub trait Trait: system::Trait + generic_asset::Trait {
+pub trait Trait: system::Trait {
+	/// The units in which we record balances.
+	type Balance: Parameter + Member + SimpleArithmetic + Default + Copy + MaybeSerializeDeserialize + Debug;
+
+	/// The arithmetic type of asset identifier.
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy;
+
 	/// The currency type in which fees will be paid.
 	type Currency: Currency<Self::AccountId>;
 
@@ -304,6 +314,8 @@ mod tests {
 	}
 
 	impl Trait for Runtime {
+		type Balance = u128;
+		type AssetId = u32;
 		type Currency = balances::Module<Runtime>;
 		type OnTransactionPayment = ();
 		type TransactionBaseFee = TransactionBaseFee;

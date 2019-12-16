@@ -199,6 +199,8 @@ parameter_types! {
 }
 
 impl transaction_payment::Trait for Runtime {
+	type Balance = Balance;
+	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
