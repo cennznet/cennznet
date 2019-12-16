@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test {
 	use crate::{CennznetDoughnut, Runtime};
-	use cennznut::CENNZnutV0;
 	use cennznut::{self};
+	use cennznut::{CENNZnut, CENNZnutV0};
 	use codec::Encode;
 	use sr_primitives::DoughnutV0;
 	use support::additional_traits::DelegatedDispatchVerifier;
@@ -28,7 +28,7 @@ mod test {
 	}
 
 	// A helper to make test CENNZnuts
-	fn make_cennznut(module: &str, method: &str) -> CENNZnutV0 {
+	fn make_cennznut(module: &str, method: &str) -> CENNZnut {
 		let method_obj = cennznut::Method {
 			name: method.to_string(),
 			block_cooldown: None,
@@ -39,9 +39,9 @@ mod test {
 			block_cooldown: None,
 			methods: vec![(method.to_string(), method_obj)],
 		};
-		CENNZnutV0 {
+		cennznut::V0(CENNZnutV0 {
 			modules: vec![(module.to_string(), module_obj)],
-		}
+		})
 	}
 
 	#[test]

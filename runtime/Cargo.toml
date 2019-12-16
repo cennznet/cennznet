@@ -57,7 +57,7 @@ timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockcha
 treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 utility = { package = "srml-utility", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
 transaction-payment = { package = "crml-transaction-payment", path = "../crml/transaction-payment", default-features = false }
-cennznut = { git = "https://github.com/cennznet/cennznut-rs", default-features = false, branch = "0.2.0" }
+cennznut = { git = "https://github.com/cennznet/cennznut-rs", default-features = false, branch = "0.3.0" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
