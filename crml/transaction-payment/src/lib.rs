@@ -204,11 +204,11 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use primitives::H256;
+	use primitives::{crypto::UncheckedInto, sr25519, H256};
 	use rstd::cell::RefCell;
 	use sr_primitives::{
 		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup, Verify},
 		weights::DispatchClass,
 		Perbill,
 	};
@@ -230,6 +230,8 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	type AccountId = <sr25519::Signature as Verify>::Signer;
+
 	impl system::Trait for Runtime {
 		type Origin = Origin;
 		type Index = u64;
@@ -237,7 +239,7 @@ mod tests {
 		type Call = ();
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = u64;
+		type AccountId = AccountId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
 		type Event = ();
@@ -313,8 +315,14 @@ mod tests {
 
 	type Balances = balances::Module<Runtime>;
 
+	macro_rules! user_account {
+		($x:expr) => {
+			H256::from_low_u64_be($x).unchecked_into()
+		};
+	}
+
 	pub struct ExtBuilder {
-		balance_factor: u64,
+		balance: u64,
 		base_fee: u64,
 		byte_fee: u64,
 		weight_to_fee: u64,
@@ -323,7 +331,7 @@ mod tests {
 	impl Default for ExtBuilder {
 		fn default() -> Self {
 			Self {
-				balance_factor: 1,
+				balance: 1,
 				base_fee: 0,
 				byte_fee: 1,
 				weight_to_fee: 1,
@@ -338,8 +346,8 @@ mod tests {
 			self.weight_to_fee = weight;
 			self
 		}
-		pub fn balance_factor(mut self, factor: u64) -> Self {
-			self.balance_factor = factor;
+		pub fn set_balance(mut self, balance: u64) -> Self {
+			self.balance = balance;
 			self
 		}
 		fn set_constants(&self) {
@@ -351,14 +359,7 @@ mod tests {
 			self.set_constants();
 			let mut t = system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
 			balances::GenesisConfig::<Runtime> {
-				balances: vec![
-					(1, 10 * self.balance_factor),
-					(2, 20 * self.balance_factor),
-					(3, 30 * self.balance_factor),
-					(4, 40 * self.balance_factor),
-					(5, 50 * self.balance_factor),
-					(6, 60 * self.balance_factor),
-				],
+				balances: vec![(user_account!(1), self.balance)],
 				vesting: vec![],
 			}
 			.assimilate_storage(&mut t)
@@ -378,53 +379,68 @@ mod tests {
 	#[test]
 	fn signed_extension_transaction_payment_work() {
 		ExtBuilder::default()
-			.balance_factor(10) // 100
+			.set_balance(100)
 			.fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
 			.build()
 			.execute_with(|| {
 				let len = 10;
+				let user = user_account!(1);
 				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
-					.pre_dispatch(&1, CALL, info_from_weight(5), len)
+					.pre_dispatch(&user, CALL, info_from_weight(5), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&1), 100 - 5 - 5 - 10);
+				assert_eq!(Balances::free_balance(&user), 100 - 5 - 5 - 10);
+			});
+	}
 
+	#[test]
+	fn signed_extension_transaction_payment_work_with_tip() {
+		ExtBuilder::default()
+			.set_balance(100)
+			.fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
+			.build()
+			.execute_with(|| {
+				let len = 10;
+				let user = user_account!(1);
 				assert!(ChargeTransactionPayment::<Runtime>::from(5, None)
-					.pre_dispatch(&2, CALL, info_from_weight(3), len)
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&2), 200 - 5 - 10 - 3 - 5);
+				assert_eq!(Balances::free_balance(&user), 100 - 5 - 10 - 3 - 5);
 			});
 	}
 
 	#[test]
 	fn signed_extension_transaction_payment_is_bounded() {
 		ExtBuilder::default()
-			.balance_factor(1000)
+			.set_balance(10000)
 			.fees(0, 0, 1)
 			.build()
 			.execute_with(|| {
 				use sr_primitives::weights::Weight;
+				let user = user_account!(1);
 
 				// maximum weight possible
 				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
-					.pre_dispatch(&1, CALL, info_from_weight(Weight::max_value()), 10)
+					.pre_dispatch(&user, CALL, info_from_weight(Weight::max_value()), 10)
 					.is_ok());
 				// fee will be proportional to what is the actual maximum weight in the runtime.
 				assert_eq!(
-					Balances::free_balance(&1),
+					Balances::free_balance(&user),
 					(10000 - <Runtime as system::Trait>::MaximumBlockWeight::get()) as u64
 				);
 			});
 	}
 
 	#[test]
-	fn signed_extension_allows_free_transactions() {
+	fn signed_extension_allows_free_operational_transactions() {
 		ExtBuilder::default()
 			.fees(100, 1, 1)
-			.balance_factor(0)
+			.set_balance(0)
 			.build()
 			.execute_with(|| {
+				let user = user_account!(1);
+
 				// 1 ain't have a penny.
-				assert_eq!(Balances::free_balance(&1), 0);
+				assert_eq!(Balances::free_balance(&user), 0);
 
 				// like a FreeOperational
 				let operational_transaction = DispatchInfo {
@@ -433,16 +449,31 @@ mod tests {
 				};
 				let len = 100;
 				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
-					.validate(&1, CALL, operational_transaction, len)
+					.validate(&user, CALL, operational_transaction, len)
 					.is_ok());
+			});
+	}
+
+	#[test]
+	fn signed_extension_rejects_free_normal_transactions() {
+		ExtBuilder::default()
+			.fees(100, 1, 1)
+			.set_balance(0)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+
+				// 1 ain't have a penny.
+				assert_eq!(Balances::free_balance(&user), 0);
 
 				// like a FreeNormal
 				let free_transaction = DispatchInfo {
 					weight: 0,
 					class: DispatchClass::Normal,
 				};
+				let len = 100;
 				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
-					.validate(&1, CALL, free_transaction, len)
+					.validate(&user, CALL, free_transaction, len)
 					.is_err());
 			});
 	}
@@ -451,17 +482,18 @@ mod tests {
 	fn signed_ext_length_fee_is_also_updated_per_congestion() {
 		ExtBuilder::default()
 			.fees(5, 1, 1)
-			.balance_factor(10)
+			.set_balance(100)
 			.build()
 			.execute_with(|| {
 				// all fees should be x1.5
 				NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
 				let len = 10;
+				let user = user_account!(1);
 
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, None)
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&1), 100 - 10 - (5 + 10 + 3) * 3 / 2);
+				assert_eq!(Balances::free_balance(&user), 100 - 10 - (5 + 10 + 3) * 3 / 2);
 			})
 	}
 }

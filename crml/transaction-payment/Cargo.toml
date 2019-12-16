@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 cennznet-primitives = { path = "../../primitives", default-features = false }
+cennzx-spot = { package = "crml-cennzx-spot", path = "../cennzx-spot", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
 generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1", default-features = false }
@@ -22,6 +23,7 @@ balances = { package = "srml-balances", git = "https://github.com/plugblockchain
 default = ["std"]
 std = [
 	"cennznet-primitives/std",
+	"cennzx-spot/std",
 	"codec/std",
 	"generic-asset/std",
 	"rstd/std",
