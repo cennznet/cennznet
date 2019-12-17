@@ -288,12 +288,6 @@ mod tests {
 		type CreationFee = CreationFee;
 	}
 
-	impl generic_asset::Trait for Runtime {
-		type Balance = u128;
-		type AssetId = u32;
-		type Event = ();
-	}
-
 	thread_local! {
 		static TRANSACTION_BASE_FEE: RefCell<u64> = RefCell::new(0);
 		static TRANSACTION_BYTE_FEE: RefCell<u64> = RefCell::new(1);

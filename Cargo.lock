@@ -800,13 +800,11 @@ name = "crml-transaction-payment"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
- "crml-cennzx-spot",
  "parity-scale-codec",
  "sr-io",
  "sr-primitives",
  "sr-std",
  "srml-balances",
- "srml-generic-asset",
  "srml-support",
  "srml-system",
  "substrate-primitives",
