@@ -30,6 +30,7 @@ use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
 };
+use codec::alloc::string::ToString;
 use codec::{Decode, Encode};
 use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use grandpa::fg_primitives;
@@ -520,8 +521,7 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 		// Strips [c|p|s]rml- prefix
 		cennznut
 			.validate(&module[5..], method, &[])
-			.or_else(|_| Err("this is an error"))
-		// .or_else(|e| Err(format!("{}", e)))
+			.or_else(|e| Err(e.to_string().as_str()))
 	}
 }
 
