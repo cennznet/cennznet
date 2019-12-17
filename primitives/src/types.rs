@@ -91,10 +91,3 @@ pub struct FeeExchangeV1<T> {
 	#[codec(compact)]
 	pub max_payment: T,
 }
-
-impl<T> FeeExchangeV1<T> {
-	/// Create a new FeeExchange
-	pub fn new(asset_id: AssetId, max_payment: T) -> Self {
-		Self { asset_id, max_payment }
-	}
-}

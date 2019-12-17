@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2019 Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common types and traits used by CENNZnet node.
+//! Common implementaiton used by CENNZnet node.
 
-#![warn(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+use crate::types::{AssetId, FeeExchangeV1};
 
-mod impls;
-pub mod traits;
-pub mod types;
+impl<T> FeeExchangeV1<T> {
+	/// Create a new FeeExchange
+	pub fn new(asset_id: AssetId, max_payment: T) -> Self {
+		Self { asset_id, max_payment }
+	}
+}
