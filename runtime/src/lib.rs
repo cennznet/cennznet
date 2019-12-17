@@ -518,7 +518,10 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Strips [c|p|s]rml- prefix
-		cennznut.validate(&module[5..], method, &[])
+		cennznut
+			.validate(&module[5..], method, &[])
+			.or_else(|_| Err("this is an error"))
+		// .or_else(|e| Err(format!("{}", e)))
 	}
 }
 

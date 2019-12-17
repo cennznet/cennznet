@@ -39,7 +39,7 @@ mod test {
 			block_cooldown: None,
 			methods: vec![(method.to_string(), method_obj)],
 		};
-		cennznut::V0(CENNZnutV0 {
+		CENNZnut::V0(CENNZnutV0 {
 			modules: vec![(module.to_string(), module_obj)],
 		})
 	}
