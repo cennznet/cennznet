@@ -25,12 +25,11 @@ use babe_primitives::{AuthorityId as BabeId, AuthoritySignature as BabeSignature
 use cennznet_primitives::types::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
 };
-use cennznut::{CENNZnut, Validate};
+use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use client::{
 	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
 	impl_runtime_apis, runtime_api as client_api,
 };
-use codec::alloc::string::ToString;
 use codec::{Decode, Encode};
 use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use grandpa::fg_primitives;
@@ -519,9 +518,15 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Strips [c|p|s]rml- prefix
-		cennznut
-			.validate(&module[5..], method, &[])
-			.or_else(|e| Err(e.to_string().as_str()))
+		match cennznut.validate(&module[5..], method, &[]) {
+			Ok(r) => Ok(r),
+			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
+			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),
+			Err(ValidationErr::NoPermission(Domain::Module)) => Err("CENNZnut does not grant permission for module"),
+			Err(ValidationErr::NoPermission(Domain::MethodArguments)) => {
+				Err("CENNZnut does not grant permission for method arguments")
+			}
+		}
 	}
 }
 
