@@ -18,7 +18,8 @@
 //!
 use super::Trait;
 use crate::Module;
-use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchangeV1 as FeeExchange};
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
+use core::convert::TryInto;
 use primitives::crypto::{UncheckedFrom, UncheckedInto};
 use rstd::{marker::PhantomData, prelude::*};
 use runtime_primitives::traits::Hash;
@@ -53,18 +54,27 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 }
 
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
-	type FeeExchange = FeeExchange<T::Balance>;
+	type FeeExchange = FeeExchange;
 	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
 	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &Self::FeeExchange) -> Result {
+		let fee_exchange = match exchange_op {
+			FeeExchange::V1(ex) => ex,
+		};
+
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id: T::AssetId = <generic_asset::Module<T>>::spending_asset_id();
+		let max_payment = fee_exchange
+			.max_payment
+			.try_into()
+			.map_err(|_| "Failed to convert max payment to balance type")?;
+
 		Self::make_asset_swap_output(
 			&who,
 			&who,
-			&T::AssetId::from(exchange_op.asset_id),
+			&T::AssetId::from(fee_exchange.asset_id),
 			&fee_asset_id,
 			amount,
-			exchange_op.max_payment,
+			max_payment,
 			Self::fee_rate(),
 		)
 		.map(|_| ())
@@ -79,7 +89,7 @@ pub(crate) mod impl_tests {
 		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
 	};
-	use cennznet_primitives::types::FeeExchangeV1 as FeeExchange;
+	use cennznet_primitives::types::FeeExchangeV1;
 	use primitives::H256;
 	use support::traits::Currency;
 
@@ -102,7 +112,7 @@ pub(crate) mod impl_tests {
 			assert_ok!(<CennzXSpot as BuyFeeAsset<_, _>>::buy_fee_asset(
 				&user,
 				target_fee,
-				&FeeExchange::new(TRADE_ASSET_A_ID, 2_000_000),
+				&FeeExchange::V1(FeeExchangeV1::new(TRADE_ASSET_A_ID, 2_000_000)),
 			));
 
 			// For more detail, see `fn get_output_price` in lib.rs
@@ -160,7 +170,7 @@ pub(crate) mod impl_tests {
 				<CennzXSpot as BuyFeeAsset<_, _>>::buy_fee_asset(
 					&user,
 					51,
-					&FeeExchange::new(TRADE_ASSET_A_ID, 1_000_000)
+					&FeeExchange::V1(FeeExchangeV1::new(TRADE_ASSET_A_ID, 2_000_000)),
 				),
 				"Failed to charge transaction fees during conversion"
 			);

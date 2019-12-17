@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common implementaiton used by CENNZnet node.
+//! Common implementation used by CENNZnet node.
 
-use crate::types::{AssetId, FeeExchangeV1};
+use crate::types::{AssetId, Balance, FeeExchangeV1};
 
-impl<T> FeeExchangeV1<T> {
+impl FeeExchangeV1 {
 	/// Create a new FeeExchange
-	pub fn new(asset_id: AssetId, max_payment: T) -> Self {
+	pub fn new(asset_id: AssetId, max_payment: Balance) -> Self {
 		Self { asset_id, max_payment }
 	}
 }

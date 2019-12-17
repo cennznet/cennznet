@@ -31,7 +31,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchangeV1 as FeeExchange};
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
 use rstd::{fmt::Debug, prelude::*};
 use sr_primitives::{
@@ -82,7 +82,7 @@ pub trait Trait: system::Trait {
 	type FeeMultiplierUpdate: Convert<(Weight, Multiplier), Multiplier>;
 
 	/// A function which buys fee asset if signalled by the extrinsic.
-	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, BalanceOf<Self>, FeeExchange = FeeExchange<BalanceOf<Self>>>;
+	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, BalanceOf<Self>, FeeExchange = FeeExchange>;
 }
 
 decl_storage! {
@@ -116,12 +116,12 @@ impl<T: Trait> Module<T> {}
 pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
-	fee_exchange: Option<FeeExchange<BalanceOf<T>>>,
+	fee_exchange: Option<FeeExchange>,
 }
 
 impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange<BalanceOf<T>>>) -> Self {
+	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange>) -> Self {
 		Self { tip, fee_exchange }
 	}
 
@@ -219,7 +219,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cennznet_primitives::traits::BuyFeeAsset;
+	use cennznet_primitives::types::FeeExchangeV1;
 	use primitives::{crypto::UncheckedInto, sr25519, H256};
 	use rstd::cell::RefCell;
 	use sr_primitives::{
@@ -317,10 +317,13 @@ mod tests {
 
 	/// Implement a fake BuyFeeAsset for tests
 	impl<T: Trait> BuyFeeAsset<AccountId, u64> for Module<T> {
-		type FeeExchange = FeeExchange<u64>;
+		type FeeExchange = FeeExchange;
 		fn buy_fee_asset(who: &AccountId, amount: u64, exchange_op: &Self::FeeExchange) -> Result {
-			if exchange_op.asset_id == VALID_ASSET_TO_BUY_FEE {
-				if exchange_op.max_payment == 0 {
+			let fee_exchange = match exchange_op {
+				FeeExchange::V1(ex) => ex,
+			};
+			if fee_exchange.asset_id == VALID_ASSET_TO_BUY_FEE {
+				if fee_exchange.max_payment == 0 {
 					return Err("no money");
 				}
 				let _ = Balances::deposit_into_existing(who, amount)?;
@@ -534,7 +537,7 @@ mod tests {
 			.execute_with(|| {
 				let user = user_account!(1);
 				let len = 10;
-				let fee_exchange = FeeExchange::new(VALID_ASSET_TO_BUY_FEE, 100_000);
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 100_000));
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
@@ -550,7 +553,7 @@ mod tests {
 			.execute_with(|| {
 				let user = user_account!(1);
 				let len = 10;
-				let fee_exchange = FeeExchange::new(INVALID_ASSET_TO_BUY_FEE, 100_000);
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(INVALID_ASSET_TO_BUY_FEE, 100_000));
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_err());
@@ -566,7 +569,7 @@ mod tests {
 			.execute_with(|| {
 				let user = user_account!(1);
 				let len = 10;
-				let fee_exchange = FeeExchange::new(VALID_ASSET_TO_BUY_FEE, 0);
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 0));
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_err());
