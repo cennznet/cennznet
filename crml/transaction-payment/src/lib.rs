@@ -31,7 +31,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::FeeExchangeV1 as FeeExchange;
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchangeV1 as FeeExchange};
 use codec::{Decode, Encode};
 use rstd::{fmt::Debug, prelude::*};
 use sr_primitives::{
@@ -82,7 +82,7 @@ pub trait Trait: system::Trait {
 	type FeeMultiplierUpdate: Convert<(Weight, Multiplier), Multiplier>;
 
 	/// A function which buys fee asset if signalled by the extrinsic.
-	type BuyFeeAsset;
+	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, BalanceOf<Self>, FeeExchange = FeeExchange<BalanceOf<Self>>>;
 }
 
 decl_storage! {
@@ -116,12 +116,12 @@ impl<T: Trait> Module<T> {}
 pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
-	fee_exchange: Option<FeeExchange<T::Balance>>,
+	fee_exchange: Option<FeeExchange<BalanceOf<T>>>,
 }
 
 impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange<T::Balance>>) -> Self {
+	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange<BalanceOf<T>>>) -> Self {
 		Self { tip, fee_exchange }
 	}
 
@@ -192,6 +192,11 @@ where
 	) -> TransactionValidity {
 		// pay any fees.
 		let fee = Self::compute_fee(len, info, self.tip);
+		if let Some(fee_exchange) = &self.fee_exchange {
+			if let Err(_) = T::BuyFeeAsset::buy_fee_asset(who, fee, fee_exchange) {
+				return InvalidTransaction::Payment.into();
+			}
+		}
 		let imbalance = match T::Currency::withdraw(
 			who,
 			fee,
@@ -214,6 +219,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use cennznet_primitives::traits::BuyFeeAsset;
 	use primitives::{crypto::UncheckedInto, sr25519, H256};
 	use rstd::cell::RefCell;
 	use sr_primitives::{
@@ -222,9 +228,11 @@ mod tests {
 		weights::DispatchClass,
 		Perbill,
 	};
-	use support::{impl_outer_origin, parameter_types};
+	use support::{dispatch::Result, impl_outer_origin, parameter_types};
 
 	const CALL: &<Runtime as system::Trait>::Call = &();
+	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
+	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
 
 	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Runtime;
@@ -313,6 +321,20 @@ mod tests {
 		}
 	}
 
+	/// Implement a fake BuyFeeAsset for tests
+	impl<T: Trait> BuyFeeAsset<AccountId, u64> for Module<T> {
+		type FeeExchange = FeeExchange<u64>;
+		fn buy_fee_asset(who: &AccountId, amount: u64, exchange_op: &Self::FeeExchange) -> Result {
+			if exchange_op.asset_id == VALID_ASSET_TO_BUY_FEE {
+				if exchange_op.max_payment == 0 {
+					return Err("no money");
+				}
+				let _ = Balances::deposit_into_existing(who, amount)?;
+			}
+			Ok(())
+		}
+	}
+
 	impl Trait for Runtime {
 		type Balance = u128;
 		type AssetId = u32;
@@ -322,7 +344,7 @@ mod tests {
 		type TransactionByteFee = TransactionByteFee;
 		type WeightToFee = WeightToFee;
 		type FeeMultiplierUpdate = ();
-		type BuyFeeAsset = ();
+		type BuyFeeAsset = Module<Self>;
 	}
 
 	type Balances = balances::Module<Runtime>;
@@ -506,6 +528,54 @@ mod tests {
 					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
 				assert_eq!(Balances::free_balance(&user), 100 - 10 - (5 + 10 + 3) * 3 / 2);
+			})
+	}
+
+	#[test]
+	fn uses_valid_currency_fee_exchange() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::new(VALID_ASSET_TO_BUY_FEE, 100_000);
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_ok());
+			})
+	}
+
+	#[test]
+	fn uses_invalid_currency_fee_exchange() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::new(INVALID_ASSET_TO_BUY_FEE, 100_000);
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_err());
+			})
+	}
+
+	#[test]
+	fn rejects_valid_currency_fee_exchange_with_zero_max_payment() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::new(VALID_ASSET_TO_BUY_FEE, 0);
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_err());
 			})
 	}
 }
