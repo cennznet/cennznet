@@ -51,7 +51,7 @@ use system::offchain::TransactionSubmitter;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMill, PerMilli};
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerMilli};
 pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
