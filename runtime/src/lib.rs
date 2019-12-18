@@ -199,13 +199,15 @@ parameter_types! {
 }
 
 impl transaction_payment::Trait for Runtime {
+	type Balance = Balance;
+	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToFee;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
-	type BuyFeeAsset = ();
+	type BuyFeeAsset = CennzxSpot;
 }
 
 parameter_types! {
@@ -496,7 +498,7 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 			system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			system::CheckNonce::<Runtime>::from(index),
 			system::CheckWeight::<Runtime>::new(),
-			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip, None),
 			Default::default(),
 		);
 		let raw_payload = SignedPayload::new(call, extra).ok()?;

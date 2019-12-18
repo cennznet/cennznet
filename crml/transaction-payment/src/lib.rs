@@ -31,10 +31,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
-use rstd::prelude::*;
+use rstd::{fmt::Debug, prelude::*};
 use sr_primitives::{
-	traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
+	traits::{
+		Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension, SimpleArithmetic,
+		Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -44,6 +48,7 @@ use sr_primitives::{
 use support::{
 	decl_module, decl_storage,
 	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	Parameter,
 };
 
 type Multiplier = Fixed64;
@@ -51,6 +56,12 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 pub trait Trait: system::Trait {
+	/// The units in which we record balances.
+	type Balance: Parameter + Member + SimpleArithmetic + Default + Copy + MaybeSerializeDeserialize + Debug;
+
+	/// The arithmetic type of asset identifier.
+	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy;
+
 	/// The currency type in which fees will be paid.
 	type Currency: Currency<Self::AccountId>;
 
@@ -71,7 +82,7 @@ pub trait Trait: system::Trait {
 	type FeeMultiplierUpdate: Convert<(Weight, Multiplier), Multiplier>;
 
 	/// A function which buys fee asset if signalled by the extrinsic.
-	type BuyFeeAsset;
+	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, BalanceOf<Self>, FeeExchange = FeeExchange>;
 }
 
 decl_storage! {
@@ -102,12 +113,16 @@ impl<T: Trait> Module<T> {}
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct ChargeTransactionPayment<T: Trait + Send + Sync>(#[codec(compact)] BalanceOf<T>);
+pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
+	#[codec(compact)]
+	tip: BalanceOf<T>,
+	fee_exchange: Option<FeeExchange>,
+}
 
 impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee)
+	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange>) -> Self {
+		Self { tip, fee_exchange }
 	}
 
 	/// Compute the final fee value for a particular transaction.
@@ -148,7 +163,7 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 impl<T: Trait + Send + Sync> rstd::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
-		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
+		write!(f, "ChargeTransactionPayment<{:?}>", self.tip)
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
@@ -176,7 +191,12 @@ where
 		len: usize,
 	) -> TransactionValidity {
 		// pay any fees.
-		let fee = Self::compute_fee(len, info, self.0);
+		let fee = Self::compute_fee(len, info, self.tip);
+		if let Some(fee_exchange) = &self.fee_exchange {
+			if T::BuyFeeAsset::buy_fee_asset(who, fee, fee_exchange).is_err() {
+				return InvalidTransaction::Payment.into();
+			}
+		}
 		let imbalance = match T::Currency::withdraw(
 			who,
 			fee,
@@ -199,17 +219,20 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use primitives::H256;
+	use cennznet_primitives::types::FeeExchangeV1;
+	use primitives::{crypto::UncheckedInto, sr25519, H256};
 	use rstd::cell::RefCell;
 	use sr_primitives::{
 		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup, Verify},
 		weights::DispatchClass,
 		Perbill,
 	};
-	use support::{impl_outer_origin, parameter_types};
+	use support::{dispatch::Result, impl_outer_origin, parameter_types};
 
 	const CALL: &<Runtime as system::Trait>::Call = &();
+	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
+	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
 
 	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Runtime;
@@ -225,6 +248,8 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	type AccountId = <sr25519::Signature as Verify>::Signer;
+
 	impl system::Trait for Runtime {
 		type Origin = Origin;
 		type Index = u64;
@@ -232,7 +257,7 @@ mod tests {
 		type Call = ();
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = u64;
+		type AccountId = AccountId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
 		type Event = ();
@@ -290,20 +315,45 @@ mod tests {
 		}
 	}
 
+	/// Implement a fake BuyFeeAsset for tests
+	impl<T: Trait> BuyFeeAsset<AccountId, u64> for Module<T> {
+		type FeeExchange = FeeExchange;
+		fn buy_fee_asset(who: &AccountId, amount: u64, exchange_op: &Self::FeeExchange) -> Result {
+			let fee_exchange = match exchange_op {
+				FeeExchange::V1(ex) => ex,
+			};
+			if fee_exchange.asset_id == VALID_ASSET_TO_BUY_FEE {
+				if fee_exchange.max_payment == 0 {
+					return Err("no money");
+				}
+				let _ = Balances::deposit_into_existing(who, amount)?;
+			}
+			Ok(())
+		}
+	}
+
 	impl Trait for Runtime {
+		type Balance = u128;
+		type AssetId = u32;
 		type Currency = balances::Module<Runtime>;
 		type OnTransactionPayment = ();
 		type TransactionBaseFee = TransactionBaseFee;
 		type TransactionByteFee = TransactionByteFee;
 		type WeightToFee = WeightToFee;
 		type FeeMultiplierUpdate = ();
-		type BuyFeeAsset = ();
+		type BuyFeeAsset = Module<Self>;
 	}
 
 	type Balances = balances::Module<Runtime>;
 
+	macro_rules! user_account {
+		($x:expr) => {
+			H256::from_low_u64_be($x).unchecked_into()
+		};
+	}
+
 	pub struct ExtBuilder {
-		balance_factor: u64,
+		balance: u64,
 		base_fee: u64,
 		byte_fee: u64,
 		weight_to_fee: u64,
@@ -312,7 +362,7 @@ mod tests {
 	impl Default for ExtBuilder {
 		fn default() -> Self {
 			Self {
-				balance_factor: 1,
+				balance: 1,
 				base_fee: 0,
 				byte_fee: 1,
 				weight_to_fee: 1,
@@ -327,8 +377,8 @@ mod tests {
 			self.weight_to_fee = weight;
 			self
 		}
-		pub fn balance_factor(mut self, factor: u64) -> Self {
-			self.balance_factor = factor;
+		pub fn set_balance(mut self, balance: u64) -> Self {
+			self.balance = balance;
 			self
 		}
 		fn set_constants(&self) {
@@ -340,14 +390,7 @@ mod tests {
 			self.set_constants();
 			let mut t = system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
 			balances::GenesisConfig::<Runtime> {
-				balances: vec![
-					(1, 10 * self.balance_factor),
-					(2, 20 * self.balance_factor),
-					(3, 30 * self.balance_factor),
-					(4, 40 * self.balance_factor),
-					(5, 50 * self.balance_factor),
-					(6, 60 * self.balance_factor),
-				],
+				balances: vec![(user_account!(1), self.balance)],
 				vesting: vec![],
 			}
 			.assimilate_storage(&mut t)
@@ -367,53 +410,68 @@ mod tests {
 	#[test]
 	fn signed_extension_transaction_payment_work() {
 		ExtBuilder::default()
-			.balance_factor(10) // 100
+			.set_balance(100)
 			.fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
-					.pre_dispatch(&1, CALL, info_from_weight(5), len)
+				let user = user_account!(1);
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+					.pre_dispatch(&user, CALL, info_from_weight(5), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&1), 100 - 5 - 5 - 10);
+				assert_eq!(Balances::free_balance(&user), 100 - 5 - 5 - 10);
+			});
+	}
 
-				assert!(ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-					.pre_dispatch(&2, CALL, info_from_weight(3), len)
+	#[test]
+	fn signed_extension_transaction_payment_work_with_tip() {
+		ExtBuilder::default()
+			.set_balance(100)
+			.fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
+			.build()
+			.execute_with(|| {
+				let len = 10;
+				let user = user_account!(1);
+				assert!(ChargeTransactionPayment::<Runtime>::from(5, None)
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&2), 200 - 5 - 10 - 3 - 5);
+				assert_eq!(Balances::free_balance(&user), 100 - 5 - 10 - 3 - 5);
 			});
 	}
 
 	#[test]
 	fn signed_extension_transaction_payment_is_bounded() {
 		ExtBuilder::default()
-			.balance_factor(1000)
+			.set_balance(10000)
 			.fees(0, 0, 1)
 			.build()
 			.execute_with(|| {
 				use sr_primitives::weights::Weight;
+				let user = user_account!(1);
 
 				// maximum weight possible
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
-					.pre_dispatch(&1, CALL, info_from_weight(Weight::max_value()), 10)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+					.pre_dispatch(&user, CALL, info_from_weight(Weight::max_value()), 10)
 					.is_ok());
 				// fee will be proportional to what is the actual maximum weight in the runtime.
 				assert_eq!(
-					Balances::free_balance(&1),
+					Balances::free_balance(&user),
 					(10000 - <Runtime as system::Trait>::MaximumBlockWeight::get()) as u64
 				);
 			});
 	}
 
 	#[test]
-	fn signed_extension_allows_free_transactions() {
+	fn signed_extension_allows_free_operational_transactions() {
 		ExtBuilder::default()
 			.fees(100, 1, 1)
-			.balance_factor(0)
+			.set_balance(0)
 			.build()
 			.execute_with(|| {
+				let user = user_account!(1);
+
 				// 1 ain't have a penny.
-				assert_eq!(Balances::free_balance(&1), 0);
+				assert_eq!(Balances::free_balance(&user), 0);
 
 				// like a FreeOperational
 				let operational_transaction = DispatchInfo {
@@ -421,17 +479,32 @@ mod tests {
 					class: DispatchClass::Operational,
 				};
 				let len = 100;
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
-					.validate(&1, CALL, operational_transaction, len)
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+					.validate(&user, CALL, operational_transaction, len)
 					.is_ok());
+			});
+	}
+
+	#[test]
+	fn signed_extension_rejects_free_normal_transactions() {
+		ExtBuilder::default()
+			.fees(100, 1, 1)
+			.set_balance(0)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+
+				// 1 ain't have a penny.
+				assert_eq!(Balances::free_balance(&user), 0);
 
 				// like a FreeNormal
 				let free_transaction = DispatchInfo {
 					weight: 0,
 					class: DispatchClass::Normal,
 				};
-				assert!(ChargeTransactionPayment::<Runtime>::from(0)
-					.validate(&1, CALL, free_transaction, len)
+				let len = 100;
+				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+					.validate(&user, CALL, free_transaction, len)
 					.is_err());
 			});
 	}
@@ -440,17 +513,66 @@ mod tests {
 	fn signed_ext_length_fee_is_also_updated_per_congestion() {
 		ExtBuilder::default()
 			.fees(5, 1, 1)
-			.balance_factor(10)
+			.set_balance(100)
 			.build()
 			.execute_with(|| {
 				// all fees should be x1.5
 				NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
 				let len = 10;
+				let user = user_account!(1);
 
-				assert!(ChargeTransactionPayment::<Runtime>::from(10) // tipped
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, None)
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
 					.is_ok());
-				assert_eq!(Balances::free_balance(&1), 100 - 10 - (5 + 10 + 3) * 3 / 2);
+				assert_eq!(Balances::free_balance(&user), 100 - 10 - (5 + 10 + 3) * 3 / 2);
+			})
+	}
+
+	#[test]
+	fn uses_valid_currency_fee_exchange() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 100_000));
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_ok());
+			})
+	}
+
+	#[test]
+	fn uses_invalid_currency_fee_exchange() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(INVALID_ASSET_TO_BUY_FEE, 100_000));
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_err());
+			})
+	}
+
+	#[test]
+	fn rejects_valid_currency_fee_exchange_with_zero_max_payment() {
+		ExtBuilder::default()
+			.fees(5, 1, 1)
+			.set_balance(1)
+			.build()
+			.execute_with(|| {
+				let user = user_account!(1);
+				let len = 10;
+				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 0));
+				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					.pre_dispatch(&user, CALL, info_from_weight(3), len)
+					.is_err());
 			})
 	}
 }
