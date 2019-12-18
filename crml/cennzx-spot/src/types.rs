@@ -33,8 +33,8 @@ pub trait Scaled {
 
 /// Per millionth of unit price
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PerMill {}
-impl Scaled for PerMill {
+pub enum PerMillion {}
+impl Scaled for PerMillion {
 	const SCALE: LowPrecisionUnsigned = 1_000_000;
 }
 
@@ -81,23 +81,23 @@ impl<S: Scaled> TryFrom<HighPrecisionUnsigned> for FeeRate<S> {
 	}
 }
 
-impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMill> {
+impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMillion> {
 	type Error = Error;
 	fn try_from(f: FeeRate<PerMilli>) -> Result<Self, Self::Error> {
-		let rate = PerMill::SCALE / PerMilli::SCALE;
+		let rate = PerMillion::SCALE / PerMilli::SCALE;
 		match f.0.checked_mul(rate) {
-			Some(x) => Ok(FeeRate::<PerMill>::from(x)),
+			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
 			None => Err(Error::Overflow),
 		}
 	}
 }
 
-impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMill> {
+impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMillion> {
 	type Error = Error;
 	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
-		let rate = PerMill::SCALE / PerCent::SCALE;
+		let rate = PerMillion::SCALE / PerCent::SCALE;
 		match f.0.checked_mul(rate) {
-			Some(x) => Ok(FeeRate::<PerMill>::from(x)),
+			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
 			None => Err(Error::Overflow),
 		}
 	}

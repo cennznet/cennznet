@@ -20,7 +20,7 @@
 use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
-	types::{FeeRate, LowPrecisionUnsigned, PerMill, PerMilli},
+	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerMilli},
 	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;
@@ -104,14 +104,14 @@ pub type CennzXSpot = Module<Test>;
 
 pub struct ExtBuilder {
 	core_asset_id: u32,
-	fee_rate: FeeRate<PerMill>,
+	fee_rate: FeeRate<PerMillion>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			core_asset_id: 0,
-			fee_rate: FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
+			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 		}
 	}
 }
@@ -459,7 +459,7 @@ fn make_asset_to_core_swap_output() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				5,                                                                       // buy_amount: T::Balance,
 				1400,                                                                    // max_sale: T::Balance,
-				FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
+				FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004
 		);
@@ -605,7 +605,7 @@ fn make_core_to_asset_output() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				5,                                                                       // buy_amount: T::Balance,
 				1400,                                                                    // max_sale: T::Balance,
-				FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
+				FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004
 		);
@@ -1340,7 +1340,7 @@ fn asset_to_asset_transfer_input() {
 #[test]
 fn set_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_fee_rate = FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(5u128)).unwrap();
+		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(5u128)).unwrap();
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
 	});
