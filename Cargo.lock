@@ -770,6 +770,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "parity-scale-codec",
+ "primitive-types",
  "serde",
  "sr-io",
  "sr-primitives",
@@ -778,7 +779,6 @@ dependencies = [
  "srml-support",
  "srml-system",
  "substrate-primitives",
- "uint",
 ]
 
 [[package]]

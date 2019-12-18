@@ -20,10 +20,10 @@
 use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
-	types::FeeRate,
+	types::{FeeRate, LowPrecisionUnsigned, PerMill, PerMilli},
 	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
-use core::convert::TryInto;
+use core::convert::TryFrom;
 use generic_asset;
 use primitives::{crypto::UncheckedInto, sr25519, H256};
 use runtime_primitives::{
@@ -75,20 +75,20 @@ impl system::Trait for Test {
 }
 
 impl generic_asset::Trait for Test {
-	type Balance = u128;
+	type Balance = LowPrecisionUnsigned;
 	type AssetId = u32;
 	type Event = ();
 }
 
-pub struct U128ToBalance(u128);
-impl From<u128> for U128ToBalance {
-	fn from(u: u128) -> Self {
-		U128ToBalance(u)
+pub struct UnsignedIntToBalance(LowPrecisionUnsigned);
+impl From<LowPrecisionUnsigned> for UnsignedIntToBalance {
+	fn from(u: LowPrecisionUnsigned) -> Self {
+		UnsignedIntToBalance(u)
 	}
 }
-impl From<U128ToBalance> for u128 {
-	fn from(u: U128ToBalance) -> u128 {
-		u.0.try_into().unwrap_or(u128::max_value())
+impl From<UnsignedIntToBalance> for LowPrecisionUnsigned {
+	fn from(u: UnsignedIntToBalance) -> Self {
+		u.0
 	}
 }
 
@@ -96,22 +96,22 @@ impl Trait for Test {
 	type Call = Call<Self>;
 	type Event = ();
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
-	type BalanceToU128 = u128;
-	type U128ToBalance = U128ToBalance;
+	type BalanceToUnsignedInt = LowPrecisionUnsigned;
+	type UnsignedIntToBalance = UnsignedIntToBalance;
 }
 
 pub type CennzXSpot = Module<Test>;
 
 pub struct ExtBuilder {
 	core_asset_id: u32,
-	fee_rate: FeeRate,
+	fee_rate: FeeRate<PerMill>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			core_asset_id: 0,
-			fee_rate: FeeRate::from_milli(3),
+			fee_rate: FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 		}
 	}
 }
@@ -267,12 +267,12 @@ fn get_output_price_zero_cases() {
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 0, 10, DefaultFeeRate::get()),
-			"Pool is empty"
+			"EmptyPool"
 		);
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 10, 0, DefaultFeeRate::get()),
-			"Pool is empty"
+			"EmptyPool"
 		);
 	});
 }
@@ -306,9 +306,9 @@ fn get_output_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_output_price(
-				u128::max_value() / 2,
-				u128::max_value() / 2,
-				u128::max_value(),
+				LowPrecisionUnsigned::max_value() / 2,
+				LowPrecisionUnsigned::max_value() / 2,
+				LowPrecisionUnsigned::max_value(),
 				DefaultFeeRate::get()
 			),
 			170651607010850639426882365627031758044
@@ -318,18 +318,18 @@ fn get_output_price_for_max_reserve_balance() {
 
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
-// Overflows as the both input and output reserve is at max capacity and output amount is little less than max of u128
+// Overflows as the both input and output reserve is at max capacity and output amount is little less than max of Balance
 #[test]
 fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_output_price(
-				u128::max_value() - 100,
-				u128::max_value(),
-				u128::max_value(),
+				LowPrecisionUnsigned::max_value() - 100,
+				LowPrecisionUnsigned::max_value(),
+				LowPrecisionUnsigned::max_value(),
 				DefaultFeeRate::get()
 			),
-			"Overflow error"
+			"Overflow"
 		);
 	});
 }
@@ -457,9 +457,9 @@ fn make_asset_to_core_swap_output() {
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
-				5,                      // buy_amount: T::Balance,
-				1400,                   // max_sale: T::Balance,
-				FeeRate::from_milli(3), // fee_rate
+				5,                                                                       // buy_amount: T::Balance,
+				1400,                                                                    // max_sale: T::Balance,
+				FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004
 		);
@@ -603,9 +603,9 @@ fn make_core_to_asset_output() {
 				&buyer,
 				&recipient,
 				&resolve_asset_id!(TradeAssetCurrencyA),
-				5,                      // buy_amount: T::Balance,
-				1400,                   // max_sale: T::Balance,
-				FeeRate::from_milli(3), // fee_rate
+				5,                                                                       // buy_amount: T::Balance,
+				1400,                                                                    // max_sale: T::Balance,
+				FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004
 		);
@@ -806,7 +806,7 @@ fn get_input_price_for_valid_data() {
 			CennzXSpot::get_input_price(
 				100_000_000_000_000,
 				120_627_710_511_649_660,
-				u128::max_value(),
+				LowPrecisionUnsigned::max_value(),
 				DefaultFeeRate::get()
 			),
 			281017019450612581324176880746747822
@@ -816,36 +816,18 @@ fn get_input_price_for_valid_data() {
 
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
-// Input amount is half of max(u128) and output reserve is max(u128) and input reserve is half of max(u128)
+// Input amount is half of max(Balance) and output reserve is max(Balance) and input reserve is half of max(Balance)
 #[test]
 fn get_input_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_input_price(
-				u128::max_value() / 2,
-				u128::max_value() / 2,
-				u128::max_value(),
+				LowPrecisionUnsigned::max_value() / 2,
+				LowPrecisionUnsigned::max_value() / 2,
+				LowPrecisionUnsigned::max_value(),
 				DefaultFeeRate::get()
 			),
 			169886353929574869427545984738775941814
-		);
-	});
-}
-
-/// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
-/// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
-// Overflows as the input reserve, output reserve and input amount is at max capacity(u128)
-#[test]
-fn get_input_price_should_fail_with_max_reserve_and_max_amount() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_err!(
-			CennzXSpot::get_input_price(
-				u128::max_value(),
-				u128::max_value(),
-				u128::max_value(),
-				DefaultFeeRate::get()
-			),
-			"Overflow error"
 		);
 	});
 }
@@ -1358,7 +1340,7 @@ fn asset_to_asset_transfer_input() {
 #[test]
 fn set_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_fee_rate = FeeRate::from_milli(5);
+		let new_fee_rate = FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(5u128)).unwrap();
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
 	});

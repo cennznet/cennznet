@@ -51,7 +51,7 @@ use system::offchain::TransactionSubmitter;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate};
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMill, PerMilli};
 pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
@@ -151,8 +151,8 @@ impl cennzx_spot::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
-	type BalanceToU128 = Balance;
-	type U128ToBalance = Balance;
+	type BalanceToUnsignedInt = Balance;
+	type UnsignedIntToBalance = Balance;
 }
 
 impl attestation::Trait for Runtime {

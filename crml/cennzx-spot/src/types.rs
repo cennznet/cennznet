@@ -16,87 +16,135 @@
 //!
 //! CENNZX-SPOT Types
 //!
-use core::convert::TryInto;
-use uint::construct_uint;
-construct_uint! {
-	/// 128-bit unsigned integer.
-	pub struct U128(2);
+use codec::{Decode, Encode};
+use core::{
+	convert::{From, Into, TryFrom},
+	marker::PhantomData,
+};
+use support::decl_error;
+
+pub use primitive_types::U256 as HighPrecisionUnsigned;
+pub use u128 as LowPrecisionUnsigned;
+
+/// A trait for values which hold an implicit scale factor that needs to be taken into account in calculations
+pub trait Scaled {
+	const SCALE: LowPrecisionUnsigned;
 }
 
-construct_uint! {
-	/// 256-bit unsigned integer.
-	pub struct U256(4);
+/// Per millionth of unit price
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PerMill {}
+impl Scaled for PerMill {
+	const SCALE: LowPrecisionUnsigned = 1_000_000;
 }
 
-use codec::{Compact, CompactAs, Decode, Encode};
+/// Per thousandth of unit price
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PerMilli {}
+impl Scaled for PerMilli {
+	const SCALE: LowPrecisionUnsigned = 1_000;
+}
 
-/// FeeRate S.F precision
-const SCALE_FACTOR: u128 = 1_000_000;
+/// Per hundredth of unit price
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PerCent {}
+impl Scaled for PerCent {
+	const SCALE: LowPrecisionUnsigned = 100;
+}
 
-/// FeeRate (based on Permill), uses a scale factor
-/// Inner type is `u128` in order to support compatibility with `generic_asset::Balance` type
-#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug)]
+decl_error! {
+	pub enum Error {
+		Overflow,
+		DivideByZero,
+		EmptyPool,
+	}
+}
+
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct FeeRate(u128);
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
+pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);
 
-impl FeeRate {
-	/// Create FeeRate as a decimal where `x / 1000`
-	pub fn from_milli(x: u128) -> FeeRate {
-		FeeRate(x * SCALE_FACTOR / 1000)
-	}
-
-	/// Create a FeeRate from a % i.e. `x / 100`
-	pub fn from_percent(x: u128) -> FeeRate {
-		FeeRate(x * SCALE_FACTOR / 100)
-	}
-
-	/// Divide a `u128` supported numeric by a FeeRate
-	pub fn safe_div<N: Into<u128>>(lhs: N, rhs: FeeRate) -> rstd::result::Result<u128, &'static str> {
-		let lhs = lhs.into();
-		let lhs = U256::from(lhs);
-		let scale_factor = U256::from(SCALE_FACTOR);
-		let rhs = U256::from(rhs.0);
-		let res: u128 = (lhs * scale_factor / rhs).try_into().map_err(|_| "Overflow error")?;
-
-		Ok(res)
-	}
-
-	//Self - lhs and N - rhs
-	pub fn safe_mul<N: Into<u128>>(lhs: FeeRate, rhs: N) -> rstd::result::Result<u128, &'static str> {
-		let rhs = U256::from(rhs.into());
-		let scale_factor = U256::from(SCALE_FACTOR);
-		let lhs = U256::from(lhs.0);
-		let res: u128 = (lhs * rhs / scale_factor).try_into().map_err(|_| "Overflow error")?;
-
-		Ok(res)
-	}
-
-	/// Returns the equivalent of 1 or 100%
-	pub fn one() -> FeeRate {
-		FeeRate(SCALE_FACTOR)
+impl<S: Scaled> Default for FeeRate<S> {
+	fn default() -> Self {
+		FeeRate::<S>::from(LowPrecisionUnsigned::default())
 	}
 }
 
-impl rstd::ops::Add<Self> for FeeRate {
-	type Output = Self;
-	fn add(self, rhs: FeeRate) -> Self::Output {
-		FeeRate(self.0 + rhs.0)
+impl<S: Scaled> TryFrom<HighPrecisionUnsigned> for FeeRate<S> {
+	type Error = Error;
+	fn try_from(h: HighPrecisionUnsigned) -> Result<Self, Self::Error> {
+		match LowPrecisionUnsigned::try_from(h) {
+			Ok(l) => Ok(FeeRate::<S>::from(l)),
+			Err(_) => Err(Error::Overflow),
+		}
 	}
 }
 
-impl CompactAs for FeeRate {
-	type As = u128;
-	fn encode_as(&self) -> &u128 {
-		&self.0
-	}
-	fn decode_from(x: u128) -> FeeRate {
-		FeeRate(x)
+impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMill> {
+	type Error = Error;
+	fn try_from(f: FeeRate<PerMilli>) -> Result<Self, Self::Error> {
+		let rate = PerMill::SCALE / PerMilli::SCALE;
+		match f.0.checked_mul(rate) {
+			Some(x) => Ok(FeeRate::<PerMill>::from(x)),
+			None => Err(Error::Overflow),
+		}
 	}
 }
 
-impl From<Compact<FeeRate>> for FeeRate {
-	fn from(x: Compact<FeeRate>) -> FeeRate {
-		x.0
+impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMill> {
+	type Error = Error;
+	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
+		let rate = PerMill::SCALE / PerCent::SCALE;
+		match f.0.checked_mul(rate) {
+			Some(x) => Ok(FeeRate::<PerMill>::from(x)),
+			None => Err(Error::Overflow),
+		}
+	}
+}
+
+impl<S: Scaled> FeeRate<S> {
+	pub fn checked_div(&self, d: Self) -> Option<Self> {
+		match HighPrecisionUnsigned::from(self.0)
+			.saturating_mul(S::SCALE.into())
+			.checked_div(d.0.into())
+		{
+			Some(h) => Self::try_from(h).ok(),
+			None => None,
+		}
+	}
+
+	pub fn checked_mul(&self, m: Self) -> Option<Self> {
+		match HighPrecisionUnsigned::from(self.0)
+			.saturating_mul(m.0.into())
+			.checked_div(S::SCALE.into())
+		{
+			Some(h) => Self::try_from(h).ok(),
+			None => None,
+		}
+	}
+
+	pub fn checked_add(&self, a: Self) -> Option<Self> {
+		match self.0.checked_add(a.0) {
+			Some(x) => Some(FeeRate::<S>::from(x)),
+			None => None,
+		}
+	}
+
+	pub fn one() -> Self {
+		FeeRate::<S>::from(S::SCALE)
+	}
+}
+
+impl<S: Scaled> From<LowPrecisionUnsigned> for FeeRate<S> {
+	fn from(f: LowPrecisionUnsigned) -> Self {
+		FeeRate::<S>(f, PhantomData)
+	}
+}
+
+impl<S: Scaled> From<FeeRate<S>> for LowPrecisionUnsigned {
+	fn from(f: FeeRate<S>) -> Self {
+		f.0
 	}
 }
 
@@ -105,39 +153,47 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn safe_div_works() {
-		let fee_rate = FeeRate::from_percent(110);
-		let lhs: u128 = 10;
-		assert_ok!(FeeRate::safe_div(lhs, fee_rate), 9 as u128); // Float value would be 9.0909
-
-		let fee_rate = FeeRate::from_percent(10);
-		assert_ok!(FeeRate::safe_div(lhs, fee_rate), 100 as u128);
+	fn fee_rate_div_when_indivisible() {
+		let fee_rate = FeeRate::<PerCent>::from(110u128);
+		let input = FeeRate::<PerCent>::from(10u128);
+		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerCent>::from(9u128));
 	}
 
 	#[test]
-	fn safe_div_overflow_works() {
-		let fee_rate = FeeRate::from_percent(10);
-		let lhs: u128 = u128::max_value();
-		assert_err!(FeeRate::safe_div(lhs, fee_rate), "Overflow error");
+	fn fee_rate_div_when_divisible() {
+		let fee_rate = FeeRate::<PerCent>::from(10u128);
+		let input = FeeRate::<PerCent>::from(10u128);
+		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerCent>::one());
 	}
 
 	#[test]
-	fn add_works() {
-		let fee_rate = FeeRate::from_percent(50) + FeeRate::from_percent(12);
-		assert_eq!(fee_rate, FeeRate::from_percent(62));
+	fn fee_rate_div_when_divide_by_zero() {
+		let fee_rate = FeeRate::<PerCent>::from(0);
+		let input = FeeRate::<PerCent>::from(10u128);
+		assert_eq!(input.checked_div(fee_rate), None);
 	}
 
 	#[test]
-	fn safe_mul_works() {
-		let fee_rate = FeeRate::from_percent(50);
-		let rhs: u128 = 2;
-		assert_ok!(FeeRate::safe_mul(fee_rate, rhs), 1 as u128);
+	fn fee_rate_div_when_overflow() {
+		let fee_rate = FeeRate::<PerCent>::from(10);
+		let input = FeeRate::<PerCent>::from(LowPrecisionUnsigned::max_value());
+		assert_eq!(input.checked_div(fee_rate), None);
 	}
 
 	#[test]
-	fn safe_mul_overflow_works() {
-		let fee_rate = FeeRate::from_percent(200);
-		let rhs: u128 = u128::max_value();
-		assert_err!(FeeRate::safe_mul(fee_rate, rhs), "Overflow error");
+	fn fee_rate_mul_no_overflow() {
+		assert_eq!(
+			FeeRate::<PerCent>::from(50u128)
+				.checked_mul(FeeRate::<PerCent>::from(2u128))
+				.unwrap(),
+			FeeRate::<PerCent>::from(1u128)
+		);
+	}
+
+	#[test]
+	fn fee_rate_mul_when_overflow() {
+		let fee_rate = FeeRate::<PerCent>::from(200u128);
+		let rhs = FeeRate::<PerCent>::from(LowPrecisionUnsigned::max_value());
+		assert_eq!(fee_rate.checked_mul(rhs), None);
 	}
 }

@@ -23,8 +23,9 @@ use cennznet_runtime::{
 	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
-use cennznet_runtime::{Block, FeeRate};
+use cennznet_runtime::{Block, FeeRate, PerMill, PerMilli};
 use chain_spec::ChainSpecExtension;
+use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use primitives::{Pair, Public};
@@ -171,7 +172,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			spending_asset_id: SPENDING_ASSET_ID,
 		}),
 		cennzx_spot: Some(CennzxSpotConfig {
-			fee_rate: FeeRate::from_milli(3),
+			fee_rate: FeeRate::<PerMill>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
 	}
