@@ -73,7 +73,7 @@ pub type BlockId = generic::BlockId<Block>;
 /// while maintaining backward compatability.
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 pub enum FeeExchange {
-	/// A V1 FeeExchange, it may be `None` meaning no fee exchange is required
+	/// A V1 FeeExchange
 	#[codec(compact)]
 	V1(FeeExchangeV1),
 }

@@ -193,7 +193,7 @@ where
 		// pay any fees.
 		let fee = Self::compute_fee(len, info, self.tip);
 		if let Some(fee_exchange) = &self.fee_exchange {
-			if let Err(_) = T::BuyFeeAsset::buy_fee_asset(who, fee, fee_exchange) {
+			if T::BuyFeeAsset::buy_fee_asset(who, fee, fee_exchange).is_err() {
 				return InvalidTransaction::Payment.into();
 			}
 		}
