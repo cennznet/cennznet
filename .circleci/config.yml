@@ -89,7 +89,7 @@ commands:
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
               IMAGE_TAG="latest"
             else
-              IMAGE_TAG="${CIRCLE_BRANCH////-}-${CIRCLE_SHA1:0:7}"
+              IMAGE_TAG="${CIRCLE_BRANCH////-}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
