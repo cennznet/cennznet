@@ -20,7 +20,7 @@
 use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
-	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerMilli},
+	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
 	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;
@@ -457,8 +457,8 @@ fn make_asset_to_core_swap_output() {
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
-				5,                                                                       // buy_amount: T::Balance,
-				1400,                                                                    // max_sale: T::Balance,
+				5,                                                                          // buy_amount: T::Balance,
+				1400,                                                                       // max_sale: T::Balance,
 				FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004
@@ -603,8 +603,8 @@ fn make_core_to_asset_output() {
 				&buyer,
 				&recipient,
 				&resolve_asset_id!(TradeAssetCurrencyA),
-				5,                                                                       // buy_amount: T::Balance,
-				1400,                                                                    // max_sale: T::Balance,
+				5,                                                                          // buy_amount: T::Balance,
+				1400,                                                                       // max_sale: T::Balance,
 				FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(), // fee_rate
 			),
 			1004

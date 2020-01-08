@@ -51,7 +51,7 @@ use system::offchain::TransactionSubmitter;
 use version::NativeVersion;
 use version::RuntimeVersion;
 
-pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerMilli};
+pub use cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
 pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
@@ -519,8 +519,15 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
-		// Strips [c|p|s]rml- prefix
-		match cennznut.validate(&module[5..], method, &[]) {
+		// Extract Module name from <prefix>-<Module_name>
+		let dash_pos;
+		match module.find('-') {
+			Some(p) => {
+				dash_pos = p;
+			}
+			None => return Err("error during Module name segmentation"),
+		};
+		match cennznut.validate(&module[(dash_pos + 1)..], method, &[]) {
 			Ok(r) => Ok(r),
 			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
 			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),
