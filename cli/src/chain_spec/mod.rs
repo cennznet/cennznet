@@ -23,7 +23,7 @@ use cennznet_runtime::{
 	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
-use cennznet_runtime::{Block, FeeRate, PerMillion, PerMilli};
+use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
 use chain_spec::ChainSpecExtension;
 use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;

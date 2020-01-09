@@ -52,6 +52,20 @@ mod test {
 	}
 
 	#[test]
+	fn it_works_with_arbitrary_prefix_short() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_ok!(verify_dispatch(&doughnut, "t-attestation", "attest"));
+	}
+
+	#[test]
+	fn it_works_with_arbitrary_prefix_long() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_ok!(verify_dispatch(&doughnut, "trmlcrml-attestation", "attest"));
+	}
+
+	#[test]
 	fn it_fails_when_not_using_the_cennznet_domain() {
 		let doughnut = make_doughnut("test", Default::default());
 		assert_err!(
@@ -86,6 +100,16 @@ mod test {
 		assert_err!(
 			verify_dispatch(&doughnut, "trml-attestation", "remove"),
 			"CENNZnut does not grant permission for method"
+		);
+	}
+
+	#[test]
+	fn it_fails_when_module_name_is_invalid() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "trmlattestation", "attest"),
+			"error during module name segmentation"
 		);
 	}
 }
