@@ -520,14 +520,8 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Extract Module name from <prefix>-<Module_name>
-		let dash_pos;
-		match module.find('-') {
-			Some(p) => {
-				dash_pos = p;
-			}
-			None => return Err("error during Module name segmentation"),
-		};
-		match cennznut.validate(&module[(dash_pos + 1)..], method, &[]) {
+		let module_offset = module.find('-').ok_or("error during module name segmentation")? + 1;
+		match cennznut.validate(&module[module_offset..], method, &[]) {
 			Ok(r) => Ok(r),
 			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
 			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),

@@ -109,7 +109,7 @@ mod test {
 		let doughnut = make_doughnut("cennznet", cennznut.encode());
 		assert_err!(
 			verify_dispatch(&doughnut, "trmlattestation", "attest"),
-			"error during Module name segmentation"
+			"error during module name segmentation"
 		);
 	}
 }
