@@ -521,6 +521,9 @@ impl additional_traits::DelegatedDispatchVerifier<CennznetDoughnut> for Runtime 
 
 		// Extract Module name from <prefix>-<Module_name>
 		let module_offset = module.find('-').ok_or("error during module name segmentation")? + 1;
+		if module_offset <= 1 || module_offset >= module.len() {
+			return Err("error during module name segmentation")
+		}
 		match cennznut.validate(&module[module_offset..], method, &[]) {
 			Ok(r) => Ok(r),
 			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
