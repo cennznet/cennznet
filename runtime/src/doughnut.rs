@@ -112,4 +112,34 @@ mod test {
 			"error during module name segmentation"
 		);
 	}
+
+	#[test]
+	fn it_fails_when_prefix_is_empty() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "-attestation", "attest"),
+			"error during module name segmentation"
+		);
+	}
+
+	#[test]
+	fn it_fails_when_module_name_is_empty() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "trml-", "attest"),
+			"error during module name segmentation"
+		);
+	}
+
+	#[test]
+	fn it_fails_when_module_name_and_prefix_are_empty() {
+		let cennznut = make_cennznut("attestation", "attest");
+		let doughnut = make_doughnut("cennznet", cennznut.encode());
+		assert_err!(
+			verify_dispatch(&doughnut, "-", "attest"),
+			"error during module name segmentation"
+		);
+	}
 }
