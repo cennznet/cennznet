@@ -17,7 +17,7 @@
 //! Low-level types used by CENNZnet node.
 
 use codec::{Decode, Encode};
-use sr_primitives::{
+use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
 	AnySignature, DoughnutV0, OpaqueExtrinsic,

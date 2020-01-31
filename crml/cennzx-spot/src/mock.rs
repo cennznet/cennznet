@@ -18,7 +18,8 @@
 #![cfg(test)]
 
 use crate::Trait;
-use generic_asset::{AssetCurrency, AssetIdProvider};
+use frame_support::additional_traits::AssetIdAuthority;
+use pallet_generic_asset::AssetCurrency;
 
 pub const CORE_ASSET_ID: u32 = 0;
 pub const TRADE_ASSET_A_ID: u32 = 1;
@@ -34,32 +35,32 @@ pub(crate) type TradeAssetCurrencyB<T> = AssetCurrency<T, TradeAssetBIdProvider<
 /// A mock fee currency. It is a generic asset
 pub(crate) type FeeAssetCurrency<T> = AssetCurrency<T, FeeAssetIdProvider<T>>;
 
-pub struct CoreAssetIdProvider<T>(rstd::marker::PhantomData<T>);
-impl<T: Trait> AssetIdProvider for CoreAssetIdProvider<T> {
+pub struct CoreAssetIdProvider<T>(sp_std::marker::PhantomData<T>);
+impl<T: Trait> AssetIdAuthority for CoreAssetIdProvider<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
 		CORE_ASSET_ID.into()
 	}
 }
 
-pub struct TradeAssetAIdProvider<T>(rstd::marker::PhantomData<T>);
-impl<T: Trait> AssetIdProvider for TradeAssetAIdProvider<T> {
+pub struct TradeAssetAIdProvider<T>(sp_std::marker::PhantomData<T>);
+impl<T: Trait> AssetIdAuthority for TradeAssetAIdProvider<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
 		TRADE_ASSET_A_ID.into()
 	}
 }
 
-pub struct TradeAssetBIdProvider<T>(rstd::marker::PhantomData<T>);
-impl<T: Trait> AssetIdProvider for TradeAssetBIdProvider<T> {
+pub struct TradeAssetBIdProvider<T>(sp_std::marker::PhantomData<T>);
+impl<T: Trait> AssetIdAuthority for TradeAssetBIdProvider<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
 		TRADE_ASSET_B_ID.into()
 	}
 }
 
-pub struct FeeAssetIdProvider<T>(rstd::marker::PhantomData<T>);
-impl<T: Trait> AssetIdProvider for FeeAssetIdProvider<T> {
+pub struct FeeAssetIdProvider<T>(sp_std::marker::PhantomData<T>);
+impl<T: Trait> AssetIdAuthority for FeeAssetIdProvider<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
 		FEE_ASSET_ID.into()

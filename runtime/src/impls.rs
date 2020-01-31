@@ -20,9 +20,9 @@ use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
 use generic_asset::StakingAssetCurrency;
-use sr_primitives::traits::{Convert, Saturating};
-use sr_primitives::weights::Weight;
-use sr_primitives::Fixed64;
+use sp_runtime::traits::{Convert, Saturating};
+use sp_runtime::weights::Weight;
+use sp_runtime::Fixed64;
 use support::traits::Currency;
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
@@ -134,7 +134,7 @@ mod tests {
 	use super::*;
 	use crate::constants::currency::*;
 	use crate::{AvailableBlockRatio, MaximumBlockWeight, Runtime};
-	use sr_primitives::weights::Weight;
+	use sp_runtime::weights::Weight;
 
 	fn max() -> Weight {
 		MaximumBlockWeight::get()

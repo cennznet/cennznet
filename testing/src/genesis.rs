@@ -28,7 +28,7 @@ use cennznet_runtime::{
 use core::convert::TryFrom;
 use keyring::{Ed25519Keyring, Sr25519Keyring};
 use primitives::ChangesTrieConfiguration;
-use sr_primitives::Perbill;
+use sp_runtime::Perbill;
 
 /// Create genesis runtime configuration for tests.
 pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig {

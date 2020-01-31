@@ -28,7 +28,7 @@ use client::{self, LongestChain};
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
-use substrate_service::{config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder};
+use sc_service::{config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder};
 use transaction_pool::{self, txpool::Pool as TransactionPool};
 
 use cennznet_executor::NativeExecutor;
@@ -37,8 +37,8 @@ use client_db::Backend;
 use network::NetworkService;
 use offchain::OffchainWorkers;
 use primitives::Blake2Hasher;
-use sr_primitives::traits::Block as BlockT;
-use substrate_service::{NetworkStatus, NewService};
+use sc_service::{NetworkStatus, NewService};
+use sp_runtime::traits::Block as BlockT;
 
 construct_simple_protocol! {
 	/// Demo protocol attachment for substrate.
@@ -56,7 +56,7 @@ macro_rules! new_full_start {
 		let mut import_setup = None;
 		let inherent_data_providers = inherents::InherentDataProviders::new();
 
-		let builder = substrate_service::ServiceBuilder::new_full::<
+		let builder = sc_service::ServiceBuilder::new_full::<
 			cennznet_primitives::types::Block,
 			cennznet_runtime::RuntimeApi,
 			cennznet_executor::Executor,
@@ -71,7 +71,7 @@ macro_rules! new_full_start {
 		.with_import_queue(|_config, client, mut select_chain, _transaction_pool| {
 			let select_chain = select_chain
 				.take()
-				.ok_or_else(|| substrate_service::Error::SelectChainRequired)?;
+				.ok_or_else(|| sc_service::Error::SelectChainRequired)?;
 			let (grandpa_block_import, grandpa_link) =
 				grandpa::block_import::<_, _, _, cennznet_runtime::RuntimeApi, _, _>(
 					client.clone(),
@@ -145,15 +145,13 @@ macro_rules! new_full {
 		($with_startup_data)(&block_import, &babe_link);
 
 		if is_authority {
-			let proposer = substrate_basic_authorship::ProposerFactory {
+			let proposer = sc_basic_authorship::ProposerFactory {
 				client: service.client(),
 				transaction_pool: service.transaction_pool(),
 			};
 
 			let client = service.client();
-			let select_chain = service
-				.select_chain()
-				.ok_or(substrate_service::Error::SelectChainRequired)?;
+			let select_chain = service.select_chain().ok_or(sc_service::Error::SelectChainRequired)?;
 
 			let babe_config = babe::BabeParams {
 				keystore: service.keystore(),
@@ -325,13 +323,13 @@ mod tests {
 	use finality_tracker;
 	use keyring::AccountKeyring;
 	use primitives::{crypto::Pair as CryptoPair, sr25519::Public as AddressPublic, H256};
-	use sr_primitives::{
+	use sc_service::{AbstractService, Roles};
+	use sp_runtime::{
 		generic::{BlockId, Digest, Era, SignedPayload},
 		traits::Block as BlockT,
 		OpaqueExtrinsic,
 	};
 	use std::sync::Arc;
-	use substrate_service::{AbstractService, Roles};
 	use timestamp;
 
 	#[cfg(feature = "rhd")]
@@ -448,7 +446,7 @@ mod tests {
 
 				let parent_id = BlockId::number(service.client().info().chain.best_number);
 				let parent_header = service.client().header(&parent_id).unwrap().unwrap();
-				let mut proposer_factory = substrate_basic_authorship::ProposerFactory {
+				let mut proposer_factory = sc_basic_authorship::ProposerFactory {
 					client: service.client(),
 					transaction_pool: service.transaction_pool(),
 				};

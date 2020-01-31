@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use support::{decl_event, decl_module, decl_storage, dispatch::Result, dispatch::Vec, ensure};
-use system;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
+use frame_system;
 
 const MAX_DEVICES: usize = 1000;
 
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		fn deposit_event() = default;
 	}
 }
@@ -36,13 +36,13 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where <T as system::Trait>::Hash, <T as system::Trait>::AccountId {
+	pub enum Event<T> where <T as frame_system::Trait>::Hash, <T as frame_system::Trait>::AccountId {
 		DeviceAdded(AccountId, Hash, u32),
 	}
 );
 
 impl<T: Trait> Module<T> {
-	pub fn append_device(user_id: &T::AccountId, device_id: u32) -> Result {
+	pub fn append_device(user_id: &T::AccountId, device_id: u32) -> DispatchResult {
 		let mut devices = <Devices<T>>::get(user_id);
 
 		ensure!(!devices.contains(&device_id), "Device Id already in use");

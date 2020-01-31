@@ -25,7 +25,7 @@ use cennznet_primitives::types::Hash;
 use futures::Future;
 use hyper::rt;
 use jsonrpc_core_client::{transports::http, RpcError};
-use substrate_rpc::author::{hash::ExtrinsicOrHash, AuthorClient};
+use sc_rpc::author::{hash::ExtrinsicOrHash, AuthorClient};
 
 fn main() {
 	env_logger::init();

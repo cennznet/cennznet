@@ -26,10 +26,6 @@ use cennznet_primitives::types::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Doughnut, Hash, Index, Moment, Signature,
 };
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
-use client::{
-	block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
-	impl_runtime_apis, runtime_api as client_api,
-};
 use codec::{Decode, Encode};
 use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use grandpa::fg_primitives;
@@ -38,13 +34,15 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use primitives::u32_trait::{_1, _2, _3, _4};
 use primitives::OpaqueMetadata;
 use rstd::prelude::*;
-use sr_primitives::curve::PiecewiseLinear;
-use sr_primitives::traits::{
+use sp_api::impl_runtime_apis;
+use sp_inherents::{CheckInherentsResult, InherentData};
+use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::traits::{
 	self, BlakeTwo256, Block as BlockT, DoughnutApi, NumberFor, SaturatedConversion, StaticLookup,
 };
-use sr_primitives::transaction_validity::TransactionValidity;
-use sr_primitives::weights::Weight;
-use sr_primitives::{create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill};
+use sp_runtime::transaction_validity::TransactionValidity;
+use sp_runtime::weights::Weight;
+use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, key_types, ApplyResult, Perbill, Permill};
 use support::{additional_traits, construct_runtime, parameter_types, traits::Randomness};
 use system::offchain::TransactionSubmitter;
 #[cfg(any(feature = "std", test))]
@@ -56,7 +54,7 @@ pub use contracts::Gas;
 pub use generic_asset::Call as GenericAssetCall;
 
 #[cfg(any(feature = "std", test))]
-pub use sr_primitives::BuildStorage;
+pub use sp_runtime::BuildStorage;
 pub use staking::StakerStatus;
 pub use support::StorageValue;
 pub use timestamp::Call as TimestampCall;
@@ -113,7 +111,7 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-type CennznetDoughnut = prml_doughnut::PlugDoughnut<Doughnut, Runtime>;
+type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
 
 impl system::Trait for Runtime {
 	type Origin = Origin;
@@ -133,6 +131,7 @@ impl system::Trait for Runtime {
 	type MaximumBlockLength = MaximumBlockLength;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = Version;
+	type ModuleToIndex = ModuleToIndex;
 }
 
 impl prml_doughnut::DoughnutRuntime for Runtime {
@@ -269,7 +268,7 @@ impl session::historical::Trait for Runtime {
 	type FullIdentificationOf = staking::ExposureOf<Runtime>;
 }
 
-srml_staking_reward_curve::build! {
+pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
 		max_inflation: 0_100_000,
@@ -281,7 +280,7 @@ srml_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sr_staking_primitives::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	pub const BondingDuration: staking::EraIndex = 24 * 28;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
@@ -609,7 +608,7 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExt
 pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
-	impl client_api::Core<Block> for Runtime {
+	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
 		}
@@ -623,7 +622,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl client_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			Runtime::metadata().into()
 		}
@@ -651,7 +650,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl client_api::TaggedTransactionQueue<Block> for Runtime {
+	impl sp_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
 			Executive::validate_transaction(tx)
 		}
@@ -688,31 +687,8 @@ impl_runtime_apis! {
 	}
 
 	impl authority_discovery_primitives::AuthorityDiscoveryApi<Block> for Runtime {
-		fn authorities() -> Vec<EncodedAuthorityId> {
-			AuthorityDiscovery::authorities().into_iter()
-				.map(|id| id.encode())
-				.map(EncodedAuthorityId)
-				.collect()
-		}
-
-		fn sign(payload: &Vec<u8>) -> Option<(EncodedSignature, EncodedAuthorityId)> {
-			AuthorityDiscovery::sign(payload).map(|(sig, id)| {
-				(EncodedSignature(sig.encode()), EncodedAuthorityId(id.encode()))
-			})
-		}
-
-		fn verify(payload: &Vec<u8>, signature: &EncodedSignature, authority_id: &EncodedAuthorityId) -> bool {
-			let signature = match BabeSignature::decode(&mut &signature.0[..]) {
-				Ok(s) => s,
-				_ => return false,
-			};
-
-			let authority_id = match BabeId::decode(&mut &authority_id.0[..]) {
-				Ok(id) => id,
-				_ => return false,
-			};
-
-			AuthorityDiscovery::verify(payload, signature, authority_id)
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
 		}
 	}
 
@@ -749,7 +725,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl substrate_session::SessionKeys<Block> for Runtime {
+	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			let seed = seed.as_ref().map(|s| rstd::str::from_utf8(&s).expect("Seed is an utf8 string"));
 			SessionKeys::generate(seed)
@@ -760,7 +736,7 @@ impl_runtime_apis! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sr_primitives::app_crypto::RuntimeAppPublic;
+	use sp_runtime::app_crypto::RuntimeAppPublic;
 	use system::offchain::SubmitSignedTransaction;
 
 	fn is_submit_signed_transaction<T, Signer>(_arg: T)
