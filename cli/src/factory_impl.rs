@@ -29,14 +29,13 @@ use codec::{Decode, Encode};
 use finality_tracker;
 use inherents::InherentData;
 use keyring::sr25519::Keyring;
+use node_transaction_factory::{modes::Mode, RuntimeAdapter};
 use primitives::{crypto::Pair, sr25519};
-use sr_primitives::{
+use sp_runtime::{
 	generic::Era,
 	traits::{Block as BlockT, Header as HeaderT, SignedExtension, Zero},
 };
 use timestamp;
-use transaction_factory::modes::Mode;
-use transaction_factory::RuntimeAdapter;
 
 pub struct FactoryState<N> {
 	block_no: N,
@@ -70,7 +69,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 	type AccountId = cennznet_primitives::types::AccountId;
 	type Balance = cennznet_primitives::types::Balance;
 	type Block = cennznet_primitives::types::Block;
-	type Phase = sr_primitives::generic::Phase;
+	type Phase = sp_runtime::generic::Phase;
 	type Secret = sr25519::Pair;
 	type Index = cennznet_primitives::types::Index;
 
@@ -254,7 +253,7 @@ fn sign<RA: RuntimeAdapter>(
 			let signature = payload
 				.using_encoded(|b| {
 					if b.len() > 256 {
-						key.sign(&sr_io::blake2_256(b))
+						key.sign(&sp_io::hashing::blake2_256(b))
 					} else {
 						key.sign(b)
 					}

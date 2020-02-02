@@ -24,21 +24,21 @@ use crate::{
 	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;
-use generic_asset;
-use primitives::{crypto::UncheckedInto, sr25519, H256};
-use runtime_primitives::{
+use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, traits::Currency, StorageValue};
+use pallet_generic_asset;
+use sp_core::{crypto::UncheckedInto, sr25519, H256};
+use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
-use support::{impl_outer_origin, traits::Currency, StorageValue};
 
-use runtime_primitives::traits::Verify;
+use sp_runtime::traits::Verify;
 
 pub type AccountId = <sr25519::Signature as Verify>::Signer;
 
 impl_outer_origin! {
-	pub enum Origin for Test {}
+	pub enum Origin for Test where system = frame_system {}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -54,7 +54,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for Test {
+impl frame_system::Trait for Test {
 	type Origin = Origin;
 	type Call = ();
 	type Index = u64;
@@ -67,14 +67,15 @@ impl system::Trait for Test {
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
 	type Doughnut = ();
-	type DelegatedDispatchVerifier = ();
+	type DelegatedDispatchVerifier = DummyDispatchVerifier<Self::Doughnut, Self::AccountId>;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
+	type ModuleToIndex = ();
 }
 
-impl generic_asset::Trait for Test {
+impl pallet_generic_asset::Trait for Test {
 	type Balance = LowPrecisionUnsigned;
 	type AssetId = u32;
 	type Event = ();
@@ -117,9 +118,9 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn build(self) -> runtime_io::TestExternalities {
-		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		generic_asset::GenesisConfig::<Test> {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		pallet_generic_asset::GenesisConfig::<Test> {
 			assets: Vec::new(),
 			initial_balance: 0,
 			endowed_accounts: Vec::new(),
@@ -135,12 +136,12 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
-		runtime_io::TestExternalities::new(t)
+		sp_io::TestExternalities::new(t)
 	}
 }
 
 /// Returns the matching asset ID for a currency given it's type alias
-/// It's a quick work around to avoid complex trait logic using `AssetIdProvider`
+/// It's a quick work around to avoid complex trait logic using `AssetIdAuthority`
 macro_rules! resolve_asset_id (
 	(CoreAssetCurrency) => { CORE_ASSET_ID };
 	(TradeAssetCurrencyA) => { TRADE_ASSET_A_ID };
@@ -211,7 +212,7 @@ macro_rules! with_account (
 );
 
 /// Assert account has asset balance equal to
-// alias for `assert_eq!(<generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
+// alias for `assert_eq!(<pallet_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
 macro_rules! assert_balance_eq (
 	($address:expr, $asset_id:ident => $balance:expr) => {
 		{
@@ -343,12 +344,12 @@ fn get_output_price_max_withdrawal() {
 
 		assert_ok!(
 			CennzXSpot::get_output_price(1000, 1000, 1000, DefaultFeeRate::get()),
-			<Test as generic_asset::Trait>::Balance::max_value()
+			<Test as pallet_generic_asset::Trait>::Balance::max_value()
 		);
 
 		assert_ok!(
 			CennzXSpot::get_output_price(1_000_000, 1000, 1000, DefaultFeeRate::get()),
-			<Test as generic_asset::Trait>::Balance::max_value()
+			<Test as pallet_generic_asset::Trait>::Balance::max_value()
 		);
 	});
 }

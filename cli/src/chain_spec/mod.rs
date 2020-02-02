@@ -29,9 +29,9 @@ use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use primitives::{Pair, Public};
+use sc_service;
 use serde::{Deserialize, Serialize};
-use sr_primitives::Perbill;
-use substrate_service;
+use sp_runtime::Perbill;
 
 pub use cennznet_primitives::types::{AccountId, Balance};
 pub use cennznet_runtime::GenesisConfig;
@@ -57,7 +57,7 @@ pub struct Extensions {
 }
 
 /// Specialised `ChainSpec`.
-pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::ChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

@@ -16,8 +16,8 @@ mod tests {
 	use crate::groups::{AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
 	use crate::mock::{new_test_ext, Origin, Test};
 	use crate::vault;
-	use primitives::{ed25519, Pair, H256};
-	use support::assert_ok;
+	use frame_support::{assert_ok, dispatch::DispatchError};
+	use sp_core::{ed25519, Pair, H256};
 
 	type Groups = Module<Test>;
 	type Vault = vault::Module<Test>;
@@ -63,7 +63,7 @@ mod tests {
 					vec![],
 					(vec![], vec![])
 				),
-				Err("Group already exists")
+				Err(DispatchError::Other("Group already exists")),
 			);
 		});
 	}
@@ -130,13 +130,13 @@ mod tests {
 			// leave wrong group
 			assert_eq!(
 				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32]), None),
-				Err("Group not found")
+				Err(DispatchError::Other("Group not found")),
 			);
 
 			// trying to live group user who is not a member
 			assert_eq!(
 				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone(), None),
-				Err("Not a member of group")
+				Err(DispatchError::Other("Not a member of group")),
 			);
 
 			assert_ok!(Groups::leave_group(
@@ -213,7 +213,7 @@ mod tests {
 					wrong_sig,
 					(vec![], vec![])
 				),
-				Err("Failed to verify invite")
+				Err(DispatchError::Other("Failed to verify invite")),
 			);
 
 			// accept right sig

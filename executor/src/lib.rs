@@ -22,8 +22,8 @@
 #[cfg(feature = "benchmarks")]
 extern crate test;
 
-use substrate_executor::native_executor_instance;
-pub use substrate_executor::NativeExecutor;
+use sc_executor::native_executor_instance;
+pub use sc_executor::NativeExecutor;
 
 // Declare an instance of the native executor named `Executor`. Include the wasm binary as the
 // equivalent wasm code.
@@ -52,15 +52,15 @@ mod tests {
 		traits::{CodeExecutor, Externalities},
 		Blake2Hasher, NativeOrEncoded, NeverNativeValue,
 	};
-	use sr_primitives::{
+	use sc_executor::error::Result;
+	use sc_executor::{NativeExecutor, WasmExecutionMethod};
+	use sp_runtime::{
 		traits::{Convert, Hash as HashT, Header as HeaderT},
 		transaction_validity::InvalidTransaction,
 		weights::GetDispatchInfo,
 		ApplyResult, Fixed64,
 	};
 	use state_machine::TestExternalities as CoreTestExternalities;
-	use substrate_executor::error::Result;
-	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
 	use support::{Hashable, StorageDoubleMap, StorageMap, StorageValue};
 	use system::{EventRecord, Phase};
 	use wabt;

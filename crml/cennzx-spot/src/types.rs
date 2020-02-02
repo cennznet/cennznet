@@ -21,7 +21,6 @@ use core::{
 	convert::{From, Into, TryFrom},
 	marker::PhantomData,
 };
-use support::decl_error;
 
 pub use primitive_types::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;
@@ -52,15 +51,25 @@ impl Scaled for PerCent {
 	const SCALE: LowPrecisionUnsigned = 100;
 }
 
-decl_error! {
-	pub enum Error {
-		Overflow,
-		DivideByZero,
-		EmptyPool,
+// TODO: refactor below to use frame_support::decl_error!
+#[derive(Debug)]
+pub enum Error {
+	Overflow,
+	DivideByZero,
+	EmptyPool,
+}
+
+impl Into<&'static str> for Error {
+	fn into(self) -> &'static str {
+		match self {
+			Error::Overflow => "Overflow",
+			Error::DivideByZero => "DivideByZero",
+			Error::EmptyPool => "EmptyPool",
+		}
 	}
 }
 
-/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `generic_asset::Balance` type
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `pallet_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);

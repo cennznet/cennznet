@@ -16,13 +16,13 @@
 
 //! Utilites to build a `TestClient` for `cennznet-runtime`.
 
-use sr_primitives::BuildStorage;
+use sp_runtime::BuildStorage;
 
 /// Re-export test-client utilities.
 pub use test_client::*;
 
 /// Call executor for `cennznet-runtime` `TestClient`.
-pub type Executor = substrate_executor::NativeExecutor<cennznet_executor::Executor>;
+pub type Executor = sc_executor::NativeExecutor<cennznet_executor::Executor>;
 
 /// Default backend type.
 pub type Backend = client_db::Backend<cennznet_primitives::types::Block>;

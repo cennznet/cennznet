@@ -4,7 +4,7 @@ mod test {
 	use cennznut::{self};
 	use cennznut::{CENNZnut, CENNZnutV0};
 	use codec::Encode;
-	use sr_primitives::DoughnutV0;
+	use sp_runtime::DoughnutV0;
 	use support::additional_traits::DelegatedDispatchVerifier;
 	use support::{assert_err, assert_ok};
 

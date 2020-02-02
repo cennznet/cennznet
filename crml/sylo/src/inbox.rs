@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use support::{decl_module, decl_storage, dispatch::Result, dispatch::Vec};
-use system::{self, ensure_signed};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
+use frame_system::{self, ensure_signed};
 
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
 	// add code here
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn add_value(origin, peer_id: T::AccountId, value: Vec<u8>) -> Result {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		fn add_value(origin, peer_id: T::AccountId, value: Vec<u8>) -> DispatchResult {
 			ensure_signed(origin)?;
 
 			Self::add(peer_id, value)
 		}
 
-		fn delete_values(origin, value_ids: Vec<u32>) -> Result {
+		fn delete_values(origin, value_ids: Vec<u32>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
 
 			Self::delete(user_id, value_ids)
@@ -48,7 +48,7 @@ impl<T: Trait> Module<T> {
 		<Values<T>>::get(who).into_iter().map(|(_, value)| value).collect()
 	}
 
-	pub fn add(peer_id: T::AccountId, value: Vec<u8>) -> Result {
+	pub fn add(peer_id: T::AccountId, value: Vec<u8>) -> DispatchResult {
 		// Get required data
 		let next_index = <NextIndexes<T>>::get(&peer_id);
 		let mut account_values = <AccountValues<T>>::get(&peer_id);
@@ -72,7 +72,7 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	pub fn delete(user_id: T::AccountId, value_ids: Vec<u32>) -> Result {
+	pub fn delete(user_id: T::AccountId, value_ids: Vec<u32>) -> DispatchResult {
 		let account_values = <AccountValues<T>>::get(&user_id);
 
 		// Remove reference to value
@@ -101,8 +101,8 @@ impl<T: Trait> Module<T> {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Origin, Test};
-	use primitives::H256;
-	use support::assert_ok;
+	use frame_support::assert_ok;
+	use sp_core::H256;
 
 	type Inbox = Module<Test>;
 

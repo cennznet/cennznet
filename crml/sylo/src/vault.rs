@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use support::{decl_module, decl_storage, dispatch::Vec, ensure};
-use system::{self, ensure_signed};
+use frame_support::{decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_system::{self, ensure_signed};
 
 pub const KEYS_MAX: usize = 100;
 
-pub trait Trait: system::Trait {}
+pub trait Trait: frame_system::Trait {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		fn upsert_value(origin, key: VaultKey, value: VaultValue) {
 			let user_id = ensure_signed(origin)?;
 
@@ -72,8 +72,8 @@ impl<T: Trait> Module<T> {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Origin, Test};
-	use primitives::H256;
-	use support::assert_ok;
+	use frame_support::assert_ok;
+	use sp_core::H256;
 
 	impl Trait for Test {}
 	type Vault = Module<Test>;

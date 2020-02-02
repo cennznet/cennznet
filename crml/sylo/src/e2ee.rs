@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use support::{decl_event, decl_module, decl_storage, dispatch::Vec, ensure};
-use system::{self, ensure_signed};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_system::{self, ensure_signed};
 
 use crate::{device, groups, inbox, response};
 
 const MAX_PKBS: usize = 50;
 
 pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 type DeviceId = u32;
@@ -29,13 +29,13 @@ type DeviceId = u32;
 pub type PreKeyBundle = Vec<u8>;
 
 decl_event!(
-	pub enum Event<T> where <T as system::Trait>::AccountId {
+	pub enum Event<T> where <T as frame_system::Trait>::AccountId {
 		DeviceAdded(AccountId, u32),
 	}
 );
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		fn deposit_event() = default;
 
 		fn register_device(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) {
@@ -95,8 +95,8 @@ impl<T: Trait> Module<T> {}
 pub(super) mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Origin, Test};
-	use primitives::H256;
-	use support::assert_ok;
+	use frame_support::assert_ok;
+	use sp_core::H256;
 
 	impl Trait for Test {
 		type Event = ();

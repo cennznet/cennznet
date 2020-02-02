@@ -30,11 +30,11 @@ use cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
 pub use cli::{ExecutionStrategyParam, IntoExit, NoCustom, SharedParams, VersionInfo};
 use client::ExecutionStrategies;
 use log::info;
+use node_transaction_factory::RuntimeAdapter;
+use sc_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use structopt::{clap::App, StructOpt};
-use substrate_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use tokio::prelude::Future;
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
-use transaction_factory::RuntimeAdapter;
 
 /// The chain specification option.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,7 +91,7 @@ pub struct FactoryCmd {
 	///
 	/// These three modes control manufacturing.
 	#[structopt(long = "mode", default_value = "MasterToN")]
-	pub mode: transaction_factory::Mode,
+	pub mode: node_transaction_factory::Mode,
 
 	/// Number of transactions to generate. In mode `MasterNToNToM` this is
 	/// the number of transactions per round.
@@ -208,7 +208,7 @@ where
 			let factory_state = FactoryState::new(cli_args.mode.clone(), cli_args.num, cli_args.rounds);
 
 			let service_builder = new_full_start!(config).0;
-			transaction_factory::factory::<FactoryState<_>, _, _, _, _, _>(
+			node_transaction_factory::factory::<FactoryState<_>, _, _, _, _, _>(
 				factory_state,
 				service_builder.client(),
 				service_builder
