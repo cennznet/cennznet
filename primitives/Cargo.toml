@@ -5,10 +5,11 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-parity-scale-codec = { version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 
 [dev-dependencies]
 sp-serializer = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
@@ -17,7 +18,7 @@ pretty_assertions = "0.6.1"
 [features]
 default = ["std"]
 std = [
-	"parity-scale-codec/std",
+	"codec/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"frame-support/std",

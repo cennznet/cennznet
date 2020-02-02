@@ -16,7 +16,7 @@
 
 //! Low-level types used by CENNZnet node.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
