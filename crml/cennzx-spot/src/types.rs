@@ -51,6 +51,7 @@ impl Scaled for PerCent {
 	const SCALE: LowPrecisionUnsigned = 100;
 }
 
+// TODO: refactor below to use frame_support::decl_error!
 #[derive(Debug)]
 pub enum Error {
 	Overflow,

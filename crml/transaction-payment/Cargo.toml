@@ -7,25 +7,25 @@ edition = "2018"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"cennznet-primitives/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

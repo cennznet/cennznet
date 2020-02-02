@@ -29,8 +29,7 @@ use codec::{Decode, Encode};
 use finality_tracker;
 use inherents::InherentData;
 use keyring::sr25519::Keyring;
-use node_transaction_factory::modes::Mode;
-use node_transaction_factory::RuntimeAdapter;
+use node_transaction_factory::{modes::Mode, RuntimeAdapter};
 use primitives::{crypto::Pair, sr25519};
 use sp_runtime::{
 	generic::Era,
