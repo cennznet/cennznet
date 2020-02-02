@@ -16,7 +16,7 @@
 
 //! Low-level types used by CENNZnet node.
 
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
@@ -53,7 +53,7 @@ pub type Moment = u64;
 pub type Index = u64;
 
 /// A hash of some data used by the chain.
-pub type Hash = primitives::H256;
+pub type Hash = sp_core::H256;
 
 /// A timestamp: milliseconds since the unix epoch.
 /// `u64` is enough to represent a duration of half a billion years, when the
