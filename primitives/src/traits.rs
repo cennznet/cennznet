@@ -16,7 +16,7 @@
 
 //! Common traits used by CENNZnet node.
 
-use support::dispatch::DispatchResult;
+use frame_support::dispatch::DispatchResult;
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.

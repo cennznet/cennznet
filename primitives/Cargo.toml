@@ -6,9 +6,10 @@ edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
-primitives = { package = "sp-core", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-support = { package = "frame-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 
 [dev-dependencies]
 sp-serializer = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
@@ -18,7 +19,7 @@ pretty_assertions = "0.6.1"
 default = ["std"]
 std = [
 	"codec/std",
-	"primitives/std",
+	"sp-core/std",
 	"sp-runtime/std",
-	"support/std",
+	"frame-support/std",
 ]
