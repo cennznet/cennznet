@@ -19,18 +19,18 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-pub use cli::error;
+pub use sc_cli::error;
 #[macro_use]
 mod chain_spec;
 mod factory_impl;
 mod service;
 
 use crate::factory_impl::FactoryState;
-use cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
-pub use cli::{ExecutionStrategyParam, IntoExit, NoCustom, SharedParams, VersionInfo};
-use client::ExecutionStrategies;
 use log::info;
 use node_transaction_factory::RuntimeAdapter;
+use sc_cli::{parse_and_prepare, AugmentClap, GetLogFilter, ParseAndPrepare};
+pub use sc_cli::{ExecutionStrategyParam, IntoExit, NoCustom, SharedParams, VersionInfo};
+use sc_client::ExecutionStrategies;
 use sc_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use structopt::{clap::App, StructOpt};
 use tokio::prelude::Future;
@@ -121,11 +121,11 @@ impl AugmentClap for FactoryCmd {
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
-	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
+	pub(crate) fn load(self) -> Result<sc_chain_spec::ChainSpec, String> {
 		Ok(match self {
-			ChainSpec::Development => chain_spec::dev::config(),
-			ChainSpec::CennznetKauri => chain_spec::kauri::config(),
-			ChainSpec::CennznetRimu => chain_spec::rimu::config(),
+			ChainSpec::Development => sc_chain_spec::dev::config(),
+			ChainSpec::CennznetKauri => sc_chain_spec::kauri::config(),
+			ChainSpec::CennznetRimu => sc_chain_spec::rimu::config(),
 		})
 	}
 
@@ -139,7 +139,7 @@ impl ChainSpec {
 	}
 }
 
-fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
+fn load_spec(id: &str) -> Result<Option<sc_chain_spec::ChainSpec>, String> {
 	Ok(match ChainSpec::from(id) {
 		Some(spec) => Some(spec.load()?),
 		None => None,
@@ -147,7 +147,7 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Result<()>
+pub fn run<I, T, E>(args: I, exit: E, version: sc_cli::VersionInfo) -> error::Result<()>
 where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
@@ -189,7 +189,7 @@ where
 		}
 		ParseAndPrepare::CustomCommand(CustomSubcommands::Factory(cli_args)) => {
 			let mut config: Config<_, _> =
-				cli::create_config_with_db_path(load_spec, &cli_args.shared_params, &version)?;
+				sc_cli::create_config_with_db_path(load_spec, &cli_args.shared_params, &version)?;
 			config.execution_strategies = ExecutionStrategies {
 				importing: cli_args.execution.into(),
 				block_construction: cli_args.execution.into(),
@@ -229,7 +229,7 @@ where
 {
 	let (exit_send, exit) = exit_future::signal();
 
-	let informant = cli::informant::build(&service);
+	let informant = sc_cli::informant::build(&service);
 	runtime.executor().spawn(exit.until(informant).map(|_| ()));
 
 	// we eagerly drop the service so that the internal exit future is fired,

@@ -16,7 +16,6 @@
 
 //! CENNZnet chain configurations.
 
-use babe_primitives::AuthorityId as BabeId;
 use cennznet_runtime::constants::{asset::*, currency::*, time::*};
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
@@ -24,13 +23,14 @@ use cennznet_runtime::{
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
-use chain_spec::ChainSpecExtension;
 use core::convert::TryFrom;
-use grandpa_primitives::AuthorityId as GrandpaId;
-use im_online::sr25519::AuthorityId as ImOnlineId;
-use primitives::{Pair, Public};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::ChainSpecExtension;
 use sc_service;
 use serde::{Deserialize, Serialize};
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_core::{Pair, Public};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::Perbill;
 
 pub use cennznet_primitives::types::{AccountId, Balance};
@@ -53,7 +53,7 @@ pub struct NetworkKeys {
 #[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
 	/// Block numbers with known hashes.
-	pub fork_blocks: client::ForkBlocks<Block>,
+	pub fork_blocks: sc_client::ForkBlocks<Block>,
 }
 
 /// Specialised `ChainSpec`.
@@ -82,7 +82,7 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Grandp
 }
 
 /// Helper function to generate session keys
-fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
+fn session_keys(sc_finality_grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
 	SessionKeys {
 		grandpa,
 		babe,
@@ -143,7 +143,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			desired_runners_up: 1,
 		}),
 		contracts: Some(ContractsConfig {
-			current_schedule: contracts::Schedule {
+			current_schedule: pallet_contracts::Schedule {
 				enable_println, // this should only be enabled on development chains
 				..Default::default()
 			},
