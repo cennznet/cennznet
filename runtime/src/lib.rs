@@ -20,7 +20,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-use babe_primitives::{AuthorityId as BabeId};
 use cennznet_primitives::types::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature,
 };
@@ -28,7 +27,6 @@ use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::{Decode};
 use generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use grandpa::fg_primitives;
-use grandpa::{AuthorityId as GrandpaId};
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_core::u32_trait::{_1, _2, _3, _4};
 use sp_core::OpaqueMetadata;
@@ -37,7 +35,7 @@ use sp_api::impl_runtime_apis;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::{
-	self, BlakeTwo256, Block as BlockT, DoughnutApi, SaturatedConversion, StaticLookup, OpaqueKeys,
+	self, BlakeTwo256, Block as BlockT, PlugDoughnutApi, SaturatedConversion, StaticLookup, OpaqueKeys,
 };
 use sp_runtime::transaction_validity::TransactionValidity;
 use frame_support::weights::Weight;
@@ -246,9 +244,9 @@ impl authorship::Trait for Runtime {
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub grandpa: GrandpaId,
-		pub babe: BabeId,
-		pub im_online: ImOnlineId,
+		pub grandpa: Grandpa,
+		pub babe: Babe,
+		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
 	}
 }
@@ -558,7 +556,7 @@ impl system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtim
 			system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			system::CheckNonce::<Runtime>::from(index),
 			system::CheckWeight::<Runtime>::new(),
-			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip, None),
 			Default::default(),
 		);
 		let raw_payload = SignedPayload::new(call, extra).map_err(|e| {
@@ -616,9 +614,12 @@ impl pallet_society::Trait for Runtime {
 
 /// Verify a Doughnut proof authorizes method dispatch given some input parameters
 impl additional_traits::DelegatedDispatchVerifier for Runtime {
+	type Doughnut = <Self as system::Trait>::Doughnut;
+    type AccountId = <Self as system::Trait>::AccountId;
+
 	const DOMAIN: &'static str = "cennznet";
 
-	fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
+	fn verify_dispatch(doughnut: &Self::Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
 		let mut domain = doughnut
 			.get_domain(Self::DOMAIN)
 			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
@@ -868,26 +869,60 @@ impl_runtime_apis! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::app_crypto::RuntimeAppPublic;
-	use system::offchain::SubmitSignedTransaction;
+	use system::offchain::{SignAndSubmitTransaction, SubmitSignedTransaction};
 
-	fn is_submit_signed_transaction<T, Signer>(_arg: T)
-	where
-		T: SubmitSignedTransaction<
-			Runtime,
-			Call,
-			Extrinsic = UncheckedExtrinsic,
-			CreateTransaction = Runtime,
-			Signer = Signer,
-		>,
-		Signer: RuntimeAppPublic + From<AccountId>,
-		Signer::Signature: Into<Signature>,
-	{
+	#[test]
+	fn validate_transaction_submitter_bounds() {
+		fn is_submit_signed_transaction<T>() where
+			T: SubmitSignedTransaction<
+				Runtime,
+				Call,
+			>,
+		{}
+
+		fn is_sign_and_submit_transaction<T>() where
+			T: SignAndSubmitTransaction<
+				Runtime,
+				Call,
+				Extrinsic=UncheckedExtrinsic,
+				CreateTransaction=Runtime,
+				Signer=ImOnlineId,
+			>,
+		{}
+
+		is_submit_signed_transaction::<SubmitTransaction>();
+		is_sign_and_submit_transaction::<SubmitTransaction>();
 	}
 
 	#[test]
-	fn validate_bounds() {
-		let x = SubmitTransaction::default();
-		is_submit_signed_transaction(x);
+	fn block_hooks_weight_should_not_exceed_limits() {
+		use frame_support::weights::WeighBlock;
+		let check_for_block = |b| {
+			let block_hooks_weight =
+				<AllModules as WeighBlock<BlockNumber>>::on_initialize(b) +
+				<AllModules as WeighBlock<BlockNumber>>::on_finalize(b);
+
+			assert_eq!(
+				block_hooks_weight,
+				0,
+				"This test might fail simply because the value being compared to has increased to a \
+				module declaring a new weight for a hook or call. In this case update the test and \
+				happily move on.",
+			);
+
+			// Invariant. Always must be like this to have a sane chain.
+			assert!(block_hooks_weight < MaximumBlockWeight::get());
+
+			// Warning.
+			if block_hooks_weight > MaximumBlockWeight::get() / 2 {
+				println!(
+					"block hooks weight is consuming more than a block's capacity. You probably want \
+					to re-think this. This test will fail now."
+				);
+				assert!(false);
+			}
+		};
+
+		let _ = (0..100_000).for_each(check_for_block);
 	}
 }

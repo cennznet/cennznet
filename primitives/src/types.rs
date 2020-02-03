@@ -19,19 +19,19 @@
 use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify},
-	AnySignature, DoughnutV0, OpaqueExtrinsic,
+	traits::{BlakeTwo256, Verify, IdentifyAccount},
+	MultiSignature, DoughnutV0, OpaqueExtrinsic,
 };
 
 /// An index to a block.
 pub type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = AnySignature;
+pub type Signature = MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = <Signature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...

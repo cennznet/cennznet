@@ -134,7 +134,7 @@ mod tests {
 	use super::*;
 	use crate::constants::currency::*;
 	use crate::{AvailableBlockRatio, MaximumBlockWeight, Runtime};
-	use sp_runtime::weights::Weight;
+	use frame_support::weights::Weight;
 
 	fn max() -> Weight {
 		MaximumBlockWeight::get()
