@@ -29,13 +29,11 @@ use pallet_generic_asset;
 use sp_core::{crypto::UncheckedInto, sr25519, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, IdentifyAccount, Verify},
 	Perbill,
 };
 
-use sp_runtime::traits::Verify;
-
-pub type AccountId = <sr25519::Signature as Verify>::Signer;
+pub type AccountId = <<sr25519::Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}

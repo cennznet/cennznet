@@ -4,13 +4,13 @@ mod test {
 	use cennznut::{self};
 	use cennznut::{CENNZnut, CENNZnutV0};
 	use codec::Encode;
-	use sp_runtime::DoughnutV0;
-	use support::additional_traits::DelegatedDispatchVerifier;
-	use support::{assert_err, assert_ok};
+	use sp_runtime::{DoughnutV0, Doughnut};
+	use frame_support::additional_traits::DelegatedDispatchVerifier;
+	use frame_support::{assert_err, assert_ok};
 
 	// A helper to make test doughnuts
 	fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut {
-		let doughnut = DoughnutV0 {
+		let doughnut_v0 = DoughnutV0 {
 			holder: Default::default(),
 			issuer: Default::default(),
 			domains: vec![(domain.to_string(), domain_payload)],
@@ -20,11 +20,13 @@ mod test {
 			signature_version: 0,
 			signature: Default::default(),
 		};
+
+		let doughnut = Doughnut::V0(doughnut_v0);
 		CennznetDoughnut::new(doughnut)
 	}
 
 	fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
-		<Runtime as DelegatedDispatchVerifier<CennznetDoughnut>>::verify_dispatch(doughnut, module, method)
+		<Runtime as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method)
 	}
 
 	// A helper to make test CENNZnuts
