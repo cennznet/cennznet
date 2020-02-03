@@ -2,7 +2,7 @@
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of the GNU General Public License as published byG
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
@@ -757,6 +757,7 @@ impl_runtime_apis! {
 mod tests {
 	use super::*;
 	use sr_primitives::app_crypto::RuntimeAppPublic;
+	use sr_primitives::OpaqueExtrinsic;
 	use system::offchain::SubmitSignedTransaction;
 
 	fn is_submit_signed_transaction<T, Signer>(_arg: T)
@@ -771,6 +772,48 @@ mod tests {
 		Signer: RuntimeAppPublic + From<AccountId>,
 		Signer::Signature: Into<Signature>,
 	{
+	}
+
+	#[test]
+	fn it_decodes() {
+		let buf = vec![
+			0,
+			149,3,
+			40,
+			0,0
+		];
+		let result = SignedExtra::decode(&mut &buf[..]);
+		println!("{:?}", result);
+		result.expect("it decoded");
+
+		let buf2 = vec![
+			7,1,1,250,142,175,4,21,22,135,115,99,38,201,254,161,126,37,252,82,135,97,54,147,201,18,144,156,178,38,170,71,148,242,106,72,65,156
+		];
+		let result2 = Call::decode(&mut &buf2[..]);
+		println!("{:?}", result2);
+		result2.expect("it decoded");
+
+		let buf3 = vec![255,212,53,147,199,21,253,211,28,97,20,26,189,4,169,159,214,130,44,133,88,133,76,205,227,154,86,132,231,165,109,162,125];
+		let result3 = Address::decode(&mut &buf3[..]);
+		println!("{:?}", result3);
+		result3.expect("it decodes address");
+
+		let buf4 = vec![70,46,235,28,114,224,161,244,106,51,140,72,19,94,211,29,248,134,72,106,140,30,148,111,42,121,221,167,147,15,155,54,170,138,59,251,184,159,146,197,87,171,210,90,197,165,219,61,241,194,23,4,82,68,151,210,95,222,212,159,31,212,57,1];
+		let result4 = Signature::decode(&mut &buf4[..]);
+		println!("{:?}", result4);
+		result4.expect("it decodes signature");
+
+		let xt = vec![
+			57,2,131,
+			255,212,53,147,199,21,253,211,28,97,20,26,189,4,169,159,214,130,44,133,88,133,76,205,227,154,86,132,231,165,109,162,125,
+			110,199,96,36,86,73,219,181,173,143,137,2,225,126,106,221,179,118,142,212,85,233,171,26,236,247,233,67,218,173,244,85,232,190,223,128,80,254,164,168,35,151,148,130,229,113,26,31,127,142,104,4,180,109,213,244,164,169,79,221,195,194,100,9,0,229,
+			1,0,0,0,7,1,1,250,142,175,4,21,22,135,115,99,38,201,254,161,126,37,252,82,135,97,54,147,201,18,144,156,178,38,170,71,148,242,106,72,65,156
+		];
+		
+		let result5 = UncheckedExtrinsic::decode(&mut &xt[..]);
+		println!("{:?}", result5);
+		result5.expect("its ok");
+		panic!("it works!");
 	}
 
 	#[test]
