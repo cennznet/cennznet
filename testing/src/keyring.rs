@@ -1,4 +1,4 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -19,8 +19,8 @@
 use cennznet_primitives::types::{AccountId, Balance, Index};
 use cennznet_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
-use keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
-use sr_primitives::generic::Era;
+use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
+use sp_runtime::generic::Era;
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -55,9 +55,10 @@ pub fn ferdie() -> AccountId {
 /// Convert keyrings into `SessionKeys`.
 pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr25519Keyring) -> SessionKeys {
 	SessionKeys {
-		grandpa: ed25519_keyring.to_owned().public().into(),
-		babe: sr25519_keyring.to_owned().public().into(),
-		im_online: sr25519_keyring.to_owned().public().into(),
+		pallet_grandpa: ed25519_keyring.to_owned().public().into(),
+		pallet_babe: sr25519_keyring.to_owned().public().into(),
+		pallet_im_online: sr25519_keyring.to_owned().public().into(),
+		authority_discovery: sr25519_keyring.to_owned().public().into(),
 	}
 }
 
@@ -65,12 +66,12 @@ pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr255
 pub fn signed_extra(nonce: Index, extra_fee: Balance) -> SignedExtra {
 	(
 		None,
-		system::CheckVersion::new(),
-		system::CheckGenesis::new(),
-		system::CheckEra::from(Era::mortal(256, 0)),
-		system::CheckNonce::from(nonce),
-		system::CheckWeight::new(),
-		transaction_payment::ChargeTransactionPayment::from(extra_fee, None),
+		frame_system::CheckVersion::new(),
+		frame_system::CheckGenesis::new(),
+		frame_system::CheckEra::from(Era::mortal(256, 0)),
+		frame_system::CheckNonce::from(nonce),
+		frame_system::CheckWeight::new(),
+		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, None),
 		Default::default(),
 	)
 }
@@ -80,18 +81,18 @@ pub fn sign(xt: CheckedExtrinsic, version: u32, genesis_hash: [u8; 32]) -> Unche
 	match xt.signed {
 		Some((signed, extra)) => {
 			let payload = (xt.function, extra.clone(), version, genesis_hash, genesis_hash);
-			let key = AccountKeyring::from_public(&signed).unwrap();
+			let key = AccountKeyring::from_account_id(&signed).unwrap();
 			let signature = payload
 				.using_encoded(|b| {
 					if b.len() > 256 {
-						key.sign(&sr_io::blake2_256(b))
+						key.sign(&sp_io::hashing::blake2_256(b))
 					} else {
 						key.sign(b)
 					}
 				})
 				.into();
 			UncheckedExtrinsic {
-				signature: Some((indices::address::Address::Id(signed), signature, extra)),
+				signature: Some((pallet_indices::address::Address::Id(signed), signature, extra)),
 				function: payload.0,
 			}
 		}
