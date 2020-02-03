@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use cli::{CoreParams, NoCustom};
+use sc_cli::{CoreParams, NoCustom};
 
 use std::{env, fs, path::Path};
 

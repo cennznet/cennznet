@@ -18,7 +18,7 @@
 
 use super::{config_genesis, ChainSpec, NetworkKeys};
 use hex_literal::hex;
-use primitives::crypto::UncheckedInto;
+use sp_core::crypto::UncheckedInto;
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![

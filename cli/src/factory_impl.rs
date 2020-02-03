@@ -26,16 +26,16 @@ use cennznet_runtime::{
 	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
-use finality_tracker;
 use inherents::InherentData;
-use keyring::sr25519::Keyring;
 use node_transaction_factory::{modes::Mode, RuntimeAdapter};
-use primitives::{crypto::Pair, sr25519};
+use pallet_timestamp;
+use sp_core::{crypto::Pair, sr25519};
+use sp_finality_tracker;
+use sp_keyring::sr25519::Keyring;
 use sp_runtime::{
 	generic::Era,
 	traits::{Block as BlockT, Header as HeaderT, SignedExtension, Zero},
 };
-use timestamp;
 
 pub struct FactoryState<N> {
 	block_no: N,
@@ -54,12 +54,12 @@ impl<Number> FactoryState<Number> {
 	fn build_extra(index: cennznet_primitives::types::Index, phase: u64) -> cennznet_runtime::SignedExtra {
 		(
 			None,
-			system::CheckVersion::new(),
-			system::CheckGenesis::new(),
-			system::CheckEra::from(Era::mortal(256, phase)),
-			system::CheckNonce::from(index),
-			system::CheckWeight::new(),
-			transaction_payment::ChargeTransactionPayment::from(0, None),
+			frame_system::CheckVersion::new(),
+			frame_system::CheckGenesis::new(),
+			frame_system::CheckEra::from(Era::mortal(256, phase)),
+			frame_system::CheckNonce::from(index),
+			frame_system::CheckWeight::new(),
+			crml_transaction_payment::ChargeTransactionPayment::from(0, None),
 			Default::default(),
 		)
 	}
@@ -167,10 +167,10 @@ impl RuntimeAdapter for FactoryState<Number> {
 
 		let mut inherent = InherentData::new();
 		inherent
-			.put_data(timestamp::INHERENT_IDENTIFIER, &timestamp)
+			.put_data(pallet_timestamp::INHERENT_IDENTIFIER, &timestamp)
 			.expect("Failed putting timestamp inherent");
 		inherent
-			.put_data(finality_tracker::INHERENT_IDENTIFIER, &self.block_no)
+			.put_data(sp_finality_tracker::INHERENT_IDENTIFIER, &self.block_no)
 			.expect("Failed putting finalized number inherent");
 		inherent
 	}
@@ -260,7 +260,7 @@ fn sign<RA: RuntimeAdapter>(
 				})
 				.into();
 			UncheckedExtrinsic {
-				signature: Some((indices::address::Address::Id(signed), signature, extra)),
+				signature: Some((pallet_indices::address::Address::Id(signed), signature, extra)),
 				function: payload.0,
 			}
 		}
