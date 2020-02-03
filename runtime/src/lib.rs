@@ -520,7 +520,7 @@ parameter_types! {
 
 impl pallet_identity::Trait for Runtime {
 	type Event = Event;
-	type Currency = StakingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type Slashed = Treasury;
 	type BasicDeposit = BasicDeposit;
 	type FieldDeposit = FieldDeposit;
@@ -581,7 +581,7 @@ parameter_types! {
 impl pallet_recovery::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type Currency = StakingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type ConfigDepositBase = ConfigDepositBase;
 	type FriendDepositFactor = FriendDepositFactor;
 	type MaxFriends = MaxFriends;
@@ -600,7 +600,7 @@ parameter_types! {
 
 impl pallet_society::Trait for Runtime {
 	type Event = Event;
-	type Currency = StakingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type Randomness = RandomnessCollectiveFlip;
 	type CandidateDeposit = CandidateDeposit;
 	type WrongSideDeduction = WrongSideDeduction;
