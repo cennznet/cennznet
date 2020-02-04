@@ -55,9 +55,9 @@ pub fn ferdie() -> AccountId {
 /// Convert keyrings into `SessionKeys`.
 pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr25519Keyring) -> SessionKeys {
 	SessionKeys {
-		pallet_grandpa: ed25519_keyring.to_owned().public().into(),
-		pallet_babe: sr25519_keyring.to_owned().public().into(),
-		pallet_im_online: sr25519_keyring.to_owned().public().into(),
+		grandpa: ed25519_keyring.to_owned().public().into(),
+		babe: sr25519_keyring.to_owned().public().into(),
+		im_online: sr25519_keyring.to_owned().public().into(),
 		authority_discovery: sr25519_keyring.to_owned().public().into(),
 	}
 }

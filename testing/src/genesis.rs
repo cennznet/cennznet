@@ -104,12 +104,7 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_sudo: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
-		pallet_society: Some(SocietyConfig {
-			members: vec![alice(), bob()],
-			pot: 0,
-			max_members: 999,
-		}),
-		cennzx_spot: Some(CennzxSpotConfig {
+		crml_cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),

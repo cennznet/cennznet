@@ -19,8 +19,10 @@ pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", br
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 substrate-test-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }

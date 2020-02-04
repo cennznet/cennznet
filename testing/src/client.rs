@@ -25,7 +25,7 @@ pub use substrate_test_client::*;
 pub type Executor = sc_executor::NativeExecutor<cennznet_executor::Executor>;
 
 /// Default backend type.
-pub type Backend = client_db::Backend<cennznet_primitives::types::Block>;
+pub type Backend = sc_client_db::Backend<cennznet_primitives::types::Block>;
 
 /// Test client type.
 pub type Client = sc_client::Client<
