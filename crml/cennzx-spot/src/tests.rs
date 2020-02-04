@@ -21,7 +21,7 @@ use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
 	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
-	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait,
+	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait, Error
 };
 use core::convert::TryFrom;
 use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, traits::Currency, StorageValue};
@@ -268,12 +268,12 @@ fn get_output_price_zero_cases() {
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 0, 10, DefaultFeeRate::get()),
-			"EmptyPool"
+			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 10, 0, DefaultFeeRate::get()),
-			"EmptyPool"
+			Error::<Test>::EmptyExchangePool
 		);
 	});
 }
@@ -388,7 +388,7 @@ fn asset_swap_output_zero_buy_amount() {
 				0,
 				DefaultFeeRate::get()
 			),
-			"Buy amount must be a positive value"
+			Error::<Test>::BuyAmountNotPositive
 		);
 		assert_err!(
 			CennzXSpot::get_asset_to_core_output_price(
@@ -396,7 +396,7 @@ fn asset_swap_output_zero_buy_amount() {
 				0,
 				DefaultFeeRate::get()
 			),
-			"Buy amount must be a positive value"
+			Error::<Test>::BuyAmountNotPositive
 		);
 	});
 }
@@ -412,7 +412,7 @@ fn asset_swap_output_insufficient_reserve() {
 				1001, // amount_bought
 				DefaultFeeRate::get()
 			),
-			"Insufficient core asset reserve in exchange"
+			Error::<Test>::InsufficientCoreAssetReserve
 		);
 
 		assert_err!(
@@ -421,7 +421,7 @@ fn asset_swap_output_insufficient_reserve() {
 				1001, // amount_bought
 				DefaultFeeRate::get()
 			),
-			"Insufficient asset reserve in exchange"
+			Error::<Test>::InsufficientTradeAssetReserve
 		);
 	});
 }
@@ -486,7 +486,7 @@ fn asset_swap_output_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			"Buy amount must be a positive value"
+			Error::<Test>::BuyAmountNotPositive
 		);
 		// core to asset swap output
 		assert_err!(
@@ -498,7 +498,7 @@ fn asset_swap_output_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			"Buy amount must be a positive value"
+			Error::<Test>::BuyAmountNotPositive
 		);
 	});
 }
@@ -519,7 +519,7 @@ fn asset_swap_output_insufficient_balance() {
 				51,  // buy_amount
 				500, // max_sale,
 			),
-			"Insufficient asset balance in buyer account"
+			Error::<Test>::InsufficientBuyerTradeAssetBalance
 		);
 		// core to asset swap output
 		assert_err!(
@@ -531,7 +531,7 @@ fn asset_swap_output_insufficient_balance() {
 				101, // buy_amount
 				500, // max_sale,
 			),
-			"Insufficient core asset balance in buyer account"
+			Error::<Test>::InsufficientBuyerCoreAssetBalance
 		);
 	});
 }
@@ -552,7 +552,7 @@ fn asset_swap_output_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			"Amount of asset sold would exceed the specified max. limit"
+			Error::<Test>::AssetToCorePriceAboveMaxLimit
 		);
 
 		// core to asset swap output
@@ -895,7 +895,7 @@ fn asset_swap_input_insufficient_balance() {
 				100,   // min buy limit
 				DefaultFeeRate::get()
 			),
-			"Insufficient asset balance in seller account"
+			Error::<Test>::InsufficientSellerTradeAssetBalance
 		);
 
 		assert_err!(
@@ -907,7 +907,7 @@ fn asset_swap_input_insufficient_balance() {
 				100,   // min buy limit
 				DefaultFeeRate::get()
 			),
-			"Insufficient core asset balance in seller account"
+			Error::<Test>::InsufficientSellerCoreAssetBalance
 		);
 	});
 }
@@ -1051,7 +1051,7 @@ fn asset_swap_input_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			"The sale value of input is less than the required min."
+			Error::<Test>::SaleValueBelowRequiredMinimum
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1063,7 +1063,7 @@ fn asset_swap_input_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			"The sale value of input is less than the required min."
+			Error::<Test>::SaleValueBelowRequiredMinimum
 		);
 	});
 }
@@ -1154,7 +1154,7 @@ fn asset_to_asset_swap_output_zero_asset_sold() {
 				0,                                      // buy_amount
 				300,                                    // maximum asset A to sell
 			),
-			"Buy amount must be a positive value"
+			Error::<Test>::BuyAmountNotPositive
 		);
 	});
 }
@@ -1175,7 +1175,7 @@ fn asset_to_asset_swap_output_insufficient_balance() {
 				51,                                     // buy_amount
 				400,                                    // maximum asset A to sell
 			),
-			"Insufficient asset balance in buyer account"
+			Error::<Test>::InsufficientBuyerTradeAssetBalance
 		);
 	});
 }
@@ -1196,7 +1196,7 @@ fn asset_to_asset_swap_output_exceed_max_sale() {
 				156,                                    // buy_amount
 				100,                                    // maximum asset A to sell
 			),
-			"Amount of asset sold would exceed the specified max. limit"
+			Error::<Test>::AssetToAssetPriceAboveMaxLimit
 		);
 	});
 }
@@ -1287,7 +1287,7 @@ fn asset_to_asset_swap_input_insufficient_balance() {
 				51,                                     // sell_amount
 				100,                                    // min buy limit for asset B
 			),
-			"Insufficient asset balance in seller account"
+			Error::<Test>::InsufficientSellerTradeAssetBalance
 		);
 	});
 }

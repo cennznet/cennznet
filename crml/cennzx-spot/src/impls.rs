@@ -17,7 +17,7 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use super::Trait;
-use crate::Module;
+use crate::{Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use core::convert::TryInto;
 use frame_support::dispatch::{DispatchError, DispatchResult};
