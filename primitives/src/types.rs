@@ -19,8 +19,8 @@
 use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify, IdentifyAccount},
-	MultiSignature, DoughnutV0, OpaqueExtrinsic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	DoughnutV0, MultiSignature, OpaqueExtrinsic,
 };
 
 /// An index to a block.

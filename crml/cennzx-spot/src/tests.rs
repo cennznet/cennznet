@@ -29,7 +29,7 @@ use pallet_generic_asset;
 use sp_core::{crypto::UncheckedInto, sr25519, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Perbill,
 };
 

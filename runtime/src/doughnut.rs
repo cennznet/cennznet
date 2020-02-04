@@ -4,9 +4,9 @@ mod test {
 	use cennznut::{self};
 	use cennznut::{CENNZnut, CENNZnutV0};
 	use codec::Encode;
-	use sp_runtime::{DoughnutV0, Doughnut};
 	use frame_support::additional_traits::DelegatedDispatchVerifier;
 	use frame_support::{assert_err, assert_ok};
+	use sp_runtime::{Doughnut, DoughnutV0};
 
 	// A helper to make test doughnuts
 	fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut {
