@@ -45,8 +45,8 @@ mod tests {
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
-	use contracts::ContractAddressFor;
-	use primitives::{
+	use pallet_contracts::ContractAddressFor;
+	use sp_core::{
 		map,
 		storage::well_known_keys,
 		traits::{CodeExecutor, Externalities},
@@ -60,9 +60,9 @@ mod tests {
 		weights::GetDispatchInfo,
 		ApplyResult, Fixed64,
 	};
-	use state_machine::TestExternalities as CoreTestExternalities;
-	use support::{Hashable, StorageDoubleMap, StorageMap, StorageValue};
-	use system::{EventRecord, Phase};
+	use sp_state_machine::TestExternalities as CoreTestExternalities;
+	use frame_support::{Hashable, StorageDoubleMap, StorageMap, StorageValue};
+	use frame_system::{EventRecord, Phase};
 	use wabt;
 	use {contracts, generic_asset, indices, system, timestamp};
 
@@ -96,13 +96,13 @@ mod tests {
 		let length_fee = TransactionBaseFee::get() + TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
-		let weight_fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(weight);
+		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 
 		fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 	}
 
-	fn default_transfer_call() -> generic_asset::Call<Runtime> {
-		generic_asset::Call::transfer::<Runtime>(SPENDING_ASSET_ID, bob().into(), 69 * DOLLARS)
+	fn default_transfer_call() -> pallet_generic_asset::Call<Runtime> {
+		pallet_generic_asset::Call::transfer::<Runtime>(SPENDING_ASSET_ID, bob().into(), 69 * DOLLARS)
 	}
 
 	fn xt() -> UncheckedExtrinsic {
@@ -150,16 +150,16 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
 						69_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
 						0_u128.encode()
 					},
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
 					}
 				],
@@ -195,16 +195,16 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
 						69_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
 						0_u128.encode()
 					},
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
 					}
 				],
@@ -240,17 +240,17 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				map![],
 			),
@@ -293,17 +293,17 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				map![],
 			),
@@ -358,7 +358,7 @@ mod tests {
 		parent_hash: Hash,
 		extrinsics: Vec<CheckedExtrinsic>,
 	) -> (Vec<u8>, Hash) {
-		use trie::{trie_types::Layout, TrieConfiguration};
+		use sp_trie::{trie_types::Layout, TrieConfiguration};
 
 		// sign extrinsics.
 		let extrinsics = extrinsics.into_iter().map(sign).collect::<Vec<_>>();
@@ -413,11 +413,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						69 * DOLLARS,
@@ -439,11 +439,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						69 * DOLLARS,
@@ -458,11 +458,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(52 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((bob(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						5 * DOLLARS,
@@ -470,7 +470,7 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(1, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						15 * DOLLARS,
@@ -494,11 +494,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(nonce, 0))),
-					function: Call::System(system::Call::remark(vec![0; size])),
+					function: Call::System(frame_system::Call::remark(vec![0; size])),
 				},
 			],
 		)
@@ -527,12 +527,12 @@ mod tests {
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						bob().into(),
@@ -542,7 +542,7 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess),
 					topics: vec![],
 				},
 			];
@@ -569,12 +569,12 @@ mod tests {
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						alice().into(),
@@ -584,12 +584,12 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						bob().into(),
@@ -599,7 +599,7 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess),
 					topics: vec![],
 				},
 			];
@@ -741,9 +741,9 @@ mod tests {
 	#[test]
 	fn deploying_wasm_contract_should_work() {
 		let transfer_code = wabt::wat2wasm(CODE_TRANSFER).unwrap();
-		let transfer_ch = <Runtime as system::Trait>::Hashing::hash(&transfer_code);
+		let transfer_ch = <Runtime as frame_system::Trait>::Hashing::hash(&transfer_code);
 
-		let addr = <Runtime as contracts::Trait>::DetermineContractAddress::contract_address_for(
+		let addr = <Runtime as pallet_contracts::Trait>::DetermineContractAddress::contract_address_for(
 			&transfer_ch,
 			&[],
 			&charlie(),
@@ -756,15 +756,15 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(0, 0))),
-					function: Call::Contracts(contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
+					function: Call::Contracts(pallet_contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(1, 0))),
-					function: Call::Contracts(contracts::Call::instantiate::<Runtime>(
+					function: Call::Contracts(pallet_contracts::Call::instantiate::<Runtime>(
 						1 * DOLLARS,
 						10_000,
 						transfer_ch,
@@ -773,8 +773,8 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(2, 0))),
-					function: Call::Contracts(contracts::Call::call::<Runtime>(
-						indices::address::Address::Id(addr.clone()),
+					function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+						pallet_indices::address::Address::Id(addr.clone()),
 						10,
 						10_000,
 						vec![0x00, 0x01, 0x02, 0x03],
@@ -792,7 +792,7 @@ mod tests {
 		t.execute_with(|| {
 			// Verify that the contract constructor worked well and code of TRANSFER contract is actually deployed.
 			assert_eq!(
-				&contracts::ContractInfoOf::<Runtime>::get(addr)
+				&pallet_contracts::ContractInfoOf::<Runtime>::get(addr)
 					.and_then(|c| c.get_alive())
 					.unwrap()
 					.code_hash,
@@ -854,14 +854,14 @@ mod tests {
 			BLOATY_CODE,
 			(
 				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						0_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						0_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				map![],
 			),
@@ -896,17 +896,17 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				map![],
 			),
@@ -1005,11 +1005,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(0, 0))),
-					function: Call::System(system::Call::fill_block()),
+					function: Call::System(frame_system::Call::fill_block()),
 				},
 			],
 		);
@@ -1022,11 +1022,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(52 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(1, 0))),
-					function: Call::System(system::Call::remark(vec![0; 1])),
+					function: Call::System(frame_system::Call::remark(vec![0; 1])),
 				},
 			],
 		);
@@ -1076,20 +1076,20 @@ mod tests {
 			COMPACT_CODE,
 			(
 				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(100 * DOLLARS).encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &bob()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &bob()) => {
 						(10 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(110 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				map![],
 			),
@@ -1176,7 +1176,7 @@ mod tests {
 			let mut xts = (0..num_transfers)
 				.map(|i| CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(nonce + i as Index, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(SPENDING_ASSET_ID, bob().into(), 0)),
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(SPENDING_ASSET_ID, bob().into(), 0)),
 				})
 				.collect::<Vec<CheckedExtrinsic>>();
 
@@ -1184,7 +1184,7 @@ mod tests {
 				0,
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 				},
 			);
 
@@ -1241,11 +1241,11 @@ mod tests {
 				vec![
 					CheckedExtrinsic {
 						signed: None,
-						function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+						function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 					},
 					CheckedExtrinsic {
 						signed: Some((charlie(), signed_extra(nonce, 0))),
-						function: Call::System(system::Call::remark(vec![0u8; (block_number * factor) as usize])),
+						function: Call::System(frame_system::Call::remark(vec![0u8; (block_number * factor) as usize])),
 					},
 				],
 			);
