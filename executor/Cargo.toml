@@ -14,7 +14,6 @@ cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 
 #frame dependencies
-# runtime-io = { package = "sp-io", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sp-state-machine = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
@@ -31,11 +30,6 @@ frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", bran
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-
-# test-client = { package = "substrate-test-client", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-#treasury = { package = "pallet-treasury", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-#grandpa = { package = "pallet-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-# session = { package = "pallet-session", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 
 [features]
 benchmarks = []
