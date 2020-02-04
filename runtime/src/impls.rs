@@ -19,11 +19,11 @@
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
-use generic_asset::StakingAssetCurrency;
-use sp_runtime::traits::{Convert, Saturating};
-use frame_support::weights::Weight;
-use sp_runtime::Fixed64;
 use frame_support::traits::Currency;
+use frame_support::weights::Weight;
+use pallet_generic_asset::StakingAssetCurrency;
+use sp_runtime::traits::{Convert, Saturating};
+use sp_runtime::Fixed64;
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -51,7 +51,7 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 /// node's balance type.
 ///
 /// This should typically create a mapping between the following ranges:
-///   - [0, system::MaximumBlockWeight]
+///   - [0, frame_system::MaximumBlockWeight]
 ///   - [Balance::min, Balance::max]
 ///
 /// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
@@ -227,7 +227,7 @@ mod tests {
 			}
 			fm = next;
 			iterations += 1;
-			let fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(tx_weight);
+			let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(tx_weight);
 			let adjusted_fee = fm.saturated_multiply_accumulate(fee);
 			println!(
 				"iteration {}, new fm = {:?}. Fee at this point is: \
