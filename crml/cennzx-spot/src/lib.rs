@@ -81,10 +81,48 @@ decl_error! {
 		AssetSaleValueNotAboveZero,
 		// Asset to core sale price should be greater than zero
 		AssetToCorePriceNotAboveZero,
+		// Insufficient core asset balance in exchange account
+		InsufficientCoreAssetInExchangeBalance,
 		// Asset to core sale price exceeds the specified max. limit
 		AssetToCorePriceAboveMaxLimit,
+		// Core to asset sale price should be greater than zero
+		CoreToAssetPriceNotAboveZero,
+		// Core to asset sale price exceeds the specified max. limit
+		CoreToAssetPriceAboveMaxLimit,
 		// Asset to asset sale price exceeds the specified max. limit
 		AssetToAssetPriceAboveMaxLimit,
+		// Tried to overdraw liquidity
+		LiquidityTooLow,
+		// Minimum trade asset is required
+		MinimumTradeAssetIsRequired,
+		// Minimum core asset is required
+		MinimumCoreAssetIsRequired,
+		// Assets withdrawn to be greater than zero
+		AssetToWithdrawNotAboveZero,
+		// Amount of exchange asset to burn should exist
+		LiquidityToWithdrawNotAboveZero,
+		// Liquidity should exist
+		NoLiquidityToRemove,
+		// trade asset amount must be greater than zero
+		TradeAssetToAddLiquidityNotAboveZero,
+		// core asset amount must be greater than zero
+		CoreAssetToAddLiquidityNotAboveZero,
+		// not enough core asset in balance
+		CoreAssetBalanceToAddLiquidityTooLow,
+		// not enough trade asset balance
+		TradeAssetBalanceToAddLiquidityTooLow,
+		// Minimum liquidity is required
+		LiquidityMintableLowerThanRequired,
+		// Token liquidity check unsuccessful
+		TradeAssetToAddLiquidityAboveMaxAmount,
+		// Asset to core sell amount must be a positive value
+		AssetToCoreSellAmountNotAboveZero,
+		// Core to Asset sell amount must be a positive value
+		CoreToAssetSellAmountNotAboveZero,
+		// The sale value of input is less than the required min
+		InsufficientSellAssetForRequiredMinimumBuyAsset,
+		// Asset to swap should not be equal
+		AssetCannotSwapForItself,
 	}
 }
 
@@ -174,13 +212,21 @@ decl_module! {
 		) {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
-			ensure!(!max_asset_amount.is_zero(), "trade asset amount must be greater than zero");
-			ensure!(!core_amount.is_zero(), "core asset amount must be greater than zero");
-			ensure!(<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
-				"no enough core asset balance"
+			ensure!(
+				!max_asset_amount.is_zero(),
+				Error::<T>::TradeAssetToAddLiquidityNotAboveZero
 			);
-			ensure!(<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
-				"no enough trade asset balance"
+			ensure!(
+				!core_amount.is_zero(),
+				Error::<T>::CoreAssetToAddLiquidityNotAboveZero
+			);
+			ensure!(
+				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
+				Error::<T>::CoreAssetBalanceToAddLiquidityTooLow
+			);
+			ensure!(
+				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
+				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = Self::get_total_supply(&exchange_key);
@@ -201,8 +247,14 @@ decl_module! {
 				let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
-				ensure!(liquidity_minted >= min_liquidity, "Minimum liquidity is required");
-				ensure!(max_asset_amount >= trade_asset_amount, "Token liquidity check unsuccessful");
+				ensure!(
+					liquidity_minted >= min_liquidity,
+					Error::<T>::LiquidityMintableLowerThanRequired
+				);
+				ensure!(
+					max_asset_amount >= trade_asset_amount,
+					Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
+				);
 
 				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
 				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
@@ -228,24 +280,42 @@ decl_module! {
 			#[compact] min_core_withdraw: T::Balance
 		) -> DispatchResult {
 			let from_account = ensure_signed(origin)?;
-			ensure!(liquidity_withdrawn > Zero::zero(), "Amount of exchange asset to burn should exist");
-			ensure!(min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(), "Assets withdrawn to be greater than zero");
+			ensure!(
+				liquidity_withdrawn > Zero::zero(),
+				Error::<T>::LiquidityToWithdrawNotAboveZero
+			);
+			ensure!(
+				min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(),
+				Error::<T>::AssetToWithdrawNotAboveZero
+			);
 
 			let core_asset_id = Self::core_asset_id();
 			let exchange_key = (core_asset_id, asset_id);
 			let account_liquidity = Self::get_liquidity(&exchange_key, &from_account);
-			ensure!(account_liquidity >= liquidity_withdrawn, "Tried to overdraw liquidity");
+			ensure!(
+				account_liquidity >= liquidity_withdrawn,
+				Error::<T>::LiquidityTooLow
+			);
 
 			let total_liquidity = Self::get_total_supply(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
-			ensure!(total_liquidity > Zero::zero(), "Liquidity should exist");
+			ensure!(
+				total_liquidity > Zero::zero(),
+				Error::<T>::NoLiquidityToRemove
+			);
 
 			let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
 			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
-			ensure!(core_asset_amount >= min_core_withdraw, "Minimum core asset is required");
-			ensure!(trade_asset_amount >= min_asset_withdraw, "Minimum trade asset is required");
+			ensure!(
+				core_asset_amount >= min_core_withdraw,
+				Error::<T>::MinimumCoreAssetIsRequired
+			);
+			ensure!(
+				trade_asset_amount >= min_asset_withdraw,
+				Error::<T>::MinimumTradeAssetIsRequired
+			);
 
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
@@ -438,11 +508,11 @@ impl<T: Trait> Module<T> {
 		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
 		ensure!(
 			sold_amount > Zero::zero(),
-			"Amount of core asset sold should be greater than zero"
+			Error::<T>::CoreToAssetPriceNotAboveZero
 		);
 		ensure!(
 			max_paying_amount >= sold_amount,
-			"Amount of core asset sold would exceed the specified max. limit"
+			Error::<T>::CoreToAssetPriceAboveMaxLimit
 		);
 		let core_asset_id = Self::core_asset_id();
 		ensure!(
@@ -507,11 +577,11 @@ impl<T: Trait> Module<T> {
 		let core_asset_a = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
 		ensure!(
 			core_asset_a > Zero::zero(),
-			"Amount of core asset sold should be greater than zero"
+			Error::<T>::CoreToAssetPriceNotAboveZero
 		);
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= core_asset_a,
-			"Insufficient core asset balance in exchange account"
+			Error::<T>::InsufficientCoreAssetInExchangeBalance
 		);
 
 		let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_b);
@@ -571,7 +641,7 @@ impl<T: Trait> Module<T> {
 
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address) >= sale_value,
-			"Insufficient asset balance in exchange account"
+			Error::<T>::InsufficientCoreAssetInExchangeBalance
 		);
 
 		let _ = <pallet_generic_asset::Module<T>>::make_transfer(asset_id, buyer, &exchange_address, sell_amount).and(
@@ -621,11 +691,11 @@ impl<T: Trait> Module<T> {
 		);
 		ensure!(
 			asset_b_received >= min_b_from_sale,
-			"The sale value of input is less than the required min"
+			Error::<T>::InsufficientSellAssetForRequiredMinimumBuyAsset
 		);
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= sale_value_a,
-			"Insufficient core asset balance in exchange account"
+			Error::<T>::InsufficientCoreAssetInExchangeBalance
 		);
 
 		let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_b);
@@ -689,7 +759,10 @@ impl<T: Trait> Module<T> {
 		sell_amount: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(sell_amount > Zero::zero(), "Sell amount must be a positive value");
+		ensure!(
+			sell_amount > Zero::zero(),
+			Error::<T>::AssetToCoreSellAmountNotAboveZero
+		);
 
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
@@ -807,7 +880,10 @@ impl<T: Trait> Module<T> {
 		sell_amount: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(sell_amount > Zero::zero(), "Sell amount must be a positive value");
+		ensure!(
+			sell_amount > Zero::zero(),
+			Error::<T>::CoreToAssetSellAmountNotAboveZero
+		);
 
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
@@ -843,7 +919,10 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate<PerMillion>,
 	) -> DispatchResult {
 		let core_asset = Self::core_asset_id();
-		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
+		ensure!(
+			asset_sold != asset_bought,
+			Error::<T>::AssetCannotSwapForItself
+		);
 		if *asset_sold == core_asset {
 			let _ = Self::make_core_to_asset_output(
 				buyer,

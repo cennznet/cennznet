@@ -565,7 +565,7 @@ fn asset_swap_output_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			"Amount of core asset sold would exceed the specified max. limit"
+			Error::<Test>::CoreToAssetPriceAboveMaxLimit
 		);
 	});
 }
@@ -666,7 +666,7 @@ fn remove_liquidity_fails_min_core_asset_limit() {
 				4,  //`min_asset_withdraw` - The minimum trade asset withdrawn
 				14  //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			"Minimum core asset is required"
+			Error::<Test>::MinimumCoreAssetIsRequired
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -696,7 +696,7 @@ fn remove_liquidity_fails_min_trade_asset_limit() {
 				18, //`min_asset_withdraw` - The minimum trade asset withdrawn
 				4   //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			"Minimum trade asset is required"
+			Error::<Test>::MinimumTradeAssetIsRequired
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -726,7 +726,7 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 				18, //`min_asset_withdraw` - The minimum trade asset withdrawn
 				4   //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			"Tried to overdraw liquidity"
+			Error::<Test>::LiquidityTooLow
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -867,7 +867,7 @@ fn asset_swap_input_zero_sell_amount() {
 				0,
 				DefaultFeeRate::get()
 			),
-			"Sell amount must be a positive value"
+			Error::<Test>::AssetToCoreSellAmountNotAboveZero
 		);
 		assert_err!(
 			CennzXSpot::get_core_to_asset_input_price(
@@ -875,7 +875,7 @@ fn asset_swap_input_zero_sell_amount() {
 				0,
 				DefaultFeeRate::get()
 			),
-			"Sell amount must be a positive value"
+			Error::<Test>::CoreToAssetSellAmountNotAboveZero
 		);
 	});
 }
@@ -1018,7 +1018,7 @@ fn asset_swap_input_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			"Sell amount must be a positive value"
+			Error::<Test>::AssetToCoreSellAmountNotAboveZero
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1030,7 +1030,7 @@ fn asset_swap_input_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			"Sell amount must be a positive value"
+			Error::<Test>::CoreToAssetSellAmountNotAboveZero
 		);
 	});
 }
@@ -1266,7 +1266,7 @@ fn asset_to_asset_swap_input_zero_asset_sold() {
 				0,                                      // sell_amount
 				100,                                    // min buy limit for asset B
 			),
-			"Sell amount must be a positive value"
+			Error::<Test>::AssetToCoreSellAmountNotAboveZero
 		);
 	});
 }
@@ -1308,7 +1308,7 @@ fn asset_to_asset_swap_input_less_than_min_sale() {
 				156,                                    // sell_amount
 				200,                                    // min buy limit for asset B
 			),
-			"The sale value of input is less than the required min"
+			Error::<Test>::InsufficientSellAssetForRequiredMinimumBuyAsset
 		);
 	});
 }

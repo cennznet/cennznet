@@ -56,7 +56,6 @@ impl Scaled for PerCent {
 pub enum FeeRateError {
 	Overflow,
 	DivideByZero,
-	EmptyPool,
 }
 
 impl Into<&'static str> for FeeRateError {
@@ -64,7 +63,6 @@ impl Into<&'static str> for FeeRateError {
 		match self {
 			FeeRateError::Overflow => "Overflow",
 			FeeRateError::DivideByZero => "DivideByZero",
-			FeeRateError::EmptyPool => "EmptyPool",
 		}
 	}
 }
