@@ -27,6 +27,7 @@ members = [
 	"rpc-client",
 	"runtime",
 	"testing",
+	"transaction-factory",
 ]
 
 [badges]

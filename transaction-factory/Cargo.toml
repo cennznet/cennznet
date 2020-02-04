@@ -1,0 +1,19 @@
+[package]
+name = "cennznet-transaction-factory"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.0.0", features = ["derive"] }
+log = "0.4.8"
+sc-cli = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sc-client-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-block-builder = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-consensus = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sc-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }

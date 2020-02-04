@@ -688,6 +688,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cennznet-transaction-factory"
+version = "1.0.0"
+dependencies = [
+ "log 0.4.8",
+ "parity-scale-codec",
+ "sc-cli",
+ "sc-client",
+ "sc-client-api",
+ "sc-service",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "cennznut"
 version = "0.3.0"
 source = "git+https://github.com/cennznet/cennznut-rs?branch=0.3.0#f0452fff499a57096da315953926dfcca8cf7b8f"
