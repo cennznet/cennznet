@@ -478,7 +478,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-cli",
  "ctrlc",
- "futures 0.1.29",
+ "futures 0.3.1",
  "vergen",
 ]
 
