@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2010 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -14,14 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use sc_cli::{CoreParams, NoCustom};
-
-use std::{env, fs, path::Path};
-
-use structopt::{clap::Shell, StructOpt};
+use std::{fs, env, path::Path};
+use structopt::{StructOpt, clap::Shell};
+use sc_cli::{NoCustom, CoreParams};
+use vergen::{ConstantsFlags, generate_cargo_keys};
 
 fn main() {
 	build_shell_completion();
+	generate_cargo_keys(ConstantsFlags::all()).expect("Failed to generate metadata files");
+
+	build_script_utils::rerun_if_git_head_changed();
 }
 
 /// Build shell completion scripts for all known shells
@@ -39,15 +41,12 @@ fn build_completion(shell: &Shell) {
 		Some(dir) => dir,
 	};
 	let path = Path::new(&outdir)
-		.parent()
-		.unwrap()
-		.parent()
-		.unwrap()
-		.parent()
-		.unwrap()
+		.parent().unwrap()
+		.parent().unwrap()
+		.parent().unwrap()
 		.join("completion-scripts");
 
 	fs::create_dir(&path).ok();
 
-	CoreParams::<NoCustom, NoCustom>::clap().gen_completions("cennznet-node", *shell, &path);
+	CoreParams::<NoCustom, NoCustom>::clap().gen_completions("substrate-node", *shell, &path);
 }

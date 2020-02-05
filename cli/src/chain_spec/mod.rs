@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 use cennznet_runtime::constants::{asset::*, currency::*, time::*};
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	ElectionsConfig, GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
@@ -98,24 +98,24 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 	let root_key = network_keys.root_key;
 
 	GenesisConfig {
-		system: Some(SystemConfig {
+		frame_system: Some(SystemConfig {
 			code: WASM_BINARY.to_vec(),
 			changes_trie_config: Default::default(),
 		}),
-		indices: Some(IndicesConfig {
+		pallet_indices: Some(IndicesConfig {
 			ids: endowed_accounts
 				.iter()
 				.cloned()
 				.chain(initial_authorities.iter().map(|x| x.0.clone()))
 				.collect::<Vec<_>>(),
 		}),
-		session: Some(SessionConfig {
+		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
 				.iter()
 				.map(|x| (x.0.clone(), session_keys(x.2.clone(), x.3.clone(), x.4.clone())))
 				.collect::<Vec<_>>(),
 		}),
-		staking: Some(StakingConfig {
+		pallet_staking: Some(StakingConfig {
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
@@ -127,34 +127,31 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}),
-		democracy: Some(DemocracyConfig::default()),
-		collective_Instance1: Some(CouncilConfig {
-			members: vec![],
+		pallet_democracy: Some(DemocracyConfig::default()),
+		pallet_collective_Instance1: Some(CouncilConfig {
+			members: endowed_accounts.iter().cloned()
+			.collect::<Vec<_>>()[..(num_endowed_accounts + 1) / 2].to_vec(),
 			phantom: Default::default(),
 		}),
-		collective_Instance2: Some(TechnicalCommitteeConfig {
-			members: vec![],
+		pallet_collective_Instance2: Some(TechnicalCommitteeConfig {
+			members: endowed_accounts.iter().cloned()
+			.collect::<Vec<_>>()[..(num_endowed_accounts + 1) / 2].to_vec(),
 			phantom: Default::default(),
 		}),
-		elections_phragmen: Some(ElectionsConfig {
-			members: endowed_accounts.iter().take(2).cloned().collect(),
-			term_duration: 28 * DAYS,
-			desired_members: 4,
-			desired_runners_up: 1,
-		}),
-		contracts: Some(ContractsConfig {
+		pallet_contracts: Some(ContractsConfig {
 			current_schedule: pallet_contracts::Schedule {
 				enable_println, // this should only be enabled on development chains
 				..Default::default()
 			},
 			gas_price: 1 * MILLICENTS,
 		}),
-		sudo: Some(SudoConfig { key: root_key }),
-		babe: Some(BabeConfig { authorities: vec![] }),
-		im_online: Some(ImOnlineConfig { keys: vec![] }),
-		authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-		grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		membership_Instance1: Some(Default::default()),
+		pallet_sudo: Some(SudoConfig { key: root_key }),
+		pallet_babe: Some(BabeConfig { authorities: vec![] }),
+		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
+		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
+		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
+		pallet_membership_Instance1: Some(Default::default()),
+		pallet_treasury: Some(Default::default()),
 		generic_asset: Some(GenericAssetConfig {
 			assets: vec![
 				CENNZ_ASSET_ID,
