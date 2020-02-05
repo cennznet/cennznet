@@ -43,13 +43,13 @@ impl sc_cli::IntoExit for Exit {
 
 fn main() -> Result<(), sc_cli::error::Error> {
 	let version = VersionInfo {
-		name: "Plug Node",
+		name: "CENNZnet Node",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "plug",
-		author: "Plug Developers <admin@plug.team>",
-		description: "Generic plug node",
-		support_url: "https://github.com/plugblockchain/plug-blockchain/issues/new",
+		executable_name: "cennznet",
+		author: "Centrality Developers <support@centrality.ai>",
+		description: "CENNZnet node",
+		support_url: "https://github.com/cennznet/cennznet/issues/new",
 	};
 
 	node_cli::run(std::env::args(), Exit, version)
