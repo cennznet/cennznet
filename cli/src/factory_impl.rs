@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -21,21 +21,25 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+use cennznet_primitives::types::{AccountId, Balance, Block, Index, Signature};
 use cennznet_runtime::{
 	constants::asset::SPENDING_ASSET_ID, Call, CheckedExtrinsic, GenericAssetCall, MinimumPeriod, SignedExtra,
 	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
-use inherents::InherentData;
-use node_transaction_factory::{modes::Mode, RuntimeAdapter};
-use pallet_timestamp;
+use node_transaction_factory::modes::Mode;
+use node_transaction_factory::RuntimeAdapter;
 use sp_core::{crypto::Pair, sr25519};
 use sp_finality_tracker;
+use sp_inherents::InherentData;
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::{
 	generic::Era,
-	traits::{Block as BlockT, Header as HeaderT, SignedExtension, Zero},
+	traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, SignedExtension, Verify, Zero},
 };
+use sp_timestamp;
+
+type AccountPublic = <Signature as Verify>::Signer;
 
 pub struct FactoryState<N> {
 	block_no: N,
@@ -48,10 +52,10 @@ pub struct FactoryState<N> {
 	num: u32,
 }
 
-type Number = <<cennznet_primitives::types::Block as BlockT>::Header as HeaderT>::Number;
+type Number = <<Block as BlockT>::Header as HeaderT>::Number;
 
 impl<Number> FactoryState<Number> {
-	fn build_extra(index: cennznet_primitives::types::Index, phase: u64) -> cennznet_runtime::SignedExtra {
+	fn build_extra(index: Index, phase: u64) -> SignedExtra {
 		(
 			None,
 			frame_system::CheckVersion::new(),
@@ -66,12 +70,12 @@ impl<Number> FactoryState<Number> {
 }
 
 impl RuntimeAdapter for FactoryState<Number> {
-	type AccountId = cennznet_primitives::types::AccountId;
-	type Balance = cennznet_primitives::types::Balance;
-	type Block = cennznet_primitives::types::Block;
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Block = Block;
 	type Phase = sp_runtime::generic::Phase;
 	type Secret = sr25519::Pair;
-	type Index = cennznet_primitives::types::Index;
+	type Index = Index;
 
 	type Number = Number;
 
@@ -144,7 +148,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 				signed: Some((sender.clone(), Self::build_extra(index, phase))),
 				function: Call::GenericAsset(GenericAssetCall::transfer(
 					SPENDING_ASSET_ID,
-					destination.clone().into(),
+					destination.clone(),
 					(*amount).into(),
 				)),
 			},
@@ -167,7 +171,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 
 		let mut inherent = InherentData::new();
 		inherent
-			.put_data(pallet_timestamp::INHERENT_IDENTIFIER, &timestamp)
+			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 			.expect("Failed putting timestamp inherent");
 		inherent
 			.put_data(sp_finality_tracker::INHERENT_IDENTIFIER, &self.block_no)
@@ -180,7 +184,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 	}
 
 	fn master_account_id() -> Self::AccountId {
-		Keyring::Alice.pair().public()
+		Keyring::Alice.to_account_id()
 	}
 
 	fn master_account_secret() -> Self::Secret {
@@ -190,7 +194,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 	/// Generates a random `AccountId` from `seed`.
 	fn gen_random_account_id(seed: &Self::Number) -> Self::AccountId {
 		let pair: sr25519::Pair = sr25519::Pair::from_seed(&gen_seed_bytes(*seed));
-		pair.public().into()
+		AccountPublic::from(pair.public()).into_account()
 	}
 
 	/// Generates a random `Secret` from `seed`.

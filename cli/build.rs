@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2010 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -15,13 +15,15 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use sc_cli::{CoreParams, NoCustom};
-
 use std::{env, fs, path::Path};
-
 use structopt::{clap::Shell, StructOpt};
+use vergen::{generate_cargo_keys, ConstantsFlags};
 
 fn main() {
 	build_shell_completion();
+	generate_cargo_keys(ConstantsFlags::all()).expect("Failed to generate metadata files");
+
+	build_script_utils::rerun_if_git_head_changed();
 }
 
 /// Build shell completion scripts for all known shells
