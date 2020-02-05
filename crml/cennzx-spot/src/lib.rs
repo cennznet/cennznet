@@ -25,7 +25,7 @@ mod tests;
 mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
-pub use types::{FeeRateError, FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, PerMillion};
+pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, PerMillion};
 
 #[macro_use]
 extern crate frame_support;
@@ -57,7 +57,6 @@ pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 }
 
 decl_error! {
-	/// Error for the generic-asset module.
 	pub enum Error for Module<T: Trait> {
 		/// Exchange pool is empty.
 		EmptyExchangePool,
@@ -123,6 +122,8 @@ decl_error! {
 		InsufficientSellAssetForRequiredMinimumBuyAsset,
 		// Asset to swap should not be equal
 		AssetCannotSwapForItself,
+		Overflow,
+		DivideByZero,
 	}
 }
 
@@ -794,20 +795,23 @@ impl<T: Trait> Module<T> {
 		let price_hp = input_reserve_hp
 			.saturating_mul(output_amount_hp)
 			.checked_div(denominator_hp)
-			.ok_or::<&'static str>(FeeRateError::DivideByZero.into())?;
+			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
 		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> =
-			LowPrecisionUnsigned::try_from(price_hp).map_err(|_| FeeRateError::Overflow.into());
-		let price_lp = price_lp_result?;
+			LowPrecisionUnsigned::try_from(price_hp);
+		if price_lp_result.is_err() {
+			Err(Error::<T>::Overflow)?;
+		}
+		let price_lp = price_lp_result.unwrap();
 		let price_plus_one = price_lp
 			.checked_add(One::one())
-			.ok_or::<&'static str>(FeeRateError::Overflow.into())?;
+			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 		let fee_rate_plus_one = fee_rate
 			.checked_add(FeeRate::<PerMillion>::one())
-			.ok_or::<&'static str>(FeeRateError::Overflow.into())?;
+			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 		let output = fee_rate_plus_one
 			.checked_mul(price_plus_one.into())
-			.ok_or::<&'static str>(FeeRateError::Overflow.into())?;
+			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 		Ok(T::UnsignedIntToBalance::from(output.into()).into())
 	}
 
@@ -823,11 +827,11 @@ impl<T: Trait> Module<T> {
 
 		let div_rate: FeeRate<PerMillion> = fee_rate
 			.checked_add(FeeRate::<PerMillion>::one())
-			.ok_or::<&'static str>(FeeRateError::Overflow.into())?;
+			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 
 		let input_amount_scaled = FeeRate::<PerMillion>::from(T::BalanceToUnsignedInt::from(input_amount).into())
 			.checked_div(div_rate)
-			.ok_or::<&'static str>(FeeRateError::DivideByZero.into())?;
+			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
 		let input_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(input_reserve).into());
 		let output_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_reserve).into());
@@ -836,11 +840,14 @@ impl<T: Trait> Module<T> {
 		let price_hp = output_reserve_hp
 			.saturating_mul(input_amount_scaled_hp)
 			.checked_div(denominator_hp)
-			.ok_or::<&'static str>(FeeRateError::DivideByZero.into())?;
+			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
 		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> =
-			LowPrecisionUnsigned::try_from(price_hp).map_err(|_| FeeRateError::Overflow.into());
-		let price_lp = price_lp_result?;
+			LowPrecisionUnsigned::try_from(price_hp);
+		if price_lp_result.is_err() {
+			Err(Error::<T>::Overflow)?;
+		}
+		let price_lp = price_lp_result.unwrap();
 
 		Ok(T::UnsignedIntToBalance::from(price_lp).into())
 	}

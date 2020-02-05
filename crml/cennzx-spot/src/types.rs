@@ -51,18 +51,15 @@ impl Scaled for PerCent {
 	const SCALE: LowPrecisionUnsigned = 100;
 }
 
-// TODO: refactor below to use frame_support::decl_error!
 #[derive(Debug)]
 pub enum FeeRateError {
 	Overflow,
-	DivideByZero,
 }
 
 impl Into<&'static str> for FeeRateError {
 	fn into(self) -> &'static str {
 		match self {
 			FeeRateError::Overflow => "Overflow",
-			FeeRateError::DivideByZero => "DivideByZero",
 		}
 	}
 }

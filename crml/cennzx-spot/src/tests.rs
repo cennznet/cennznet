@@ -330,7 +330,7 @@ fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
 				LowPrecisionUnsigned::max_value(),
 				DefaultFeeRate::get()
 			),
-			"Overflow"
+			Error::<Test>::Overflow
 		);
 	});
 }
