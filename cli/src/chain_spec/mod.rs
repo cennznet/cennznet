@@ -16,7 +16,7 @@
 
 //! CENNZnet chain configurations.
 
-use cennznet_runtime::constants::{asset::*, currency::*, time::*};
+use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
 	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
@@ -29,20 +29,26 @@ use sc_chain_spec::ChainSpecExtension;
 use sc_service;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{Pair, Public};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_core::{Pair, Public, sr25519};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::Perbill;
+use sp_runtime::{Perbill, traits::{Verify, IdentifyAccount}};
 
-pub use cennznet_primitives::types::{AccountId, Balance};
+pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
 pub mod dev;
 pub mod kauri;
 pub mod rimu;
 
+type AccountPublic = <Signature as Verify>::Signer;
+
 pub struct NetworkKeys {
+	/// Endowed account address (SS58 format).
 	pub endowed_accounts: Vec<AccountId>,
-	pub initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
+	/// List of authority keys
+	pub initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId)>,
+	/// Sudo account address (SS58 format).
 	pub root_key: AccountId,
 }
 
@@ -66,36 +72,49 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 		.public()
 }
 
-pub fn get_account_id_from_seed(seed: &str) -> AccountId {
-	get_from_seed::<AccountId>(seed)
+/// Helper function to generate an account ID from seed
+pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
 /// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId) {
+pub fn get_authority_keys_from_seed(seed: &str) -> (
+	AccountId,
+	AccountId,
+	GrandpaId,
+	BabeId,
+	ImOnlineId,
+	AuthorityDiscoveryId,
+) {
 	(
-		get_account_id_from_seed(&format!("{}//stash", seed)),
-		get_account_id_from_seed(seed),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+		get_account_id_from_seed::<sr25519::Public>(seed),
 		get_from_seed::<GrandpaId>(seed),
 		get_from_seed::<BabeId>(seed),
 		get_from_seed::<ImOnlineId>(seed),
+		get_from_seed::<AuthorityDiscoveryId>(seed),
 	)
 }
 
 /// Helper function to generate session keys
-fn session_keys(sc_finality_grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
-	SessionKeys {
-		grandpa,
-		babe,
-		im_online,
-	}
+fn session_keys(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
+	SessionKeys { grandpa, babe, im_online, authority_discovery }
 }
 
 /// Helper function to create GenesisConfig
 pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> GenesisConfig {
 	const STASH: Balance = 100 * DOLLARS;
 	let initial_authorities = network_keys.initial_authorities;
-	let endowed_accounts = network_keys.endowed_accounts;
 	let root_key = network_keys.root_key;
+	let endowed_accounts = network_keys.endowed_accounts;
+	let num_endowed_accounts = endowed_accounts.len();
 
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
@@ -110,10 +129,9 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				.collect::<Vec<_>>(),
 		}),
 		pallet_session: Some(SessionConfig {
-			keys: initial_authorities
-				.iter()
-				.map(|x| (x.0.clone(), session_keys(x.2.clone(), x.3.clone(), x.4.clone())))
-				.collect::<Vec<_>>(),
+			keys: initial_authorities.iter().map(|x| {
+				(x.0.clone(), session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()))
+			}).collect::<Vec<_>>(),
 		}),
 		pallet_staking: Some(StakingConfig {
 			current_era: 0,
@@ -152,7 +170,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
-		generic_asset: Some(GenericAssetConfig {
+		pallet_generic_asset: Some(GenericAssetConfig {
 			assets: vec![
 				CENNZ_ASSET_ID,
 				CENTRAPAY_ASSET_ID,
@@ -168,7 +186,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 		}),
-		cennzx_spot: Some(CennzxSpotConfig {
+		crml_cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),

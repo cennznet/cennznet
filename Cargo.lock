@@ -503,6 +503,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-timestamp",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "rand 0.7.2",
  "sc-authority-discovery",
@@ -510,6 +511,7 @@ dependencies = [
  "sc-chain-spec",
  "sc-cli",
  "sc-client",
+ "sc-client-api",
  "sc-client-db",
  "sc-consensus-babe",
  "sc-finality-grandpa",
@@ -522,6 +524,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "serde",
+ "sp-authority-discovery",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-core",
@@ -531,6 +534,8 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-timestamp",
+ "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
  "tempfile",
@@ -3604,6 +3609,19 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-transaction-payment"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

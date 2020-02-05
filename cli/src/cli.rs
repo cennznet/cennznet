@@ -20,7 +20,7 @@ use sc_cli::{IntoExit, NoCustom, SharedParams, ImportParams, error};
 use sc_service::{AbstractService, Roles as ServiceRoles, Configuration};
 use log::info;
 use structopt::StructOpt;
-use sc_cli::{display_role, parse_and_prepare, GetSharedParams, ParseAndPrepare};
+use sc_cli::{parse_and_prepare, GetSharedParams, ParseAndPrepare};
 use crate::{service, ChainSpec, load_spec};
 use crate::factory_impl::FactoryState;
 use node_transaction_factory::RuntimeAdapter;

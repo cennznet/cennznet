@@ -24,13 +24,14 @@ use rand::rngs::StdRng;
 use codec::{Encode, Decode};
 use sp_keyring::sr25519::Keyring;
 use cennznet_runtime::{
-	Call, CheckedExtrinsic, UncheckedExtrinsic, SignedExtra, BalancesCall, ExistentialDeposit,
-	MinimumPeriod
+	Call, CheckedExtrinsic, UncheckedExtrinsic, SignedExtra, GenericAssetCall,
+	MinimumPeriod,
+	constants::asset::SPENDING_ASSET_ID,
 };
-use cennznet_primitives::types::Signature;
+use cennznet_primitives::types::{Signature, Index, AccountId, Balance, Block};
 use sp_core::{sr25519, crypto::Pair};
 use sp_runtime::{
-	generic::Era, traits::{Block as BlockT, Header as HeaderT, SignedExtension, Verify, IdentifyAccount}
+	generic::Era, traits::{Block as BlockT, Header as HeaderT, SignedExtension, Verify, IdentifyAccount, Zero}
 };
 use node_transaction_factory::RuntimeAdapter;
 use node_transaction_factory::modes::Mode;
@@ -51,10 +52,10 @@ pub struct FactoryState<N> {
 	num: u32,
 }
 
-type Number = <<node_primitives::Block as BlockT>::Header as HeaderT>::Number;
+type Number = <<Block as BlockT>::Header as HeaderT>::Number;
 
 impl<Number> FactoryState<Number> {
-	fn build_extra(index: node_primitives::Index, phase: u64) -> node_runtime::SignedExtra {
+	fn build_extra(index: Index, phase: u64) -> SignedExtra {
 		(
 			None,
 			frame_system::CheckVersion::new(),
@@ -62,19 +63,19 @@ impl<Number> FactoryState<Number> {
 			frame_system::CheckEra::from(Era::mortal(256, phase)),
 			frame_system::CheckNonce::from(index),
 			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(0),
+			crml_transaction_payment::ChargeTransactionPayment::from(0, None),
 			Default::default(),
 		)
 	}
 }
 
 impl RuntimeAdapter for FactoryState<Number> {
-	type AccountId = node_primitives::AccountId;
-	type Balance = node_primitives::Balance;
-	type Block = node_primitives::Block;
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Block = Block;
 	type Phase = sp_runtime::generic::Phase;
 	type Secret = sr25519::Pair;
-	type Index = node_primitives::Index;
+	type Index = Index;
 
 	type Number = Number;
 
@@ -148,9 +149,10 @@ impl RuntimeAdapter for FactoryState<Number> {
 		let phase = self.extract_phase(*prior_block_hash);
 		sign::<Self>(CheckedExtrinsic {
 			signed: Some((sender.clone(), Self::build_extra(index, phase))),
-			function: Call::Balances(
-				BalancesCall::transfer(
-					pallet_indices::address::Address::Id(destination.clone().into()),
+			function: Call::GenericAsset(
+				GenericAssetCall::transfer(
+					SPENDING_ASSET_ID,
+					destination.clone(),
 					(*amount).into()
 				)
 			)
@@ -169,7 +171,7 @@ impl RuntimeAdapter for FactoryState<Number> {
 	}
 
 	fn minimum_balance() -> Self::Balance {
-		ExistentialDeposit::get()
+		Zero::zero()
 	}
 
 	fn master_account_id() -> Self::AccountId {

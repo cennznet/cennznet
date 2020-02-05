@@ -43,11 +43,11 @@ pub enum ChainSpec {
 
 /// Get a chain config from a spec setting.
 impl ChainSpec {
-	pub(crate) fn load(self) -> Result<sc_chain_spec::ChainSpec, String> {
+	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		Ok(match self {
-			ChainSpec::Development => sc_chain_spec::dev::config(),
-			ChainSpec::CennznetKauri => sc_chain_spec::kauri::config(),
-			ChainSpec::CennznetRimu => sc_chain_spec::rimu::config(),
+			ChainSpec::Development => chain_spec::dev::config(),
+			ChainSpec::CennznetKauri => chain_spec::kauri::config(),
+			ChainSpec::CennznetRimu => chain_spec::rimu::config(),
 		})
 	}
 
@@ -61,7 +61,7 @@ impl ChainSpec {
 	}
 }
 
-fn load_spec(id: &str) -> Result<Option<sc_chain_spec::ChainSpec>, String> {
+fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 	Ok(match ChainSpec::from(id) {
 		Some(spec) => Some(spec.load()?),
 		None => None,

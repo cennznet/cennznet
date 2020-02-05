@@ -21,7 +21,7 @@
 use std::sync::Arc;
 
 use cennznet_executor::{self, NativeExecutor};
-use cennznet_primitives::types::Block;
+use cennznet_primitives::types::{Block};
 use cennznet_runtime::{GenesisConfig, RuntimeApi};
 
 use sc_consensus_babe;
@@ -387,8 +387,8 @@ mod tests {
 		Environment, Proposer, BlockImportParams, BlockOrigin, ForkChoiceStrategy, BlockImport,
 		RecordProof,
 	};
-	use cennznet_primitives::types::{Block, DigestItem, Signature};
-	use cennznet_runtime::{BalancesCall, Call, UncheckedExtrinsic, Address};
+	use cennznet_primitives::types::{Block, DigestItem, Signature, AccountId};
+	use cennznet_runtime::{GenericAssetCall, Call, UncheckedExtrinsic, Address, constants::asset::SPENDING_ASSET_ID};
 	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
 	use codec::{Encode, Decode};
 	use sp_core::{crypto::Pair as CryptoPair, H256};
@@ -448,7 +448,7 @@ mod tests {
 		{
 			let payload = (
 				0,
-				Call::Balances(BalancesCall::transfer(RawAddress::Id(bob.public().0.into()), 69.into())),
+				Call::GenericAsset(GenericAssetCall::transfer(SPENDING_ASSET_ID, RawAddress::Id(bob.public().0.into()), 69.into())),
 				Era::immortal(),
 				service.client().genesis_hash()
 			);
@@ -479,7 +479,7 @@ mod tests {
 		let alice = keystore.write().insert_ephemeral_from_seed::<sc_consensus_babe::AuthorityPair>("//Alice")
 			.expect("Creates authority pair");
 
-		let chain_spec = crate::chain_spec::tests::integration_test_config_with_single_authority();
+		let chain_spec = crate::chain_spec::dev::config();
 
 		// For the block factory
 		let mut slot_num = 1u64;
@@ -576,21 +576,21 @@ mod tests {
 			},
 			|service, _| {
 				let amount = 5 * CENTS;
-				let to: Address = AccountPublic::from(bob.public()).into_account().into();
+				let to: AccountId = AccountPublic::from(bob.public()).into_account().into();
 				let from: Address = AccountPublic::from(charlie.public()).into_account().into();
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
 				let best_block_id = BlockId::number(service.client().chain_info().best_number);
 				let version = service.client().runtime_version_at(&best_block_id).unwrap().spec_version;
 				let signer = charlie.clone();
 
-				let function = Call::Balances(BalancesCall::transfer(to.into(), amount));
+				let function = Call::GenericAsset(GenericAssetCall::transfer(SPENDING_ASSET_ID, to, amount));
 
 				let check_version = frame_system::CheckVersion::new();
 				let check_genesis = frame_system::CheckGenesis::new();
 				let check_era = frame_system::CheckEra::from(Era::Immortal);
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
-				let payment = pallet_transaction_payment::ChargeTransactionPayment::from(0);
+				let payment = crml_transaction_payment::ChargeTransactionPayment::from(0, None);
 				let extra = (
 					None,
 					check_version,
@@ -626,6 +626,7 @@ mod tests {
 
 	#[test]
 	#[ignore]
+	// it passed but takes too long time
 	fn test_consensus() {
 		sc_service_test::consensus(
 			crate::chain_spec::kauri::config(),
