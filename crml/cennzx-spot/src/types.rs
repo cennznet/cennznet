@@ -51,20 +51,15 @@ impl Scaled for PerCent {
 	const SCALE: LowPrecisionUnsigned = 100;
 }
 
-// TODO: refactor below to use frame_support::decl_error!
 #[derive(Debug)]
-pub enum Error {
+pub enum FeeRateError {
 	Overflow,
-	DivideByZero,
-	EmptyPool,
 }
 
-impl Into<&'static str> for Error {
+impl Into<&'static str> for FeeRateError {
 	fn into(self) -> &'static str {
 		match self {
-			Error::Overflow => "Overflow",
-			Error::DivideByZero => "DivideByZero",
-			Error::EmptyPool => "EmptyPool",
+			FeeRateError::Overflow => "Overflow",
 		}
 	}
 }
@@ -81,33 +76,33 @@ impl<S: Scaled> Default for FeeRate<S> {
 }
 
 impl<S: Scaled> TryFrom<HighPrecisionUnsigned> for FeeRate<S> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(h: HighPrecisionUnsigned) -> Result<Self, Self::Error> {
 		match LowPrecisionUnsigned::try_from(h) {
 			Ok(l) => Ok(FeeRate::<S>::from(l)),
-			Err(_) => Err(Error::Overflow),
+			Err(_) => Err(Self::Error::Overflow),
 		}
 	}
 }
 
 impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMillion> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(f: FeeRate<PerMilli>) -> Result<Self, Self::Error> {
 		let rate = PerMillion::SCALE / PerMilli::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Error::Overflow),
+			None => Err(Self::Error::Overflow),
 		}
 	}
 }
 
 impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMillion> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
 		let rate = PerMillion::SCALE / PerCent::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Error::Overflow),
+			None => Err(Self::Error::Overflow),
 		}
 	}
 }
