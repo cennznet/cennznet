@@ -52,7 +52,7 @@ pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
 
 impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
 	fn convert(w: Weight) -> Balance {
-		// substrate-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
+		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
 		// fees, hence:
 		let coefficient = C::get();
 		Balance::from(w).saturating_mul(coefficient)

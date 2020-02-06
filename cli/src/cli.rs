@@ -198,7 +198,7 @@ where
 
 	let _ = exit_send.send(());
 
-	runtime.block_on(handle);
+	let _ = runtime.block_on(handle);
 
 	match service_res {
 		Either::Left((res, _)) => res.map_err(error::Error::Service),

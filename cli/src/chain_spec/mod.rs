@@ -46,6 +46,7 @@ pub mod rimu;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+/// A type to hold keys used in CENNZnet node in SS58 format.
 pub struct NetworkKeys {
 	/// Endowed account address (SS58 format).
 	pub endowed_accounts: Vec<AccountId>,
