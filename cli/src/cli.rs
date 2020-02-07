@@ -22,9 +22,9 @@ use futures::{
 };
 use log::info;
 use node_transaction_factory::RuntimeAdapter;
-pub use sc_cli::VersionInfo;
-use sc_cli::{error, ImportParams, IntoExit, NoCustom, SharedParams};
+pub use sc_cli::{error, IntoExit, VersionInfo};
 use sc_cli::{parse_and_prepare, GetSharedParams, ParseAndPrepare};
+use sc_cli::{ImportParams, NoCustom, SharedParams};
 use sc_service::{AbstractService, Configuration, Roles as ServiceRoles};
 use structopt::StructOpt;
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
@@ -198,7 +198,7 @@ where
 
 	let _ = exit_send.send(());
 
-	runtime.block_on(handle);
+	let _ = runtime.block_on(handle);
 
 	match service_res {
 		Either::Left((res, _)) => res.map_err(error::Error::Service),

@@ -18,16 +18,15 @@
 
 #![warn(missing_docs)]
 
-use cli::VersionInfo;
-use futures::sync::oneshot;
-use futures::{future, Future};
+use cli::{IntoExit, VersionInfo};
+use futures::{channel::oneshot, future, FutureExt};
 
 use std::cell::RefCell;
 
 // handles ctrl-c
 struct Exit;
-impl cli::IntoExit for Exit {
-	type Exit = future::MapErr<oneshot::Receiver<()>, fn(oneshot::Canceled) -> ()>;
+impl IntoExit for Exit {
+	type Exit = future::Map<oneshot::Receiver<()>, fn(Result<(), oneshot::Canceled>) -> ()>;
 	fn into_exit(self) -> Self::Exit {
 		// can't use signal directly here because CtrlC takes only `Fn`.
 		let (exit_send, exit) = oneshot::channel();
@@ -44,7 +43,7 @@ impl cli::IntoExit for Exit {
 		})
 		.expect("Error setting Ctrl-C handler");
 
-		exit.map_err(drop)
+		exit.map(drop)
 	}
 }
 

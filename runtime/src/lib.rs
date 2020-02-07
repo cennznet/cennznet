@@ -19,6 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+#![allow(array_into_iter)]
 
 use cennznet_primitives::types::{
 	AccountId, AccountIndex, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature,
@@ -69,7 +70,7 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, WeightToFee};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, LinearWeightToFee};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -208,6 +209,8 @@ impl pallet_generic_asset::Trait for Runtime {
 parameter_types! {
 	pub const TransactionBaseFee: Balance = 1 * CENTS;
 	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	// setting this to zero will disable the weight fee.
+	pub const WeightFeeCoefficient: Balance = 1_000;
 }
 
 impl crml_transaction_payment::Trait for Runtime {
@@ -217,7 +220,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type OnTransactionPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = WeightToFee;
+	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
 	type BuyFeeAsset = CennzxSpot;
 }

@@ -39,9 +39,9 @@ mod tests {
 	use cennznet_primitives::types::{Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
 		constants::{asset::SPENDING_ASSET_ID, currency::*},
-		impls::WeightToFee,
+		impls::LinearWeightToFee,
 		Block, BuildStorage, Call, CheckedExtrinsic, Event, GenericAsset, Header, Runtime, System, TransactionBaseFee,
-		TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+		TransactionByteFee, TransactionPayment, UncheckedExtrinsic, WeightFeeCoefficient,
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
@@ -94,12 +94,13 @@ mod tests {
 
 	/// Default transfer fee
 	fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64) -> Balance {
-		let length_fee = TransactionBaseFee::get() + TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
+		let length_fee = TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 
-		fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+		let base_fee = TransactionBaseFee::get();
+		base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 	}
 
 	fn default_transfer_call() -> pallet_generic_asset::Call<Runtime> {
@@ -506,7 +507,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn full_native_block_import_works() {
 		let mut t = new_test_ext(COMPACT_CODE, false);
 
@@ -568,10 +568,9 @@ mod tests {
 		t.execute_with(|| {
 			// NOTE: fees differ slightly in tests that execute more than one block due to the
 			// weight update. Hence, using `assert_eq_error_rate`.
-			// TODO: transfer_fee is different by `9_999_000`, if we add this value, the test will pass
 			assert_eq!(
 				GenericAsset::total_balance(&SPENDING_ASSET_ID, &alice()),
-				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm) - 9_999_000,
+				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm),
 			);
 			assert_eq!(
 				GenericAsset::total_balance(&SPENDING_ASSET_ID, &bob()),
@@ -581,7 +580,7 @@ mod tests {
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
 					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
-						weight: 10000,
+						weight: 10_000,
 						class: DispatchClass::Operational,
 						pays_fee: true,
 					})),
@@ -600,7 +599,7 @@ mod tests {
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
 					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
-						weight: 1000000,
+						weight: 10_000,
 						class: DispatchClass::Normal,
 						pays_fee: true,
 					})),
@@ -619,7 +618,7 @@ mod tests {
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
 					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
-						weight: 1000000,
+						weight: 10_000,
 						class: DispatchClass::Normal,
 						pays_fee: true,
 					})),
@@ -631,7 +630,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn full_wasm_block_import_works() {
 		let mut t = new_test_ext(COMPACT_CODE, false);
 
@@ -660,10 +658,9 @@ mod tests {
 			.unwrap();
 
 		t.execute_with(|| {
-			// TODO: transfer_fee is different by `9_999_000`, if we add this value, the test will pass
 			assert_eq!(
 				GenericAsset::total_balance(&SPENDING_ASSET_ID, &alice()),
-				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm) - 9_999_000,
+				alice_last_known_balance - 10 * DOLLARS - transfer_fee(&xt(), fm),
 			);
 			assert_eq!(
 				GenericAsset::total_balance(&SPENDING_ASSET_ID, &bob()),
@@ -1165,7 +1162,7 @@ mod tests {
 			balance_alice -= length_fee;
 
 			let weight = default_transfer_call().get_dispatch_info().weight;
-			let weight_fee = WeightToFee::convert(weight);
+			let weight_fee = LinearWeightToFee::<WeightFeeCoefficient>::convert(weight);
 
 			// we know that weight to fee multiplier is effect-less in block 1.
 			// generic assert uses default weight = 10_000, Balance set weight = 1_000_000

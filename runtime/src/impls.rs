@@ -19,8 +19,7 @@
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
-use frame_support::traits::Currency;
-use frame_support::weights::Weight;
+use frame_support::{traits::{Currency, Get}, weights::Weight};
 use pallet_generic_asset::StakingAssetCurrency;
 use sp_runtime::traits::{Convert, Saturating};
 use sp_runtime::Fixed64;
@@ -47,24 +46,16 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
-/// node's balance type.
-///
-/// This should typically create a mapping between the following ranges:
-///   - [0, frame_system::MaximumBlockWeight]
-///   - [Balance::min, Balance::max]
-///
-/// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
-///   - Setting it to `0` will essentially disable the weight fee.
-///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
-///
-/// By default, substrate node will have a weight range of [0, 1_000_000_000].
-pub struct WeightToFee;
-impl Convert<Weight, Balance> for WeightToFee {
-	fn convert(x: Weight) -> Balance {
+/// Convert from weight to balance via a simple coefficient multiplication
+/// The associated type C encapsulates a constant in units of balance per weight
+pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+
+impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
+	fn convert(w: Weight) -> Balance {
 		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
 		// fees, hence:
-		Balance::from(x).saturating_mul(1_000)
+		let coefficient = C::get();
+		Balance::from(w).saturating_mul(coefficient)
 	}
 }
 
