@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Centrality Investments Ltd.
+// Copyright 2018-2020 Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
