@@ -19,7 +19,10 @@
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
-use frame_support::{traits::{Currency, Get}, weights::Weight};
+use frame_support::{
+	traits::{Currency, Get},
+	weights::Weight,
+};
 use pallet_generic_asset::StakingAssetCurrency;
 use sp_runtime::traits::{Convert, Saturating};
 use sp_runtime::Fixed64;
