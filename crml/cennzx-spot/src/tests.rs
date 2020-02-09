@@ -21,7 +21,7 @@ use crate::{
 	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
 	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
-	Call, CoreAssetId, DefaultFeeRate, GenesisConfig, Module, Trait, Error
+	Call, CoreAssetId, DefaultFeeRate, Error, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;
 use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, traits::Currency, StorageValue};

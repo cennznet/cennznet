@@ -31,14 +31,11 @@ pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, 
 extern crate frame_support;
 
 use core::convert::TryFrom;
-use frame_support::{
-	dispatch::{Dispatchable},
-	Parameter, StorageDoubleMap,
-};
+use frame_support::{dispatch::Dispatchable, Parameter, StorageDoubleMap};
 use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
 use sp_runtime::traits::{Bounded, One, Zero};
-use sp_runtime::{DispatchResult, DispatchError};
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
 // (core_asset_id, asset_id)
@@ -410,14 +407,8 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		let sale_value = Self::get_core_to_asset_input_price(asset_id, sell_amount, fee_rate)?;
 
-		ensure!(
-			sale_value > Zero::zero(),
-			Error::<T>::AssetSaleValueNotAboveZero
-		);
-		ensure!(
-			sale_value >= min_receive,
-			Error::<T>::SaleValueBelowRequiredMinimum
-		);
+		ensure!(sale_value > Zero::zero(), Error::<T>::AssetSaleValueNotAboveZero);
+		ensure!(sale_value >= min_receive, Error::<T>::SaleValueBelowRequiredMinimum);
 		let core_asset_id = Self::core_asset_id();
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, seller) >= sell_amount,
@@ -460,10 +451,7 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount, fee_rate)?;
-		ensure!(
-			sold_amount > Zero::zero(),
-			Error::<T>::AssetToCorePriceNotAboveZero
-		);
+		ensure!(sold_amount > Zero::zero(), Error::<T>::AssetToCorePriceNotAboveZero);
 		ensure!(
 			max_paying_amount >= sold_amount,
 			Error::<T>::AssetToCorePriceAboveMaxLimit
@@ -507,10 +495,7 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
-		ensure!(
-			sold_amount > Zero::zero(),
-			Error::<T>::CoreToAssetPriceNotAboveZero
-		);
+		ensure!(sold_amount > Zero::zero(), Error::<T>::CoreToAssetPriceNotAboveZero);
 		ensure!(
 			max_paying_amount >= sold_amount,
 			Error::<T>::CoreToAssetPriceAboveMaxLimit
@@ -576,10 +561,7 @@ impl<T: Trait> Module<T> {
 		);
 
 		let core_asset_a = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
-		ensure!(
-			core_asset_a > Zero::zero(),
-			Error::<T>::CoreToAssetPriceNotAboveZero
-		);
+		ensure!(core_asset_a > Zero::zero(), Error::<T>::CoreToAssetPriceNotAboveZero);
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= core_asset_a,
 			Error::<T>::InsufficientCoreAssetInExchangeBalance
@@ -632,10 +614,7 @@ impl<T: Trait> Module<T> {
 
 		let sale_value = Self::get_asset_to_core_input_price(asset_id, sell_amount, fee_rate)?;
 
-		ensure!(
-			sale_value >= min_receive,
-			Error::<T>::SaleValueBelowRequiredMinimum
-		);
+		ensure!(sale_value >= min_receive, Error::<T>::SaleValueBelowRequiredMinimum);
 
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
@@ -686,10 +665,7 @@ impl<T: Trait> Module<T> {
 		let sale_value_a = Self::get_asset_to_core_input_price(asset_a, sell_amount_for_a, fee_rate)?;
 		let asset_b_received = Self::get_core_to_asset_input_price(asset_b, sale_value_a, fee_rate)?;
 
-		ensure!(
-			asset_b_received > Zero::zero(),
-			Error::<T>::AssetSaleValueNotAboveZero
-		);
+		ensure!(asset_b_received > Zero::zero(), Error::<T>::AssetSaleValueNotAboveZero);
 		ensure!(
 			asset_b_received >= min_b_from_sale,
 			Error::<T>::InsufficientSellAssetForRequiredMinimumBuyAsset
@@ -797,8 +773,7 @@ impl<T: Trait> Module<T> {
 			.checked_div(denominator_hp)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
-		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> =
-			LowPrecisionUnsigned::try_from(price_hp);
+		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> = LowPrecisionUnsigned::try_from(price_hp);
 		if price_lp_result.is_err() {
 			Err(Error::<T>::Overflow)?;
 		}
@@ -842,8 +817,7 @@ impl<T: Trait> Module<T> {
 			.checked_div(denominator_hp)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
-		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> =
-			LowPrecisionUnsigned::try_from(price_hp);
+		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> = LowPrecisionUnsigned::try_from(price_hp);
 		if price_lp_result.is_err() {
 			Err(Error::<T>::Overflow)?;
 		}
@@ -926,10 +900,7 @@ impl<T: Trait> Module<T> {
 		fee_rate: FeeRate<PerMillion>,
 	) -> DispatchResult {
 		let core_asset = Self::core_asset_id();
-		ensure!(
-			asset_sold != asset_bought,
-			Error::<T>::AssetCannotSwapForItself
-		);
+		ensure!(asset_sold != asset_bought, Error::<T>::AssetCannotSwapForItself);
 		if *asset_sold == core_asset {
 			let _ = Self::make_core_to_asset_output(
 				buyer,

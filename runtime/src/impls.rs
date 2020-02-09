@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -19,7 +19,10 @@
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
-use frame_support::{traits::{Currency, Get}, weights::Weight};
+use frame_support::{
+	traits::{Currency, Get},
+	weights::Weight,
+};
 use pallet_generic_asset::StakingAssetCurrency;
 use sp_runtime::traits::{Convert, Saturating};
 use sp_runtime::Fixed64;

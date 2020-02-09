@@ -174,12 +174,10 @@ macro_rules! new_full {
 			let network = service.network();
 			let dht_event_stream = network
 				.event_stream()
-				.filter_map(|e| {
-					async move {
-						match e {
-							Event::Dht(e) => Some(e),
-							_ => None,
-						}
+				.filter_map(|e| async move {
+					match e {
+						Event::Dht(e) => Some(e),
+						_ => None,
 					}
 				})
 				.boxed();
