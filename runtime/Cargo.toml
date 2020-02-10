@@ -6,110 +6,124 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+# third-party dependencies
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+cennznut = { git = "https://github.com/cennznet/cennznut-rs", default-features = false, branch = "0.3.0" }
 integer-sqrt = { version = "0.1.2" }
 rustc-hex = { version = "2.0", optional = true }
-safe-mix = { version = "1.0", default-features = false }
 serde = { version = "1.0.101", optional = true }
-sylo = { package = "crml-sylo", path = "../crml/sylo", default-features = false }
-cennzx-spot = { package = "crml-cennzx-spot", path = "../crml/cennzx-spot", default-features = false }
 
-authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-client = { package = "substrate-client", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+# internal dependencies
+crml-sylo = { path = "../crml/sylo", default-features = false }
+crml-cennzx-spot = { path = "../crml/cennzx-spot", default-features = false }
 cennznet-primitives = { path = "../primitives", default-features = false }
-offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-primitives = { package = "substrate-primitives",  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-rstd = { package = "sr-std", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-sr-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-sr-staking-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-substrate-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", optional = true, branch = "1.0.0-rc1" }
-substrate-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-version = { package = "sr-version", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
+crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
 
-authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-authorship = { package = "srml-authorship", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-attestation = { package = "prml-attestation", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-babe = { package = "srml-babe", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-collective = { package = "srml-collective", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-contracts = { package = "srml-contracts", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-contracts-rpc-runtime-api = { package = "srml-contracts-rpc-runtime-api", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-democracy = { package = "srml-democracy", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-elections-phragmen = { package = "srml-elections-phragmen", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-executive = { package = "srml-executive", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-generic-asset = { package = "srml-generic-asset", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-grandpa = { package = "srml-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-im-online = { package = "srml-im-online", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-indices = { package = "srml-indices", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-membership = { package = "srml-membership", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-offences = { package = "srml-offences", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-prml-doughnut = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-randomness-collective-flip = { package = "srml-randomness-collective-flip", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-session = { package = "srml-session", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "1.0.0-rc1" }
-staking = { package = "srml-staking", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-srml-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
-sudo = { package = "srml-sudo", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-support = { package = "srml-support", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-system = { package = "srml-system", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-system-rpc-runtime-api = { package = "srml-system-rpc-runtime-api", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-treasury = { package = "srml-treasury", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-utility = { package = "srml-utility", git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc1" }
-transaction-payment = { package = "crml-transaction-payment", path = "../crml/transaction-payment", default-features = false }
-cennznut = { git = "https://github.com/cennznet/cennznut-rs", default-features = false, branch = "0.3.0" }
+# primitives
+sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", optional = true, branch = "1.0.0-rc2" }
+sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-inherents = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-block-builder = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+
+# frame dependencies
+prml-doughnut = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+
+pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-collective = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-democracy = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-elections-phragmen = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "1.0.0-rc2" }
+pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc1" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 
 [features]
 default = ["std"]
 std = [
-	"authority-discovery-primitives/std",
-	"authority-discovery/std",
-	"authorship/std",
-	"attestation/std",
-	"babe-primitives/std",
-	"babe/std",
-	"client/std",
+	"sp-authority-discovery/std",
+	"pallet-authority-discovery/std",
+	"pallet-authorship/std",
+	"sp-consensus-babe/std",
+	"pallet-babe/std",
+	"sp-block-builder/std",
 	"codec/std",
-	"collective/std",
-	"contracts/std",
-	"contracts-rpc-runtime-api/std",
-	"democracy/std",
-	"elections-phragmen/std",
-	"executive/std",
-	"finality-tracker/std",
-	"generic-asset/std",
-	"grandpa/std",
-	"im-online/std",
-	"indices/std",
-	"membership/std",
+	"pallet-collective/std",
+	"pallet-contracts-rpc-runtime-api/std",
+	"pallet-contracts/std",
+	"pallet-democracy/std",
+	"pallet-elections-phragmen/std",
+	"frame-executive/std",
+	"pallet-finality-tracker/std",
+	"pallet-grandpa/std",
+	"pallet-im-online/std",
+	"pallet-indices/std",
+	"sp-inherents/std",
+	"pallet-membership/std",
+	"pallet-generic-asset/std",
 	"cennznet-primitives/std",
-	"offchain-primitives/std",
-	"offences/std",
-	"primitives/std",
-	"randomness-collective-flip/std",
-	"rstd/std",
+	"sp-offchain/std",
+	"pallet-offences/std",
+	"sp-core/std",
+	"prml-doughnut/std",
+	"pallet-randomness-collective-flip/std",
+	"sp-std/std",
 	"rustc-hex",
-	"safe-mix/std",
 	"serde",
-	"session/std",
-	"sr-primitives/std",
-	"sr-staking-primitives/std",
-	"staking/std",
-	"substrate-keyring",
-	"substrate-session/std",
-	"sudo/std",
-	"support/std",
-	"system/std",
-	"system-rpc-runtime-api/std",
-	"timestamp/std",
-	"treasury/std",
-	"utility/std",
-	"transaction-payment/std",
-	"version/std",
+	"pallet-session/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"pallet-staking/std",
+	"sp-keyring",
+	"sp-session/std",
+	"pallet-sudo/std",
+	"frame-support/std",
+	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-treasury/std",
+	"sp-transaction-pool/std",
+	"pallet-utility/std",
+	"sp-version/std",
+	"prml-attestation/std",
 	"prml-doughnut/std",
 	"cennznut/std",
-	"cennzx-spot/std",
+	"crml-cennzx-spot/std",
+	"crml-transaction-payment/std",
 ]

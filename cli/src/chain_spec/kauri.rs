@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,29 +17,30 @@
 //! Kauri genesis config
 
 use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
+use sp_core::sr25519;
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
-		get_account_id_from_seed("Andrea"),
-		get_account_id_from_seed("Brooke"),
-		get_account_id_from_seed("Courtney"),
-		get_account_id_from_seed("Drew"),
-		get_account_id_from_seed("Emily"),
-		get_account_id_from_seed("Frank"),
-		get_account_id_from_seed("Centrality"),
-		get_account_id_from_seed("Kauri"),
-		get_account_id_from_seed("Rimu"),
-		get_account_id_from_seed("cennznet-js-test"),
-		get_account_id_from_seed("Andrea//stash"),
-		get_account_id_from_seed("Brooke//stash"),
-		get_account_id_from_seed("Courtney//stash"),
-		get_account_id_from_seed("Drew//stash"),
-		get_account_id_from_seed("Emily//stash"),
-		get_account_id_from_seed("Frank//stash"),
-		get_account_id_from_seed("Centrality//stash"),
-		get_account_id_from_seed("Kauri//stash"),
-		get_account_id_from_seed("Rimu//stash"),
-		get_account_id_from_seed("cennznet-js-test//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Andrea"),
+		get_account_id_from_seed::<sr25519::Public>("Brooke"),
+		get_account_id_from_seed::<sr25519::Public>("Courtney"),
+		get_account_id_from_seed::<sr25519::Public>("Drew"),
+		get_account_id_from_seed::<sr25519::Public>("Emily"),
+		get_account_id_from_seed::<sr25519::Public>("Frank"),
+		get_account_id_from_seed::<sr25519::Public>("Centrality"),
+		get_account_id_from_seed::<sr25519::Public>("Kauri"),
+		get_account_id_from_seed::<sr25519::Public>("Rimu"),
+		get_account_id_from_seed::<sr25519::Public>("cennznet-js-test"),
+		get_account_id_from_seed::<sr25519::Public>("Andrea//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Brooke//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Courtney//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Drew//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Emily//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Frank//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Centrality//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Kauri//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Rimu//stash"),
+		get_account_id_from_seed::<sr25519::Public>("cennznet-js-test//stash"),
 	];
 	let initial_authorities = vec![
 		get_authority_keys_from_seed("Andrea"),
@@ -47,7 +48,7 @@ fn network_keys() -> NetworkKeys {
 		get_authority_keys_from_seed("Courtney"),
 		get_authority_keys_from_seed("Drew"),
 	];
-	let root_key = get_account_id_from_seed("Kauri");
+	let root_key = get_account_id_from_seed::<sr25519::Public>("Kauri");
 
 	NetworkKeys {
 		endowed_accounts,
@@ -56,6 +57,7 @@ fn network_keys() -> NetworkKeys {
 	}
 }
 
+/// Returns ChainSpec for kauri
 pub fn config() -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Kauri CENNZnet",

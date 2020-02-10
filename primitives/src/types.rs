@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,21 +17,21 @@
 //! Low-level types used by CENNZnet node.
 
 use codec::{Decode, Encode};
-use sr_primitives::{
+use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify},
-	AnySignature, DoughnutV0, OpaqueExtrinsic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	DoughnutV0, MultiSignature, OpaqueExtrinsic,
 };
 
 /// An index to a block.
 pub type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = AnySignature;
+pub type Signature = MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = <Signature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...
@@ -53,7 +53,7 @@ pub type Moment = u64;
 pub type Index = u64;
 
 /// A hash of some data used by the chain.
-pub type Hash = primitives::H256;
+pub type Hash = sp_core::H256;
 
 /// A timestamp: milliseconds since the unix epoch.
 /// `u64` is enough to represent a duration of half a billion years, when the

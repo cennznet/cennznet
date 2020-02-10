@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@
 #[cfg(feature = "benchmarks")]
 extern crate test;
 
-use substrate_executor::native_executor_instance;
-pub use substrate_executor::NativeExecutor;
+use sc_executor::native_executor_instance;
+pub use sc_executor::NativeExecutor;
 
 // Declare an instance of the native executor named `Executor`. Include the wasm binary as the
 // equivalent wasm code.
@@ -39,32 +39,33 @@ mod tests {
 	use cennznet_primitives::types::{Balance, BlockNumber, Hash, Index, Timestamp};
 	use cennznet_runtime::{
 		constants::{asset::SPENDING_ASSET_ID, currency::*},
-		impls::WeightToFee,
+		impls::LinearWeightToFee,
 		Block, BuildStorage, Call, CheckedExtrinsic, Event, GenericAsset, Header, Runtime, System, TransactionBaseFee,
-		TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+		TransactionByteFee, TransactionPayment, UncheckedExtrinsic, WeightFeeCoefficient,
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
-	use contracts::ContractAddressFor;
-	use primitives::{
+	use frame_support::{
+		weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
+		Hashable, StorageDoubleMap, StorageMap, StorageValue,
+	};
+	use frame_system::{EventRecord, Phase};
+	use pallet_contracts::ContractAddressFor;
+	use sc_executor::error::Result;
+	use sc_executor::{NativeExecutor, WasmExecutionMethod};
+	use sp_core::{
 		map,
-		storage::well_known_keys,
+		storage::{well_known_keys, Storage},
 		traits::{CodeExecutor, Externalities},
 		Blake2Hasher, NativeOrEncoded, NeverNativeValue,
 	};
-	use sr_primitives::{
+	use sp_runtime::{
 		traits::{Convert, Hash as HashT, Header as HeaderT},
 		transaction_validity::InvalidTransaction,
-		weights::GetDispatchInfo,
-		ApplyResult, Fixed64,
+		ApplyExtrinsicResult, Fixed64,
 	};
-	use state_machine::TestExternalities as CoreTestExternalities;
-	use substrate_executor::error::Result;
-	use substrate_executor::{NativeExecutor, WasmExecutionMethod};
-	use support::{Hashable, StorageDoubleMap, StorageMap, StorageValue};
-	use system::{EventRecord, Phase};
+	use sp_state_machine::TestExternalities as CoreTestExternalities;
 	use wabt;
-	use {contracts, generic_asset, indices, system, timestamp};
 
 	/// The wasm runtime code.
 	///
@@ -93,16 +94,17 @@ mod tests {
 
 	/// Default transfer fee
 	fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64) -> Balance {
-		let length_fee = TransactionBaseFee::get() + TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
+		let length_fee = TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
-		let weight_fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(weight);
+		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 
-		fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+		let base_fee = TransactionBaseFee::get();
+		base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 	}
 
-	fn default_transfer_call() -> generic_asset::Call<Runtime> {
-		generic_asset::Call::transfer::<Runtime>(SPENDING_ASSET_ID, bob().into(), 69 * DOLLARS)
+	fn default_transfer_call() -> pallet_generic_asset::Call<Runtime> {
+		pallet_generic_asset::Call::transfer::<Runtime>(SPENDING_ASSET_ID, bob().into(), 69 * DOLLARS)
 	}
 
 	fn xt() -> UncheckedExtrinsic {
@@ -148,23 +150,23 @@ mod tests {
 	fn panic_execution_with_foreign_code_gives_error() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			BLOATY_CODE,
-			(
-				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
+			Storage {
+				top: map![
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
 						69_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
 						0_u128.encode()
 					},
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
 					}
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -185,7 +187,7 @@ mod tests {
 		)
 		.0
 		.unwrap();
-		let r = ApplyResult::decode(&mut &v.as_encoded()[..]).unwrap();
+		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
 	}
 
@@ -193,23 +195,23 @@ mod tests {
 	fn bad_extrinsic_with_native_equivalent_code_gives_error() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
-			(
-				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
+			Storage {
+				top: map![
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice())=> {
 						69_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
 						0_u128.encode()
 					},
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
 					}
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -230,7 +232,7 @@ mod tests {
 		)
 		.0
 		.unwrap();
-		let r = ApplyResult::decode(&mut &v.as_encoded()[..]).unwrap();
+		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
 	}
 
@@ -238,22 +240,22 @@ mod tests {
 	fn successful_execution_with_native_equivalent_code_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
-			(
-				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+			Storage {
+				top: map![
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -291,22 +293,22 @@ mod tests {
 	fn successful_execution_with_foreign_code_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			BLOATY_CODE,
-			(
-				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+			Storage {
+				top: map![
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -358,7 +360,7 @@ mod tests {
 		parent_hash: Hash,
 		extrinsics: Vec<CheckedExtrinsic>,
 	) -> (Vec<u8>, Hash) {
-		use trie::{trie_types::Layout, TrieConfiguration};
+		use sp_trie::{trie_types::Layout, TrieConfiguration};
 
 		// sign extrinsics.
 		let extrinsics = extrinsics.into_iter().map(sign).collect::<Vec<_>>();
@@ -413,11 +415,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						69 * DOLLARS,
@@ -439,11 +441,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						69 * DOLLARS,
@@ -458,11 +460,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(52 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((bob(), signed_extra(0, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						5 * DOLLARS,
@@ -470,7 +472,7 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(1, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						15 * DOLLARS,
@@ -494,11 +496,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((alice(), signed_extra(nonce, 0))),
-					function: Call::System(system::Call::remark(vec![0; size])),
+					function: Call::System(frame_system::Call::remark(vec![0; size])),
 				},
 			],
 		)
@@ -527,12 +529,16 @@ mod tests {
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10_000,
+						class: DispatchClass::Operational,
+						pays_fee: true,
+					})),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::pallet_generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						bob().into(),
@@ -542,7 +548,11 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10_000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
 					topics: vec![],
 				},
 			];
@@ -569,12 +579,16 @@ mod tests {
 			let events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10_000,
+						class: DispatchClass::Operational,
+						pays_fee: true,
+					})),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::pallet_generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						bob().into(),
 						alice().into(),
@@ -584,12 +598,16 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10_000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
 					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::generic_asset(generic_asset::RawEvent::Transferred(
+					event: Event::pallet_generic_asset(pallet_generic_asset::RawEvent::Transferred(
 						SPENDING_ASSET_ID,
 						alice().into(),
 						bob().into(),
@@ -599,7 +617,11 @@ mod tests {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::system(system::Event::ExtrinsicSuccess),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10_000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
 					topics: vec![],
 				},
 			];
@@ -741,9 +763,9 @@ mod tests {
 	#[test]
 	fn deploying_wasm_contract_should_work() {
 		let transfer_code = wabt::wat2wasm(CODE_TRANSFER).unwrap();
-		let transfer_ch = <Runtime as system::Trait>::Hashing::hash(&transfer_code);
+		let transfer_ch = <Runtime as frame_system::Trait>::Hashing::hash(&transfer_code);
 
-		let addr = <Runtime as contracts::Trait>::DetermineContractAddress::contract_address_for(
+		let addr = <Runtime as pallet_contracts::Trait>::DetermineContractAddress::contract_address_for(
 			&transfer_ch,
 			&[],
 			&charlie(),
@@ -756,15 +778,15 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(0, 0))),
-					function: Call::Contracts(contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
+					function: Call::Contracts(pallet_contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(1, 0))),
-					function: Call::Contracts(contracts::Call::instantiate::<Runtime>(
+					function: Call::Contracts(pallet_contracts::Call::instantiate::<Runtime>(
 						1 * DOLLARS,
 						10_000,
 						transfer_ch,
@@ -773,8 +795,8 @@ mod tests {
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(2, 0))),
-					function: Call::Contracts(contracts::Call::call::<Runtime>(
-						indices::address::Address::Id(addr.clone()),
+					function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+						pallet_indices::address::Address::Id(addr.clone()),
 						10,
 						10_000,
 						vec![0x00, 0x01, 0x02, 0x03],
@@ -792,7 +814,7 @@ mod tests {
 		t.execute_with(|| {
 			// Verify that the contract constructor worked well and code of TRANSFER contract is actually deployed.
 			assert_eq!(
-				&contracts::ContractInfoOf::<Runtime>::get(addr)
+				&pallet_contracts::ContractInfoOf::<Runtime>::get(addr)
 					.and_then(|c| c.get_alive())
 					.unwrap()
 					.code_hash,
@@ -852,19 +874,19 @@ mod tests {
 	fn panic_execution_gives_error() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			BLOATY_CODE,
-			(
-				map![
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+			Storage {
+				top: map![
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						0_u128.encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						0_u128.encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -886,7 +908,7 @@ mod tests {
 		.0
 		.unwrap()
 		.into_encoded();
-		let r = ApplyResult::decode(&mut &r[..]).unwrap();
+		let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
 		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
 	}
 
@@ -894,22 +916,22 @@ mod tests {
 	fn successful_execution_gives_ok() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
-			(
-				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+			Storage {
+				top: map![
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(111 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let r = executor_call::<NeverNativeValue, fn() -> _>(
@@ -932,7 +954,7 @@ mod tests {
 		.0
 		.unwrap()
 		.into_encoded();
-		ApplyResult::decode(&mut &r[..])
+		ApplyExtrinsicResult::decode(&mut &r[..])
 			.unwrap()
 			.expect("Extrinsic could be applied")
 			.expect("Extrinsic did not fail");
@@ -957,7 +979,7 @@ mod tests {
 			.0
 			.unwrap();
 
-		assert!(t.ext().storage_changes_root(GENESIS_HASH.into()).unwrap().is_some());
+		assert!(t.ext().storage_changes_root(&GENESIS_HASH).unwrap().is_some());
 	}
 
 	#[test]
@@ -969,14 +991,16 @@ mod tests {
 			.0
 			.unwrap();
 
-		assert!(t.ext().storage_changes_root(GENESIS_HASH.into()).unwrap().is_some());
+		assert!(t.ext().storage_changes_root(&GENESIS_HASH).unwrap().is_some());
 	}
 
 	#[test]
 	fn should_import_block_with_test_client() {
-		use cennznet_testing::client::{consensus::BlockOrigin, ClientExt, TestClientBuilder, TestClientBuilderExt};
+		use cennznet_testing::client::{
+			sp_consensus::BlockOrigin, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
+		};
 
-		let client = TestClientBuilder::new().build();
+		let mut client = TestClientBuilder::new().build();
 		let block1 = changes_trie_block();
 		let block_data = block1.0;
 		let block = cennznet_primitives::types::Block::decode(&mut &block_data[..]).unwrap();
@@ -1005,11 +1029,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(42 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(0, 0))),
-					function: Call::System(system::Call::fill_block()),
+					function: Call::System(frame_system::Call::fill_block()),
 				},
 			],
 		);
@@ -1022,11 +1046,11 @@ mod tests {
 			vec![
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(52 * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(1, 0))),
-					function: Call::System(system::Call::remark(vec![0; 1])),
+					function: Call::System(frame_system::Call::remark(vec![0; 1])),
 				},
 			],
 		);
@@ -1074,25 +1098,25 @@ mod tests {
 		// (this baed on assigning 0.1 CENT to the cheapest tx with `weight = 100`)
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
 			COMPACT_CODE,
-			(
-				map![
-					<generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
+			Storage {
+				top: map![
+					<pallet_generic_asset::SpendingAssetId<Runtime>>::hashed_key().to_vec() => {
 						SPENDING_ASSET_ID.encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &alice()) => {
 						(100 * DOLLARS).encode()
 					},
-					<generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &bob()) => {
+					<pallet_generic_asset::FreeBalance<Runtime>>::hashed_key_for(&SPENDING_ASSET_ID, &bob()) => {
 						(10 * DOLLARS).encode()
 					},
-					<generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
+					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(110 * DOLLARS).encode()
 					},
-					<indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
-					<system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
+					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
+					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
-				map![],
-			),
+				children: map![],
+			},
 		);
 
 		let tip = 1_000_000;
@@ -1138,7 +1162,7 @@ mod tests {
 			balance_alice -= length_fee;
 
 			let weight = default_transfer_call().get_dispatch_info().weight;
-			let weight_fee = WeightToFee::convert(weight);
+			let weight_fee = LinearWeightToFee::<WeightFeeCoefficient>::convert(weight);
 
 			// we know that weight to fee multiplier is effect-less in block 1.
 			// generic assert uses default weight = 10_000, Balance set weight = 1_000_000
@@ -1176,7 +1200,11 @@ mod tests {
 			let mut xts = (0..num_transfers)
 				.map(|i| CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(nonce + i as Index, 0))),
-					function: Call::GenericAsset(generic_asset::Call::transfer(SPENDING_ASSET_ID, bob().into(), 0)),
+					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
+						SPENDING_ASSET_ID,
+						bob().into(),
+						0,
+					)),
 				})
 				.collect::<Vec<CheckedExtrinsic>>();
 
@@ -1184,7 +1212,7 @@ mod tests {
 				0,
 				CheckedExtrinsic {
 					signed: None,
-					function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 				},
 			);
 
@@ -1241,11 +1269,11 @@ mod tests {
 				vec![
 					CheckedExtrinsic {
 						signed: None,
-						function: Call::Timestamp(timestamp::Call::set(time * 1000)),
+						function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 					},
 					CheckedExtrinsic {
 						signed: Some((charlie(), signed_extra(nonce, 0))),
-						function: Call::System(system::Call::remark(vec![0u8; (block_number * factor) as usize])),
+						function: Call::System(frame_system::Call::remark(vec![0u8; (block_number * factor) as usize])),
 					},
 				],
 			);

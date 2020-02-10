@@ -107,7 +107,7 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: nightly-2019-10-14
+      RUST_VERSION: nightly-2019-12-19
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:
@@ -124,7 +124,7 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: nightly-2019-10-14
+      RUST_VERSION: nightly-2019-12-19
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:

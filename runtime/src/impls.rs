@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -19,11 +19,13 @@
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::Balance;
-use generic_asset::StakingAssetCurrency;
-use sr_primitives::traits::{Convert, Saturating};
-use sr_primitives::weights::Weight;
-use sr_primitives::Fixed64;
-use support::traits::Currency;
+use frame_support::{
+	traits::{Currency, Get},
+	weights::Weight,
+};
+use pallet_generic_asset::StakingAssetCurrency;
+use sp_runtime::traits::{Convert, Saturating};
+use sp_runtime::Fixed64;
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -47,24 +49,16 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
-/// node's balance type.
-///
-/// This should typically create a mapping between the following ranges:
-///   - [0, system::MaximumBlockWeight]
-///   - [Balance::min, Balance::max]
-///
-/// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
-///   - Setting it to `0` will essentially disable the weight fee.
-///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
-///
-/// By default, substrate node will have a weight range of [0, 1_000_000_000].
-pub struct WeightToFee;
-impl Convert<Weight, Balance> for WeightToFee {
-	fn convert(x: Weight) -> Balance {
+/// Convert from weight to balance via a simple coefficient multiplication
+/// The associated type C encapsulates a constant in units of balance per weight
+pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+
+impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
+	fn convert(w: Weight) -> Balance {
 		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
 		// fees, hence:
-		Balance::from(x).saturating_mul(1_000)
+		let coefficient = C::get();
+		Balance::from(w).saturating_mul(coefficient)
 	}
 }
 
@@ -134,7 +128,7 @@ mod tests {
 	use super::*;
 	use crate::constants::currency::*;
 	use crate::{AvailableBlockRatio, MaximumBlockWeight, Runtime};
-	use sr_primitives::weights::Weight;
+	use frame_support::weights::Weight;
 
 	fn max() -> Weight {
 		MaximumBlockWeight::get()
@@ -227,7 +221,7 @@ mod tests {
 			}
 			fm = next;
 			iterations += 1;
-			let fee = <Runtime as transaction_payment::Trait>::WeightToFee::convert(tx_weight);
+			let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(tx_weight);
 			let adjusted_fee = fm.saturated_multiply_accumulate(fee);
 			println!(
 				"iteration {}, new fm = {:?}. Fee at this point is: \

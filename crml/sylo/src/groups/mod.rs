@@ -13,19 +13,18 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use primitives;
-use primitives::{ed25519, hash::H256};
-use rstd::vec;
-use sr_primitives::traits::Verify;
-use support::{decl_module, decl_storage, dispatch::Result, dispatch::Vec, ensure, StorageMap};
-use system::ensure_signed;
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, StorageMap};
+use frame_system::ensure_signed;
+use sp_core::{ed25519, hash::H256};
+use sp_runtime::traits::Verify;
+use sp_std::vec;
 
 use crate::{device, inbox, vault};
 use vault::{VaultKey, VaultValue};
 
 mod tests;
 
-pub trait Trait: system::Trait + inbox::Trait + device::Trait + vault::Trait {}
+pub trait Trait: frame_system::Trait + inbox::Trait + device::Trait + vault::Trait {}
 
 const INVITES_MAX: usize = 15;
 
@@ -92,8 +91,8 @@ where
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> Result {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
@@ -139,7 +138,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> Result {
+		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -166,7 +165,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn update_member(origin, group_id: T::Hash, meta: Meta) -> Result {
+		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
@@ -193,7 +192,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> Result {
+		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -228,7 +227,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> Result {
+		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -243,7 +242,7 @@ decl_module! {
 			Ok(())
 		}
 
-		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> Result {
+		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -301,7 +300,7 @@ decl_module! {
 			<inbox::Module<T>>::delete(sender, vec![inbox_id])
 		}
 
-		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> Result {
+		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
@@ -362,7 +361,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> Result {
+	fn create_invite(group_id: &T::Hash, invite: Invite<T::AccountId>) -> DispatchResult {
 		let peer_id = invite.peer_id;
 		let invite_data = invite.invite_data;
 		let invite_key = invite.invite_key;

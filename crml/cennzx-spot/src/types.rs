@@ -21,7 +21,6 @@ use core::{
 	convert::{From, Into, TryFrom},
 	marker::PhantomData,
 };
-use support::decl_error;
 
 pub use primitive_types::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;
@@ -52,15 +51,20 @@ impl Scaled for PerCent {
 	const SCALE: LowPrecisionUnsigned = 100;
 }
 
-decl_error! {
-	pub enum Error {
-		Overflow,
-		DivideByZero,
-		EmptyPool,
+#[derive(Debug)]
+pub enum FeeRateError {
+	Overflow,
+}
+
+impl Into<&'static str> for FeeRateError {
+	fn into(self) -> &'static str {
+		match self {
+			FeeRateError::Overflow => "Overflow",
+		}
 	}
 }
 
-/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `generic_asset::Balance` type
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `pallet_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);
@@ -72,33 +76,33 @@ impl<S: Scaled> Default for FeeRate<S> {
 }
 
 impl<S: Scaled> TryFrom<HighPrecisionUnsigned> for FeeRate<S> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(h: HighPrecisionUnsigned) -> Result<Self, Self::Error> {
 		match LowPrecisionUnsigned::try_from(h) {
 			Ok(l) => Ok(FeeRate::<S>::from(l)),
-			Err(_) => Err(Error::Overflow),
+			Err(_) => Err(Self::Error::Overflow),
 		}
 	}
 }
 
 impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMillion> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(f: FeeRate<PerMilli>) -> Result<Self, Self::Error> {
 		let rate = PerMillion::SCALE / PerMilli::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Error::Overflow),
+			None => Err(Self::Error::Overflow),
 		}
 	}
 }
 
 impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMillion> {
-	type Error = Error;
+	type Error = FeeRateError;
 	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
 		let rate = PerMillion::SCALE / PerCent::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Error::Overflow),
+			None => Err(Self::Error::Overflow),
 		}
 	}
 }

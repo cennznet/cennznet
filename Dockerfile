@@ -2,7 +2,7 @@ FROM  rustlang/rust:nightly AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 
-ENV RUST_VERSION nightly-2019-10-14
+ENV RUST_VERSION nightly-2019-12-19
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
     rustup install $RUST_VERSION && \

@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,26 +17,27 @@
 //! Dev genesis config
 
 use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
+use sp_core::sr25519;
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
-		get_account_id_from_seed("Alice"),
-		get_account_id_from_seed("Bob"),
-		get_account_id_from_seed("Charlie"),
-		get_account_id_from_seed("Dave"),
-		get_account_id_from_seed("Eve"),
-		get_account_id_from_seed("Ferdie"),
-		get_account_id_from_seed("Kauri"),
-		get_account_id_from_seed("Rimu"),
-		get_account_id_from_seed("Alice//stash"),
-		get_account_id_from_seed("Bob//stash"),
-		get_account_id_from_seed("Charlie//stash"),
-		get_account_id_from_seed("Dave//stash"),
-		get_account_id_from_seed("Eve//stash"),
-		get_account_id_from_seed("Ferdie//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		get_account_id_from_seed::<sr25519::Public>("Bob"),
+		get_account_id_from_seed::<sr25519::Public>("Charlie"),
+		get_account_id_from_seed::<sr25519::Public>("Dave"),
+		get_account_id_from_seed::<sr25519::Public>("Eve"),
+		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+		get_account_id_from_seed::<sr25519::Public>("Kauri"),
+		get_account_id_from_seed::<sr25519::Public>("Rimu"),
+		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 	];
 	let initial_authorities = vec![get_authority_keys_from_seed("Alice")];
-	let root_key = get_account_id_from_seed("Alice");
+	let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");
 
 	NetworkKeys {
 		endowed_accounts,
@@ -45,6 +46,7 @@ fn network_keys() -> NetworkKeys {
 	}
 }
 
+/// Returns ChainSpec for dev
 pub fn config() -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Development",

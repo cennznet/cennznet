@@ -20,10 +20,10 @@ use super::Trait;
 use crate::Module;
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use core::convert::TryInto;
-use primitives::crypto::{UncheckedFrom, UncheckedInto};
-use rstd::{marker::PhantomData, prelude::*};
-use runtime_primitives::traits::Hash;
-use support::dispatch::Result;
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use sp_core::crypto::{UncheckedFrom, UncheckedInto};
+use sp_runtime::traits::Hash;
+use sp_std::{marker::PhantomData, prelude::*};
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
 pub trait ExchangeAddressFor<AssetId: Sized, AccountId: Sized> {
@@ -56,17 +56,17 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
 	type FeeExchange = FeeExchange;
 	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
-	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &Self::FeeExchange) -> Result {
+	fn buy_fee_asset(who: &T::AccountId, amount: T::Balance, exchange_op: &Self::FeeExchange) -> DispatchResult {
 		let fee_exchange = match exchange_op {
 			FeeExchange::V1(ex) => ex,
 		};
 
 		// TODO: Hard coded to use spending asset ID
-		let fee_asset_id: T::AssetId = <generic_asset::Module<T>>::spending_asset_id();
+		let fee_asset_id: T::AssetId = <pallet_generic_asset::Module<T>>::spending_asset_id();
 		let max_payment = fee_exchange
 			.max_payment
 			.try_into()
-			.map_err(|_| "Failed to convert max payment to balance type")?;
+			.map_err(|_| DispatchError::Other("Failed to convert max payment to balance type"))?;
 
 		Self::make_asset_swap_output(
 			&who,
@@ -78,7 +78,7 @@ impl<T: Trait> BuyFeeAsset<T::AccountId, T::Balance> for Module<T> {
 			Self::fee_rate(),
 		)
 		.map(|_| ())
-		.map_err(|_| "Failed to charge transaction fees during conversion")
+		.map_err(|_| DispatchError::Other("Failed to charge transaction fees during conversion"))
 	}
 }
 
@@ -90,8 +90,8 @@ pub(crate) mod impl_tests {
 		tests::{CennzXSpot, ExtBuilder, Test},
 	};
 	use cennznet_primitives::types::FeeExchangeV1;
-	use primitives::H256;
-	use support::traits::Currency;
+	use frame_support::traits::Currency;
+	use sp_core::H256;
 
 	type CoreAssetCurrency = mock::CoreAssetCurrency<Test>;
 	type TradeAssetCurrencyA = mock::TradeAssetCurrencyA<Test>;

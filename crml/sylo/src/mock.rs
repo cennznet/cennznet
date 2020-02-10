@@ -14,12 +14,12 @@
 
 #![cfg(test)]
 
-use primitives::H256;
-use support::{impl_outer_origin, parameter_types};
+use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, parameter_types};
+use sp_core::H256;
 
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-use sr_primitives::{
+use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
@@ -38,7 +38,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for Test {
+impl frame_system::Trait for Test {
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
@@ -51,19 +51,23 @@ impl system::Trait for Test {
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
 	type Doughnut = ();
-	type DelegatedDispatchVerifier = ();
+	type DelegatedDispatchVerifier = DummyDispatchVerifier<Self::Doughnut, Self::AccountId>;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
+	type ModuleToIndex = ();
 }
 
 impl_outer_origin! {
-	pub enum Origin for Test {}
+	pub enum Origin for Test where system = frame_system {}
 }
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> runtime_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	frame_system::GenesisConfig::default()
+		.build_storage::<Test>()
+		.unwrap()
+		.into()
 }

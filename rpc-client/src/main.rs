@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ use cennznet_primitives::types::Hash;
 use futures::Future;
 use hyper::rt;
 use jsonrpc_core_client::{transports::http, RpcError};
-use substrate_rpc::author::{hash::ExtrinsicOrHash, AuthorClient};
+use sc_rpc::author::{hash::ExtrinsicOrHash, AuthorClient};
 
 fn main() {
 	env_logger::init();
