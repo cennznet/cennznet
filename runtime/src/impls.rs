@@ -16,15 +16,17 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{MaximumBlockWeight, Runtime};
-use cennznet_primitives::types::Balance;
+use crate::constants::{contract::GAS_FEE_EXCHANGE_KEY, fee::TARGET_BLOCK_FULLNESS};
+use crate::{BuyFeeAsset, MaximumBlockWeight, Runtime};
+use cennznet_primitives::types::{Balance, FeeExchange};
 use frame_support::{
+	storage::unhashed,
 	traits::{Currency, Get},
 	weights::Weight,
 };
+use pallet_contracts::GasMeter;
 use pallet_generic_asset::StakingAssetCurrency;
-use sp_runtime::traits::{Convert, Saturating};
+use sp_runtime::traits::{Convert, SaturatedConversion, Saturating};
 use sp_runtime::Fixed64;
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
@@ -119,6 +121,32 @@ impl Convert<(Weight, Fixed64), Fixed64> for FeeMultiplierUpdateHandler {
 				// transactions have no weight fee. We stop here and only increase if the network
 				// became more busy.
 				.max(Fixed64::from_rational(-1, 1))
+		}
+	}
+}
+
+/// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
+pub struct GasHandler;
+
+impl<T> pallet_contracts::GasHandler<T> for GasHandler
+where
+	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx_spot::Trait,
+{
+	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
+		// The take() function ensures the entry is `killed` after access.
+		// Note: if there's no entry (ie, None), it means we handled an edge case of
+		// CPAY in FeeExchange, ie, gas is already paid in CPAY.
+		if let Some(exchange_op) = unhashed::take::<FeeExchange>(&GAS_FEE_EXCHANGE_KEY) {
+			let gas_spent = gas_meter.spent();
+
+			// Fee exchange can never fail as conditions such as having enough liquidity
+			// are checked early (before FeeExchange is put into storage)
+			let _ = <crml_cennzx_spot::Module<T> as BuyFeeAsset<_, _>>::buy_fee_asset(
+				transactor,
+				gas_spent.saturated_into(),
+				&exchange_op,
+			)
+			.unwrap();
 		}
 	}
 }
