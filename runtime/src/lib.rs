@@ -78,7 +78,7 @@ use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, LinearWeightToFee
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{currency::*, time::*};
+use constants::{contract::GAS_FEE_EXCHANGE_KEY, currency::*, time::*};
 
 mod doughnut;
 
@@ -595,16 +595,14 @@ where
 	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx_spot::Trait + Decode,
 {
 	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
-		let key = &b"cennzx-spot"[..];
-
-		// The take() function ensures the entry is "killed" after access.
+		// The take() function ensures the entry is `killed` after access.
 		// Note: if there's no entry (ie, None), it means we handled an edge case of
 		// CPAY in FeeExchange, ie, gas is already paid in CPAY.
-		if let Some(exchange_op) = unhashed::take::<FeeExchange>(&key) {
+		if let Some(exchange_op) = unhashed::take::<FeeExchange>(&GAS_FEE_EXCHANGE_KEY) {
 			let gas_spent = gas_meter.spent();
 
 			// Fee exchange can never fail as conditions such as having enough liquidity
-			// are checked early (before FeeExchange is put into database)
+			// are checked early (before FeeExchange is put into storage)
 			let _ = <crml_cennzx_spot::Module<T> as BuyFeeAsset<_, _>>::buy_fee_asset(
 				transactor,
 				gas_spent.saturated_into(),
