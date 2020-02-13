@@ -58,4 +58,4 @@ $ cargo run --release [TODO: check params]
 
 ## Contributing
 
-[TODO: write a CONTRIBUTING.md]
+All PRs are welcome! Please follow our contributing guidelines [here](docs/CONTRIBUTING.md).
