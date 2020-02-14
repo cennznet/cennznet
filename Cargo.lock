@@ -501,7 +501,6 @@ dependencies = [
  "node-transaction-factory",
  "pallet-contracts",
  "pallet-im-online",
- "pallet-indices",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -555,7 +554,6 @@ dependencies = [
  "frame-system",
  "pallet-contracts",
  "pallet-generic-asset",
- "pallet-indices",
  "pallet-timestamp",
  "parity-scale-codec",
  "sc-executor",
@@ -576,7 +574,6 @@ dependencies = [
  "pretty_assertions",
  "sp-core",
  "sp-runtime",
- "sp-serializer",
 ]
 
 [[package]]
@@ -634,7 +631,6 @@ dependencies = [
  "pallet-generic-asset",
  "pallet-grandpa",
  "pallet-im-online",
- "pallet-indices",
  "pallet-membership",
  "pallet-offences",
  "pallet-randomness-collective-flip",
@@ -679,7 +675,6 @@ dependencies = [
  "frame-system",
  "pallet-contracts",
  "pallet-grandpa",
- "pallet-indices",
  "pallet-session",
  "pallet-staking",
  "parity-scale-codec",
@@ -3472,22 +3467,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-indices"
-version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
  "sp-std",
 ]
 

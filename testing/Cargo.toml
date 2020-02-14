@@ -15,7 +15,6 @@ crml-transaction-payment = { path="../crml/transaction-payment", default-feature
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
