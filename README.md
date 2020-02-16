@@ -38,10 +38,8 @@ For Windows [TODO: may need a separate link]
 Install Rust on your machine through [here](https://rustup.rs/), and the following rust version and toolchains.
 ```
 $ cargo --version
-$ rustup install nightly-2019-12-19
-$ rustup default nightly-2019-12-19
-$ rustup target add --toolchain=nightly-2019-12-19 wasm32-unknown-unknown
-$ rustup target add --toolchain=nightly-2019-12-19 x86_64-unknown-linux-musl
+$ rustup install nightly
+$ rustup target add --toolchain=nightly wasm32-unknown-unknown
 ```
 
 #### 3. Build the node binary and run
@@ -51,7 +49,7 @@ Then clone the repo, build the binary and run it.
 $ git clone https://github.com/cennznet/cennznet.git
 $ cd cennznet
 $ cargo build --release
-$ cargo run --release [TODO: check params]
+$ ./target/release/cennznet [TODO: check params]
 ```
 
 ------
