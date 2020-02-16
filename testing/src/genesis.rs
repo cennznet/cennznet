@@ -22,8 +22,8 @@ use cennznet_runtime::{
 	FeeRate, PerMilli, PerMillion,
 };
 use cennznet_runtime::{
-	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig,
-	StakingConfig, SystemConfig, WASM_BINARY,
+	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, SessionConfig, StakingConfig,
+	SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use sp_core::ChangesTrieConfiguration;
@@ -43,9 +43,6 @@ pub fn config(support_changes_trie: bool, code: Option<&[u8]>) -> GenesisConfig 
 				None
 			},
 			code: code.map(|x| x.to_vec()).unwrap_or_else(|| WASM_BINARY.to_vec()),
-		}),
-		pallet_indices: Some(IndicesConfig {
-			ids: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
 		}),
 		pallet_generic_asset: Some(GenericAssetConfig {
 			assets: vec![

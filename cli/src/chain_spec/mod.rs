@@ -19,8 +19,8 @@
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
 use core::convert::TryFrom;
@@ -139,13 +139,6 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		frame_system: Some(SystemConfig {
 			code: WASM_BINARY.to_vec(),
 			changes_trie_config: Default::default(),
-		}),
-		pallet_indices: Some(IndicesConfig {
-			ids: endowed_accounts
-				.iter()
-				.cloned()
-				.chain(initial_authorities.iter().map(|x| x.0.clone()))
-				.collect::<Vec<_>>(),
 		}),
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities

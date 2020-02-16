@@ -376,7 +376,7 @@ mod tests {
 	use crate::service::{new_full, new_light};
 	use cennznet_primitives::types::{AccountId, Block, DigestItem, Signature};
 	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
-	use cennznet_runtime::{constants::asset::SPENDING_ASSET_ID, Address, Call, GenericAssetCall, UncheckedExtrinsic};
+	use cennznet_runtime::{constants::asset::SPENDING_ASSET_ID, Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::{Decode, Encode};
 	use sc_consensus_babe::CompatibleDigestItem;
 	use sc_service::AbstractService;
@@ -580,7 +580,7 @@ mod tests {
 			|service, _| {
 				let amount = 5 * CENTS;
 				let to: AccountId = AccountPublic::from(bob.public()).into_account().into();
-				let from: Address = AccountPublic::from(charlie.public()).into_account().into();
+				let from: AccountId = AccountPublic::from(charlie.public()).into_account().into();
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
 				let best_block_id = BlockId::number(service.client().chain_info().best_number);
 				let version = service
@@ -626,7 +626,6 @@ mod tests {
 
 	#[test]
 	#[ignore]
-	// it passed but takes too long time
 	fn test_consensus() {
 		sc_service_test::consensus(
 			crate::chain_spec::kauri::config(),

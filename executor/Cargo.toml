@@ -29,7 +29,6 @@ pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchai
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 
 [features]
 benchmarks = []
