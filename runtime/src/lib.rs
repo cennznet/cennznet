@@ -111,7 +111,7 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
+pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
 
 impl frame_system::Trait for Runtime {
 	type Origin = Origin;
