@@ -71,6 +71,13 @@ pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblo
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 
+[dev-dependencies]
+cennznet-testing = { path = "../testing"}
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+hex = "0.4.0"
+hex-literal = "0.2.1"
+wabt = "0.9.2"
+
 [features]
 default = ["std"]
 std = [
