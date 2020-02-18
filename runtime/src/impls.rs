@@ -16,18 +16,23 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::constants::{contract::GAS_FEE_EXCHANGE_KEY, fee::TARGET_BLOCK_FULLNESS};
+use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{BuyFeeAsset, MaximumBlockWeight, Runtime};
 use cennznet_primitives::types::{Balance, FeeExchange};
+use crml_cennzx_spot::types::LowPrecisionUnsigned;
+use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
+use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	storage::unhashed,
-	traits::{Currency, Get},
+	traits::{Currency, ExistenceRequirement, Get, WithdrawReason},
 	weights::Weight,
 };
-use pallet_contracts::GasMeter;
+use pallet_contracts::{Gas, GasMeter, NegativeImbalanceOf};
 use pallet_generic_asset::StakingAssetCurrency;
-use sp_runtime::traits::{Convert, SaturatedConversion, Saturating};
-use sp_runtime::Fixed64;
+use sp_runtime::{
+	traits::{CheckedSub, Convert, SaturatedConversion, Saturating},
+	DispatchError, Fixed64,
+};
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -128,25 +133,102 @@ impl Convert<(Weight, Fixed64), Fixed64> for FeeMultiplierUpdateHandler {
 /// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
 pub struct GasHandler;
 
+type CennzxModule<T> = crml_cennzx_spot::Module<T>;
+type GenericAssetModule<T> = pallet_generic_asset::Module<T>;
+type BalanceToUnsigned<T> = <T as crml_cennzx_spot::Trait>::BalanceToUnsignedInt;
+type UnsignedToBalance<T> = <T as crml_cennzx_spot::Trait>::UnsignedIntToBalance;
+
 impl<T> pallet_contracts::GasHandler<T> for GasHandler
 where
 	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx_spot::Trait,
 {
-	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
-		// The take() function ensures the entry is `killed` after access.
-		// Note: if there's no entry (ie, None), it means we handled an edge case of
-		// CPAY in FeeExchange, ie, gas is already paid in CPAY.
-		if let Some(exchange_op) = unhashed::take::<FeeExchange>(&GAS_FEE_EXCHANGE_KEY) {
-			let gas_spent = gas_meter.spent();
+	fn fill_gas(transactor: &T::AccountId, gas_limit: Gas) -> Result<GasMeter<T>, DispatchError> {
+		let mut buyable_gas = gas_limit.clone();
 
+		let asset_id: T::AssetId;
+
+		let gas_price = <pallet_contracts::Module<T>>::gas_price();
+		let gas_price_lpu: LowPrecisionUnsigned = gas_price.saturated_into();
+		let cost_lpu = gas_price_lpu
+			.checked_mul(gas_limit.into())
+			.ok_or("Overflow multiplying gas limit by price")?;
+		let cost = UnsignedToBalance::<T>::from(cost_lpu).into();
+
+		let amount: T::Balance;
+		if let Some(exchange_op) = unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
+			asset_id = exchange_op.get_asset_id();
+
+			let exchanged_cost = CennzxModule::<T>::get_core_to_asset_input_price(
+				&asset_id,
+				cost.clone(),
+				CennzxModule::<T>::fee_rate(),
+			)?;
+			if exchanged_cost > exchange_op.get_balance() {
+				amount = exchange_op.get_balance();
+				let buyable_core_asset = CennzxModule::<T>::get_asset_to_core_input_price(
+					&asset_id,
+					exchange_op.get_balance(),
+					CennzxModule::<T>::fee_rate(),
+				)?;
+				let buyable_core_asset_lpu: LowPrecisionUnsigned =
+					BalanceToUnsigned::<T>::from(buyable_core_asset).into();
+
+				let gas_limit_lpu = buyable_core_asset_lpu
+					.checked_div(gas_price_lpu)
+					.ok_or("Gas price is zero")?;
+				buyable_gas = Gas::saturated_from(gas_limit_lpu);
+			} else {
+				amount = exchanged_cost;
+			}
+		} else {
+			asset_id = GenericAssetModule::<T>::spending_asset_id();
+			amount = cost;
+		}
+
+		let balance = GenericAssetModule::<T>::free_balance(&asset_id, &transactor);
+		let new_balance = balance
+			.checked_sub(&amount)
+			.ok_or("Balance is not covering the max payment of the fee exchange")?;
+
+		GenericAssetModule::<T>::ensure_can_withdraw(
+			&asset_id,
+			transactor,
+			amount,
+			WithdrawReason::Fee.into(),
+			new_balance,
+		)?;
+
+		Ok(GasMeter::with_limit(buyable_gas, gas_price))
+	}
+
+	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
+		let gas_spent = gas_meter.spent();
+
+		// The take() function ensures the entry is `killed` after access.
+		if let Some(exchange_op) = unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
 			// Fee exchange can never fail as conditions such as having enough liquidity
 			// are checked early (before FeeExchange is put into storage)
-			let _ = <crml_cennzx_spot::Module<T> as BuyFeeAsset<_, _>>::buy_fee_asset(
+			let _ = <crml_cennzx_spot::Module<T> as BuyFeeAsset>::buy_fee_asset(
 				transactor,
 				gas_spent.saturated_into(),
 				&exchange_op,
 			)
 			.unwrap();
+		} else {
+			let gas_price = <pallet_contracts::Module<T>>::gas_price();
+			let gas_price_lpu: LowPrecisionUnsigned = gas_price.saturated_into();
+			if let Some(cost) = gas_price_lpu.checked_mul(gas_spent.into()) {
+				if let Ok(imbalance) = T::Currency::withdraw(
+					transactor,
+					cost.saturated_into(),
+					WithdrawReason::Fee.into(),
+					ExistenceRequirement::KeepAlive,
+				) {
+					<<T as pallet_contracts::Trait>::GasPayment as OnUnbalanced<NegativeImbalanceOf<T>>>::on_unbalanced(
+						imbalance,
+					);
+				}
+			}
 		}
 	}
 }

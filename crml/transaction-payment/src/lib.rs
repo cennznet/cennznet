@@ -35,6 +35,7 @@ use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_module, decl_storage,
+	storage::unhashed,
 	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
 	weights::{DispatchInfo, GetDispatchInfo, Weight},
 	Parameter,
@@ -42,8 +43,8 @@ use frame_support::{
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_runtime::{
 	traits::{
-		Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension, SimpleArithmetic,
-		Zero,
+		CheckedSub, Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension,
+		SimpleArithmetic, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -56,6 +57,8 @@ type Multiplier = Fixed64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
 	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+
+pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
 
 pub trait Trait: frame_system::Trait {
 	/// The units in which we record balances.
@@ -83,7 +86,7 @@ pub trait Trait: frame_system::Trait {
 	type FeeMultiplierUpdate: Convert<(Weight, Multiplier), Multiplier>;
 
 	/// A function which buys fee asset if signalled by the extrinsic.
-	type BuyFeeAsset: BuyFeeAsset<Self::AccountId, BalanceOf<Self>, FeeExchange = FeeExchange>;
+	type BuyFeeAsset: BuyFeeAsset<AccountId = Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>;
 }
 
 decl_storage! {
@@ -143,18 +146,23 @@ impl<T: Trait> Module<T> {
 	}
 }
 
+type TransactionFeeExchange<T> = FeeExchange<
+	<<T as Trait>::BuyFeeAsset as BuyFeeAsset>::AssetId,
+	<<T as Trait>::BuyFeeAsset as BuyFeeAsset>::Balance,
+>;
+
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
-	fee_exchange: Option<FeeExchange>,
+	fee_exchange: Option<TransactionFeeExchange<T>>,
 }
 
 impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<FeeExchange>) -> Self {
+	pub fn from(tip: BalanceOf<T>, fee_exchange: Option<TransactionFeeExchange<T>>) -> Self {
 		Self { tip, fee_exchange }
 	}
 
@@ -236,14 +244,25 @@ where
 		len: usize,
 	) -> TransactionValidity {
 		let tip = self.tip;
+
 		// pay any fees.
 		let fee = Self::compute_fee(len as u32, info, tip);
+
+		let mut exchange_op = self.fee_exchange.clone();
+
 		// Only mess with balances if fee is not zero.
 		if !fee.is_zero() {
-			if let Some(fee_exchange) = &self.fee_exchange {
-				if T::BuyFeeAsset::buy_fee_asset(who, fee, fee_exchange).is_err() {
-					return InvalidTransaction::Payment.into();
-				}
+			if let Some(exchange) = exchange_op {
+				let sold_amount = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
+					.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+				let new_fee_exchange_max = exchange
+					.get_balance()
+					.checked_sub(&sold_amount)
+					.ok_or(TransactionValidityError::from(InvalidTransaction::Payment))?;
+				exchange_op = Some(<TransactionFeeExchange<T>>::new_v1(
+					exchange.get_asset_id(),
+					new_fee_exchange_max,
+				));
 			}
 			let imbalance = match T::Currency::withdraw(
 				who,
@@ -261,6 +280,11 @@ where
 			T::OnTransactionPayment::on_unbalanced(imbalance);
 		}
 
+		unhashed::kill(&GAS_FEE_EXCHANGE_KEY);
+		if let Some(exchange) = exchange_op {
+			unhashed::put::<TransactionFeeExchange<T>>(&GAS_FEE_EXCHANGE_KEY, &exchange);
+		}
+
 		let mut r = ValidTransaction::default();
 		// NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
 		// will be a bit more than setting the priority to tip. For now, this is enough.
@@ -272,11 +296,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cennznet_primitives::types::FeeExchangeV1;
 	use codec::Encode;
 	use frame_support::{
 		additional_traits::DummyDispatchVerifier,
-		dispatch::{DispatchError, DispatchResult},
+		dispatch::DispatchError,
 		impl_outer_dispatch, impl_outer_origin, parameter_types,
 		weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Weight},
 	};
@@ -386,24 +409,27 @@ mod tests {
 	}
 
 	/// Implement a fake BuyFeeAsset for tests
-	impl<T: Trait> BuyFeeAsset<AccountId, u64> for Module<T> {
-		type FeeExchange = FeeExchange;
-		fn buy_fee_asset(who: &AccountId, amount: u64, exchange_op: &Self::FeeExchange) -> DispatchResult {
-			let fee_exchange = match exchange_op {
-				FeeExchange::V1(ex) => ex,
-			};
-			if fee_exchange.asset_id == VALID_ASSET_TO_BUY_FEE {
-				if fee_exchange.max_payment == 0 {
+	impl BuyFeeAsset for Module<Runtime> {
+		type AccountId = u64;
+		type AssetId = u32;
+		type Balance = u64;
+		fn buy_fee_asset(
+			who: &Self::AccountId,
+			amount: Self::Balance,
+			exchange_op: &TestFeeExchange,
+		) -> sp_std::result::Result<Self::Balance, DispatchError> {
+			if exchange_op.get_asset_id() == VALID_ASSET_TO_BUY_FEE {
+				if exchange_op.get_balance() == 0 {
 					return Err(DispatchError::Other("no money"));
 				}
 				let _ = Balances::deposit_into_existing(who, amount)?;
 			}
-			Ok(())
+			Ok(0)
 		}
 	}
 
 	impl Trait for Runtime {
-		type Balance = u128;
+		type Balance = u64;
 		type AssetId = u32;
 		type Currency = pallet_balances::Module<Runtime>;
 		type OnTransactionPayment = ();
@@ -417,6 +443,7 @@ mod tests {
 	type Balances = pallet_balances::Module<Runtime>;
 	type System = frame_system::Module<Runtime>;
 	type TransactionPayment = Module<Runtime>;
+	type TestFeeExchange = TransactionFeeExchange<Runtime>;
 
 	pub struct ExtBuilder {
 		balance_factor: u64,
@@ -722,7 +749,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 100_000));
+				let fee_exchange = TestFeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 100_000);
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&1, CALL, info_from_weight(3), len)
 					.is_ok());
@@ -737,7 +764,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(INVALID_ASSET_TO_BUY_FEE, 100_000));
+				let fee_exchange = TestFeeExchange::new_v1(INVALID_ASSET_TO_BUY_FEE, 100_000);
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&1, CALL, info_from_weight(3), len)
 					.is_err());
@@ -752,7 +779,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				let fee_exchange = FeeExchange::V1(FeeExchangeV1::new(VALID_ASSET_TO_BUY_FEE, 0));
+				let fee_exchange = TestFeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 0);
 				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&1, CALL, info_from_weight(3), len)
 					.is_err());

@@ -16,14 +16,30 @@
 
 //! Common traits used by CENNZnet node.
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::DispatchError;
+
+/// FeeExchange that is used for BuyFeeAsset
+pub type FeeExchange<T> = crate::types::FeeExchange<<T as BuyFeeAsset>::AssetId, <T as BuyFeeAsset>::Balance>;
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
-pub trait BuyFeeAsset<AccountId, Balance> {
-	/// A type to handle fee and asset exchange.
-	type FeeExchange;
+pub trait BuyFeeAsset {
+	/// The user account identifier
+	type AccountId;
+
+	/// The arithmetic type of asset identifier.
+	type AssetId;
+
+	/// The units in which we record balances.
+	type Balance;
+
 	/// Buy `amount` of fee asset for `who` using asset info from `fee_exchange.
+	/// If the purchase has been successful, return Ok with sold amount
+	/// deducting the actual fee in the users's specified asset id, otherwise return Err.
 	/// Note: It does not charge the fee asset, that is left to a `ChargeFee` implementation
-	fn buy_fee_asset(who: &AccountId, amount: Balance, fee_exchange: &Self::FeeExchange) -> DispatchResult;
+	fn buy_fee_asset(
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		fee_exchange: &FeeExchange<Self>,
+	) -> Result<Self::Balance, DispatchError>;
 }

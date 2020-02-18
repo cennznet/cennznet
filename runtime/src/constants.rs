@@ -32,11 +32,6 @@ pub mod asset {
 	pub const SPENDING_ASSET_ID: AssetId = CENTRAPAY_ASSET_ID;
 }
 
-/// Contract.
-pub mod contract {
-	pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
-}
-
 /// Money matters.
 pub mod currency {
 	use cennznet_primitives::types::Balance;

@@ -71,19 +71,19 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The outer `FeeExchange` type. It is versioned to provide flexbility for future iterations
 /// while maintaining backward compatability.
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-pub enum FeeExchange {
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
 	#[codec(compact)]
-	V1(FeeExchangeV1),
+	V1(FeeExchangeV1<AssetId, Balance>),
 }
 
 /// A v1 FeeExchange
 /// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
 /// embed within CENNZnet extrinsic payload.
 /// It specifies input asset ID and the max. limit of input asset to pay
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-pub struct FeeExchangeV1 {
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+pub struct FeeExchangeV1<AssetId, Balance> {
 	/// The Asset ID to exchange for network fee asset
 	#[codec(compact)]
 	pub asset_id: AssetId,

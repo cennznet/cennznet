@@ -23,7 +23,7 @@ mod mock;
 mod tests;
 
 mod impls;
-mod types;
+pub mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, PerMillion};
 
@@ -729,7 +729,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// `asset_id` - Trade asset
-	/// `amount_sold` - Amount of trade assets sold
+	/// `amount_sold` - Amount of the trade asset to sell
 	/// Returns amount of core that can be bought with input assets.
 	pub fn get_asset_to_core_input_price(
 		asset_id: &T::AssetId,
@@ -898,11 +898,12 @@ impl<T: Trait> Module<T> {
 		buy_amount: T::Balance,
 		max_paying_amount: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
-	) -> DispatchResult {
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, Error::<T>::AssetCannotSwapForItself);
+		let sold_amount: T::Balance;
 		if *asset_sold == core_asset {
-			let _ = Self::make_core_to_asset_output(
+			sold_amount = Self::make_core_to_asset_output(
 				buyer,
 				recipient,
 				asset_bought,
@@ -911,10 +912,10 @@ impl<T: Trait> Module<T> {
 				fee_rate,
 			)?;
 		} else if *asset_bought == core_asset {
-			let _ =
+			sold_amount =
 				Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount, fee_rate)?;
 		} else {
-			let _ = Self::make_asset_to_asset_output(
+			sold_amount = Self::make_asset_to_asset_output(
 				buyer,
 				recipient,
 				asset_sold,
@@ -925,7 +926,7 @@ impl<T: Trait> Module<T> {
 			)?;
 		}
 
-		Ok(())
+		Ok(sold_amount)
 	}
 
 	/// Convert asset1 to asset2
