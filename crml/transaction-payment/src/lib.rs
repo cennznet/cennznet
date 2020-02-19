@@ -243,6 +243,9 @@ where
 		info: Self::DispatchInfo,
 		len: usize,
 	) -> TransactionValidity {
+		// A cautionary measure to ensure the storage of previous transactions wouldn't extend beyond them.
+		unhashed::kill(&GAS_FEE_EXCHANGE_KEY);
+
 		let tip = self.tip;
 
 		// pay any fees.
@@ -280,7 +283,6 @@ where
 			T::OnTransactionPayment::on_unbalanced(imbalance);
 		}
 
-		unhashed::kill(&GAS_FEE_EXCHANGE_KEY);
 		if let Some(exchange) = exchange_op {
 			unhashed::put::<TransactionFeeExchange<T>>(&GAS_FEE_EXCHANGE_KEY, &exchange);
 		}
