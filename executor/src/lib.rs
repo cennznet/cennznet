@@ -158,9 +158,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
-						0_u128.encode()
-					},
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
 					}
@@ -202,9 +199,6 @@ mod tests {
 					},
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						69_u128.encode()
-					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => {
-						0_u128.encode()
 					},
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => {
 						vec![0u8; 32]
@@ -251,7 +245,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				children: map![],
@@ -304,7 +297,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				children: map![],
@@ -796,7 +788,7 @@ mod tests {
 				CheckedExtrinsic {
 					signed: Some((charlie(), signed_extra(2, 0))),
 					function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
-						pallet_indices::address::Address::Id(addr.clone()),
+						addr.clone(),
 						10,
 						10_000,
 						vec![0x00, 0x01, 0x02, 0x03],
@@ -882,7 +874,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						0_u128.encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				children: map![],
@@ -927,7 +918,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(111 * DOLLARS).encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				children: map![],
@@ -1112,7 +1102,6 @@ mod tests {
 					<pallet_generic_asset::TotalIssuance<Runtime>>::hashed_key_for(SPENDING_ASSET_ID) => {
 						(110 * DOLLARS).encode()
 					},
-					<pallet_indices::NextEnumSet<Runtime>>::hashed_key().to_vec() => vec![0u8; 16],
 					<frame_system::BlockHash<Runtime>>::hashed_key_for(0).to_vec() => vec![0u8; 32]
 				],
 				children: map![],

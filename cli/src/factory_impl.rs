@@ -264,7 +264,7 @@ fn sign<RA: RuntimeAdapter>(
 				})
 				.into();
 			UncheckedExtrinsic {
-				signature: Some((pallet_indices::address::Address::Id(signed), signature, extra)),
+				signature: Some((signed, signature, extra)),
 				function: payload.0,
 			}
 		}

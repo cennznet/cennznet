@@ -56,7 +56,6 @@ pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockc
 pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-pallet-indices = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
@@ -91,7 +90,6 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
-	"pallet-indices/std",
 	"sp-inherents/std",
 	"pallet-membership/std",
 	"pallet-generic-asset/std",

@@ -92,7 +92,7 @@ pub fn sign(xt: CheckedExtrinsic, version: u32, genesis_hash: [u8; 32]) -> Unche
 				})
 				.into();
 			UncheckedExtrinsic {
-				signature: Some((pallet_indices::address::Address::Id(signed), signature, extra)),
+				signature: Some((signed, signature, extra)),
 				function: payload.0,
 			}
 		}

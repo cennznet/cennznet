@@ -23,7 +23,7 @@
 
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
-	types::{AccountId, AccountIndex, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature},
+	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature},
 };
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
@@ -44,7 +44,7 @@ use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::{
-	self, BlakeTwo256, Block as BlockT, OpaqueKeys, PlugDoughnutApi, SaturatedConversion, StaticLookup,
+	self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, PlugDoughnutApi, SaturatedConversion,
 };
 use sp_runtime::transaction_validity::TransactionValidity;
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
@@ -125,12 +125,12 @@ impl frame_system::Trait for Runtime {
 	type Hash = Hash;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = Indices;
+	type Lookup = IdentityLookup<AccountId>;
 	type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Doughnut = prml_doughnut::PlugDoughnut<Runtime>;
-	type DelegatedDispatchVerifier = prml_doughnut::PlugDoughnutDispatcher<Runtime>;
+	type DelegatedDispatchVerifier = Runtime;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
 	type AvailableBlockRatio = AvailableBlockRatio;
@@ -193,13 +193,6 @@ impl pallet_babe::Trait for Runtime {
 	type EpochDuration = EpochDuration;
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
-}
-
-impl pallet_indices::Trait for Runtime {
-	type AccountIndex = AccountIndex;
-	type IsDeadAccount = ();
-	type ResolveHint = pallet_indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
-	type Event = Event;
 }
 
 impl pallet_generic_asset::Trait for Runtime {
@@ -551,9 +544,8 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
 			})
 			.ok()?;
 		let signature = TSigner::sign(public, &raw_payload)?;
-		let address = Indices::unlookup(account);
 		let (call, extra, _) = raw_payload.deconstruct();
-		Some((call, (address, signature, extra)))
+		Some((call, (account, signature, extra)))
 	}
 }
 
@@ -599,7 +591,6 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 		Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>},
-		Indices: pallet_indices,
 		TransactionPayment: crml_transaction_payment::{Module, Storage},
 		GenericAsset: pallet_generic_asset::{Module, Call, Storage, Event<T>, Config<T>},
 		Staking: pallet_staking,
@@ -628,8 +619,6 @@ construct_runtime!(
 	}
 );
 
-/// The address format for describing accounts.
-pub type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -651,7 +640,7 @@ pub type SignedExtra = (
 	pallet_contracts::CheckBlockGasLimit<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<AccountId, Call, Signature, SignedExtra>;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
