@@ -106,11 +106,14 @@ pub(crate) mod impl_tests {
 			let fee_rate = 3_000; // fee is 0.3%
 			let fee_rate_factor = scale_factor + fee_rate; // 1_000_000 + 3_000
 
-			assert_ok!(<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
-				&user,
-				target_fee,
-				&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000)
-			));
+			assert_ok!(
+				<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
+					&user,
+					target_fee,
+					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000)
+				),
+				571
+			);
 
 			// For more detail, see `fn get_output_price` in lib.rs
 			let core_asset_price = {
