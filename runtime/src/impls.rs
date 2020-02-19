@@ -155,7 +155,7 @@ where
 		let cost = UnsignedToBalance::<T>::from(cost_lpu).into();
 
 		let amount: T::Balance;
-		if let Some(exchange_op) = unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
+		if let Some(exchange_op) = unhashed::get::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
 			asset_id = exchange_op.get_asset_id();
 
 			let exchanged_cost = CennzxModule::<T>::get_asset_to_core_output_price(
