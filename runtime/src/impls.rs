@@ -158,7 +158,7 @@ where
 		if let Some(exchange_op) = unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
 			asset_id = exchange_op.get_asset_id();
 
-			let exchanged_cost = CennzxModule::<T>::get_core_to_asset_input_price(
+			let exchanged_cost = CennzxModule::<T>::get_asset_to_core_output_price(
 				&asset_id,
 				cost.clone(),
 				CennzxModule::<T>::fee_rate(),
