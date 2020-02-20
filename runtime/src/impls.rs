@@ -145,24 +145,22 @@ where
 	fn fill_gas(transactor: &T::AccountId, gas_limit: Gas) -> Result<GasMeter<T>, DispatchError> {
 		let mut buyable_gas = gas_limit.clone();
 
-		let asset_id: T::AssetId;
-
 		let gas_price = <pallet_contracts::Module<T>>::gas_price();
 		let gas_price_lpu: LowPrecisionUnsigned = gas_price.saturated_into();
 		let cost_lpu = gas_price_lpu
 			.checked_mul(gas_limit.into())
 			.ok_or("Overflow multiplying gas limit by price")?;
-		let cost = UnsignedToBalance::<T>::from(cost_lpu).into();
+		let cost = UnsignedToBalance::<T>::from(cost_lpu.clone()).into();
 
-		let amount: T::Balance;
 		if let Some(exchange_op) = unhashed::get::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
-			asset_id = exchange_op.get_asset_id();
+			let asset_id = exchange_op.get_asset_id();
 
 			let exchanged_cost = CennzxModule::<T>::get_asset_to_core_output_price(
 				&asset_id,
 				cost.clone(),
 				CennzxModule::<T>::fee_rate(),
 			)?;
+			let amount: T::Balance;
 			if exchanged_cost > exchange_op.get_balance() {
 				amount = exchange_op.get_balance();
 				let buyable_core_asset = CennzxModule::<T>::get_asset_to_core_input_price(
@@ -180,29 +178,43 @@ where
 			} else {
 				amount = exchanged_cost;
 			}
+
+			let balance = GenericAssetModule::<T>::free_balance(&asset_id, &transactor);
+			let new_balance = balance
+				.checked_sub(&amount)
+				.ok_or("Balance is not covering the max payment of the fee exchange")?;
+
+			GenericAssetModule::<T>::ensure_can_withdraw(
+				&asset_id,
+				transactor,
+				amount,
+				WithdrawReason::Fee.into(),
+				new_balance,
+			)?;
 		} else {
-			asset_id = GenericAssetModule::<T>::spending_asset_id();
-			amount = cost;
+			if let Ok(imbalance) = T::Currency::withdraw(
+				transactor,
+				cost_lpu.saturated_into(),
+				WithdrawReason::Fee.into(),
+				ExistenceRequirement::KeepAlive,
+			) {
+				<<T as pallet_contracts::Trait>::GasPayment as OnUnbalanced<NegativeImbalanceOf<T>>>::on_unbalanced(
+					imbalance,
+				);
+			}
 		}
-
-		let balance = GenericAssetModule::<T>::free_balance(&asset_id, &transactor);
-		let new_balance = balance
-			.checked_sub(&amount)
-			.ok_or("Balance is not covering the max payment of the fee exchange")?;
-
-		GenericAssetModule::<T>::ensure_can_withdraw(
-			&asset_id,
-			transactor,
-			amount,
-			WithdrawReason::Fee.into(),
-			new_balance,
-		)?;
 
 		Ok(GasMeter::with_limit(buyable_gas, gas_price))
 	}
 
 	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
 		let gas_spent = gas_meter.spent();
+
+		// TODO mutate GasSpent for the block
+		// Increase total spent gas.
+		// This cannot overflow, since `gas_spent` is never greater than `block_gas_limit`, which
+		// also has Gas type.
+		// GasSpent::mutate(|block_gas_spent| *block_gas_spent += gas_spent);
 
 		// The take() function ensures the entry is `killed` after access.
 		if let Some(exchange_op) = unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY) {
@@ -217,17 +229,8 @@ where
 		} else {
 			let gas_price = <pallet_contracts::Module<T>>::gas_price();
 			let gas_price_lpu: LowPrecisionUnsigned = gas_price.saturated_into();
-			if let Some(cost) = gas_price_lpu.checked_mul(gas_spent.into()) {
-				if let Ok(imbalance) = T::Currency::withdraw(
-					transactor,
-					cost.saturated_into(),
-					WithdrawReason::Fee.into(),
-					ExistenceRequirement::KeepAlive,
-				) {
-					<<T as pallet_contracts::Trait>::GasPayment as OnUnbalanced<NegativeImbalanceOf<T>>>::on_unbalanced(
-						imbalance,
-					);
-				}
+			if let Some(refund) = gas_price_lpu.checked_mul(gas_meter.gas_left().into()) {
+				let _imbalance = T::Currency::deposit_creating(transactor, refund.saturated_into());
 			}
 		}
 	}
