@@ -431,7 +431,7 @@ mod tests {
 	}
 
 	impl Trait for Runtime {
-		type Balance = u64;
+		type Balance = u128;
 		type AssetId = u32;
 		type Currency = pallet_balances::Module<Runtime>;
 		type OnTransactionPayment = ();
