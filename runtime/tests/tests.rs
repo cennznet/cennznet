@@ -24,14 +24,24 @@ fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 	cennznet_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
 }
 
-fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, contract_call: &Call) -> Balance {
+fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call: &Call) -> Balance {
 	let length_fee = TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
-	let weight = contract_call.get_dispatch_info().weight;
+	let weight = runtime_call.get_dispatch_info().weight;
 	let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 
 	let base_fee = TransactionBaseFee::get();
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+}
+
+fn initialize_block() {
+	Executive::initialize_block(&Header::new(
+		1,                        // block number
+		sp_core::H256::default(), // extrinsics_root
+		sp_core::H256::default(), // state_root
+		GENESIS_HASH.into(),      // parent_hash
+		Digest::default(),        // digest
+	));
 }
 
 #[test]
@@ -110,13 +120,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		let fm = TransactionPayment::next_fee_multiplier();
 		let fee = transfer_fee(&xt, fm, &runtime_call);
 
-		Executive::initialize_block(&Header::new(
-			1,                        // block number
-			sp_core::H256::default(), // extrinsics_root
-			sp_core::H256::default(), // state_root
-			GENESIS_HASH.into(),      // parent_hash
-			Digest::default(),        // digest
-		));
+		initialize_block();
 		let r = Executive::apply_extrinsic(xt);
 		assert!(r.is_ok());
 
@@ -129,4 +133,60 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 			transfer_amount,
 		);
 	});
+}
+
+#[test]
+fn generic_asset_transfer_works_with_fee_exchange() {
+	let balance_amount = 1_000_000 * TransactionBaseFee::get();
+	let liquidity_core_cmount = 100_000 * TransactionBaseFee::get();
+	let liquidity_asset_cmount = 200;
+	let transfer_amount = 50;
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENTRAPAY_ASSET_ID,
+		bob(),
+		transfer_amount,
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			let _ = CennzxSpot::add_liquidity(
+				Origin::signed(alice()),
+				CENNZ_ASSET_ID,
+				10, // min_liquidity
+				liquidity_asset_cmount,
+				liquidity_core_cmount,
+			);
+			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &alice()), liquidity_core_cmount);
+
+			// Exchange CENNZ for CPAY to pay for transaction fee
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: 100_000_000,
+			});
+
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: runtime_call.clone(),
+			});
+
+			initialize_block();
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				balance_amount - liquidity_asset_cmount - 1, // due to trade_asset_amount having + One::one()
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - liquidity_core_cmount - transfer_amount, // transfer fee is not charged in cpay
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount,
+			);
+		});
 }
