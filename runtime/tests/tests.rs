@@ -190,3 +190,38 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			);
 		});
 }
+
+#[test]
+fn contract_fails() {
+	// Contract itself fails
+}
+
+#[test]
+fn contract_fails_with_insufficient_gas() {
+	// Not enough gas to run contract
+}
+
+#[test]
+fn contract_call_works_without_fee_exchange() {
+	// Happy case with no fee exchange
+	// Contract changes users account assets
+}
+
+#[test]
+fn contract_call_works_with_fee_exchange() {
+	// Happy case with fee exchange (with/without excess funds)
+	// Fee exchange is asking for CPay
+	// Contract makes an extrinsic to the exchange
+	// Contract changes users account assets
+}
+
+#[test]
+fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
+	// Fee exchange not enough to pay for gas
+	// validate() should early terminate?
+}
+
+#[test]
+fn contract_call_fails_when_exchange_liquidity_is_low() {
+	// Exchange doesn’t have sufficient liquidity
+}
