@@ -11,8 +11,10 @@ There are a number of ways to run a CENNZnet node. Please choose one that suits 
 
 Make sure Docker is installed and running on your machine.
 ```
-$ docker pull cennznet/cennznet:1.0.0
-$ docker run -it cennznet/cennznet:1.0.0 [TODO: check params]
+# Start a local validator on a development chain
+$ docker run \
+    -p 9933:9933 -p 9944:9944 \
+    cennznet/cennznet:1.0.0-rc2 --dev --unsafe-ws-external --unsafe-rpc-external
 ```
 
 ### Using the source code
@@ -49,7 +51,10 @@ Then clone the repo, build the binary and run it.
 $ git clone https://github.com/cennznet/cennznet.git
 $ cd cennznet
 $ cargo build --release
-$ ./target/release/cennznet [TODO: check params]
+$ ./target/release/cennznet --help
+
+# start a validator node for development
+$ ./target/release/cennznet --dev
 ```
 
 ------
