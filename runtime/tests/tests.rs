@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(test)]
 use cennznet_primitives::types::{Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::asset::*, Call, CennzxSpot, CheckedExtrinsic, Executive, GenericAsset, Origin, Runtime,
@@ -30,6 +29,7 @@ use sp_runtime::{
 	Fixed64,
 };
 
+mod doughnut;
 mod mock;
 use mock::ExtBuilder;
 

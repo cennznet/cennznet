@@ -74,8 +74,6 @@ use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, LinearWeightToFee
 pub mod constants;
 use constants::{currency::*, time::*};
 
-mod doughnut;
-
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
