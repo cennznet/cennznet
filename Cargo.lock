@@ -574,6 +574,7 @@ dependencies = [
  "pretty_assertions",
  "sp-core",
  "sp-runtime",
+ "sp-serializer",
 ]
 
 [[package]]
@@ -610,6 +611,7 @@ name = "cennznet-runtime"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
+ "cennznet-testing",
  "cennznut",
  "crml-cennzx-spot",
  "crml-sylo",
@@ -618,6 +620,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "hex",
+ "hex-literal",
  "integer-sqrt",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -653,6 +657,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime",
@@ -662,6 +667,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder-runner",
+ "wabt",
 ]
 
 [[package]]

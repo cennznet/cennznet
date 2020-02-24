@@ -109,7 +109,7 @@ mod tests {
 
 	fn xt() -> UncheckedExtrinsic {
 		sign(CheckedExtrinsic {
-			signed: Some((alice(), signed_extra(0, 0))),
+			signed: Some((alice(), signed_extra(0, 0, None, None))),
 			function: Call::GenericAsset(default_transfer_call()),
 		})
 	}
@@ -410,7 +410,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((alice(), signed_extra(0, 0))),
+					signed: Some((alice(), signed_extra(0, 0, None, None))),
 					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
@@ -436,7 +436,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((alice(), signed_extra(0, 0))),
+					signed: Some((alice(), signed_extra(0, 0, None, None))),
 					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
@@ -455,7 +455,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((bob(), signed_extra(0, 0))),
+					signed: Some((bob(), signed_extra(0, 0, None, None))),
 					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						alice().into(),
@@ -463,7 +463,7 @@ mod tests {
 					)),
 				},
 				CheckedExtrinsic {
-					signed: Some((alice(), signed_extra(1, 0))),
+					signed: Some((alice(), signed_extra(1, 0, None, None))),
 					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
@@ -491,7 +491,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((alice(), signed_extra(nonce, 0))),
+					signed: Some((alice(), signed_extra(nonce, 0, None, None))),
 					function: Call::System(frame_system::Call::remark(vec![0; size])),
 				},
 			],
@@ -773,11 +773,11 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(0, 0))),
+					signed: Some((charlie(), signed_extra(0, 0, None, None))),
 					function: Call::Contracts(pallet_contracts::Call::put_code::<Runtime>(10_000, transfer_code)),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(1, 0))),
+					signed: Some((charlie(), signed_extra(1, 0, None, None))),
 					function: Call::Contracts(pallet_contracts::Call::instantiate::<Runtime>(
 						1 * DOLLARS,
 						10_000,
@@ -786,7 +786,7 @@ mod tests {
 					)),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(2, 0))),
+					signed: Some((charlie(), signed_extra(2, 0, None, None))),
 					function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
 						addr.clone(),
 						10,
@@ -1022,7 +1022,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(0, 0))),
+					signed: Some((charlie(), signed_extra(0, 0, None, None))),
 					function: Call::System(frame_system::Call::fill_block()),
 				},
 			],
@@ -1039,7 +1039,7 @@ mod tests {
 					function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(1, 0))),
+					signed: Some((charlie(), signed_extra(1, 0, None, None))),
 					function: Call::System(frame_system::Call::remark(vec![0; 1])),
 				},
 			],
@@ -1110,7 +1110,7 @@ mod tests {
 
 		let tip = 1_000_000;
 		let xt = sign(CheckedExtrinsic {
-			signed: Some((alice(), signed_extra(0, tip))),
+			signed: Some((alice(), signed_extra(0, tip, None, None))),
 			function: Call::GenericAsset(default_transfer_call()),
 		});
 
@@ -1188,7 +1188,7 @@ mod tests {
 			let num_transfers = block_number * factor;
 			let mut xts = (0..num_transfers)
 				.map(|i| CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(nonce + i as Index, 0))),
+					signed: Some((charlie(), signed_extra(nonce + i as Index, 0, None, None))),
 					function: Call::GenericAsset(pallet_generic_asset::Call::transfer(
 						SPENDING_ASSET_ID,
 						bob().into(),
@@ -1261,7 +1261,7 @@ mod tests {
 						function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
 					},
 					CheckedExtrinsic {
-						signed: Some((charlie(), signed_extra(nonce, 0))),
+						signed: Some((charlie(), signed_extra(nonce, 0, None, None))),
 						function: Call::System(frame_system::Call::remark(vec![0u8; (block_number * factor) as usize])),
 					},
 				],

@@ -16,8 +16,8 @@
 
 //! Test accounts.
 
-use cennznet_primitives::types::{AccountId, Balance, Index};
-use cennznet_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+use cennznet_primitives::types::{AccountId, Balance, FeeExchange, Index};
+use cennznet_runtime::{CennznetDoughnut, CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::generic::Era;
@@ -63,15 +63,20 @@ pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr255
 }
 
 /// Returns transaction extra.
-pub fn signed_extra(nonce: Index, extra_fee: Balance) -> SignedExtra {
+pub fn signed_extra(
+	nonce: Index,
+	extra_fee: Balance,
+	doughnut: Option<CennznetDoughnut>,
+	fee_exchange: Option<FeeExchange>,
+) -> SignedExtra {
 	(
-		None,
+		doughnut,
 		frame_system::CheckVersion::new(),
 		frame_system::CheckGenesis::new(),
 		frame_system::CheckEra::from(Era::mortal(256, 0)),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
-		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, None),
+		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, fee_exchange),
 		Default::default(),
 	)
 }
