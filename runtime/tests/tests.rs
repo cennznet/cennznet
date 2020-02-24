@@ -138,8 +138,8 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 #[test]
 fn generic_asset_transfer_works_with_fee_exchange() {
 	let balance_amount = 1_000_000 * TransactionBaseFee::get();
-	let liquidity_core_cmount = 100_000 * TransactionBaseFee::get();
-	let liquidity_asset_cmount = 200;
+	let liquidity_core_amount = 100 * TransactionBaseFee::get();
+	let liquidity_asset_amount = 200;
 	let transfer_amount = 50;
 	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
@@ -151,38 +151,51 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 		.initial_balance(balance_amount)
 		.build()
 		.execute_with(|| {
+			// Alice adds initial liquidity to an exchange
 			let _ = CennzxSpot::add_liquidity(
 				Origin::signed(alice()),
 				CENNZ_ASSET_ID,
 				10, // min_liquidity
-				liquidity_asset_cmount,
-				liquidity_core_cmount,
+				liquidity_asset_amount,
+				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &alice()), liquidity_core_cmount);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &alice()), liquidity_core_amount);
 
-			// Exchange CENNZ for CPAY to pay for transaction fee
+			// Exchange CENNZ (sell) for CPAY (buy) to pay for transaction fee
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
 				max_payment: 100_000_000,
 			});
 
+			// Create an extrinsic where the transaction fee is to be paid in CENNZ
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: runtime_call.clone(),
 			});
 
+			// Compute the transaction fee of the extrinsic
+			let fm = TransactionPayment::next_fee_multiplier();
+			let fee = transfer_fee(&xt, fm, &runtime_call);
+
+			// Calculate how much CENNZ should be sold to make the above extrinsic
+			let cennz_sold_amount =
+				CennzxSpot::get_asset_to_core_output_price(&CENNZ_ASSET_ID, fee, CennzxSpot::fee_rate()).unwrap();
+			assert_eq!(cennz_sold_amount, 6);
+
+			// Initialise block and apply the extrinsic
 			initialize_block();
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
+			// Check remaining balances
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
-				balance_amount - liquidity_asset_cmount - 1, // due to trade_asset_amount having + One::one()
+				balance_amount - liquidity_asset_amount - cennz_sold_amount, // transfer fee is charged in CENNZ
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - liquidity_core_cmount - transfer_amount, // transfer fee is not charged in cpay
+				balance_amount - liquidity_core_amount - transfer_amount, // transfer fee is not charged in CPAY
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
