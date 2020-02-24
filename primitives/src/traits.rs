@@ -16,14 +16,33 @@
 
 //! Common traits used by CENNZnet node.
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::DispatchError;
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
-pub trait BuyFeeAsset<AccountId, Balance> {
-	/// A type to handle fee and asset exchange.
+pub trait BuyFeeAsset {
+	/// The account identifier type
+	type AccountId;
+	/// The type to denote monetary values
+	type Balance;
+	/// A type with fee payment information
 	type FeeExchange;
+
 	/// Buy `amount` of fee asset for `who` using asset info from `fee_exchange.
+	/// If the purchase has been successful, return Ok with sold amount
+	/// deducting the actual fee in the users's specified asset id, otherwise return Err.
 	/// Note: It does not charge the fee asset, that is left to a `ChargeFee` implementation
-	fn buy_fee_asset(who: &AccountId, amount: Balance, fee_exchange: &Self::FeeExchange) -> DispatchResult;
+	fn buy_fee_asset(
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError>;
+}
+
+/// Something that can resolve if an extrinsic call requires a gas meter or not
+pub trait IsGasMeteredCall {
+	/// The extrinsic call type
+	type Call;
+	/// Return whether this call requires a gas meter or not
+	fn is_gas_metered(call: &Self::Call) -> bool;
 }

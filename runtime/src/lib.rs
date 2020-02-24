@@ -24,8 +24,9 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
-use frame_support::weights::Weight;
-use frame_support::{additional_traits, construct_runtime, debug, parameter_types, traits::Randomness};
+use frame_support::{
+	additional_traits, construct_runtime, debug, parameter_types, traits::Randomness, weights::Weight,
+};
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
@@ -68,7 +69,7 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, LinearWeightToFee};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -212,6 +213,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
 	type BuyFeeAsset = CennzxSpot;
+	type GasMeteredCallResolver = GasMeteredCallResolver;
 }
 
 parameter_types! {
@@ -437,7 +439,7 @@ impl pallet_contracts::Trait for Runtime {
 	type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Runtime>;
 	type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
 	type GasPayment = ();
-	type GasHandler = ();
+	type GasHandler = GasHandler;
 	type RentPayment = ();
 	type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
 	type TombstoneDeposit = TombstoneDeposit;

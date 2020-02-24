@@ -17,15 +17,23 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{MaximumBlockWeight, Runtime};
-use cennznet_primitives::types::Balance;
+use crate::{BuyFeeAsset, Call, MaximumBlockWeight, Runtime};
+use cennznet_primitives::{
+	traits::IsGasMeteredCall,
+	types::{Balance, FeeExchange},
+};
+use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
-	traits::{Currency, Get},
+	storage,
+	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
+use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
-use sp_runtime::traits::{Convert, Saturating};
-use sp_runtime::Fixed64;
+use sp_runtime::{
+	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
+	DispatchError, Fixed64,
+};
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -119,6 +127,142 @@ impl Convert<(Weight, Fixed64), Fixed64> for FeeMultiplierUpdateHandler {
 				// transactions have no weight fee. We stop here and only increase if the network
 				// became more busy.
 				.max(Fixed64::from_rational(-1, 1))
+		}
+	}
+}
+
+/// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
+pub struct GasHandler;
+
+type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
+type Contracts<T> = pallet_contracts::Module<T>;
+type GenericAsset<T> = pallet_generic_asset::Module<T>;
+
+impl<T> pallet_contracts::GasHandler<T> for GasHandler
+where
+	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx_spot::Trait,
+{
+	/// Fill the gas meter
+	///
+	/// The process is as follows:
+	/// 1) Calculate the cost to fill the gas meter (gas price * gas limit)
+	/// 2a) Default case:
+	///    - User is paying in the native fee currency
+	///    - Deduct the 'fill meter cost' from the users balance and fill the gas meter
+	/// 2b) User has nominated to pay fees in another currency
+	///    - Calculate the 'fill gas cost' in terms of their nominated payment currency-
+	///      using the CENNZX spot exchange rate
+	///....- Check the user has liquid balance to pay the converted 'fill gas cost' and fill the gas meter
+	fn fill_gas(transactor: &T::AccountId, gas_limit: Gas) -> Result<GasMeter<T>, DispatchError> {
+		// Calculate the cost to fill the meter in the CENNZnet fee currency
+		let gas_price = Contracts::<T>::gas_price();
+		let fill_meter_cost = if gas_price.is_zero() {
+			// Gas is free in this configuration, fill the meter
+			return Ok(GasMeter::with_limit(gas_limit, gas_price));
+		} else {
+			gas_price
+				.checked_mul(&gas_limit.saturated_into())
+				.ok_or("Overflow during gas cost calculation")?
+		};
+
+		// Check if a fee exchange has been specified by the user
+		let fee_exchange: Option<FeeExchange<T::AssetId, T::Balance>> = storage::unhashed::get(&GAS_FEE_EXCHANGE_KEY);
+
+		if fee_exchange.is_none() {
+			// User will pay for gas in CENNZnet's native fee currency
+			let imbalance = T::Currency::withdraw(
+				transactor,
+				fill_meter_cost,
+				WithdrawReason::Fee.into(),
+				ExistenceRequirement::KeepAlive,
+			)?;
+			T::GasPayment::on_unbalanced(imbalance);
+			return Ok(GasMeter::with_limit(gas_limit, gas_price));
+		}
+
+		// User wants to pay fee in a nominated currency
+		let exchange_op = fee_exchange.unwrap();
+		let payment_asset = exchange_op.asset_id();
+
+		// Calculate the `fill_meter_cost` in terms of the user's nominated payment asset
+		let converted_fill_meter_cost = CennzxSpot::<T>::get_asset_to_core_output_price(
+			&payment_asset,
+			T::Balance::unique_saturated_from(fill_meter_cost.saturated_into()),
+			CennzxSpot::<T>::fee_rate(),
+		)?;
+
+		// Respect the user's max. fee preference
+		if converted_fill_meter_cost > exchange_op.max_payment() {
+			return Err("Fee cost exceeds max. payment limit".into());
+		}
+
+		// Calculate the expected user balance after paying the `converted_fill_meter_cost`
+		// This value is required to ensure liquidity restrictions are upheld
+		let balance_after_fill_meter = GenericAsset::<T>::free_balance(&payment_asset, transactor)
+			.checked_sub(&converted_fill_meter_cost)
+			.ok_or("Insufficient liquidity to fill gas meter")?;
+
+		// Does the user have enough funds to pay the `converted_fill_meter_cost` with `payment_asset`
+		// also taking into consideration any liquidity restrictions
+		GenericAsset::<T>::ensure_can_withdraw(
+			&payment_asset,
+			transactor,
+			converted_fill_meter_cost,
+			WithdrawReason::Fee.into(),
+			balance_after_fill_meter,
+		)?;
+
+		// User has the requisite amount of `payment_asset` to fund the meter
+		// Actual payment will be handled in `empty_unused_gas` as the user may not spend the entire limit
+		// Performing payment on the known gas spent will avoid a refund situation
+		return Ok(GasMeter::with_limit(gas_limit, gas_price));
+	}
+
+	/// Handle settlement of unused gas after contract execution
+	///
+	/// The process is as follows:
+	/// - Default case: refund unused gas tokens to the user (`transactor`) in CENNZnet's native fee currency as the current gas price
+	/// - FeeExchange case: Gas spent will be charged to the user in their nominated fee currency at the current gas price
+	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
+		// TODO: Update `GasSpent` for the block
+		let gas_left = gas_meter.gas_left();
+		let gas_price = Contracts::<T>::gas_price();
+		let gas_spent = gas_meter.spent();
+
+		// The `take()` function ensures the entry is killed after access
+		if let Some(exchange_op) = storage::unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY)
+		{
+			// Pay for `gas_spent` in a user nominated currency using the CENNZX spot exchange
+			// Payment can never fail as liquidity is verified before filling the meter
+			if let Some(used_gas_cost) = gas_price.checked_mul(&gas_spent.saturated_into()) {
+				let _ = CennzxSpot::<T>::buy_fee_asset(
+					transactor,
+					T::Balance::unique_saturated_from(used_gas_cost.saturated_into()),
+					&exchange_op,
+				);
+			}
+		} else {
+			// Refund remaining gas by minting it as CENNZnet fee currency
+			if let Some(refund) = gas_price.checked_mul(&gas_left.saturated_into()) {
+				let _imbalance = T::Currency::deposit_creating(transactor, refund);
+			}
+		}
+	}
+}
+
+// It implements `IsGasMeteredCall`
+pub struct GasMeteredCallResolver;
+
+impl IsGasMeteredCall for GasMeteredCallResolver {
+	/// The runtime extrinsic `Call` type
+	type Call = Call;
+	/// Return whether the given `call` is gas metered
+	fn is_gas_metered(call: &Self::Call) -> bool {
+		match call {
+			Call::Contracts(pallet_contracts::Call::call(_, _, _, _)) => true,
+			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
+			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
+			_ => false,
 		}
 	}
 }
