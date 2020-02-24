@@ -15,7 +15,6 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
-#![cfg(test)]
 use cennznet_runtime::{constants::asset::*, Runtime, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
