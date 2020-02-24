@@ -1,5 +1,5 @@
 # CENNZnet Node
-[![GitHub license](https://img.shields.io/github/license/cennznet/cennznet)](LICENSE) [![CircleCI](https://circleci.com/gh/cennznet/cennznet.svg?style=shield)](https://circleci.com/gh/cennznet/cennznet) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
+[![license: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](LICENSE) [![CircleCI](https://circleci.com/gh/cennznet/cennznet.svg?style=shield)](https://circleci.com/gh/cennznet/cennznet) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
 CENNZnet node based on [Plug](https://github.com/plugblockchain/plug-blockchain)
 
