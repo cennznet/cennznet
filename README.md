@@ -12,6 +12,8 @@ There are a number of ways to run a CENNZnet node. Please choose one that suits 
 Make sure Docker is installed and running on your machine.
 If you need to install [Docker](https://www.docker.com/), head over to [Docker for Desktop](https://www.docker.com/products/docker-desktop) first, get it installed, create an account and login. Make sure Docker is running in the background.
 
+Now you can proceed to the terminal with the following command:
+
 ```
 # Start a local validator on a development chain
 $ docker run \
