@@ -15,7 +15,7 @@
 
 //! Doughnut integration tests
 
-use crate::{CennznetDoughnut, Runtime};
+use cennznet_runtime::{CennznetDoughnut, Runtime};
 use cennznut::{self};
 use cennznut::{CENNZnut, CENNZnutV0};
 use codec::Encode;
