@@ -344,7 +344,7 @@ decl_event!(
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		RemoveLiquidity(AccountId, Balance, AssetId, Balance),
-	    /// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
+		/// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
 		AssetPurchase(AssetId, AssetId, AccountId, Balance, Balance),
 	}
 );
