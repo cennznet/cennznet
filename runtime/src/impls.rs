@@ -240,6 +240,14 @@ where
 					T::Balance::unique_saturated_from(used_gas_cost.saturated_into()),
 					&exchange_op,
 				);
+				let imbalance = T::Currency::withdraw(
+					transactor,
+					used_gas_cost,
+					WithdrawReason::Fee.into(),
+					ExistenceRequirement::KeepAlive,
+				)
+				.expect("Used gas cost could not be withdrawn");
+				T::GasPayment::on_unbalanced(imbalance);
 			}
 		} else {
 			// Refund remaining gas by minting it as CENNZnet fee currency

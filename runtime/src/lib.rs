@@ -418,15 +418,16 @@ impl pallet_treasury::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const ContractTransferFee: Balance = 1 * CENTS;
-	pub const ContractCreationFee: Balance = 1 * CENTS;
-	pub const ContractTransactionBaseFee: Balance = 1 * CENTS;
-	pub const ContractTransactionByteFee: Balance = 10 * MILLICENTS;
+	pub const ContractTransferFee: Balance = 1 * NANOCENTS;
+	pub const ContractCreationFee: Balance = 1 * MICROCENTS;
+	pub const ContractTransactionBaseFee: Balance = 1 * NANOCENTS;
+	pub const ContractTransactionByteFee: Balance = 10 * MICROCENTS;
 	pub const ContractFee: Balance = 1 * CENTS;
 	pub const TombstoneDeposit: Balance = 1 * DOLLARS;
 	pub const RentByteFee: Balance = 1 * DOLLARS;
 	pub const RentDepositOffset: Balance = 1000 * DOLLARS;
 	pub const SurchargeReward: Balance = 150 * DOLLARS;
+	pub const BlockGasLimit: u64 = 100 * DOLLARS as u64;
 }
 
 impl pallet_contracts::Trait for Runtime {
@@ -456,7 +457,7 @@ impl pallet_contracts::Trait for Runtime {
 	type InstantiateBaseFee = pallet_contracts::DefaultInstantiateBaseFee;
 	type MaxDepth = pallet_contracts::DefaultMaxDepth;
 	type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
-	type BlockGasLimit = pallet_contracts::DefaultBlockGasLimit;
+	type BlockGasLimit = BlockGasLimit;
 }
 
 impl pallet_sudo::Trait for Runtime {
