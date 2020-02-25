@@ -31,13 +31,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::constants::error_code;
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::FeeExchange,
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_module, decl_storage, storage,
+	decl_module, decl_storage,
+	dispatch::DispatchError,
+	storage,
 	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
 	weights::{DispatchInfo, GetDispatchInfo, Weight},
 	Parameter,
@@ -55,6 +58,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*};
 
+mod constants;
 #[cfg(test)]
 mod mock;
 
@@ -261,8 +265,13 @@ where
 		if !fee.is_zero() {
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Custom(8)))?;
+				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
+					let code = match e {
+						DispatchError::Module { error, .. } => error_code::buy_fee_asset_error_to_code(error),
+						_ => error_code::UNKNOW_BUY_FEE_ASSET,
+					};
+					TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
+				})?;
 			}
 
 			// Pay for the transaction `fee` in the native fee currency
