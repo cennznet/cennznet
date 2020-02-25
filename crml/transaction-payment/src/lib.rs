@@ -262,7 +262,7 @@ where
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Custom(8)))?;
 			}
 
 			// Pay for the transaction `fee` in the native fee currency
@@ -277,7 +277,7 @@ where
 				ExistenceRequirement::KeepAlive,
 			) {
 				Ok(imbalance) => imbalance,
-				Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment)),
+				Err(_) => return Err(InvalidTransaction::Custom(200).into()),
 			};
 
 			T::OnTransactionPayment::on_unbalanced(imbalance);
