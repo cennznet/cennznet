@@ -17,9 +17,9 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{BuyFeeAsset, Call, MaximumBlockWeight, Runtime};
+use crate::{Call, MaximumBlockWeight, Runtime};
 use cennznet_primitives::{
-	traits::IsGasMeteredCall,
+	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
