@@ -142,10 +142,20 @@ impl BuyFeeAsset for Module<Runtime> {
 	) -> sp_std::result::Result<Self::Balance, DispatchError> {
 		if exchange_op.asset_id() == VALID_ASSET_TO_BUY_FEE {
 			if exchange_op.max_payment() == 0 {
-				return Err(DispatchError::Other("no money"));
+				return Err(DispatchError::Module {
+					index: 1,
+					error: 15,
+					message: Some("CoreToAssetPriceAboveMaxLimit"),
+				});
 			}
 			// buy fee asset at a 1:1 ratio
 			let _ = Balances::deposit_into_existing(who, amount)?;
+		} else {
+			return Err(DispatchError::Module {
+				index: 1,
+				error: 33,
+				message: Some("InvalidAssetId"),
+			});
 		}
 		Ok(amount)
 	}

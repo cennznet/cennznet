@@ -286,7 +286,9 @@ where
 				ExistenceRequirement::KeepAlive,
 			) {
 				Ok(imbalance) => imbalance,
-				Err(_) => return Err(InvalidTransaction::Custom(200).into()),
+				Err(_) => {
+					return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE).into())
+				}
 			};
 
 			T::OnTransactionPayment::on_unbalanced(imbalance);
@@ -332,6 +334,10 @@ mod tests {
 	// A balance transfer, which will be considered 'gas metered' for testing purposes
 	const METERED_CALL: &<Runtime as frame_system::Trait>::Call =
 		&mock::Call::Balances(pallet_balances::Call::transfer_keep_alive(GAS_METERED_ACCOUNT_ID, 69));
+
+	fn error_with_code(code: u8) -> sp_std::result::Result<(), TransactionValidityError> {
+		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(code)))
+	}
 
 	#[test]
 	fn signed_extension_transaction_payment_work() {
@@ -590,9 +596,15 @@ mod tests {
 			.execute_with(|| {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(INVALID_ASSET_TO_BUY_FEE, 100_000);
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
-					.is_err());
+				assert_eq!(
+					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange)).pre_dispatch(
+						&1,
+						CALL,
+						info_from_weight(3),
+						len
+					),
+					error_with_code(error_code::INVALID_ASSET_ID)
+				);
 			})
 	}
 
@@ -605,9 +617,15 @@ mod tests {
 			.execute_with(|| {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 0);
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
-					.is_err());
+				assert_eq!(
+					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange)).pre_dispatch(
+						&1,
+						CALL,
+						info_from_weight(3),
+						len
+					),
+					error_with_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
+				);
 			})
 	}
 
