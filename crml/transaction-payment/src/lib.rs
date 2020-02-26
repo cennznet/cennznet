@@ -335,7 +335,7 @@ mod tests {
 	const METERED_CALL: &<Runtime as frame_system::Trait>::Call =
 		&mock::Call::Balances(pallet_balances::Call::transfer_keep_alive(GAS_METERED_ACCOUNT_ID, 69));
 
-	fn error_with_code(code: u8) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn error_from_code(code: u8) -> sp_std::result::Result<(), TransactionValidityError> {
 		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(code)))
 	}
 
@@ -603,7 +603,7 @@ mod tests {
 						info_from_weight(3),
 						len
 					),
-					error_with_code(error_code::INVALID_ASSET_ID)
+					error_from_code(error_code::INVALID_ASSET_ID)
 				);
 			})
 	}
@@ -624,7 +624,7 @@ mod tests {
 						info_from_weight(3),
 						len
 					),
-					error_with_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
+					error_from_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
 				);
 			})
 	}

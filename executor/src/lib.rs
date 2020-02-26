@@ -61,7 +61,7 @@ mod tests {
 	};
 	use sp_runtime::{
 		traits::{Convert, Hash as HashT, Header as HeaderT},
-		transaction_validity::InvalidTransaction,
+		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult, Fixed64,
 	};
 	use sp_state_machine::TestExternalities as CoreTestExternalities;
@@ -185,7 +185,10 @@ mod tests {
 		.0
 		.unwrap();
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
-		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+		assert_eq!(
+			r,
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+		);
 	}
 
 	#[test]
@@ -227,7 +230,10 @@ mod tests {
 		.0
 		.unwrap();
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
-		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+		assert_eq!(
+			r,
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+		);
 	}
 
 	#[test]
@@ -900,7 +906,10 @@ mod tests {
 		.unwrap()
 		.into_encoded();
 		let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
-		assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+		assert_eq!(
+			r,
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+		);
 	}
 
 	#[test]

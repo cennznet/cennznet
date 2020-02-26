@@ -119,7 +119,7 @@ decl_error! {
 		InsufficientSellAssetForRequiredMinimumBuyAsset,
 		// Asset to swap should not be equal
 		AssetCannotSwapForItself,
-		// Asset id not exist
+		// Asset id doesn't exist
 		InvalidAssetId,
 		Overflow,
 		DivideByZero,

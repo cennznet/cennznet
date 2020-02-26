@@ -65,7 +65,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		// check whether exchange asset id exist
 		let fee_exchange_asset_id = exchange_op.asset_id();
 		ensure!(
-			<pallet_generic_asset::TotalIssuance<T>>::contains_key(&fee_exchange_asset_id),
+			<pallet_generic_asset::TotalIssuance<T>>::exists(&fee_exchange_asset_id),
 			Error::<T>::InvalidAssetId,
 		);
 
