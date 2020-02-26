@@ -74,7 +74,6 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 			exchange_op.max_payment(),
 			Self::fee_rate(),
 		)
-		.map_err(|_| DispatchError::Other("Failed to charge transaction fees during conversion"))
 	}
 }
 
@@ -84,6 +83,7 @@ pub(crate) mod impl_tests {
 	use crate::{
 		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
+		Error,
 	};
 	use frame_support::traits::Currency;
 	use sp_core::H256;
@@ -171,7 +171,7 @@ pub(crate) mod impl_tests {
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
 				),
-				"Failed to charge transaction fees during conversion"
+				Error::<Test>::InsufficientTradeAssetReserve
 			);
 
 			assert_balance_eq!(user, CoreAssetCurrency => 0);
