@@ -24,9 +24,8 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
-use frame_support::{
-	additional_traits, construct_runtime, debug, parameter_types, traits::Randomness, weights::Weight,
-};
+use frame_support::weights::Weight;
+use frame_support::{additional_traits, construct_runtime, debug, parameter_types, traits::{SplitTwoWays, Randomness, Currency, OnUnbalanced} };
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
@@ -203,11 +202,34 @@ parameter_types! {
 	pub const WeightFeeCoefficient: Balance = 1_000;
 }
 
+
+type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<<Runtime as frame_system::Trait>::AccountId>>::NegativeImbalance;
+
+pub struct Validators;
+impl OnUnbalanced<NegativeImbalance> for Validators {
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		let validators = pallet_staking::Module::<Runtime>::current_elected();
+		let validators_len = validators.len();
+		let per_validator_reward = amount / validators_len;
+		println!( "Obtained validators. {} validators, each should receive: {}", validators_len, per_validator_reward );
+		for v in &validators {
+			let _= GenericAsset::deposit_creating(&v, Some(CENTRAPAY_ASSET_ID), per_validator_reward);
+		}
+	}
+}
+
+pub type DealWithFees = SplitTwoWays<
+	Balance,
+	NegativeImbalance,
+	_0, Treasury,
+	_1, Validators,  // 100% goes to elected validators
+>;
+
 impl crml_transaction_payment::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = ();
+	type OnTransactionPayment = DealWithFees;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
