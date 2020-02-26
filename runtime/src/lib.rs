@@ -24,8 +24,12 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
-use frame_support::weights::Weight;
-use frame_support::{additional_traits, construct_runtime, debug, parameter_types, traits::{SplitTwoWays, Randomness, Currency, OnUnbalanced} };
+use frame_support::{
+	additional_traits::{self, MultiCurrencyAccounting},
+	construct_runtime, debug, parameter_types,
+	traits::{Currency, Imbalance, OnUnbalanced, Randomness, SplitTwoWays},
+	weights::Weight,
+};
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
@@ -35,7 +39,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_1, _2, _3, _4};
+use sp_core::u32_trait::{_0, _1, _2, _3, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
@@ -72,7 +76,7 @@ use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMe
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{currency::*, time::*};
+use constants::{asset::CENTRAPAY_ASSET_ID, currency::*, time::*};
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -202,18 +206,20 @@ parameter_types! {
 	pub const WeightFeeCoefficient: Balance = 1_000;
 }
 
-
-type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<<Runtime as frame_system::Trait>::AccountId>>::NegativeImbalance;
+type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
+	<Runtime as frame_system::Trait>::AccountId,
+>>::NegativeImbalance;
 
 pub struct Validators;
 impl OnUnbalanced<NegativeImbalance> for Validators {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
 		let validators = pallet_staking::Module::<Runtime>::current_elected();
-		let validators_len = validators.len();
-		let per_validator_reward = amount / validators_len;
-		println!( "Obtained validators. {} validators, each should receive: {}", validators_len, per_validator_reward );
+		if validators.len() == 0 {
+			return;
+		}
+		let per_validator_reward = amount.peek() / (validators.len() as Balance);
 		for v in &validators {
-			let _= GenericAsset::deposit_creating(&v, Some(CENTRAPAY_ASSET_ID), per_validator_reward);
+			let _ = GenericAsset::deposit_creating(&v, Some(CENTRAPAY_ASSET_ID), per_validator_reward);
 		}
 	}
 }
@@ -221,8 +227,10 @@ impl OnUnbalanced<NegativeImbalance> for Validators {
 pub type DealWithFees = SplitTwoWays<
 	Balance,
 	NegativeImbalance,
-	_0, Treasury,
-	_1, Validators,  // 100% goes to elected validators
+	_0,
+	Treasury,
+	_1,
+	Validators, // 100% goes to elected validators
 >;
 
 impl crml_transaction_payment::Trait for Runtime {

@@ -25,7 +25,6 @@ use frame_support::{additional_traits::MultiCurrencyAccounting, traits::Imbalanc
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Header},
-	transaction_validity::InvalidTransaction,
 	Fixed64,
 };
 
