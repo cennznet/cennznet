@@ -626,6 +626,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-balances",
  "pallet-collective",
  "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
