@@ -58,7 +58,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*};
 
-mod constants;
+pub mod constants;
 #[cfg(test)]
 mod mock;
 
@@ -267,8 +267,10 @@ where
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
 					let code = match e {
-						DispatchError::Module { error, .. } => error_code::buy_fee_asset_error_to_code(error),
-						_ => error_code::UNKNOW_BUY_FEE_ASSET,
+						DispatchError::Module { message, .. } => error_code::buy_fee_asset_error_msg_to_code(
+							message.unwrap_or("Unknown buy fee asset error"),
+						),
+						_ => error_code::UNKNOWN_BUY_FEE_ASSET,
 					};
 					TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
 				})?;

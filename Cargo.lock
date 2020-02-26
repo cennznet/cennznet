@@ -560,6 +560,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
+ "sp-std",
  "sp-trie",
  "trie-root",
  "wabt",

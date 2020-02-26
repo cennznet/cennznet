@@ -45,6 +45,7 @@ mod tests {
 	};
 	use cennznet_testing::keyring::*;
 	use codec::{Decode, Encode, Joiner};
+	use crml_transaction_payment::constants::error_code;
 	use frame_support::{
 		weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 		Hashable, StorageDoubleMap, StorageMap, StorageValue,
@@ -146,6 +147,10 @@ mod tests {
 		executor().call::<_, R, NC>(&mut t, method, data, use_native, native_call)
 	}
 
+	fn error_from_code(code: u8) -> TransactionValidityError {
+		TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
+	}
+
 	#[test]
 	fn panic_execution_with_foreign_code_gives_error() {
 		let mut t = TestExternalities::<Blake2Hasher>::new_with_code(
@@ -187,7 +192,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
 		);
 	}
 
@@ -232,7 +237,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
 		);
 	}
 
@@ -908,7 +913,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(198)))
+			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
 		);
 	}
 
