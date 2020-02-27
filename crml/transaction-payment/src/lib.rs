@@ -289,7 +289,7 @@ where
 			) {
 				Ok(imbalance) => imbalance,
 				Err(_) => {
-					return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE).into())
+					return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET).into())
 				}
 			};
 

@@ -192,7 +192,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
+			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
 		);
 	}
 
@@ -237,7 +237,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
+			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
 		);
 	}
 
@@ -913,7 +913,7 @@ mod tests {
 		let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
 		assert_eq!(
 			r,
-			Err(error_from_code(error_code::INSUFFICIENT_SELLER_CORE_ASSET_BALANCE))
+			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
 		);
 	}
 

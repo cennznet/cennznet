@@ -31,8 +31,9 @@ pub mod error_code {
 	pub const SALE_VALUE_BELOW_REQUIRED_MINIMUM: u8 = 197;
 	pub const INSUFFICIENT_SELLER_CORE_ASSET_BALANCE: u8 = 198;
 	pub const BUY_AMOUNT_NOT_POSITIVE: u8 = 199;
-	pub const INVALID_ASSET_ID: u8 = 200;
-	pub const UNKNOWN_BUY_FEE_ASSET: u8 = 201;
+	pub const INSUFFICIENT_FEE_ASSET: u8 = 200;
+	pub const INVALID_ASSET_ID: u8 = 201;
+	pub const UNKNOWN_BUY_FEE_ASSET: u8 = 202;
 
 	pub fn buy_fee_asset_error_msg_to_code(message: &'static str) -> u8 {
 		match message {
