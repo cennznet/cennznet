@@ -798,15 +798,15 @@ impl_runtime_apis! {
 			buy_amount: Balance,
 			sell_asset: AssetId,
 		) -> Balance {
-			CennzxSpot::buy_price(buy_asset, buy_amount, sell_asset)
+			CennzxSpot::calculate_buy_price(buy_asset, buy_amount, sell_asset).unwrap()
 		}
 
-		fn sell_price(
+		fn sell_value(
 			sell_asset: AssetId,
 			sell_amount: Balance,
 			buy_asset: AssetId,
 		) -> Balance {
-			CennzxSpot::sell_price(sell_asset, sell_amount, buy_asset)
+			CennzxSpot::calculate_sell_value(sell_asset, sell_amount, buy_asset).unwrap()
 		}
 	}
 

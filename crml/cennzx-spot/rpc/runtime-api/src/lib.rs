@@ -27,16 +27,16 @@ sp_api::decl_runtime_apis! {
 		Balance: Codec,
 	{
 		/// Query how much `asset_to_buy` will be given in exchange for `amount` of `asset_to_sell`
-		fn sell_price(
-			asset_to_sell: AssetId,
-			amount: Balance,
-			asset_to_buy: AssetId,
-		) -> Balance;
-		/// Query how much `asset_to_sell` is required to buy `amount` of `asset_to_buy`
 		fn buy_price(
 			asset_to_buy: AssetId,
 			amount: Balance,
 			asset_to_sell: AssetId,
+		) -> Balance;
+		/// Query how much `asset_to_sell` is required to buy `amount` of `asset_to_buy`
+		fn sell_value(
+			asset_to_sell: AssetId,
+			amount: Balance,
+			asset_to_buy: AssetId,
 		) -> Balance;
 	}
 }

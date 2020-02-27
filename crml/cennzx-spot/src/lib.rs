@@ -62,7 +62,7 @@ struct PoolLiquidity<Balance> {
 
 impl<Balance> PoolLiquidity<Balance> {
 	/// Create a new `PoolLiquidity` given core and asset balances
-	fn new(core: Balance, asset: Balance) -> Self {
+	fn new(core_balance: Balance, asset_balance: Balance) -> Self {
 		PoolLiquidity {
 			core_balance,
 			asset_balance,
@@ -987,13 +987,15 @@ impl<T: Trait> Module<T> {
 		asset_to_buy: T::AssetId,
 		amount_to_buy: T::Balance,
 		asset_to_pay: T::AssetId,
-	) -> T::Balance {
+	) -> Result<T::Balance, DispatchError> {
 		// TODO: Ignore case where asset IDs are equal
 		// TODO: Ignore case where asset IDs do not have liquidity in the exchange
 		// TODO: Easy case is user want token to CPAY price, only one pool to check
 
 		// Get the liquidity balance in the 'asset_to_buy' <> 'core asset' pool
-		let buy_asset_pool = get_pool_liquidity(asset_to_buy);
+		let buy_asset_pool = Self::get_pool_liquidity(asset_to_buy);
+
+		let fee_rate = Self::fee_rate();
 
 		// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of 'core asset'
 		let core_asset_price = Self::get_output_price(
@@ -1004,7 +1006,7 @@ impl<T: Trait> Module<T> {
 		)?;
 
 		// Get the liquidity balance in the 'payment asset' <> 'core asset' pool
-		let payment_asset_pool = get_pool_liquidity(asset_to_pay);
+		let payment_asset_pool = Self::get_pool_liquidity(asset_to_pay);
 
 		// Find the price of `core_asset_price` in terms of `asset_to_pay`
 		let payment_asset_price = Self::get_output_price(
@@ -1022,7 +1024,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_for_sale` is the asset to be sold
 	/// `amount_for_sale` is the amount of `asset_for_sale` to be sold
 	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_for_sale` (the final sale value is given in this asset)
-	pub fn calculate_sale_value(
+	pub fn calculate_sell_value(
 		asset_for_sale: T::AssetId,
 		amount_for_sale: T::Balance,
 		asset_to_payout: T::AssetId,
@@ -1032,7 +1034,7 @@ impl<T: Trait> Module<T> {
 		// TODO: Easy case is user want token to CPAY price, only one pool to check
 
 		// Get the liquidity balance in the 'sell asset' <> 'core asset' pool
-		let sale_pool_liquidity = get_pool_liquidity(asset_for_sale);
+		let sale_pool_liquidity = Self::get_pool_liquidity(asset_for_sale);
 
 		let fee_rate = Self::fee_rate();
 		// How much 'core asset' will this sell for?
@@ -1044,7 +1046,7 @@ impl<T: Trait> Module<T> {
 		)?;
 
 		// Get the liquidity balance in the 'payout asset' <> 'core asset' pool
-		let payout_pool_liquidity = get_pool_liquidity(asset_to_payout);
+		let payout_pool_liquidity = Self::get_pool_liquidity(asset_to_payout);
 
 		// How much 'buy asset' will `core_asset_yield` purchase?
 		let payout_asset_value = Self::get_input_price(

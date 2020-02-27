@@ -1343,3 +1343,24 @@ fn set_fee_rate() {
 		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
 	});
 }
+
+#[test]
+fn calculate_buy_price_simple() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+		let _ = CennzXSpot::set_fee_rate(
+			Origin::ROOT,
+			FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(0u128)).unwrap(),
+		);
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyB),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(127)
+		);
+	});
+}
