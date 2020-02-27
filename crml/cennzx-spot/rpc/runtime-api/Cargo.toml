@@ -1,0 +1,24 @@
+[package]
+name = "crml-cennzx-spot-rpc-runtime-api"
+version = "2.0.0"
+authors = ["Centrality Developers <developers@centrality.ai>"]
+edition = "2018"
+license = "GPL-3.0"
+
+[dependencies]
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.0.6", default-features = false, features = ["derive"] }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+
+[dev-dependencies]
+serde_json = "1.0.41"
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"sp-api/std",
+	"codec/std",
+	"sp-std/std",
+]
