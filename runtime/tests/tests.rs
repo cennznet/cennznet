@@ -462,7 +462,7 @@ fn contract_call_fails_with_insufficient_gas_without_fee_exchange() {
 			});
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(INSUFFICIENT_FEE_ASSET).into())
+				Err(InvalidTransaction::Custom(INSUFFICIENT_FEE_ASSET_BALANCE).into())
 			);
 		});
 }

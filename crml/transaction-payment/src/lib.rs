@@ -288,9 +288,7 @@ where
 				ExistenceRequirement::KeepAlive,
 			) {
 				Ok(imbalance) => imbalance,
-				Err(_) => {
-					return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET).into())
-				}
+				Err(_) => return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET_BALANCE).into()),
 			};
 
 			T::OnTransactionPayment::on_unbalanced(imbalance);

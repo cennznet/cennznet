@@ -190,10 +190,7 @@ mod tests {
 		.0
 		.unwrap();
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
-		assert_eq!(
-			r,
-			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
-		);
+		assert_eq!(r, Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET_BALANCE)));
 	}
 
 	#[test]
@@ -235,10 +232,7 @@ mod tests {
 		.0
 		.unwrap();
 		let r = ApplyExtrinsicResult::decode(&mut &v.as_encoded()[..]).unwrap();
-		assert_eq!(
-			r,
-			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
-		);
+		assert_eq!(r, Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET_BALANCE)));
 	}
 
 	#[test]
@@ -911,10 +905,7 @@ mod tests {
 		.unwrap()
 		.into_encoded();
 		let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
-		assert_eq!(
-			r,
-			Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET))
-		);
+		assert_eq!(r, Err(error_from_code(error_code::INSUFFICIENT_FEE_ASSET_BALANCE)));
 	}
 
 	#[test]

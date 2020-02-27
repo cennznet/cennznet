@@ -19,22 +19,25 @@
 //! Transaction Payment Customized Error Code Constants
 
 pub mod error_code {
+	// Core to asset exchange errors
 	pub const CORE_TO_ASSET_PRICE_NOT_ABOVE_ZERO: u8 = 190;
 	pub const CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT: u8 = 191;
 	pub const INSUFFICIENT_BUYER_CORE_ASSET_BALANCE: u8 = 192;
-
+	// Asset to core exchange errors
 	pub const ASSET_TO_CORE_PRICE_NOT_ABOVE_ZERO: u8 = 193;
 	pub const ASSET_TO_CORE_PRICE_ABOVE_MAX_LIMIT: u8 = 194;
 	pub const INSUFFICIENT_BUYER_TRADE_ASSET_BALANCE: u8 = 195;
-
+	// Other errors
 	pub const ASSET_SALE_VALUE_NOT_ABOVE_ZERO: u8 = 196;
 	pub const SALE_VALUE_BELOW_REQUIRED_MINIMUM: u8 = 197;
 	pub const INSUFFICIENT_SELLER_CORE_ASSET_BALANCE: u8 = 198;
 	pub const BUY_AMOUNT_NOT_POSITIVE: u8 = 199;
-	pub const INSUFFICIENT_FEE_ASSET: u8 = 200;
+	pub const INSUFFICIENT_FEE_ASSET_BALANCE: u8 = 200;
 	pub const INVALID_ASSET_ID: u8 = 201;
 	pub const UNKNOWN_BUY_FEE_ASSET: u8 = 202;
 
+	// Matches and converts crml-cennzx-spot module errors, such that
+	// they are propagated in crml-transaction-payment module
 	pub fn buy_fee_asset_error_msg_to_code(message: &'static str) -> u8 {
 		match message {
 			"InsufficientBuyerTradeAssetBalance" => INSUFFICIENT_BUYER_TRADE_ASSET_BALANCE,
