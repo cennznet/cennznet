@@ -22,6 +22,7 @@ use cennznet_runtime::{
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
+use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
 	traits::Imbalance,
@@ -459,7 +460,10 @@ fn contract_call_fails_with_insufficient_gas_without_fee_exchange() {
 					vec![],
 				)),
 			});
-			assert_eq!(Executive::apply_extrinsic(xt), Err(InvalidTransaction::Payment.into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_FEE_ASSET_BALANCE).into())
+			);
 		});
 }
 
@@ -498,7 +502,7 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
-				max_payment: 100_000_000,
+				max_payment: 10 * TransactionBaseFee::get(),
 			});
 
 			initialize_block();
@@ -511,7 +515,10 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 					vec![],
 				)),
 			});
-			assert_eq!(Executive::apply_extrinsic(xt), Err(InvalidTransaction::Payment.into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_BUYER_TRADE_ASSET_BALANCE).into())
+			);
 		});
 }
 
@@ -644,8 +651,10 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 				function: contract_call,
 			});
 			initialize_block();
-			let r = Executive::apply_extrinsic(xt);
-			assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(ASSET_TO_CORE_PRICE_ABOVE_MAX_LIMIT).into())
+			);
 		});
 }
 
@@ -686,8 +695,10 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 				function: contract_call,
 			});
 			initialize_block();
-			let r = Executive::apply_extrinsic(xt);
-			assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_CORE_ASSET_RESERVE).into())
+			);
 		});
 }
 
@@ -716,7 +727,9 @@ fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
 			});
-			let r = Executive::apply_extrinsic(xt);
-			assert_eq!(r, Err(InvalidTransaction::Payment.into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(ASSET_CANNOT_SWAP_FOR_ITSELF).into())
+			);
 		});
 }
