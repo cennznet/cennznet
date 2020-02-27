@@ -695,8 +695,10 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 				function: contract_call,
 			});
 			initialize_block();
-			let r = Executive::apply_extrinsic(xt);
-			assert_eq!(r, Err(InvalidTransaction::Custom(UNKNOWN_BUY_FEE_ASSET).into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_CORE_ASSET_RESERVE).into())
+			);
 		});
 }
 
@@ -725,7 +727,9 @@ fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
 			});
-			let r = Executive::apply_extrinsic(xt);
-			assert_eq!(r, Err(InvalidTransaction::Custom(UNKNOWN_BUY_FEE_ASSET).into()));
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(ASSET_CANNOT_SWAP_FOR_ITSELF).into())
+			);
 		});
 }
