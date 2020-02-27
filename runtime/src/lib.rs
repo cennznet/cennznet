@@ -788,6 +788,28 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl crml_cennzx_spot_rpc_runtime_api::CENNZXApi<
+		Block,
+		AssetId,
+		Balance,
+	> for Runtime {
+		fn buy_price(
+			buy_asset: AssetId,
+			buy_amount: Balance,
+			sell_asset: AssetId,
+		) -> Balance {
+			CennzxSpot::buy_price(buy_asset, buy_amount, sell_asset)
+		}
+
+		fn sell_price(
+			sell_asset: AssetId,
+			sell_amount: Balance,
+			buy_asset: AssetId,
+		) -> Balance {
+			CennzxSpot::sell_price(sell_asset, sell_amount, buy_asset)
+		}
+	}
+
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			SessionKeys::generate(seed)

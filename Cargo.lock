@@ -614,6 +614,7 @@ dependencies = [
  "cennznet-testing",
  "cennznut",
  "crml-cennzx-spot",
+ "crml-cennzx-spot-rpc-runtime-api",
  "crml-sylo",
  "crml-transaction-payment",
  "frame-executive",
@@ -850,6 +851,17 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-cennzx-spot-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-api",
  "sp-std",
 ]
 
