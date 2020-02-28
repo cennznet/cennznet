@@ -992,18 +992,25 @@ impl<T: Trait> Module<T> {
 		// TODO: Ignore case where asset IDs do not have liquidity in the exchange
 		// TODO: Easy case is user want token to CPAY price, only one pool to check
 
-		// Get the liquidity balance in the 'asset_to_buy' <> 'core asset' pool
-		let buy_asset_pool = Self::get_pool_liquidity(asset_to_buy);
-
 		let fee_rate = Self::fee_rate();
 
-		// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of 'core asset'
-		let core_asset_price = Self::get_output_price(
-			amount_to_buy,
-			buy_asset_pool.asset_balance,
-			buy_asset_pool.core_balance,
-			fee_rate,
-		)?;
+		let core_asset_price = if asset_to_buy == Self::core_asset_id() {
+			amount_to_buy
+		}
+		else {
+			// Get the liquidity balance in the 'asset_to_buy' <> 'core asset' pool
+			let buy_asset_pool = Self::get_pool_liquidity(asset_to_buy);
+
+			// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of 'core asset'
+			Self::get_output_price(
+				amount_to_buy,
+				buy_asset_pool.asset_balance,
+				buy_asset_pool.core_balance,
+				fee_rate,
+			)?
+		};
+
+
 
 		// Get the liquidity balance in the 'payment asset' <> 'core asset' pool
 		let payment_asset_pool = Self::get_pool_liquidity(asset_to_pay);
