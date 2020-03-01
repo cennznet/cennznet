@@ -1397,4 +1397,85 @@ fn calculate_buy_price_when_buying_core() {
 	});
 }
 
+#[test]
+fn calculate_buy_price_when_selling_core() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+    let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(CoreAssetCurrency),
+			),
+			Ok(112)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_same_asset_id_ignored() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(100)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_low_buy_asset_liquidity_error() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 10);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::InsufficientTradeAssetReserve
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_low_buy_core_liquidity_error() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::InsufficientTradeAssetReserve
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_no_exchange() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::EmptyExchangePool
+		);
+	});
+}

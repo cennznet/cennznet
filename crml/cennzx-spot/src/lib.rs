@@ -988,12 +988,14 @@ impl<T: Trait> Module<T> {
 		amount_to_buy: T::Balance,
 		asset_to_pay: T::AssetId,
 	) -> Result<T::Balance, DispatchError> {
-		// TODO: Ignore case where asset IDs are equal
-		// TODO: Ignore case where asset IDs do not have liquidity in the exchange
-		// TODO: Easy case is user want token to CPAY price, only one pool to check
+		// Ignore the case where buy AssetId is pay AssetId
+		if asset_to_buy == asset_to_pay {
+			return Ok(amount_to_buy);
+		}
 
 		let fee_rate = Self::fee_rate();
 
+		// Skip core asset price if asset to buy is core
 		let core_asset_price = if asset_to_buy == Self::core_asset_id() {
 			amount_to_buy
 		}
@@ -1004,26 +1006,37 @@ impl<T: Trait> Module<T> {
 			// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of 'core asset'
 			Self::get_output_price(
 				amount_to_buy,
-				buy_asset_pool.asset_balance,
 				buy_asset_pool.core_balance,
+				buy_asset_pool.asset_balance,
 				fee_rate,
 			)?
 		};
 
+		// Skip payment asset price if asset to pay is core
+		let payment_asset_price = if asset_to_pay == Self::core_asset_id() {
+			core_asset_price
+		}
+		else {
+			// Get the liquidity balance in the 'payment asset' <> 'core asset' pool
+			let payment_asset_pool = Self::get_pool_liquidity(asset_to_pay);
 
+			// Find the price of `core_asset_price` in terms of `asset_to_pay`
+			Self::get_output_price(
+				core_asset_price,
+				payment_asset_pool.asset_balance,
+				payment_asset_pool.core_balance,
+				fee_rate,
+			)?
+		};
 
-		// Get the liquidity balance in the 'payment asset' <> 'core asset' pool
-		let payment_asset_pool = Self::get_pool_liquidity(asset_to_pay);
+		// get_output_price returns T::Balance::max_value() when there is not enough liquidity
+		// could potentially do this check better
+		ensure!(
+			payment_asset_price != T::Balance::max_value(),
+			Error::<T>::InsufficientTradeAssetReserve
+		);
 
-		// Find the price of `core_asset_price` in terms of `asset_to_pay`
-		let payment_asset_price = Self::get_output_price(
-			core_asset_price,
-			payment_asset_pool.asset_balance,
-			payment_asset_pool.core_balance,
-			fee_rate,
-		)?;
-
-		return Ok(payment_asset_price);
+		Ok(payment_asset_price)
 	}
 
 	/// Calculate the sale value of some asset for another
