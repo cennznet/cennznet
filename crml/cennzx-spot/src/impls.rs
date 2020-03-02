@@ -170,6 +170,8 @@ pub(crate) mod impl_tests {
 	#[test]
 	fn buy_fee_asset_insufficient_trade_asset() {
 		ExtBuilder::default().build().execute_with(|| {
+			with_exchange!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 100);
+			with_exchange!(CoreAssetCurrency => 0, FeeAssetCurrency => 100);
 			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
 
 			assert_err!(
@@ -178,11 +180,36 @@ pub(crate) mod impl_tests {
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
 				),
-				Error::<Test>::InsufficientTradeAssetReserve
+				Error::<Test>::EmptyExchangePool
 			);
 
 			assert_balance_eq!(user, CoreAssetCurrency => 0);
 			assert_balance_eq!(user, TradeAssetCurrencyA => 10);
+		});
+	}
+
+	#[test]
+	fn buy_fee_asset_from_empty_pool() {
+		ExtBuilder::default().build().execute_with(|| {
+			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
+
+			assert_err!(
+				<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
+					&user,
+					51,
+					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
+				),
+				Error::<Test>::EmptyExchangePool
+			);
+
+			assert_exchange_balance_eq!(
+				CoreAssetCurrency => 0,
+				TradeAssetCurrencyA => 0
+			);
+			assert_exchange_balance_eq!(
+				CoreAssetCurrency => 0,
+				FeeAssetCurrency => 0
+			);
 		});
 	}
 

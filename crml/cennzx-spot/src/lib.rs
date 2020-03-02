@@ -34,7 +34,7 @@ use core::convert::TryFrom;
 use frame_support::{dispatch::Dispatchable, Parameter, StorageDoubleMap};
 use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
-use sp_runtime::traits::{Bounded, One, Zero};
+use sp_runtime::traits::{One, Zero};
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -53,31 +53,12 @@ pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 	type UnsignedIntToBalance: From<LowPrecisionUnsigned> + Into<<Self as pallet_generic_asset::Trait>::Balance>;
 }
 
-/// A utility struct for grouping the liquidity in both sides of an exchange pool
-/// i.e the core asset and the other asset
-struct PoolLiquidity<Balance> {
-	core_balance: Balance,
-	asset_balance: Balance,
-}
-
-impl<Balance> PoolLiquidity<Balance> {
-	/// Create a new `PoolLiquidity` given core and asset balances
-	fn new(core_balance: Balance, asset_balance: Balance) -> Self {
-		PoolLiquidity {
-			core_balance,
-			asset_balance,
-		}
-	}
-}
-
 decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// Exchange pool is empty.
 		EmptyExchangePool,
-		// Insufficient trade asset reserve in exchange
-		InsufficientTradeAssetReserve,
-		// Insufficient core asset reserve in exchange
-		InsufficientCoreAssetReserve,
+		// Insufficient asset reserve in exchange
+		InsufficientAssetReserve,
 		// Insufficient asset balance in buyer account
 		InsufficientBuyerTradeAssetBalance,
 		// Insufficient core asset balance in buyer account
@@ -739,8 +720,6 @@ impl<T: Trait> Module<T> {
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		ensure!(asset_reserve > buy_amount, Error::<T>::InsufficientTradeAssetReserve);
-
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
 		Self::get_output_price(buy_amount, core_reserve, asset_reserve, fee_rate)
@@ -776,11 +755,7 @@ impl<T: Trait> Module<T> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
 		}
-
-		// Special case, in theory price should progress towards infinity
-		if output_amount >= output_reserve {
-			return Ok(T::Balance::max_value());
-		}
+		ensure!(output_reserve > output_amount, Error::<T>::InsufficientAssetReserve);
 
 		let output_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_amount).into());
 		let output_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_reserve).into());
@@ -840,8 +815,9 @@ impl<T: Trait> Module<T> {
 			Err(Error::<T>::Overflow)?;
 		}
 		let price_lp = price_lp_result.unwrap();
-
-		Ok(T::UnsignedIntToBalance::from(price_lp).into())
+		let price = T::UnsignedIntToBalance::from(price_lp).into();
+		ensure!(output_reserve > price, Error::<T>::InsufficientAssetReserve);
+		Ok(price)
 	}
 
 	/// `asset_id` - Trade asset
@@ -859,11 +835,6 @@ impl<T: Trait> Module<T> {
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		ensure!(
-			core_asset_reserve > buy_amount,
-			Error::<T>::InsufficientCoreAssetReserve
-		);
-
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 
 		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve, fee_rate)
@@ -890,11 +861,6 @@ impl<T: Trait> Module<T> {
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
 		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve, fee_rate)?;
-
-		ensure!(
-			trade_asset_reserve > output_amount,
-			Error::<T>::InsufficientTradeAssetReserve
-		);
 
 		Ok(output_amount)
 	}
@@ -988,103 +954,55 @@ impl<T: Trait> Module<T> {
 		amount_to_buy: T::Balance,
 		asset_to_pay: T::AssetId,
 	) -> Result<T::Balance, DispatchError> {
-		// Ignore the case where buy AssetId is pay AssetId
-		if asset_to_buy == asset_to_pay {
-			return Ok(amount_to_buy);
-		}
+		ensure!(asset_to_buy != asset_to_pay, Error::<T>::AssetCannotSwapForItself);
 
-		let fee_rate = Self::fee_rate();
-
-		// Skip core asset price if asset to buy is core
-		let core_asset_price = if asset_to_buy == Self::core_asset_id() {
+		// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of core asset
+		// (how much core asset does it cost?).
+		let core_asset_amount = if asset_to_buy == Self::core_asset_id() {
 			amount_to_buy
-		}
-		else {
-			// Get the liquidity balance in the 'asset_to_buy' <> 'core asset' pool
-			let buy_asset_pool = Self::get_pool_liquidity(asset_to_buy);
-
-			// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of 'core asset'
-			Self::get_output_price(
-				amount_to_buy,
-				buy_asset_pool.core_balance,
-				buy_asset_pool.asset_balance,
-				fee_rate,
-			)?
+		} else {
+			Self::get_core_to_asset_output_price(&asset_to_buy, amount_to_buy, Self::fee_rate())?
 		};
 
-		// Skip payment asset price if asset to pay is core
-		let payment_asset_price = if asset_to_pay == Self::core_asset_id() {
-			core_asset_price
-		}
-		else {
-			// Get the liquidity balance in the 'payment asset' <> 'core asset' pool
-			let payment_asset_pool = Self::get_pool_liquidity(asset_to_pay);
-
-			// Find the price of `core_asset_price` in terms of `asset_to_pay`
-			Self::get_output_price(
-				core_asset_price,
-				payment_asset_pool.asset_balance,
-				payment_asset_pool.core_balance,
-				fee_rate,
-			)?
+		// Find the price of `core_asset_amount` in terms of `asset_to_pay`
+		// (how much `asset_to_pay` does `core_asset_amount` cost?)
+		let pay_asset_amount = if asset_to_pay == Self::core_asset_id() {
+			core_asset_amount
+		} else {
+			Self::get_asset_to_core_output_price(&asset_to_pay, core_asset_amount, Self::fee_rate())?
 		};
 
-		// get_output_price returns T::Balance::max_value() when there is not enough liquidity
-		// could potentially do this check better
-		ensure!(
-			payment_asset_price != T::Balance::max_value(),
-			Error::<T>::InsufficientTradeAssetReserve
-		);
-
-		Ok(payment_asset_price)
+		Ok(pay_asset_amount)
 	}
 
-	/// Calculate the sale value of some asset for another
+	/// Calculate the sell price of some asset for another
 	/// In simple terms: 'If I sell _x_ amount of asset _y_ how much of asset _z_ will I get in return?'
-	/// `asset_for_sale` is the asset to be sold
-	/// `amount_for_sale` is the amount of `asset_for_sale` to be sold
-	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_for_sale` (the final sale value is given in this asset)
-	pub fn calculate_sell_value(
-		asset_for_sale: T::AssetId,
-		amount_for_sale: T::Balance,
+	/// `asset_to_sell` is the asset to be sold
+	/// `amount_to_sell` is the amount of `asset_to_sell` to be sold
+	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_to_sell` (the final sale value is given in this asset)
+	pub fn calculate_sell_price(
+		asset_to_sell: T::AssetId,
+		amount_to_sell: T::Balance,
 		asset_to_payout: T::AssetId,
 	) -> Result<T::Balance, DispatchError> {
-		// TODO: Ignore case where asset IDs are equal
-		// TODO: Ignore case where asset IDs do not have liquidity in the exchange
-		// TODO: Easy case is user want token to CPAY price, only one pool to check
+		ensure!(asset_to_sell != asset_to_payout, Error::<T>::AssetCannotSwapForItself);
 
-		// Get the liquidity balance in the 'sell asset' <> 'core asset' pool
-		let sale_pool_liquidity = Self::get_pool_liquidity(asset_for_sale);
+		// Find the value of `amount_to_sell` of `asset_to_sell` in terms of core asset
+		// (how much core asset is the sale worth?)
+		let core_asset_amount = if asset_to_sell == Self::core_asset_id() {
+			amount_to_sell
+		} else {
+			Self::get_asset_to_core_input_price(&asset_to_sell, amount_to_sell, Self::fee_rate())?
+		};
 
-		let fee_rate = Self::fee_rate();
-		// How much 'core asset' will this sell for?
-		let core_asset_value = Self::get_input_price(
-			amount_for_sale,
-			sale_pool_liquidity.asset_balance,
-			sale_pool_liquidity.core_balance,
-			fee_rate,
-		)?;
+		// Skip payout asset price if asset to be paid out is core
+		// (how much `asset_to_payout` is the sale worth?)
+		let payout_asset_value = if asset_to_payout == Self::core_asset_id() {
+			core_asset_amount
+		} else {
+			Self::get_core_to_asset_input_price(&asset_to_payout, core_asset_amount, Self::fee_rate())?
+		};
 
-		// Get the liquidity balance in the 'payout asset' <> 'core asset' pool
-		let payout_pool_liquidity = Self::get_pool_liquidity(asset_to_payout);
-
-		// How much 'buy asset' will `core_asset_yield` purchase?
-		let payout_asset_value = Self::get_input_price(
-			core_asset_value,
-			payout_pool_liquidity.core_balance,
-			payout_pool_liquidity.asset_balance,
-			fee_rate,
-		)?;
-
-		return Ok(payout_asset_value);
-	}
-
-	/// Return the available liquidity in the exchange for the pair `asset_id` <> 'core asset'
-	fn get_pool_liquidity(asset_id: T::AssetId) -> PoolLiquidity<T::Balance> {
-		let core_asset_id = Self::core_asset_id();
-		let exchange_pool = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
-		let asset_liquidity = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_pool);
-		let core_liquidity = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_pool);
-		return PoolLiquidity::new(core_liquidity, asset_liquidity);
+		Ok(payout_asset_value)
 	}
 }

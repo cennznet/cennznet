@@ -697,7 +697,7 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 			initialize_block();
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(INSUFFICIENT_CORE_ASSET_RESERVE).into())
+				Err(InvalidTransaction::Custom(INSUFFICIENT_ASSET_RESERVE).into())
 			);
 		});
 }
