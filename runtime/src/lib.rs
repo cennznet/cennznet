@@ -788,7 +788,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crml_cennzx_spot_rpc_runtime_api::CENNZXApi<
+	impl crml_cennzx_spot_rpc_runtime_api::CennzxSpotApi<
 		Block,
 		AssetId,
 		Balance,

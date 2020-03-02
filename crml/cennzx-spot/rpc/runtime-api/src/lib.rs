@@ -22,7 +22,7 @@ use codec::Codec;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with CENNZX Spot Exchange
-	pub trait CENNZXApi<AssetId, Balance> where
+	pub trait CennzxSpotApi<AssetId, Balance> where
 		AssetId: Codec,
 		Balance: Codec,
 	{

@@ -19,18 +19,15 @@
 use std::sync::Arc;
 
 use codec::Codec;
-use jsonrpc_core::{Error, ErrorCode, Result};
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{Bytes, H256};
-use sp_rpc::number;
-use sp_runtime::{generic::BlockId};
+use sp_runtime::{generic::BlockId, traits::{Block as BlockT}};
 
-pub use self::gen_client::Client as ContractsClient;
+pub use self::gen_client::Client as CennzxSpotClient;
 pub use crml_cennzx_spot_rpc_runtime_api::{
-	self as runtime_api, CENNZXApi,
+	self as runtime_api, CennzxSpotApi as CennzxSpotRuntimeApi,
 };
 
 /// Contracts RPC methods.
@@ -65,11 +62,32 @@ impl<C, T> CennzxSpot<C, T> {
 		CennzxSpot { client, _marker: Default::default() }
 	}
 }
-impl<C, AssetId, Balance, Block> CennzxSpotApi<AssetId, Balance, Block>
-	for CennzxSpot<C, (AssetId, Balance)>
+
+/// Error type of this RPC api.
+pub enum Error {
+	/// The transaction was not decodable.
+	DecodeError,
+	/// The call to runtime failed.
+	RuntimeError,
+}
+
+impl From<Error> for i64 {
+	fn from(e: Error) -> i64 {
+		match e {
+			Error::RuntimeError => 1,
+			Error::DecodeError => 2,
+		}
+	}
+}
+
+
+impl<C, Block, AssetId, Balance> CennzxSpotApi<AssetId, Balance>
+	for CennzxSpot<C, Block>
 where
+	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: CennzxSpotApi<AssetId, Balance, Block>,
+	C::Api: CennzxSpotRuntimeApi<Block, AssetId, Balance>,
+	AssetId: Codec,
 	Balance: Codec,
 {
 	fn buy_price(
@@ -82,7 +100,7 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.calculate_buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay).map_err(|e| RpcError {
+		api.buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query buy price.".into(),
 			data: Some(format!("{:?}", e).into()),
@@ -99,7 +117,7 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.calculate_sale_value(&at, asset_for_sale, amount_for_sale, asset_to_payout).map_err(|e| RpcError {
+		api.sell_value(&at, asset_for_sale, amount_for_sale, asset_to_payout).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query sell price.".into(),
 			data: Some(format!("{:?}", e).into()),
