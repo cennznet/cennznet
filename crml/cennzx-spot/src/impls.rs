@@ -180,7 +180,7 @@ pub(crate) mod impl_tests {
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
 				),
-				Error::<Test>::InsufficientAssetReserve
+				Error::<Test>::EmptyExchangePool
 			);
 
 			assert_balance_eq!(user, CoreAssetCurrency => 0);

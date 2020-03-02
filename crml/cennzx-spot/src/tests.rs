@@ -265,12 +265,12 @@ fn get_output_price_zero_cases() {
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 0, 10, DefaultFeeRate::get()),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
 			CennzXSpot::get_output_price(100, 10, 0, DefaultFeeRate::get()),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::EmptyExchangePool
 		);
 	});
 }

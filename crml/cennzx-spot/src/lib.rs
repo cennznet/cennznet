@@ -752,11 +752,9 @@ impl<T: Trait> Module<T> {
 		output_reserve: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		if input_reserve.is_zero() && output_reserve.is_zero() {
+		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
 		}
-		ensure!(!input_reserve.is_zero(), Error::<T>::InsufficientAssetReserve);
-		ensure!(!output_reserve.is_zero(), Error::<T>::InsufficientAssetReserve);
 		ensure!(output_reserve > output_amount, Error::<T>::InsufficientAssetReserve);
 
 		let output_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_amount).into());
@@ -791,11 +789,9 @@ impl<T: Trait> Module<T> {
 		output_reserve: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		if input_reserve.is_zero() && output_reserve.is_zero() {
+		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
 		}
-		ensure!(!input_reserve.is_zero(), Error::<T>::InsufficientAssetReserve);
-		ensure!(!output_reserve.is_zero(), Error::<T>::InsufficientAssetReserve);
 
 		let div_rate: FeeRate<PerMillion> = fee_rate
 			.checked_add(FeeRate::<PerMillion>::one())
