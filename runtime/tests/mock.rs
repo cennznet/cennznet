@@ -15,14 +15,23 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
-use cennznet_runtime::{constants::asset::*, Runtime, VERSION};
+use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
+use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
 use pallet_contracts::{Gas, Schedule};
+use sp_runtime::Perbill;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
+
+fn generate_initial_authorities() -> Vec<AuthorityKeys> {
+	vec![
+		get_authority_keys_from_seed("Alice"),
+		get_authority_keys_from_seed("Bob"),
+	]
+}
 
 #[derive(Default)]
 pub struct ExtBuilder {
@@ -51,6 +60,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
+		let initial_authorities = generate_initial_authorities();
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
@@ -72,6 +82,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
 		pallet_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
@@ -82,13 +93,50 @@ impl ExtBuilder {
 				ARDA_ASSET_ID,
 			],
 			initial_balance: self.initial_balance,
-			endowed_accounts: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
+			endowed_accounts: vec![
+				alice(),
+				bob(),
+				charlie(),
+				dave(),
+				eve(),
+				ferdie(),
+				initial_authorities[0].0.clone(),
+				initial_authorities[1].0.clone(),
+			],
+			// .iter() // FIXME:
+			// .chain(initial_authorities.iter().map(|x| x.0.clone()).cloned())
+			// .collect(),
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		let stash = self.initial_balance / 5;
+		pallet_staking::GenesisConfig::<Runtime> {
+			current_era: 0,
+			validator_count: initial_authorities.len() as u32 * 2,
+			minimum_validator_count: initial_authorities.len() as u32,
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
+				.collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_session::GenesisConfig::<Runtime> {
+			keys: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.collect::<Vec<_>>(),
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
 		t.into()
 	}
 }
