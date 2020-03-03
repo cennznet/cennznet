@@ -70,10 +70,10 @@ where
 	P: TransactionPool + 'static,
 	M: jsonrpc_core::Metadata + Default,
 {
+	use crml_cennzx_spot_rpc::{CennzxSpot, CennzxSpotApi};
 	use pallet_contracts_rpc::{Contracts, ContractsApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use substrate_frame_rpc_system::{FullSystem, LightSystem, SystemApi};
-	use crml_cennzx_spot_rpc::{CennzxSpot, CennzxSpotApi};
 
 	let mut io = jsonrpc_core::IoHandler::default();
 

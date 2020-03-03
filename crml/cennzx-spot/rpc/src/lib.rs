@@ -16,14 +16,15 @@
 
 //! Node-specific RPC methods for interaction with CENNZX.
 
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT, traits::SimpleArithmetic};
 
 pub use self::gen_client::Client as CennzxSpotClient;
 pub use crml_cennzx_spot_rpc_runtime_api::{
@@ -34,10 +35,12 @@ pub use crml_cennzx_spot_rpc_runtime_api::{
 #[rpc]
 pub trait CennzxSpotApi<AssetId, Balance> {
 	#[rpc(name = "cennzx_buyPrice")]
-	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<Balance>;
+	// TODO: prefer to return Result<64>, however Serde JSON library only allows u64.
+	//  - change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<u64>;
 
 	#[rpc(name = "cennzx_salePrice")]
-	fn sale_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<Balance>;
+	fn sale_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<u64>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -60,7 +63,7 @@ impl<C, T> CennzxSpot<C, T> {
 pub enum Error {
 	/// The call to runtime failed.
 	Runtime,
-	CanNotExchange,
+	CannotExchange,
 	PriceOverflow,
 }
 
@@ -68,7 +71,7 @@ impl From<Error> for i64 {
 	fn from(e: Error) -> i64 {
 		match e {
 			Error::Runtime => 1,
-			Error::CanNotExchange => 2,
+			Error::CannotExchange => 2,
 			Error::PriceOverflow => 3,
 		}
 	}
@@ -80,9 +83,9 @@ where
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: CennzxSpotRuntimeApi<Block, AssetId, Balance>,
 	AssetId: Codec,
-	Balance: Codec,
+	Balance: Codec + SimpleArithmetic,
 {
-	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<Balance> {
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<u64> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
@@ -95,10 +98,16 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxSpotResult::Success(price) => Ok(price.into()),
+			CennzxSpotResult::Success(price) => {
+				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
+					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
+					message: "Price too large.".into(),
+					data: Some(format!("{:?}", e).into()),
+				})
+			}
 			CennzxSpotResult::Error => Err(RpcError {
-				code: ErrorCode::ServerError(Error::CanNotExchange.into()),
-				message: "Unable to query buy price.".into(),
+				code: ErrorCode::ServerError(Error::CannotExchange.into()),
+				message: "Cannot exchange for requested amount.".into(),
 				data: Some("".into()),
 			}),
 		}
@@ -109,7 +118,7 @@ where
 		asset_for_sale: AssetId,
 		amount_for_sale: Balance,
 		asset_to_payout: AssetId,
-	) -> Result<Balance> {
+	) -> Result<u64> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
@@ -122,10 +131,16 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxSpotResult::Success(price) => Ok(price.into()),
+			CennzxSpotResult::Success(price) => {
+				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
+					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
+					message: "Price too large.".into(),
+					data: Some(format!("{:?}", e).into()),
+				})
+			}
 			CennzxSpotResult::Error => Err(RpcError {
-				code: ErrorCode::ServerError(Error::CanNotExchange.into()),
-				message: "Unable to query sell price.".into(),
+				code: ErrorCode::ServerError(Error::CannotExchange.into()),
+				message: "Cannot exchange by requested amount.".into(),
 				data: Some("".into()),
 			}),
 		}

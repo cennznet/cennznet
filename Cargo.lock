@@ -866,6 +866,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-api",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-core",
  "sp-io",
@@ -882,6 +883,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-runtime",
  "sp-std",
 ]
 
