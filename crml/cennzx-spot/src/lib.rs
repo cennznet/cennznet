@@ -36,19 +36,27 @@ use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
 use sp_runtime::traits::{Bounded, One, Zero};
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::prelude::*;
+use sp_std::{result, prelude::*};
 
-// (core_asset_id, asset_id)
-pub type ExchangeKey<T> = (
-	<T as pallet_generic_asset::Trait>::AssetId,
-	<T as pallet_generic_asset::Trait>::AssetId,
-);
+type GenericAsset<T> = pallet_generic_asset::Module<T>;
+type AssetId<T> = <T as pallet_generic_asset::Trait>::AssetId;
+type Result<T> = result::Result<<T as pallet_generic_asset::Trait>::Balance, DispatchError>;
+
+// TODO document
+// TODO Make ExchangeKey hashable
+// TODO Make ExchangeKey Encodeable
+pub struct ExchangeKey<T: pallet_generic_asset::Trait> {
+	core_asset: AssetId<T>,
+	asset: AssetId<T>,
+}
 
 pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 	type Call: Parameter + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
 	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
+
+	// TODO avoid unnecessary conversion
 	type BalanceToUnsignedInt: From<<Self as pallet_generic_asset::Trait>::Balance> + Into<LowPrecisionUnsigned>;
 	type UnsignedIntToBalance: From<LowPrecisionUnsigned> + Into<<Self as pallet_generic_asset::Trait>::Balance>;
 }
@@ -127,7 +135,6 @@ decl_error! {
 }
 
 decl_module! {
-
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
@@ -141,6 +148,7 @@ decl_module! {
 		/// `asset_bought` - asset ID 2 to buy
 		/// `buy_amount` - The amount of asset '2' to purchase
 		/// `max_paying_amount` - Maximum trade asset '1' to pay
+		/// When successful return the actual amount paid
 		pub fn asset_swap_output(
 			origin,
 			recipient: Option<T::AccountId>,
@@ -148,9 +156,9 @@ decl_module! {
 			#[compact] asset_bought: T::AssetId,
 			#[compact] buy_amount: T::Balance,
 			#[compact] max_paying_amount: T::Balance
-		) -> DispatchResult {
+		) -> Result<T> {
 			let buyer = ensure_signed(origin)?;
-			let _ = Self::make_asset_swap_output(
+			let amount_paid = Self::make_asset_swap_output(
 				&buyer,
 				&recipient.unwrap_or_else(|| buyer.clone()),
 				&asset_sold,
@@ -159,7 +167,7 @@ decl_module! {
 				max_paying_amount,
 				Self::fee_rate()
 			)?;
-			Ok(())
+			Ok(amount_paid)
 		}
 
 
@@ -170,6 +178,7 @@ decl_module! {
 		/// `asset_bought` - asset ID 2 to buy
 		/// `sell_amount` - The amount of asset '1' to sell
 		/// `min_receive` - Minimum trade asset '2' to receive from sale
+		/// When successful return the amount of trade asset '2' that is received
 		pub fn asset_swap_input(
 			origin,
 			recipient: Option<T::AccountId>,
@@ -177,9 +186,9 @@ decl_module! {
 			#[compact] asset_bought: T::AssetId,
 			#[compact] sell_amount: T::Balance,
 			#[compact] min_receive: T::Balance
-		) -> DispatchResult {
+		) -> Result<T> {
 			let seller = ensure_signed(origin)?;
-			let _ = Self::make_asset_swap_input(
+			let amount_received = Self::make_asset_swap_input(
 				&seller,
 				&recipient.unwrap_or_else(|| seller.clone()),
 				&asset_sold,
@@ -188,7 +197,7 @@ decl_module! {
 				min_receive,
 				Self::fee_rate()
 			)?;
-			Ok(())
+			Ok(amount_received)
 		}
 
 		//
@@ -203,13 +212,14 @@ decl_module! {
 		/// `min_liquidity` - The minimum liquidity to add
 		/// `asset_amount` - Amount of trade asset to add
 		/// `core_amount` - Amount of core asset to add
+		/// When successful return the new level of liquidity
 		pub fn add_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
 			#[compact] min_liquidity: T::Balance,
 			#[compact] max_asset_amount: T::Balance,
 			#[compact] core_amount: T::Balance
-		) {
+		) -> Result<T> {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
 			ensure!(
@@ -228,7 +238,7 @@ decl_module! {
 				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
 				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
 			);
-			let exchange_key = (core_asset_id, asset_id);
+			let exchange_key = ExchangeKey::<T>{core_asset: core_asset_id, asset: asset_id};
 			let total_liquidity = Self::get_total_supply(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 
@@ -264,6 +274,8 @@ decl_module! {
 				Self::mint_total_supply(&exchange_key, liquidity_minted);
 				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 			}
+
+			Ok(Self::get_liquidity(&exchange_key, &from_account))
 		}
 
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
@@ -272,13 +284,14 @@ decl_module! {
 		/// `asset_amount` - Amount of exchange asset to burn
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
+		/// When successful return the new level of liquidity
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
 			#[compact] liquidity_withdrawn: T::Balance,
 			#[compact] min_asset_withdraw: T::Balance,
 			#[compact] min_core_withdraw: T::Balance
-		) -> DispatchResult {
+		) -> Result<T> {
 			let from_account = ensure_signed(origin)?;
 			ensure!(
 				liquidity_withdrawn > Zero::zero(),
@@ -323,7 +336,7 @@ decl_module! {
 									account_liquidity - liquidity_withdrawn);
 			Self::burn_total_supply(&exchange_key, liquidity_withdrawn);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
-			Ok(())
+			Ok(Self::get_liquidity(&exchange_key, &from_account))
 		}
 
 		/// Set the spot exchange wide fee rate (root only)
@@ -939,7 +952,7 @@ impl<T: Trait> Module<T> {
 		sell_amount: T::Balance,
 		min_receive: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
-	) -> DispatchResult {
+	) -> Result<T> {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
 		if *asset_sold == core_asset {
