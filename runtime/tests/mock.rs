@@ -16,6 +16,7 @@
 
 #![allow(dead_code)]
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
+use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
@@ -26,28 +27,33 @@ use sp_runtime::Perbill;
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
 
-fn generate_initial_authorities() -> Vec<AuthorityKeys> {
+pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
 	vec![
 		get_authority_keys_from_seed("Alice"),
 		get_authority_keys_from_seed("Bob"),
 	]
 }
 
+// get all validators (slash account , controller account)
+pub fn validators() -> Vec<(AccountId, AccountId)> {
+	generate_initial_authorities().iter().map(|x| (x.0.clone(), x.1.clone())).collect()
+}
+
 #[derive(Default)]
 pub struct ExtBuilder {
-	initial_balance: u128,
-	gas_price: u128,
+	initial_balance: Balance,
+	gas_price: Balance,
 	// Configurable prices for certain gas metered operations
 	gas_sandbox_data_read_cost: Gas,
 	gas_regular_op_cost: Gas,
 }
 
 impl ExtBuilder {
-	pub fn initial_balance(mut self, initial_balance: u128) -> Self {
+	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
 		self
 	}
-	pub fn gas_price(mut self, gas_price: u128) -> Self {
+	pub fn gas_price(mut self, gas_price: Balance) -> Self {
 		self.gas_price = gas_price;
 		self
 	}
@@ -100,12 +106,9 @@ impl ExtBuilder {
 				dave(),
 				eve(),
 				ferdie(),
-				initial_authorities[0].0.clone(),
-				initial_authorities[1].0.clone(),
+				validators()[0].0.clone(),
+				validators()[1].0.clone(), // FIXME:
 			],
-			// .iter() // FIXME:
-			// .chain(initial_authorities.iter().map(|x| x.0.clone()).cloned())
-			// .collect(),
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
