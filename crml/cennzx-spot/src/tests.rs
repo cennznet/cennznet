@@ -1567,7 +1567,7 @@ fn calculate_sell_price_same_asset_id_ignored() {
 }
 
 #[test]
-fn calculate_sell_price_low_sell_asset_liquidity_error() {
+fn calculate_sell_price_low_sell_asset_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
@@ -1578,13 +1578,13 @@ fn calculate_sell_price_low_sell_asset_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Ok(8)
+			Ok(8) // unlike buying, we can sell as long as exchange exists
 		);
 	});
 }
 
 #[test]
-fn calculate_sell_price_low_sell_core_liquidity_error() {
+fn calculate_sell_price_low_sell_core_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
@@ -1595,7 +1595,7 @@ fn calculate_sell_price_low_sell_core_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Ok(8)
+			Ok(8) // unlike buying, we can sell as long as exchange exists
 		);
 	});
 }
