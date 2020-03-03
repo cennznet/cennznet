@@ -25,7 +25,8 @@ use cennznet_primitives::{
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	storage,
-	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, Imbalance, WithdrawReason},
+	additional_traits::{MultiCurrencyAccounting, InherentAssetIdProvider},
 	weights::Weight,
 };
 use pallet_contracts::{Gas, GasMeter};
@@ -34,6 +35,37 @@ use sp_runtime::{
 	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
 	DispatchError, Fixed64,
 };
+
+type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
+	<Runtime as frame_system::Trait>::AccountId>>::NegativeImbalance;
+type PositiveImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
+	<Runtime as frame_system::Trait>::AccountId>>::PositiveImbalance;
+
+type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
+type Contracts<T> = pallet_contracts::Module<T>;
+type GenericAsset<T> = pallet_generic_asset::Module<T>;
+type Staking<T> = pallet_staking::Module<T>;
+
+pub struct Validators;
+impl OnUnbalanced<NegativeImbalance> for Validators
+{
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		let validators = Staking::<Runtime>::current_elected();
+		if validators.len() > 0 {
+			let per_validator_reward:Balance = amount.peek() / (validators.len() as Balance);
+
+			let mut total_imbalance = PositiveImbalance::zero();
+			for v in &validators {
+				let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
+					&v,
+					Some(amount.asset_id().into()),
+					per_validator_reward);
+				total_imbalance.subsume(payout);
+			}
+
+		}
+	}
+}
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -133,10 +165,6 @@ impl Convert<(Weight, Fixed64), Fixed64> for FeeMultiplierUpdateHandler {
 
 /// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
 pub struct GasHandler;
-
-type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
-type Contracts<T> = pallet_contracts::Module<T>;
-type GenericAsset<T> = pallet_generic_asset::Module<T>;
 
 impl<T> pallet_contracts::GasHandler<T> for GasHandler
 where
