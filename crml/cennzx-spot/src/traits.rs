@@ -47,8 +47,7 @@ pub trait ManageLiquidity<T: Trait> {
 	fn get_liquidity(#[compact] asset_id: T::AssetId, who: &T::AccountId) -> T::Balance;
 
 	/// Use the pair of core_asset_id, as configured for the module, and asset_id to set liquidity
-	fn set_liquidity(#[compact] asset_id: T::AssetId,
-					 who: &T::AccountId, balance: T::Balance);
+	fn set_liquidity(#[compact] asset_id: T::AssetId, who: &T::AccountId, balance: T::Balance);
 
 	/// Deposit core asset and trade asset at current ratio to mint liquidity
 	/// Returns amount of liquidity minted.
