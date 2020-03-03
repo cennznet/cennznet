@@ -25,9 +25,8 @@ use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash,
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
 use frame_support::{
-	additional_traits::self,
-	construct_runtime, debug, parameter_types,
-	traits::{Currency, Randomness, SplitTwoWays},
+	additional_traits, construct_runtime, debug, parameter_types,
+	traits::{Randomness, SplitTwoWays},
 	weights::Weight,
 };
 use frame_system::offchain::TransactionSubmitter;
@@ -72,7 +71,10 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, SplitToAllValidators};
+use impls::{
+	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
+	NegativeImbalance, SplitToAllValidators,
+};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -206,15 +208,13 @@ parameter_types! {
 	pub const WeightFeeCoefficient: Balance = 1_000;
 }
 
-type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
-	<Runtime as frame_system::Trait>::AccountId,
->>::NegativeImbalance;
-
 pub type DealWithFees = SplitTwoWays<
 	Balance,
 	NegativeImbalance,
-	_0,	Treasury,
-	_1,	SplitToAllValidators // 100% goes to elected validators
+	_0,
+	Treasury,
+	_1,
+	SplitToAllValidators, // 100% goes to elected validators
 >;
 
 impl crml_transaction_payment::Trait for Runtime {
