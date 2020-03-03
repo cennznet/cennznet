@@ -56,7 +56,7 @@ pub struct SplitToAllValidators;
 impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
 		let validators = Staking::<Runtime>::current_elected();
-		if validators.len() > 0 || amount.peek().is_zero(){
+		if validators.len() > 0 || amount.peek().is_zero() {
 			// Get a list of elected validators
 			let per_validator_reward: Balance = amount.peek() / (validators.len() as Balance);
 

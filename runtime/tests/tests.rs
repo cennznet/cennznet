@@ -17,8 +17,8 @@
 use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Staking, Origin, Runtime,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
+	Staking, TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -30,13 +30,13 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
+use pallet_staking::{RewardDestination, StakingLedger};
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header},
 	transaction_validity::InvalidTransaction,
 	Fixed64,
 };
-use pallet_staking::{StakingLedger, RewardDestination};
 
 mod doughnut;
 mod mock;
@@ -135,19 +135,22 @@ fn staking_genesis_config_works() {
 				// Check validator is included in currect elelcted accounts
 				assert!(Staking::current_elected().contains(&stash));
 				// Check that RewardDestination is Staked (default)
-				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);				
+				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);
 				// Check validator free balance
 				assert_eq!(
 					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount
 				);
 				// Check how much is at stake
-				assert_eq!(Staking::ledger(controller), Some(StakingLedger {
-					stash,
-					total: staked_amount,
-					active: staked_amount,
-					unlocking: vec![],
-				}));
+				assert_eq!(
+					Staking::ledger(controller),
+					Some(StakingLedger {
+						stash,
+						total: staked_amount,
+						active: staked_amount,
+						unlocking: vec![],
+					})
+				);
 			}
 		});
 }
@@ -170,14 +173,25 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 				signed: Some((alice(), signed_extra(0, 0, None, None))),
 				function: runtime_call.clone(),
 			});
-	
+
 			let fm = TransactionPayment::next_fee_multiplier();
 			let fee = transfer_fee(&xt, fm, &runtime_call);
-			let fee_reward = fee / validators().len() as Balance;
+			let validator_count = validators().len() as Balance;
+			let fee_reward = fee / validator_count;
+			let remainder = fee % validator_count;
+
+			let previous_total_issuance = GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID);
 
 			initialize_block();
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
+
+			// Check total_issurance is adjusted
+			// FIXME: total_issurance is not adjusted
+			assert_eq!(
+				GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID),
+				previous_total_issuance - remainder
+			);
 
 			for validator in validators() {
 				// Check tx fee reward went to the stash account of validator
