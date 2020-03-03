@@ -23,31 +23,21 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::{Block as BlockT}};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 pub use self::gen_client::Client as CennzxSpotClient;
 pub use crml_cennzx_spot_rpc_runtime_api::{
-	self as runtime_api, CennzxSpotApi as CennzxSpotRuntimeApi,
+	self as runtime_api, CennzxSpotApi as CennzxSpotRuntimeApi, CennzxSpotResult,
 };
 
 /// Contracts RPC methods.
 #[rpc]
 pub trait CennzxSpotApi<AssetId, Balance> {
 	#[rpc(name = "cennzx_buyPrice")]
-	fn buy_price(
-		&self,
-		asset_to_buy: AssetId,
-		amount_to_buy: Balance,
-		asset_to_pay: AssetId,
-	) -> Result<Balance>;
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<Balance>;
 
 	#[rpc(name = "cennzx_salePrice")]
-	fn sale_price(
-		&self,
-		asset_to_sell: AssetId,
-		amount_to_buy: Balance,
-		asset_to_payout: AssetId,
-	) -> Result<Balance>;
+	fn sale_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<Balance>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -59,30 +49,32 @@ pub struct CennzxSpot<C, T> {
 impl<C, T> CennzxSpot<C, T> {
 	/// Create new `CennzxSpot` with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
-		CennzxSpot { client, _marker: Default::default() }
+		CennzxSpot {
+			client,
+			_marker: Default::default(),
+		}
 	}
 }
 
 /// Error type of this RPC api.
 pub enum Error {
-	/// The transaction was not decodable.
-	DecodeError,
 	/// The call to runtime failed.
-	RuntimeError,
+	Runtime,
+	CanNotExchange,
+	PriceOverflow,
 }
 
 impl From<Error> for i64 {
 	fn from(e: Error) -> i64 {
 		match e {
-			Error::RuntimeError => 1,
-			Error::DecodeError => 2,
+			Error::Runtime => 1,
+			Error::CanNotExchange => 2,
+			Error::PriceOverflow => 3,
 		}
 	}
 }
 
-
-impl<C, Block, AssetId, Balance> CennzxSpotApi<AssetId, Balance>
-	for CennzxSpot<C, Block>
+impl<C, Block, AssetId, Balance> CennzxSpotApi<AssetId, Balance> for CennzxSpot<C, Block>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -90,21 +82,26 @@ where
 	AssetId: Codec,
 	Balance: Codec,
 {
-	fn buy_price(
-		&self,
-		asset_to_buy: AssetId,
-		amount_to_buy: Balance,
-		asset_to_pay: AssetId,
-	) -> Result<Balance> {
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<Balance> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query buy price.".into(),
-			data: Some(format!("{:?}", e).into()),
-		}).map(|price| price.into())
+		let result = api
+			.buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay)
+			.map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "Unable to query buy price.".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?;
+		match result {
+			CennzxSpotResult::Success(price) => Ok(price.into()),
+			CennzxSpotResult::Error => Err(RpcError {
+				code: ErrorCode::ServerError(Error::CanNotExchange.into()),
+				message: "Unable to query buy price.".into(),
+				data: Some("".into()),
+			}),
+		}
 	}
 
 	fn sale_price(
@@ -117,11 +114,20 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.sell_value(&at, asset_for_sale, amount_for_sale, asset_to_payout).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query sell price.".into(),
-			data: Some(format!("{:?}", e).into()),
-		}).map(|price| price.into())
+		let result = api
+			.sell_value(&at, asset_for_sale, amount_for_sale, asset_to_payout)
+			.map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "Unable to query sell price.".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?;
+		match result {
+			CennzxSpotResult::Success(price) => Ok(price.into()),
+			CennzxSpotResult::Error => Err(RpcError {
+				code: ErrorCode::ServerError(Error::CanNotExchange.into()),
+				message: "Unable to query sell price.".into(),
+				data: Some("".into()),
+			}),
+		}
 	}
-
 }

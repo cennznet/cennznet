@@ -18,7 +18,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Codec;
+use codec::{Codec, Decode, Encode};
+use sp_runtime::RuntimeDebug;
+
+/// A result of querying the exchange
+#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+pub enum CennzxSpotResult<Balance> {
+	/// The exchange returned successfully.
+	Success(Balance),
+	/// There was an issue querying the exchange
+	Error,
+}
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with CENNZX Spot Exchange
@@ -31,12 +41,12 @@ sp_api::decl_runtime_apis! {
 			asset_to_buy: AssetId,
 			amount: Balance,
 			asset_to_sell: AssetId,
-		) -> Balance;
+		) -> CennzxSpotResult<Balance>;
 		/// Query how much `asset_to_sell` is required to buy `amount` of `asset_to_buy`
 		fn sell_value(
 			asset_to_sell: AssetId,
 			amount: Balance,
 			asset_to_buy: AssetId,
-		) -> Balance;
+		) -> CennzxSpotResult<Balance>;
 	}
 }
