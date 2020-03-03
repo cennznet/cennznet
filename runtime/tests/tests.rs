@@ -14,17 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
-use cennznet_primitives::types::{Balance, FeeExchange, FeeExchangeV1};
+use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
-	constants::asset::*, Call, CennzxSpot, CheckedExtrinsic, Executive, GenericAsset, Origin, Runtime,
+	constants::{asset::*, currency::*},
+	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
 	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
-use frame_support::{additional_traits::MultiCurrencyAccounting, traits::Imbalance, weights::GetDispatchInfo};
+use crml_transaction_payment::constants::error_code::*;
+use frame_support::{
+	additional_traits::MultiCurrencyAccounting,
+	traits::Imbalance,
+	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
+};
+use frame_system::{EventRecord, Phase};
+use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Header},
+	traits::{Convert, Hash, Header},
+	transaction_validity::InvalidTransaction,
 	Fixed64,
 };
 
@@ -34,6 +43,68 @@ use mock::ExtBuilder;
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
+
+fn initialize_block() {
+	Executive::initialize_block(&Header::new(
+		1,                        // block number
+		sp_core::H256::default(), // extrinsics_root
+		sp_core::H256::default(), // state_root
+		GENESIS_HASH.into(),      // parent_hash
+		Digest::default(),        // digest
+	));
+}
+
+/// Setup a contract on-chain, return it's deployed address
+/// This does the `put_code` and `instantiate` steps
+/// Note: It will also initialize the block and requires `TestExternalities` to succeed
+/// `contract_wabt` is the contract WABT to be deployed
+/// `contract_deployer` is the account which will send the extrinsic to deploy the contract (IRL the contract developer)
+fn setup_contract(
+	contract_wabt: &'static str,
+	contract_deployer: AccountId,
+) -> (AccountId, <<Runtime as frame_system::Trait>::Hashing as Hash>::Output) {
+	// Contract itself fails
+	let wasm = wabt::wat2wasm(contract_wabt).unwrap();
+	let code_hash = <Runtime as frame_system::Trait>::Hashing::hash(&wasm);
+
+	initialize_block();
+
+	let put_code_call = Call::Contracts(pallet_contracts::Call::put_code(50_000_000, wasm));
+	let put_code_extrinsic = sign(CheckedExtrinsic {
+		signed: Some((contract_deployer.clone(), signed_extra(0, 0, None, None))),
+		function: put_code_call,
+	});
+	let r = Executive::apply_extrinsic(put_code_extrinsic);
+	println!(
+		"{:?}, CPAY Balance: {:?}",
+		r,
+		<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
+	);
+	assert!(r.is_ok());
+
+	let instantiate_call = Call::Contracts(pallet_contracts::Call::instantiate(
+		0,                   // endowment
+		100_000_000_000_000, // gas limit
+		code_hash.into(),
+		vec![], // data
+	));
+	let instantiate_extrinsic = sign(CheckedExtrinsic {
+		signed: Some((contract_deployer, signed_extra(1, 0, None, None))),
+		function: instantiate_call,
+	});
+	let r2 = Executive::apply_extrinsic(instantiate_extrinsic);
+	println!(
+		"{:?}, CPAY Balance: {:?}",
+		r2,
+		<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
+	);
+	assert!(r2.is_ok());
+
+	(
+		<Runtime as pallet_contracts::Trait>::DetermineContractAddress::contract_address_for(&code_hash, &[], &alice()),
+		code_hash,
+	)
+}
 
 fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 	cennznet_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
@@ -47,16 +118,6 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 
 	let base_fee = TransactionBaseFee::get();
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
-}
-
-fn initialize_block() {
-	Executive::initialize_block(&Header::new(
-		1,                        // block number
-		sp_core::H256::default(), // extrinsics_root
-		sp_core::H256::default(), // state_root
-		GENESIS_HASH.into(),      // parent_hash
-		Digest::default(),        // digest
-	));
 }
 
 #[test]
@@ -79,11 +140,11 @@ fn runtime_mock_setup_works() {
 			CERTI_ASSET_ID,
 			ARDA_ASSET_ID,
 		];
-		for (account, balance) in tests.clone() {
-			for asset in assets.clone() {
+		for (account, balance) in &tests {
+			for asset in &assets {
 				assert_eq!(
-					<GenericAsset as MultiCurrencyAccounting>::free_balance(&account, Some(asset)),
-					balance,
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&account, Some(*asset)),
+					*balance,
 				);
 				assert_eq!(
 					<GenericAsset as MultiCurrencyAccounting>::free_balance(&account, Some(123)),
@@ -221,35 +282,454 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 #[test]
 fn contract_fails() {
-	// Contract itself fails
+	ExtBuilder::default()
+		.initial_balance(1_000_000 * TransactionBaseFee::get())
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let (contract_address, _) = setup_contract(mock::contracts::CONTRACT_WITH_TRAP, dave());
+
+			// Call the newly instantiated contract. The contract is expected to dispatch a call
+			// and then trap.
+			let contract_call = Call::Contracts(pallet_contracts::Call::call(
+				contract_address, // newly created contract address
+				0,                // transfer value in
+				1_000_000,        // gas limit
+				vec![],
+			));
+			let contract_call_extrinsic = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(2, 0, None, None))),
+				function: contract_call,
+			});
+
+			assert!(Executive::apply_extrinsic(contract_call_extrinsic).is_err());
+		});
+}
+
+// Scenario:
+// - Extrinsic made with a contract call and fee payment in CENNZ
+// - Contract will dispatch a runtime call to move the callers CENNZ funds which should be used for payment
+// This must fail!
+#[test]
+fn contract_dispatches_runtime_call_funds_are_safu() {
+	ExtBuilder::default()
+		.initial_balance(1_000_000_000_000 * DOLLARS)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			// Setup lots of CENNZ / CPAY liquidity
+			assert!(CennzxSpot::add_liquidity(
+				Origin::signed(dave()),
+				CENNZ_ASSET_ID,
+				1_000_000_000 * DOLLARS,
+				1_000_000_000 * DOLLARS,
+				1_000_000_000 * DOLLARS,
+			)
+			.is_ok());
+
+			let bob_max_funds = 10 * CENTS;
+			// We use an encoded call in the contract
+			// if the test fails here the runtime encoding has changed so the contract WABT needs an update
+			assert_eq!(
+				Call::GenericAsset(pallet_generic_asset::Call::transfer(
+					CENNZ_ASSET_ID,
+					charlie(),
+					bob_max_funds
+				))
+				.encode()
+				.as_slice(),
+				vec![
+					6, 1, 1, 250, 144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156,
+					168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34, 11, 0, 160, 114, 78, 24, 9
+				]
+				.as_slice()
+			);
+			let (contract_address, code_hash) = setup_contract(mock::contracts::CONTRACT_WITH_GA_TRANSFER, alice());
+
+			// Call the newly instantiated contract. The contract is expected to dispatch a call
+			// and then trap.
+			let contract_call = Call::Contracts(pallet_contracts::Call::call(
+				contract_address.clone(), // newly created contract address
+				0,                        // transfer value in
+				5_000_000_000,            // gas limit
+				vec![],
+			));
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: bob_max_funds,
+			});
+			let contract_call_extrinsic = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: contract_call,
+			});
+
+			// This only shows transaction fee payment success, not gas payment success
+			assert!(Executive::apply_extrinsic(contract_call_extrinsic).is_ok());
+
+			let block_events = frame_system::Module::<Runtime>::events();
+			let events = vec![
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(0),
+					event: Event::pallet_contracts(RawEvent::CodeStored(code_hash.into())),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(0),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(1),
+					event: Event::pallet_contracts(RawEvent::Transfer(alice(), contract_address.clone(), 0)),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(1),
+					event: Event::pallet_contracts(RawEvent::Instantiated(alice(), contract_address.clone())),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(1),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(2),
+					event: Event::crml_cennzx_spot(crml_cennzx_spot::RawEvent::AssetPurchase(
+						CENNZ_ASSET_ID,
+						CENTRAPAY_ASSET_ID,
+						bob(),
+						2_587_750_030_067,
+						2_580_010_000_000,
+					)),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(2),
+					event: Event::crml_cennzx_spot(crml_cennzx_spot::RawEvent::AssetPurchase(
+						CENNZ_ASSET_ID,
+						CENTRAPAY_ASSET_ID,
+						bob(),
+						421_261_139,
+						420_001_135,
+					)),
+					topics: vec![],
+				},
+				// This event shows the generic asset transfer contract has failed with result = false
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(2),
+					event: Event::pallet_contracts(RawEvent::Dispatched(contract_address.clone(), false)),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(2),
+					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+						weight: 10000,
+						class: DispatchClass::Normal,
+						pays_fee: true,
+					})),
+					topics: vec![],
+				},
+			];
+			assert_eq!(block_events, events);
+		});
 }
 
 #[test]
-fn contract_fails_with_insufficient_gas() {
-	// Not enough gas to run contract
+fn contract_call_fails_with_insufficient_gas_without_fee_exchange() {
+	ExtBuilder::default()
+		.initial_balance(100)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			initialize_block();
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+					bob(),
+					10,
+					10 * ContractTransactionBaseFee::get() as u64,
+					vec![],
+				)),
+			});
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_FEE_ASSET_BALANCE).into())
+			);
+		});
+}
+
+#[test]
+fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
+	ExtBuilder::default()
+		.initial_balance(100)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			// Add more funds to charlie's account so he can create an exchange
+			let balance_amount = 10_000 * TransactionBaseFee::get();
+			let _ = GenericAsset::deposit_creating(&charlie(), Some(CENTRAPAY_ASSET_ID), balance_amount);
+			let _ = GenericAsset::deposit_creating(&charlie(), Some(CENNZ_ASSET_ID), balance_amount);
+			assert_eq!(
+				GenericAsset::free_balance(&CENTRAPAY_ASSET_ID, &charlie()),
+				balance_amount + 100
+			);
+			assert_eq!(
+				GenericAsset::free_balance(&CENNZ_ASSET_ID, &charlie()),
+				balance_amount + 100
+			);
+
+			let liquidity_core_amount = 100 * TransactionBaseFee::get();
+			let liquidity_asset_amount = 200 * TransactionBaseFee::get();
+
+			let _ = CennzxSpot::add_liquidity(
+				Origin::signed(charlie()),
+				CENNZ_ASSET_ID,
+				10, // min_liquidity
+				liquidity_asset_amount,
+				liquidity_core_amount,
+			);
+			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: 10 * TransactionBaseFee::get(),
+			});
+
+			initialize_block();
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+					bob(),
+					10,
+					10 * ContractTransactionBaseFee::get() as u64,
+					vec![],
+				)),
+			});
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_BUYER_TRADE_ASSET_BALANCE).into())
+			);
+		});
 }
 
 #[test]
 fn contract_call_works_without_fee_exchange() {
-	// Happy case with no fee exchange
-	// Contract changes users account assets
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let transfer_amount = 50;
+	let gas_limit_amount = 10 * ContractTransactionBaseFee::get();
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		bob(),
+		transfer_amount,
+		gas_limit_amount as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				function: contract_call,
+			});
+			initialize_block();
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount,
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - 2_440_010_001_185,
+			);
+		});
 }
 
 #[test]
 fn contract_call_works_with_fee_exchange() {
-	// Happy case with fee exchange (with/without excess funds)
-	// Fee exchange is asking for CPay
-	// Contract makes an extrinsic to the exchange
-	// Contract changes users account assets
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let transfer_amount = 50;
+	let gas_limit_amount = 10 * ContractTransactionBaseFee::get();
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		bob(),
+		transfer_amount,
+		gas_limit_amount as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let liquidity_core_amount = 100 * TransactionBaseFee::get();
+			let liquidity_asset_amount = 10 * TransactionBaseFee::get();
+			let _ = CennzxSpot::add_liquidity(
+				Origin::signed(charlie()),
+				CENNZ_ASSET_ID,
+				10, // min_liquidity
+				liquidity_asset_amount,
+				liquidity_core_amount,
+			);
+			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: 100_000_000 * gas_limit_amount,
+			});
+
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: contract_call,
+			});
+			initialize_block();
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount,
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount,
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				balance_amount - 260_346_803_274,
+			);
+		});
 }
 
 #[test]
 fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
-	// Fee exchange not enough to pay for gas
-	// validate() should early terminate?
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		bob(),
+		50,
+		10 * ContractTransactionBaseFee::get() as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(10_000 * TransactionBaseFee::get())
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let liquidity_core_amount = 100 * TransactionBaseFee::get();
+			let liquidity_asset_amount = 10 * TransactionBaseFee::get();
+			let _ = CennzxSpot::add_liquidity(
+				Origin::signed(charlie()),
+				CENNZ_ASSET_ID,
+				10, // min_liquidity
+				liquidity_asset_amount,
+				liquidity_core_amount,
+			);
+			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: 1,
+			});
+
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: contract_call,
+			});
+			initialize_block();
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(ASSET_TO_CORE_PRICE_ABOVE_MAX_LIMIT).into())
+			);
+		});
 }
 
 #[test]
 fn contract_call_fails_when_exchange_liquidity_is_low() {
-	// Exchange doesn’t have sufficient liquidity
+	let gas_limit_amount = 10 * ContractTransactionBaseFee::get();
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		bob(),
+		50,
+		gas_limit_amount as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(10_000 * TransactionBaseFee::get())
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let liquidity_core_amount = 100;
+			let liquidity_asset_amount = 100;
+			let _ = CennzxSpot::add_liquidity(
+				Origin::signed(charlie()),
+				CENNZ_ASSET_ID,
+				10, // min_liquidity
+				liquidity_asset_amount,
+				liquidity_core_amount,
+			);
+			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
+			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENNZ_ASSET_ID,
+				max_payment: 100_000_000 * gas_limit_amount,
+			});
+
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: contract_call,
+			});
+			initialize_block();
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(INSUFFICIENT_CORE_ASSET_RESERVE).into())
+			);
+		});
+}
+
+#[test]
+fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
+	let gas_limit_amount = 10 * ContractTransactionBaseFee::get();
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		bob(),
+		50,
+		gas_limit_amount as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(10_000 * TransactionBaseFee::get())
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
+				asset_id: CENTRAPAY_ASSET_ID,
+				max_payment: 100 * gas_limit_amount,
+			});
+
+			initialize_block();
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
+				function: contract_call,
+			});
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Err(InvalidTransaction::Custom(ASSET_CANNOT_SWAP_FOR_ITSELF).into())
+			);
+		});
 }

@@ -31,13 +31,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::constants::error_code;
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::FeeExchange,
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_module, decl_storage, storage,
+	decl_module, decl_storage,
+	dispatch::DispatchError,
+	storage,
 	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
 	weights::{DispatchInfo, GetDispatchInfo, Weight},
 	Parameter,
@@ -55,6 +58,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*};
 
+pub mod constants;
 #[cfg(test)]
 mod mock;
 
@@ -261,8 +265,15 @@ where
 		if !fee.is_zero() {
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
+					let code = match e {
+						DispatchError::Module { message, .. } => error_code::buy_fee_asset_error_msg_to_code(
+							message.unwrap_or("Unknown buy fee asset error"),
+						),
+						_ => error_code::UNKNOWN_BUY_FEE_ASSET,
+					};
+					TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
+				})?;
 			}
 
 			// Pay for the transaction `fee` in the native fee currency
@@ -277,7 +288,7 @@ where
 				ExistenceRequirement::KeepAlive,
 			) {
 				Ok(imbalance) => imbalance,
-				Err(_) => return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment)),
+				Err(_) => return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET_BALANCE).into()),
 			};
 
 			T::OnTransactionPayment::on_unbalanced(imbalance);
@@ -323,6 +334,10 @@ mod tests {
 	// A balance transfer, which will be considered 'gas metered' for testing purposes
 	const METERED_CALL: &<Runtime as frame_system::Trait>::Call =
 		&mock::Call::Balances(pallet_balances::Call::transfer_keep_alive(GAS_METERED_ACCOUNT_ID, 69));
+
+	fn error_from_code(code: u8) -> sp_std::result::Result<(), TransactionValidityError> {
+		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(code)))
+	}
 
 	#[test]
 	fn signed_extension_transaction_payment_work() {
@@ -581,9 +596,15 @@ mod tests {
 			.execute_with(|| {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(INVALID_ASSET_TO_BUY_FEE, 100_000);
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
-					.is_err());
+				assert_eq!(
+					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange)).pre_dispatch(
+						&1,
+						CALL,
+						info_from_weight(3),
+						len
+					),
+					error_from_code(error_code::INVALID_ASSET_ID)
+				);
 			})
 	}
 
@@ -596,9 +617,15 @@ mod tests {
 			.execute_with(|| {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 0);
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
-					.pre_dispatch(&1, CALL, info_from_weight(3), len)
-					.is_err());
+				assert_eq!(
+					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange)).pre_dispatch(
+						&1,
+						CALL,
+						info_from_weight(3),
+						len
+					),
+					error_from_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
+				);
 			})
 	}
 

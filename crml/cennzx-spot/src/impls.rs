@@ -16,9 +16,9 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use super::Trait;
-use crate::Module;
+use crate::{Error, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
-use frame_support::dispatch::DispatchError;
+use frame_support::{dispatch::DispatchError, storage::StorageMap};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -62,19 +62,25 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		amount: Self::Balance,
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
+		// check whether exchange asset id exist
+		let fee_exchange_asset_id = exchange_op.asset_id();
+		ensure!(
+			<pallet_generic_asset::TotalIssuance<T>>::exists(&fee_exchange_asset_id),
+			Error::<T>::InvalidAssetId,
+		);
+
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id = <pallet_generic_asset::Module<T>>::spending_asset_id();
 
 		Self::make_asset_swap_output(
 			&who,
 			&who,
-			&exchange_op.asset_id(),
+			&fee_exchange_asset_id,
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment(),
 			Self::fee_rate(),
 		)
-		.map_err(|_| DispatchError::Other("Failed to charge transaction fees during conversion"))
 	}
 }
 
@@ -84,6 +90,7 @@ pub(crate) mod impl_tests {
 	use crate::{
 		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
+		Error,
 	};
 	use frame_support::traits::Currency;
 	use sp_core::H256;
@@ -171,7 +178,7 @@ pub(crate) mod impl_tests {
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
 				),
-				"Failed to charge transaction fees during conversion"
+				Error::<Test>::InsufficientTradeAssetReserve
 			);
 
 			assert_balance_eq!(user, CoreAssetCurrency => 0);

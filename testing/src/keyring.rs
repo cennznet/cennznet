@@ -16,7 +16,7 @@
 
 //! Test accounts.
 
-use cennznet_primitives::types::{AccountId, Balance, FeeExchange, Index, AssetId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, Index};
 use cennznet_runtime::{CennznetDoughnut, CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
