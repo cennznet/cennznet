@@ -23,7 +23,9 @@ mod mock;
 mod tests;
 
 mod impls;
+mod traits;
 mod types;
+
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, PerMillion};
 
@@ -36,7 +38,7 @@ use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
 use sp_runtime::traits::{Bounded, One, Zero};
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::{result, prelude::*};
+use sp_std::{prelude::*, result};
 
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
 type AssetId<T> = <T as pallet_generic_asset::Trait>::AssetId;
@@ -50,7 +52,7 @@ pub struct ExchangeKey<T: pallet_generic_asset::Trait> {
 	asset: AssetId<T>,
 }
 
-pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
+pub trait Trait: pallet_generic_asset::Trait {
 	type Call: Parameter + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	/// A function type to get an exchange address given the asset ID pair.
@@ -139,212 +141,6 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
-
-		/// Convert asset1 to asset2. User specifies maximum
-		/// input and exact output.
-		///  origin
-		/// `recipient` - Account to receive asset_bought, defaults to origin if None
-		/// `asset_sold` - asset ID 1 to sell
-		/// `asset_bought` - asset ID 2 to buy
-		/// `buy_amount` - The amount of asset '2' to purchase
-		/// `max_paying_amount` - Maximum trade asset '1' to pay
-		/// When successful return the actual amount paid
-		pub fn asset_swap_output(
-			origin,
-			recipient: Option<T::AccountId>,
-			#[compact] asset_sold: T::AssetId,
-			#[compact] asset_bought: T::AssetId,
-			#[compact] buy_amount: T::Balance,
-			#[compact] max_paying_amount: T::Balance
-		) -> Result<T> {
-			let buyer = ensure_signed(origin)?;
-			let amount_paid = Self::make_asset_swap_output(
-				&buyer,
-				&recipient.unwrap_or_else(|| buyer.clone()),
-				&asset_sold,
-				&asset_bought,
-				buy_amount,
-				max_paying_amount,
-				Self::fee_rate()
-			)?;
-			Ok(amount_paid)
-		}
-
-
-		/// Convert asset1 to asset2
-		/// Seller specifies exact input (asset 1) and minimum output (asset 2)
-		/// `recipient` - Account to receive asset_bought, defaults to origin if None
-		/// `asset_sold` - asset ID 1 to sell
-		/// `asset_bought` - asset ID 2 to buy
-		/// `sell_amount` - The amount of asset '1' to sell
-		/// `min_receive` - Minimum trade asset '2' to receive from sale
-		/// When successful return the amount of trade asset '2' that is received
-		pub fn asset_swap_input(
-			origin,
-			recipient: Option<T::AccountId>,
-			#[compact] asset_sold: T::AssetId,
-			#[compact] asset_bought: T::AssetId,
-			#[compact] sell_amount: T::Balance,
-			#[compact] min_receive: T::Balance
-		) -> Result<T> {
-			let seller = ensure_signed(origin)?;
-			let amount_received = Self::make_asset_swap_input(
-				&seller,
-				&recipient.unwrap_or_else(|| seller.clone()),
-				&asset_sold,
-				&asset_bought,
-				sell_amount,
-				min_receive,
-				Self::fee_rate()
-			)?;
-			Ok(amount_received)
-		}
-
-		//
-		// Manage Liquidity
-		//
-
-		/// Deposit core asset and trade asset at current ratio to mint liquidity
-		/// Returns amount of liquidity minted.
-		///
-		/// `origin`
-		/// `asset_id` - The trade asset ID
-		/// `min_liquidity` - The minimum liquidity to add
-		/// `asset_amount` - Amount of trade asset to add
-		/// `core_amount` - Amount of core asset to add
-		/// When successful return the new level of liquidity
-		pub fn add_liquidity(
-			origin,
-			#[compact] asset_id: T::AssetId,
-			#[compact] min_liquidity: T::Balance,
-			#[compact] max_asset_amount: T::Balance,
-			#[compact] core_amount: T::Balance
-		) -> Result<T> {
-			let from_account = ensure_signed(origin)?;
-			let core_asset_id = Self::core_asset_id();
-			ensure!(
-				!max_asset_amount.is_zero(),
-				Error::<T>::TradeAssetToAddLiquidityNotAboveZero
-			);
-			ensure!(
-				!core_amount.is_zero(),
-				Error::<T>::CoreAssetToAddLiquidityNotAboveZero
-			);
-			ensure!(
-				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
-				Error::<T>::CoreAssetBalanceToAddLiquidityTooLow
-			);
-			ensure!(
-				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
-				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
-			);
-			let exchange_key = ExchangeKey::<T>{core_asset: core_asset_id, asset: asset_id};
-			let total_liquidity = Self::get_total_supply(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
-
-			if total_liquidity.is_zero() {
-				// new exchange pool
-				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, max_asset_amount)?;
-				let trade_asset_amount = max_asset_amount;
-				let initial_liquidity = core_amount;
-				Self::set_liquidity(&exchange_key, &from_account, initial_liquidity);
-				Self::mint_total_supply(&exchange_key, initial_liquidity);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, initial_liquidity, asset_id, trade_asset_amount));
-			} else {
-				// TODO: shall i use total_balance instead? in which case the exchange address will have reserve balance?
-				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-				let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
-				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
-				ensure!(
-					liquidity_minted >= min_liquidity,
-					Error::<T>::LiquidityMintableLowerThanRequired
-				);
-				ensure!(
-					max_asset_amount >= trade_asset_amount,
-					Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
-				);
-
-				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
-
-				Self::set_liquidity(&exchange_key, &from_account,
-									Self::get_liquidity(&exchange_key, &from_account) + liquidity_minted);
-				Self::mint_total_supply(&exchange_key, liquidity_minted);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
-			}
-
-			Ok(Self::get_liquidity(&exchange_key, &from_account))
-		}
-
-		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
-		///
-		/// `asset_id` - The trade asset ID
-		/// `asset_amount` - Amount of exchange asset to burn
-		/// `min_asset_withdraw` - The minimum trade asset withdrawn
-		/// `min_core_withdraw` -  The minimum core asset withdrawn
-		/// When successful return the new level of liquidity
-		pub fn remove_liquidity(
-			origin,
-			#[compact] asset_id: T::AssetId,
-			#[compact] liquidity_withdrawn: T::Balance,
-			#[compact] min_asset_withdraw: T::Balance,
-			#[compact] min_core_withdraw: T::Balance
-		) -> Result<T> {
-			let from_account = ensure_signed(origin)?;
-			ensure!(
-				liquidity_withdrawn > Zero::zero(),
-				Error::<T>::LiquidityToWithdrawNotAboveZero
-			);
-			ensure!(
-				min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(),
-				Error::<T>::AssetToWithdrawNotAboveZero
-			);
-
-			let core_asset_id = Self::core_asset_id();
-			let exchange_key = (core_asset_id, asset_id);
-			let account_liquidity = Self::get_liquidity(&exchange_key, &from_account);
-			ensure!(
-				account_liquidity >= liquidity_withdrawn,
-				Error::<T>::LiquidityTooLow
-			);
-
-			let total_liquidity = Self::get_total_supply(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
-			ensure!(
-				total_liquidity > Zero::zero(),
-				Error::<T>::NoLiquidityToRemove
-			);
-
-			let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
-			ensure!(
-				core_asset_amount >= min_core_withdraw,
-				Error::<T>::MinimumCoreAssetIsRequired
-			);
-			ensure!(
-				trade_asset_amount >= min_asset_withdraw,
-				Error::<T>::MinimumTradeAssetIsRequired
-			);
-
-			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
-			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
-			Self::set_liquidity(&exchange_key, &from_account,
-									account_liquidity - liquidity_withdrawn);
-			Self::burn_total_supply(&exchange_key, liquidity_withdrawn);
-			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
-			Ok(Self::get_liquidity(&exchange_key, &from_account))
-		}
-
-		/// Set the spot exchange wide fee rate (root only)
-		pub fn set_fee_rate(origin, new_fee_rate: FeeRate<PerMillion>) -> DispatchResult {
-			ensure_root(origin)?;
-			DefaultFeeRate::mutate(|fee_rate| *fee_rate = new_fee_rate);
-			Ok(())
-		}
 	}
 }
 
@@ -718,52 +514,6 @@ impl<T: Trait> Module<T> {
 		Ok(asset_b_received)
 	}
 
-	//
-	// Get Prices
-	//
-
-	/// `asset_id` - Trade asset
-	/// `buy_amount`- Amount of the trade asset to buy
-	/// Returns the amount of core asset needed to purchase `buy_amount` of trade asset.
-	pub fn get_core_to_asset_output_price(
-		asset_id: &T::AssetId,
-		buy_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
-	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
-
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
-
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		ensure!(asset_reserve > buy_amount, Error::<T>::InsufficientTradeAssetReserve);
-
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-
-		Self::get_output_price(buy_amount, core_reserve, asset_reserve, fee_rate)
-	}
-
-	/// `asset_id` - Trade asset
-	/// `amount_sold` - Amount of the trade asset to sell
-	/// Returns amount of core that can be bought with input assets.
-	pub fn get_asset_to_core_input_price(
-		asset_id: &T::AssetId,
-		sell_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
-	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(
-			sell_amount > Zero::zero(),
-			Error::<T>::AssetToCoreSellAmountNotAboveZero
-		);
-
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
-
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		Self::get_input_price(sell_amount, asset_reserve, core_reserve, fee_rate)
-	}
-
 	fn get_output_price(
 		output_amount: T::Balance,
 		input_reserve: T::Balance,
@@ -841,61 +591,6 @@ impl<T: Trait> Module<T> {
 		Ok(T::UnsignedIntToBalance::from(price_lp).into())
 	}
 
-	/// `asset_id` - Trade asset
-	/// `buy_amount` - Amount of output core
-	/// `fee_rate` - The % of exchange fees for the trade
-	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
-	pub fn get_asset_to_core_output_price(
-		asset_id: &T::AssetId,
-		buy_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
-	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
-
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
-
-		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		ensure!(
-			core_asset_reserve > buy_amount,
-			Error::<T>::InsufficientCoreAssetReserve
-		);
-
-		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-
-		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve, fee_rate)
-	}
-
-	/// Returns the amount of trade asset to pay for `sell_amount` of core sold.
-	///
-	/// `asset_id` - Trade asset
-	/// `sell_amount` - Amount of input core to sell
-	/// `fee_rate` - The % of exchange fees for the trade
-	pub fn get_core_to_asset_input_price(
-		asset_id: &T::AssetId,
-		sell_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
-	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(
-			sell_amount > Zero::zero(),
-			Error::<T>::CoreToAssetSellAmountNotAboveZero
-		);
-
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
-		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-
-		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve, fee_rate)?;
-
-		ensure!(
-			trade_asset_reserve > output_amount,
-			Error::<T>::InsufficientTradeAssetReserve
-		);
-
-		Ok(output_amount)
-	}
-
 	/// Convert asset1 to asset2. User specifies maximum
 	/// input and exact output.
 	///  `buyer` - Account buying asset
@@ -905,7 +600,7 @@ impl<T: Trait> Module<T> {
 	/// `buy_amount` - The amount of asset '2' to purchase
 	/// `max_paying_amount` - Maximum trade asset '1' to pay
 	/// `fee_rate` - The % of exchange fees for the trade
-	pub fn make_asset_swap_output(
+	fn make_asset_swap_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_sold: &T::AssetId,
@@ -944,7 +639,7 @@ impl<T: Trait> Module<T> {
 	/// `sell_amount` - The amount of asset '1' to sell
 	/// `min_receive` - Minimum trade asset '2' to receive from sale
 	/// `fee_rate` - The % of exchange fees for the trade
-	pub fn make_asset_swap_input(
+	fn make_asset_swap_input(
 		seller: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_sold: &T::AssetId,
