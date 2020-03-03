@@ -131,6 +131,17 @@ impl<T: Trait> Exchange<T> for Module<T> {
 }
 
 impl<T: Trait> ManageLiquidity<T> for Module<T> {
+	fn set_liquidity(#[compact] asset_id: T::AssetId,
+					 who: &T::AccountId, balance: T::Balance) {
+		let key = crate::ExchangeKey::<T>{core_asset: Self::get_core_asset_id(), asset: asset_id};
+		<LiquidityBalance<T>>::insert(exchange_key, who, balance);
+	}
+
+	fn get_liquidity(#[compact] asset_id: T::AssetId, who: &T::AccountId) -> T::Balance {
+		let key = crate::ExchangeKey::<T>{core_asset: Self::get_core_asset_id(), asset: asset_id};
+		<LiquidityBalance<T>>::get(key, who)
+	}
+
 	fn add_liquidity(
 		origin: T::Origin,
 		#[compact] asset_id: T::AssetId,

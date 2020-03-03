@@ -193,14 +193,6 @@ impl<T: Trait> Module<T> {
 		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
 	}
 
-	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, balance: T::Balance) {
-		<LiquidityBalance<T>>::insert(exchange_key, who, balance);
-	}
-
-	pub fn get_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId) -> T::Balance {
-		<LiquidityBalance<T>>::get(exchange_key, who)
-	}
-
 	/// Trade core asset for asset (`asset_id`) at the given `fee_rate`.
 	/// `seller` - The address selling input asset
 	/// `recipient` - The address receiving payment of output asset
