@@ -46,14 +46,20 @@ type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
 type Staking<T> = pallet_staking::Module<T>;
 
-pub struct Validators;
-impl OnUnbalanced<NegativeImbalance> for Validators
+pub struct SplitToAllValidators;
+
+/// This handles the ```NegativeImbalance``` created for transaction fee.
+/// The reward is split evenly and distributed to all of the current elected validators.
+/// The remainder from the division are burned.
+impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators
 {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
 		let validators = Staking::<Runtime>::current_elected();
 		if validators.len() > 0 {
+			// Get a list of elected validators
 			let per_validator_reward:Balance = amount.peek() / (validators.len() as Balance);
 
+			// This tracks the total amount of reward actually handed out. Used to adjust total issurance
 			let mut total_imbalance = PositiveImbalance::zero();
 			for v in &validators {
 				let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
@@ -62,7 +68,6 @@ impl OnUnbalanced<NegativeImbalance> for Validators
 					per_validator_reward);
 				total_imbalance.subsume(payout);
 			}
-
 		}
 	}
 }

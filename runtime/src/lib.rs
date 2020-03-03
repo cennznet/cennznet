@@ -72,7 +72,7 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, Validators};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, SplitToAllValidators};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -214,7 +214,7 @@ pub type DealWithFees = SplitTwoWays<
 	Balance,
 	NegativeImbalance,
 	_0,	Treasury,
-	_1,	Validators // 100% goes to elected validators
+	_1,	SplitToAllValidators // 100% goes to elected validators
 >;
 
 impl crml_transaction_payment::Trait for Runtime {

@@ -47,7 +47,6 @@ frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", d
 pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-collective = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-contracts-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
