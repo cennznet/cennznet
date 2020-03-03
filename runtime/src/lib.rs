@@ -806,7 +806,7 @@ impl_runtime_apis! {
 			}
 		}
 
-		fn sell_value(
+		fn sell_price(
 			sell_asset: AssetId,
 			sell_amount: Balance,
 			buy_asset: AssetId,

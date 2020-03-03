@@ -1363,7 +1363,7 @@ fn calculate_buy_price_simple() {
 }
 
 #[test]
-fn calculate_buy_price_with_feerate() {
+fn calculate_buy_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1499,7 +1499,7 @@ fn calculate_sell_price_simple() {
 }
 
 #[test]
-fn calculate_sell_price_with_feerate() {
+fn calculate_sell_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);

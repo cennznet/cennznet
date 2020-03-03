@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -35,12 +35,13 @@ pub use crml_cennzx_spot_rpc_runtime_api::{
 #[rpc]
 pub trait CennzxSpotApi<AssetId, Balance> {
 	#[rpc(name = "cennzx_buyPrice")]
-	// TODO: prefer to return Result<64>, however Serde JSON library only allows u64.
+	// TODO: prefer to return Result<Balance>, however Serde JSON library only allows u64.
 	//  - change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
 	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<u64>;
 
 	#[rpc(name = "cennzx_salePrice")]
-	fn sale_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<u64>;
+	// TODO: change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
+	fn sell_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<u64>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -113,18 +114,13 @@ where
 		}
 	}
 
-	fn sale_price(
-		&self,
-		asset_for_sale: AssetId,
-		amount_for_sale: Balance,
-		asset_to_payout: AssetId,
-	) -> Result<u64> {
+	fn sell_price(&self, asset_for_sale: AssetId, amount_for_sale: Balance, asset_to_payout: AssetId) -> Result<u64> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
-			.sell_value(&at, asset_for_sale, amount_for_sale, asset_to_payout)
+			.sell_price(&at, asset_for_sale, amount_for_sale, asset_to_payout)
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::Runtime.into()),
 				message: "Unable to query sell price.".into(),

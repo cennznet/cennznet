@@ -976,7 +976,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Calculate the sell price of some asset for another
-	/// In simple terms: 'If I sell _x_ amount of asset _y_ how much of asset _z_ will I get in return?'
+	/// In simple terms: 'If I sell _x_ amount of asset _a_ how much of asset _b_ will I get in return?'
 	/// `asset_to_sell` is the asset to be sold
 	/// `amount_to_sell` is the amount of `asset_to_sell` to be sold
 	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_to_sell` (the final sale value is given in this asset)

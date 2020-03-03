@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@ sp_api::decl_runtime_apis! {
 			asset_to_sell: AssetId,
 		) -> CennzxSpotResult<Balance>;
 		/// Query how much `asset_to_sell` is required to buy `amount` of `asset_to_buy`
-		fn sell_value(
+		fn sell_price(
 			asset_to_sell: AssetId,
 			amount: Balance,
 			asset_to_buy: AssetId,
