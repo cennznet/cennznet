@@ -25,9 +25,9 @@ use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash,
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
 use frame_support::{
-	additional_traits::{self, MultiCurrencyAccounting},
+	additional_traits::self,
 	construct_runtime, debug, parameter_types,
-	traits::{Currency, Imbalance, OnUnbalanced, Randomness, SplitTwoWays},
+	traits::{Currency, Randomness, SplitTwoWays},
 	weights::Weight,
 };
 use frame_system::offchain::TransactionSubmitter;
@@ -72,11 +72,11 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, Validators};
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{asset::CENTRAPAY_ASSET_ID, currency::*, time::*};
+use constants::{currency::*, time::*};
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -210,27 +210,11 @@ type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency
 	<Runtime as frame_system::Trait>::AccountId,
 >>::NegativeImbalance;
 
-pub struct Validators;
-impl OnUnbalanced<NegativeImbalance> for Validators {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		let validators = pallet_staking::Module::<Runtime>::current_elected();
-		if validators.len() == 0 {
-			return;
-		}
-		let per_validator_reward = amount.peek() / (validators.len() as Balance);
-		for v in &validators {
-			let _ = GenericAsset::deposit_creating(&v, Some(CENTRAPAY_ASSET_ID), per_validator_reward);
-		}
-	}
-}
-
 pub type DealWithFees = SplitTwoWays<
 	Balance,
 	NegativeImbalance,
-	_0,
-	Treasury,
-	_1,
-	Validators, // 100% goes to elected validators
+	_0,	Treasury,
+	_1,	Validators // 100% goes to elected validators
 >;
 
 impl crml_transaction_payment::Trait for Runtime {
