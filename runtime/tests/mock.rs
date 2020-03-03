@@ -15,30 +15,45 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
-use cennznet_runtime::{constants::asset::*, Runtime, VERSION};
+use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
+use cennznet_primitives::types::{AccountId, Balance};
+use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
 use pallet_contracts::{Gas, Schedule};
+use sp_runtime::Perbill;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
 
+pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
+	vec![
+		get_authority_keys_from_seed("Alice"),
+		get_authority_keys_from_seed("Bob"),
+	]
+}
+
+// get all validators (slash account , controller account)
+pub fn validators() -> Vec<(AccountId, AccountId)> {
+	generate_initial_authorities().iter().map(|x| (x.0.clone(), x.1.clone())).collect()
+}
+
 #[derive(Default)]
 pub struct ExtBuilder {
-	initial_balance: u128,
-	gas_price: u128,
+	initial_balance: Balance,
+	gas_price: Balance,
 	// Configurable prices for certain gas metered operations
 	gas_sandbox_data_read_cost: Gas,
 	gas_regular_op_cost: Gas,
 }
 
 impl ExtBuilder {
-	pub fn initial_balance(mut self, initial_balance: u128) -> Self {
+	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
 		self
 	}
-	pub fn gas_price(mut self, gas_price: u128) -> Self {
+	pub fn gas_price(mut self, gas_price: Balance) -> Self {
 		self.gas_price = gas_price;
 		self
 	}
@@ -51,6 +66,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
+		let initial_authorities = generate_initial_authorities();
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
@@ -72,6 +88,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
 		pallet_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
@@ -82,13 +99,47 @@ impl ExtBuilder {
 				ARDA_ASSET_ID,
 			],
 			initial_balance: self.initial_balance,
-			endowed_accounts: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
+			endowed_accounts: vec![
+				alice(),
+				bob(),
+				charlie(),
+				dave(),
+				eve(),
+				ferdie(),
+				validators()[0].0.clone(),
+				validators()[1].0.clone(), // FIXME:
+			],
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		let stash = self.initial_balance / 5;
+		pallet_staking::GenesisConfig::<Runtime> {
+			current_era: 0,
+			validator_count: initial_authorities.len() as u32 * 2,
+			minimum_validator_count: initial_authorities.len() as u32,
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
+				.collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_session::GenesisConfig::<Runtime> {
+			keys: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.collect::<Vec<_>>(),
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
 		t.into()
 	}
 }

@@ -610,6 +610,7 @@ dependencies = [
 name = "cennznet-runtime"
 version = "1.0.0"
 dependencies = [
+ "cennznet-cli",
  "cennznet-primitives",
  "cennznet-testing",
  "cennznut",

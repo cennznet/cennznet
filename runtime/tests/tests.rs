@@ -17,8 +17,8 @@
 use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Staking, Origin, Runtime,
+	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic, Session, Timestamp, System
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -32,14 +32,16 @@ use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header},
+	traits::{Convert, Hash, Header, OnInitialize},
 	transaction_validity::InvalidTransaction,
 	Fixed64,
 };
+use sp_staking::SessionIndex;
+use pallet_staking::{StakingLedger, RewardDestination};
 
 mod doughnut;
 mod mock;
-use mock::ExtBuilder;
+use mock::{validators, ExtBuilder};
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
@@ -118,6 +120,122 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 
 	let base_fee = TransactionBaseFee::get();
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+}
+
+// staking test cases
+fn current_total_payout_for_duration(duration: u64) -> Balance {
+	pallet_staking::inflation::compute_total_payout(
+		<Runtime as pallet_staking::Trait>::RewardCurve::get(),
+		Staking::slot_stake() * validators().len() as u128,
+		GenericAsset::total_issuance(&CENNZ_ASSET_ID),
+		duration,
+	).0
+}
+
+fn start_session(session_index: SessionIndex) {
+	// Compensate for session delay
+	let session_index = session_index + 1;
+	for i in Session::current_index()..session_index {
+		System::set_block_number((i + 1).into());
+		Timestamp::set_timestamp((System::block_number() * 1000).into());
+		Session::on_initialize(System::block_number());
+	}
+
+	// assert_eq!(Session::current_index(), session_index);
+}
+
+#[test]
+fn staking_genesis_config_works() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			for validator in validators() {
+				let (stash, controller) = validator;
+				let staked_amount = balance_amount / 5;
+
+				// Check validator is included in currect elelcted accounts
+				assert!(Staking::current_elected().contains(&stash));
+				// Check that RewardDestination is Staked (default)
+				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);				
+				// Check validator free balance
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
+				// Check how much is at stake
+				assert_eq!(Staking::ledger(controller), Some(StakingLedger {
+					stash,
+					total: staked_amount,
+					active: staked_amount,
+					unlocking: vec![],
+				}));
+			}
+		});
+}
+
+#[test]
+fn staking_reward_validators_works() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			// Check validator rewards
+			let total_payout = current_total_payout_for_duration(3000);
+			assert!(total_payout > 10); // Test is meaningfull if reward something
+			Staking::reward_by_ids(validators().iter().map(|x| (x.0.clone(), 1)).collect::<Vec<(AccountId, u32)>>());
+
+			start_session(0);
+			start_session(1);
+			start_session(2);
+			start_session(3);
+
+			assert_eq!(Staking::current_era(), 1);
+
+			// assert_eq!(total_payout, 2_430_010);
+			for validator in validators() {
+				// Check that reward went to the stash account of validator
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&validator.0, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + total_payout / 2
+				);
+			}
+		});
+}
+
+#[test]
+fn staking_validators_should_received_equal_transaction_fee_reward() {
+	let transfer_amount = 50;
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENTRAPAY_ASSET_ID,
+		bob(),
+		transfer_amount,
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				function: runtime_call.clone(),
+			});
+	
+			let fm = TransactionPayment::next_fee_multiplier();
+			let fee = transfer_fee(&xt, fm, &runtime_call);
+			let fee_reward = fee / validators().len() as Balance; // FIXME: the value is not equal
+
+			for validator in validators() {
+				// Check tx fee reward went to the stash account of validator
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&validator.0, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + fee_reward
+				);
+			}
+		});
 }
 
 #[test]
