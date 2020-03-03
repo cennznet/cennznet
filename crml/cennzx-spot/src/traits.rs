@@ -77,29 +77,32 @@ pub trait ManageLiquidity<T: Trait> {
 }
 
 pub trait ExchangePrice<T: Trait> {
-	/// Set the spot exchange wide fee rate (root only)
+	/// Set the exchange spot wide fee rate (root only)
 	/// When successful, return the new fee rate
 	fn set_fee_rate(origin: T::Origin, new_fee_rate: FeeRate) -> Result;
+
+	/// Return the exchange spot wide fee rate
+	fn get_fee_rate() -> FeeRate;
 
 	/// `asset_id` - Trade asset
 	/// `buy_amount`- Amount of the trade asset to buy
 	/// Returns the amount of core asset needed to purchase `buy_amount` of trade asset.
-	fn get_core_to_asset_output_price(asset_id: &T::AssetId, buy_amount: T::Balance, fee_rate: FeeRate) -> Result;
+	fn get_core_to_asset_output_price(asset_id: &T::AssetId, buy_amount: T::Balance) -> Result;
 
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of the trade asset to sell
 	/// Returns amount of core that can be bought with input assets.
-	fn get_asset_to_core_input_price(asset_id: &T::AssetId, sell_amount: T::Balance, fee_rate: FeeRate) -> Result;
+	fn get_asset_to_core_input_price(asset_id: &T::AssetId, sell_amount: T::Balance) -> Result;
 
 	/// `asset_id` - Trade asset
 	/// `buy_amount` - Amount of output core
 	/// `fee_rate` - The % of exchange fees for the trade
 	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
-	fn get_asset_to_core_output_price(asset_id: &T::AssetId, buy_amount: T::Balance, fee_rate: FeeRate) -> Result;
+	fn get_asset_to_core_output_price(asset_id: &T::AssetId, buy_amount: T::Balance) -> Result;
 
 	/// `asset_id` - Trade asset
 	/// `sell_amount` - Amount of input core to sell
 	/// `fee_rate` - The % of exchange fees for the trade
 	/// Returns the amount of trade asset to pay for `sell_amount` of core sold.
-	fn get_core_to_asset_input_price(asset_id: &T::AssetId, sell_amount: T::Balance, fee_rate: FeeRate) -> Result;
+	fn get_core_to_asset_input_price(asset_id: &T::AssetId, sell_amount: T::Balance) -> Result;
 }
