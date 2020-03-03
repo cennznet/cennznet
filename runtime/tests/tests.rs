@@ -173,11 +173,22 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 	
 			let fm = TransactionPayment::next_fee_multiplier();
 			let fee = transfer_fee(&xt, fm, &runtime_call);
-			let fee_reward = fee / validators().len() as Balance;
+			let validator_count = validators().len() as Balance;
+			let fee_reward = fee / validator_count;
+			let remainder = fee % validator_count;
+
+			let previous_total_issuance = GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID);
 
 			initialize_block();
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
+
+			// Check total_issurance is adjusted
+			// FIXME: total_issurance is not adjusted
+			assert_eq!(
+				GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID),
+				previous_total_issuance - remainder
+			);
 
 			for validator in validators() {
 				// Check tx fee reward went to the stash account of validator

@@ -31,6 +31,7 @@ pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
 	vec![
 		get_authority_keys_from_seed("Alice"),
 		get_authority_keys_from_seed("Bob"),
+		get_authority_keys_from_seed("Charlie"),
 	]
 }
 
@@ -107,7 +108,8 @@ impl ExtBuilder {
 				eve(),
 				ferdie(),
 				validators()[0].0.clone(),
-				validators()[1].0.clone(), // FIXME:
+				validators()[1].0.clone(),
+				validators()[2].0.clone(),
 			],
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
