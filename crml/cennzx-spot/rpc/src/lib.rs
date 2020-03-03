@@ -39,7 +39,7 @@ pub trait CennzxSpotApi<AssetId, Balance> {
 	//  - change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
 	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<u64>;
 
-	#[rpc(name = "cennzx_salePrice")]
+	#[rpc(name = "cennzx_sellPrice")]
 	// TODO: change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
 	fn sell_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<u64>;
 }
@@ -114,13 +114,13 @@ where
 		}
 	}
 
-	fn sell_price(&self, asset_for_sale: AssetId, amount_for_sale: Balance, asset_to_payout: AssetId) -> Result<u64> {
+	fn sell_price(&self, asset_to_sell: AssetId, amount_to_sell: Balance, asset_to_payout: AssetId) -> Result<u64> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
-			.sell_price(&at, asset_for_sale, amount_for_sale, asset_to_payout)
+			.sell_price(&at, asset_to_sell, amount_to_sell, asset_to_payout)
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::Runtime.into()),
 				message: "Unable to query sell price.".into(),
