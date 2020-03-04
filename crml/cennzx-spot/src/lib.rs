@@ -34,7 +34,7 @@ use core::convert::TryFrom;
 use frame_support::{dispatch::Dispatchable, Parameter, StorageDoubleMap};
 use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
-use sp_runtime::traits::{Bounded, One, Zero};
+use sp_runtime::traits::{One, Zero};
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -57,10 +57,8 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// Exchange pool is empty.
 		EmptyExchangePool,
-		// Insufficient trade asset reserve in exchange
-		InsufficientTradeAssetReserve,
-		// Insufficient core asset reserve in exchange
-		InsufficientCoreAssetReserve,
+		// Insufficient asset reserve in exchange
+		InsufficientAssetReserve,
 		// Insufficient asset balance in buyer account
 		InsufficientBuyerTradeAssetBalance,
 		// Insufficient core asset balance in buyer account
@@ -242,7 +240,6 @@ decl_module! {
 				Self::mint_total_supply(&exchange_key, initial_liquidity);
 				Self::deposit_event(RawEvent::AddLiquidity(from_account, initial_liquidity, asset_id, trade_asset_amount));
 			} else {
-				// TODO: shall i use total_balance instead? in which case the exchange address will have reserve balance?
 				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 				let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
@@ -723,8 +720,6 @@ impl<T: Trait> Module<T> {
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		ensure!(asset_reserve > buy_amount, Error::<T>::InsufficientTradeAssetReserve);
-
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
 		Self::get_output_price(buy_amount, core_reserve, asset_reserve, fee_rate)
@@ -760,11 +755,7 @@ impl<T: Trait> Module<T> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
 		}
-
-		// Special case, in theory price should progress towards infinity
-		if output_amount >= output_reserve {
-			return Ok(T::Balance::max_value());
-		}
+		ensure!(output_reserve > output_amount, Error::<T>::InsufficientAssetReserve);
 
 		let output_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_amount).into());
 		let output_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_reserve).into());
@@ -824,8 +815,9 @@ impl<T: Trait> Module<T> {
 			Err(Error::<T>::Overflow)?;
 		}
 		let price_lp = price_lp_result.unwrap();
-
-		Ok(T::UnsignedIntToBalance::from(price_lp).into())
+		let price = T::UnsignedIntToBalance::from(price_lp).into();
+		ensure!(output_reserve > price, Error::<T>::InsufficientAssetReserve);
+		Ok(price)
 	}
 
 	/// `asset_id` - Trade asset
@@ -843,11 +835,6 @@ impl<T: Trait> Module<T> {
 		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
 
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		ensure!(
-			core_asset_reserve > buy_amount,
-			Error::<T>::InsufficientCoreAssetReserve
-		);
-
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 
 		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve, fee_rate)
@@ -874,11 +861,6 @@ impl<T: Trait> Module<T> {
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
 		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve, fee_rate)?;
-
-		ensure!(
-			trade_asset_reserve > output_amount,
-			Error::<T>::InsufficientTradeAssetReserve
-		);
 
 		Ok(output_amount)
 	}
@@ -960,5 +942,67 @@ impl<T: Trait> Module<T> {
 		}
 
 		Ok(())
+	}
+
+	/// Calculate the buy price of some asset for another
+	/// In simple terms: 'If I want to buy _x_ amount of asset _a_ how much of asset _b_ will it cost?'
+	/// `asset_to_buy` is the asset to buy
+	/// `amount_to_buy` is the amount of `asset_to_buy` required
+	/// `asset_to_pay` is the asset to use for payment (the final price will be given in this asset)
+	pub fn calculate_buy_price(
+		asset_to_buy: T::AssetId,
+		amount_to_buy: T::Balance,
+		asset_to_pay: T::AssetId,
+	) -> Result<T::Balance, DispatchError> {
+		ensure!(asset_to_buy != asset_to_pay, Error::<T>::AssetCannotSwapForItself);
+
+		// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of core asset
+		// (how much core asset does it cost?).
+		let core_asset_amount = if asset_to_buy == Self::core_asset_id() {
+			amount_to_buy
+		} else {
+			Self::get_core_to_asset_output_price(&asset_to_buy, amount_to_buy, Self::fee_rate())?
+		};
+
+		// Find the price of `core_asset_amount` in terms of `asset_to_pay`
+		// (how much `asset_to_pay` does `core_asset_amount` cost?)
+		let pay_asset_amount = if asset_to_pay == Self::core_asset_id() {
+			core_asset_amount
+		} else {
+			Self::get_asset_to_core_output_price(&asset_to_pay, core_asset_amount, Self::fee_rate())?
+		};
+
+		Ok(pay_asset_amount)
+	}
+
+	/// Calculate the sell price of some asset for another
+	/// In simple terms: 'If I sell _x_ amount of asset _a_ how much of asset _b_ will I get in return?'
+	/// `asset_to_sell` is the asset to be sold
+	/// `amount_to_sell` is the amount of `asset_to_sell` to be sold
+	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_to_sell` (the final sale value is given in this asset)
+	pub fn calculate_sell_price(
+		asset_to_sell: T::AssetId,
+		amount_to_sell: T::Balance,
+		asset_to_payout: T::AssetId,
+	) -> Result<T::Balance, DispatchError> {
+		ensure!(asset_to_sell != asset_to_payout, Error::<T>::AssetCannotSwapForItself);
+
+		// Find the value of `amount_to_sell` of `asset_to_sell` in terms of core asset
+		// (how much core asset is the sale worth?)
+		let core_asset_amount = if asset_to_sell == Self::core_asset_id() {
+			amount_to_sell
+		} else {
+			Self::get_asset_to_core_input_price(&asset_to_sell, amount_to_sell, Self::fee_rate())?
+		};
+
+		// Skip payout asset price if asset to be paid out is core
+		// (how much `asset_to_payout` is the sale worth?)
+		let payout_asset_value = if asset_to_payout == Self::core_asset_id() {
+			core_asset_amount
+		} else {
+			Self::get_core_to_asset_input_price(&asset_to_payout, core_asset_amount, Self::fee_rate())?
+		};
+
+		Ok(payout_asset_value)
 	}
 }

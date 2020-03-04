@@ -11,6 +11,7 @@ jsonrpc-core = "14.0.3"
 #cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
+crml-cennzx-spot-rpc = { path = "../crml/cennzx-spot/rpc" }
 
 #frame dependencies
 pallet-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }

@@ -31,7 +31,7 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::{AccountId, Balance, Block, Index};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, Index};
 use cennznet_runtime::UncheckedExtrinsic;
 use sp_api::ProvideRuntimeApi;
 use sp_transaction_pool::TransactionPool;
@@ -65,10 +65,12 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UncheckedExtrinsic>,
+	C::Api: crml_cennzx_spot_rpc::CennzxSpotRuntimeApi<Block, AssetId, Balance>,
 	F: sc_client::light::fetcher::Fetcher<Block> + 'static,
 	P: TransactionPool + 'static,
 	M: jsonrpc_core::Metadata + Default,
 {
+	use crml_cennzx_spot_rpc::{CennzxSpot, CennzxSpotApi};
 	use pallet_contracts_rpc::{Contracts, ContractsApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use substrate_frame_rpc_system::{FullSystem, LightSystem, SystemApi};
@@ -93,6 +95,7 @@ where
 		// more context: https://github.com/paritytech/substrate/pull/3480
 		// These RPCs should use an asynchronous caller instead.
 		io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
+		io.extend_with(CennzxSpotApi::to_delegate(CennzxSpot::new(client.clone())));
 		io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client)));
 	}
 	io
