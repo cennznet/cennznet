@@ -17,7 +17,7 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Call, MaximumBlockWeight, Runtime};
+use crate::{Call, MaximumBlockWeight, Runtime, PositiveImbalance, NegativeImbalance};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -36,13 +36,6 @@ use sp_runtime::{
 	DispatchError, Fixed64,
 };
 
-pub type NegativeImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
-	<Runtime as frame_system::Trait>::AccountId,
->>::NegativeImbalance;
-pub type PositiveImbalance = <<Runtime as crml_transaction_payment::Trait>::Currency as Currency<
-	<Runtime as frame_system::Trait>::AccountId,
->>::PositiveImbalance;
-
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
@@ -56,22 +49,24 @@ pub struct SplitToAllValidators;
 impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
 		let validators = Staking::<Runtime>::current_elected();
-		if validators.len() > 0 || amount.peek().is_zero() {
-			// Get a list of elected validators
-			let per_validator_reward: Balance = amount.peek() / (validators.len() as Balance);
-
-			// This tracks the total amount of reward actually handed out. Used to adjust total issurance
-			let mut total_imbalance = PositiveImbalance::zero();
-			let asset_id = amount.asset_id();
-			for v in &validators {
-				let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
-					&v,
-					Some(asset_id.into()),
-					per_validator_reward,
-				);
-				total_imbalance.subsume(payout);
-			}
+		if validators.len().is_zero() || amount.peek().is_zero() {
+			return;
 		}
+		// Get a list of elected validators
+		let per_validator_reward: Balance = amount.peek() / (validators.len() as Balance);
+
+		// This tracks the total amount of reward actually handed out. Used to adjust total issurance
+		let mut total_imbalance = PositiveImbalance::zero();
+		let asset_id = amount.asset_id();
+		for v in &validators {
+			let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
+				&v,
+				Some(asset_id.into()),
+				per_validator_reward,
+			);
+			let _ = total_imbalance.subsume(payout);
+		}
+		let _ = amount.offset(total_imbalance);
 	}
 }
 

@@ -187,7 +187,6 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 			assert!(r.is_ok());
 
 			// Check total_issurance is adjusted
-			// FIXME: total_issurance is not adjusted
 			assert_eq!(
 				GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID),
 				previous_total_issuance - remainder

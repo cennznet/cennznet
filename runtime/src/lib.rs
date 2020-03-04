@@ -25,7 +25,7 @@ use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash,
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
 use frame_support::{
-	additional_traits, construct_runtime, debug, parameter_types,
+	additional_traits::{self, MultiCurrencyAccounting}, construct_runtime, debug, parameter_types,
 	traits::{Randomness, SplitTwoWays},
 	weights::Weight,
 };
@@ -51,7 +51,6 @@ use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
 pub use pallet_contracts::Gas;
 pub use pallet_generic_asset::Call as GenericAssetCall;
@@ -73,7 +72,7 @@ pub use crml_sylo::vault as sylo_vault;
 pub mod impls;
 use impls::{
 	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
-	NegativeImbalance, SplitToAllValidators,
+	SplitToAllValidators,
 };
 
 /// Constant values used within the runtime.
@@ -207,6 +206,9 @@ parameter_types! {
 	// setting this to zero will disable the weight fee.
 	pub const WeightFeeCoefficient: Balance = 1_000;
 }
+
+pub type PositiveImbalance = <GenericAsset as MultiCurrencyAccounting>::PositiveImbalance;
+pub type NegativeImbalance = <GenericAsset as MultiCurrencyAccounting>::NegativeImbalance;
 
 pub type DealWithFees = SplitTwoWays<
 	Balance,
