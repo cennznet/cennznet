@@ -27,30 +27,45 @@ use sp_runtime::Perbill;
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
 
-pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
-	vec![
-		get_authority_keys_from_seed("Alice"),
-		get_authority_keys_from_seed("Bob"),
-		get_authority_keys_from_seed("Charlie"),
-	]
+pub fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
+	let (accounts, mut authority_keys) = (vec!["Alice", "Bob", "Charlie", "Dave", "Eve", "Ferdie"], vec![]);
+	for i in 0..n as usize {
+		authority_keys.push(get_authority_keys_from_seed(accounts[i]))
+	}
+	authority_keys
 }
 
 // get all validators (stash account , controller account)
-pub fn validators() -> Vec<(AccountId, AccountId)> {
-	generate_initial_authorities()
+pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
+	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
+	generate_initial_authorities(n)
 		.iter()
 		.map(|x| (x.0.clone(), x.1.clone()))
 		.collect()
 }
 
-#[derive(Default)]
 pub struct ExtBuilder {
 	initial_balance: Balance,
 	gas_price: Balance,
 	// Configurable prices for certain gas metered operations
 	gas_sandbox_data_read_cost: Gas,
 	gas_regular_op_cost: Gas,
+	// Configurable fields for staking module tests
 	stash: Balance,
+	validator_count: usize,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {
+			initial_balance: 0,
+			gas_price: 0,
+			gas_sandbox_data_read_cost: 0_u64,
+			gas_regular_op_cost: 0_u64,
+			stash: 0,
+			validator_count: 3,
+		}
+	}
 }
 
 impl ExtBuilder {
@@ -74,8 +89,16 @@ impl ExtBuilder {
 		self.stash = stash;
 		self
 	}
+	pub fn validator_count(mut self, count: usize) -> Self {
+		self.validator_count = count;
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let initial_authorities = generate_initial_authorities();
+		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+		let initial_authorities = generate_initial_authorities(self.validator_count);
+		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
+		endowed_accounts.extend(stash_accounts);
+
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
@@ -108,17 +131,7 @@ impl ExtBuilder {
 				ARDA_ASSET_ID,
 			],
 			initial_balance: self.initial_balance,
-			endowed_accounts: vec![
-				alice(),
-				bob(),
-				charlie(),
-				dave(),
-				eve(),
-				ferdie(),
-				validators()[0].0.clone(),
-				validators()[1].0.clone(),
-				validators()[2].0.clone(),
-			],
+			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,

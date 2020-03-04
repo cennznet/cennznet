@@ -125,12 +125,14 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 fn staking_genesis_config_works() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let staked_amount = balance_amount / 5;
+	let validators = validators(6);
 	ExtBuilder::default()
 		.initial_balance(balance_amount)
 		.stash(staked_amount)
+		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
-			for validator in validators() {
+			for validator in validators {
 				let (stash, controller) = validator;
 				// Check validator is included in currect elelcted accounts
 				assert!(Staking::current_elected().contains(&stash));
@@ -156,7 +158,7 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
-fn staking_validators_should_received_equal_transaction_fee_reward() {
+fn staking_validators_should_receive_equal_transaction_fee_reward() {
 	let transfer_amount = 50;
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
@@ -164,9 +166,11 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 		bob(),
 		transfer_amount,
 	));
+	let validators = validators(6);
 
 	ExtBuilder::default()
 		.initial_balance(balance_amount)
+		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
@@ -176,9 +180,8 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 
 			let fm = TransactionPayment::next_fee_multiplier();
 			let fee = transfer_fee(&xt, fm, &runtime_call);
-			let validator_count = validators().len() as Balance;
-			let fee_reward = fee / validator_count;
-			let remainder = fee % validator_count;
+			let fee_reward = fee / validators.len() as u128;
+			let remainder = fee % validators.len() as u128;
 
 			let previous_total_issuance = GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID);
 
@@ -186,13 +189,23 @@ fn staking_validators_should_received_equal_transaction_fee_reward() {
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
+			// Check if the transfer is successful
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount - fee
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
+
 			// Check total_issurance is adjusted
 			assert_eq!(
 				GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID),
 				previous_total_issuance - remainder
 			);
 
-			for validator in validators() {
+			for validator in validators {
 				// Check tx fee reward went to the stash account of validator
 				assert_eq!(
 					<GenericAsset as MultiCurrencyAccounting>::free_balance(&validator.0, Some(CENTRAPAY_ASSET_ID)),
