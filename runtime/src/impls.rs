@@ -17,7 +17,7 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Call, MaximumBlockWeight, Runtime, PositiveImbalance, NegativeImbalance};
+use crate::{Call, MaximumBlockWeight, NegativeImbalance, PositiveImbalance, Runtime};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -31,6 +31,7 @@ use frame_support::{
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
+use pallet_staking::RewardDestination;
 use sp_runtime::{
 	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
 	DispatchError, Fixed64,
@@ -47,26 +48,32 @@ pub struct SplitToAllValidators;
 /// The reward is split evenly and distributed to all of the current elected validators.
 /// The remainder from the division are burned.
 impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
 		let validators = Staking::<Runtime>::current_elected();
-		if validators.len().is_zero() || amount.peek().is_zero() {
+		if validators.len().is_zero() || imbalance.peek().is_zero() {
 			return;
 		}
 		// Get a list of elected validators
-		let per_validator_reward: Balance = amount.peek() / (validators.len() as Balance);
+		let per_validator_reward: Balance = imbalance.peek() / (validators.len() as Balance);
 
 		// This tracks the total amount of reward actually handed out. Used to adjust total issurance
 		let mut total_imbalance = PositiveImbalance::zero();
-		let asset_id = amount.asset_id();
-		for v in &validators {
+		let asset_id = imbalance.asset_id();
+		for validator in &validators {
+			let dest = Staking::<Runtime>::payee(validator);
+			let reward_destination_account_id = match dest {
+				RewardDestination::Controller => Staking::<Runtime>::bonded(validator).unwrap(),
+				RewardDestination::Stash | RewardDestination::Staked => validator.clone(),
+			};
+
 			let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
-				&v,
+				&reward_destination_account_id,
 				Some(asset_id.into()),
 				per_validator_reward,
 			);
 			let _ = total_imbalance.subsume(payout);
 		}
-		let _ = amount.offset(total_imbalance);
+		let _ = imbalance.offset(total_imbalance);
 	}
 }
 

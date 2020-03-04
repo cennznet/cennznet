@@ -24,13 +24,17 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
+pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
 use frame_support::{
-	additional_traits::{self, MultiCurrencyAccounting}, construct_runtime, debug, parameter_types,
+	additional_traits::{self, MultiCurrencyAccounting},
+	construct_runtime, debug, parameter_types,
 	traits::{Randomness, SplitTwoWays},
 	weights::Weight,
 };
 use frame_system::offchain::TransactionSubmitter;
+pub use pallet_contracts::Gas;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+pub use pallet_generic_asset::Call as GenericAssetCall;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::AuthorityList as GrandpaAuthorityList;
@@ -51,9 +55,6 @@ use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
-pub use pallet_contracts::Gas;
-pub use pallet_generic_asset::Call as GenericAssetCall;
 
 pub use frame_support::StorageValue;
 pub use pallet_staking::StakerStatus;
