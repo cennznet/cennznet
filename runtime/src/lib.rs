@@ -24,6 +24,7 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
+use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits, construct_runtime, debug, parameter_types, traits::Randomness, weights::Weight,
 };
@@ -785,6 +786,36 @@ impl_runtime_apis! {
 	> for Runtime {
 		fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
+		}
+	}
+
+	impl crml_cennzx_spot_rpc_runtime_api::CennzxSpotApi<
+		Block,
+		AssetId,
+		Balance,
+	> for Runtime {
+		fn buy_price(
+			buy_asset: AssetId,
+			buy_amount: Balance,
+			sell_asset: AssetId,
+		) -> CennzxSpotResult<Balance> {
+			let result = CennzxSpot::calculate_buy_price(buy_asset, buy_amount, sell_asset);
+			match result {
+				Ok(value) => CennzxSpotResult::Success(value),
+				Err(_) => CennzxSpotResult::Error,
+			}
+		}
+
+		fn sell_price(
+			sell_asset: AssetId,
+			sell_amount: Balance,
+			buy_asset: AssetId,
+		) -> CennzxSpotResult<Balance> {
+			let result = CennzxSpot::calculate_sell_price(sell_asset, sell_amount, buy_asset);
+			match result {
+				Ok(value) => CennzxSpotResult::Success(value),
+				Err(_) => CennzxSpotResult::Error,
+			}
 		}
 	}
 

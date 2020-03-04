@@ -583,6 +583,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
+ "crml-cennzx-spot-rpc",
  "jsonrpc-core",
  "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
@@ -614,6 +615,7 @@ dependencies = [
  "cennznet-testing",
  "cennznut",
  "crml-cennzx-spot",
+ "crml-cennzx-spot-rpc-runtime-api",
  "crml-sylo",
  "crml-transaction-payment",
  "frame-executive",
@@ -849,6 +851,38 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-cennzx-spot-rpc"
+version = "2.0.0"
+dependencies = [
+ "crml-cennzx-spot-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-cennzx-spot-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]

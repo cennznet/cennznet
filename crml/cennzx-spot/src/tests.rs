@@ -339,14 +339,14 @@ fn get_output_price_max_withdrawal() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(
+		assert_err!(
 			CennzXSpot::get_output_price(1000, 1000, 1000, DefaultFeeRate::get()),
-			<Test as pallet_generic_asset::Trait>::Balance::max_value()
+			Error::<Test>::InsufficientAssetReserve
 		);
 
-		assert_ok!(
+		assert_err!(
 			CennzXSpot::get_output_price(1_000_000, 1000, 1000, DefaultFeeRate::get()),
-			<Test as pallet_generic_asset::Trait>::Balance::max_value()
+			Error::<Test>::InsufficientAssetReserve
 		);
 	});
 }
@@ -409,7 +409,7 @@ fn asset_swap_output_insufficient_reserve() {
 				1001, // amount_bought
 				DefaultFeeRate::get()
 			),
-			Error::<Test>::InsufficientCoreAssetReserve
+			Error::<Test>::InsufficientAssetReserve
 		);
 
 		assert_err!(
@@ -418,7 +418,7 @@ fn asset_swap_output_insufficient_reserve() {
 				1001, // amount_bought
 				DefaultFeeRate::get()
 			),
-			Error::<Test>::InsufficientTradeAssetReserve
+			Error::<Test>::InsufficientAssetReserve
 		);
 	});
 }
@@ -1341,5 +1341,277 @@ fn set_fee_rate() {
 		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(5u128)).unwrap();
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
+	});
+}
+
+#[test]
+fn calculate_buy_price_simple() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyB),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(127)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_with_fee_rate() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyB),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(155)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_when_buying_core() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(CoreAssetCurrency),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(112)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_when_selling_core() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(CoreAssetCurrency),
+			),
+			Ok(112)
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_same_asset_id_ignored() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Error::<Test>::AssetCannotSwapForItself
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_low_buy_asset_liquidity_error() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 10);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::InsufficientAssetReserve
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_low_buy_core_liquidity_error() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::InsufficientAssetReserve
+		);
+	});
+}
+
+#[test]
+fn calculate_buy_price_no_exchange() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_buy_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::EmptyExchangePool
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_simple() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyB),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(82)
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_with_fee_rate() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyB),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(68)
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_when_selling_core() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(CoreAssetCurrency),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Ok(90)
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_when_buying_core() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(CoreAssetCurrency),
+			),
+			Ok(90)
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_same_asset_id_ignored() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyA),
+			),
+			Error::<Test>::AssetCannotSwapForItself
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_low_sell_asset_liquidity() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Ok(8) // unlike buying, we can sell as long as exchange exists
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_low_sell_core_liquidity() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
+
+		assert_eq!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Ok(8) // unlike buying, we can sell as long as exchange exists
+		);
+	});
+}
+
+#[test]
+fn calculate_sell_price_no_exchange() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(
+			CennzXSpot::calculate_sell_price(
+				resolve_asset_id!(TradeAssetCurrencyA),
+				100,
+				resolve_asset_id!(TradeAssetCurrencyB),
+			),
+			Error::<Test>::EmptyExchangePool
+		);
 	});
 }
