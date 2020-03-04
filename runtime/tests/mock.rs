@@ -37,7 +37,10 @@ pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
 
 // get all validators (stash account , controller account)
 pub fn validators() -> Vec<(AccountId, AccountId)> {
-	generate_initial_authorities().iter().map(|x| (x.0.clone(), x.1.clone())).collect()
+	generate_initial_authorities()
+		.iter()
+		.map(|x| (x.0.clone(), x.1.clone()))
+		.collect()
 }
 
 #[derive(Default)]
