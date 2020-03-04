@@ -62,7 +62,9 @@ impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 		for validator in &validators {
 			let dest = Staking::<Runtime>::payee(validator);
 			let reward_destination_account_id = match dest {
-				RewardDestination::Controller => Staking::<Runtime>::bonded(validator).unwrap_or_else(||validator.clone()),
+				RewardDestination::Controller => {
+					Staking::<Runtime>::bonded(validator).unwrap_or_else(|| validator.clone())
+				}
 				RewardDestination::Stash | RewardDestination::Staked => validator.clone(),
 			};
 
