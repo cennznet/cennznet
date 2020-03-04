@@ -27,9 +27,10 @@ use sp_runtime::Perbill;
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
 
-pub fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
+fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
+	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
 	let accounts = vec!["Alice", "Bob", "Charlie", "Dave", "Eve", "Ferdie"];
-	accounts[..n].map(|s| get_authority_keys_from_seed(s)).collect()
+	accounts[..n].iter().map(|s| get_authority_keys_from_seed(s)).collect()
 }
 
 // get all validators (stash account , controller account)
