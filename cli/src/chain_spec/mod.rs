@@ -48,11 +48,17 @@ type AccountPublic = <Signature as Verify>::Signer;
 
 /// A type contains authority keys
 pub type AuthorityKeys = (
+	/// stash account ID
 	AccountId,
+	/// controller account ID
 	AccountId,
+	/// Grandpa ID
 	GrandpaId,
+	/// Babe ID
 	BabeId,
+	/// ImOnline ID
 	ImOnlineId,
+	/// Authority Discovery ID
 	AuthorityDiscoveryId,
 );
 

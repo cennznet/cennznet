@@ -124,14 +124,14 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 #[test]
 fn staking_genesis_config_works() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let staked_amount = balance_amount / 5;
 	ExtBuilder::default()
 		.initial_balance(balance_amount)
+		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
 			for validator in validators() {
 				let (stash, controller) = validator;
-				let staked_amount = balance_amount / 5;
-
 				// Check validator is included in currect elelcted accounts
 				assert!(Staking::current_elected().contains(&stash));
 				// Check that RewardDestination is Staked (default)

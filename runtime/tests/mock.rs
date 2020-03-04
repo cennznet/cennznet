@@ -35,7 +35,7 @@ pub fn generate_initial_authorities() -> Vec<AuthorityKeys> {
 	]
 }
 
-// get all validators (slash account , controller account)
+// get all validators (stash account , controller account)
 pub fn validators() -> Vec<(AccountId, AccountId)> {
 	generate_initial_authorities().iter().map(|x| (x.0.clone(), x.1.clone())).collect()
 }
@@ -47,6 +47,7 @@ pub struct ExtBuilder {
 	// Configurable prices for certain gas metered operations
 	gas_sandbox_data_read_cost: Gas,
 	gas_regular_op_cost: Gas,
+	stash: Balance,
 }
 
 impl ExtBuilder {
@@ -64,6 +65,10 @@ impl ExtBuilder {
 	}
 	pub fn gas_regular_op_cost<T: Into<Gas>>(mut self, cost: T) -> Self {
 		self.gas_regular_op_cost = cost.into();
+		self
+	}
+	pub fn stash(mut self, stash: Balance) -> Self {
+		self.stash = stash;
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
@@ -118,14 +123,13 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let stash = self.initial_balance / 5;
 		pallet_staking::GenesisConfig::<Runtime> {
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
+				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
 				.collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
