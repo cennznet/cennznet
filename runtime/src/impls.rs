@@ -17,23 +17,67 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Call, MaximumBlockWeight, Runtime};
+use crate::{Call, MaximumBlockWeight, NegativeImbalance, PositiveImbalance, Runtime};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
+	additional_traits::{InherentAssetIdProvider, MultiCurrencyAccounting},
 	storage,
-	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
+use pallet_staking::RewardDestination;
 use sp_runtime::{
 	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
 	DispatchError, Fixed64,
 };
+
+type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
+type Contracts<T> = pallet_contracts::Module<T>;
+type GenericAsset<T> = pallet_generic_asset::Module<T>;
+type Staking<T> = pallet_staking::Module<T>;
+
+pub struct SplitToAllValidators;
+
+/// This handles the ```NegativeImbalance``` created for transaction fee.
+/// The reward is split evenly and distributed to all of the current elected validators.
+/// The remainder from the division are burned.
+impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
+	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
+		let validators = Staking::<Runtime>::current_elected();
+		if validators.len().is_zero() || imbalance.peek().is_zero() {
+			return;
+		}
+		// Get a list of elected validators
+		let per_validator_reward: Balance = imbalance.peek() / (validators.len() as Balance);
+
+		// This tracks the total amount of reward actually handed out. Used to adjust total issurance
+		let mut total_imbalance = PositiveImbalance::zero();
+		let asset_id = imbalance.asset_id();
+		for validator in &validators {
+			let dest = Staking::<Runtime>::payee(validator);
+			let reward_destination_account_id = match dest {
+				RewardDestination::Controller => {
+					Staking::<Runtime>::bonded(validator).unwrap_or_else(|| validator.clone())
+				}
+				RewardDestination::Stash | RewardDestination::Staked => validator.clone(),
+			};
+
+			let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
+				&reward_destination_account_id,
+				Some(asset_id.into()),
+				per_validator_reward,
+			);
+			let _ = total_imbalance.subsume(payout);
+		}
+		let _ = imbalance.offset(total_imbalance);
+	}
+}
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -133,10 +177,6 @@ impl Convert<(Weight, Fixed64), Fixed64> for FeeMultiplierUpdateHandler {
 
 /// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
 pub struct GasHandler;
-
-type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
-type Contracts<T> = pallet_contracts::Module<T>;
-type GenericAsset<T> = pallet_generic_asset::Module<T>;
 
 impl<T> pallet_contracts::GasHandler<T> for GasHandler
 where

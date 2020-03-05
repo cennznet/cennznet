@@ -46,19 +46,28 @@ pub mod rimu;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+/// A type contains authority keys
+pub type AuthorityKeys = (
+	// stash account ID
+	AccountId,
+	// controller account ID
+	AccountId,
+	// Grandpa ID
+	GrandpaId,
+	// Babe ID
+	BabeId,
+	// ImOnline ID
+	ImOnlineId,
+	// Authority Discovery ID
+	AuthorityDiscoveryId,
+);
+
 /// A type to hold keys used in CENNZnet node in SS58 format.
 pub struct NetworkKeys {
 	/// Endowed account address (SS58 format).
 	pub endowed_accounts: Vec<AccountId>,
 	/// List of authority keys
-	pub initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		GrandpaId,
-		BabeId,
-		ImOnlineId,
-		AuthorityDiscoveryId,
-	)>,
+	pub initial_authorities: Vec<AuthorityKeys>,
 	/// Sudo account address (SS58 format).
 	pub root_key: AccountId,
 }
@@ -112,13 +121,9 @@ pub fn get_authority_keys_from_seed(
 	)
 }
 
-/// Helper function to generate session keys
-fn session_keys(
-	grandpa: GrandpaId,
-	babe: BabeId,
-	im_online: ImOnlineId,
-	authority_discovery: AuthorityDiscoveryId,
-) -> SessionKeys {
+/// Helper function to generate session keys with authority keys
+pub fn session_keys(authority_keys: AuthorityKeys) -> SessionKeys {
+	let (_, _, grandpa, babe, im_online, authority_discovery) = authority_keys;
 	SessionKeys {
 		grandpa,
 		babe,
@@ -143,12 +148,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
 				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
-					)
-				})
+				.map(|x| (x.0.clone(), session_keys(x.clone())))
 				.collect::<Vec<_>>(),
 		}),
 		pallet_staking: Some(StakingConfig {

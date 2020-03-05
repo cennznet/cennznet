@@ -15,30 +15,63 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
-use cennznet_runtime::{constants::asset::*, Runtime, VERSION};
+use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
+use cennznet_primitives::types::{AccountId, Balance};
+use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
 use pallet_contracts::{Gas, Schedule};
+use sp_runtime::Perbill;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
 
-#[derive(Default)]
+fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
+	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
+	let accounts = vec!["Alice", "Bob", "Charlie", "Dave", "Eve", "Ferdie"];
+	accounts[..n].iter().map(|s| get_authority_keys_from_seed(s)).collect()
+}
+
+// get all validators (stash account , controller account)
+pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
+	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
+	generate_initial_authorities(n)
+		.iter()
+		.map(|x| (x.0.clone(), x.1.clone()))
+		.collect()
+}
+
 pub struct ExtBuilder {
-	initial_balance: u128,
-	gas_price: u128,
+	initial_balance: Balance,
+	gas_price: Balance,
 	// Configurable prices for certain gas metered operations
 	gas_sandbox_data_read_cost: Gas,
 	gas_regular_op_cost: Gas,
+	// Configurable fields for staking module tests
+	stash: Balance,
+	validator_count: usize,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {
+			initial_balance: 0,
+			gas_price: 0,
+			gas_sandbox_data_read_cost: 0_u64,
+			gas_regular_op_cost: 0_u64,
+			stash: 0,
+			validator_count: 3,
+		}
+	}
 }
 
 impl ExtBuilder {
-	pub fn initial_balance(mut self, initial_balance: u128) -> Self {
+	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
 		self
 	}
-	pub fn gas_price(mut self, gas_price: u128) -> Self {
+	pub fn gas_price(mut self, gas_price: Balance) -> Self {
 		self.gas_price = gas_price;
 		self
 	}
@@ -50,7 +83,20 @@ impl ExtBuilder {
 		self.gas_regular_op_cost = cost.into();
 		self
 	}
+	pub fn stash(mut self, stash: Balance) -> Self {
+		self.stash = stash;
+		self
+	}
+	pub fn validator_count(mut self, count: usize) -> Self {
+		self.validator_count = count;
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
+		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+		let initial_authorities = generate_initial_authorities(self.validator_count);
+		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
+		endowed_accounts.extend(stash_accounts);
+
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
@@ -72,6 +118,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
 		pallet_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
@@ -82,13 +129,37 @@ impl ExtBuilder {
 				ARDA_ASSET_ID,
 			],
 			initial_balance: self.initial_balance,
-			endowed_accounts: vec![alice(), bob(), charlie(), dave(), eve(), ferdie()],
+			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		pallet_staking::GenesisConfig::<Runtime> {
+			current_era: 0,
+			validator_count: initial_authorities.len() as u32 * 2,
+			minimum_validator_count: initial_authorities.len() as u32,
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
+				.collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_session::GenesisConfig::<Runtime> {
+			keys: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.collect::<Vec<_>>(),
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
 		t.into()
 	}
 }

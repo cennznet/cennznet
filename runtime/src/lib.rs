@@ -24,12 +24,18 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
+pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
-	additional_traits, construct_runtime, debug, parameter_types, traits::Randomness, weights::Weight,
+	additional_traits::{self, MultiCurrencyAccounting},
+	construct_runtime, debug, parameter_types,
+	traits::{Randomness, SplitTwoWays},
+	weights::Weight,
 };
 use frame_system::offchain::TransactionSubmitter;
+pub use pallet_contracts::Gas;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+pub use pallet_generic_asset::Call as GenericAssetCall;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::AuthorityList as GrandpaAuthorityList;
@@ -37,7 +43,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_1, _2, _3, _4};
+use sp_core::u32_trait::{_0, _1, _2, _3, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
@@ -50,10 +56,6 @@ use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
-pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
-pub use pallet_contracts::Gas;
-pub use pallet_generic_asset::Call as GenericAssetCall;
 
 pub use frame_support::StorageValue;
 pub use pallet_staking::StakerStatus;
@@ -70,7 +72,10 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
+use impls::{
+	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
+	SplitToAllValidators,
+};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -204,11 +209,23 @@ parameter_types! {
 	pub const WeightFeeCoefficient: Balance = 1_000;
 }
 
+pub type PositiveImbalance = <GenericAsset as MultiCurrencyAccounting>::PositiveImbalance;
+pub type NegativeImbalance = <GenericAsset as MultiCurrencyAccounting>::NegativeImbalance;
+
+pub type DealWithFees = SplitTwoWays<
+	Balance,
+	NegativeImbalance,
+	_0,
+	Treasury,
+	_1,
+	SplitToAllValidators, // 100% goes to elected validators
+>;
+
 impl crml_transaction_payment::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = ();
+	type OnTransactionPayment = DealWithFees;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;

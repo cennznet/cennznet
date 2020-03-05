@@ -18,7 +18,7 @@ use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1}
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	Staking, TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -30,6 +30,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
+use pallet_staking::{RewardDestination, StakingLedger};
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header},
@@ -39,7 +40,7 @@ use sp_runtime::{
 
 mod doughnut;
 mod mock;
-use mock::ExtBuilder;
+use mock::{validators, ExtBuilder};
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
@@ -118,6 +119,100 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 
 	let base_fee = TransactionBaseFee::get();
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+}
+
+#[test]
+fn staking_genesis_config_works() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let staked_amount = balance_amount / 5;
+	let validators = validators(6);
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.stash(staked_amount)
+		.validator_count(validators.len())
+		.build()
+		.execute_with(|| {
+			for validator in validators {
+				let (stash, controller) = validator;
+				// Check validator is included in currect elelcted accounts
+				assert!(Staking::current_elected().contains(&stash));
+				// Check that RewardDestination is Staked (default)
+				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);
+				// Check validator free balance
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
+				// Check how much is at stake
+				assert_eq!(
+					Staking::ledger(controller),
+					Some(StakingLedger {
+						stash,
+						total: staked_amount,
+						active: staked_amount,
+						unlocking: vec![],
+					})
+				);
+			}
+		});
+}
+
+#[test]
+fn staking_validators_should_receive_equal_transaction_fee_reward() {
+	let transfer_amount = 50;
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENTRAPAY_ASSET_ID,
+		bob(),
+		transfer_amount,
+	));
+	let validators = validators(6);
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.validator_count(validators.len())
+		.build()
+		.execute_with(|| {
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				function: runtime_call.clone(),
+			});
+
+			let fm = TransactionPayment::next_fee_multiplier();
+			let fee = transfer_fee(&xt, fm, &runtime_call);
+			let fee_reward = fee / validators.len() as u128;
+			let remainder = fee % validators.len() as u128;
+
+			let previous_total_issuance = GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID);
+
+			initialize_block();
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			// Check if the transfer is successful
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount - fee
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
+
+			// Check total_issurance is adjusted
+			assert_eq!(
+				GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID),
+				previous_total_issuance - remainder
+			);
+
+			for validator in validators {
+				// Check tx fee reward went to the stash account of validator
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&validator.0, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + fee_reward
+				);
+			}
+		});
 }
 
 #[test]
