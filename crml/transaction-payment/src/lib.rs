@@ -59,8 +59,6 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, prelude::*};
 
 pub mod constants;
-#[cfg(test)]
-mod mock;
 
 type Multiplier = Fixed64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -107,7 +105,7 @@ pub trait Trait: frame_system::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Balances {
-		NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::from_parts(0);
+		pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::from_parts(0);
 	}
 }
 
@@ -202,7 +200,7 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 
 			let weight_fee = {
 				// cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
-				// maximum of its data type, which is not desired.
+				// `Bounded` maximum of its data type, which is not desired.
 				let capped_weight = info.weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
 				T::WeightToFee::convert(capped_weight)
 			};
@@ -214,9 +212,7 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 			let adjusted_fee = targeted_fee_adjustment.saturated_multiply_accumulate(adjustable_fee);
 
 			let base_fee = T::TransactionBaseFee::get();
-			let final_fee = base_fee.saturating_add(adjusted_fee).saturating_add(tip);
-
-			final_fee
+			base_fee.saturating_add(adjusted_fee).saturating_add(tip)
 		} else {
 			tip
 		}
@@ -239,6 +235,7 @@ where
 	T: Trait + Send + Sync,
 	BalanceOf<T>: Send + Sync,
 {
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type AccountId = T::AccountId;
 	type Call = T::Call;
 	type AdditionalSigned = ();
@@ -325,15 +322,264 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::*;
-	use frame_support::weights::DispatchClass;
-	use sp_runtime::{testing::TestXt, traits::Extrinsic};
+	use codec::Encode;
+	use frame_support::{
+		impl_outer_dispatch, impl_outer_origin, parameter_types,
+		weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Weight},
+	};
+	use pallet_balances::Call as BalancesCall;
+	use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+	use sp_core::H256;
+	use sp_runtime::{
+		testing::{Header, TestXt},
+		traits::{BlakeTwo256, Extrinsic, IdentityLookup},
+		Perbill,
+	};
+	use std::cell::RefCell;
+
+	use crate::{Module, Trait};
+	use cennznet_primitives::{
+		traits::{BuyFeeAsset, IsGasMeteredCall},
+		types::FeeExchange,
+	};
+	use frame_support::{
+		additional_traits::DummyDispatchVerifier,
+		dispatch::DispatchError,
+		traits::{Currency, Get},
+	};
+	use sp_runtime::traits::Convert;
+
+	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
+	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
+	// Transfers into this account signal the extrinsic call should be considered gas metered
+	const GAS_METERED_ACCOUNT_ID: u64 = 10;
 
 	// A balance transfer
-	const CALL: &<Runtime as frame_system::Trait>::Call = &mock::Call::Balances(pallet_balances::Call::transfer(2, 69));
+	const CALL: &<Runtime as frame_system::Trait>::Call = &Call::Balances(BalancesCall::transfer(2, 69));
+
 	// A balance transfer, which will be considered 'gas metered' for testing purposes
 	const METERED_CALL: &<Runtime as frame_system::Trait>::Call =
-		&mock::Call::Balances(pallet_balances::Call::transfer_keep_alive(GAS_METERED_ACCOUNT_ID, 69));
+		&Call::Balances(BalancesCall::transfer_keep_alive(GAS_METERED_ACCOUNT_ID, 69));
+
+	impl_outer_dispatch! {
+		pub enum Call for Runtime where origin: Origin {
+			pallet_balances::Balances,
+			frame_system::System,
+		}
+	}
+
+	#[derive(Clone, PartialEq, Eq, Debug)]
+	pub struct Runtime;
+
+	use frame_system as system;
+	impl_outer_origin! {
+		pub enum Origin for Runtime {}
+	}
+
+	parameter_types! {
+		pub const BlockHashCount: u64 = 250;
+		pub const MaximumBlockWeight: Weight = 1024;
+		pub const MaximumBlockLength: u32 = 2 * 1024;
+		pub const AvailableBlockRatio: Perbill = Perbill::one();
+	}
+
+	/// A mock impl of `IsGasMeteredCall`
+	pub struct MockCallResolver;
+
+	impl IsGasMeteredCall for MockCallResolver {
+		type Call = Call;
+		fn is_gas_metered(call: &Self::Call) -> bool {
+			match call {
+				Call::Balances(pallet_balances::Call::transfer_keep_alive(who, _)) => &GAS_METERED_ACCOUNT_ID == who,
+				_ => false,
+			}
+		}
+	}
+
+	/// Implement a fake BuyFeeAsset for tests
+	impl BuyFeeAsset for Module<Runtime> {
+		type AccountId = u64;
+		type Balance = u64;
+		type FeeExchange = FeeExchange<<Runtime as Trait>::AssetId, Self::Balance>;
+		fn buy_fee_asset(
+			who: &Self::AccountId,
+			amount: Self::Balance,
+			exchange_op: &Self::FeeExchange,
+		) -> sp_std::result::Result<Self::Balance, DispatchError> {
+			if exchange_op.asset_id() == VALID_ASSET_TO_BUY_FEE {
+				if exchange_op.max_payment() == 0 {
+					return Err(DispatchError::Module {
+						index: 1,
+						error: 15,
+						message: Some("CoreToAssetPriceAboveMaxLimit"),
+					});
+				}
+				// buy fee asset at a 1:1 ratio
+				let _ = Balances::deposit_into_existing(who, amount)?;
+			} else {
+				return Err(DispatchError::Module {
+					index: 1,
+					error: 33,
+					message: Some("InvalidAssetId"),
+				});
+			}
+			Ok(amount)
+		}
+	}
+
+	impl frame_system::Trait for Runtime {
+		type Origin = Origin;
+		type Index = u64;
+		type BlockNumber = u64;
+		type Call = Call;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type Header = Header;
+		type Event = ();
+		type BlockHashCount = BlockHashCount;
+		type MaximumBlockWeight = MaximumBlockWeight;
+		type MaximumBlockLength = MaximumBlockLength;
+		type AvailableBlockRatio = AvailableBlockRatio;
+		type Version = ();
+		type ModuleToIndex = ();
+		type Doughnut = ();
+		type DelegatedDispatchVerifier = DummyDispatchVerifier<Self::Doughnut, Self::AccountId>;
+	}
+
+	parameter_types! {
+		pub const CreationFee: u64 = 0;
+		pub const ExistentialDeposit: u64 = 1;
+	}
+
+	impl pallet_balances::Trait for Runtime {
+		type Balance = u64;
+		type OnReapAccount = System;
+		type OnNewAccount = ();
+		type Event = ();
+		type TransferPayment = ();
+		type DustRemoval = ();
+		type ExistentialDeposit = ExistentialDeposit;
+		type CreationFee = CreationFee;
+	}
+	thread_local! {
+		static TRANSACTION_BASE_FEE: RefCell<u64> = RefCell::new(0);
+		static TRANSACTION_BYTE_FEE: RefCell<u64> = RefCell::new(1);
+		static WEIGHT_TO_FEE: RefCell<u64> = RefCell::new(1);
+	}
+
+	pub struct TransactionBaseFee;
+	impl Get<u64> for TransactionBaseFee {
+		fn get() -> u64 {
+			TRANSACTION_BASE_FEE.with(|v| *v.borrow())
+		}
+	}
+
+	pub struct TransactionByteFee;
+	impl Get<u64> for TransactionByteFee {
+		fn get() -> u64 {
+			TRANSACTION_BYTE_FEE.with(|v| *v.borrow())
+		}
+	}
+
+	pub struct WeightToFee(u64);
+	impl Convert<Weight, u64> for WeightToFee {
+		fn convert(t: Weight) -> u64 {
+			WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u64))
+		}
+	}
+
+	impl Trait for Runtime {
+		type Balance = u128;
+		type AssetId = u32;
+		type Currency = pallet_balances::Module<Runtime>;
+		type OnTransactionPayment = ();
+		type TransactionBaseFee = TransactionBaseFee;
+		type TransactionByteFee = TransactionByteFee;
+		type WeightToFee = WeightToFee;
+		type FeeMultiplierUpdate = ();
+		type BuyFeeAsset = Module<Self>;
+		type GasMeteredCallResolver = MockCallResolver;
+	}
+
+	type Balances = pallet_balances::Module<Runtime>;
+	type System = frame_system::Module<Runtime>;
+	type TransactionPayment = Module<Runtime>;
+
+	pub struct ExtBuilder {
+		balance_factor: u64,
+		base_fee: u64,
+		byte_fee: u64,
+		weight_to_fee: u64,
+	}
+
+	impl Default for ExtBuilder {
+		fn default() -> Self {
+			Self {
+				balance_factor: 1,
+				base_fee: 0,
+				byte_fee: 1,
+				weight_to_fee: 1,
+			}
+		}
+	}
+
+	impl ExtBuilder {
+		pub fn base_fee(mut self, base_fee: u64) -> Self {
+			self.base_fee = base_fee;
+			self
+		}
+		pub fn byte_fee(mut self, byte_fee: u64) -> Self {
+			self.byte_fee = byte_fee;
+			self
+		}
+		pub fn weight_fee(mut self, weight_to_fee: u64) -> Self {
+			self.weight_to_fee = weight_to_fee;
+			self
+		}
+		pub fn balance_factor(mut self, factor: u64) -> Self {
+			self.balance_factor = factor;
+			self
+		}
+		fn set_constants(&self) {
+			TRANSACTION_BASE_FEE.with(|v| *v.borrow_mut() = self.base_fee);
+			TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.byte_fee);
+			WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
+		}
+		pub fn build(self) -> sp_io::TestExternalities {
+			self.set_constants();
+			let mut t = frame_system::GenesisConfig::default()
+				.build_storage::<Runtime>()
+				.unwrap();
+			pallet_balances::GenesisConfig::<Runtime> {
+				balances: if self.balance_factor > 0 {
+					vec![
+						(1, 10 * self.balance_factor),
+						(2, 20 * self.balance_factor),
+						(3, 30 * self.balance_factor),
+						(4, 40 * self.balance_factor),
+						(5, 50 * self.balance_factor),
+						(6, 60 * self.balance_factor),
+					]
+				} else {
+					vec![]
+				},
+			}
+			.assimilate_storage(&mut t)
+			.unwrap();
+			t.into()
+		}
+	}
+
+	/// create a transaction info struct from weight. Handy to avoid building the whole struct.
+	pub fn info_from_weight(w: Weight) -> DispatchInfo {
+		DispatchInfo {
+			weight: w,
+			pays_fee: true,
+			..Default::default()
+		}
+	}
 
 	fn error_from_code(code: u8) -> sp_std::result::Result<(), TransactionValidityError> {
 		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(code)))
@@ -343,7 +589,7 @@ mod tests {
 	fn signed_extension_transaction_payment_work() {
 		ExtBuilder::default()
 			.balance_factor(10) // 100
-			.fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
+			.base_fee(5) // 5 fixed, 1 per byte, 1 per weight
 			.build()
 			.execute_with(|| {
 				let len = 10;
@@ -363,7 +609,7 @@ mod tests {
 	fn signed_extension_transaction_payment_is_bounded() {
 		ExtBuilder::default()
 			.balance_factor(1000)
-			.fees(0, 0, 1)
+			.byte_fee(0)
 			.build()
 			.execute_with(|| {
 				// maximum weight possible
@@ -381,7 +627,7 @@ mod tests {
 	#[test]
 	fn signed_extension_allows_free_transactions() {
 		ExtBuilder::default()
-			.fees(100, 1, 1)
+			.base_fee(100)
 			.balance_factor(0)
 			.build()
 			.execute_with(|| {
@@ -390,7 +636,7 @@ mod tests {
 
 				let len = 100;
 
-				// like a FreeOperational
+				// This is a completely free (and thus wholly insecure/DoS-ridden) transaction
 				let operational_transaction = DispatchInfo {
 					weight: 0,
 					class: DispatchClass::Operational,
@@ -400,7 +646,7 @@ mod tests {
 					.validate(&1, CALL, operational_transaction, len)
 					.is_ok());
 
-				// like a FreeNormal
+				// like a InsecureFreeNormal
 				let free_transaction = DispatchInfo {
 					weight: 0,
 					class: DispatchClass::Normal,
@@ -415,7 +661,7 @@ mod tests {
 	#[test]
 	fn signed_ext_length_fee_is_also_updated_per_congestion() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(10)
 			.build()
 			.execute_with(|| {
@@ -432,36 +678,41 @@ mod tests {
 
 	#[test]
 	fn query_info_works() {
-		let call = mock::Call::Balances(pallet_balances::Call::transfer(2, 69));
+		let call = Call::Balances(pallet_balances::Call::transfer(2, 69));
 		let origin = 111111;
 		let extra = ();
 		let xt = TestXt::new(call, Some((origin, extra))).unwrap();
 		let info = xt.get_dispatch_info();
 		let ext = xt.encode();
 		let len = ext.len() as u32;
-		ExtBuilder::default().fees(5, 1, 2).build().execute_with(|| {
-			// all fees should be x1.5
-			NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
+		ExtBuilder::default()
+			.base_fee(5)
+			.weight_fee(2)
+			.build()
+			.execute_with(|| {
+				// all fees should be x1.5
+				NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
 
-			assert_eq!(
-				TransactionPayment::query_info(xt, len),
-				RuntimeDispatchInfo {
-					weight: info.weight,
-					class: info.class,
-					partial_fee: 5 /* base */
+				assert_eq!(
+					TransactionPayment::query_info(xt, len),
+					RuntimeDispatchInfo {
+						weight: info.weight,
+						class: info.class,
+						partial_fee: 5 /* base */
 						+ (
 							len as u64 /* len * 1 */
 							+ info.weight.min(MaximumBlockWeight::get()) as u64 * 2 /* weight * weight_to_fee */
 						) * 3 / 2
-				},
-			);
-		});
+					},
+				);
+			});
 	}
 
 	#[test]
 	fn compute_fee_works_without_multiplier() {
 		ExtBuilder::default()
-			.fees(100, 10, 1)
+			.base_fee(100)
+			.byte_fee(10)
 			.balance_factor(0)
 			.build()
 			.execute_with(|| {
@@ -514,7 +765,8 @@ mod tests {
 	#[test]
 	fn compute_fee_works_with_multiplier() {
 		ExtBuilder::default()
-			.fees(100, 10, 1)
+			.base_fee(100)
+			.byte_fee(10)
 			.balance_factor(0)
 			.build()
 			.execute_with(|| {
@@ -551,7 +803,8 @@ mod tests {
 	#[test]
 	fn compute_fee_does_not_overflow() {
 		ExtBuilder::default()
-			.fees(100, 10, 1)
+			.base_fee(100)
+			.byte_fee(10)
 			.balance_factor(0)
 			.build()
 			.execute_with(|| {
@@ -575,7 +828,7 @@ mod tests {
 	#[test]
 	fn uses_valid_currency_fee_exchange() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(1)
 			.build()
 			.execute_with(|| {
@@ -590,7 +843,7 @@ mod tests {
 	#[test]
 	fn uses_invalid_currency_fee_exchange() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(1)
 			.build()
 			.execute_with(|| {
@@ -611,7 +864,7 @@ mod tests {
 	#[test]
 	fn rejects_valid_currency_fee_exchange_with_zero_max_payment() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(1)
 			.build()
 			.execute_with(|| {
@@ -632,7 +885,7 @@ mod tests {
 	#[test]
 	fn fee_exchange_temporary_storage_for_gas_metered_calls() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(1000)
 			.build()
 			.execute_with(|| {
@@ -665,7 +918,7 @@ mod tests {
 	#[test]
 	fn fee_exchange_temporary_storage_unused_for_normal_calls() {
 		ExtBuilder::default()
-			.fees(5, 1, 1)
+			.base_fee(5)
 			.balance_factor(1000)
 			.build()
 			.execute_with(|| {
