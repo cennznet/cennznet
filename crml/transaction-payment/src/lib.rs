@@ -46,10 +46,10 @@ use frame_support::{
 	Parameter,
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use sp_arithmetic::traits::BaseArithmetic;
 use sp_runtime::{
 	traits::{
-		CheckedSub, Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension,
-		SimpleArithmetic, Zero,
+		CheckedSub, Convert, MaybeSerializeDeserialize, Member, SaturatedConversion, Saturating, SignedExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -71,10 +71,10 @@ pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
 
 pub trait Trait: frame_system::Trait {
 	/// The units in which we record balances.
-	type Balance: Parameter + Member + SimpleArithmetic + Default + Copy + MaybeSerializeDeserialize + Debug;
+	type Balance: Parameter + Member + BaseArithmetic + Default + Copy + MaybeSerializeDeserialize + Debug;
 
 	/// The arithmetic type of asset identifier.
-	type AssetId: Parameter + Member + SimpleArithmetic + Default + Copy;
+	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy;
 
 	/// The currency type in which fees will be paid.
 	type Currency: Currency<Self::AccountId> + Send + Sync;

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 # third-party dependencies
-codec = { package = "parity-scale-codec", version = "1.0.0" }
+codec = { version = "1.2.0", package = "parity-scale-codec" }
 trie-root = "0.15.2"
 
 # internal dependencies
@@ -14,21 +14,21 @@ cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 
 #frame dependencies
-sp-state-machine = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-trie = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-state-machine = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-trie = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 
 [dev-dependencies]
 wabt = "0.9.2"
 cennznet-testing = { path = "../testing" }
 crml-transaction-payment = { path="../crml/transaction-payment", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 
 [features]
 benchmarks = []

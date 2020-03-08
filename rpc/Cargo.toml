@@ -14,12 +14,12 @@ cennznet-runtime = { path = "../runtime" }
 crml-cennzx-spot-rpc = { path = "../crml/cennzx-spot/rpc" }
 
 #frame dependencies
-pallet-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-transaction-payment-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-substrate-frame-rpc-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+pallet-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-transaction-payment-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+substrate-frame-rpc-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 
 #primitives and client dependencies
-sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
