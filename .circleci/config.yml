@@ -55,12 +55,12 @@ commands:
             - target/debug/deps
             - target/debug/incremental
             - runtime/wasm/target/
-          key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}-{{ epoch }}
+          key: target-cache-{{ arch }}-{{ .Environment.RUST_VERSION }}-{{ .Environment.CIRCLE_BRANCH }}-{{ epoch }}
   restore-target-cache:
     steps:
       - restore_cache:
           name: Restore target cache
-          key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}
+          key: target-cache-{{ arch }}-{{ .Environment.RUST_VERSION }}-{{ .Environment.CIRCLE_BRANCH }}
   cargo-check:
     steps:
       - run:
@@ -107,7 +107,7 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: nightly-2019-12-19
+      RUST_VERSION: 1.41.1
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:
@@ -124,7 +124,7 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: nightly-2019-12-19
+      RUST_VERSION: 1.41.1
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:
