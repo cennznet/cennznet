@@ -22,6 +22,7 @@ use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
+use crml_staking::RewardDestination;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	additional_traits::{InherentAssetIdProvider, MultiCurrencyAccounting},
@@ -31,7 +32,6 @@ use frame_support::{
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
-use crml_staking::RewardDestination;
 use sp_runtime::{
 	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
 	DispatchError, Fixed64,

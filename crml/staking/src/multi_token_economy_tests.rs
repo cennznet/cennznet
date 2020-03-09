@@ -17,8 +17,8 @@
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
+use frame_support::{impl_outer_origin, parameter_types};
 use sp_core::H256;
-use std::collections::HashSet;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::{Header, UintAuthorityId},
@@ -26,13 +26,12 @@ use sp_runtime::{
 	Perbill,
 };
 use sp_staking::SessionIndex;
-use frame_support::{impl_outer_origin, parameter_types};
+use std::collections::HashSet;
 
-use crate::{
-	EraIndex, GenesisConfig, Module, Trait, StakingLedger, StakerStatus, RewardDestination,
-	inflation
+use crate::mock::{
+	Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler, SESSION,
 };
-use crate::mock::{Author11, CurrencyToVoteHandler, TestSessionHandler, ExistentialDeposit, SlashDeferDuration, SESSION};
+use crate::{inflation, EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
 
 const REWARD_ASSET_ID: u32 = 101;
 const STAKING_ASSET_ID: u32 = 100;
@@ -43,7 +42,7 @@ pub type BlockNumber = u64;
 pub type Balance = u64;
 
 use frame_system as system;
-impl_outer_origin!{
+impl_outer_origin! {
 	pub enum Origin for Test {}
 }
 
@@ -192,16 +191,17 @@ impl ExtBuilder {
 
 		let _ = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-		let _ = pallet_generic_asset::GenesisConfig::<Test>{
+		let _ = pallet_generic_asset::GenesisConfig::<Test> {
 			endowed_accounts: vec![10, 11],
 			initial_balance: 1_000_000_000,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: REWARD_ASSET_ID,
 			assets: vec![STAKING_ASSET_ID, REWARD_ASSET_ID],
 			next_asset_id: 102,
-		}.assimilate_storage(&mut storage);
+		}
+		.assimilate_storage(&mut storage);
 
-		let _ = GenesisConfig::<Test>{
+		let _ = GenesisConfig::<Test> {
 			current_era: 0,
 			stakers: vec![
 				// (stash, controller, staked_amount, status)
@@ -211,18 +211,18 @@ impl ExtBuilder {
 			minimum_validator_count: self.minimum_validator_count,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
-		}.assimilate_storage(&mut storage);
+		}
+		.assimilate_storage(&mut storage);
 
 		let _ = pallet_session::GenesisConfig::<Test> {
 			keys: validators.iter().map(|x| (*x, UintAuthorityId(*x))).collect(),
-		}.assimilate_storage(&mut storage);
+		}
+		.assimilate_storage(&mut storage);
 
 		let mut t = sp_io::TestExternalities::new(storage);
 		t.execute_with(|| {
 			let validators = Session::validators();
-			SESSION.with(|x|
-				*x.borrow_mut() = (validators.clone(), HashSet::new())
-			);
+			SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
 		});
 		t
 	}
@@ -257,7 +257,8 @@ pub fn current_total_payout_for_duration(duration: u64) -> u64 {
 		<Module<Test>>::slot_stake() * 2,
 		GenericAsset::total_issuance(&STAKING_ASSET_ID),
 		duration,
-	).0
+	)
+	.0
 }
 
 #[test]
@@ -271,12 +272,15 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check the balance of the stash account
 		assert_eq!(GenericAsset::free_balance(&REWARD_ASSET_ID, &11), 1_000_000_000);
 		// Check how much is at stake
-		assert_eq!(Staking::ledger(&10), Some(StakingLedger {
-			stash: 11,
-			total: 500_000,
-			active: 500_000,
-			unlocking: vec![],
-		}));
+		assert_eq!(
+			Staking::ledger(&10),
+			Some(StakingLedger {
+				stash: 11,
+				total: 500_000,
+				active: 500_000,
+				unlocking: vec![],
+			})
+		);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_0 = current_total_payout_for_duration(3000);
@@ -288,13 +292,19 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check that RewardDestination is Staked (default)
 		assert_eq!(Staking::payee(&11), RewardDestination::Staked);
 		// Check that reward went to the stash account of validator
-		assert_eq!(GenericAsset::free_balance(&REWARD_ASSET_ID, &11), 1_000_000_000 + total_payout_0);
+		assert_eq!(
+			GenericAsset::free_balance(&REWARD_ASSET_ID, &11),
+			1_000_000_000 + total_payout_0
+		);
 		// Check that amount at stake has NOT changed
-		assert_eq!(Staking::ledger(&10), Some(StakingLedger {
-			stash: 11,
-			total: 500_000,
-			active: 500_000,
-			unlocking: vec![],
-		}));
+		assert_eq!(
+			Staking::ledger(&10),
+			Some(StakingLedger {
+				stash: 11,
+				total: 500_000,
+				active: 500_000,
+				unlocking: vec![],
+			})
+		);
 	});
 }

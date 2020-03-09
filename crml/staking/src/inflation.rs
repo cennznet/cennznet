@@ -19,7 +19,7 @@
 //! The staking rate in NPoS is the total amount of tokens staked by nominators and validators,
 //! divided by the total token supply.
 
-use sp_runtime::{Perbill, traits::SimpleArithmetic, curve::PiecewiseLinear};
+use sp_runtime::{curve::PiecewiseLinear, traits::SimpleArithmetic, Perbill};
 
 /// The total payout to all validators (and their nominators) per era.
 ///
@@ -31,16 +31,17 @@ pub fn compute_total_payout<N>(
 	yearly_inflation: &PiecewiseLinear<'static>,
 	npos_token_staked: N,
 	total_tokens: N,
-	era_duration: u64
-) -> (N, N) where N: SimpleArithmetic + Clone {
+	era_duration: u64,
+) -> (N, N)
+where
+	N: SimpleArithmetic + Clone,
+{
 	// Milliseconds per year for the Julian year (365.25 days).
 	const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
 	let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
-	let payout = portion * yearly_inflation.calculate_for_fraction_times_denominator(
-		npos_token_staked,
-		total_tokens.clone(),
-	);
+	let payout =
+		portion * yearly_inflation.calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
 	let maximum = portion * (yearly_inflation.maximum * total_tokens);
 	(payout, maximum)
 }
@@ -96,7 +97,8 @@ mod test {
 				2_500_000_000_000_000_000_000_000_000u128,
 				5_000_000_000_000_000_000_000_000_000u128,
 				HOUR
-			).0,
+			)
+			.0,
 			57_038_500_000_000_000_000_000
 		);
 	}

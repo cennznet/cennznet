@@ -22,6 +22,7 @@ use cennznet_runtime::{
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
+use crml_staking::{RewardDestination, StakingLedger};
 use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
@@ -30,7 +31,6 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
-use crml_staking::{RewardDestination, StakingLedger};
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header},

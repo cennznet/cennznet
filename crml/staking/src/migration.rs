@@ -25,11 +25,11 @@ pub const CURRENT_VERSION: VersionNumber = 2;
 /// The inner logic of migrations.
 #[cfg(any(test, feature = "migrate"))]
 pub mod inner {
-	use crate::{Store, Module, Trait};
+	use super::{VersionNumber, CURRENT_VERSION};
+	use crate::{Module, Store, Trait};
+	use codec::{Decode, Encode};
 	use frame_support::{StorageLinkedMap, StoragePrefixedMap, StorageValue};
-	use codec::{Encode, Decode};
 	use sp_std::vec::Vec;
-	use super::{CURRENT_VERSION, VersionNumber};
 
 	// the minimum supported version of the migration logic.
 	const MIN_SUPPORTED_VERSION: VersionNumber = 0;
@@ -39,7 +39,9 @@ pub mod inner {
 	// this upgrades the `Nominators` linked_map value type from `Vec<T::AccountId>` to
 	// `Option<Nominations<T::AccountId>>`
 	pub fn to_v1<T: Trait>(version: &mut VersionNumber) {
-		if *version != 0 { return }
+		if *version != 0 {
+			return;
+		}
 		*version += 1;
 
 		let now = <Module<T>>::current_era();
@@ -65,7 +67,7 @@ pub mod inner {
 	// migrate storage from v1 to v2: adds another field to the `SlashingSpans`
 	// struct.
 	pub fn to_v2<T: Trait>(version: &mut VersionNumber) {
-		use crate::{EraIndex, slashing::SpanIndex};
+		use crate::{slashing::SpanIndex, EraIndex};
 		#[derive(Decode)]
 		struct V1SlashingSpans {
 			span_index: SpanIndex,
@@ -81,26 +83,28 @@ pub mod inner {
 			prior: Vec<EraIndex>,
 		}
 
-		if *version != 1 { return }
+		if *version != 1 {
+			return;
+		}
 		*version += 1;
 
 		let prefix = <Module<T> as Store>::SlashingSpans::final_prefix();
 		let mut current_key = prefix.to_vec();
 		loop {
-			let maybe_next_key = sp_io::storage::next_key(&current_key[..])
-				.filter(|v| v.starts_with(&prefix[..]));
+			let maybe_next_key = sp_io::storage::next_key(&current_key[..]).filter(|v| v.starts_with(&prefix[..]));
 
 			match maybe_next_key {
 				Some(next_key) => {
-					let maybe_spans = sp_io::storage::get(&next_key[..])
-						.and_then(|v| V1SlashingSpans::decode(&mut &v[..]).ok());
+					let maybe_spans =
+						sp_io::storage::get(&next_key[..]).and_then(|v| V1SlashingSpans::decode(&mut &v[..]).ok());
 					if let Some(spans) = maybe_spans {
 						let new_val = V2SlashingSpans {
 							span_index: spans.span_index,
 							last_start: spans.last_start,
 							last_nonzero_slash: spans.last_start,
 							prior: spans.prior,
-						}.encode();
+						}
+						.encode();
 
 						sp_io::storage::set(&next_key[..], &new_val[..]);
 					}
@@ -114,13 +118,17 @@ pub mod inner {
 	pub(super) fn perform_migrations<T: Trait>() {
 		<Module<T> as Store>::StorageVersion::mutate(|version| {
 			if *version < MIN_SUPPORTED_VERSION {
-				frame_support::print("Cannot migrate staking storage because version is less than\
-					minimum.");
+				frame_support::print(
+					"Cannot migrate staking storage because version is less than\
+					minimum.",
+				);
 				frame_support::print(*version);
-				return
+				return;
 			}
 
-			if *version == CURRENT_VERSION { return }
+			if *version == CURRENT_VERSION {
+				return;
+			}
 
 			to_v1::<T>(version);
 			to_v2::<T>(version);
@@ -130,7 +138,7 @@ pub mod inner {
 
 #[cfg(not(any(test, feature = "migrate")))]
 mod inner {
-	pub(super) fn perform_migrations<T>() { }
+	pub(super) fn perform_migrations<T>() {}
 }
 
 /// Perform all necessary storage migrations to get storage into the expected stsate for current
