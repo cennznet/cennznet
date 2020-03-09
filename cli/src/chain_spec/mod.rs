@@ -151,7 +151,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				.map(|x| (x.0.clone(), session_keys(x.clone())))
 				.collect::<Vec<_>>(),
 		}),
-		pallet_staking: Some(StakingConfig {
+		crml_staking: Some(StakingConfig {
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,

@@ -137,7 +137,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_staking::GenesisConfig::<Runtime> {
+		crml_staking::GenesisConfig::<Runtime> {
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,

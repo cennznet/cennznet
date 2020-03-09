@@ -57,8 +57,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+pub use crml_staking::StakerStatus;
 pub use frame_support::StorageValue;
-pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -274,16 +274,16 @@ impl pallet_session::Trait for Runtime {
 	type Event = Event;
 	type Keys = SessionKeys;
 	type ValidatorId = <Self as frame_system::Trait>::AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = crml_staking::StashOf<Self>;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
 
 impl pallet_session::historical::Trait for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = crml_staking::ExposureOf<Runtime>;
 }
 
-pallet_staking_reward_curve::build! {
+crml_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
 		max_inflation: 0_100_000,
@@ -296,12 +296,12 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: pallet_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
+	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
-impl pallet_staking::Trait for Runtime {
+impl crml_staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
 	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type CurrencyToReward = Balance;
@@ -608,7 +608,7 @@ construct_runtime!(
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>},
 		TransactionPayment: crml_transaction_payment::{Module, Storage},
 		GenericAsset: pallet_generic_asset::{Module, Call, Storage, Event<T>, Config<T>},
-		Staking: pallet_staking,
+		Staking: crml_staking,
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
 		Democracy: pallet_democracy::{Module, Call, Storage, Config, Event<T>},
 		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},

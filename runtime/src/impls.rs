@@ -22,6 +22,7 @@ use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
+use crml_staking::RewardDestination;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	additional_traits::{InherentAssetIdProvider, MultiCurrencyAccounting},
@@ -31,7 +32,6 @@ use frame_support::{
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
-use pallet_staking::RewardDestination;
 use sp_runtime::{
 	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
 	DispatchError, Fixed64,
@@ -40,7 +40,7 @@ use sp_runtime::{
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
-type Staking<T> = pallet_staking::Module<T>;
+type Staking<T> = crml_staking::Module<T>;
 
 pub struct SplitToAllValidators;
 
