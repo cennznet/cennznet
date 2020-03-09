@@ -30,7 +30,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
-use pallet_staking::{RewardDestination, StakingLedger};
+use crml_staking::{RewardDestination, StakingLedger};
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header},

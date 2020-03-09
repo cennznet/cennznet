@@ -16,7 +16,7 @@ frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", bran
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+crml-staking = { version = "1.0.0",  path = "../crml/staking" }
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
 sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }

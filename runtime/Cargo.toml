@@ -61,13 +61,16 @@ pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain",
 pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "1.0.0-rc2" }
-pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
-pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+crml-staking = { version = "1.0.0", default-features = false, path = "../crml/staking" }
+crml-staking-reward-curve = { version = "1.0.0", default-features = false, path = "../crml/staking/reward-curve" }
 pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc2" }
+
+# Imported just for the `no_cc` feature
+clear_on_drop = { version = "0.2.3", features = ["no_cc"] }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
@@ -115,7 +118,7 @@ std = [
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"pallet-staking/std",
+	"crml-staking/std",
 	"sp-keyring",
 	"sp-session/std",
 	"pallet-sudo/std",
