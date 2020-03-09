@@ -52,29 +52,18 @@ impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 		if validators.len().is_zero() || imbalance.peek().is_zero() {
 			return;
 		}
-		// Get a list of elected validators
+		// Calculate average reward
 		let per_validator_reward: Balance = imbalance.peek() / (validators.len() as Balance);
+		let current_era = <Staking<Runtime>>::current_era();
 
-		// This tracks the total amount of reward actually handed out. Used to adjust total issurance
-		let mut total_imbalance = PositiveImbalance::zero();
-		let asset_id = imbalance.asset_id();
+		// This tracks the total amount of reward actually handed out. Upate rewards in a era
 		for validator in &validators {
-			let dest = Staking::<Runtime>::payee(validator);
-			let reward_destination_account_id = match dest {
-				RewardDestination::Controller => {
-					Staking::<Runtime>::bonded(validator).unwrap_or_else(|| validator.clone())
-				}
-				RewardDestination::Stash | RewardDestination::Staked => validator.clone(),
-			};
-
-			let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
-				&reward_destination_account_id,
-				Some(asset_id.into()),
-				per_validator_reward,
-			);
-			let _ = total_imbalance.subsume(payout);
+			// TODO: make sure can access `CurrentEraTransactionRewards` correctly
+			Staking::CurrentEraTransactionRewards<Runtime>::mutate((current_era, validator), |reward| {
+				// TODO: reward overflow is special case, can not return error type
+				*reward = reward.checked_add(&per_validator_reward).unwrap_or_else(Zero::zero)
+			})
 		}
-		let _ = imbalance.offset(total_imbalance);
 	}
 }
 
