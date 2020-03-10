@@ -32,6 +32,8 @@ use frame_support::{
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
 use frame_system::{EventRecord, Phase};
+use crml_staking::EraIndex;
+use sp_staking::SessionIndex;
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
@@ -242,8 +244,8 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 
 			let fm = TransactionPayment::next_fee_multiplier();
 			let fee = transfer_fee(&xt, fm, &runtime_call);
-			let fee_reward = fee / validators.len() as u128;
-			let remainder = fee % validators.len() as u128;
+			let fee_reward = fee / validators.len() as Balance;
+			let remainder = fee % validators.len() as Balance;
 
 			let previous_total_issuance = GenericAsset::total_issuance(&CENTRAPAY_ASSET_ID);
 

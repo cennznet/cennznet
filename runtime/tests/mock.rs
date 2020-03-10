@@ -16,13 +16,15 @@
 
 #![allow(dead_code)]
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
-use cennznet_primitives::types::{AccountId, Balance};
-use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
+use cennznet_primitives::types::{AccountId, Balance, BlockNumber};
+use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION, SessionKeys};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
+use frame_support::parameter_types;
+use sp_runtime::traits::OpaqueKeys;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
@@ -45,6 +47,24 @@ pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
 		.map(|x| (x.0.clone(), x.1.clone()))
 		.collect()
 }
+
+// Test config for `pallet_session`
+// parameter_types! {
+// 	pub const Period: BlockNumber = 1;
+// 	pub const Offset: BlockNumber = 0;
+// 	pub const UncleGenerations: u64 = 0;
+// 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
+// }
+// impl pallet_session::Trait for Runtime {
+// 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Runtime, Staking>;
+// 	type Keys = SessionKeys;
+// 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+// 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+// 	type Event = ();
+// 	type ValidatorId = <Runtime as frame_system::Trait>::AccountId;
+// 	type ValidatorIdOf = crml_staking::StashOf<Runtime>;
+// 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+// }
 
 pub struct ExtBuilder {
 	initial_balance: Balance,
