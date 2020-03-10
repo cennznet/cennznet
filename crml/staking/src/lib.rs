@@ -290,9 +290,6 @@ const MAX_NOMINATIONS: usize = 16;
 const MAX_UNLOCKING_CHUNKS: usize = 32;
 const STAKING_ID: LockIdentifier = *b"staking ";
 
-/// Hack reward currency asset id: Centrapay
-const REWARD_CURRENCY_ASSET_ID: u32 = 160001;
-
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
 
@@ -1362,22 +1359,29 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
-	/// Make transaction rewards to all the validators
+	/// Payout transaction rewards to all the validators. Called at the beginning of an era
 	fn transaction_reward_validators() {
 		let validators = Self::current_elected();
-		let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 		let total_reward = Self::current_era_transaction_rewards();
 		let validators_len: BalanceOf<T> = (validators.len() as u32).into();
 
 		if validators_len.is_zero() || total_reward.is_zero() {
-			return
+			return;
 		}
 
 		let reward = total_reward / validators_len;
 		for v in validators.iter() {
-			total_imbalance.maybe_subsume(Self::make_payout(&v, reward));
+			Self::make_payout(&v, reward);
 		}
 
+		// Hack: Issue/mint the amount of reward given out, so the total issuance stays consistent
+		let imbalance = T::RewardCurrency::issue(T::CurrencyToReward::from(total_reward).into());
+
+		// ```issue()``` returns a negative imbalance, which when dropped will revert the issue().
+		// To prevent this, ```mem::forget``` is used
+		sp_std::mem::forget(imbalance);
+
+		// reset chain storage for the total reward for the new era
 		<CurrentEraTransactionRewards<T>>::kill();
 	}
 

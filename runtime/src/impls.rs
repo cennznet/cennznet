@@ -23,9 +23,10 @@ use cennznet_primitives::{
 };
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
-	storage, StorageValue,
+	storage,
 	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
+	StorageValue,
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
