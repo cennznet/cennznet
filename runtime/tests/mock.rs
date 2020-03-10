@@ -15,16 +15,26 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
+use std::{collections::HashSet, cell::RefCell};
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
-use cennznet_primitives::types::{AccountId, Balance, BlockNumber};
-use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION, SessionKeys};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
 use pallet_contracts::{Gas, Schedule};
-use sp_runtime::Perbill;
-use frame_support::parameter_types;
-use sp_runtime::traits::OpaqueKeys;
+use sp_runtime::{traits::{OpaqueKeys, IdentityLookup}, Perbill, KeyTypeId, curve::PiecewiseLinear};
+use sp_runtime::testing::{Header, UintAuthorityId};
+use sp_core::crypto::key_types;
+use sp_staking::SessionIndex;
+use crml_staking::EraIndex;
+
+use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
+use frame_support::{impl_outer_origin, parameter_types, traits::{FindAuthor}};
+use cennznet_runtime::impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
+use cennznet_runtime::constants::{currency::*, time::*};
+use cennznet_runtime::{
+	constants::asset::*, CennzxSpot, DealWithFees, RandomnessCollectiveFlip, StakerStatus, VERSION,
+};
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
@@ -42,29 +52,228 @@ fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
 // get all validators (stash account , controller account)
 pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
 	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
-	generate_initial_authorities(n)
+	let mut accounts = generate_initial_authorities(n)
 		.iter()
 		.map(|x| (x.0.clone(), x.1.clone()))
 		.collect()
 }
 
-// Test config for `pallet_session`
-// parameter_types! {
-// 	pub const Period: BlockNumber = 1;
-// 	pub const Offset: BlockNumber = 0;
-// 	pub const UncleGenerations: u64 = 0;
-// 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
-// }
-// impl pallet_session::Trait for Runtime {
-// 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Runtime, Staking>;
-// 	type Keys = SessionKeys;
-// 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-// 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-// 	type Event = ();
-// 	type ValidatorId = <Runtime as frame_system::Trait>::AccountId;
-// 	type ValidatorIdOf = crml_staking::StashOf<Runtime>;
-// 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-// }
+/// Author of block is always `Alice`
+pub struct AuthorAlice;
+impl FindAuthor<u64> for AuthorAlice {
+	fn find_author<'a, I>(_digests: I) -> Option<u64>
+		where I: 'a + IntoIterator<Item=(frame_support::ConsensusEngineId, &'a [u8])>
+	{
+		Some(validators(1).0)
+	}
+}
+
+thread_local! {
+	pub(crate) static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
+	static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
+}
+
+pub struct TestSessionHandler;
+impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
+	fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
+
+	fn on_new_session<Ks: OpaqueKeys>(
+		_changed: bool,
+		validators: &[(AccountId, Ks)],
+		_queued_validators: &[(AccountId, Ks)],
+	) {
+		SESSION.with(|x|
+			*x.borrow_mut() = (validators.iter().map(|x| x.0.clone()).collect(), HashSet::new())
+		);
+	}
+
+	fn on_disabled(validator_index: usize) {
+		SESSION.with(|d| {
+			let mut d = d.borrow_mut();
+			let value = d.0[validator_index];
+			d.1.insert(value);
+		})
+	}
+}
+
+pub struct SlashDeferDuration;
+impl Get<EraIndex> for SlashDeferDuration {
+	fn get() -> EraIndex {
+		SLASH_DEFER_DURATION.with(|v| *v.borrow())
+	}
+}
+
+impl_outer_origin! {
+	pub enum Origin for Test where system = frame_system {}
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Test;
+
+parameter_types! {
+	pub const BlockHashCount: u64 = 250;
+	pub const MaximumBlockWeight: u32 = 1024;
+	pub const MaximumBlockLength: u32 = 2 * 1024;
+	pub const AvailableBlockRatio: Perbill = Perbill::one();
+}
+
+impl frame_system::Trait for Test {
+	type Origin = Origin;
+	type Index = u64;
+	type BlockNumber = BlockNumber;
+	type Call = ();
+	type Hash = Hash;
+	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Header = Header;
+	type Event = ();
+	type BlockHashCount = BlockHashCount;
+	type MaximumBlockWeight = MaximumBlockWeight;
+	type AvailableBlockRatio = AvailableBlockRatio;
+	type MaximumBlockLength = MaximumBlockLength;
+	type Version = ();
+	type ModuleToIndex = ();
+	type Doughnut = ();
+	type DelegatedDispatchVerifier = ();
+}
+
+impl pallet_generic_asset::Trait for Test {
+	type Balance = Balance;
+	type AssetId = AssetId;
+	type Event = ();
+}
+
+parameter_types! {
+	pub const TransactionBaseFee: Balance = 1 * CENTS;
+	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	// setting this to zero will disable the weight fee.
+	pub const WeightFeeCoefficient: Balance = 1_000;
+}
+
+impl crml_transaction_payment::Trait for Test {
+	type Balance = Balance;
+	type AssetId = AssetId;
+	type Currency = SpendingAssetCurrency<Self>;
+	type OnTransactionPayment = DealWithFees;
+	type TransactionBaseFee = TransactionBaseFee;
+	type TransactionByteFee = TransactionByteFee;
+	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
+	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
+	type BuyFeeAsset = CennzxSpot;
+	type GasMeteredCallResolver = GasMeteredCallResolver;
+}
+
+parameter_types! {
+	pub const Period: BlockNumber = 1;
+	pub const Offset: BlockNumber = 0;
+	pub const UncleGenerations: u64 = 0;
+	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
+}
+impl pallet_session::Trait for Test {
+	type SessionManager = Staking;
+	type Keys = UintAuthorityId;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionHandler = TestSessionHandler;
+	type Event = ();
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = crml_staking::StashOf<Self>;
+	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+}
+
+impl pallet_session::historical::Trait for Test {
+	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = crml_staking::ExposureOf<Test>;
+}
+impl pallet_authorship::Trait for Test {
+	type FindAuthor = AuthorAlice;
+	type UncleGenerations = UncleGenerations;
+	type FilterUncle = ();
+	type EventHandler = Staking;
+}
+parameter_types! {
+	pub const MinimumPeriod: u64 = 5;
+}
+impl pallet_timestamp::Trait for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+}
+pallet_staking_reward_curve::build! {
+	const I_NPOS: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+parameter_types! {
+	pub const SessionsPerEra: SessionIndex = 3;
+	pub const BondingDuration: EraIndex = 3;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+}
+impl crml_staking::Trait for Test {
+	type Currency = StakingAssetCurrency<Self>;
+	type RewardCurrency = SpendingAssetCurrency<Self>;
+	type CurrencyToReward = Balance;
+	type Time = pallet_timestamp::Module<Self>;
+	type CurrencyToVote = CurrencyToVoteHandler;
+	type RewardRemainder = ();
+	type Event = ();
+	type Slash = ();
+	type Reward = ();
+	type SessionsPerEra = SessionsPerEra;
+	type SlashDeferDuration = SlashDeferDuration;
+	type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId, ()>;
+	type BondingDuration = BondingDuration;
+	type SessionInterface = Self;
+	type RewardCurve = RewardCurve;
+}
+parameter_types! {
+	pub const ContractTransferFee: Balance = 1 * NANOCENTS;
+	pub const ContractCreationFee: Balance = 1 * MICROCENTS;
+	pub const ContractTransactionBaseFee: Balance = 1 * NANOCENTS;
+	pub const ContractTransactionByteFee: Balance = 10 * MICROCENTS;
+	pub const ContractFee: Balance = 1 * CENTS;
+	pub const TombstoneDeposit: Balance = 1 * DOLLARS;
+	pub const RentByteFee: Balance = 1 * DOLLARS;
+	pub const RentDepositOffset: Balance = 1000 * DOLLARS;
+	pub const SurchargeReward: Balance = 150 * DOLLARS;
+	pub const BlockGasLimit: u64 = 100 * DOLLARS as u64;
+}
+impl pallet_contracts::Trait for Test {
+	type Currency = SpendingAssetCurrency<Self>;
+	type Time = Timestamp;
+	type Randomness = RandomnessCollectiveFlip;
+	type Call = Call;
+	type Event = ();
+	type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<Test>;
+	type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Test>;
+	type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Test>;
+	type GasPayment = ();
+	type GasHandler = GasHandler;
+	type RentPayment = ();
+	type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
+	type TombstoneDeposit = TombstoneDeposit;
+	type StorageSizeOffset = pallet_contracts::DefaultStorageSizeOffset;
+	type RentByteFee = RentByteFee;
+	type RentDepositOffset = RentDepositOffset;
+	type SurchargeReward = SurchargeReward;
+	type TransferFee = ContractTransferFee;
+	type CreationFee = ContractCreationFee;
+	type TransactionBaseFee = ContractTransactionBaseFee;
+	type TransactionByteFee = ContractTransactionByteFee;
+	type ContractFee = ContractFee;
+	type CallBaseFee = pallet_contracts::DefaultCallBaseFee;
+	type InstantiateBaseFee = pallet_contracts::DefaultInstantiateBaseFee;
+	type MaxDepth = pallet_contracts::DefaultMaxDepth;
+	type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
+	type BlockGasLimit = BlockGasLimit;
+}
 
 pub struct ExtBuilder {
 	initial_balance: Balance,
@@ -117,14 +326,14 @@ impl ExtBuilder {
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
-		let initial_authorities = generate_initial_authorities(self.validator_count);
-		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
+		let initial_validators = validators(self.validator_count);
+		let stash_accounts: Vec<_> = initial_validators.iter().map(|x| x.0.clone()).collect();
 		endowed_accounts.extend(stash_accounts);
 
 		let mut t = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
+			.build_storage::<Test>()
 			.unwrap();
-		crml_cennzx_spot::GenesisConfig::<Runtime> {
+		crml_cennzx_spot::GenesisConfig::<Test> {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}
@@ -136,14 +345,14 @@ impl ExtBuilder {
 		gas_price_schedule.sandbox_data_read_cost = self.gas_sandbox_data_read_cost;
 		gas_price_schedule.regular_op_cost = self.gas_regular_op_cost;
 
-		pallet_contracts::GenesisConfig::<Runtime> {
+		pallet_contracts::GenesisConfig::<Test> {
 			current_schedule: gas_price_schedule,
 			gas_price: self.gas_price,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_generic_asset::GenesisConfig::<Runtime> {
+		pallet_generic_asset::GenesisConfig::<Test> {
 			assets: vec![
 				CENNZ_ASSET_ID,
 				CENTRAPAY_ASSET_ID,
@@ -161,11 +370,11 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		crml_staking::GenesisConfig::<Runtime> {
+		crml_staking::GenesisConfig::<Test> {
 			current_era: 0,
-			validator_count: initial_authorities.len() as u32 * 2,
-			minimum_validator_count: initial_authorities.len() as u32,
-			stakers: initial_authorities
+			validator_count: initial_validators.len() as u32 * 2,
+			minimum_validator_count: initial_validators.len() as u32,
+			stakers: initial_validators
 				.iter()
 				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
 				.collect(),
@@ -175,10 +384,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_session::GenesisConfig::<Runtime> {
-			keys: initial_authorities
+		pallet_session::GenesisConfig::<Test> {
+			keys: initial_validators
 				.iter()
-				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.map(|x| (x.0.clone(), UintAuthorityId(x.0)))
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut t)

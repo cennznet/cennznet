@@ -32,8 +32,6 @@ use frame_support::{
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
 use frame_system::{EventRecord, Phase};
-use crml_staking::EraIndex;
-use sp_staking::SessionIndex;
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
@@ -161,6 +159,41 @@ fn start_session_works() {
 		start_session(5);
 	});
 }
+pub fn current_total_payout_for_duration(duration: u64) -> Balance {
+	crml_staking::inflation::compute_total_payout(
+		<Runtime as crml_staking::Trait>::RewardCurve::get(),
+		<Staking>::slot_stake() * 2,
+		GenericAsset::total_issuance(&CENNZ_ASSET_ID),
+		duration,
+	)
+	.0
+}
+
+#[test]
+fn staking_reward_should_work() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let staked_amount = balance_amount / 5;
+	let validators = validators(6);
+
+	// should check that:
+	// * rewards get recorded per session
+	// * rewards get paid per Era
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.stash(staked_amount)
+		.validator_count(validators.len())
+		.build()
+		.execute_with(|| {
+			// Compute total payout now for whole duration as other parameter won't change
+			let total_payout_0 = current_total_payout_for_duration(6000);
+			let per_staking_reward = total_payout_0 / (validators.len() as Balance);
+			assert!(total_payout_0 > 1);
+			Staking::reward_by_ids(
+				validators
+					.iter()
+					.map(|v| (v.0.clone(), 1))
+					.collect::<Vec<(AccountId, u32)>>(),
+			);
 
 #[test]
 fn advance_session_works() {
