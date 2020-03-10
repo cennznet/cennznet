@@ -290,6 +290,9 @@ const MAX_NOMINATIONS: usize = 16;
 const MAX_UNLOCKING_CHUNKS: usize = 32;
 const STAKING_ID: LockIdentifier = *b"staking ";
 
+/// Hack reward currency asset id: Centrapay
+const REWARD_CURRENCY_ASSET_ID: u32 = 160001;
+
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
 
@@ -726,6 +729,9 @@ decl_storage! {
 
 		/// Rewards for the current era. Using indices of current elected set.
 		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
+
+		/// Total transaction payment rewards for elected validators
+		pub CurrentEraTransactionRewards get(fn current_era_transaction_rewards): BalanceOf<T>;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -1356,6 +1362,25 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
+	/// Make transaction rewards to all the validators
+	fn transaction_reward_validators() {
+		let validators = Self::current_elected();
+		let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
+		let total_reward = Self::current_era_transaction_rewards();
+		let validators_len: BalanceOf<T> = (validators.len() as u32).into();
+
+		if validators_len.is_zero() || total_reward.is_zero() {
+			return
+		}
+
+		let reward = total_reward / validators_len;
+		for v in validators.iter() {
+			total_imbalance.maybe_subsume(Self::make_payout(&v, reward));
+		}
+
+		<CurrentEraTransactionRewards<T>>::kill();
+	}
+
 	/// Session has just ended. Provide the validator set for the next session if it's an era-end.
 	fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		let era_length = session_index
@@ -1395,6 +1420,9 @@ impl<T: Trait> Module<T> {
 
 			let validator_len: BalanceOf<T> = (validators.len() as u32).into();
 			let total_rewarded_stake = Self::slot_stake() * validator_len;
+
+			// should pay transaction rewards before allocating staking reward
+			Self::transaction_reward_validators();
 
 			let (total_payout, max_payout) = inflation::compute_total_payout(
 				&T::RewardCurve::get(),

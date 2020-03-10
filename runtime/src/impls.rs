@@ -21,11 +21,9 @@ use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
-use crml_staking::RewardDestination;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
-	additional_traits::{InherentAssetIdProvider, MultiCurrencyAccounting},
-	storage,
+	storage, StorageValue,
 	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
@@ -39,7 +37,6 @@ use sp_runtime::{
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
-type Staking<T> = crml_staking::Module<T>;
 
 pub struct SplitToAllValidators;
 
@@ -48,20 +45,11 @@ pub struct SplitToAllValidators;
 /// The remainder from the division are burned.
 impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
-		let validators = Staking::<Runtime>::current_elected();
-		if validators.len().is_zero() || imbalance.peek().is_zero() {
-			return;
-		}
-		// Calculate average reward
-		let per_validator_reward: Balance = imbalance.peek() / (validators.len() as Balance);
-		let current_era = <Staking<Runtime>>::current_era();
+		let amount = imbalance.peek();
 
-		// This tracks the total amount of reward actually handed out. Upate rewards in a era
-		for validator in &validators {
-			// TODO: make sure can access `CurrentEraTransactionRewards` correctly
-			Staking::CurrentEraTransactionRewards<Runtime>::mutate((current_era, validator), |reward| {
-				// TODO: reward overflow is special case, can not return error type
-				*reward = reward.checked_add(&per_validator_reward).unwrap_or_else(Zero::zero)
+		if !amount.is_zero() {
+			<crml_staking::CurrentEraTransactionRewards<Runtime>>::mutate(|reward| {
+				*reward = reward.checked_add(amount).unwrap_or_else(|| *reward)
 			})
 		}
 	}
