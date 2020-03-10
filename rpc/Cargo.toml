@@ -3,6 +3,9 @@ name = "cennznet-rpc"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
+license = "GPL-3.0"
+homepage = "https://cennznetdocs.com"
+repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 #third-party dependencies
@@ -20,6 +23,13 @@ substrate-frame-rpc-system = { git = "https://github.com/plugblockchain/plug-blo
 
 #primitives and client dependencies
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sc-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sc-consensus-babe-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sc-keystore = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sc-consensus-epochs = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-consensus = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }

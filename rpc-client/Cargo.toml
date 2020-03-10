@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 cennznet-primitives = { path = "../primitives" }
+sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 env_logger = "0.7.0"
 futures = "0.1.29"
 hyper = "0.12.35"

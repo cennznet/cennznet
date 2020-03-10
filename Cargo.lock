@@ -657,7 +657,14 @@ dependencies = [
  "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
  "sc-client",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-epochs",
+ "sc-keystore",
  "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
  "sp-runtime",
  "sp-transaction-pool",
  "substrate-frame-rpc-system",
@@ -5471,6 +5478,28 @@ dependencies = [
  "sp-runtime",
  "sp-timestamp",
  "sp-version",
+]
+
+[[package]]
+name = "sc-consensus-babe-rpc"
+version = "0.8.0-alpha.3"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#ab39d2c6a1d8475113efc319d3af2b1d638e5f16"
+dependencies = [
+ "derive_more",
+ "futures 0.3.1",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-keystore",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
