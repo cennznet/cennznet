@@ -728,7 +728,7 @@ decl_storage! {
 		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
 
 		/// Total transaction payment rewards for elected validators
-		pub CurrentEraTransactionRewards get(fn current_era_transaction_rewards): BalanceOf<T>;
+		CurrentEraTransactionRewards : BalanceOf<T>;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -1359,30 +1359,30 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
-	/// Payout transaction rewards to all the validators. Called at the beginning of an era
-	fn transaction_reward_validators() {
-		let validators = Self::current_elected();
-		let total_reward = Self::current_era_transaction_rewards();
-		let validators_len: BalanceOf<T> = (validators.len() as u32).into();
+	pub fn set_current_era_transaction_fee_reward( amount: BalanceOf<T> ){
+		CurrentEraTransactionRewards::<T>::mutate(|reward| {
+			*reward = amount;
+		});
+	}
 
-		if validators_len.is_zero() || total_reward.is_zero() {
+	pub fn add_to_current_era_transaction_fee_reward( amount: BalanceOf<T> ){
+		CurrentEraTransactionRewards::<T>::mutate(|reward| {
+			*reward = reward.checked_add(&amount).unwrap_or_else(|| *reward)
+		});
+	}
+
+	/// Payout transaction rewards to all the validators. Called at the beginning of an era
+	fn split_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
+		let recipients_len: BalanceOf<T> = (recipients.len() as u32).into();
+
+		if recipients_len.is_zero() || total_amount.is_zero() {
 			return;
 		}
 
-		let reward = total_reward / validators_len;
-		for v in validators.iter() {
-			Self::make_payout(&v, reward);
+		let reward = total_amount / recipients_len;
+		for r in recipients.iter() {
+			let _ = Self::make_payout(&r, reward);
 		}
-
-		// Hack: Issue/mint the amount of reward given out, so the total issuance stays consistent
-		let imbalance = T::RewardCurrency::issue(T::CurrencyToReward::from(total_reward).into());
-
-		// ```issue()``` returns a negative imbalance, which when dropped will revert the issue().
-		// To prevent this, ```mem::forget``` is used
-		sp_std::mem::forget(imbalance);
-
-		// reset chain storage for the total reward for the new era
-		<CurrentEraTransactionRewards<T>>::kill();
 	}
 
 	/// Session has just ended. Provide the validator set for the next session if it's an era-end.
@@ -1425,8 +1425,10 @@ impl<T: Trait> Module<T> {
 			let validator_len: BalanceOf<T> = (validators.len() as u32).into();
 			let total_rewarded_stake = Self::slot_stake() * validator_len;
 
-			// should pay transaction rewards before allocating staking reward
-			Self::transaction_reward_validators();
+			// Pay the accumulated tx fee as rewards to all validators
+			let validators = Self::current_elected();
+			let total_tx_fee_reward = CurrentEraTransactionRewards::<T>::take();
+			Self::split_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
 			let (total_payout, max_payout) = inflation::compute_total_payout(
 				&T::RewardCurve::get(),

@@ -49,9 +49,7 @@ impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 		let amount = imbalance.peek();
 
 		if !amount.is_zero() {
-			<crml_staking::CurrentEraTransactionRewards<Runtime>>::mutate(|reward| {
-				*reward = reward.checked_add(amount).unwrap_or_else(|| *reward)
-			})
+			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
 		}
 	}
 }
