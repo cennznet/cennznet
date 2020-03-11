@@ -18,7 +18,7 @@
 use super::Trait;
 use crate::{Error, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
-use frame_support::{dispatch::DispatchError, storage::StorageMap};
+use frame_support::{dispatch::DispatchError, StorageMap};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -65,7 +65,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		// check whether exchange asset id exist
 		let fee_exchange_asset_id = exchange_op.asset_id();
 		ensure!(
-			<pallet_generic_asset::TotalIssuance<T>>::exists(&fee_exchange_asset_id),
+			<pallet_generic_asset::TotalIssuance<T>>::contains_key(&fee_exchange_asset_id),
 			Error::<T>::InvalidAssetId,
 		);
 
