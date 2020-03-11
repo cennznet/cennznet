@@ -15,29 +15,45 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
-use std::{collections::HashSet, cell::RefCell};
-use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash};
-use cennznet_testing::keyring::*;
-use core::convert::TryFrom;
-use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
-use pallet_contracts::{Gas, Schedule};
-use sp_runtime::{traits::{OpaqueKeys, IdentityLookup}, Perbill, KeyTypeId, curve::PiecewiseLinear};
-use sp_runtime::testing::{Header, UintAuthorityId};
-use sp_core::crypto::key_types;
-use sp_staking::SessionIndex;
-use crml_staking::EraIndex;
-
-use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
-use frame_support::{impl_outer_origin, parameter_types, traits::{FindAuthor}};
-use cennznet_runtime::impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
-use cennznet_runtime::constants::{currency::*, time::*};
-use cennznet_runtime::{
-	constants::asset::*, CennzxSpot, DealWithFees, RandomnessCollectiveFlip, StakerStatus, VERSION,
+use cennznet_cli::chain_spec::{get_authority_keys_from_seed, AuthorityKeys};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber, Hash, AccountId};
+use cennznet_runtime::constants::{asset::*, currency::*};
+use cennznet_runtime::impls::{
+	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
 };
+use cennznet_runtime::{
+	CennzxSpot, DealWithFees, ExchangeAddressGenerator, RandomnessCollectiveFlip, StakerStatus, VERSION, Call,
+};
+use cennznet_testing::keyring::*;
+use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
+use crml_staking::EraIndex;
+use std::{cell::RefCell, collections::HashSet};
+
+use core::convert::TryFrom;
+use frame_support::{
+	impl_outer_origin, parameter_types,
+	traits::{FindAuthor, Get},
+	weights::Weight,
+};
+use pallet_contracts::{Gas, Schedule};
+use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
+use sp_core::crypto::key_types;
+use sp_runtime::testing::{Header, UintAuthorityId};
+use sp_runtime::{
+	curve::PiecewiseLinear,
+	traits::{IdentityLookup, OpaqueKeys},
+	KeyTypeId, Perbill,
+};
+use sp_staking::SessionIndex;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
+
+pub type System = frame_system::Module<Test>;
+pub type GenericAsset = pallet_generic_asset::Module<Test>;
+pub type Session = pallet_session::Module<Test>;
+pub type Timestamp = pallet_timestamp::Module<Test>;
+pub type Staking = crml_staking::Module<Test>;
 
 fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
 	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
@@ -52,7 +68,7 @@ fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
 // get all validators (stash account , controller account)
 pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
 	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
-	let mut accounts = generate_initial_authorities(n)
+	generate_initial_authorities(n)
 		.iter()
 		.map(|x| (x.0.clone(), x.1.clone()))
 		.collect()
@@ -60,9 +76,10 @@ pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
 
 /// Author of block is always `Alice`
 pub struct AuthorAlice;
-impl FindAuthor<u64> for AuthorAlice {
-	fn find_author<'a, I>(_digests: I) -> Option<u64>
-		where I: 'a + IntoIterator<Item=(frame_support::ConsensusEngineId, &'a [u8])>
+impl FindAuthor<AccountId> for AuthorAlice {
+	fn find_author<'a, I>(_digests: I) -> Option<AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
 	{
 		Some(validators(1).0)
 	}
@@ -84,9 +101,7 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 		validators: &[(AccountId, Ks)],
 		_queued_validators: &[(AccountId, Ks)],
 	) {
-		SESSION.with(|x|
-			*x.borrow_mut() = (validators.iter().map(|x| x.0.clone()).collect(), HashSet::new())
-		);
+		SESSION.with(|x| *x.borrow_mut() = (validators.iter().map(|x| x.0.clone()).collect(), HashSet::new()));
 	}
 
 	fn on_disabled(validator_index: usize) {
@@ -113,8 +128,8 @@ impl_outer_origin! {
 pub struct Test;
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: u32 = 1024;
+	pub const BlockHashCount: BlockNumber = 250;
+	pub const MaximumBlockWeight: Weight = 1024;
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
@@ -123,7 +138,7 @@ impl frame_system::Trait for Test {
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = ();
+	type Call = Call;
 	type Hash = Hash;
 	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
@@ -169,7 +184,7 @@ impl crml_transaction_payment::Trait for Test {
 parameter_types! {
 	pub const Period: BlockNumber = 1;
 	pub const Offset: BlockNumber = 0;
-	pub const UncleGenerations: u64 = 0;
+	pub const UncleGenerations: BlockNumber = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Trait for Test {
@@ -232,6 +247,13 @@ impl crml_staking::Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
+}
+impl crml_cennzx_spot::Trait for Test {
+	type Call = Call;
+	type Event = ();
+	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
+	type BalanceToUnsignedInt = Balance;
+	type UnsignedIntToBalance = Balance;
 }
 parameter_types! {
 	pub const ContractTransferFee: Balance = 1 * NANOCENTS;
@@ -330,9 +352,7 @@ impl ExtBuilder {
 		let stash_accounts: Vec<_> = initial_validators.iter().map(|x| x.0.clone()).collect();
 		endowed_accounts.extend(stash_accounts);
 
-		let mut t = frame_system::GenesisConfig::default()
-			.build_storage::<Test>()
-			.unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		crml_cennzx_spot::GenesisConfig::<Test> {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
