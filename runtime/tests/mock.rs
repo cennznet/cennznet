@@ -16,13 +16,13 @@
 
 #![allow(dead_code)]
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, AuthorityKeys};
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber, Hash, AccountId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash};
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::impls::{
 	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
 };
 use cennznet_runtime::{
-	CennzxSpot, DealWithFees, ExchangeAddressGenerator, RandomnessCollectiveFlip, StakerStatus, VERSION, Call,
+	Call, CennzxSpot, DealWithFees, ExchangeAddressGenerator, RandomnessCollectiveFlip, StakerStatus, VERSION,
 };
 use cennznet_testing::keyring::*;
 use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};

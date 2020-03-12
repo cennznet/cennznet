@@ -1359,13 +1359,13 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
-	pub fn set_current_era_transaction_fee_reward( amount: BalanceOf<T> ){
+	pub fn set_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
 		CurrentEraTransactionRewards::<T>::mutate(|reward| {
 			*reward = amount;
 		});
 	}
 
-	pub fn add_to_current_era_transaction_fee_reward( amount: BalanceOf<T> ){
+	pub fn add_to_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
 		CurrentEraTransactionRewards::<T>::mutate(|reward| {
 			*reward = reward.checked_add(&amount).unwrap_or_else(|| *reward)
 		});

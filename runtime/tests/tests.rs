@@ -151,14 +151,6 @@ fn start_era(era_index: EraIndex) {
 	assert_eq!(Staking::current_era(), era_index);
 }
 
-#[test]
-fn start_session_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		start_session(1);
-		start_session(3);
-		start_session(5);
-	});
-}
 pub fn current_total_payout_for_duration(duration: u64) -> Balance {
 	crml_staking::inflation::compute_total_payout(
 		<Runtime as crml_staking::Trait>::RewardCurve::get(),
@@ -167,6 +159,15 @@ pub fn current_total_payout_for_duration(duration: u64) -> Balance {
 		duration,
 	)
 	.0
+}
+
+#[test]
+fn start_session_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		start_session(1);
+		start_session(3);
+		start_session(5);
+	});
 }
 
 #[test]
@@ -194,6 +195,8 @@ fn staking_reward_should_work() {
 					.map(|v| (v.0.clone(), 1))
 					.collect::<Vec<(AccountId, u32)>>(),
 			);
+		});
+}
 
 #[test]
 fn advance_session_works() {
