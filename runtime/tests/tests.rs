@@ -170,6 +170,7 @@ fn start_session_works() {
 	});
 }
 
+// TODO: move down
 #[test]
 fn staking_reward_should_work() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
@@ -185,6 +186,7 @@ fn staking_reward_should_work() {
 		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
+			start_era(1);
 			// Compute total payout now for whole duration as other parameter won't change
 			let total_payout_0 = current_total_payout_for_duration(6000);
 			let per_staking_reward = total_payout_0 / (validators.len() as Balance);
@@ -195,6 +197,15 @@ fn staking_reward_should_work() {
 					.map(|v| (v.0.clone(), 1))
 					.collect::<Vec<(AccountId, u32)>>(),
 			);
+
+			start_era(2);
+			for validator in validators {
+				let (stash, _) = validator;
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + per_staking_reward
+				);
+			}
 		});
 }
 
