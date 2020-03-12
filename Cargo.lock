@@ -678,6 +678,7 @@ dependencies = [
  "hyper 0.12.35",
  "jsonrpc-core-client",
  "log 0.4.8",
+ "sc-rpc",
 ]
 
 [[package]]
