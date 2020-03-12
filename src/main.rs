@@ -49,7 +49,8 @@ impl IntoExit for Exit {
 
 fn main() -> Result<(), cli::error::Error> {
 	let version = VersionInfo {
-		name: "CENNZnet Node", commit: env!("VERGEN_SHA_SHORT"),
+		name: "CENNZnet Node",
+		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
 		executable_name: "cennznet",
 		author: "Centrality Developers <support@centrality.ai>",
