@@ -1359,6 +1359,11 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
+	#[cfg(any(feature = "std", test))]
+	pub fn get_current_era_transaction_fee_reward() -> BalanceOf<T> {
+		CurrentEraTransactionRewards::<T>::get()
+	}
+
 	pub fn set_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
 		CurrentEraTransactionRewards::<T>::mutate(|reward| {
 			*reward = amount;
