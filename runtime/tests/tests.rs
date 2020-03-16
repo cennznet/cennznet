@@ -147,6 +147,7 @@ fn advance_session() {
 	start_session(current_index + 1);
 }
 
+// Starts all sessions up to `era_index` (eg, start_era(2) will start 14 sessions)
 fn start_era(era_index: EraIndex) {
 	start_session((era_index * SessionsPerEra::get()).into());
 	assert_eq!(Staking::current_era(), era_index);
@@ -236,16 +237,32 @@ fn current_era_transaction_rewards_storage_update_works() {
 			});
 
 			initialize_block();
+			start_era(1);
+			advance_session(); // advance a session to trigger the beginning of era 2
 
+			// Start with 0 transaction rewards
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
 
+			// Apply first extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_1.clone()).is_ok());
 			total_transfer_fee += transfer_fee(&xt_1, TransactionPayment::next_fee_multiplier(), &runtime_call_1);
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
 
+			// Apply second extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_2.clone()).is_ok());
 			total_transfer_fee += transfer_fee(&xt_2, TransactionPayment::next_fee_multiplier(), &runtime_call_2);
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+
+			// Advancing sessions shouldn't change transaction rewards storage
+			advance_session();
+			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+			advance_session();
+			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+
+			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
+			start_era(2);
+			advance_session();
+			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
 		});
 }
 
@@ -304,7 +321,17 @@ fn staking_reward_should_work() {
 			let validator_len = validators.len() as Balance;
 			let total_reward = reward_validators(&validators);
 			let per_staking_reward = total_reward / validator_len;
+			// The balance of stash accounts remain the same within the same era
+			for validator in validators.clone() {
+				let (stash, _) = validator;
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
+			}
+
 			start_era(2);
+			// Staking rewards are paid at the next era
 			for validator in validators {
 				let (stash, _) = validator;
 				assert_eq!(
@@ -359,6 +386,15 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
 				balance_amount + transfer_amount
 			);
+
+			// Check if stash account balances are not yet changed
+			for validator in validators.clone() {
+				let (stash, _) = validator;
+				assert_eq!(
+					<GenericAsset as MultiCurrencyAccounting>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
+			}
 
 			start_era(2);
 			for validator in validators {

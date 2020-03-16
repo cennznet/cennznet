@@ -1419,8 +1419,6 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		// Payout
-		let points = CurrentEraPointsEarned::take();
 		let now = T::Time::now();
 		let previous_era_start = <CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
 		let era_duration = now - previous_era_start;
@@ -1431,7 +1429,6 @@ impl<T: Trait> Module<T> {
 			let total_rewarded_stake = Self::slot_stake() * validator_len;
 
 			// Pay the accumulated tx fee as rewards to all validators
-			let validators = Self::current_elected();
 			let total_tx_fee_reward = CurrentEraTransactionRewards::<T>::take();
 			Self::split_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
@@ -1445,6 +1442,7 @@ impl<T: Trait> Module<T> {
 
 			let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 
+			let points = CurrentEraPointsEarned::take();
 			for (v, p) in validators.iter().zip(points.individual.into_iter()) {
 				if p != 0 {
 					let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;
