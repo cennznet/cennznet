@@ -183,14 +183,14 @@ fn submitted_transaction_should_be_valid() {
 		assert_eq!(
 			res.unwrap(),
 			ValidTransaction {
-				// This has changed from the substrate value `2_411_002_000_000`
+				// This has changed from the plug value `2_401_002_000_000`
 				// TRANSACTION_BYTE_FEE = 10_000_000_000
 				// - 10_000_000_000, Indices byte removed from balances `dest` address
 				// - 10_000_000_000, Indices byte removed from address
 				// + 10_000_000_000, Add Doughnut to SignedExtra
-				priority: 2_401_002_000_000,
+				priority: 2_430_010_020_000,
 				requires: vec![],
-				provides: vec![(author, 0).encode()],
+				provides: vec![(author, 0, 0).encode()],
 				longevity: 127,
 				propagate: true,
 			}
