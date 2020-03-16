@@ -13,13 +13,13 @@ codec = { version = "1.2.0", package = "parity-scale-codec" }
 cennznet-executor = { path = "../executor" }
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
+crml-staking = { path = "../crml/staking" }
 crml-transaction-payment = { path="../crml/transaction-payment", default-features = false }
 
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
-pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 sc-client-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }

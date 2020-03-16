@@ -22,6 +22,8 @@ crml-cennzx-spot = { path = "../crml/cennzx-spot", default-features = false }
 crml-cennzx-spot-rpc-runtime-api = { path =  "../crml/cennzx-spot/rpc/runtime-api", default-features = false }
 cennznet-primitives = { path = "../primitives", default-features = false }
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
+crml-staking = { path = "../crml/staking", default-features = false }
+crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
 
 # primitives
 sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
@@ -66,13 +68,14 @@ pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain",
 pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "develop" }
-pallet-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
-pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "develop" }
+
+# Imported just for the `no_cc` feature
+clear_on_drop = { version = "0.2.3", features = ["no_cc"] }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.5", git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
@@ -121,7 +124,7 @@ std = [
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"pallet-staking/std",
+	"crml-staking/std",
 	"sp-keyring",
 	"sp-session/std",
 	"pallet-sudo/std",

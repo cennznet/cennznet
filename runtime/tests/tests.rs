@@ -17,26 +17,29 @@
 use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
-	Staking, TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
+	GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, TransactionBaseFee, TransactionByteFee,
+	TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
+use crml_staking::{EraIndex, RewardDestination, StakingLedger};
 use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
+	storage::StorageValue,
 	traits::Imbalance,
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
-use pallet_staking::{RewardDestination, StakingLedger};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header},
+	traits::{Convert, Hash, Header, OnInitialize},
 	transaction_validity::InvalidTransaction,
 	Fixed64,
 };
+use sp_staking::SessionIndex;
 
 mod doughnut;
 mod mock;
@@ -119,6 +122,65 @@ fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call:
 
 	let base_fee = TransactionBaseFee::get();
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
+}
+
+fn start_session(session_index: SessionIndex) {
+	// If we run the function for the first time, block_number is 1, which won't
+	// trigger Babe::should_end_session() so we have to run one extra loop. But
+	// successive calls don't need to run one extra loop. See Babe::should_epoch_change()
+	let up_to_session_index = if Session::current_index() == 0 {
+		session_index + 1
+	} else {
+		session_index
+	};
+	for i in Session::current_index()..up_to_session_index {
+		System::set_block_number((i + 1).into());
+		pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
+		Session::on_initialize(System::block_number()); // this ends session
+	}
+	assert_eq!(Session::current_index(), session_index);
+}
+
+fn advance_session() {
+	let current_index = Session::current_index();
+	start_session(current_index + 1);
+}
+
+fn start_era(era_index: EraIndex) {
+	start_session((era_index * SessionsPerEra::get()).into());
+	assert_eq!(Staking::current_era(), era_index);
+}
+
+#[test]
+fn start_session_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		start_session(1);
+		start_session(3);
+		start_session(5);
+	});
+}
+
+#[test]
+fn advance_session_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let session_index = 123;
+		start_session(session_index);
+		advance_session();
+		advance_session();
+		advance_session();
+		assert_eq!(Session::current_index(), 126);
+	});
+}
+
+#[test]
+fn start_era_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(Staking::current_era(), 0);
+		start_era(1);
+		assert_eq!(Staking::current_era(), 1);
+		start_era(10);
+		assert_eq!(Staking::current_era(), 10);
+	});
 }
 
 #[test]

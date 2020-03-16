@@ -30,7 +30,11 @@ pub const SPEC_VERSION: u32 = VERSION.spec_version;
 fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
 	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
 	let accounts = vec!["Alice", "Bob", "Charlie", "Dave", "Eve", "Ferdie"];
-	accounts[..n].iter().map(|s| get_authority_keys_from_seed(s)).collect()
+	accounts
+		.iter()
+		.take(n)
+		.map(|s| get_authority_keys_from_seed(s))
+		.collect()
 }
 
 // get all validators (stash account , controller account)
@@ -137,7 +141,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_staking::GenesisConfig::<Runtime> {
+		crml_staking::GenesisConfig::<Runtime> {
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,

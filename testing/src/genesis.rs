@@ -87,16 +87,16 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 				),
 			],
 		}),
-		pallet_staking: Some(StakingConfig {
+		crml_staking: Some(StakingConfig {
 			current_era: 0,
 			stakers: vec![
-				(dave(), alice(), 111 * DOLLARS, pallet_staking::StakerStatus::Validator),
-				(eve(), bob(), 100 * DOLLARS, pallet_staking::StakerStatus::Validator),
+				(dave(), alice(), 111 * DOLLARS, crml_staking::StakerStatus::Validator),
+				(eve(), bob(), 100 * DOLLARS, crml_staking::StakerStatus::Validator),
 				(
 					ferdie(),
 					charlie(),
 					100 * DOLLARS,
-					pallet_staking::StakerStatus::Validator,
+					crml_staking::StakerStatus::Validator,
 				),
 			],
 			validator_count: 3,

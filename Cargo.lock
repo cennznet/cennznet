@@ -689,8 +689,11 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-testing",
  "cennznut",
+ "clear_on_drop",
  "crml-cennzx-spot",
  "crml-cennzx-spot-rpc-runtime-api",
+ "crml-staking",
+ "crml-staking-reward-curve",
  "crml-sylo",
  "crml-transaction-payment",
  "frame-benchmarking",
@@ -718,8 +721,6 @@ dependencies = [
  "pallet-offences",
  "pallet-randomness-collective-flip",
  "pallet-session",
- "pallet-staking",
- "pallet-staking-reward-curve",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -757,6 +758,7 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "criterion",
+ "crml-staking",
  "crml-transaction-payment",
  "frame-system",
  "fs_extra",
@@ -764,7 +766,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-grandpa",
  "pallet-session",
- "pallet-staking",
  "parity-scale-codec",
  "sc-cli",
  "sc-client",
@@ -1111,6 +1112,41 @@ dependencies = [
  "sp-arithmetic",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "crml-staking"
+version = "1.0.0"
+dependencies = [
+ "crml-staking-reward-curve",
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-generic-asset",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-phragmen",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "substrate-test-utils",
+]
+
+[[package]]
+name = "crml-staking-reward-curve"
+version = "1.0.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2 1.0.6",
+ "quote 1.0.2",
+ "sp-runtime",
+ "syn 1.0.8",
 ]
 
 [[package]]
@@ -4034,7 +4070,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-keyring",
+ "sp-phragmen",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-staking-reward-curve"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2 1.0.6",
+ "quote 1.0.2",
+ "syn 1.0.8",
+]
+
+[[package]]
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#b7e29ddaab5a2bbf08a730424ec5dffcfcd6467f"
 dependencies = [
@@ -7020,6 +7084,11 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
 ]
+
+[[package]]
+name = "substrate-test-utils"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
 
 [[package]]
 name = "substrate-wasm-builder-runner"
