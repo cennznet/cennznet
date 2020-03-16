@@ -18,8 +18,8 @@ use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1}
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
-	TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	ExpectedBlockTime, GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp,
+	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -160,7 +160,7 @@ fn current_total_payout(validator_count: Balance) -> Balance {
 
 	crml_staking::inflation::compute_total_payout(
 		<Runtime as crml_staking::Trait>::RewardCurve::get(),
-		<crml_staking::SlotStake<Runtime>>::get() * validator_count,
+		Staking::slot_stake() * validator_count,
 		GenericAsset::total_issuance(&CENNZ_ASSET_ID),
 		era_duration.saturated_into::<u64>(),
 	)
@@ -171,12 +171,12 @@ fn reward_validators(validators: &[(AccountId, AccountId)]) -> Balance {
 	let validator_len = validators.len() as Balance;
 	let total_payout = current_total_payout(validator_len);
 	assert!(total_payout > 1);
-	Staking::reward_by_ids(
-		validators
-			.iter()
-			.map(|v| (v.0.clone(), 1))
-			.collect::<Vec<(AccountId, u32)>>(),
-	);
+
+	let validators_points = validators
+		.iter()
+		.map(|v| (v.0.clone(), 1))
+		.collect::<Vec<(AccountId, u32)>>();
+	Staking::reward_by_ids(validators_points);
 
 	total_payout
 }
