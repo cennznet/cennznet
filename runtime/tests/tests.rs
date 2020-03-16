@@ -617,6 +617,7 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 		});
 }
 
+#[ignore]
 #[test]
 fn contract_call_works_without_fee_exchange() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
@@ -653,6 +654,7 @@ fn contract_call_works_without_fee_exchange() {
 		});
 }
 
+#[ignore]
 #[test]
 fn contract_call_works_with_fee_exchange() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
