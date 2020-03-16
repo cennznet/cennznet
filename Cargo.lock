@@ -4070,64 +4070,6 @@ dependencies = [
 ]
 
 [[package]]
-version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-authorship",
- "pallet-session",
- "parity-scale-codec",
- "serde",
- "sp-io",
- "sp-keyring",
- "sp-phragmen",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-staking-reward-curve"
-version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2 1.0.6",
- "quote 1.0.2",
- "syn 1.0.8",
-]
-
-[[package]]
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#b7e29ddaab5a2bbf08a730424ec5dffcfcd6467f"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-authorship",
- "pallet-session",
- "parity-scale-codec",
- "serde",
- "sp-io",
- "sp-keyring",
- "sp-phragmen",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-staking-reward-curve"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#b7e29ddaab5a2bbf08a730424ec5dffcfcd6467f"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2 1.0.6",
- "quote 1.0.2",
- "syn",
-]
-
-[[package]]
 name = "pallet-sudo"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#b7e29ddaab5a2bbf08a730424ec5dffcfcd6467f"
