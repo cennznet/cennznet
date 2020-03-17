@@ -18,6 +18,7 @@ frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", bran
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sc-block-builder = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-client-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }

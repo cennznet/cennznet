@@ -30,6 +30,7 @@ use cennznet_runtime::{
 	Call, CheckedExtrinsic, GenericAssetCall, MinimumPeriod, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
+use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::{
 	execution_extensions::{ExecutionExtensions, ExecutionStrategies},
 	ExecutionStrategy,
@@ -145,11 +146,12 @@ impl BenchDb {
 
 		let (client, backend) = sc_client_db::new_client(
 			db_config,
-			NativeExecutor::new(WasmExecutionMethod::Compiled, None),
+			NativeExecutor::new(WasmExecutionMethod::Compiled, None, 8),
 			&keyring.generate_genesis(),
 			None,
 			None,
 			ExecutionExtensions::new(profile.into_execution_strategies(), None),
+			None,
 		)
 		.expect("Should not fail");
 
