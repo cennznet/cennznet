@@ -41,7 +41,7 @@ use frame_support::{
 	decl_module, decl_storage,
 	dispatch::DispatchError,
 	storage,
-	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::{DispatchInfo, GetDispatchInfo, Weight},
 	Parameter,
 };
@@ -77,7 +77,9 @@ pub trait Trait: frame_system::Trait {
 	/// The currency type in which fees will be paid.
 	type Currency: Currency<Self::AccountId> + Send + Sync;
 
-	/// Handler for the unbalanced reduction when taking transaction fees.
+	/// Handler for the unbalanced reduction when taking transaction fees. This is either one or
+	/// two separate imbalances, the first is the transaction fee paid, the second is the tip paid,
+	/// if any.
 	type OnTransactionPayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 	/// The fee to be paid for making a transaction; the base.
@@ -90,7 +92,7 @@ pub trait Trait: frame_system::Trait {
 	type WeightToFee: Convert<Weight, BalanceOf<Self>>;
 
 	/// Update the multiplier of the next block, based on the previous block's weight.
-	type FeeMultiplierUpdate: Convert<(Weight, Multiplier), Multiplier>;
+	type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
 
 	/// A service which will buy fee assets if signalled by the extrinsic.
 	type BuyFeeAsset: BuyFeeAsset<
@@ -104,7 +106,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Balances {
+	trait Store for Module<T: Trait> as TransactionPayment {
 		pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::from_parts(0);
 	}
 }
@@ -118,9 +120,8 @@ decl_module! {
 		const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
 		fn on_finalize() {
-			let current_weight = <frame_system::Module<T>>::all_extrinsics_weight();
 			NextFeeMultiplier::mutate(|fm| {
-				*fm = T::FeeMultiplierUpdate::convert((current_weight, *fm))
+				*fm = T::FeeMultiplierUpdate::convert(*fm)
 			});
 		}
 	}
@@ -288,7 +289,8 @@ where
 				Err(_) => return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET_BALANCE).into()),
 			};
 
-			T::OnTransactionPayment::on_unbalanced(imbalance);
+			let imbalances = imbalance.split(self.tip);
+			T::OnTransactionPayment::on_unbalanceds(Some(imbalances.0).into_iter().chain(Some(imbalances.1)));
 		}
 
 		// Certain contract module calls require gas metering and special handling for
