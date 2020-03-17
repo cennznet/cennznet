@@ -3,28 +3,33 @@ name = "crml-staking"
 version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>", "Centrality Developers <support@centrality.ai>"]
 edition = "2018"
+license = "GPL-3.0"
+homepage = "https://cennznetdocs.com"
+repository = "https://github.com/cennznet/cennznet"
+description = "CENNZnet staking pallet"
+
 
 [dependencies]
 serde = { version = "1.0.101", optional = true }
-codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", optional = true, branch = "1.0.0-rc2" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-sp-phragmen = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false}
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" , default-features = false}
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false, features = ["historical"]}
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
+sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-phragmen = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-crml-staking-reward-curve = { version = "1.0.0",  path = "../staking/reward-curve/" }
-substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
+crml-staking-reward-curve = {  path = "../staking/reward-curve" }
+substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "develop" }
 
 [features]
 migrate = []

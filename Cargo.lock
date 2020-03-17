@@ -1146,7 +1146,7 @@ dependencies = [
  "proc-macro2 1.0.6",
  "quote 1.0.2",
  "sp-runtime",
- "syn 1.0.8",
+ "syn",
 ]
 
 [[package]]
@@ -7029,8 +7029,8 @@ dependencies = [
 
 [[package]]
 name = "substrate-test-utils"
-version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc2#1b0a76e908a3af5517764ffd901da9ad84bc888d"
+version = "2.0.0-alpha.3"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=develop#b7e29ddaab5a2bbf08a730424ec5dffcfcd6467f"
 
 [[package]]
 name = "substrate-wasm-builder-runner"
