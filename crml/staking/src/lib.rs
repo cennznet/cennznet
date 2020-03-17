@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd.
+// Copyright 2017-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -253,7 +253,6 @@ mod multi_token_economy_tests;
 #[cfg(test)]
 mod tests;
 
-mod migration;
 mod slashing;
 
 pub mod inflation;
@@ -810,8 +809,6 @@ decl_storage! {
 					}, _ => Ok(())
 				};
 			}
-
-			StorageVersion::put(migration::CURRENT_VERSION);
 		});
 	}
 }
@@ -866,10 +863,6 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
-
-		fn on_initialize() {
-			Self::ensure_storage_upgraded();
-		}
 
 		fn on_finalize() {
 			// Set the start of the first era.
@@ -1057,7 +1050,6 @@ decl_module! {
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
 		fn validate(origin, prefs: ValidatorPrefs) {
-			Self::ensure_storage_upgraded();
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1079,7 +1071,6 @@ decl_module! {
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
 		fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
-			Self::ensure_storage_upgraded();
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1305,11 +1296,6 @@ impl<T: Trait> Module<T> {
 	fn chill_stash(stash: &T::AccountId) {
 		<Validators<T>>::remove(stash);
 		<Nominators<T>>::remove(stash);
-	}
-
-	/// Ensures storage is upgraded to most recent necessary state.
-	fn ensure_storage_upgraded() {
-		migration::perform_migrations::<T>();
 	}
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
@@ -1683,7 +1669,6 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		Self::ensure_storage_upgraded();
 		if new_index == 0 {
 			return Self::initial_session();
 		}
@@ -1711,7 +1696,6 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 
 impl<T: Trait> OnReapAccount<T::AccountId> for Module<T> {
 	fn on_reap_account(stash: &T::AccountId) {
-		Self::ensure_storage_upgraded();
 		Self::kill_stash(stash);
 	}
 }
@@ -1766,8 +1750,6 @@ where
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
 	) {
-		<Module<T>>::ensure_storage_upgraded();
-
 		let reward_proportion = SlashRewardFraction::get();
 
 		let era_now = Self::current_era();
@@ -1845,8 +1827,6 @@ where
 	O: Offence<Offender>,
 {
 	fn report_offence(reporters: Vec<Reporter>, offence: O) -> Result<(), OffenceError> {
-		<Module<T>>::ensure_storage_upgraded();
-
 		// disallow any slashing from before the current bonding period.
 		let offence_session = offence.session_index();
 		let bonded_eras = BondedEras::get();
