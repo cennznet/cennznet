@@ -83,7 +83,7 @@ pub struct Extensions {
 }
 
 /// Specialised `ChainSpec`.
-pub type ChainSpec = sc_service::ChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

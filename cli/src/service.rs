@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use cennznet_executor;
 use cennznet_primitives::types::Block;
-use cennznet_runtime::{GenesisConfig, RuntimeApi};
-use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
+use cennznet_runtime::RuntimeApi;
+use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider};
 use sc_client::{self, LongestChain};
 use sc_consensus_babe;
 use sc_service::{config::Configuration, error::Error as ServiceError, AbstractService, ServiceBuilder};
@@ -43,6 +43,7 @@ use sp_runtime::traits::Block as BlockT;
 /// be able to perform chain operations.
 macro_rules! new_full_start {
 	($config:expr) => {{
+		use std::sync::Arc;
 		type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 		let mut import_setup = None;
 		let inherent_data_providers = sp_inherents::InherentDataProviders::new();
@@ -64,7 +65,8 @@ macro_rules! new_full_start {
 			let select_chain = select_chain
 				.take()
 				.ok_or_else(|| sc_service::Error::SelectChainRequired)?;
-			let (grandpa_block_import, grandpa_link) = grandpa::block_import(client.clone(), &*client, select_chain)?;
+			let (grandpa_block_import, grandpa_link) =
+				grandpa::block_import(client.clone(), &(client.clone() as Arc<_>), select_chain)?;
 			let justification_import = grandpa_block_import.clone();
 
 			let (block_import, babe_link) = sc_consensus_babe::block_import(
@@ -117,6 +119,7 @@ macro_rules! new_full_start {
 macro_rules! new_full {
 	($config:expr, $with_startup_data: expr) => {{
 		use futures::prelude::*;
+		use sc_client_api::ExecutorProvider;
 		use sc_network::Event;
 
 		let (is_authority, force_authoring, name, disable_grandpa, sentry_nodes) = (
@@ -136,7 +139,9 @@ macro_rules! new_full {
 
 		let service = builder
 			.with_finality_proof_provider(|client, backend| {
-				Ok(Arc::new(grandpa::FinalityProofProvider::new(backend, client)) as _)
+				// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
+				let provider = client as Arc<dyn grandpa::StorageAndProofProvider<_, _>>;
+				Ok(Arc::new(grandpa::FinalityProofProvider::new(backend, provider)) as _)
 			})?
 			.build()?;
 
@@ -222,7 +227,6 @@ macro_rules! new_full {
 				link: grandpa_link,
 				network: service.network(),
 				inherent_data_providers: inherent_data_providers.clone(),
-				on_exit: service.on_exit(),
 				telemetry_on_connect: Some(service.telemetry_on_connect_stream()),
 				voting_rule: grandpa::VotingRulesBuilder::default().build(),
 				prometheus_registry: service.prometheus_registry(),
@@ -253,12 +257,9 @@ type ConcreteBackend = Backend<ConcreteBlock>;
 type ConcreteTransactionPool =
 	sc_transaction_pool::BasicPool<sc_transaction_pool::FullChainApi<ConcreteClient, ConcreteBlock>, ConcreteBlock>;
 
-/// A specialized configuration object for setting up the node..
-pub type NodeConfiguration = Configuration<GenesisConfig, crate::chain_spec::Extensions>;
-
 /// Builds a new service for a full client.
 pub fn new_full(
-	config: NodeConfiguration,
+	config: Configuration,
 ) -> Result<
 	Service<
 		ConcreteBlock,
@@ -279,7 +280,7 @@ pub fn new_full(
 }
 
 /// Builds a new service for a light client.
-pub fn new_light(config: NodeConfiguration) -> Result<impl AbstractService, ServiceError> {
+pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceError> {
 	type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 	let inherent_data_providers = InherentDataProviders::new();
 
@@ -299,8 +300,12 @@ pub fn new_light(config: NodeConfiguration) -> Result<impl AbstractService, Serv
 			let fetch_checker = fetcher
 				.map(|fetcher| fetcher.checker().clone())
 				.ok_or_else(|| "Trying to start light import queue without active fetch checker")?;
-			let grandpa_block_import =
-				grandpa::light_block_import(client.clone(), backend, &*client, Arc::new(fetch_checker))?;
+			let grandpa_block_import = grandpa::light_block_import(
+				client.clone(),
+				backend,
+				&(client.clone() as Arc<_>),
+				Arc::new(fetch_checker),
+			)?;
 
 			let finality_proof_import = grandpa_block_import.clone();
 			let finality_proof_request_builder = finality_proof_import.create_finality_proof_request_builder();
@@ -323,7 +328,9 @@ pub fn new_light(config: NodeConfiguration) -> Result<impl AbstractService, Serv
 			Ok((import_queue, finality_proof_request_builder))
 		})?
 		.with_finality_proof_provider(|client, backend| {
-			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)
+			// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
+			let provider = client as Arc<dyn StorageAndProofProvider<_, _>>;
+			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
 		})?
 		.with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
 			let fetcher = builder
@@ -615,7 +622,12 @@ mod tests {
 			crate::chain_spec::kauri::config(),
 			|config| new_full(config),
 			|config| new_light(config),
-			vec!["//Alice".into(), "//Bob".into(), "//Courtney".into(), "//Drew".into()],
+			vec![
+				"//Andrea".into(),
+				"//Brooke".into(),
+				"//Courtney".into(),
+				"//Drew".into(),
+			],
 		)
 	}
 }

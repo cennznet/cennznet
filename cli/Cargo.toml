@@ -30,8 +30,8 @@ sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain",
 grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+sp-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+sp-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
 sp-inherents = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
@@ -46,11 +46,11 @@ sc-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain
 sc-network = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 grandpa = { package = "sc-finality-grandpa", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3"  }
-sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", features = ["kvdb-rocksdb"], branch = "1.0.0-rc3" }
 sc-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
 sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-basic-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sc-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sc-service = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
 sc-tracing = {git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-telemetry = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 sc-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
@@ -60,8 +60,8 @@ pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", 
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 crml-transaction-payment = { path="../crml/transaction-payment", default-features = false } # pallet-transaction-payment specilised for cennznet
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 
 # cennznet dependencies
