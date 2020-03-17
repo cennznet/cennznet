@@ -728,7 +728,7 @@ decl_storage! {
 		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
 
 		/// Total transaction payment rewards for elected validators
-		CurrentEraTransactionRewards : BalanceOf<T>;
+		CurrentEraFeeRewards : BalanceOf<T>;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -1361,23 +1361,23 @@ impl<T: Trait> Module<T> {
 
 	#[cfg(any(feature = "std", test))]
 	pub fn get_current_era_transaction_fee_reward() -> BalanceOf<T> {
-		CurrentEraTransactionRewards::<T>::get()
+		CurrentEraFeeRewards::<T>::get()
 	}
 
 	pub fn set_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
-		CurrentEraTransactionRewards::<T>::mutate(|reward| {
+		CurrentEraFeeRewards::<T>::mutate(|reward| {
 			*reward = amount;
 		});
 	}
 
 	pub fn add_to_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
-		CurrentEraTransactionRewards::<T>::mutate(|reward| {
+		CurrentEraFeeRewards::<T>::mutate(|reward| {
 			*reward = reward.checked_add(&amount).unwrap_or_else(|| *reward)
 		});
 	}
 
 	/// Payout transaction rewards to all the validators. Called at the beginning of an era
-	fn split_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
+	fn split_fee_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
 		let recipients_len: BalanceOf<T> = (recipients.len() as u32).into();
 
 		if recipients_len.is_zero() || total_amount.is_zero() {
@@ -1429,8 +1429,8 @@ impl<T: Trait> Module<T> {
 			let total_rewarded_stake = Self::slot_stake() * validator_len;
 
 			// Pay the accumulated tx fee as rewards to all validators
-			let total_tx_fee_reward = CurrentEraTransactionRewards::<T>::take();
-			Self::split_rewards_evenly_to_all(&validators, total_tx_fee_reward);
+			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
+			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
 			let (total_payout, max_payout) = inflation::compute_total_payout(
 				&T::RewardCurve::get(),
