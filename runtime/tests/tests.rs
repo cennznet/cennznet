@@ -18,15 +18,15 @@ use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1}
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
+	TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
 use crml_staking::{EraIndex, RewardDestination, StakingLedger};
 use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
-	additional_traits::MultiCurrencyAccounting,
+	additional_traits::MultiCurrencyAccounting as MultiCurrency,
 	storage::StorageValue,
 	traits::Imbalance,
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
@@ -82,7 +82,7 @@ fn setup_contract(
 	println!(
 		"{:?}, CPAY Balance: {:?}",
 		r,
-		<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
+		<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
 	);
 	assert!(r.is_ok());
 
@@ -100,7 +100,7 @@ fn setup_contract(
 	println!(
 		"{:?}, CPAY Balance: {:?}",
 		r2,
-		<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
+		<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID))
 	);
 	assert!(r2.is_ok());
 
@@ -170,7 +170,7 @@ fn current_total_payout(validator_count: Balance) -> Balance {
 
 fn check_free_balance_updated(account: &AccountId, balance: Balance) {
 	assert_eq!(
-		<GenericAsset as MultiCurrencyAccounting>::free_balance(account, Some(CENTRAPAY_ASSET_ID)),
+		<GenericAsset as MultiCurrency>::free_balance(account, Some(CENTRAPAY_ASSET_ID)),
 		balance
 	);
 }
@@ -246,7 +246,8 @@ fn current_era_transaction_rewards_storage_update_works() {
 
 			initialize_block();
 			start_era(1);
-			advance_session(); // advance a session to trigger the beginning of era 1
+			advance_session(); // advance a session to trigger the beginning of era 2
+			assert_eq!(Staking::current_era(), 2);
 
 			// Start with 0 transaction rewards
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
@@ -270,6 +271,7 @@ fn current_era_transaction_rewards_storage_update_works() {
 			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
 			start_era(2);
 			advance_session();
+			assert_eq!(Staking::current_era(), 3);
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
 		});
 }
@@ -308,6 +310,101 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
+fn staking_reward_remainder_should_work() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let staked_amount = balance_amount / 6;
+	let validators = validators(6);
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.stash(staked_amount)
+		.validator_count(validators.len())
+		.build()
+		.execute_with(|| {
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), balance_amount * 12);
+
+			/*                  NOTE / TODO
+			(remove this comment block after resolving the issue)
+
+			On era change, fn new_era is called and there is a line where `rest` is issued:
+				```
+				fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+					...
+					Self::deposit_event(RawEvent::Reward(total_payout, rest));
+					T::RewardRemainder::on_unbalanced(T::RewardCurrency::issue(rest));
+				}
+				```
+
+			This `rest` is max_payout (from inflation) - total_imbalance (from payout), and is currently paid out to treasury (see system events below).
+			Ideally, we could refactor `fn current_total_payout` so that 744_000_000 amount is returned so we don't have to hardcode values like below.
+			*/
+
+			start_session(1);
+			let block_events = frame_system::Module::<Runtime>::events();
+			assert_eq!(
+				block_events[2],
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(0),
+					event: Event::crml_staking(crml_staking::RawEvent::Reward(0, 744_000_000)), // there is 0 reward to be paid to the validators
+					topics: vec![],                                                             // there is 744_000_000 cpay issued
+				}
+			);
+			assert_eq!(
+				block_events[3],
+				EventRecord {
+					phase: Phase::ApplyExtrinsic(0),
+					event: Event::pallet_treasury(pallet_treasury::RawEvent::Deposit(744_000_000)), // 744_000_000 cpay is transferred to treasury
+					topics: vec![],                                                                 // due to `type RewardRemainder = Treasury;` in runtime
+				}
+			);
+
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+			start_session(2);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+			start_session(3);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+			start_session(4);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+			start_session(5);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+			start_session(6);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 744_000_000
+			);
+
+			// Era has changed
+			start_session(7);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				balance_amount * 12 + 2_640_000_000
+			);
+		});
+}
+
+#[test]
 fn staking_reward_should_work() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let staked_amount = balance_amount / 6;
@@ -322,7 +419,12 @@ fn staking_reward_should_work() {
 		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
+			// There are 12 accounts: 6 pre-configured + 6 stash
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), balance_amount * 12);
+			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), balance_amount * 12);
+
 			start_era(1);
+			// TODO: assert total issuance
 			let validator_len = validators.len() as Balance;
 			let total_reward = reward_validators(&validators);
 			let per_staking_reward = total_reward / validator_len;
@@ -333,6 +435,7 @@ fn staking_reward_should_work() {
 			}
 
 			start_era(2);
+			// TODO: assert total issuance
 			// Staking rewards are paid at the next era
 			for validator in validators {
 				let (stash, _) = validator;
@@ -415,17 +518,16 @@ fn runtime_mock_setup_works() {
 			CERTI_ASSET_ID,
 			ARDA_ASSET_ID,
 		];
-		for (account, balance) in &tests {
-			for asset in &assets {
+		for asset in &assets {
+			for (account, balance) in &tests {
 				assert_eq!(
-					<GenericAsset as MultiCurrencyAccounting>::free_balance(&account, Some(*asset)),
+					<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
 					*balance,
 				);
-				assert_eq!(
-					<GenericAsset as MultiCurrencyAccounting>::free_balance(&account, Some(123)),
-					0,
-				)
+				assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
 			}
+			// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
 		}
 	});
 }
@@ -532,11 +634,11 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 			// Check remaining balances
 			assert_eq!(
-				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
 				balance_amount - liquidity_asset_amount - cennz_sold_amount, // transfer fee is charged in CENNZ
 			);
 			check_free_balance_updated(&alice(), balance_amount - liquidity_core_amount - transfer_amount); // transfer fee is not charged in CPAY
-			check_free_balance_updated(&bob(), balance_amount + transfer_amount,);
+			check_free_balance_updated(&bob(), balance_amount + transfer_amount);
 		});
 }
 
