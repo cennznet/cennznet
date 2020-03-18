@@ -61,6 +61,13 @@ commands:
       - restore_cache:
           name: Restore target cache
           key: target-cache-{{ arch }}-{{ checksum ".circleci/RUST_VERSION" }}-{{ .Environment.CIRCLE_BRANCH }}
+  cargo-fmt:
+    steps:
+      - run:
+          name: Format
+          command: |
+            rustup component add rustfmt
+            cargo fmt -- --check
   cargo-check:
     steps:
       - run:
@@ -97,6 +104,16 @@ commands:
           no_output_timeout: 60m
 
 jobs:
+  format:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      BASH_ENV: ~/.cargo/env
+      RUST_VERSION: nightly-2019-12-19
+    steps:
+      - checkout
+      - install-rust
+      - cargo-fmt
   build:
     machine:
       image: ubuntu-1604:201903-01
@@ -148,6 +165,7 @@ workflows:
   version: 2
   build-test-publish:
     jobs:
+      - format
       - build-bin
       - build-test-and-run
       - build-docker-and-publish:
@@ -158,6 +176,7 @@ workflows:
                 - /^[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
       - build:
           requires:
+            - format
             - build-bin
             - build-test-and-run
             - build-docker-and-publish
