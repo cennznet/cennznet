@@ -75,8 +75,8 @@ pub use crml_sylo::vault as sylo_vault;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
-	SplitToAllValidators,
+	CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, SplitToAllValidators,
+	TargetedFeeAdjustment,
 };
 
 /// Constant values used within the runtime.
@@ -209,6 +209,8 @@ parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
 	// setting this to zero will disable the weight fee.
 	pub const WeightFeeCoefficient: Balance = 1_000;
+	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
+	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
 }
 
 pub type PositiveImbalance = <GenericAsset as MultiCurrencyAccounting>::PositiveImbalance;
@@ -231,7 +233,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
+	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 	type BuyFeeAsset = CennzxSpot;
 	type GasMeteredCallResolver = GasMeteredCallResolver;
 }
