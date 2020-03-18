@@ -245,6 +245,7 @@
 
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(array_into_iter)]
 
 #[cfg(test)]
 mod mock;
@@ -821,6 +822,8 @@ decl_event!(
 		/// All validators have been rewarded by the first balance; the second is the remainder
 		/// from the maximum amount of reward.
 		Reward(RewardBalance, RewardBalance),
+		/// Transaction fee rewards are split evenly across all validators.
+		RewardFees(RewardBalance, u32),
 		/// One validator (and its nominators) has been slashed by the given amount.
 		Slash(AccountId, Balance),
 		/// An old slashing report from a prior era was discarded because it could
@@ -1371,23 +1374,23 @@ impl<T: Trait> Module<T> {
 	}
 
 	pub fn add_to_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
-		CurrentEraFeeRewards::<T>::mutate(|reward| {
-			*reward = reward.checked_add(&amount).unwrap_or_else(|| *reward)
-		});
+		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.checked_add(&amount).unwrap_or_else(|| *reward));
 	}
 
 	/// Payout transaction rewards to all the validators. Called at the beginning of an era
 	fn split_fee_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
-		let recipients_len: BalanceOf<T> = (recipients.len() as u32).into();
+		let recipients_len = recipients.len() as u32;
 
 		if recipients_len.is_zero() || total_amount.is_zero() {
 			return;
 		}
 
-		let reward = total_amount / recipients_len;
+		let reward = total_amount / recipients_len.into();
+		let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 		for r in recipients.iter() {
-			let _ = Self::make_payout(&r, reward);
+			total_imbalance.maybe_subsume(Self::make_payout(&r, reward));
 		}
+		Self::deposit_event(RawEvent::RewardFees(total_imbalance.peek(), recipients_len));
 	}
 
 	/// Session has just ended. Provide the validator set for the next session if it's an era-end.
@@ -1425,8 +1428,8 @@ impl<T: Trait> Module<T> {
 		if !era_duration.is_zero() {
 			let validators = Self::current_elected();
 
-			let validator_len: BalanceOf<T> = (validators.len() as u32).into();
-			let total_rewarded_stake = Self::slot_stake() * validator_len;
+			let validator_len = validators.len() as u32;
+			let total_rewarded_stake = Self::slot_stake() * validator_len.into();
 
 			// Pay the accumulated tx fee as rewards to all validators
 			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
