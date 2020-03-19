@@ -26,7 +26,7 @@ sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = 
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-crml-staking-reward-curve = {  path = "../staking/reward-curve" }
+crml-staking-reward-curve = { path = "../staking/reward-curve" }
 substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 
 [features]
