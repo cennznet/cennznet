@@ -22,9 +22,9 @@ use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::traits::SaturatedConversion;
+use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, traits::SimpleArithmetic};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 pub use self::gen_client::Client as CennzxSpotClient;
 pub use crml_cennzx_spot_rpc_runtime_api::{
@@ -84,7 +84,7 @@ where
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: CennzxSpotRuntimeApi<Block, AssetId, Balance>,
 	AssetId: Codec,
-	Balance: Codec + SimpleArithmetic,
+	Balance: Codec + BaseArithmetic,
 {
 	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<u64> {
 		let api = self.client.runtime_api();

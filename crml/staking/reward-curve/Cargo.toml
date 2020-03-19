@@ -1,8 +1,10 @@
 [package]
 name = "crml-staking-reward-curve"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors = ["Parity Technologies <admin@parity.io>", "Centrality Developers <support@centrality.ai>"]
 edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+description = "Reward Curve for CENNZnet staking pallet"
 
 [lib]
 proc-macro = true
@@ -14,4 +16,4 @@ proc-macro2 = "1.0.6"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }

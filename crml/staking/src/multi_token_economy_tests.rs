@@ -81,14 +81,12 @@ parameter_types! {
 }
 impl pallet_balances::Trait for Test {
 	type Balance = Balance;
-	type OnFreeBalanceZero = Staking;
 	type OnReapAccount = System;
 	type OnNewAccount = ();
 	type Event = ();
 	type TransferPayment = ();
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type TransferFee = TransferFee;
 	type CreationFee = CreationFee;
 }
 impl pallet_generic_asset::Trait for Test {

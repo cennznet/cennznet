@@ -24,6 +24,7 @@ use cennznet_runtime::{
 };
 use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
 use core::convert::TryFrom;
+use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service;
@@ -31,7 +32,6 @@ use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	Perbill,
@@ -83,7 +83,7 @@ pub struct Extensions {
 }
 
 /// Specialised `ChainSpec`.
-pub type ChainSpec = sc_service::ChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

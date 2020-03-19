@@ -1,3 +1,21 @@
+// Copyright 2017-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Proc macro to generate the reward curve functions and tests.
+
 extern crate proc_macro;
 
 mod log;
@@ -411,7 +429,7 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
 
 			#[test]
 			fn reward_curve_precision() {
-				for &base in [MILLION, u32::max_value()].into_iter() {
+				for &base in [MILLION, u32::max_value()].iter() {
 					let number_of_check = 100_000.min(base);
 					for check_index in 0..=number_of_check {
 						let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;

@@ -19,7 +19,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use sp_runtime::{traits::SimpleArithmetic, RuntimeDebug};
+use sp_arithmetic::traits::BaseArithmetic;
+use sp_runtime::RuntimeDebug;
 
 /// A result of querying the exchange
 #[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
@@ -34,7 +35,7 @@ sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with CENNZX Spot Exchange
 	pub trait CennzxSpotApi<AssetId, Balance> where
 		AssetId: Codec,
-		Balance: Codec + SimpleArithmetic,
+		Balance: Codec + BaseArithmetic,
 	{
 		/// Query how much `asset_to_buy` will be given in exchange for `amount` of `asset_to_sell`
 		fn buy_price(

@@ -710,7 +710,7 @@ fn contract_call_works_without_fee_exchange() {
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - 2_440_010_001_185,
+				9997559989999715,
 			);
 		});
 }
@@ -767,7 +767,7 @@ fn contract_call_works_with_fee_exchange() {
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
-				balance_amount - 260_346_803_274,
+				9999739653196821,
 			);
 		});
 }

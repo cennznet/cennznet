@@ -3,20 +3,23 @@ name = "crml-transaction-payment"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+description = "CENNZnet pallet to manage transaction payments"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { version = "1.2.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc2" }
+pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
 
 [features]
 default = ["std"]

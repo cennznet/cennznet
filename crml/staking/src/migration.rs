@@ -40,7 +40,7 @@ pub mod inner {
 	// `Option<Nominations<T::AccountId>>`
 	pub fn to_v1<T: Trait>(version: &mut VersionNumber) {
 		if *version != 0 {
-			return;
+			return
 		}
 		*version += 1;
 
@@ -84,7 +84,7 @@ pub mod inner {
 		}
 
 		if *version != 1 {
-			return;
+			return
 		}
 		*version += 1;
 
@@ -123,11 +123,11 @@ pub mod inner {
 					minimum.",
 				);
 				frame_support::print(*version);
-				return;
+				return
 			}
 
 			if *version == CURRENT_VERSION {
-				return;
+				return
 			}
 
 			to_v1::<T>(version);

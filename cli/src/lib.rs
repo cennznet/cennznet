@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate CLI library.
+//! CENNZnet CLI library.
+//!
+//! - `cli` (default): exposes functions that parse command-line options, then start and run the
+//! node as a CLI application.
 
 #![warn(missing_docs)]
-#![warn(unused_extern_crates)]
 
 pub mod chain_spec;
 
@@ -26,9 +28,17 @@ mod service;
 #[cfg(feature = "cli")]
 mod cli;
 #[cfg(feature = "cli")]
+mod command;
+#[cfg(feature = "cli")]
 mod factory_impl;
+
 #[cfg(feature = "cli")]
 pub use cli::*;
+#[cfg(feature = "cli")]
+pub use command::*;
+
+#[cfg(feature = "cli")]
+pub use sc_cli::{Result as CliResult, VersionInfo};
 
 /// The chain specification option.
 #[derive(Clone, Debug, PartialEq)]
@@ -61,9 +71,9 @@ impl ChainSpec {
 	}
 }
 
-fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
+fn load_spec(id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 	Ok(match ChainSpec::from(id) {
-		Some(spec) => Some(spec.load()?),
-		None => None,
+		Some(spec) => Box::new(spec.load()?),
+		None => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(id))?),
 	})
 }

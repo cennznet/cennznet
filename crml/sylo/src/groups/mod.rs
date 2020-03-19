@@ -96,7 +96,7 @@ decl_module! {
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(!<Groups<T>>::exists(&group_id), "Group already exists");
+			ensure!(!<Groups<T>>::contains_key(&group_id), "Group already exists");
 			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
 			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
 
@@ -142,7 +142,7 @@ decl_module! {
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
 			let mut group = <Groups<T>>::get(&group_id);
@@ -168,7 +168,7 @@ decl_module! {
 
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
 			let mut group = <Groups<T>>::get(&group_id);
@@ -196,7 +196,7 @@ decl_module! {
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 
 			let mut group = <Groups<T>>::get(&group_id);
@@ -231,7 +231,7 @@ decl_module! {
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 			ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
@@ -246,7 +246,7 @@ decl_module! {
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
 			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
 
@@ -304,7 +304,7 @@ decl_module! {
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::exists(&group_id), "Group not found");
+			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 			ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
 
@@ -325,13 +325,13 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloGroups {
-		Groups get(group): map T::Hash => Group<T::AccountId, T::Hash>;
+		Groups get(group): map hasher(blake2_256) T::Hash => Group<T::AccountId, T::Hash>;
 
 		/// Stores the group ids that a user is a member of
-		pub Memberships get(memberships): map T::AccountId => Vec<T::Hash>;
+		pub Memberships get(memberships): map hasher(blake2_256) T::AccountId => Vec<T::Hash>;
 
 		/// Stores the known member/deviceId tuples for a particular group
-		MemberDevices get(member_devices): map T::Hash => Vec<(T::AccountId, u32)>;
+		MemberDevices get(member_devices): map hasher(blake2_256) T::Hash => Vec<(T::AccountId, u32)>;
 	}
 }
 
@@ -353,7 +353,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
-		if <Memberships<T>>::exists(account_id) {
+		if <Memberships<T>>::contains_key(account_id) {
 			let mut memberships = <Memberships<T>>::get(account_id);
 			memberships.push(group_id);
 			<Memberships<T>>::insert(account_id, memberships)

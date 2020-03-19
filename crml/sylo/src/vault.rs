@@ -43,7 +43,7 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloVault {
-		pub Vault get(values): map T::AccountId => Vec<(VaultKey, VaultValue)>;
+		pub Vault get(values): map hasher(blake2_256) T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }
 
