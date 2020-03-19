@@ -19,7 +19,7 @@ use wasm_builder_runner::WasmBuilder;
 fn main() {
 	WasmBuilder::new()
 		.with_current_project()
-		.with_wasm_builder_from_git("https://github.com/plugblockchain/plug-blockchain", "develop")
+		.with_wasm_builder_from_git("https://github.com/plugblockchain/plug-blockchain", "1.0.0-rc3")
 		.export_heap_base()
 		.import_memory()
 		.build()

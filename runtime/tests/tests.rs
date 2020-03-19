@@ -679,7 +679,6 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 		});
 }
 
-#[ignore]
 #[test]
 fn contract_call_works_without_fee_exchange() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
@@ -711,12 +710,11 @@ fn contract_call_works_without_fee_exchange() {
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - 2_440_010_001_185,
+				9997559989999715,
 			);
 		});
 }
 
-#[ignore]
 #[test]
 fn contract_call_works_with_fee_exchange() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
@@ -769,7 +767,7 @@ fn contract_call_works_with_fee_exchange() {
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
-				balance_amount - 260_346_803_274,
+				9999739653196821,
 			);
 		});
 }
