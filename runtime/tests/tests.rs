@@ -820,11 +820,11 @@ fn contract_call_works_without_fee_exchange() {
 			assert!(r.is_ok());
 
 			assert_eq!(
-				<GenericAsset as MultiCurrencyAccounting>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
 				balance_amount + transfer_amount,
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
 				9997559989999715,
 			);
 		});
@@ -875,7 +875,7 @@ fn contract_call_works_with_fee_exchange() {
 			check_free_balance_updated(&bob(), balance_amount + transfer_amount);
 			check_free_balance_updated(&alice(), balance_amount - transfer_amount);
 			assert_eq!(
-				<GenericAsset as MultiCurrencyAccounting>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
 				9999739653196821,
 			);
 		});

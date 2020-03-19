@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, MaximumBlockWeight, NegativeImbalance, PositiveImbalance, Runtime, System};
+use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, System};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},

@@ -270,8 +270,8 @@ use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{
-		AtLeast32Bit, Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating, StaticLookup,
-		Zero,
+		AtLeast32Bit, Bounded, CheckedAdd, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
 	},
 	PerThing, Perbill, RuntimeDebug,
 };
