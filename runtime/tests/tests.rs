@@ -18,7 +18,7 @@ use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1}
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
+	GenericAsset, Header, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
 	TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
@@ -35,7 +35,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header, OnInitialize, SaturatedConversion},
+	traits::{Convert, Hash, Header as HeaderT, OnInitialize, SaturatedConversion},
 	transaction_validity::InvalidTransaction,
 };
 use sp_staking::SessionIndex;
@@ -47,14 +47,14 @@ use mock::{validators, ExtBuilder};
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
 
-fn initialize_block() {
-	Executive::initialize_block(&Header::new(
+fn header() -> Header {
+	HeaderT::new(
 		1,                        // block number
 		sp_core::H256::default(), // extrinsics_root
 		sp_core::H256::default(), // state_root
 		GENESIS_HASH.into(),      // parent_hash
 		Digest::default(),        // digest
-	));
+	)
 }
 
 /// Setup a contract on-chain, return it's deployed address
@@ -70,7 +70,7 @@ fn setup_contract(
 	let wasm = wabt::wat2wasm(contract_wabt).unwrap();
 	let code_hash = <Runtime as frame_system::Trait>::Hashing::hash(&wasm);
 
-	initialize_block();
+	Executive::initialize_block(&header());
 
 	let put_code_call = Call::Contracts(pallet_contracts::Call::put_code(50_000_000, wasm));
 	let put_code_extrinsic = sign(CheckedExtrinsic {
@@ -245,7 +245,7 @@ fn current_era_transaction_rewards_storage_update_works() {
 				function: runtime_call_2.clone(),
 			});
 
-			initialize_block();
+			Executive::initialize_block(&header());
 			start_era(1);
 			advance_session(); // advance a session to trigger the beginning of era 2
 			assert_eq!(Staking::current_era(), 2);
@@ -479,7 +479,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 
 		let fee = transfer_fee(&xt, &runtime_call);
 
-		initialize_block();
+		Executive::initialize_block(&header());
 		let r = Executive::apply_extrinsic(xt);
 		assert!(r.is_ok());
 
@@ -536,7 +536,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			assert_eq!(cennz_sold_amount, 6);
 
 			// Initialise block and apply the extrinsic
-			initialize_block();
+			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
@@ -720,7 +720,7 @@ fn contract_call_fails_with_insufficient_gas_without_fee_exchange() {
 		.gas_price(1)
 		.build()
 		.execute_with(|| {
-			initialize_block();
+			Executive::initialize_block(&header());
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, None))),
 				function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
@@ -775,7 +775,7 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 				max_payment: 10 * TransactionBaseFee::get(),
 			});
 
-			initialize_block();
+			Executive::initialize_block(&header());
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
@@ -813,7 +813,7 @@ fn contract_call_works_without_fee_exchange() {
 				signed: Some((alice(), signed_extra(0, 0, None, None))),
 				function: contract_call,
 			});
-			initialize_block();
+			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
@@ -866,7 +866,7 @@ fn contract_call_works_with_fee_exchange() {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
 			});
-			initialize_block();
+			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
@@ -914,7 +914,7 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
 			});
-			initialize_block();
+			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
 				Err(InvalidTransaction::Custom(ASSET_TO_CORE_PRICE_ABOVE_MAX_LIMIT).into())
@@ -958,7 +958,7 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
 			});
-			initialize_block();
+			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
 				Err(InvalidTransaction::Custom(INSUFFICIENT_ASSET_RESERVE).into())
@@ -986,7 +986,7 @@ fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
 				max_payment: 100 * gas_limit_amount,
 			});
 
-			initialize_block();
+			Executive::initialize_block(&header());
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
 				function: contract_call,
