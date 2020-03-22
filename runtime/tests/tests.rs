@@ -37,7 +37,6 @@ use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header, OnInitialize, SaturatedConversion},
 	transaction_validity::InvalidTransaction,
-	Fixed64,
 };
 use sp_staking::SessionIndex;
 
@@ -114,13 +113,15 @@ fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 	cennznet_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
 }
 
-fn transfer_fee<E: Encode>(extrinsic: &E, fee_multiplier: Fixed64, runtime_call: &Call) -> Balance {
+fn transfer_fee<E: Encode>(extrinsic: &E, runtime_call: &Call) -> Balance {
 	let length_fee = TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
 
 	let weight = runtime_call.get_dispatch_info().weight;
 	let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 
 	let base_fee = TransactionBaseFee::get();
+	let fee_multiplier = TransactionPayment::next_fee_multiplier();
+
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 }
 
@@ -254,12 +255,12 @@ fn current_era_transaction_rewards_storage_update_works() {
 
 			// Apply first extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_1.clone()).is_ok());
-			total_transfer_fee += transfer_fee(&xt_1, TransactionPayment::next_fee_multiplier(), &runtime_call_1);
+			total_transfer_fee += transfer_fee(&xt_1, &runtime_call_1);
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
 
 			// Apply second extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_2.clone()).is_ok());
-			total_transfer_fee += transfer_fee(&xt_2, TransactionPayment::next_fee_multiplier(), &runtime_call_2);
+			total_transfer_fee += transfer_fee(&xt_2, &runtime_call_2);
 			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
 
 			// Advancing sessions shouldn't change transaction rewards storage
@@ -377,8 +378,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 				function: runtime_call.clone(),
 			});
 
-			let fm = TransactionPayment::next_fee_multiplier();
-			let fee = transfer_fee(&xt, fm, &runtime_call);
+			let fee = transfer_fee(&xt, &runtime_call);
 			let per_fee_reward = fee / validators.len() as Balance;
 
 			start_era(1);
@@ -477,8 +477,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 			function: runtime_call.clone(),
 		});
 
-		let fm = TransactionPayment::next_fee_multiplier();
-		let fee = transfer_fee(&xt, fm, &runtime_call);
+		let fee = transfer_fee(&xt, &runtime_call);
 
 		initialize_block();
 		let r = Executive::apply_extrinsic(xt);
@@ -529,8 +528,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			});
 
 			// Compute the transaction fee of the extrinsic
-			let fm = TransactionPayment::next_fee_multiplier();
-			let fee = transfer_fee(&xt, fm, &runtime_call);
+			let fee = transfer_fee(&xt, &runtime_call);
 
 			// Calculate how much CENNZ should be sold to make the above extrinsic
 			let cennz_sold_amount =
