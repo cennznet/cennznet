@@ -307,6 +307,94 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
+fn staking_reward_inflation_works() {
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
+	let staked_amount = balance_amount / 6;
+	let validators = validators(6);
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.stash(staked_amount)
+		.validator_count(validators.len())
+		.build()
+		.execute_with(|| {
+			// TODO: find out where / how the number is computed
+
+			start_session(0);
+			assert_eq!(Staking::current_era(), 0);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
+
+			// This triggers new_era, hence the cpay issuance is increased
+			start_session(1);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			start_session(2);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			start_session(3);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			start_session(4);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			start_session(5);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			start_session(6);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 744_000_000
+			);
+
+			// This triggers new_era, hence the cpay issuance is increased
+			start_session(7);
+			assert_eq!(Staking::current_era(), 2);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 2_640_000_000
+			);
+
+			start_session(8);
+			assert_eq!(Staking::current_era(), 2);
+			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + 2_640_000_000
+			);
+		});
+}
+
+#[test]
 fn staking_reward_should_work() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
