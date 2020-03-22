@@ -17,6 +17,8 @@
 //! Test crate for crml-staking-reward-curve. Allows to test for procedural macro.
 //! See tests directory.
 
+#![allow(array_into_iter)]
+
 mod test_small_falloff {
 	crml_staking_reward_curve::build! {
 		const REWARD_CURVE: sp_runtime::curve::PiecewiseLinear<'static> = curve!(

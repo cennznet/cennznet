@@ -245,6 +245,7 @@
 
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(array_into_iter)]
 
 #[cfg(test)]
 mod mock;
@@ -269,8 +270,8 @@ use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{
-		AtLeast32Bit, Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating, StaticLookup,
-		Zero,
+		AtLeast32Bit, Bounded, CheckedAdd, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
 	},
 	PerThing, Perbill, RuntimeDebug,
 };
@@ -727,6 +728,9 @@ decl_storage! {
 		/// Rewards for the current era. Using indices of current elected set.
 		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
 
+		/// Total transaction payment rewards for elected validators
+		CurrentEraFeeRewards : BalanceOf<T>;
+
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
 		/// This is used to derive rewards and punishments.
@@ -818,6 +822,8 @@ decl_event!(
 		/// All validators have been rewarded by the first balance; the second is the remainder
 		/// from the maximum amount of reward.
 		Reward(RewardBalance, RewardBalance),
+		/// Transaction fee rewards are split evenly across all validators.
+		RewardFees(RewardBalance, u32),
 		/// One validator (and its nominators) has been slashed by the given amount.
 		Slash(AccountId, Balance),
 		/// An old slashing report from a prior era was discarded because it could
@@ -1356,6 +1362,37 @@ impl<T: Trait> Module<T> {
 		imbalance
 	}
 
+	#[cfg(any(feature = "std", test))]
+	pub fn get_current_era_transaction_fee_reward() -> BalanceOf<T> {
+		CurrentEraFeeRewards::<T>::get()
+	}
+
+	pub fn set_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
+		CurrentEraFeeRewards::<T>::mutate(|reward| {
+			*reward = amount;
+		});
+	}
+
+	pub fn add_to_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
+		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.checked_add(&amount).unwrap_or_else(|| *reward));
+	}
+
+	/// Payout transaction rewards to all the validators. Called at the beginning of an era
+	fn split_fee_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
+		let recipients_len = recipients.len() as u32;
+
+		if recipients_len.is_zero() || total_amount.is_zero() {
+			return;
+		}
+
+		let reward = total_amount / recipients_len.into();
+		let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
+		for r in recipients.iter() {
+			total_imbalance.maybe_subsume(Self::make_payout(&r, reward));
+		}
+		Self::deposit_event(RawEvent::RewardFees(total_imbalance.peek(), recipients_len));
+	}
+
 	/// Session has just ended. Provide the validator set for the next session if it's an era-end.
 	fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		let era_length = session_index
@@ -1385,16 +1422,18 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		// Payout
-		let points = CurrentEraPointsEarned::take();
 		let now = T::Time::now();
 		let previous_era_start = <CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
 		let era_duration = now - previous_era_start;
 		if !era_duration.is_zero() {
 			let validators = Self::current_elected();
 
-			let validator_len: BalanceOf<T> = (validators.len() as u32).into();
-			let total_rewarded_stake = Self::slot_stake() * validator_len;
+			let validator_len = validators.len() as u32;
+			let total_rewarded_stake = Self::slot_stake() * validator_len.into();
+
+			// Pay the accumulated tx fee as rewards to all validators
+			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
+			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
 			let (total_payout, max_payout) = inflation::compute_total_payout(
 				&T::RewardCurve::get(),
@@ -1406,6 +1445,7 @@ impl<T: Trait> Module<T> {
 
 			let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 
+			let points = CurrentEraPointsEarned::take();
 			for (v, p) in validators.iter().zip(points.individual.into_iter()) {
 				if p != 0 {
 					let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;

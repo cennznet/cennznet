@@ -16,15 +16,13 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, MaximumBlockWeight, NegativeImbalance, PositiveImbalance, Runtime, System};
+use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, System};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
-use crml_staking::RewardDestination;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
-	additional_traits::{InherentAssetIdProvider, MultiCurrencyAccounting},
 	storage,
 	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
@@ -39,7 +37,6 @@ use sp_runtime::{
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
-type Staking<T> = crml_staking::Module<T>;
 
 pub struct SplitToAllValidators;
 
@@ -48,33 +45,11 @@ pub struct SplitToAllValidators;
 /// The remainder from the division are burned.
 impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
-		let validators = Staking::<Runtime>::current_elected();
-		if validators.len().is_zero() || imbalance.peek().is_zero() {
-			return;
-		}
-		// Get a list of elected validators
-		let per_validator_reward: Balance = imbalance.peek() / (validators.len() as Balance);
+		let amount = imbalance.peek();
 
-		// This tracks the total amount of reward actually handed out. Used to adjust total issurance
-		let mut total_imbalance = PositiveImbalance::zero();
-		let asset_id = imbalance.asset_id();
-		for validator in &validators {
-			let dest = Staking::<Runtime>::payee(validator);
-			let reward_destination_account_id = match dest {
-				RewardDestination::Controller => {
-					Staking::<Runtime>::bonded(validator).unwrap_or_else(|| validator.clone())
-				}
-				RewardDestination::Stash | RewardDestination::Staked => validator.clone(),
-			};
-
-			let payout = <GenericAsset<Runtime> as MultiCurrencyAccounting>::deposit_creating(
-				&reward_destination_account_id,
-				Some(asset_id.into()),
-				per_validator_reward,
-			);
-			let _ = total_imbalance.subsume(payout);
+		if !amount.is_zero() {
+			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
 		}
-		let _ = imbalance.offset(total_imbalance);
 	}
 }
 
