@@ -169,13 +169,6 @@ fn current_total_payout(validator_count: Balance) -> (Balance, Balance) {
 	(total_payout, max_payout)
 }
 
-fn check_free_balance_updated(account: &AccountId, balance: Balance) {
-	assert_eq!(
-		<GenericAsset as MultiCurrency>::free_balance(account, Some(CENTRAPAY_ASSET_ID)),
-		balance
-	);
-}
-
 fn reward_validators(validators: &[(AccountId, AccountId)]) -> (Balance, Balance) {
 	let validator_len = validators.len() as Balance;
 	let (total_payout, max_payout) = current_total_payout(validator_len);
@@ -295,7 +288,10 @@ fn staking_genesis_config_works() {
 				// Check that RewardDestination is Staked (default)
 				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);
 				// Check validator free balance
-				check_free_balance_updated(&stash, balance_amount);
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
 				// Check how much is at stake
 				assert_eq!(
 					Staking::ledger(controller),
@@ -336,7 +332,10 @@ fn staking_reward_should_work() {
 			// The balance of stash accounts remain the same within the same era
 			for validator in validators.clone() {
 				let (stash, _) = validator;
-				check_free_balance_updated(&stash, balance_amount);
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
 			}
 
 			// Advance a session to begin era 2
@@ -350,7 +349,10 @@ fn staking_reward_should_work() {
 			// Staking rewards are paid at the next era
 			for validator in validators {
 				let (stash, _) = validator;
-				check_free_balance_updated(&stash, balance_amount + per_staking_reward);
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + per_staking_reward
+				);
 			}
 		});
 }
@@ -390,20 +392,32 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 			assert!(r.is_ok());
 
 			// Check if the transfer is successful
-			check_free_balance_updated(&alice(), balance_amount - transfer_amount - fee);
-			check_free_balance_updated(&bob(), balance_amount + transfer_amount);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount - fee
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
 
 			// Check if stash account balances are not yet changed
 			for validator in validators.clone() {
 				let (stash, _) = validator;
-				check_free_balance_updated(&stash, balance_amount);
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount
+				);
 			}
 
 			start_era(2);
 			for validator in validators {
 				let (stash, _) = validator;
 				// Check tx fee reward went to the stash account of validator
-				check_free_balance_updated(&stash, balance_amount + per_fee_reward + per_staking_reward);
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + per_fee_reward + per_staking_reward
+				);
 			}
 		});
 }
@@ -470,7 +484,10 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		let balance_amount = 10_000 * TransactionBaseFee::get(); // give enough to make a transaction
 		let imbalance = GenericAsset::deposit_creating(&alice(), Some(CENTRAPAY_ASSET_ID), balance_amount);
 		assert_eq!(imbalance.peek(), balance_amount);
-		check_free_balance_updated(&alice(), balance_amount);
+		assert_eq!(
+			<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+			balance_amount
+		);
 
 		let xt = sign(CheckedExtrinsic {
 			signed: Some((alice(), signed_extra(0, 0, None, None))),
@@ -483,8 +500,14 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		let r = Executive::apply_extrinsic(xt);
 		assert!(r.is_ok());
 
-		check_free_balance_updated(&alice(), balance_amount - transfer_amount - fee);
-		check_free_balance_updated(&bob(), transfer_amount);
+		assert_eq!(
+			<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+			balance_amount - transfer_amount - fee
+		);
+		assert_eq!(
+			<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+			transfer_amount
+		);
 	});
 }
 
@@ -545,8 +568,14 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
 				balance_amount - liquidity_asset_amount - cennz_sold_amount, // transfer fee is charged in CENNZ
 			);
-			check_free_balance_updated(&alice(), balance_amount - liquidity_core_amount - transfer_amount); // transfer fee is not charged in CPAY
-			check_free_balance_updated(&bob(), balance_amount + transfer_amount);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - liquidity_core_amount - transfer_amount // transfer fee is not charged in CPAY
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
 		});
 }
 
@@ -870,8 +899,14 @@ fn contract_call_works_with_fee_exchange() {
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
-			check_free_balance_updated(&bob(), balance_amount + transfer_amount);
-			check_free_balance_updated(&alice(), balance_amount - transfer_amount);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount
+			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
 				9999739653196821,
