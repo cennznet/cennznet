@@ -202,12 +202,12 @@ fn start_session_works() {
 #[test]
 fn advance_session_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let session_index = 123;
+		let session_index = 12;
 		start_session(session_index);
 		advance_session();
 		advance_session();
 		advance_session();
-		assert_eq!(Session::current_index(), 126);
+		assert_eq!(Session::current_index(), 15);
 	});
 }
 
