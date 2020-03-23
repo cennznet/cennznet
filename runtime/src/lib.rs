@@ -308,7 +308,6 @@ parameter_types! {
 impl crml_staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
 	type RewardCurrency = SpendingAssetCurrency<Self>;
-	type CurrencyToReward = Balance;
 	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = Treasury;
