@@ -320,11 +320,19 @@ fn staking_reward_inflation_works() {
 		.build()
 		.execute_with(|| {
 			// TODO: find out where / how the number is computed
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 0);
+			assert_eq!(max_payout, 0);
 
 			start_session(0);
 			assert_eq!(Staking::current_era(), 0);
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 139_500_000);
+			assert_eq!(max_payout, 372_000_000);
+
+			// --------------------------------------------------------------------------------- //
 
 			// This triggers new_era, hence the cpay issuance is increased
 			start_session(1);
@@ -334,6 +342,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 0);
+			assert_eq!(max_payout, 0);
 
 			start_session(2);
 			assert_eq!(Staking::current_era(), 1);
@@ -342,6 +353,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 0);
+			assert_eq!(max_payout, 0);
 
 			start_session(3);
 			assert_eq!(Staking::current_era(), 1);
@@ -350,6 +364,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 139_500_000);
+			assert_eq!(max_payout, 372_000_000);
 
 			start_session(4);
 			assert_eq!(Staking::current_era(), 1);
@@ -358,6 +375,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 279_000_000);
+			assert_eq!(max_payout, 744_000_000);
 
 			start_session(5);
 			assert_eq!(Staking::current_era(), 1);
@@ -366,6 +386,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 423_000_000);
+			assert_eq!(max_payout, 1_128_000_000);
 
 			start_session(6);
 			assert_eq!(Staking::current_era(), 1);
@@ -374,6 +397,11 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 744_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 567_000_000);
+			assert_eq!(max_payout, 1_512_000_000);
+
+			// --------------------------------------------------------------------------------- //
 
 			// This triggers new_era, hence the cpay issuance is increased
 			start_session(7);
@@ -383,6 +411,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 2_640_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 0);
+			assert_eq!(max_payout, 0);
 
 			start_session(8);
 			assert_eq!(Staking::current_era(), 2);
@@ -391,6 +422,9 @@ fn staking_reward_inflation_works() {
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
 				total_issuance + 2_640_000_000
 			);
+			let (tot_payout, max_payout) = current_total_payout(6);
+			assert_eq!(tot_payout, 139_500_000);
+			assert_eq!(max_payout, 372_000_000);
 		});
 }
 
