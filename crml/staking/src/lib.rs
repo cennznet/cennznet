@@ -1427,10 +1427,7 @@ impl<T: Trait> Module<T> {
 				}
 			}
 
-			// assert!(total_imbalance.peek() == total_payout)
 			let total_payout = total_imbalance.peek();
-
-			// Convert `max_payout` into reward currency
 			let rest = max_payout.saturating_sub(total_payout);
 			Self::deposit_event(RawEvent::Reward(total_payout, rest));
 
