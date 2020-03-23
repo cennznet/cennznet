@@ -1197,7 +1197,9 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(validators);
+			<Invulnerables<T>>::put(validators.clone());
+			validators.iter().for_each( |v| println!("Set invulnerable:{:?}", v) );
+
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
@@ -1828,6 +1830,11 @@ where
 
 			// Skip if the validator is invulnerable.
 			if Self::invulnerables().contains(stash) {
+				// Invulnerable validators do not get slashed
+				println!(
+					"Invulnerable validator not slashed:{:?}, %:{:?}, session:{:?}",
+					stash, slash_fraction, slash_session
+				);
 				continue;
 			}
 
