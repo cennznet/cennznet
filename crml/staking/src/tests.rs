@@ -921,20 +921,10 @@ fn reward_destination_works() {
 
 		start_era(1);
 
-		// Check that RewardDestination is Staked (default)
-		assert_eq!(Staking::payee(&11), RewardDestination::Staked);
+		// Check that RewardDestination is Stash (default)
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
-		// Check that amount at stake increased accordingly
-		assert_eq!(
-			Staking::ledger(&10),
-			Some(StakingLedger {
-				stash: 11,
-				total: 1000 + total_payout_0,
-				active: 1000 + total_payout_0,
-				unlocking: vec![],
-			})
-		);
 
 		//Change RewardDestination to Stash
 		<Payee<Test>>::insert(&11, RewardDestination::Stash);
@@ -952,16 +942,6 @@ fn reward_destination_works() {
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0 + total_payout_1);
 		// Record this value
 		let recorded_stash_balance = 1000 + total_payout_0 + total_payout_1;
-		// Check that amount at stake is NOT increased
-		assert_eq!(
-			Staking::ledger(&10),
-			Some(StakingLedger {
-				stash: 11,
-				total: 1000 + total_payout_0,
-				active: 1000 + total_payout_0,
-				unlocking: vec![],
-			})
-		);
 
 		// Change RewardDestination to Controller
 		<Payee<Test>>::insert(&11, RewardDestination::Controller);
@@ -980,16 +960,6 @@ fn reward_destination_works() {
 		assert_eq!(Staking::payee(&11), RewardDestination::Controller);
 		// Check that reward went to the controller account
 		assert_eq!(Balances::free_balance(10), 1 + total_payout_2);
-		// Check that amount at stake is NOT increased
-		assert_eq!(
-			Staking::ledger(&10),
-			Some(StakingLedger {
-				stash: 11,
-				total: 1000 + total_payout_0,
-				active: 1000 + total_payout_0,
-				unlocking: vec![],
-			})
-		);
 		// Check that amount in staked account is NOT increased.
 		assert_eq!(Balances::free_balance(11), recorded_stash_balance);
 	});
@@ -1551,18 +1521,19 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 			<Module<Test>>::reward_by_ids(vec![(21, 1)]);
 
-			// New era --> rewards are paid --> stakes are changed
+			// New era --> rewards are paid to stash account --> stakes are not change
 			start_era(1);
 
-			// -- new balances + reward
-			assert_eq!(Staking::stakers(&11).total, 1000 + total_payout_0 / 2);
-			assert_eq!(Staking::stakers(&21).total, 69 + total_payout_0 / 2);
+			// -- balances not change
+			assert_eq!(Staking::stakers(&11).total, 1000);
+			assert_eq!(Staking::stakers(&21).total, 69);
 
-			let _11_balance = Balances::free_balance(&11);
-			assert_eq!(_11_balance, 1000 + total_payout_0 / 2);
+			// -- stash account balance + reward
+			assert_eq!(Balances::free_balance(&11), 1000 + total_payout_0 / 2);
+			assert_eq!(Balances::free_balance(&21), 2000 + total_payout_0 / 2);
 
-			// -- slot stake should also be updated.
-			assert_eq!(Staking::slot_stake(), 69 + total_payout_0 / 2);
+			// -- slot stake should NOT increased.
+			assert_eq!(Staking::slot_stake(), 69);
 
 			check_exposure_all();
 			check_nominator_all();

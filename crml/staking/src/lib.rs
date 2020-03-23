@@ -259,7 +259,6 @@ mod slashing;
 pub mod inflation;
 
 use codec::{Decode, Encode, HasCompact};
-use core::any::TypeId;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced, Time, WithdrawReasons},
@@ -270,8 +269,8 @@ use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{
-		AtLeast32Bit, Bounded, CheckedAdd, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating,
-		StaticLookup, Zero,
+		AtLeast32Bit, Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating, StaticLookup,
+		Zero,
 	},
 	PerThing, Perbill, RuntimeDebug,
 };
@@ -335,8 +334,6 @@ pub enum StakerStatus<AccountId> {
 /// A destination account for payment.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug)]
 pub enum RewardDestination {
-	/// Pay into the stash account, increasing the amount at stake accordingly.
-	Staked,
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
 	/// Pay into the controller account.
@@ -345,7 +342,7 @@ pub enum RewardDestination {
 
 impl Default for RewardDestination {
 	fn default() -> Self {
-		RewardDestination::Staked
+		RewardDestination::Stash
 	}
 }
 
@@ -605,9 +602,6 @@ pub trait Trait: frame_system::Trait {
 	/// It could be the same as `Self::Currency` or not, dependent on the economic model
 	type RewardCurrency: Currency<Self::AccountId>;
 
-	/// Conversion shim type for converting staking `Currency` balances into `RewardCurrency` balances
-	type CurrencyToReward: From<BalanceOf<Self>> + Into<RewardBalanceOf<Self>>;
-
 	/// Time used for computing era duration.
 	type Time: Time;
 
@@ -729,7 +723,7 @@ decl_storage! {
 		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
 
 		/// Total transaction payment rewards for elected validators
-		CurrentEraFeeRewards : BalanceOf<T>;
+		CurrentEraFeeRewards : RewardBalanceOf<T>;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -796,7 +790,7 @@ decl_storage! {
 					T::Origin::from((Some(stash.clone()), None).into()),
 					T::Lookup::unlookup(controller.clone()),
 					balance,
-					RewardDestination::Staked,
+					RewardDestination::Stash,
 				);
 				let _ = match status {
 					StakerStatus::Validator => {
@@ -1306,39 +1300,19 @@ impl<T: Trait> Module<T> {
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
-	fn make_payout(stash: &T::AccountId, amount: BalanceOf<T>) -> Option<RewardPositiveImbalanceOf<T>> {
+	fn make_payout(stash: &T::AccountId, amount: RewardBalanceOf<T>) -> Option<RewardPositiveImbalanceOf<T>> {
 		let dest = Self::payee(stash);
-		let reward_amount = T::CurrencyToReward::from(amount).into();
 		match dest {
 			RewardDestination::Controller => Self::bonded(stash)
-				.and_then(|controller| T::RewardCurrency::deposit_into_existing(&controller, reward_amount).ok()),
-			RewardDestination::Stash => T::RewardCurrency::deposit_into_existing(stash, reward_amount).ok(),
-			RewardDestination::Staked => {
-				if TypeId::of::<T::RewardCurrency>() != TypeId::of::<T::Currency>() {
-					// The staking currency is not the same as the reward currency.
-					// Pay out the reward currency to the stash account (no change to active stake)
-					T::RewardCurrency::deposit_into_existing(stash, reward_amount).ok()
-				} else {
-					// The staking currency _is_ the reward currency, pay reward to stash account and
-					// increase the active stake in kind
-					Self::bonded(stash)
-						.and_then(|c| Self::ledger(&c).map(|l| (c, l)))
-						.and_then(|(controller, mut l)| {
-							l.active += amount;
-							l.total += amount;
-							let r = T::RewardCurrency::deposit_into_existing(stash, reward_amount).ok();
-							Self::update_ledger(&controller, &l);
-							r
-						})
-				}
-			}
+				.and_then(|controller| T::RewardCurrency::deposit_into_existing(&controller, amount).ok()),
+			RewardDestination::Stash => T::RewardCurrency::deposit_into_existing(stash, amount).ok(),
 		}
 	}
 
 	/// Reward a given validator by a specific amount. Add the reward to the validator's, and its
 	/// nominators' balance, pro-rata based on their exposure, after having removed the validator's
 	/// pre-payout cut.
-	fn reward_validator(stash: &T::AccountId, reward: BalanceOf<T>) -> RewardPositiveImbalanceOf<T> {
+	fn reward_validator(stash: &T::AccountId, reward: RewardBalanceOf<T>) -> RewardPositiveImbalanceOf<T> {
 		let off_the_table = Self::validators(stash).commission * reward;
 		let reward = reward.saturating_sub(off_the_table);
 		let mut imbalance = <RewardPositiveImbalanceOf<T>>::zero();
@@ -1363,22 +1337,22 @@ impl<T: Trait> Module<T> {
 	}
 
 	#[cfg(any(feature = "std", test))]
-	pub fn get_current_era_transaction_fee_reward() -> BalanceOf<T> {
+	pub fn current_era_transaction_fee_reward() -> RewardBalanceOf<T> {
 		CurrentEraFeeRewards::<T>::get()
 	}
 
-	pub fn set_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
+	pub fn set_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
 		CurrentEraFeeRewards::<T>::mutate(|reward| {
 			*reward = amount;
 		});
 	}
 
-	pub fn add_to_current_era_transaction_fee_reward(amount: BalanceOf<T>) {
-		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.checked_add(&amount).unwrap_or_else(|| *reward));
+	pub fn add_to_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
+		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.saturating_add(amount));
 	}
 
 	/// Payout transaction rewards to all the validators. Called at the beginning of an era
-	fn split_fee_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: BalanceOf<T>) {
+	fn split_fee_rewards_evenly_to_all(recipients: &Vec<T::AccountId>, total_amount: RewardBalanceOf<T>) {
 		let recipients_len = recipients.len() as u32;
 
 		if recipients_len.is_zero() || total_amount.is_zero() {
@@ -1428,17 +1402,17 @@ impl<T: Trait> Module<T> {
 		if !era_duration.is_zero() {
 			let validators = Self::current_elected();
 
-			let validator_len = validators.len() as u32;
-			let total_rewarded_stake = Self::slot_stake() * validator_len.into();
-
 			// Pay the accumulated tx fee as rewards to all validators
 			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
 			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
-			let (total_payout, max_payout) = inflation::compute_total_payout(
+			let validator_len = validators.len() as u32;
+			let total_rewarded_stake =
+				RewardBalanceOf::<T>::saturated_from((Self::slot_stake() * validator_len.into()).saturated_into()); // ugly hack to get `T::RewardCurrency` balance from `T::Currency` balance
+			let (total_payout, max_payout) = inflation::compute_total_payout::<RewardBalanceOf<T>>(
 				&T::RewardCurve::get(),
-				total_rewarded_stake.clone(),
-				T::Currency::total_issuance(),
+				total_rewarded_stake,
+				T::RewardCurrency::total_issuance(),
 				// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 				era_duration.saturated_into::<u64>(),
 			);
@@ -1453,12 +1427,8 @@ impl<T: Trait> Module<T> {
 				}
 			}
 
-			// assert!(total_imbalance.peek() == total_payout)
 			let total_payout = total_imbalance.peek();
-
-			// Convert `max_payout` into reward currency
-			let _max_payout: RewardBalanceOf<T> = T::CurrencyToReward::from(max_payout).into();
-			let rest = _max_payout.saturating_sub(total_payout);
+			let rest = max_payout.saturating_sub(total_payout);
 			Self::deposit_event(RawEvent::Reward(total_payout, rest));
 
 			T::Reward::on_unbalanced(total_imbalance);

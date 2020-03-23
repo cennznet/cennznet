@@ -213,7 +213,6 @@ parameter_types! {
 impl Trait for Test {
 	type Currency = pallet_balances::Module<Self>;
 	type RewardCurrency = pallet_balances::Module<Self>;
-	type CurrencyToReward = Balance;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
