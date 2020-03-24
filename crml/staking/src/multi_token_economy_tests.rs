@@ -303,5 +303,12 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 				unlocking: vec![],
 			})
 		);
-	});
+		// Check total issuance
+		let total_issuance = 1_000_000_000 * 2; // one stash and controller accounts
+		assert_eq!(GenericAsset::total_issuance(STAKING_ASSET_ID), total_issuance);
+		assert_eq!(
+			GenericAsset::total_issuance(REWARD_ASSET_ID),
+			total_issuance + total_payout_0
+		);
+	})
 }
