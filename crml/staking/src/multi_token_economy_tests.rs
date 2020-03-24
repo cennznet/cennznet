@@ -147,7 +147,6 @@ parameter_types! {
 impl Trait for Test {
 	type Currency = pallet_generic_asset::StakingAssetCurrency<Self>;
 	type RewardCurrency = pallet_generic_asset::SpendingAssetCurrency<Self>;
-	type CurrencyToReward = Balance;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
@@ -287,8 +286,8 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 
 		start_era(1);
 
-		// Check that RewardDestination is Staked (default)
-		assert_eq!(Staking::payee(&11), RewardDestination::Staked);
+		// Check that RewardDestination is Stash (default)
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 		// Check that reward went to the stash account of validator
 		assert_eq!(
 			GenericAsset::free_balance(&REWARD_ASSET_ID, &11),

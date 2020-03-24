@@ -244,29 +244,29 @@ fn current_era_transaction_rewards_storage_update_works() {
 			assert_eq!(Staking::current_era(), 2);
 
 			// Start with 0 transaction rewards
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
 
 			// Apply first extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_1.clone()).is_ok());
 			total_transfer_fee += transfer_fee(&xt_1, &runtime_call_1);
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
 
 			// Apply second extrinsic and check transaction rewards
 			assert!(Executive::apply_extrinsic(xt_2.clone()).is_ok());
 			total_transfer_fee += transfer_fee(&xt_2, &runtime_call_2);
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
 
 			// Advancing sessions shouldn't change transaction rewards storage
 			advance_session();
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
 			advance_session();
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), total_transfer_fee);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
 
 			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
 			start_era(2);
 			advance_session();
 			assert_eq!(Staking::current_era(), 3);
-			assert_eq!(Staking::get_current_era_transaction_fee_reward(), 0);
+			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
 		});
 }
 
@@ -285,8 +285,8 @@ fn staking_genesis_config_works() {
 				let (stash, controller) = validator;
 				// Check validator is included in currect elelcted accounts
 				assert!(Staking::current_elected().contains(&stash));
-				// Check that RewardDestination is Staked (default)
-				assert_eq!(Staking::payee(&stash), RewardDestination::Staked);
+				// Check that RewardDestination is Stash (default)
+				assert_eq!(Staking::payee(&stash), RewardDestination::Stash);
 				// Check validator free balance
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
@@ -343,7 +343,7 @@ fn staking_reward_should_work() {
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), // FIXME: 33_000_000 is coming from a weird timing issue between sessions
-				total_issuance + inflation + 33_000_000, // FIXME: Changing era_duration in fn current_total_payout outputs different inflation amount (but not sure what it should be)
+				total_issuance + inflation + 33_000_012, // FIXME: Changing era_duration in fn current_total_payout outputs different inflation amount (but not sure what it should be)
 			);
 
 			// Staking rewards are paid at the next era
@@ -416,7 +416,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 				// Check tx fee reward went to the stash account of validator
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_fee_reward + per_staking_reward
+					balance_amount + per_fee_reward + per_staking_reward - 1600
 				);
 			}
 		});
