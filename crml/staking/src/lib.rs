@@ -260,9 +260,9 @@ pub mod inflation;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
+	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced, Time, WithdrawReasons},
-	weights::SimpleDispatchInfo, debug
+	weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
@@ -1803,7 +1803,9 @@ where
 				// Invulnerable validators do not get slashed
 				debug::print!(
 					"Invulnerable validator not slashed:{:?}, %:{:?}, session:{:?}",
-					stash, slash_fraction, slash_session
+					stash,
+					slash_fraction,
+					slash_session
 				);
 				continue;
 			}
