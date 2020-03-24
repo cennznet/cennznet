@@ -262,7 +262,7 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced, Time, WithdrawReasons},
-	weights::SimpleDispatchInfo,
+	weights::SimpleDispatchInfo, debug
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
@@ -1192,7 +1192,7 @@ decl_module! {
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
-			validators.iter().for_each( |v| println!("Set invulnerable:{:?}", v) );
+			validators.iter().for_each( |v| debug::print!("Set invulnerable:{:?}", v) );
 
 		}
 
@@ -1801,7 +1801,7 @@ where
 			// Skip if the validator is invulnerable.
 			if Self::invulnerables().contains(stash) {
 				// Invulnerable validators do not get slashed
-				println!(
+				debug::print!(
 					"Invulnerable validator not slashed:{:?}, %:{:?}, session:{:?}",
 					stash, slash_fraction, slash_session
 				);
