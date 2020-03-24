@@ -2350,7 +2350,7 @@ fn invulnerables_can_be_set() {
 		assert_eq!(Balances::free_balance(21), 2000);
 
 		//Changing the invulnerables set from [21] to [11].
-		Staking::set_invulnerables(Origin::ROOT, vec![11]);
+		let _ = Staking::set_invulnerables(Origin::ROOT, vec![11]);
 
 		let exposure = Staking::stakers(&21);
 		let initial_balance = Staking::slashable_balance_of(&21);
@@ -2385,6 +2385,22 @@ fn invulnerables_can_be_set() {
 		}
 		assert_ledger_consistent(11);
 		assert_ledger_consistent(21);
+	});
+}
+
+#[test]
+fn invulnerables_can_only_be_set_by_root() {
+	// Invulnerable validator set can be modified
+	ExtBuilder::default().invulnerables(vec![11]).build().execute_with(|| {
+		assert_eq!(Staking::invulnerables(), vec![11]);
+
+		//try to change the invulnerable set without root access
+		let _ = Staking::set_invulnerables(Origin::signed(21), vec![21]);
+		assert_eq!(Staking::invulnerables(), vec![11]);
+
+		//Changing the invulnerables with root access.
+		let _ = Staking::set_invulnerables(Origin::ROOT, vec![21, 11]);
+		assert_eq!(Staking::invulnerables(), vec![21, 11]);
 	});
 }
 
