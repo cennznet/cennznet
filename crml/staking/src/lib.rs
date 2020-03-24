@@ -1476,7 +1476,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Compute current `total_payout` and `max_payout` for specific era duration
-	pub fn current_total_payout(total_tokens: RewardBalanceOf<T>) -> (RewardBalanceOf<T>, RewardBalanceOf<T>) {
+	pub fn current_total_payout(total_issuance: RewardBalanceOf<T>) -> (RewardBalanceOf<T>, RewardBalanceOf<T>) {
 		let validators = Self::current_elected();
 		let validator_len = validators.len() as u32;
 		let era_duration = Self::current_era_duration();
@@ -1486,7 +1486,7 @@ impl<T: Trait> Module<T> {
 		let (total_payout, max_payout) = inflation::compute_total_payout::<RewardBalanceOf<T>>(
 			&T::RewardCurve::get(),
 			total_rewarded_stake,
-			total_tokens,
+			total_issuance,
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration.saturated_into::<u64>(),
 		);

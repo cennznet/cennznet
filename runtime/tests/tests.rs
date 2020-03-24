@@ -286,7 +286,7 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
-fn staking_reward_inflation_works() {
+fn staking_inflation_and_reward_should_work() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
 	let staked_amount = balance_amount / 6;
@@ -303,93 +303,92 @@ fn staking_reward_inflation_works() {
 			assert_eq!(Staking::current_era(), 0);
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
+			// Add points to each validator which use to allocate staking reward in the next new era
+			reward_validators(&validators);
 
 			// Total issuance for CPAY is inflated at the start of era 1, and that for CENNZ is unchanged.
 			start_session(1);
+			assert_eq!(Staking::current_era(), 1);
+			reward_validators(&validators);
+
+			// Compute total payout and inflation for new era
 			let (total_payout, inflation_era_1) = Staking::current_total_payout(total_issuance);
 			assert_eq!(total_payout, 279_000_000);
 			assert_eq!(inflation_era_1, 744_000_000);
 
-			let sessions_era_1 = vec![2, 3, 4, 5, 6];
-			for session in sessions_era_1 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 1);
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1
-				);
-			}
-
-			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
-			start_session(7);
-			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
-			assert_eq!(total_payout, 711_000_003);
-			assert_eq!(inflation_era_2, 1_896_000_012);
-
-			let sessions_era_2 = vec![8, 9, 10, 11, 12];
-			for session in sessions_era_2 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 2);
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1 + inflation_era_2
-				);
-			}
-		});
-}
-
-#[test]
-fn staking_reward_should_work() {
-	let balance_amount = 10_000 * TransactionBaseFee::get();
-	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
-	let staked_amount = balance_amount / 6;
-	let validators = validators(6);
-
-	// should check that:
-	// * rewards get recorded per session
-	// * rewards get paid per Era
-	ExtBuilder::default()
-		.initial_balance(balance_amount)
-		.stash(staked_amount)
-		.validator_count(validators.len())
-		.build()
-		.execute_with(|| {
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
-
-			start_era(1);
+			// Compute staking reward for each validator
 			let validator_len = validators.len() as Balance;
-			reward_validators(&validators);
-			// The balance of stash accounts remain the same within the same era
-			for validator in validators.clone() {
-				let (stash, _) = validator;
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
-			}
-
-			// Advance a session to begin era 2
-			advance_session();
-			assert_eq!(Staking::current_era(), 2);
-			let (total_payout, max_payout) = Staking::current_total_payout(total_issuance);
 			let per_staking_reward = total_payout / validator_len;
 
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout,
-			);
-
-			// Staking rewards are paid at the next era
-			for validator in validators {
+			// validators should receive skaking reward after new era
+			for validator in validators.clone() {
 				let (stash, _) = validator;
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount + per_staking_reward
 				);
+			}
+
+			let sessions_era_1 = vec![2, 3, 4, 5, 6];
+			for session in sessions_era_1 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 1);
+				// Total issuance for CENNZ is unchanged
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				// Total issuance for CPAY remain the same within the same era
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1
+				);
+
+				// The balance of stash accounts remain the same within the same era
+				for validator in validators.clone() {
+					let (stash, _) = validator;
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+						balance_amount + per_staking_reward
+					);
+				}
+			}
+
+			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
+			start_session(7);
+			assert_eq!(Staking::current_era(), 2);
+
+			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
+			assert_eq!(total_payout, 711_000_003);
+			assert_eq!(inflation_era_2, 1_896_000_012);
+
+			// validators should receive skaking reward after new era
+			let per_staking_reward = total_payout / validator_len + per_staking_reward;
+			for validator in validators.clone() {
+				let (stash, _) = validator;
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + per_staking_reward
+				);
+			}
+
+			let sessions_era_2 = vec![8, 9, 10, 11, 12];
+			for session in sessions_era_2 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 2);
+				// Total issuance for CENNZ is unchanged
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				// Total issuance for CPAY remain the same within the same era
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1 + inflation_era_2
+				);
+
+				// The balance of stash accounts remain the same within the same era
+				for validator in validators.clone() {
+					let (stash, _) = validator;
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+						balance_amount + per_staking_reward
+					);
+				}
 			}
 		});
 }
