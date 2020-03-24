@@ -2376,6 +2376,20 @@ fn invulnerables_can_only_be_set_by_root() {
 }
 
 #[test]
+fn invulnerables_be_empty() {
+	ExtBuilder::default()
+		.invulnerables(vec![11, 21])
+		.build()
+		.execute_with(|| {
+			assert_eq!(Staking::invulnerables(), vec![11, 21]);
+
+			//Changing the invulnerables with root access.
+			let _ = Staking::set_invulnerables(Origin::ROOT, vec![]);
+			assert_eq!(Staking::invulnerables(), vec![]);
+		});
+}
+
+#[test]
 fn dont_slash_if_fraction_is_zero() {
 	// Don't slash if the fraction is zero.
 	ExtBuilder::default().build().execute_with(|| {

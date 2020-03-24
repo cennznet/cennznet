@@ -820,9 +820,14 @@ decl_event!(
 		RewardFees(RewardBalance, u32),
 		/// One validator (and its nominators) has been slashed by the given amount.
 		Slash(AccountId, Balance),
+		/// The validator is invulnerable, so it has NOT been slashed.
+		InvulnerableNotSlashed(AccountId, Perbill),
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
 		OldSlashingReportDiscarded(SessionIndex),
+		/// A new set of validators are marked to be invulnerable
+		SetInvulnerables(Vec<AccountId>),
+
 	}
 );
 
@@ -1192,7 +1197,8 @@ decl_module! {
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
-			validators.iter().for_each( |v| debug::print!("Set invulnerable:{:?}", v) );
+			debug::print!("Set invulnerable:{:?}", validators.clone() );
+			Self::deposit_event(RawEvent::SetInvulnerables(validators.clone()) );
 
 		}
 
@@ -1807,6 +1813,7 @@ where
 					slash_fraction,
 					slash_session
 				);
+				Self::deposit_event(RawEvent::InvulnerableNotSlashed(stash.clone(), slash_fraction.clone()));
 				continue;
 			}
 
