@@ -2314,6 +2314,82 @@ fn invulnerables_are_not_slashed() {
 }
 
 #[test]
+fn invulnerables_can_be_set() {
+	// Invulnerable validator set can be modified
+	ExtBuilder::default().invulnerables(vec![21]).build().execute_with(|| {
+		assert_eq!(Balances::free_balance(11), 1000);
+		assert_eq!(Balances::free_balance(21), 2000);
+
+		//Changing the invulnerables set from [21] to [11].
+		let _ = Staking::set_invulnerables(Origin::ROOT, vec![11]);
+
+		let exposure = Staking::stakers(&21);
+		let initial_balance = Staking::slashable_balance_of(&21);
+
+		let nominator_balances: Vec<_> = exposure.others.iter().map(|o| Balances::free_balance(&o.who)).collect();
+
+		on_offence_now(
+			&[
+				OffenceDetails {
+					offender: (11, Staking::stakers(&11)),
+					reporters: vec![],
+				},
+				OffenceDetails {
+					offender: (21, Staking::stakers(&21)),
+					reporters: vec![],
+				},
+			],
+			&[Perbill::from_percent(50), Perbill::from_percent(20)],
+		);
+
+		// The validator 11 hasn't been slashed, but 21 has been.
+		assert_eq!(Balances::free_balance(11), 1000);
+		// 2000 - (0.2 * initial_balance)
+		assert_eq!(Balances::free_balance(21), 2000 - (2 * initial_balance / 10));
+
+		// ensure that nominators were slashed as well.
+		for (initial_balance, other) in nominator_balances.into_iter().zip(exposure.others) {
+			assert_eq!(
+				Balances::free_balance(&other.who),
+				initial_balance - (2 * other.value / 10),
+			);
+		}
+		assert_ledger_consistent(11);
+		assert_ledger_consistent(21);
+	});
+}
+
+#[test]
+fn invulnerables_can_only_be_set_by_root() {
+	// Invulnerable validator set can be modified
+	ExtBuilder::default().invulnerables(vec![11]).build().execute_with(|| {
+		assert_eq!(Staking::invulnerables(), vec![11]);
+
+		//try to change the invulnerable set without root access
+		let _ = Staking::set_invulnerables(Origin::signed(21), vec![21]);
+		assert_eq!(Staking::invulnerables(), vec![11]);
+
+		//Changing the invulnerables with root access.
+		let _ = Staking::set_invulnerables(Origin::ROOT, vec![21, 11]);
+		assert_eq!(Staking::invulnerables(), vec![21, 11]);
+	});
+}
+
+#[test]
+fn invulnerables_be_empty() {
+	ExtBuilder::default()
+		.invulnerables(vec![11, 21])
+		.build()
+		.execute_with(|| {
+			assert_eq!(Staking::invulnerables(), vec![11, 21]);
+
+			//Changing the invulnerables with root access.
+			let _ = Staking::set_invulnerables(Origin::ROOT, vec![]);
+			assert_eq!(Staking::invulnerables(), vec![]);
+		});
+}
+
+#[test]
 fn dont_slash_if_fraction_is_zero() {
 	// Don't slash if the fraction is zero.
 	ExtBuilder::default().build().execute_with(|| {

@@ -260,7 +260,7 @@ pub mod inflation;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
+	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced, Time, WithdrawReasons},
 	weights::SimpleDispatchInfo,
 };
@@ -820,9 +820,14 @@ decl_event!(
 		RewardFees(RewardBalance, u32),
 		/// One validator (and its nominators) has been slashed by the given amount.
 		Slash(AccountId, Balance),
+		/// The validator is invulnerable, so it has NOT been slashed.
+		InvulnerableNotSlashed(AccountId, Perbill),
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
 		OldSlashingReportDiscarded(SessionIndex),
+		/// A new set of validators are marked to be invulnerable
+		SetInvulnerables(Vec<AccountId>),
+
 	}
 );
 
@@ -1191,7 +1196,10 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(validators);
+			<Invulnerables<T>>::put(validators.clone());
+			debug::print!("Set invulnerable:{:?}", validators );
+			Self::deposit_event(RawEvent::SetInvulnerables(validators) );
+
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
@@ -1798,6 +1806,14 @@ where
 
 			// Skip if the validator is invulnerable.
 			if Self::invulnerables().contains(stash) {
+				// Invulnerable validators do not get slashed
+				debug::print!(
+					"Invulnerable validator not slashed:{:?}, %:{:?}, session:{:?}",
+					stash,
+					slash_fraction,
+					slash_session
+				);
+				Self::deposit_event(RawEvent::InvulnerableNotSlashed(stash.clone(), slash_fraction.clone()));
 				continue;
 			}
 
