@@ -298,90 +298,45 @@ fn staking_reward_inflation_works() {
 		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
-			// TODO: find out where / how the number is computed
+			// Total issuance remains unchanged at era 0.
 			start_session(0);
 			assert_eq!(Staking::current_era(), 0);
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
 
-			// --------------------------------------------------------------------------------- //
-
-			// This triggers new_era, hence the cpay issuance is increased
-			let total_issuance_0 = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
+			// Total issuance for CPAY is inflated at the start of era 1, and that for CENNZ is unchanged.
 			start_session(1);
-			let (tot_payout, max_payout_era_1) = Staking::current_total_payout(total_issuance_0);
-			assert_eq!(tot_payout, 279_000_000);
-			assert_eq!(max_payout_era_1, 744_000_000);
+			let (total_payout, inflation_era_1) = Staking::current_total_payout(total_issuance);
+			assert_eq!(total_payout, 279_000_000);
+			assert_eq!(inflation_era_1, 744_000_000);
 
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
+			let sessions_era_1 = vec![2, 3, 4, 5, 6];
+			for session in sessions_era_1 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 1);
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1
+				);
+			}
 
-			start_session(2);
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
-
-			start_session(3);
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
-
-			start_session(4);
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
-
-			start_session(5);
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
-
-			start_session(6);
-			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1
-			);
-
-			// --------------------------------------------------------------------------------- //
-
-			// This triggers new_era, hence the cpay issuance is increased
+			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
 			start_session(7);
-			let (tot_payout, max_payout_era_2) = Staking::current_total_payout(total_issuance + max_payout_era_1);
-			assert_eq!(tot_payout, 711_000_003);
-			assert_eq!(max_payout_era_2, 1_896_000_012);
+			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
+			assert_eq!(total_payout, 711_000_003);
+			assert_eq!(inflation_era_2, 1_896_000_012);
 
-			assert_eq!(Staking::current_era(), 2);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1 + max_payout_era_2
-			);
-
-			start_session(8);
-			assert_eq!(Staking::current_era(), 2);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout_era_1 + max_payout_era_2
-			);
+			let sessions_era_2 = vec![8, 9, 10, 11, 12];
+			for session in sessions_era_2 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 2);
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1 + inflation_era_2
+				);
+			}
 		});
 }
 
@@ -417,16 +372,15 @@ fn staking_reward_should_work() {
 			}
 
 			// Advance a session to begin era 2
-			let total_issuance_1 = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
 			advance_session();
 			assert_eq!(Staking::current_era(), 2);
-			let (total_payout, max_payout) = Staking::current_total_payout(total_issuance_1);
+			let (total_payout, max_payout) = Staking::current_total_payout(total_issuance);
 			let per_staking_reward = total_payout / validator_len;
 
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance_1 + max_payout,
+				total_issuance + max_payout,
 			);
 
 			// Staking rewards are paid at the next era

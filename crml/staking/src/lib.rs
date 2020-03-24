@@ -1419,7 +1419,7 @@ impl<T: Trait> Module<T> {
 			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
 			let (total_payout, max_payout) = Self::current_total_payout(T::RewardCurrency::total_issuance());
-			let mut total_imbalance = T::RewardCurrency::burn(Zero::zero()); // hack way to get new ImBalance with asset_id
+			let mut total_imbalance = T::RewardCurrency::burn(Zero::zero()); // hack to get new ImBalance with asset_id
 
 			let points = CurrentEraPointsEarned::take();
 			for (v, p) in validators.iter().zip(points.individual.into_iter()) {
