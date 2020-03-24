@@ -1197,8 +1197,8 @@ decl_module! {
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
-			debug::print!("Set invulnerable:{:?}", validators.clone() );
-			Self::deposit_event(RawEvent::SetInvulnerables(validators.clone()) );
+			debug::print!("Set invulnerable:{:?}", validators );
+			Self::deposit_event(RawEvent::SetInvulnerables(validators) );
 
 		}
 
