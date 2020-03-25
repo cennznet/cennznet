@@ -321,8 +321,7 @@ fn staking_inflation_and_reward_should_work() {
 			let per_staking_reward = total_payout / validator_len;
 
 			// validators should receive skaking reward after new era
-			for validator in validators.clone() {
-				let (stash, _) = validator;
+			for (stash, _) in &validators {
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount + per_staking_reward
@@ -342,8 +341,7 @@ fn staking_inflation_and_reward_should_work() {
 				);
 
 				// The balance of stash accounts remain the same within the same era
-				for validator in validators.clone() {
-					let (stash, _) = validator;
+				for (stash, _) in &validators {
 					assert_eq!(
 						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 						balance_amount + per_staking_reward
@@ -361,8 +359,7 @@ fn staking_inflation_and_reward_should_work() {
 
 			// validators should receive skaking reward after new era
 			let per_staking_reward = total_payout / validator_len + per_staking_reward;
-			for validator in validators.clone() {
-				let (stash, _) = validator;
+			for (stash, _) in &validators {
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount + per_staking_reward
@@ -382,8 +379,7 @@ fn staking_inflation_and_reward_should_work() {
 				);
 
 				// The balance of stash accounts remain the same within the same era
-				for validator in validators.clone() {
-					let (stash, _) = validator;
+				for (stash, _) in &validators {
 					assert_eq!(
 						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 						balance_amount + per_staking_reward
@@ -437,8 +433,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 			);
 
 			// Check if stash account balances are not yet changed
-			for validator in validators.clone() {
-				let (stash, _) = validator;
+			for (stash, _) in &validators {
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount
