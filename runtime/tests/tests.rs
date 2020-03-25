@@ -35,7 +35,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header as HeaderT, OnInitialize, SaturatedConversion},
+	traits::{Convert, Hash, Header as HeaderT, OnInitialize},
 	transaction_validity::InvalidTransaction,
 };
 use sp_staking::SessionIndex;
@@ -154,33 +154,12 @@ fn start_era(era_index: EraIndex) {
 	assert_eq!(Staking::current_era(), era_index);
 }
 
-fn current_total_payout(validator_count: Balance) -> (Balance, Balance) {
-	let now = Timestamp::now();
-	let previous_era_start = <crml_staking::CurrentEraStart<Runtime>>::get();
-	let era_duration = now - previous_era_start;
-
-	let (total_payout, max_payout) = crml_staking::inflation::compute_total_payout(
-		<Runtime as crml_staking::Trait>::RewardCurve::get(),
-		Staking::slot_stake() * validator_count,
-		GenericAsset::total_issuance(&CENNZ_ASSET_ID),
-		era_duration.saturated_into::<u64>(),
-	);
-
-	(total_payout, max_payout)
-}
-
-fn reward_validators(validators: &[(AccountId, AccountId)]) -> (Balance, Balance) {
-	let validator_len = validators.len() as Balance;
-	let (total_payout, max_payout) = current_total_payout(validator_len);
-	assert!(total_payout > 1);
-
+fn reward_validators(validators: &[(AccountId, AccountId)]) {
 	let validators_points = validators
 		.iter()
 		.map(|v| (v.0.clone(), 1))
 		.collect::<Vec<(AccountId, u32)>>();
 	Staking::reward_by_ids(validators_points);
-
-	(total_payout, max_payout)
 }
 
 #[test]
@@ -307,52 +286,105 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
-fn staking_reward_should_work() {
+fn staking_inflation_and_reward_should_work() {
 	let balance_amount = 10_000 * TransactionBaseFee::get();
 	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
 	let staked_amount = balance_amount / 6;
 	let validators = validators(6);
 
-	// should check that:
-	// * rewards get recorded per session
-	// * rewards get paid per Era
 	ExtBuilder::default()
 		.initial_balance(balance_amount)
 		.stash(staked_amount)
 		.validator_count(validators.len())
 		.build()
 		.execute_with(|| {
+			// Total issuance remains unchanged at era 0.
+			start_session(0);
+			assert_eq!(Staking::current_era(), 0);
 			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
 			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
+			// Add points to each validator which use to allocate staking reward in the next new era
+			reward_validators(&validators);
 
-			start_era(1);
+			// Total issuance for CPAY is inflated at the start of era 1, and that for CENNZ is unchanged.
+			start_session(1);
+			assert_eq!(Staking::current_era(), 1);
+			reward_validators(&validators);
+
+			// Compute total payout and inflation for new era
+			let (total_payout, inflation_era_1) = Staking::current_total_payout(total_issuance);
+			assert_eq!(total_payout, 279_000_000);
+			assert_eq!(inflation_era_1, 744_000_000);
+
+			// Compute staking reward for each validator
 			let validator_len = validators.len() as Balance;
-			let (total_reward, inflation) = reward_validators(&validators);
-			let per_staking_reward = total_reward / validator_len;
-			// The balance of stash accounts remain the same within the same era
-			for validator in validators.clone() {
-				let (stash, _) = validator;
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
-			}
+			let per_staking_reward = total_payout / validator_len;
 
-			// Advance a session to begin era 2
-			advance_session();
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), // FIXME: 33_000_000 is coming from a weird timing issue between sessions
-				total_issuance + inflation + 33_000_012, // FIXME: Changing era_duration in fn current_total_payout outputs different inflation amount (but not sure what it should be)
-			);
-
-			// Staking rewards are paid at the next era
-			for validator in validators {
-				let (stash, _) = validator;
+			// validators should receive skaking reward after new era
+			for (stash, _) in &validators {
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount + per_staking_reward
 				);
+			}
+
+			let sessions_era_1 = vec![2, 3, 4, 5, 6];
+			for session in sessions_era_1 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 1);
+				// Total issuance for CENNZ is unchanged
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				// Total issuance for CPAY remain the same within the same era
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1
+				);
+
+				// The balance of stash accounts remain the same within the same era
+				for (stash, _) in &validators {
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+						balance_amount + per_staking_reward
+					);
+				}
+			}
+
+			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
+			start_session(7);
+			assert_eq!(Staking::current_era(), 2);
+
+			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
+			assert_eq!(total_payout, 711_000_003);
+			assert_eq!(inflation_era_2, 1_896_000_012);
+
+			// validators should receive skaking reward after new era
+			let per_staking_reward = total_payout / validator_len + per_staking_reward;
+			for (stash, _) in &validators {
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+					balance_amount + per_staking_reward
+				);
+			}
+
+			let sessions_era_2 = vec![8, 9, 10, 11, 12];
+			for session in sessions_era_2 {
+				start_session(session);
+				assert_eq!(Staking::current_era(), 2);
+				// Total issuance for CENNZ is unchanged
+				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
+				// Total issuance for CPAY remain the same within the same era
+				assert_eq!(
+					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+					total_issuance + inflation_era_1 + inflation_era_2
+				);
+
+				// The balance of stash accounts remain the same within the same era
+				for (stash, _) in &validators {
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
+						balance_amount + per_staking_reward
+					);
+				}
 			}
 		});
 }
@@ -385,8 +417,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 
 			start_era(1);
 			let validator_len = validators.len() as Balance;
-			let (total_staking_reward, _) = reward_validators(&validators);
-			let per_staking_reward = total_staking_reward / validator_len;
+			reward_validators(&validators);
 
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
@@ -402,21 +433,31 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 			);
 
 			// Check if stash account balances are not yet changed
-			for validator in validators.clone() {
-				let (stash, _) = validator;
+			for (stash, _) in &validators {
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
 					balance_amount
 				);
 			}
 
+			let total_issuance = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
 			start_era(2);
+			let (staking_payout, max_payout) = Staking::current_total_payout(total_issuance);
+			let per_staking_reward = staking_payout / validator_len;
+
+			// Check total issuance of Spending Asset updatd after new era
+			assert_eq!(
+				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
+				total_issuance + max_payout,
+			);
+
+			// Check if validator balance changed correctly
 			for validator in validators {
 				let (stash, _) = validator;
 				// Check tx fee reward went to the stash account of validator
 				assert_eq!(
 					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_fee_reward + per_staking_reward - 1600
+					balance_amount + per_fee_reward + per_staking_reward
 				);
 			}
 		});

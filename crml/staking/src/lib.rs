@@ -716,6 +716,8 @@ decl_storage! {
 		/// The start of the current era.
 		pub CurrentEraStart get(fn current_era_start): MomentOf<T>;
 
+		CurrentEraDuration get(fn current_era_duration) : MomentOf<T>;
+
 		/// The session index at which the current era started.
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
 
@@ -1407,6 +1409,8 @@ impl<T: Trait> Module<T> {
 		let now = T::Time::now();
 		let previous_era_start = <CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
 		let era_duration = now - previous_era_start;
+		<CurrentEraDuration<T>>::put(era_duration);
+
 		if !era_duration.is_zero() {
 			let validators = Self::current_elected();
 
@@ -1414,18 +1418,8 @@ impl<T: Trait> Module<T> {
 			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
 			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
 
-			let validator_len = validators.len() as u32;
-			let total_rewarded_stake =
-				RewardBalanceOf::<T>::saturated_from((Self::slot_stake() * validator_len.into()).saturated_into()); // ugly hack to get `T::RewardCurrency` balance from `T::Currency` balance
-			let (total_payout, max_payout) = inflation::compute_total_payout::<RewardBalanceOf<T>>(
-				&T::RewardCurve::get(),
-				total_rewarded_stake,
-				T::RewardCurrency::total_issuance(),
-				// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-				era_duration.saturated_into::<u64>(),
-			);
-
-			let mut total_imbalance = <RewardPositiveImbalanceOf<T>>::zero();
+			let (total_payout, max_payout) = Self::current_total_payout(T::RewardCurrency::total_issuance());
+			let mut total_imbalance = T::RewardCurrency::burn(Zero::zero()); // hack to get new ImBalance with asset_id
 
 			let points = CurrentEraPointsEarned::take();
 			for (v, p) in validators.iter().zip(points.individual.into_iter()) {
@@ -1479,6 +1473,24 @@ impl<T: Trait> Module<T> {
 		Self::apply_unapplied_slashes(current_era);
 
 		maybe_new_validators
+	}
+
+	/// Compute current `total_payout` and `max_payout` for specific era duration
+	pub fn current_total_payout(total_issuance: RewardBalanceOf<T>) -> (RewardBalanceOf<T>, RewardBalanceOf<T>) {
+		let validators = Self::current_elected();
+		let validator_len = validators.len() as u32;
+		let era_duration = Self::current_era_duration();
+
+		let total_rewarded_stake =
+			RewardBalanceOf::<T>::saturated_from((Self::slot_stake() * validator_len.into()).saturated_into()); // ugly hack to get `T::RewardCurrency` balance from `T::Currency` balance
+		let (total_payout, max_payout) = inflation::compute_total_payout::<RewardBalanceOf<T>>(
+			&T::RewardCurve::get(),
+			total_rewarded_stake,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration.saturated_into::<u64>(),
+		);
+		(total_payout, max_payout)
 	}
 
 	/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.

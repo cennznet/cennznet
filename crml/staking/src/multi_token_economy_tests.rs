@@ -280,8 +280,8 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout_for_duration(3000);
-		assert!(total_payout_0 > 1); // Test is meaningfull if reward something
+		let total_payout = current_total_payout_for_duration(3000);
+		assert!(total_payout > 1); // Test is meaningfull if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
@@ -291,7 +291,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check that reward went to the stash account of validator
 		assert_eq!(
 			GenericAsset::free_balance(&REWARD_ASSET_ID, &11),
-			1_000_000_000 + total_payout_0
+			1_000_000_000 + total_payout
 		);
 		// Check that amount at stake has NOT changed
 		assert_eq!(
@@ -303,5 +303,12 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 				unlocking: vec![],
 			})
 		);
-	});
+		// Check total issuance
+		let total_issuance = 1_000_000_000 * 2; // one stash and controller accounts
+		assert_eq!(GenericAsset::total_issuance(STAKING_ASSET_ID), total_issuance);
+		assert_eq!(
+			GenericAsset::total_issuance(REWARD_ASSET_ID),
+			total_issuance + total_payout
+		);
+	})
 }
