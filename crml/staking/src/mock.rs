@@ -237,6 +237,7 @@ pub struct ExtBuilder {
 	fair: bool,
 	num_validators: Option<u32>,
 	invulnerables: Vec<u64>,
+	minimum_bond: u64,
 }
 
 impl Default for ExtBuilder {
@@ -251,6 +252,7 @@ impl Default for ExtBuilder {
 			fair: true,
 			num_validators: None,
 			invulnerables: vec![],
+			minimum_bond: 1,
 		}
 	}
 }
@@ -290,6 +292,10 @@ impl ExtBuilder {
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<u64>) -> Self {
 		self.invulnerables = invulnerables;
+		self
+	}
+	pub fn minimum_bond(mut self, minimum_bond: u64) -> Self {
+		self.minimum_bond = minimum_bond;
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -355,6 +361,7 @@ impl ExtBuilder {
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
+			minimum_bond: self.minimum_bond,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}

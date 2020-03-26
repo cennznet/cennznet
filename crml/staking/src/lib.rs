@@ -667,6 +667,8 @@ impl Default for Forcing {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Staking {
+		/// Minimum amount to bond.
+		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
 
 		/// The ideal number of staking participants.
 		pub ValidatorCount get(fn validator_count) config(): u32;
@@ -829,7 +831,8 @@ decl_event!(
 		OldSlashingReportDiscarded(SessionIndex),
 		/// A new set of validators are marked to be invulnerable
 		SetInvulnerables(Vec<AccountId>),
-
+		/// Minimum bond amount is changed.
+		SetMinimumBond(Balance),
 	}
 );
 
@@ -881,7 +884,7 @@ decl_module! {
 		/// Take the origin account as a stash and lock up `value` of its balance. `controller` will
 		/// be the account that controls it.
 		///
-		/// `value` must be more than the `minimum_balance` specified by `T::Currency`.
+		/// `value` must be more than the `minimum_bond` specified in genesis config.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the stash account.
 		///
@@ -912,7 +915,7 @@ decl_module! {
 			}
 
 			// reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
+			if value < Self::minimum_bond() {
 				Err(Error::<T>::InsufficientValue)?
 			}
 
@@ -1197,6 +1200,14 @@ decl_module! {
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNew);
+		}
+
+		/// Set the minimum bond amount.
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		fn set_minimum_bond(origin, value: BalanceOf<T>) {
+			ensure_root(origin)?;
+			<MinimumBond<T>>::put(value);
+			Self::deposit_event(RawEvent::SetMinimumBond(value));
 		}
 
 		/// Set the validators who cannot be slashed (if any).

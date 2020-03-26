@@ -1754,6 +1754,7 @@ fn bond_with_no_staked_value() {
 		.existential_deposit(5)
 		.nominate(false)
 		.minimum_validator_count(1)
+		.minimum_bond(3)
 		.build()
 		.execute_with(|| {
 			// Can't bond with 1
