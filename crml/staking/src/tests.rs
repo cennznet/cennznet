@@ -2923,3 +2923,18 @@ fn zero_slash_keeps_nominators() {
 		assert!(nominations.submitted_in >= last_slash);
 	});
 }
+
+#[test]
+fn show_that_commission_can_be_above_100_percent() {
+	ExtBuilder::default().build().execute_with(|| {
+		let prefs = ValidatorPrefs{
+			commission: Perbill::from_fraction(1.5)
+		};
+
+		assert_ok!(Staking::validate(Origin::signed(10), prefs.clone()));
+
+		let stored_prefs = <Staking as Store>::Validators::get(&11);
+
+		assert_eq!(stored_prefs.commission * 1_000_000_000_u32, 1_500_000_000_u32);
+	})
+}
