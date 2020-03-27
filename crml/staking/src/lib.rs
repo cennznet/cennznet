@@ -501,8 +501,6 @@ pub struct Nominations<AccountId> {
 	pub targets: Vec<AccountId>,
 	/// The era the nominations were submitted.
 	pub submitted_in: EraIndex,
-	/// Whether the nominations have been suppressed.
-	pub suppressed: bool,
 }
 
 /// The amount of exposure (to slashing) than an individual nominator has.
@@ -1096,7 +1094,6 @@ decl_module! {
 			let nominations = Nominations {
 				targets,
 				submitted_in: Self::current_era(),
-				suppressed: false,
 			};
 
 			<Validators<T>>::remove(stash);
@@ -1536,7 +1533,6 @@ impl<T: Trait> Module<T> {
 			let Nominations {
 				submitted_in,
 				mut targets,
-				suppressed: _,
 			} = nominations;
 
 			// Filter out nomination targets which were nominated before the most recent
