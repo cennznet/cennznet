@@ -1403,9 +1403,10 @@ impl<T: Trait> Module<T> {
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		let now = T::Time::now();
-		let previous_era_start = <CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
+		let previous_era_start = <CurrentEraStart<T>>::get();
 		let era_duration = now - previous_era_start;
 		<CurrentEraDuration<T>>::put(era_duration);
+		<CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
 
 		if !era_duration.is_zero() {
 			let validators = Self::current_elected();
