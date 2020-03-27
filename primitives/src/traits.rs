@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Centrality Investments Limited
+// Copyright (C) 2020 Centrality Investments Limited
 // This file is part of CENNZnet.
 
 // This program is free software: you can redistribute it and/or modify
