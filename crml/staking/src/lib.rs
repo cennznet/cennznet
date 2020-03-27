@@ -1061,6 +1061,11 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
+
+			let prefs = ValidatorPrefs {
+				commission: prefs.commission.min(Perbill::one())
+			};
+
 			<Nominators<T>>::remove(stash);
 			<Validators<T>>::insert(stash, prefs);
 		}
@@ -1323,7 +1328,7 @@ impl<T: Trait> Module<T> {
 	/// nominators' balance, pro-rata based on their exposure, after having removed the validator's
 	/// pre-payout cut.
 	fn reward_validator(stash: &T::AccountId, reward: RewardBalanceOf<T>) -> RewardPositiveImbalanceOf<T> {
-		let off_the_table = Self::validators(stash).commission * reward;
+		let off_the_table = (Self::validators(stash).commission * reward).min(reward);
 		let reward = reward.saturating_sub(off_the_table);
 		let mut imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 		let validator_cut = if reward.is_zero() {
