@@ -2324,6 +2324,14 @@ fn invulnerables_can_be_set() {
 
 		//Changing the invulnerables set from [21] to [11].
 		let _ = Staking::set_invulnerables(Origin::ROOT, vec![11]);
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: mock::Event::staking(RawEvent::SetInvulnerables(vec![11])),
+				topics: vec![],
+			}]
+		);
 
 		let exposure = Staking::stakers(&21);
 		let initial_balance = Staking::slashable_balance_of(&21);
@@ -2981,8 +2989,10 @@ fn show_that_max_commission_is_100_percent() {
 		let expected_rewards: u32 = 1_000;
 
 		assert_eq!(stored_prefs.commission * total_rewards, expected_rewards);
-	})
+	});
+}
 
+#[test]
 fn set_minimum_bond_works() {
 	ExtBuilder::default().minimum_bond(7357).build().execute_with(|| {
 		// Non-root accounts cannot set minimum bond
