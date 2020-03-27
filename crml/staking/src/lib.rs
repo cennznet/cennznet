@@ -1353,12 +1353,6 @@ impl<T: Trait> Module<T> {
 		CurrentEraFeeRewards::<T>::get()
 	}
 
-	pub fn set_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
-		CurrentEraFeeRewards::<T>::mutate(|reward| {
-			*reward = amount;
-		});
-	}
-
 	pub fn add_to_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
 		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.saturating_add(amount));
 	}
