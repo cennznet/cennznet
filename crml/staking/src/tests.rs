@@ -3003,3 +3003,9 @@ fn set_minimum_bond_works() {
 		);
 	});
 }
+
+#[test]
+#[should_panic(expected = "Minimum bond must be greater than zero.")]
+fn minimum_bond_in_genesis_config_must_be_greater_than_zero() {
+	ExtBuilder::default().minimum_bond(0).build().execute_with(|| {});
+}
