@@ -1061,6 +1061,11 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
+
+			let prefs = ValidatorPrefs {
+				commission: prefs.commission.min(Perbill::one())
+			};
+
 			<Nominators<T>>::remove(stash);
 			<Validators<T>>::insert(stash, prefs);
 		}
