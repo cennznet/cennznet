@@ -312,8 +312,8 @@ impl EraPoints {
 	fn add_points_to_index(&mut self, index: u32, points: u32) {
 		if let Some(new_total) = self.total.checked_add(points) {
 			self.total = new_total;
-			self.individual
-				.resize((index as usize + 1).max(self.individual.len()), 0);
+			let new_size = (index as usize + 1).max(self.individual.len());
+			self.individual.resize(new_size, 0);
 			self.individual[index as usize] += points; // Addition is less than total
 		}
 	}
