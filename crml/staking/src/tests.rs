@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{Currency, ReservableCurrency},
 	StorageMap,
 };
+use frame_system::{EventRecord, Phase};
 use mock::*;
 use sp_runtime::{
 	assert_eq_error_rate,
@@ -2981,4 +2982,24 @@ fn show_that_max_commission_is_100_percent() {
 
 		assert_eq!(stored_prefs.commission * total_rewards, expected_rewards);
 	})
+
+fn set_minimum_bond_works() {
+	ExtBuilder::default().minimum_bond(7357).build().execute_with(|| {
+		// Non-root accounts cannot set minimum bond
+		assert_noop!(Staking::set_minimum_bond(Origin::signed(1), 123), BadOrigin);
+		assert_eq!(Staking::minimum_bond(), 7357);
+		assert_eq!(System::events(), vec![]);
+
+		// Root accounts can set minimum bond
+		assert_ok!(Staking::set_minimum_bond(Origin::ROOT, 537));
+		assert_eq!(Staking::minimum_bond(), 537);
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: mock::Event::staking(RawEvent::SetMinimumBond(537)),
+				topics: vec![],
+			}]
+		);
+	});
 }

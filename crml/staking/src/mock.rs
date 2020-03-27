@@ -20,7 +20,7 @@ use crate::{
 	inflation, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
 };
 use frame_support::{
-	assert_ok, impl_outer_origin, parameter_types,
+	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
 	traits::{Currency, FindAuthor, Get},
 	weights::Weight,
 	StorageLinkedMap, StorageValue,
@@ -104,7 +104,19 @@ impl Get<EraIndex> for SlashDeferDuration {
 }
 
 impl_outer_origin! {
-	pub enum Origin for Test  where system = frame_system {}
+	pub enum Origin for Test where system = frame_system {}
+}
+
+mod staking {
+	pub use crate::Event;
+}
+
+impl_outer_event! {
+	pub enum Event for Test where system = frame_system {
+		staking<T>,
+		pallet_balances<T>,
+		pallet_session,
+	}
 }
 
 /// Author of block is always 11
@@ -137,7 +149,7 @@ impl frame_system::Trait for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
@@ -154,7 +166,7 @@ impl pallet_balances::Trait for Test {
 	type Balance = Balance;
 	type OnReapAccount = (System, Staking);
 	type OnNewAccount = ();
-	type Event = ();
+	type Event = Event;
 	type TransferPayment = ();
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
@@ -171,7 +183,7 @@ impl pallet_session::Trait for Test {
 	type Keys = UintAuthorityId;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = TestSessionHandler;
-	type Event = ();
+	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -216,7 +228,7 @@ impl Trait for Test {
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
-	type Event = ();
+	type Event = Event;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
