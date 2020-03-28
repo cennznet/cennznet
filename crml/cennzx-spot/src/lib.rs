@@ -205,7 +205,7 @@ decl_module! {
 				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
 			);
 			let exchange_key = (core_asset_id, asset_id);
-			let total_liquidity = Self::get_total_supply(&exchange_key);
+			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 
 			if total_liquidity.is_zero() {
@@ -272,7 +272,7 @@ decl_module! {
 				Error::<T>::LiquidityTooLow
 			);
 
-			let total_liquidity = Self::get_total_supply(&exchange_key);
+			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 			ensure!(
 				total_liquidity > Zero::zero(),
@@ -345,11 +345,6 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-	// Storage R/W
-	fn get_total_supply(exchange_key: &ExchangeKey<T>) -> T::Balance {
-		<TotalSupply<T>>::get(exchange_key)
-	}
-
 	/// mint total supply for an exchange pool
 	fn mint_total_supply(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
 		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
