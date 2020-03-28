@@ -254,7 +254,7 @@ fn investor_can_add_liquidity() {
 		));
 
 		assert_exchange_balance_eq!(CoreAssetCurrency => 20, TradeAssetCurrencyA => 31);
-		assert_eq!(CennzXSpot::get_liquidity(&DEFAULT_EXCHANGE_KEY, &investor), 20);
+		assert_eq!(CennzXSpot::liquidity_balance(&DEFAULT_EXCHANGE_KEY, &investor), 20);
 	});
 }
 

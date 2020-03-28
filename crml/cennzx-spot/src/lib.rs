@@ -235,7 +235,7 @@ decl_module! {
 				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
 
 				Self::set_liquidity(&exchange_key, &from_account,
-									Self::get_liquidity(&exchange_key, &from_account) + liquidity_minted);
+					<LiquidityBalance<T>>::get(&exchange_key, &from_account) + liquidity_minted);
 				Self::mint_total_supply(&exchange_key, liquidity_minted);
 				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 			}
@@ -266,7 +266,7 @@ decl_module! {
 
 			let core_asset_id = Self::core_asset_id();
 			let exchange_key = (core_asset_id, asset_id);
-			let account_liquidity = Self::get_liquidity(&exchange_key, &from_account);
+			let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, &from_account);
 			ensure!(
 				account_liquidity >= liquidity_withdrawn,
 				Error::<T>::LiquidityTooLow
