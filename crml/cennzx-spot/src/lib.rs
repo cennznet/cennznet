@@ -849,42 +849,6 @@ impl<T: Trait> Module<T> {
 		Ok(output_amount)
 	}
 
-	/// Convert asset1 to asset2. User specifies maximum
-	/// input and exact output.
-	///  `buyer` - Account buying asset
-	/// `recipient` - Account to receive asset_bought, defaults to origin if None
-	/// `asset_sold` - asset ID 1 to sell
-	/// `asset_bought` - asset ID 2 to buy
-	/// `buy_amount` - The amount of asset '2' to purchase
-	/// `max_paying_amount` - Maximum trade asset '1' to pay
-	pub fn make_asset_swap_output(
-		buyer: &T::AccountId,
-		recipient: &T::AccountId,
-		asset_sold: &T::AssetId,
-		asset_bought: &T::AssetId,
-		buy_amount: T::Balance,
-		max_paying_amount: T::Balance,
-	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		let core_asset = Self::core_asset_id();
-		ensure!(asset_sold != asset_bought, Error::<T>::AssetCannotSwapForItself);
-		let sold_amount = if *asset_sold == core_asset {
-			Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount)?
-		} else if *asset_bought == core_asset {
-			Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount)?
-		} else {
-			Self::make_asset_to_asset_output(
-				buyer,
-				recipient,
-				asset_sold,
-				asset_bought,
-				buy_amount,
-				max_paying_amount,
-			)?
-		};
-
-		Ok(sold_amount)
-	}
-
 	/// Buy `amount_to_buy` of `asset_to_buy` with `asset_to_sell`.
 	///
 	/// `seller` - Account selling `asset_to_sell`
@@ -900,7 +864,7 @@ impl<T: Trait> Module<T> {
 		asset_to_buy: &T::AssetId,
 		amount_to_buy: T::Balance,
 		maximum_sell: T::Balance,
-	) -> DispatchResult {
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
 		let amount_to_sell = Self::calculate_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
 		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
@@ -913,7 +877,7 @@ impl<T: Trait> Module<T> {
 
 		Self::execute_trade(seller, recipient, asset_to_sell, asset_to_buy, amount_to_sell, amount_to_buy)?;
 
-		Ok(())
+		Ok(amount_to_sell)
 	}
 
 	/// Sell `asset_to_sell` for at least `minimum_buy` of `asset_to_buy`.
