@@ -576,7 +576,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &alice()), liquidity_core_amount);
+			assert_eq!(CennzxSpot::liquidity_balance(&ex_key, &alice()), liquidity_core_amount);
 
 			// Exchange CENNZ (sell) for CPAY (buy) to pay for transaction fee
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
@@ -836,7 +836,10 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -923,7 +926,10 @@ fn contract_call_works_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -977,7 +983,10 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -1021,7 +1030,10 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
