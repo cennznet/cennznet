@@ -199,6 +199,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let _ = GenesisConfig::<Test> {
+			minimum_bond: 1,
 			current_era: 0,
 			stakers: vec![
 				// (stash, controller, staked_amount, status)
