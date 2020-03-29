@@ -548,7 +548,14 @@ impl<T: Trait> Module<T> {
 			Error::<T>::InsufficientBalance
 		);
 
-		Self::execute_trade(seller, recipient, asset_to_sell, asset_to_buy, amount_to_sell, amount_to_buy)?;
+		Self::execute_trade(
+			seller,
+			recipient,
+			asset_to_sell,
+			asset_to_buy,
+			amount_to_sell,
+			amount_to_buy,
+		)?;
 
 		Ok(amount_to_sell)
 	}
@@ -579,7 +586,14 @@ impl<T: Trait> Module<T> {
 		let amount_to_buy = Self::calculate_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
 		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
 
-		Self::execute_trade(seller, recipient, asset_to_sell, asset_to_buy, amount_to_sell, amount_to_buy)?;
+		Self::execute_trade(
+			seller,
+			recipient,
+			asset_to_sell,
+			asset_to_buy,
+			amount_to_sell,
+			amount_to_buy,
+		)?;
 
 		Ok(amount_to_buy)
 	}
@@ -606,8 +620,9 @@ impl<T: Trait> Module<T> {
 				&asset_to_sell,
 				seller,
 				&exchange_address,
-				amount_to_sell
-			).and(<pallet_generic_asset::Module<T>>::make_transfer(
+				amount_to_sell,
+			)
+			.and(<pallet_generic_asset::Module<T>>::make_transfer(
 				&asset_to_buy,
 				&exchange_address,
 				recipient,
@@ -622,8 +637,9 @@ impl<T: Trait> Module<T> {
 				asset_to_sell,
 				seller,
 				&exchange_address_a,
-				amount_to_sell
-			).and(<pallet_generic_asset::Module<T>>::make_transfer(
+				amount_to_sell,
+			)
+			.and(<pallet_generic_asset::Module<T>>::make_transfer(
 				&core_asset_id,
 				&exchange_address_a,
 				&exchange_address_b,
