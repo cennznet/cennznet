@@ -19,7 +19,6 @@
 //! Transaction Payment Customized Error Code Constants
 
 pub mod error_code {
-	//190
 	pub const SALE_VALUE_BELOW_REQUIRED_MINIMUM: u8 = 197;
 	pub const BUY_AMOUNT_NOT_POSITIVE: u8 = 199;
 	pub const INSUFFICIENT_FEE_ASSET_BALANCE: u8 = 200;

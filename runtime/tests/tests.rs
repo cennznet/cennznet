@@ -595,7 +595,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			let fee = transfer_fee(&xt, &runtime_call);
 
 			// Calculate how much CENNZ should be sold to make the above extrinsic
-			let cennz_sold_amount = CennzxSpot::get_asset_to_core_output_price(&CENNZ_ASSET_ID, fee).unwrap();
+			let cennz_sold_amount = CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, fee).unwrap();
 			assert_eq!(cennz_sold_amount, 6);
 
 			// Initialise block and apply the extrinsic
