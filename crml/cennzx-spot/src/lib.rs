@@ -155,7 +155,6 @@ decl_module! {
 				&asset_bought,
 				buy_amount,
 				max_paying_amount,
-				Self::fee_rate()
 			)?;
 			Ok(())
 		}
@@ -183,8 +182,7 @@ decl_module! {
 				&asset_sold,
 				&asset_bought,
 				sell_amount,
-				min_receive,
-				Self::fee_rate()
+				min_receive
 			)?;
 			Ok(())
 		}
@@ -395,16 +393,14 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - The asset ID to trade
 	/// `sell_amount` - Amount of core asset to sell (input)
 	/// `min_receive` -  The minimum trade asset value to receive from sale (output)
-	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_input(
 		seller: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 		min_receive: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		let sale_value = Self::get_core_to_asset_input_price(asset_id, sell_amount, fee_rate)?;
+		let sale_value = Self::get_core_to_asset_input_price(asset_id, sell_amount)?;
 
 		ensure!(sale_value > Zero::zero(), Error::<T>::AssetSaleValueNotAboveZero);
 		ensure!(sale_value >= min_receive, Error::<T>::SaleValueBelowRequiredMinimum);
@@ -436,20 +432,18 @@ impl<T: Trait> Module<T> {
 		Ok(sale_value)
 	}
 
-	/// Trade asset (`asset_id`) to core asset at the given `fee_rate`
+	/// Trade asset (`asset_id`) to core asset
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
 	/// `max_paying_amount` -  Maximum asset to pay
-	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_asset_to_core_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_paying_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount, fee_rate)?;
+		let sold_amount = Self::get_asset_to_core_output_price(asset_id, buy_amount)?;
 		ensure!(sold_amount > Zero::zero(), Error::<T>::AssetToCorePriceNotAboveZero);
 		ensure!(
 			max_paying_amount >= sold_amount,
@@ -478,22 +472,20 @@ impl<T: Trait> Module<T> {
 		Ok(sold_amount)
 	}
 
-	/// Trade core asset to asset (`asset_id`) at the given `fee_rate`
+	/// Trade core asset to asset (`asset_id`)
 	/// `buyer` - Account buying core asset for trade asset
 	/// `recipient` - Account receiving trade asset
 	/// `asset_id` - The asset ID to trade
 	/// `buy_amount` - Amount of core asset to purchase (output)
 	/// `max_paying_amount` -  Maximum asset to pay
-	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_core_to_asset_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 		max_paying_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount, fee_rate)?;
+		let sold_amount = Self::get_core_to_asset_output_price(asset_id, buy_amount)?;
 		ensure!(sold_amount > Zero::zero(), Error::<T>::CoreToAssetPriceNotAboveZero);
 		ensure!(
 			max_paying_amount >= sold_amount,
@@ -534,7 +526,6 @@ impl<T: Trait> Module<T> {
 	/// `asset_b` - asset ID to buy
 	/// `buy_amount_b` - The amount of asset 'b' to purchase (output)
 	/// `max_a_for_sale` - Maximum trade asset 'a' to sell
-	/// `fee_rate` - The % of exchange fees for the trade
 	fn make_asset_to_asset_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
@@ -542,13 +533,12 @@ impl<T: Trait> Module<T> {
 		asset_b: &T::AssetId,
 		buy_amount_for_b: T::Balance,
 		max_a_for_sale: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Calculate amount of core token needed to buy trade asset 2 of #buy_amount amount
-		let core_for_b = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
+		let core_for_b = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b)?;
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
-		let asset_sold_a = Self::get_asset_to_core_output_price(asset_a, core_for_b, fee_rate)?;
+		let asset_sold_a = Self::get_asset_to_core_output_price(asset_a, core_for_b)?;
 		// sold asset is always > 0
 		ensure!(
 			max_a_for_sale >= asset_sold_a,
@@ -559,7 +549,7 @@ impl<T: Trait> Module<T> {
 			Error::<T>::InsufficientBuyerTradeAssetBalance
 		);
 
-		let core_asset_a = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b, fee_rate)?;
+		let core_asset_a = Self::get_core_to_asset_output_price(asset_b, buy_amount_for_b)?;
 		ensure!(core_asset_a > Zero::zero(), Error::<T>::CoreToAssetPriceNotAboveZero);
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address_a) >= core_asset_a,
@@ -604,14 +594,13 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 		min_receive: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(asset_id, buyer) >= sell_amount,
 			Error::<T>::InsufficientSellerTradeAssetBalance
 		);
 
-		let sale_value = Self::get_asset_to_core_input_price(asset_id, sell_amount, fee_rate)?;
+		let sale_value = Self::get_asset_to_core_input_price(asset_id, sell_amount)?;
 
 		ensure!(sale_value >= min_receive, Error::<T>::SaleValueBelowRequiredMinimum);
 
@@ -652,7 +641,6 @@ impl<T: Trait> Module<T> {
 		asset_b: &T::AssetId,
 		sell_amount_for_a: T::Balance,
 		min_b_from_sale: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			<pallet_generic_asset::Module<T>>::free_balance(&asset_a, seller) >= sell_amount_for_a,
@@ -661,8 +649,8 @@ impl<T: Trait> Module<T> {
 
 		let core_asset_id = Self::core_asset_id();
 		let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_a);
-		let sale_value_a = Self::get_asset_to_core_input_price(asset_a, sell_amount_for_a, fee_rate)?;
-		let asset_b_received = Self::get_core_to_asset_input_price(asset_b, sale_value_a, fee_rate)?;
+		let sale_value_a = Self::get_asset_to_core_input_price(asset_a, sell_amount_for_a)?;
+		let asset_b_received = Self::get_core_to_asset_input_price(asset_b, sale_value_a)?;
 
 		ensure!(asset_b_received > Zero::zero(), Error::<T>::AssetSaleValueNotAboveZero);
 		ensure!(
@@ -712,7 +700,6 @@ impl<T: Trait> Module<T> {
 	pub fn get_core_to_asset_output_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
@@ -722,7 +709,7 @@ impl<T: Trait> Module<T> {
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
-		Self::get_output_price(buy_amount, core_reserve, asset_reserve, fee_rate)
+		Self::get_output_price(buy_amount, core_reserve, asset_reserve)
 	}
 
 	/// `asset_id` - Trade asset
@@ -731,7 +718,6 @@ impl<T: Trait> Module<T> {
 	pub fn get_asset_to_core_input_price(
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			sell_amount > Zero::zero(),
@@ -743,14 +729,13 @@ impl<T: Trait> Module<T> {
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		Self::get_input_price(sell_amount, asset_reserve, core_reserve, fee_rate)
+		Self::get_input_price(sell_amount, asset_reserve, core_reserve)
 	}
 
 	fn get_output_price(
 		output_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
@@ -774,7 +759,7 @@ impl<T: Trait> Module<T> {
 		let price_plus_one = price_lp
 			.checked_add(One::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		let fee_rate_plus_one = fee_rate
+		let fee_rate_plus_one = Self::fee_rate()
 			.checked_add(FeeRate::<PerMillion>::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 		let output = fee_rate_plus_one
@@ -787,13 +772,12 @@ impl<T: Trait> Module<T> {
 		input_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		if input_reserve.is_zero() || output_reserve.is_zero() {
 			Err(Error::<T>::EmptyExchangePool)?;
 		}
 
-		let div_rate: FeeRate<PerMillion> = fee_rate
+		let div_rate: FeeRate<PerMillion> = Self::fee_rate()
 			.checked_add(FeeRate::<PerMillion>::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 
@@ -822,12 +806,10 @@ impl<T: Trait> Module<T> {
 
 	/// `asset_id` - Trade asset
 	/// `buy_amount` - Amount of output core
-	/// `fee_rate` - The % of exchange fees for the trade
 	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
 	pub fn get_asset_to_core_output_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
@@ -837,18 +819,16 @@ impl<T: Trait> Module<T> {
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 
-		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve, fee_rate)
+		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve)
 	}
 
 	/// Returns the amount of trade asset to pay for `sell_amount` of core sold.
 	///
 	/// `asset_id` - Trade asset
 	/// `sell_amount` - Amount of input core to sell
-	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn get_core_to_asset_input_price(
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			sell_amount > Zero::zero(),
@@ -860,7 +840,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
-		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve, fee_rate)?;
+		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve)?;
 
 		Ok(output_amount)
 	}
@@ -873,7 +853,6 @@ impl<T: Trait> Module<T> {
 	/// `asset_bought` - asset ID 2 to buy
 	/// `buy_amount` - The amount of asset '2' to purchase
 	/// `max_paying_amount` - Maximum trade asset '1' to pay
-	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_swap_output(
 		buyer: &T::AccountId,
 		recipient: &T::AccountId,
@@ -881,14 +860,13 @@ impl<T: Trait> Module<T> {
 		asset_bought: &T::AssetId,
 		buy_amount: T::Balance,
 		max_paying_amount: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, Error::<T>::AssetCannotSwapForItself);
 		let sold_amount = if *asset_sold == core_asset {
-			Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount, fee_rate)?
+			Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount)?
 		} else if *asset_bought == core_asset {
-			Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount, fee_rate)?
+			Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount)?
 		} else {
 			Self::make_asset_to_asset_output(
 				buyer,
@@ -897,7 +875,6 @@ impl<T: Trait> Module<T> {
 				asset_bought,
 				buy_amount,
 				max_paying_amount,
-				fee_rate,
 			)?
 		};
 
@@ -912,7 +889,6 @@ impl<T: Trait> Module<T> {
 	/// `asset_bought` - asset ID 2 to buy
 	/// `sell_amount` - The amount of asset '1' to sell
 	/// `min_receive` - Minimum trade asset '2' to receive from sale
-	/// `fee_rate` - The % of exchange fees for the trade
 	pub fn make_asset_swap_input(
 		seller: &T::AccountId,
 		recipient: &T::AccountId,
@@ -920,25 +896,16 @@ impl<T: Trait> Module<T> {
 		asset_bought: &T::AssetId,
 		sell_amount: T::Balance,
 		min_receive: T::Balance,
-		fee_rate: FeeRate<PerMillion>,
 	) -> DispatchResult {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, "Asset to swap should not be equal");
 		if *asset_sold == core_asset {
-			let _ =
-				Self::make_core_to_asset_input(seller, recipient, asset_bought, sell_amount, min_receive, fee_rate)?;
+			let _ = Self::make_core_to_asset_input(seller, recipient, asset_bought, sell_amount, min_receive)?;
 		} else if *asset_bought == core_asset {
-			let _ = Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_receive, fee_rate)?;
+			let _ = Self::make_asset_to_core_input(seller, recipient, asset_sold, sell_amount, min_receive)?;
 		} else {
-			let _ = Self::make_asset_to_asset_input(
-				seller,
-				recipient,
-				asset_sold,
-				asset_bought,
-				sell_amount,
-				min_receive,
-				fee_rate,
-			)?;
+			let _ =
+				Self::make_asset_to_asset_input(seller, recipient, asset_sold, asset_bought, sell_amount, min_receive)?;
 		}
 
 		Ok(())
@@ -961,7 +928,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_buy == Self::core_asset_id() {
 			amount_to_buy
 		} else {
-			Self::get_core_to_asset_output_price(&asset_to_buy, amount_to_buy, Self::fee_rate())?
+			Self::get_core_to_asset_output_price(&asset_to_buy, amount_to_buy)?
 		};
 
 		// Find the price of `core_asset_amount` in terms of `asset_to_pay`
@@ -969,7 +936,7 @@ impl<T: Trait> Module<T> {
 		let pay_asset_amount = if asset_to_pay == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_asset_to_core_output_price(&asset_to_pay, core_asset_amount, Self::fee_rate())?
+			Self::get_asset_to_core_output_price(&asset_to_pay, core_asset_amount)?
 		};
 
 		Ok(pay_asset_amount)
@@ -992,7 +959,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_sell == Self::core_asset_id() {
 			amount_to_sell
 		} else {
-			Self::get_asset_to_core_input_price(&asset_to_sell, amount_to_sell, Self::fee_rate())?
+			Self::get_asset_to_core_input_price(&asset_to_sell, amount_to_sell)?
 		};
 
 		// Skip payout asset price if asset to be paid out is core
@@ -1000,7 +967,7 @@ impl<T: Trait> Module<T> {
 		let payout_asset_value = if asset_to_payout == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_core_to_asset_input_price(&asset_to_payout, core_asset_amount, Self::fee_rate())?
+			Self::get_core_to_asset_input_price(&asset_to_payout, core_asset_amount)?
 		};
 
 		Ok(payout_asset_value)

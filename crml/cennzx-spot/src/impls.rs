@@ -75,7 +75,6 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment(),
-			Self::fee_rate(),
 		)
 	}
 }
