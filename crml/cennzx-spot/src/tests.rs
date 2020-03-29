@@ -1231,7 +1231,7 @@ fn asset_to_asset_swap_input_insufficient_balance() {
 				51,                                     // sell_amount
 				100,                                    // min buy limit for asset B
 			),
-			Error::<Test>::InsufficientSellerTradeAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 	});
 }
@@ -1252,7 +1252,7 @@ fn asset_to_asset_swap_input_less_than_min_sale() {
 				156,                                    // sell_amount
 				200,                                    // min buy limit for asset B
 			),
-			Error::<Test>::InsufficientSellAssetForRequiredMinimumBuyAsset
+			Error::<Test>::SaleValueBelowRequiredMinimum
 		);
 	});
 }

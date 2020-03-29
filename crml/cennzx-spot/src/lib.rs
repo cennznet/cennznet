@@ -59,6 +59,8 @@ decl_error! {
 		EmptyExchangePool,
 		// Insufficient asset reserve in exchange
 		InsufficientAssetReserve,
+		// Trader has insufficient balance
+		InsufficientBalance,
 		// Insufficient asset balance in buyer account
 		InsufficientBuyerTradeAssetBalance,
 		// Insufficient core asset balance in buyer account
@@ -176,7 +178,7 @@ decl_module! {
 			#[compact] min_receive: T::Balance
 		) -> DispatchResult {
 			let seller = ensure_signed(origin)?;
-			let _ = Self::make_asset_swap_input(
+			let _ = Self::execute_sell(
 				&seller,
 				&recipient.unwrap_or_else(|| seller.clone()),
 				&asset_sold,
@@ -880,6 +882,90 @@ impl<T: Trait> Module<T> {
 
 		Ok(sold_amount)
 	}
+
+	/// Sell `asset_to_sell` for at least `minimum_buy` of `asset_to_buy`.
+	///
+	/// `seller` - Account selling `asset_to_sell`
+	/// `recipient` - Account to receive `asset_to_buy`, defaults to origin if None
+	/// `asset_to_sell` - asset ID to sell
+	/// `asset_to_buy` - asset ID to buy
+	/// `amount_to_sell` - The amount of `asset_to_sell` to sell
+	/// `minimum_buy` - The minimum acceptable amount of `asset_to_buy` to receive
+	pub fn execute_sell(
+		seller: &T::AccountId,
+		recipient: &T::AccountId,
+		asset_to_sell: &T::AssetId,
+		asset_to_buy: &T::AssetId,
+		amount_to_sell: T::Balance,
+		minimum_buy: T::Balance,
+	) -> DispatchResult {
+		// Check the seller has enough balance
+		ensure!(
+			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, seller) >= amount_to_sell,
+			Error::<T>::InsufficientBalance
+		);
+
+		// Check the buy amount meets the minimum requirement
+		let buy_amount = Self::calculate_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
+		ensure!(buy_amount >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
+
+		let core_asset_id = Self::core_asset_id();
+
+		// If either asset is core, we only need to make one exchange
+		// otherwise, we make two exchanges
+		if *asset_to_sell == core_asset_id || *asset_to_buy == core_asset_id {
+			let exchange_address = if *asset_to_buy == core_asset_id {
+				T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell)
+			} else {
+				T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy)
+			};
+			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
+				&asset_to_sell,
+				seller,
+				&exchange_address,
+				amount_to_sell
+			).and(<pallet_generic_asset::Module<T>>::make_transfer(
+				&asset_to_buy,
+				&exchange_address,
+				recipient,
+				buy_amount,
+			));
+		} else {
+			let core_volume = Self::get_asset_to_core_input_price(asset_to_sell, amount_to_sell)?;
+			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell);
+			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy);
+
+			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
+				asset_to_sell,
+				seller,
+				&exchange_address_a,
+				amount_to_sell
+			).and(<pallet_generic_asset::Module<T>>::make_transfer(
+				&core_asset_id,
+				&exchange_address_a,
+				&exchange_address_b,
+				core_volume,
+			))
+			.and(<pallet_generic_asset::Module<T>>::make_transfer(
+				asset_to_buy,
+				&exchange_address_b,
+				recipient,
+				buy_amount,
+			));
+		};
+
+		Self::deposit_event(RawEvent::AssetPurchase(
+			*asset_to_sell,
+			*asset_to_buy,
+			seller.clone(),
+			amount_to_sell,
+			buy_amount,
+		));
+
+		Ok(())
+	}
+
+
 
 	/// Convert asset1 to asset2
 	/// Seller specifies exact input (asset 1) and minimum output (asset 2)
