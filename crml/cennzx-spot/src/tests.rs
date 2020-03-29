@@ -425,10 +425,11 @@ fn make_asset_to_core_swap_output() {
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 
 		assert_ok!(
-			CennzXSpot::make_asset_to_core_output(
+			CennzXSpot::execute_buy(
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
+				&resolve_asset_id!(CoreAssetCurrency),
 				5,    // buy_amount: T::Balance,
 				1400, // max_sale: T::Balance,
 			),
@@ -572,9 +573,10 @@ fn make_core_to_asset_output() {
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 
 		assert_ok!(
-			CennzXSpot::make_core_to_asset_output(
+			CennzXSpot::execute_buy(
 				&buyer,
 				&recipient,
+				&resolve_asset_id!(CoreAssetCurrency),
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				5,    // buy_amount: T::Balance,
 				1400, // max_sale: T::Balance,
