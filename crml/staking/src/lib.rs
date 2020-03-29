@@ -667,6 +667,8 @@ impl Default for Forcing {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Staking {
+		/// Minimum amount to bond.
+		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
 
 		/// The ideal number of staking participants.
 		pub ValidatorCount get(fn validator_count) config(): u32;
@@ -783,6 +785,7 @@ decl_storage! {
 		config(stakers):
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
 		build(|config: &GenesisConfig<T>| {
+			assert!(config.minimum_bond > Zero::zero(), "Minimum bond must be greater than zero.");
 			for &(ref stash, ref controller, balance, ref status) in &config.stakers {
 				assert!(
 					T::Currency::free_balance(&stash) >= balance,
@@ -829,7 +832,8 @@ decl_event!(
 		OldSlashingReportDiscarded(SessionIndex),
 		/// A new set of validators are marked to be invulnerable
 		SetInvulnerables(Vec<AccountId>),
-
+		/// Minimum bond amount is changed.
+		SetMinimumBond(Balance),
 	}
 );
 
@@ -846,8 +850,6 @@ decl_error! {
 		AlreadyPaired,
 		/// Targets cannot be empty.
 		EmptyTargets,
-		/// Duplicate index.
-		DuplicateIndex,
 		/// Slash record index out of bounds.
 		InvalidSlashIndex,
 		/// Can not bond with value less than minimum balance.
@@ -856,6 +858,8 @@ decl_error! {
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.
 		NoUnlockChunk,
+		/// Items are not sorted and unique.
+		NotSortedAndUnique,
 	}
 }
 
@@ -881,7 +885,7 @@ decl_module! {
 		/// Take the origin account as a stash and lock up `value` of its balance. `controller` will
 		/// be the account that controls it.
 		///
-		/// `value` must be more than the `minimum_balance` specified by `T::Currency`.
+		/// `value` must be more than the `minimum_bond` specified in genesis config.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the stash account.
 		///
@@ -912,7 +916,7 @@ decl_module! {
 			}
 
 			// reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
+			if value < Self::minimum_bond() {
 				Err(Error::<T>::InsufficientValue)?
 			}
 
@@ -1061,6 +1065,11 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
+
+			let prefs = ValidatorPrefs {
+				commission: prefs.commission.min(Perbill::one())
+			};
+
 			<Nominators<T>>::remove(stash);
 			<Validators<T>>::insert(stash, prefs);
 		}
@@ -1194,6 +1203,14 @@ decl_module! {
 			ForceEra::put(Forcing::ForceNew);
 		}
 
+		/// Set the minimum bond amount.
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		fn set_minimum_bond(origin, value: BalanceOf<T>) {
+			ensure_root(origin)?;
+			<MinimumBond<T>>::put(value);
+			Self::deposit_event(RawEvent::SetMinimumBond(value));
+		}
+
 		/// Set the validators who cannot be slashed (if any).
 		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
@@ -1239,21 +1256,15 @@ decl_module! {
 				.map(|_| ())
 				.or_else(ensure_root)?;
 
-			let mut slash_indices = slash_indices;
-			slash_indices.sort_unstable();
+			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
+			ensure!(Self::is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
+
 			let mut unapplied = <Self as Store>::UnappliedSlashes::get(&era);
+			let last_item = slash_indices[slash_indices.len() - 1];
+			ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
 
 			for (removed, index) in slash_indices.into_iter().enumerate() {
-				let index = index as usize;
-
-				// if `index` is not duplicate, `removed` must be <= index.
-				ensure!(removed <= index, Error::<T>::DuplicateIndex);
-
-				// all prior removals were from before this index, since the
-				// list is sorted.
-				let index = index - removed;
-				ensure!(index < unapplied.len(), Error::<T>::InvalidSlashIndex);
-
+				let index = (index as usize) - removed;
 				unapplied.remove(index);
 			}
 
@@ -1323,7 +1334,7 @@ impl<T: Trait> Module<T> {
 	/// nominators' balance, pro-rata based on their exposure, after having removed the validator's
 	/// pre-payout cut.
 	fn reward_validator(stash: &T::AccountId, reward: RewardBalanceOf<T>) -> RewardPositiveImbalanceOf<T> {
-		let off_the_table = Self::validators(stash).commission * reward;
+		let off_the_table = (Self::validators(stash).commission * reward).min(reward);
 		let reward = reward.saturating_sub(off_the_table);
 		let mut imbalance = <RewardPositiveImbalanceOf<T>>::zero();
 		let validator_cut = if reward.is_zero() {
@@ -1629,6 +1640,11 @@ impl<T: Trait> Module<T> {
 			// TODO: #2494
 			(Self::slot_stake(), None)
 		}
+	}
+
+	/// Check that list is sorted and has no duplicates.
+	fn is_sorted_and_unique(list: &Vec<u32>) -> bool {
+		list.windows(2).all(|w| w[0] < w[1])
 	}
 
 	/// Remove all associated data of a stash account from the staking system.

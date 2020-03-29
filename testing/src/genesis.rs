@@ -103,6 +103,7 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables: vec![alice(), bob(), charlie()],
+			minimum_bond: 1,
 			..Default::default()
 		}),
 		pallet_contracts: Some(ContractsConfig {

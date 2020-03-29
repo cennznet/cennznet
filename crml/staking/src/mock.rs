@@ -20,7 +20,7 @@ use crate::{
 	inflation, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
 };
 use frame_support::{
-	assert_ok, impl_outer_origin, parameter_types,
+	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
 	traits::{Currency, FindAuthor, Get},
 	weights::Weight,
 	StorageLinkedMap, StorageValue,
@@ -104,7 +104,19 @@ impl Get<EraIndex> for SlashDeferDuration {
 }
 
 impl_outer_origin! {
-	pub enum Origin for Test  where system = frame_system {}
+	pub enum Origin for Test where system = frame_system {}
+}
+
+mod staking {
+	pub use crate::Event;
+}
+
+impl_outer_event! {
+	pub enum Event for Test where system = frame_system {
+		staking<T>,
+		pallet_balances<T>,
+		pallet_session,
+	}
 }
 
 /// Author of block is always 11
@@ -137,7 +149,7 @@ impl frame_system::Trait for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
@@ -154,7 +166,7 @@ impl pallet_balances::Trait for Test {
 	type Balance = Balance;
 	type OnReapAccount = (System, Staking);
 	type OnNewAccount = ();
-	type Event = ();
+	type Event = Event;
 	type TransferPayment = ();
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
@@ -171,7 +183,7 @@ impl pallet_session::Trait for Test {
 	type Keys = UintAuthorityId;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = TestSessionHandler;
-	type Event = ();
+	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -216,7 +228,7 @@ impl Trait for Test {
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
-	type Event = ();
+	type Event = Event;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -237,6 +249,7 @@ pub struct ExtBuilder {
 	fair: bool,
 	num_validators: Option<u32>,
 	invulnerables: Vec<u64>,
+	minimum_bond: u64,
 }
 
 impl Default for ExtBuilder {
@@ -251,6 +264,7 @@ impl Default for ExtBuilder {
 			fair: true,
 			num_validators: None,
 			invulnerables: vec![],
+			minimum_bond: 1,
 		}
 	}
 }
@@ -290,6 +304,10 @@ impl ExtBuilder {
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<u64>) -> Self {
 		self.invulnerables = invulnerables;
+		self
+	}
+	pub fn minimum_bond(mut self, minimum_bond: u64) -> Self {
+		self.minimum_bond = minimum_bond;
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -355,6 +373,7 @@ impl ExtBuilder {
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
+			minimum_bond: self.minimum_bond,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}
