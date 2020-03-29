@@ -743,9 +743,10 @@ impl<T: Trait> Module<T> {
 		output_reserve: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		if input_reserve.is_zero() || output_reserve.is_zero() {
-			Err(Error::<T>::EmptyExchangePool)?;
-		}
+		ensure!(
+			!input_reserve.is_zero() && !output_reserve.is_zero(),
+			Error::<T>::EmptyExchangePool
+		);
 		ensure!(output_reserve > output_amount, Error::<T>::InsufficientAssetReserve);
 
 		let output_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_amount).into());
@@ -758,9 +759,8 @@ impl<T: Trait> Module<T> {
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
 		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> = LowPrecisionUnsigned::try_from(price_hp);
-		if price_lp_result.is_err() {
-			Err(Error::<T>::Overflow)?;
-		}
+		ensure!(price_lp_result.is_ok(), Error::<T>::Overflow);
+
 		let price_lp = price_lp_result.unwrap();
 		let price_plus_one = price_lp
 			.checked_add(One::one())
@@ -780,9 +780,10 @@ impl<T: Trait> Module<T> {
 		output_reserve: T::Balance,
 		fee_rate: FeeRate<PerMillion>,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		if input_reserve.is_zero() || output_reserve.is_zero() {
-			Err(Error::<T>::EmptyExchangePool)?;
-		}
+		ensure!(
+			!input_reserve.is_zero() && !output_reserve.is_zero(),
+			Error::<T>::EmptyExchangePool
+		);
 
 		let div_rate: FeeRate<PerMillion> = fee_rate
 			.checked_add(FeeRate::<PerMillion>::one())
@@ -802,10 +803,9 @@ impl<T: Trait> Module<T> {
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
 		let price_lp_result: Result<LowPrecisionUnsigned, &'static str> = LowPrecisionUnsigned::try_from(price_hp);
-		if price_lp_result.is_err() {
-			Err(Error::<T>::Overflow)?;
-		}
+		ensure!(price_lp_result.is_ok(), Error::<T>::Overflow);
 		let price_lp = price_lp_result.unwrap();
+
 		let price = T::UnsignedIntToBalance::from(price_lp).into();
 		ensure!(output_reserve > price, Error::<T>::InsufficientAssetReserve);
 		Ok(price)
