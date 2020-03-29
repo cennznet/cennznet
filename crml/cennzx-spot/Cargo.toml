@@ -9,13 +9,13 @@ codec = { version = "1.2.0", package = "parity-scale-codec", default-features = 
 primitive-types = { version = "0.6.1", default-features = false }
 serde = { version = "1.0", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
 
 [features]
 default = ["std"]

@@ -24,64 +24,64 @@ crml-staking = { path = "../crml/staking", default-features = false }
 crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
 
 # primitives
-sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", optional = true, branch = "1.0.0-rc3" }
-sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-inherents = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-block-builder = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", optional = true, branch = "1.0.0-rc3.1" }
+sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-inherents = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-block-builder = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
 
 # frame dependencies
-prml-doughnut = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+prml-doughnut = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
 
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
 
-pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-collective = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-contracts-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-democracy = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-elections-phragmen = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "1.0.0-rc3" }
-pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3" }
+pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-collective = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-contracts-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-democracy = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-elections-phragmen = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-membership = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, features = ["historical"], branch = "1.0.0-rc3.1" }
+pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
 
 # Imported just for the `no_cc` feature
 clear_on_drop = { version = "0.2.3", features = ["no_cc"] }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.5", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.5", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 
 [dev-dependencies]
 cennznet-testing = { path = "../testing"}
 cennznet-cli = { path = "../cli" }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 hex = "0.4.0"
 hex-literal = "0.2.1"
 wabt = "0.9.2"

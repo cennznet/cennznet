@@ -8,10 +8,10 @@ license = "GPL-3.0"
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 codec = { version = "1.2.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
-sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3", default-features = false }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
+sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0.41"

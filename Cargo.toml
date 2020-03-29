@@ -30,7 +30,7 @@ members = [
 ]
 
 [badges]
-circle-ci = { repository = "cennznet/cennznet", branch = "1.0.0-rc3" }
+circle-ci = { repository = "cennznet/cennznet", branch = "1.0.0-rc3.1" }
 maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "cennznet/cennznet" }
 is-it-maintained-open-issues = { repository = "cennznet/cennznet" }

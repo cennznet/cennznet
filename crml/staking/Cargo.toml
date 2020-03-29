@@ -10,24 +10,24 @@ description = "CENNZnet staking pallet"
 [dependencies]
 serde = { version = "1.0.101", optional = true }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-phragmen = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+sp-phragmen = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 crml-staking-reward-curve = { path = "../staking/reward-curve" }
-substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 
 [features]
 migrate = []
