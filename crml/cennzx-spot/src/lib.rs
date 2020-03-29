@@ -79,6 +79,8 @@ decl_error! {
 		AssetToCorePriceNotAboveZero,
 		// Insufficient core asset balance in exchange account
 		InsufficientCoreAssetInExchangeBalance,
+		// Price exceeds the specified max. limit
+		PriceAboveMaxLimit,
 		// Asset to core sale price exceeds the specified max. limit
 		AssetToCorePriceAboveMaxLimit,
 		// Core to asset sale price should be greater than zero
@@ -150,7 +152,7 @@ decl_module! {
 			#[compact] max_paying_amount: T::Balance
 		) -> DispatchResult {
 			let buyer = ensure_signed(origin)?;
-			let _ = Self::make_asset_swap_output(
+			let _ = Self::execute_buy(
 				&buyer,
 				&recipient.unwrap_or_else(|| buyer.clone()),
 				&asset_sold,
@@ -883,10 +885,41 @@ impl<T: Trait> Module<T> {
 		Ok(sold_amount)
 	}
 
+	/// Buy `amount_to_buy` of `asset_to_buy` with `asset_to_sell`.
+	///
+	/// `seller` - Account selling `asset_to_sell`
+	/// `recipient` - Account to receive `asset_to_buy`
+	/// `asset_to_sell` - asset ID to sell
+	/// `asset_to_buy` - asset ID to buy
+	/// `amount_to_buy` - The amount of `asset_to_buy` to buy
+	/// `maximum_sell` - Maximum acceptable amount of `asset_to_sell` the seller will sell
+	pub fn execute_buy(
+		seller: &T::AccountId,
+		recipient: &T::AccountId,
+		asset_to_sell: &T::AssetId,
+		asset_to_buy: &T::AssetId,
+		amount_to_buy: T::Balance,
+		maximum_sell: T::Balance,
+	) -> DispatchResult {
+		// Check the sell amount meets the maximum requirement
+		let amount_to_sell = Self::calculate_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
+		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
+
+		// Check the seller has enough balance
+		ensure!(
+			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, seller) >= amount_to_sell,
+			Error::<T>::InsufficientBalance
+		);
+
+		Self::execute_trade(seller, recipient, asset_to_sell, asset_to_buy, amount_to_sell, amount_to_buy)?;
+
+		Ok(())
+	}
+
 	/// Sell `asset_to_sell` for at least `minimum_buy` of `asset_to_buy`.
 	///
 	/// `seller` - Account selling `asset_to_sell`
-	/// `recipient` - Account to receive `asset_to_buy`, defaults to origin if None
+	/// `recipient` - Account to receive `asset_to_buy`
 	/// `asset_to_sell` - asset ID to sell
 	/// `asset_to_buy` - asset ID to buy
 	/// `amount_to_sell` - The amount of `asset_to_sell` to sell
@@ -906,9 +939,22 @@ impl<T: Trait> Module<T> {
 		);
 
 		// Check the buy amount meets the minimum requirement
-		let buy_amount = Self::calculate_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
-		ensure!(buy_amount >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
+		let amount_to_buy = Self::calculate_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
+		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
 
+		Self::execute_trade(seller, recipient, asset_to_sell, asset_to_buy, amount_to_sell, amount_to_buy)?;
+
+		Ok(())
+	}
+
+	fn execute_trade(
+		seller: &T::AccountId,
+		recipient: &T::AccountId,
+		asset_to_sell: &T::AssetId,
+		asset_to_buy: &T::AssetId,
+		amount_to_sell: T::Balance,
+		amount_to_buy: T::Balance,
+	) -> DispatchResult {
 		let core_asset_id = Self::core_asset_id();
 
 		// If either asset is core, we only need to make one exchange
@@ -928,7 +974,7 @@ impl<T: Trait> Module<T> {
 				&asset_to_buy,
 				&exchange_address,
 				recipient,
-				buy_amount,
+				amount_to_buy,
 			));
 		} else {
 			let core_volume = Self::get_asset_to_core_input_price(asset_to_sell, amount_to_sell)?;
@@ -950,7 +996,7 @@ impl<T: Trait> Module<T> {
 				asset_to_buy,
 				&exchange_address_b,
 				recipient,
-				buy_amount,
+				amount_to_buy,
 			));
 		};
 
@@ -959,7 +1005,7 @@ impl<T: Trait> Module<T> {
 			*asset_to_buy,
 			seller.clone(),
 			amount_to_sell,
-			buy_amount,
+			amount_to_buy,
 		));
 
 		Ok(())

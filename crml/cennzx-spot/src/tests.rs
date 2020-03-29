@@ -489,7 +489,7 @@ fn asset_swap_output_insufficient_balance() {
 				51,  // buy_amount
 				500, // max_sale,
 			),
-			Error::<Test>::InsufficientBuyerTradeAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 		// core to asset swap output
 		assert_err!(
@@ -501,7 +501,7 @@ fn asset_swap_output_insufficient_balance() {
 				101, // buy_amount
 				500, // max_sale,
 			),
-			Error::<Test>::InsufficientBuyerCoreAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 	});
 }
@@ -522,7 +522,7 @@ fn asset_swap_output_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::AssetToCorePriceAboveMaxLimit
+			Error::<Test>::PriceAboveMaxLimit
 		);
 
 		// core to asset swap output
@@ -535,7 +535,7 @@ fn asset_swap_output_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::CoreToAssetPriceAboveMaxLimit
+			Error::<Test>::PriceAboveMaxLimit
 		);
 	});
 }
@@ -1074,8 +1074,8 @@ fn asset_to_asset_swap_output() {
 			300,                                    // maximum asset A to sell
 		));
 
-		assert_exchange_balance_eq!(CoreAssetCurrency => 823, TradeAssetCurrencyA => 1216);
-		assert_exchange_balance_eq!(CoreAssetCurrency => 1177, TradeAssetCurrencyB => 850);
+		assert_exchange_balance_eq!(CoreAssetCurrency => 824, TradeAssetCurrencyA => 1216);
+		assert_exchange_balance_eq!(CoreAssetCurrency => 1176, TradeAssetCurrencyB => 850);
 		assert_balance_eq!(trader, TradeAssetCurrencyA => 1984);
 		assert_balance_eq!(trader, TradeAssetCurrencyB => 150);
 		assert_balance_eq!(trader, CoreAssetCurrency => 2200);
@@ -1119,7 +1119,7 @@ fn asset_to_asset_swap_output_insufficient_balance() {
 				51,                                     // buy_amount
 				400,                                    // maximum asset A to sell
 			),
-			Error::<Test>::InsufficientBuyerTradeAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 	});
 }
@@ -1140,7 +1140,7 @@ fn asset_to_asset_swap_output_exceed_max_sale() {
 				156,                                    // buy_amount
 				100,                                    // maximum asset A to sell
 			),
-			Error::<Test>::AssetToAssetPriceAboveMaxLimit
+			Error::<Test>::PriceAboveMaxLimit
 		);
 	});
 }
@@ -1162,8 +1162,8 @@ fn asset_to_asset_transfer_output() {
 			300,                     // maximum asset A to sell
 		));
 
-		assert_exchange_balance_eq!(CoreAssetCurrency => 823, TradeAssetCurrencyA => 1216);
-		assert_exchange_balance_eq!(CoreAssetCurrency => 1177, TradeAssetCurrencyB => 850);
+		assert_exchange_balance_eq!(CoreAssetCurrency => 824, TradeAssetCurrencyA => 1216);
+		assert_exchange_balance_eq!(CoreAssetCurrency => 1176, TradeAssetCurrencyB => 850);
 		assert_balance_eq!(trader, TradeAssetCurrencyA => 1984);
 		assert_balance_eq!(recipient, TradeAssetCurrencyB => 250);
 		assert_balance_eq!(trader, CoreAssetCurrency => 2200);
