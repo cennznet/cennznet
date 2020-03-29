@@ -471,7 +471,7 @@ where
 				}
 
 				*total_remaining = total_remaining.saturating_sub(slash_from_target);
-				*value -= slash_from_target;
+				value.saturating_sub(slash_from_target);
 			}
 		};
 
