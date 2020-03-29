@@ -837,25 +837,27 @@ fn asset_swap_input_insufficient_balance() {
 
 		let trader = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		assert_err!(
-			CennzXSpot::make_asset_to_core_input(
+			CennzXSpot::execute_sell(
 				&trader, // seller
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
+				&resolve_asset_id!(CoreAssetCurrency),
 				10001, // sell_amount
 				100    // min buy limit
 			),
-			Error::<Test>::InsufficientSellerTradeAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 
 		assert_err!(
-			CennzXSpot::make_core_to_asset_input(
+			CennzXSpot::execute_sell(
 				&trader, // seller
 				&trader, // recipient
+				&resolve_asset_id!(CoreAssetCurrency),
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				10001, // sell_amount
 				100    // min buy limit
 			),
-			Error::<Test>::InsufficientSellerCoreAssetBalance
+			Error::<Test>::InsufficientBalance
 		);
 	});
 }
@@ -910,10 +912,11 @@ fn make_asset_to_core_input() {
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		assert_ok!(
-			CennzXSpot::make_asset_to_core_input(
+			CennzXSpot::execute_sell(
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
+				&resolve_asset_id!(CoreAssetCurrency),
 				90, // sell_amount: T::Balance,
 				50, // min buy: T::Balance,
 			),
@@ -933,9 +936,10 @@ fn make_core_to_asset_input() {
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		assert_ok!(
-			CennzXSpot::make_core_to_asset_input(
+			CennzXSpot::execute_sell(
 				&trader, // buyer
 				&trader, // recipient
+				&resolve_asset_id!(CoreAssetCurrency),
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				90, // sell_amount: T::Balance,
 				50, // min buy: T::Balance,
