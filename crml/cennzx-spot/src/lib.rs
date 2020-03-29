@@ -61,34 +61,12 @@ decl_error! {
 		InsufficientAssetReserve,
 		// Trader has insufficient balance
 		InsufficientBalance,
-		// Insufficient asset balance in buyer account
-		InsufficientBuyerTradeAssetBalance,
-		// Insufficient core asset balance in buyer account
-		InsufficientBuyerCoreAssetBalance,
-		// Insufficient asset balance in seller account
-		InsufficientSellerTradeAssetBalance,
-		// Insufficient core asset balance in seller account
-		InsufficientSellerCoreAssetBalance,
 		// Buy amount must be a positive value
 		BuyAmountNotPositive,
 		// The sale value of input is less than the required minimum.
 		SaleValueBelowRequiredMinimum,
-		// Asset sale value should be greater than zero
-		AssetSaleValueNotAboveZero,
-		// Asset to core sale price should be greater than zero
-		AssetToCorePriceNotAboveZero,
-		// Insufficient core asset balance in exchange account
-		InsufficientCoreAssetInExchangeBalance,
 		// Price exceeds the specified max. limit
 		PriceAboveMaxLimit,
-		// Asset to core sale price exceeds the specified max. limit
-		AssetToCorePriceAboveMaxLimit,
-		// Core to asset sale price should be greater than zero
-		CoreToAssetPriceNotAboveZero,
-		// Core to asset sale price exceeds the specified max. limit
-		CoreToAssetPriceAboveMaxLimit,
-		// Asset to asset sale price exceeds the specified max. limit
-		AssetToAssetPriceAboveMaxLimit,
 		// Tried to overdraw liquidity
 		LiquidityTooLow,
 		// Minimum trade asset is required
@@ -117,8 +95,6 @@ decl_error! {
 		AssetToCoreSellAmountNotAboveZero,
 		// Core to Asset sell amount must be a positive value
 		CoreToAssetSellAmountNotAboveZero,
-		// The sale value of input is less than the required min
-		InsufficientSellAssetForRequiredMinimumBuyAsset,
 		// Asset to swap should not be equal
 		AssetCannotSwapForItself,
 		// Asset id doesn't exist
