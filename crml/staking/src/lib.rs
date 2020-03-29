@@ -458,30 +458,13 @@ where
 		let total = &mut self.total;
 		let active = &mut self.active;
 
-		let slash_out_of = |total_remaining: &mut Balance, target: &mut Balance, value: &mut Balance| {
-			let mut slash_from_target = (*value).min(*target);
-
-			if !slash_from_target.is_zero() {
-				*target -= slash_from_target;
-
-				// don't leave a dust balance in the staking system.
-				if *target <= minimum_balance {
-					slash_from_target += *target;
-					*value += sp_std::mem::replace(target, Zero::zero());
-				}
-
-				*total_remaining = total_remaining.saturating_sub(slash_from_target);
-				*value -= slash_from_target;
-			}
-		};
-
-		slash_out_of(total, active, &mut value);
+		value = Self::apply_slash(total, active, value, minimum_balance);
 
 		let i = self
 			.unlocking
 			.iter_mut()
 			.map(|chunk| {
-				slash_out_of(total, &mut chunk.value, &mut value);
+				value = Self::apply_slash(total, &mut chunk.value, value, minimum_balance);
 				chunk.value
 			})
 			.take_while(|value| value.is_zero()) // take all fully-consumed chunks out.
@@ -491,6 +474,33 @@ where
 		let _ = self.unlocking.drain(..i);
 
 		pre_total.saturating_sub(*total)
+	}
+
+	/// Apply slash to a target set of funds
+	///
+	/// Ensures dust isn't left in the balance of the `target_funds`
+	/// Returns the remainder of `slash` if the full `slash` was not applied
+	fn apply_slash(
+		total_funds: &mut Balance,
+		target_funds: &mut Balance,
+		slash: Balance,
+		minimum_balance: Balance,
+	) -> Balance {
+		let slash_from_target = (slash).min(*target_funds);
+		let mut slash_remainder = slash;
+
+		if !slash_from_target.is_zero() {
+			slash_remainder = slash - slash_from_target;
+			*total_funds = total_funds.saturating_sub(slash_from_target);
+			*target_funds -= slash_from_target;
+
+			// don't leave a dust balance in the staking system.
+			if *target_funds <= minimum_balance {
+				*total_funds = total_funds.saturating_sub(*target_funds);
+				sp_std::mem::replace(target_funds, Zero::zero());
+			}
+		}
+		slash_remainder
 	}
 }
 
