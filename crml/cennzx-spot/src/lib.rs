@@ -374,7 +374,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `buy_amount`- Amount of the trade asset to buy
 	/// Returns the amount of core asset needed to purchase `buy_amount` of trade asset.
-	pub fn get_core_to_asset_output_price(
+	pub fn get_core_to_asset_buy_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
@@ -392,7 +392,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `amount_sold` - Amount of the trade asset to sell
 	/// Returns amount of core that can be bought with input assets.
-	pub fn get_asset_to_core_input_price(
+	pub fn get_asset_to_core_sell_price(
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
@@ -484,7 +484,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `buy_amount` - Amount of output core
 	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
-	pub fn get_asset_to_core_output_price(
+	pub fn get_asset_to_core_buy_price(
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
@@ -503,7 +503,7 @@ impl<T: Trait> Module<T> {
 	///
 	/// `asset_id` - Trade asset
 	/// `sell_amount` - Amount of input core to sell
-	pub fn get_core_to_asset_input_price(
+	pub fn get_core_to_asset_sell_price(
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
@@ -614,7 +614,7 @@ impl<T: Trait> Module<T> {
 				amount_to_buy,
 			));
 		} else {
-			let core_volume = Self::get_asset_to_core_input_price(asset_to_sell, amount_to_sell)?;
+			let core_volume = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
 			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell);
 			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy);
 
@@ -665,7 +665,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_buy == Self::core_asset_id() {
 			amount_to_buy
 		} else {
-			Self::get_core_to_asset_output_price(&asset_to_buy, amount_to_buy)?
+			Self::get_core_to_asset_buy_price(&asset_to_buy, amount_to_buy)?
 		};
 
 		// Find the price of `core_asset_amount` in terms of `asset_to_pay`
@@ -673,7 +673,7 @@ impl<T: Trait> Module<T> {
 		let pay_asset_amount = if asset_to_pay == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_asset_to_core_output_price(&asset_to_pay, core_asset_amount)?
+			Self::get_asset_to_core_buy_price(&asset_to_pay, core_asset_amount)?
 		};
 
 		Ok(pay_asset_amount)
@@ -696,7 +696,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_sell == Self::core_asset_id() {
 			amount_to_sell
 		} else {
-			Self::get_asset_to_core_input_price(&asset_to_sell, amount_to_sell)?
+			Self::get_asset_to_core_sell_price(&asset_to_sell, amount_to_sell)?
 		};
 
 		// Skip payout asset price if asset to be paid out is core
@@ -704,7 +704,7 @@ impl<T: Trait> Module<T> {
 		let payout_asset_value = if asset_to_payout == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_core_to_asset_input_price(&asset_to_payout, core_asset_amount)?
+			Self::get_core_to_asset_sell_price(&asset_to_payout, core_asset_amount)?
 		};
 
 		Ok(payout_asset_value)

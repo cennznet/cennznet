@@ -347,12 +347,12 @@ fn asset_swap_output_price() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_ok!(
-			CennzXSpot::get_asset_to_core_output_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			141
 		);
 
 		assert_ok!(
-			CennzXSpot::get_core_to_asset_output_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			141
 		);
 	});
@@ -362,11 +362,11 @@ fn asset_swap_output_price() {
 fn asset_swap_output_zero_buy_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_core_to_asset_output_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::BuyAmountNotPositive
 		);
 		assert_err!(
-			CennzXSpot::get_asset_to_core_output_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::BuyAmountNotPositive
 		);
 	});
@@ -378,7 +378,7 @@ fn asset_swap_output_insufficient_reserve() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_asset_to_core_output_price(
+			CennzXSpot::get_asset_to_core_buy_price(
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
@@ -386,7 +386,7 @@ fn asset_swap_output_insufficient_reserve() {
 		);
 
 		assert_err!(
-			CennzXSpot::get_core_to_asset_output_price(
+			CennzXSpot::get_core_to_asset_buy_price(
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
@@ -805,12 +805,12 @@ fn asset_swap_input_price() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_ok!(
-			CennzXSpot::get_asset_to_core_input_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			108
 		);
 
 		assert_ok!(
-			CennzXSpot::get_core_to_asset_input_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			108
 		);
 	});
@@ -820,11 +820,11 @@ fn asset_swap_input_price() {
 fn asset_swap_input_zero_sell_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_asset_to_core_input_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::AssetToCoreSellAmountNotAboveZero
 		);
 		assert_err!(
-			CennzXSpot::get_core_to_asset_input_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::CoreToAssetSellAmountNotAboveZero
 		);
 	});
