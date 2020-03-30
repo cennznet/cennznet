@@ -575,7 +575,6 @@ dependencies = [
  "node-transaction-factory",
  "pallet-authority-discovery",
  "pallet-contracts",
- "pallet-generic-asset",
  "pallet-im-online",
  "pallet-timestamp",
  "parity-scale-codec",

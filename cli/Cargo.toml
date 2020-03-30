@@ -57,7 +57,6 @@ sc-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockch
 
 # frame dependencies
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
-pallet-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc3.1" }
 pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 crml-transaction-payment = { path="../crml/transaction-payment", default-features = false } # pallet-transaction-payment specilised for cennznet
