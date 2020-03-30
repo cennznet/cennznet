@@ -68,14 +68,13 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id = <pallet_generic_asset::Module<T>>::spending_asset_id();
 
-		Self::make_asset_swap_output(
+		Self::execute_buy(
 			&who,
 			&who,
 			&fee_exchange_asset_id,
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment(),
-			Self::fee_rate(),
 		)
 	}
 }
@@ -138,7 +137,9 @@ pub(crate) mod impl_tests {
 				(price * fee_rate_factor) / scale_factor // price adjusted with fee
 			};
 
-			assert_eq!(core_asset_price, 539);
+			// This is calculated independently from `fn get_output_price` in lib.rs
+			let core_asset_price = 538;
+
 			assert_eq!(trade_asset_price, 571);
 
 			let exchange1_core = 10_000 - core_asset_price;

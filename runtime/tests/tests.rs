@@ -576,7 +576,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &alice()), liquidity_core_amount);
+			assert_eq!(CennzxSpot::liquidity_balance(&ex_key, &alice()), liquidity_core_amount);
 
 			// Exchange CENNZ (sell) for CPAY (buy) to pay for transaction fee
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
@@ -594,8 +594,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			let fee = transfer_fee(&xt, &runtime_call);
 
 			// Calculate how much CENNZ should be sold to make the above extrinsic
-			let cennz_sold_amount =
-				CennzxSpot::get_asset_to_core_output_price(&CENNZ_ASSET_ID, fee, CennzxSpot::fee_rate()).unwrap();
+			let cennz_sold_amount = CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, fee).unwrap();
 			assert_eq!(cennz_sold_amount, 6);
 
 			// Initialise block and apply the extrinsic
@@ -837,7 +836,10 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -856,7 +858,7 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 			});
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(INSUFFICIENT_BUYER_TRADE_ASSET_BALANCE).into())
+				Err(InvalidTransaction::Custom(INSUFFICIENT_BALANCE).into())
 			);
 		});
 }
@@ -924,7 +926,10 @@ fn contract_call_works_with_fee_exchange() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -978,7 +983,10 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
@@ -992,7 +1000,7 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(ASSET_TO_CORE_PRICE_ABOVE_MAX_LIMIT).into())
+				Err(InvalidTransaction::Custom(PRICE_ABOVE_MAX_LIMIT).into())
 			);
 		});
 }
@@ -1022,7 +1030,10 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 				liquidity_core_amount,
 			);
 			let ex_key = (CENTRAPAY_ASSET_ID, CENNZ_ASSET_ID);
-			assert_eq!(CennzxSpot::get_liquidity(&ex_key, &charlie()), liquidity_core_amount);
+			assert_eq!(
+				CennzxSpot::liquidity_balance(&ex_key, &charlie()),
+				liquidity_core_amount
+			);
 
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,

@@ -413,7 +413,7 @@ mod tests {
 					return Err(DispatchError::Module {
 						index: 1,
 						error: 15,
-						message: Some("CoreToAssetPriceAboveMaxLimit"),
+						message: Some("PriceAboveMaxLimit"),
 					});
 				}
 				// buy fee asset at a 1:1 ratio
@@ -879,7 +879,7 @@ mod tests {
 						info_from_weight(3),
 						len
 					),
-					error_from_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
+					error_from_code(error_code::PRICE_ABOVE_MAX_LIMIT)
 				);
 			})
 	}
