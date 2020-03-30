@@ -261,18 +261,18 @@ pub mod inflation;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
 	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
-	traits::{Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced, Time, WithdrawReasons},
+	traits::{
+		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnReapAccount, OnUnbalanced, Time, WithdrawReasons,
+	},
 	weights::SimpleDispatchInfo,
+	IterableStorageMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{
-		AtLeast32Bit, Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating, StaticLookup,
-		Zero,
-	},
-	PerThing, Perbill, RuntimeDebug,
+	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	Perbill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -280,9 +280,8 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{prelude::*, result};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, result};
 
-use frame_support::traits::OnReapAccount;
 use sp_phragmen::ExtendedBalance;
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
@@ -645,9 +644,6 @@ pub trait Trait: frame_system::Trait {
 	/// applied immediately, without opportunity for intervention.
 	type SlashDeferDuration: Get<EraIndex>;
 
-	/// The origin which can cancel a deferred slash. Root can always do this.
-	type SlashCancelOrigin: EnsureOrigin<Self::Origin>;
-
 	/// Interface for interacting with a session module.
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
@@ -682,6 +678,7 @@ decl_storage! {
 
 		/// The ideal number of staking participants.
 		pub ValidatorCount get(fn validator_count) config(): u32;
+
 		/// Minimum number of staking participants before emergency conditions are imposed.
 		pub MinimumValidatorCount get(fn minimum_validator_count) config():
 			u32 = DEFAULT_MINIMUM_VALIDATOR_COUNT;
@@ -692,32 +689,33 @@ decl_storage! {
 		pub Invulnerables get(fn invulnerables) config(): Vec<T::AccountId>;
 
 		/// Map from all locked "stash" accounts to the controller account.
-		pub Bonded get(fn bonded): map hasher(blake2_256) T::AccountId => Option<T::AccountId>;
+		pub Bonded get(fn bonded): map hasher(twox_64_concat) T::AccountId => Option<T::AccountId>;
+
 		/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 		pub Ledger get(fn ledger):
-			map hasher(blake2_256) T::AccountId
+			map hasher(twox_64_concat) T::AccountId
 			=> Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
 
 		/// Where the reward payment should be made. Keyed by stash.
-		pub Payee get(fn payee): map hasher(blake2_256) T::AccountId => RewardDestination;
+		pub Payee get(fn payee): map hasher(blake2_128_concat) T::AccountId => RewardDestination;
 
 		/// The map from (wannabe) validator stash key to the preferences of that validator.
 		pub Validators get(fn validators):
-			linked_map hasher(blake2_256) T::AccountId => ValidatorPrefs;
+			map hasher(twox_64_concat) T::AccountId => ValidatorPrefs;
 
 		/// The map from nominator stash key to the set of stash keys of all validators to nominate.
 		///
 		/// NOTE: is private so that we can ensure upgraded before all typical accesses.
 		/// Direct storage APIs can still bypass this protection.
 		Nominators get(fn nominators):
-			linked_map hasher(blake2_256) T::AccountId => Option<Nominations<T::AccountId>>;
+			map hasher(twox_64_concat) T::AccountId => Option<Nominations<T::AccountId>>;
 
 		/// Nominators for a particular account that is in action right now. You can't iterate
 		/// through validators here, but you can find them in the Session module.
 		///
 		/// This is keyed by the stash account.
 		pub Stakers get(fn stakers):
-			map hasher(blake2_256) T::AccountId => Exposure<T::AccountId, BalanceOf<T>>;
+			map hasher(twox_64_concat) T::AccountId => Exposure<T::AccountId, BalanceOf<T>>;
 
 		/// The currently elected validator set keyed by stash account ID.
 		pub CurrentElected get(fn current_elected): Vec<T::AccountId>;
@@ -760,7 +758,7 @@ decl_storage! {
 
 		/// All unapplied slashes that are queued for later.
 		pub UnappliedSlashes:
-			map hasher(blake2_256) EraIndex => Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>;
+			map hasher(twox_64_concat) EraIndex => Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>;
 
 		/// A mapping from still-bonded eras to the first session index of that era.
 		BondedEras: Vec<(EraIndex, SessionIndex)>;
@@ -768,21 +766,21 @@ decl_storage! {
 		/// All slashing events on validators, mapped by era to the highest slash proportion
 		/// and slash value of the era.
 		ValidatorSlashInEra:
-			double_map hasher(blake2_256) EraIndex, hasher(twox_128) T::AccountId
+			double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
 			=> Option<(Perbill, BalanceOf<T>)>;
 
 		/// All slashing events on nominators, mapped by era to the highest slash value of the era.
 		NominatorSlashInEra:
-			double_map hasher(blake2_256) EraIndex, hasher(twox_128) T::AccountId
+			double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
 			=> Option<BalanceOf<T>>;
 
 		/// Slashing spans for stash accounts.
-		SlashingSpans: map hasher(blake2_256) T::AccountId => Option<slashing::SlashingSpans>;
+		SlashingSpans: map hasher(twox_64_concat) T::AccountId => Option<slashing::SlashingSpans>;
 
 		/// Records information about the maximum slash of a stash within a slashing span,
 		/// as well as how much reward has been paid out.
 		SpanSlash:
-			map hasher(blake2_256) (T::AccountId, slashing::SpanIndex)
+			map hasher(twox_64_concat) (T::AccountId, slashing::SpanIndex)
 			=> slashing::SpanRecord<BalanceOf<T>>;
 
 		/// The earliest era for which we have a pending, unapplied slash.
@@ -1253,8 +1251,7 @@ decl_module! {
 			ForceEra::put(Forcing::ForceAlways);
 		}
 
-		/// Cancel enactment of a deferred slash. Can be called by either the root origin or
-		/// the `T::SlashCancelOrigin`.
+		/// Cancel enactment of a deferred slash. Can be called by root origin
 		/// passing the era and indices of the slashes for that era to kill.
 		///
 		/// # <weight>
@@ -1262,9 +1259,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
 		fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
-			T::SlashCancelOrigin::try_origin(origin)
-				.map(|_| ())
-				.or_else(ensure_root)?;
+			ensure_root(origin)?;
 
 			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
 			ensure!(Self::is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
@@ -1538,17 +1533,21 @@ impl<T: Trait> Module<T> {
 	///
 	/// Assumes storage is coherent with the declaration.
 	fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {
-		let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
-		let all_validator_candidates_iter = <Validators<T>>::enumerate();
-		let all_validators = all_validator_candidates_iter
-			.map(|(who, _pref)| {
-				let self_vote = (who.clone(), vec![who.clone()]);
-				all_nominators.push(self_vote);
-				who
-			})
-			.collect::<Vec<T::AccountId>>();
+		let mut all_nominators: Vec<(T::AccountId, BalanceOf<T>, Vec<T::AccountId>)> = Vec::new();
+		let mut all_validators_and_prefs = BTreeMap::new();
+		let mut all_validators = Vec::new();
+		for (validator, preference) in <Validators<T>>::iter() {
+			let self_vote = (
+				validator.clone(),
+				Self::slashable_balance_of(&validator),
+				vec![validator.clone()],
+			);
+			all_nominators.push(self_vote);
+			all_validators_and_prefs.insert(validator.clone(), preference);
+			all_validators.push(validator);
+		}
 
-		let nominator_votes = <Nominators<T>>::enumerate().map(|(nominator, nominations)| {
+		let nominator_votes = <Nominators<T>>::iter().map(|(nominator, nominations)| {
 			let Nominations {
 				submitted_in,
 				mut targets,
@@ -1564,21 +1563,23 @@ impl<T: Trait> Module<T> {
 
 			(nominator, targets)
 		});
-		all_nominators.extend(nominator_votes);
+		all_nominators.extend(nominator_votes.map(|(n, ns)| {
+			let s = Self::slashable_balance_of(&n);
+			(n, s, ns)
+		}));
 
-		let maybe_phragmen_result = sp_phragmen::elect::<_, _, _, T::CurrencyToVote, Perbill>(
+		let maybe_phragmen_result = sp_phragmen::elect::<_, _, T::CurrencyToVote, Perbill>(
 			Self::validator_count() as usize,
 			Self::minimum_validator_count().max(1) as usize,
 			all_validators,
 			all_nominators,
-			Self::slashable_balance_of,
 		);
 
 		if let Some(phragmen_result) = maybe_phragmen_result {
 			let elected_stashes = phragmen_result
 				.winners
-				.iter()
-				.map(|(s, _)| s.clone())
+				.into_iter()
+				.map(|(s, _)| s)
 				.collect::<Vec<T::AccountId>>();
 			let assignments = phragmen_result.assignments;
 
@@ -1730,6 +1731,7 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		}
 		Self::new_session(new_index - 1)
 	}
+	fn start_session(_start_index: SessionIndex) {}
 	fn end_session(_end_index: SessionIndex) {}
 }
 
@@ -1744,6 +1746,9 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 				})
 				.collect()
 		})
+	}
+	fn start_session(start_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
 	}
 	fn end_session(end_index: SessionIndex) {
 		<Self as pallet_session::SessionManager<_>>::end_session(end_index)

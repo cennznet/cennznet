@@ -21,15 +21,16 @@ use crate::{
 };
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get},
+	traits::{Currency, FindAuthor, Get, OnInitialize},
 	weights::Weight,
-	StorageLinkedMap, StorageValue,
+	IterableStorageMap, StorageValue,
 };
+use frame_system as system;
 use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, UintAuthorityId};
-use sp_runtime::traits::{Convert, IdentityLookup, OnInitialize, OpaqueKeys, SaturatedConversion};
+use sp_runtime::traits::{Convert, IdentityLookup, OpaqueKeys, SaturatedConversion};
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -112,7 +113,8 @@ mod staking {
 }
 
 impl_outer_event! {
-	pub enum Event for Test where system = frame_system {
+	pub enum Event for Test {
+		system,
 		staking<T>,
 		pallet_balances<T>,
 		pallet_session,
@@ -233,7 +235,6 @@ impl Trait for Test {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId, ()>;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
@@ -380,7 +381,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let _ = pallet_session::GenesisConfig::<Test> {
-			keys: validators.iter().map(|x| (*x, UintAuthorityId(*x))).collect(),
+			keys: validators.iter().map(|x| (*x, *x, UintAuthorityId(*x))).collect(),
 		}
 		.assimilate_storage(&mut storage);
 
@@ -406,7 +407,7 @@ pub fn check_exposure_all() {
 }
 
 pub fn check_nominator_all() {
-	<Nominators<Test>>::enumerate().for_each(|(acc, _)| check_nominator_exposure(acc));
+	<Nominators<Test>>::iter().for_each(|(acc, _)| check_nominator_exposure(acc));
 }
 
 /// Check for each selected validator: expo.total = Sum(expo.other) + expo.own

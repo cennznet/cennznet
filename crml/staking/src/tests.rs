@@ -20,15 +20,12 @@ use super::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
-	traits::{Currency, ReservableCurrency},
-	StorageMap,
+	traits::{Currency, OnInitialize, ReservableCurrency},
+	IterableStorageMap, StorageMap,
 };
 use frame_system::{EventRecord, Phase};
 use mock::*;
-use sp_runtime::{
-	assert_eq_error_rate,
-	traits::{BadOrigin, OnInitialize},
-};
+use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
 use sp_staking::offence::OffenceDetails;
 use substrate_test_utils::assert_eq_uvec;
 
@@ -94,7 +91,7 @@ fn basic_setup_works() {
 
 		// ValidatorPrefs are default
 		assert_eq!(
-			<Validators<Test>>::enumerate().collect::<Vec<_>>(),
+			<Validators<Test>>::iter().collect::<Vec<_>>(),
 			vec![
 				(31, ValidatorPrefs::default()),
 				(21, ValidatorPrefs::default()),
@@ -156,13 +153,13 @@ fn change_controller_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Staking::bonded(&11), Some(10));
 
-		assert!(<Validators<Test>>::enumerate()
+		assert!(<Validators<Test>>::iter()
 			.map(|(c, _)| c)
 			.collect::<Vec<u64>>()
 			.contains(&11));
 		// 10 can control 11 who is initially a validator.
 		assert_ok!(Staking::chill(Origin::signed(10)));
-		assert!(!<Validators<Test>>::enumerate()
+		assert!(!<Validators<Test>>::iter()
 			.map(|(c, _)| c)
 			.collect::<Vec<u64>>()
 			.contains(&11));
@@ -2327,7 +2324,7 @@ fn invulnerables_can_be_set() {
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
-				phase: Phase::ApplyExtrinsic(0),
+				phase: Phase::Initialization,
 				event: mock::Event::staking(RawEvent::SetInvulnerables(vec![11])),
 				topics: vec![],
 			}]
@@ -2921,7 +2918,7 @@ fn slash_kicks_validators_not_nominators() {
 
 		// This is the best way to check that the validator was chilled; `get` will
 		// return default value.
-		for (stash, _) in <Staking as Store>::Validators::enumerate() {
+		for (stash, _) in <Staking as Store>::Validators::iter() {
 			assert!(stash != 11);
 		}
 
@@ -2959,7 +2956,7 @@ fn zero_slash_keeps_nominators() {
 
 		// This is the best way to check that the validator was chilled; `get` will
 		// return default value.
-		for (stash, _) in <Staking as Store>::Validators::enumerate() {
+		for (stash, _) in <<Staking as Store>::Validators>::iter() {
 			assert!(stash != 11);
 		}
 
@@ -3006,7 +3003,7 @@ fn set_minimum_bond_works() {
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
-				phase: Phase::ApplyExtrinsic(0),
+				phase: Phase::Initialization,
 				event: mock::Event::staking(RawEvent::SetMinimumBond(537)),
 				topics: vec![],
 			}]
