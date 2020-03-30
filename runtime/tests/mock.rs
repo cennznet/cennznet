@@ -143,7 +143,6 @@ impl ExtBuilder {
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
 			current_era: 0,
-			minimum_bond: 1,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities

@@ -101,7 +101,6 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 			],
 			validator_count: 3,
 			minimum_validator_count: 0,
-			minimum_bond: 1,
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables: vec![alice(), bob(), charlie()],
 			minimum_bond: 1,
