@@ -358,10 +358,6 @@ impl<T: Trait> Module<T> {
 		<LiquidityBalance<T>>::insert(exchange_key, who, balance);
 	}
 
-	pub fn get_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId) -> T::Balance {
-		<LiquidityBalance<T>>::get(exchange_key, who)
-	}
-
 	//
 	// Get Prices
 	//
