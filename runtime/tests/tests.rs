@@ -27,14 +27,14 @@ use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting as MultiCurrency,
 	storage::StorageValue,
-	traits::Imbalance,
+	traits::{Imbalance, OnInitialize},
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header as HeaderT, OnInitialize},
+	traits::{Convert, Hash, Header as HeaderT},
 	transaction_validity::InvalidTransaction,
 };
 use sp_staking::SessionIndex;
@@ -714,7 +714,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+					event: Event::frame_system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
 						weight: 10000,
 						class: DispatchClass::Normal,
 						pays_fee: true,
@@ -733,7 +733,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(1),
-					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+					event: Event::frame_system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
 						weight: 10000,
 						class: DispatchClass::Normal,
 						pays_fee: true,
@@ -770,7 +770,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				},
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
+					event: Event::frame_system(frame_system::Event::ExtrinsicSuccess(DispatchInfo {
 						weight: 10000,
 						class: DispatchClass::Normal,
 						pays_fee: true,

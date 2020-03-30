@@ -7,7 +7,7 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 cennznet-primitives = { path = "../primitives" }
-sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }
 env_logger = "0.7.0"
 futures = "0.1.29"
 hyper = "0.12.35"

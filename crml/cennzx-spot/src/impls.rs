@@ -40,15 +40,11 @@ where
 	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&u64_to_bytes(core_asset_id.into()));
-		buf.extend_from_slice(&u64_to_bytes(asset_id.into()));
+		buf.extend_from_slice(&core_asset_id.into().to_le_bytes());
+		buf.extend_from_slice(&asset_id.into().to_le_bytes());
 
 		T::Hashing::hash(&buf[..]).unchecked_into()
 	}
-}
-
-fn u64_to_bytes(x: u64) -> [u8; 8] {
-	x.to_le_bytes()
 }
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
@@ -211,10 +207,5 @@ pub(crate) mod impl_tests {
 				FeeAssetCurrency => 0
 			);
 		});
-	}
-
-	#[test]
-	fn u64_to_bytes_works() {
-		assert_eq!(u64_to_bytes(80_000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 }

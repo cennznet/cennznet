@@ -38,9 +38,9 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
-		NextIndexes: map hasher(blake2_256) T::AccountId => u32;
-		AccountValues: map hasher(blake2_256) T::AccountId => Vec<(T::AccountId, u32)>;
-		Values get(values): map hasher(blake2_256) T::AccountId => Vec<(u32, Vec<u8>)>;
+		NextIndexes: map hasher(blake2_128_concat) T::AccountId => u32;
+		AccountValues: map hasher(blake2_128_concat) T::AccountId => Vec<(T::AccountId, u32)>;
+		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(u32, Vec<u8>)>;
 	}
 }
 

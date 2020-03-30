@@ -334,7 +334,7 @@ mod tests {
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Header, TestXt},
-		traits::{BlakeTwo256, Extrinsic, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup},
 		Perbill,
 	};
 	use std::cell::RefCell;
@@ -683,7 +683,7 @@ mod tests {
 		let call = Call::Balances(pallet_balances::Call::transfer(2, 69));
 		let origin = 111111;
 		let extra = ();
-		let xt = TestXt::new(call, Some((origin, extra))).unwrap();
+		let xt = TestXt::new(call, (origin, extra));
 		let info = xt.get_dispatch_info();
 		let ext = xt.encode();
 		let len = ext.len() as u32;

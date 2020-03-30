@@ -18,12 +18,12 @@
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
-use frame_support::{impl_outer_origin, parameter_types};
+use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::{Header, UintAuthorityId},
-	traits::{IdentityLookup, OnInitialize},
+	traits::IdentityLookup,
 	Perbill,
 };
 use sp_staking::SessionIndex;
@@ -156,7 +156,6 @@ impl Trait for Test {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId, ()>;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
@@ -214,7 +213,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let _ = pallet_session::GenesisConfig::<Test> {
-			keys: validators.iter().map(|x| (*x, UintAuthorityId(*x))).collect(),
+			keys: validators.iter().map(|x| (*x, *x, UintAuthorityId(*x))).collect(),
 		}
 		.assimilate_storage(&mut storage);
 

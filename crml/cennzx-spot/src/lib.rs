@@ -357,11 +357,11 @@ decl_storage! {
 		/// Total supply of exchange token in existence.
 		/// it will always be less than the core asset's total supply
 		/// Key: `(asset id, core asset id)`
-		pub TotalSupply get(total_supply): map hasher(blake2_256) ExchangeKey<T> => T::Balance;
+		pub TotalSupply get(total_supply): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 
-		/// Asset balance of each user in each exchange pool.
+		/// Asset balance of an investor in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
-		pub LiquidityBalance get(liquidity_balance): double_map hasher(blake2_256) ExchangeKey<T>, hasher(twox_128) T::AccountId => T::Balance;
+		pub LiquidityBalance get(liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
 	}
 }
 

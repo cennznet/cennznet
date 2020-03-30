@@ -158,7 +158,13 @@ impl ExtBuilder {
 		pallet_session::GenesisConfig::<Runtime> {
 			keys: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut t)
