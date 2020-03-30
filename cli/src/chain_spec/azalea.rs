@@ -15,18 +15,17 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! CENNZNet MainNet V1 (Azalea) genesis config
-use cennznet_primitives::{types::{AccountId, AssetId, Balance}};
+use super::{session_keys, ChainSpec, NetworkKeys};
+use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	GenesisConfig, GenericAssetConfig,
-	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig,
-	GrandpaConfig, ImOnlineConfig, SessionConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, WASM_BINARY, PerMilli, PerMillion, FeeRate,
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, FeeRate,
+	GenericAssetConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, PerMilli, PerMillion, SessionConfig,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
-use super::{session_keys, ChainSpec, NetworkKeys};
-use sp_core::crypto::UncheckedInto;
-use sp_runtime::{Perbill};
 use core::convert::TryFrom;
+use sp_core::crypto::UncheckedInto;
+use sp_runtime::Perbill;
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -42,7 +41,14 @@ pub const SPENDING_ASSET_ID: AssetId = CENTRAPAY_ASSET_ID;
 
 fn network_keys() -> NetworkKeys {
 	let root_key: AccountId = hex!["f4d373896af0d70b40c8b80af075f2761043c1a63798a2c5cb95d68f1d66bd2f"].into();
-	let initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId)> = vec![
+	let initial_authorities: Vec<(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+	)> = vec![
 		// The initial 12 validators keys
 		// - stash
 		// - controller
@@ -179,7 +185,6 @@ pub fn config() -> ChainSpec {
 
 /// Helper function to create GenesisConfig
 pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
-
 	// The initial amount to bond validators with for staking
 	const INITIAL_BOND: Balance = 10_000 * DOLLARS;
 	// The minimum bond for network staking
@@ -198,7 +203,13 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
 				.iter()
-				.map(|x| { (x.0.clone(), x.0.clone(), session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone())) })
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
 				.collect::<Vec<_>>(),
 		}),
 		pallet_collective_Instance1: Some(CouncilConfig {
@@ -216,20 +227,15 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			},
 			gas_price: 1 * MILLICENTS,
 		}),
-		pallet_sudo: Some(SudoConfig { 
-			key: root_key.clone()
-		}),
+		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-		pallet_grandpa: Some(GrandpaConfig { authorities: vec![]}),
+		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
 		pallet_generic_asset: Some(GenericAssetConfig {
-			assets: vec![
-				CENNZ_ASSET_ID,
-				CENTRAPAY_ASSET_ID,
-			],
+			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![
 				(CENNZ_ASSET_ID, root_key.clone()),
