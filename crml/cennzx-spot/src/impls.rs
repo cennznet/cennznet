@@ -137,9 +137,7 @@ pub(crate) mod impl_tests {
 				(price * fee_rate_factor) / scale_factor // price adjusted with fee
 			};
 
-			// core asset price is now calculated the same way whether we are buying
-			// or selling, this gives an off by one due to integer truncation, but will
-			// always result in the same trade asset price.
+			// This is calculated independently from `fn get_output_price` in lib.rs
 			let core_asset_price = 538;
 
 			assert_eq!(trade_asset_price, 571);

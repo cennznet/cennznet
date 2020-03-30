@@ -624,7 +624,7 @@ impl<T: Trait> Module<T> {
 				amount_to_buy,
 			));
 		} else {
-			let core_volume = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
+			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
 			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell);
 			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy);
 
@@ -638,7 +638,7 @@ impl<T: Trait> Module<T> {
 				&core_asset_id,
 				&exchange_address_a,
 				&exchange_address_b,
-				core_volume,
+				core_amount,
 			))
 			.and(<pallet_generic_asset::Module<T>>::make_transfer(
 				asset_to_buy,
