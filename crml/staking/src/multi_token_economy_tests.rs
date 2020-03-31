@@ -195,6 +195,7 @@ impl ExtBuilder {
 			spending_asset_id: REWARD_ASSET_ID,
 			assets: vec![STAKING_ASSET_ID, REWARD_ASSET_ID],
 			next_asset_id: 102,
+			permissions: vec![],
 		}
 		.assimilate_storage(&mut storage);
 
