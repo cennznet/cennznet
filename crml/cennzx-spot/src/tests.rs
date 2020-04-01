@@ -17,204 +17,15 @@
 //!
 #![cfg(test)]
 use crate::{
-	impls::{ExchangeAddressFor, ExchangeAddressGenerator},
+	impls::ExchangeAddressFor,
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
 	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
-	Call, CoreAssetId, Error, GenesisConfig, Module, Trait,
+	CoreAssetId, Error, Trait,
 };
 use core::convert::TryFrom;
-use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, traits::Currency, StorageValue};
-use pallet_generic_asset;
-use sp_core::{crypto::UncheckedInto, sr25519, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	Perbill,
-};
-
-pub type AccountId = <<sr25519::Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-impl_outer_origin! {
-	pub enum Origin for Test where system = frame_system {}
-}
-
-// For testing the module, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
-
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: u32 = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-}
-
-impl frame_system::Trait for Test {
-	type Origin = Origin;
-	type Call = ();
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<AccountId>;
-	type Header = Header;
-	type Event = ();
-	type BlockHashCount = BlockHashCount;
-	type Doughnut = ();
-	type DelegatedDispatchVerifier = DummyDispatchVerifier<Self::Doughnut, Self::AccountId>;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type Version = ();
-	type ModuleToIndex = ();
-}
-
-impl pallet_generic_asset::Trait for Test {
-	type Balance = LowPrecisionUnsigned;
-	type AssetId = u32;
-	type Event = ();
-}
-
-pub struct UnsignedIntToBalance(LowPrecisionUnsigned);
-impl From<LowPrecisionUnsigned> for UnsignedIntToBalance {
-	fn from(u: LowPrecisionUnsigned) -> Self {
-		UnsignedIntToBalance(u)
-	}
-}
-impl From<UnsignedIntToBalance> for LowPrecisionUnsigned {
-	fn from(u: UnsignedIntToBalance) -> Self {
-		u.0
-	}
-}
-
-impl Trait for Test {
-	type Call = Call<Self>;
-	type Event = ();
-	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
-	type BalanceToUnsignedInt = LowPrecisionUnsigned;
-	type UnsignedIntToBalance = UnsignedIntToBalance;
-}
-
-pub type CennzXSpot = Module<Test>;
-
-pub struct ExtBuilder {
-	core_asset_id: u32,
-	fee_rate: FeeRate<PerMillion>,
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {
-			core_asset_id: 0,
-			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
-		}
-	}
-}
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		pallet_generic_asset::GenesisConfig::<Test> {
-			assets: Vec::new(),
-			initial_balance: 0,
-			endowed_accounts: Vec::new(),
-			next_asset_id: 100,
-			staking_asset_id: 0,
-			spending_asset_id: 10,
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-		GenesisConfig::<Test> {
-			core_asset_id: self.core_asset_id,
-			fee_rate: self.fee_rate,
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-		sp_io::TestExternalities::new(t)
-	}
-}
-
-/// Returns the matching asset ID for a currency given it's type alias
-/// It's a quick work around to avoid complex trait logic using `AssetIdAuthority`
-macro_rules! resolve_asset_id (
-	(CoreAssetCurrency) => { CORE_ASSET_ID };
-	(TradeAssetCurrencyA) => { TRADE_ASSET_A_ID };
-	(TradeAssetCurrencyB) => { TRADE_ASSET_B_ID };
-	(FeeAssetCurrency) => { FEE_ASSET_ID };
-	($unknown:literal) => { panic!("cannot resolve asset ID for unknown currency: {}", $unknown) };
-);
-
-/// Initializes an exchange pair with the given liquidity
-/// `with_exchange!(asset1_id => balance, asset2_id => balance)`
-macro_rules! with_exchange (
-	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
-		{
-			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for(
-				resolve_asset_id!($a2),
-			);
-			let _ = $a1::deposit_creating(&exchange_address, $b1);
-			let _ = $a2::deposit_creating(&exchange_address, $b2);
-		}
-	};
-);
-
-/// Assert an exchange pair has a balance equal to
-/// `assert_exchange_balance_eq!(0 => 10, 1 => 15)`
-macro_rules! assert_exchange_balance_eq (
-	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
-		{
-			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for(
-				resolve_asset_id!($a2),
-			);
-			let bal1 = $a1::free_balance(&exchange_address);
-			let bal2 = $a2::free_balance(&exchange_address);
-			assert_eq!(bal1, $b1);
-			assert_eq!(bal2, $b2);
-		}
-	};
-);
-
-/// Initializes a preset address with the given exchange balance.
-/// Examples
-/// ```
-/// let andrea = with_account!(0 => 10, 1 => 20);
-/// let bob = with_account!("bob", 0 => 10, 1 => 20);
-/// ```
-macro_rules! with_account (
-	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
-		{
-			let _ = $a1::deposit_creating(&H256::from_low_u64_be(1).unchecked_into(), $b1);
-			let _ = $a2::deposit_creating(&H256::from_low_u64_be(1).unchecked_into(), $b2);
-			H256::from_low_u64_be(1).unchecked_into()
-		}
-	};
-	($name:expr, $a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
-		{
-			let account = match $name {
-				"andrea" => H256::from_low_u64_be(1).unchecked_into(),
-				"bob" => H256::from_low_u64_be(2).unchecked_into(),
-				"charlie" => H256::from_low_u64_be(3).unchecked_into(),
-				_ => H256::from_low_u64_be(1).unchecked_into(), // default back to "andrea"
-			};
-			let _ = $a1::deposit_creating(&account, $b1);
-			let _ = $a2::deposit_creating(&account, $b2);
-			account
-		}
-	};
-);
-
-/// Assert account has asset balance equal to
-// alias for `assert_eq!(<pallet_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
-macro_rules! assert_balance_eq (
-	($address:expr, $asset_id:ident => $balance:expr) => {
-		{
-			assert_eq!($asset_id::free_balance(&$address), $balance);
-		}
-	};
-);
+use frame_support::{traits::Currency, StorageValue};
+use mock::{AccountId, CennzXSpot, ExtBuilder, Origin, Test};
+use sp_core::{crypto::UncheckedInto, H256};
 
 // Default exchange asset IDs
 const DEFAULT_EXCHANGE_KEY: (u32, u32) = (
@@ -257,17 +68,15 @@ fn investor_can_add_liquidity() {
 }
 
 #[test]
-fn get_output_price_zero_cases() {
+fn get_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
-		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-
 		assert_err!(
-			CennzXSpot::get_output_price(100, 0, 10),
+			CennzXSpot::get_output_price(10, 0, 100),
 			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
-			CennzXSpot::get_output_price(100, 10, 0),
+			CennzXSpot::get_output_price(10, 100, 0),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
@@ -276,7 +85,7 @@ fn get_output_price_zero_cases() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_for_valid_data() {
+fn get_buy_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(CennzXSpot::get_output_price(123, 1000, 1000), 141);
 
@@ -290,7 +99,7 @@ fn get_output_price_for_valid_data() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_for_max_reserve_balance() {
+fn get_buy_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_output_price(
@@ -307,7 +116,7 @@ fn get_output_price_for_max_reserve_balance() {
 /// and apply fee rate to the price
 // Overflows as the both input and output reserve is at max capacity and output amount is little less than max of Balance
 #[test]
-fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
+fn get_buy_price_should_fail_with_max_reserve_and_max_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_output_price(
@@ -323,7 +132,7 @@ fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_max_withdrawal() {
+fn get_buy_price_max_withdrawal() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -340,7 +149,7 @@ fn get_output_price_max_withdrawal() {
 }
 
 #[test]
-fn asset_swap_output_price() {
+fn asset_buy_price() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -357,7 +166,7 @@ fn asset_swap_output_price() {
 }
 
 #[test]
-fn asset_swap_output_zero_buy_amount() {
+fn asset_buy_zero_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
@@ -371,7 +180,7 @@ fn asset_swap_output_zero_buy_amount() {
 }
 
 #[test]
-fn asset_swap_output_insufficient_reserve() {
+fn asset_buy_insufficient_reserve_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -394,7 +203,7 @@ fn asset_swap_output_insufficient_reserve() {
 }
 
 #[test]
-fn asset_to_core_swap_output() {
+fn asset_to_core_execute_buy_with_none_for_recipient() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -415,12 +224,10 @@ fn asset_to_core_swap_output() {
 }
 
 #[test]
-fn make_asset_to_core_swap_output() {
+fn asset_to_core_execute_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 1000);
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
-		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap();
-		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 
 		assert_ok!(
 			CennzXSpot::execute_buy(
@@ -440,7 +247,7 @@ fn make_asset_to_core_swap_output() {
 }
 
 #[test]
-fn asset_swap_output_zero_asset_sold() {
+fn asset_buy_error_zero_asset_sold() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
@@ -473,7 +280,7 @@ fn asset_swap_output_zero_asset_sold() {
 }
 
 #[test]
-fn asset_swap_output_insufficient_balance() {
+fn asset_buy_error_insufficient_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 500);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 50);
@@ -506,7 +313,7 @@ fn asset_swap_output_insufficient_balance() {
 }
 
 #[test]
-fn asset_swap_output_exceed_max_sale() {
+fn asset_buy_error_exceed_max_sale() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 50, TradeAssetCurrencyA => 50);
@@ -540,7 +347,7 @@ fn asset_swap_output_exceed_max_sale() {
 }
 
 #[test]
-fn core_to_asset_swap_output() {
+fn core_to_asset_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 10);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -562,13 +369,11 @@ fn core_to_asset_swap_output() {
 }
 
 #[test]
-fn make_core_to_asset_output() {
+fn core_to_asset_transfer_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 10);
 		let buyer = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 		let recipient = with_account!("bob", CoreAssetCurrency => 0, TradeAssetCurrencyA => 0);
-		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap();
-		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 
 		assert_ok!(
 			CennzXSpot::execute_buy(
@@ -706,7 +511,7 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 }
 
 #[test]
-fn asset_transfer_output() {
+fn asset_to_core_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 1000);
 		let buyer: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -729,7 +534,7 @@ fn asset_transfer_output() {
 }
 
 #[test]
-fn core_to_asset_transfer_output() {
+fn core_to_asset_transfer_buy_10_to_1000() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 1000);
 		let buyer: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -754,7 +559,7 @@ fn core_to_asset_transfer_output() {
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 #[test]
-fn get_input_price_for_valid_data() {
+fn get_sell_price_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(CennzXSpot::get_input_price(123, 1000, 1000), 108);
 
@@ -784,7 +589,7 @@ fn get_input_price_for_valid_data() {
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 // Input amount is half of max(Balance) and output reserve is max(Balance) and input reserve is half of max(Balance)
 #[test]
-fn get_input_price_for_max_reserve_balance() {
+fn get_sell_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
 			CennzXSpot::get_input_price(
@@ -798,7 +603,7 @@ fn get_input_price_for_max_reserve_balance() {
 }
 
 #[test]
-fn asset_swap_input_price() {
+fn asset_swap_sell_price() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -815,7 +620,7 @@ fn asset_swap_input_price() {
 }
 
 #[test]
-fn asset_swap_input_zero_sell_amount() {
+fn asset_sell_error_zero_sell_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
@@ -829,7 +634,7 @@ fn asset_swap_input_zero_sell_amount() {
 }
 
 #[test]
-fn asset_swap_input_insufficient_balance() {
+fn asset_sell_error_insufficient_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -861,7 +666,7 @@ fn asset_swap_input_insufficient_balance() {
 }
 
 #[test]
-fn asset_to_core_swap_input() {
+fn asset_to_core_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -882,7 +687,7 @@ fn asset_to_core_swap_input() {
 }
 
 #[test]
-fn core_to_asset_swap_input() {
+fn core_to_asset_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -904,7 +709,7 @@ fn core_to_asset_swap_input() {
 }
 
 #[test]
-fn make_asset_to_core_input() {
+fn asset_to_core_execute_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -928,7 +733,7 @@ fn make_asset_to_core_input() {
 }
 
 #[test]
-fn make_core_to_asset_input() {
+fn core_to_asset_execute_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -952,7 +757,7 @@ fn make_core_to_asset_input() {
 }
 
 #[test]
-fn asset_swap_input_zero_asset_sold() {
+fn asset_sell_error_zero_asset_sold() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
@@ -984,7 +789,7 @@ fn asset_swap_input_zero_asset_sold() {
 }
 
 #[test]
-fn asset_swap_input_less_than_min_sale() {
+fn asset_sell_error_less_than_min_sale() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 50, TradeAssetCurrencyA => 50);
@@ -1017,7 +822,7 @@ fn asset_swap_input_less_than_min_sale() {
 }
 
 #[test]
-fn asset_to_core_transfer_input() {
+fn asset_to_core_transfer_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -1040,7 +845,7 @@ fn asset_to_core_transfer_input() {
 }
 
 #[test]
-fn core_to_asset_transfer_input() {
+fn core_to_asset_transfer_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
@@ -1063,7 +868,7 @@ fn core_to_asset_transfer_input() {
 }
 
 #[test]
-fn asset_to_asset_swap_output() {
+fn asset_to_asset_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1087,7 +892,7 @@ fn asset_to_asset_swap_output() {
 }
 
 #[test]
-fn asset_to_asset_swap_output_zero_asset_sold() {
+fn asset_to_asset_buy_error_zero_asset_sold() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1108,7 +913,7 @@ fn asset_to_asset_swap_output_zero_asset_sold() {
 }
 
 #[test]
-fn asset_to_asset_swap_output_insufficient_balance() {
+fn asset_to_asset_buy_error_insufficient_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1129,7 +934,7 @@ fn asset_to_asset_swap_output_insufficient_balance() {
 }
 
 #[test]
-fn asset_to_asset_swap_output_exceed_max_sale() {
+fn asset_to_asset_buy_error_exceed_max_sale() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1150,7 +955,7 @@ fn asset_to_asset_swap_output_exceed_max_sale() {
 }
 
 #[test]
-fn asset_to_asset_transfer_output() {
+fn asset_to_asset_transfer_buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1175,7 +980,7 @@ fn asset_to_asset_transfer_output() {
 }
 
 #[test]
-fn asset_to_asset_swap_input() {
+fn asset_to_asset_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1199,7 +1004,7 @@ fn asset_to_asset_swap_input() {
 }
 
 #[test]
-fn asset_to_asset_swap_input_zero_asset_sold() {
+fn asset_to_asset_swap_sell_error_zero_asset_sold() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1220,7 +1025,7 @@ fn asset_to_asset_swap_input_zero_asset_sold() {
 }
 
 #[test]
-fn asset_to_asset_swap_input_insufficient_balance() {
+fn asset_to_asset_sell_error_insufficient_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1241,7 +1046,7 @@ fn asset_to_asset_swap_input_insufficient_balance() {
 }
 
 #[test]
-fn asset_to_asset_swap_input_less_than_min_sale() {
+fn asset_to_asset_sell_error_less_than_min_sale() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
@@ -1262,7 +1067,7 @@ fn asset_to_asset_swap_input_less_than_min_sale() {
 }
 
 #[test]
-fn asset_to_asset_transfer_input() {
+fn asset_to_asset_transfer_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
