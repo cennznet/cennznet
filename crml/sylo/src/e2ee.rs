@@ -102,9 +102,7 @@ pub(super) mod tests {
 	impl Trait for Test {
 		type Event = ();
 	}
-	impl device::Trait for Test {
-		type Event = ();
-	}
+	impl device::Trait for Test {}
 	impl inbox::Trait for Test {}
 	impl response::Trait for Test {}
 	impl groups::Trait for Test {}
