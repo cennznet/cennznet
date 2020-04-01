@@ -95,7 +95,7 @@ impl<T: Trait> Module<T> {}
 #[cfg(test)]
 pub(super) mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
@@ -114,7 +114,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_add_device() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -134,7 +134,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_replenish_pkbs() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -155,7 +155,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_withdraw_pkbs() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,

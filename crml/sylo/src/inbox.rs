@@ -101,7 +101,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
@@ -109,7 +109,7 @@ mod tests {
 
 	#[test]
 	fn it_works_adding_values_to_an_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Add a value to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -133,7 +133,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Add values to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -173,7 +173,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_empty_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Remove a value that doesn't exist
 			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
 		});

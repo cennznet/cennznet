@@ -72,7 +72,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
@@ -81,7 +81,7 @@ mod tests {
 
 	#[test]
 	fn should_upsert_values() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
@@ -114,7 +114,7 @@ mod tests {
 
 	#[test]
 	fn should_replace_existing_keys() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
@@ -139,7 +139,7 @@ mod tests {
 
 	#[test]
 	fn should_delete_keys() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();
