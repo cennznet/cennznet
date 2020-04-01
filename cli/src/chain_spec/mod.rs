@@ -18,9 +18,9 @@
 
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
+	GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+	TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMilli, PerMillion};
 use core::convert::TryFrom;
@@ -122,8 +122,12 @@ pub fn get_authority_keys_from_seed(
 }
 
 /// Helper function to generate session keys with authority keys
-pub fn session_keys(authority_keys: AuthorityKeys) -> SessionKeys {
-	let (_, _, grandpa, babe, im_online, authority_discovery) = authority_keys;
+pub fn session_keys(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
 	SessionKeys {
 		grandpa,
 		babe,
@@ -148,7 +152,13 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
 				.collect::<Vec<_>>(),
 		}),
 		crml_staking: Some(StakingConfig {
@@ -160,10 +170,10 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				.map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
 				.collect(),
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			minimum_bond: 1,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}),
-		pallet_democracy: Some(DemocracyConfig::default()),
 		pallet_collective_Instance1: Some(CouncilConfig {
 			members: endowed_accounts.iter().cloned().collect::<Vec<_>>()[..(num_endowed_accounts + 1) / 2].to_vec(),
 			phantom: Default::default(),

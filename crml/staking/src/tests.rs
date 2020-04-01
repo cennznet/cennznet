@@ -20,14 +20,12 @@ use super::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
-	traits::{Currency, ReservableCurrency},
-	StorageMap,
+	traits::{Currency, OnInitialize, ReservableCurrency},
+	IterableStorageMap, StorageMap,
 };
+use frame_system::{EventRecord, Phase};
 use mock::*;
-use sp_runtime::{
-	assert_eq_error_rate,
-	traits::{BadOrigin, OnInitialize},
-};
+use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
 use sp_staking::offence::OffenceDetails;
 use substrate_test_utils::assert_eq_uvec;
 
@@ -93,7 +91,7 @@ fn basic_setup_works() {
 
 		// ValidatorPrefs are default
 		assert_eq!(
-			<Validators<Test>>::enumerate().collect::<Vec<_>>(),
+			<Validators<Test>>::iter().collect::<Vec<_>>(),
 			vec![
 				(31, ValidatorPrefs::default()),
 				(21, ValidatorPrefs::default()),
@@ -155,13 +153,13 @@ fn change_controller_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Staking::bonded(&11), Some(10));
 
-		assert!(<Validators<Test>>::enumerate()
+		assert!(<Validators<Test>>::iter()
 			.map(|(c, _)| c)
 			.collect::<Vec<u64>>()
 			.contains(&11));
 		// 10 can control 11 who is initially a validator.
 		assert_ok!(Staking::chill(Origin::signed(10)));
-		assert!(!<Validators<Test>>::enumerate()
+		assert!(!<Validators<Test>>::iter()
 			.map(|(c, _)| c)
 			.collect::<Vec<u64>>()
 			.contains(&11));
@@ -1754,6 +1752,7 @@ fn bond_with_no_staked_value() {
 		.existential_deposit(5)
 		.nominate(false)
 		.minimum_validator_count(1)
+		.minimum_bond(3)
 		.build()
 		.execute_with(|| {
 			// Can't bond with 1
@@ -2322,6 +2321,14 @@ fn invulnerables_can_be_set() {
 
 		//Changing the invulnerables set from [21] to [11].
 		let _ = Staking::set_invulnerables(Origin::ROOT, vec![11]);
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: mock::Event::staking(RawEvent::SetInvulnerables(vec![11])),
+				topics: vec![],
+			}]
+		);
 
 		let exposure = Staking::stakers(&21);
 		let initial_balance = Staking::slashable_balance_of(&21);
@@ -2911,7 +2918,7 @@ fn slash_kicks_validators_not_nominators() {
 
 		// This is the best way to check that the validator was chilled; `get` will
 		// return default value.
-		for (stash, _) in <Staking as Store>::Validators::enumerate() {
+		for (stash, _) in <Staking as Store>::Validators::iter() {
 			assert!(stash != 11);
 		}
 
@@ -2949,7 +2956,7 @@ fn zero_slash_keeps_nominators() {
 
 		// This is the best way to check that the validator was chilled; `get` will
 		// return default value.
-		for (stash, _) in <Staking as Store>::Validators::enumerate() {
+		for (stash, _) in <<Staking as Store>::Validators>::iter() {
 			assert!(stash != 11);
 		}
 
@@ -2979,5 +2986,33 @@ fn show_that_max_commission_is_100_percent() {
 		let expected_rewards: u32 = 1_000;
 
 		assert_eq!(stored_prefs.commission * total_rewards, expected_rewards);
-	})
+	});
+}
+
+#[test]
+fn set_minimum_bond_works() {
+	ExtBuilder::default().minimum_bond(7357).build().execute_with(|| {
+		// Non-root accounts cannot set minimum bond
+		assert_noop!(Staking::set_minimum_bond(Origin::signed(1), 123), BadOrigin);
+		assert_eq!(Staking::minimum_bond(), 7357);
+		assert_eq!(System::events(), vec![]);
+
+		// Root accounts can set minimum bond
+		assert_ok!(Staking::set_minimum_bond(Origin::ROOT, 537));
+		assert_eq!(Staking::minimum_bond(), 537);
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: mock::Event::staking(RawEvent::SetMinimumBond(537)),
+				topics: vec![],
+			}]
+		);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Minimum bond must be greater than zero.")]
+fn minimum_bond_in_genesis_config_must_be_greater_than_zero() {
+	ExtBuilder::default().minimum_bond(0).build().execute_with(|| {});
 }

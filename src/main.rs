@@ -27,7 +27,7 @@ fn main() -> CliResult<()> {
 		version: env!("CARGO_PKG_VERSION"),
 		executable_name: "cennznet",
 		author: "Centrality Developers <support@centrality.ai>",
-		description: "CENNZnet node",
+		description: "CENNZnet node by Centrality Investments UNlimited",
 		support_url: "https://github.com/cennznet/cennznet/issues/new",
 		copyright_start_year: 2018,
 	};
