@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -151,6 +151,7 @@ impl BenchDb {
 			None,
 			None,
 			ExecutionExtensions::new(profile.into_execution_strategies(), None),
+			sp_core::tasks::executor(),
 			None,
 		)
 		.expect("Should not fail");

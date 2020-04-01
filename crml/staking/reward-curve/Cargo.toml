@@ -16,4 +16,4 @@ proc-macro2 = "1.0.6"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc3.1" }

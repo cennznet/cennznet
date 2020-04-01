@@ -193,10 +193,9 @@ where
 		let payment_asset = exchange_op.asset_id();
 
 		// Calculate the `fill_meter_cost` in terms of the user's nominated payment asset
-		let converted_fill_meter_cost = CennzxSpot::<T>::get_asset_to_core_output_price(
+		let converted_fill_meter_cost = CennzxSpot::<T>::get_asset_to_core_buy_price(
 			&payment_asset,
 			T::Balance::unique_saturated_from(fill_meter_cost.saturated_into()),
-			CennzxSpot::<T>::fee_rate(),
 		)?;
 
 		// Respect the user's max. fee preference

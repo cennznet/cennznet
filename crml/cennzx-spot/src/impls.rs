@@ -40,15 +40,11 @@ where
 	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&u64_to_bytes(core_asset_id.into()));
-		buf.extend_from_slice(&u64_to_bytes(asset_id.into()));
+		buf.extend_from_slice(&core_asset_id.into().to_le_bytes());
+		buf.extend_from_slice(&asset_id.into().to_le_bytes());
 
 		T::Hashing::hash(&buf[..]).unchecked_into()
 	}
-}
-
-fn u64_to_bytes(x: u64) -> [u8; 8] {
-	x.to_le_bytes()
 }
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
@@ -72,14 +68,13 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id = <pallet_generic_asset::Module<T>>::spending_asset_id();
 
-		Self::make_asset_swap_output(
+		Self::execute_buy(
 			&who,
 			&who,
 			&fee_exchange_asset_id,
 			&fee_asset_id,
 			amount,
 			exchange_op.max_payment(),
-			Self::fee_rate(),
 		)
 	}
 }
@@ -142,7 +137,9 @@ pub(crate) mod impl_tests {
 				(price * fee_rate_factor) / scale_factor // price adjusted with fee
 			};
 
-			assert_eq!(core_asset_price, 539);
+			// This is calculated independently from `fn get_output_price` in lib.rs
+			let core_asset_price = 538;
+
 			assert_eq!(trade_asset_price, 571);
 
 			let exchange1_core = 10_000 - core_asset_price;
@@ -211,10 +208,5 @@ pub(crate) mod impl_tests {
 				FeeAssetCurrency => 0
 			);
 		});
-	}
-
-	#[test]
-	fn u64_to_bytes_works() {
-		assert_eq!(u64_to_bytes(80_000), [128, 56, 1, 0, 0, 0, 0, 0]);
 	}
 }

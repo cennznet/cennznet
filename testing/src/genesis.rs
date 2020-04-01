@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -79,9 +79,18 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 		}),
 		pallet_session: Some(SessionConfig {
 			keys: vec![
-				(alice(), to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice)),
-				(bob(), to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob)),
 				(
+					dave(),
+					alice(),
+					to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice),
+				),
+				(
+					eve(),
+					bob(),
+					to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob),
+				),
+				(
+					ferdie(),
 					charlie(),
 					to_session_keys(&Ed25519Keyring::Charlie, &Sr25519Keyring::Charlie),
 				),
@@ -103,6 +112,7 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables: vec![alice(), bob(), charlie()],
+			minimum_bond: 1,
 			..Default::default()
 		}),
 		pallet_contracts: Some(ContractsConfig {
@@ -113,7 +123,6 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		pallet_im_online: Some(Default::default()),
 		pallet_authority_discovery: Some(Default::default()),
-		pallet_democracy: Some(Default::default()),
 		pallet_collective_Instance1: Some(Default::default()),
 		pallet_collective_Instance2: Some(Default::default()),
 		pallet_membership_Instance1: Some(Default::default()),

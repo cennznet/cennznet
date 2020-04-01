@@ -43,17 +43,15 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_0, _1, _2, _3, _4};
+use sp_core::u32_trait::{_0, _1, _2, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::{
 	self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, PlugDoughnutApi, SaturatedConversion,
 };
-use sp_runtime::transaction_validity::TransactionValidity;
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill, RuntimeString,
-};
+use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
+use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -96,8 +94,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 28,
-	impl_version: 28,
+	spec_version: 29,
+	impl_version: 29,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -317,8 +315,6 @@ impl crml_staking::Trait for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	/// A super-majority of the council can cancel the slash.
-	type SlashCancelOrigin = pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
 }
@@ -334,40 +330,15 @@ parameter_types! {
 	pub const PreimageByteDeposit: Balance = 1 * CENTS;
 }
 
-impl pallet_democracy::Trait for Runtime {
-	type Proposal = Call;
-	type Event = Event;
-	type Currency = StakingAssetCurrency<Self>;
-	type EnactmentPeriod = EnactmentPeriod;
-	type LaunchPeriod = LaunchPeriod;
-	type VotingPeriod = VotingPeriod;
-	type EmergencyVotingPeriod = EmergencyVotingPeriod;
-	type MinimumDeposit = MinimumDeposit;
-	/// A straight majority of the council can decide what their next motion is.
-	type ExternalOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
-	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-	type ExternalMajorityOrigin = pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
-	/// A unanimous council can have the next scheduled referendum be a straight default-carries
-	/// (NTB) vote.
-	type ExternalDefaultOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
-	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
-	/// be tabled immediately and with a shorter voting/enactment period.
-	type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
-	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-	type CancellationOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
-	// Any single technical committee member may veto a coming council proposal, however they can
-	// only do it once and it lasts only for the cooloff period.
-	type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
-	type CooloffPeriod = CooloffPeriod;
-	type PreimageByteDeposit = PreimageByteDeposit;
-	type Slash = Treasury;
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
 }
-
 type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Trait<CouncilCollective> for Runtime {
 	type Origin = Origin;
 	type Proposal = Call;
 	type Event = Event;
+	type MotionDuration = CouncilMotionDuration;
 }
 
 parameter_types! {
@@ -393,19 +364,27 @@ impl pallet_elections_phragmen::Trait for Runtime {
 	type ChangeMembers = Council;
 }
 
+parameter_types! {
+	pub const TechnicalMotionDuration: BlockNumber = 5 * DAYS;
+}
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Trait<TechnicalCollective> for Runtime {
 	type Origin = Origin;
 	type Proposal = Call;
 	type Event = Event;
+	type MotionDuration = TechnicalMotionDuration;
 }
 
 impl pallet_membership::Trait<pallet_membership::Instance1> for Runtime {
 	type Event = Event;
-	type AddOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
-	type RemoveOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
-	type SwapOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
-	type ResetOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
+	type AddOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, Self::Doughnut, CouncilCollective>;
+	type RemoveOrigin =
+		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, Self::Doughnut, CouncilCollective>;
+	type SwapOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, Self::Doughnut, CouncilCollective>;
+	type ResetOrigin =
+		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, Self::Doughnut, CouncilCollective>;
+	type PrimeOrigin =
+		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, Self::Doughnut, CouncilCollective>;
 	type MembershipInitialized = TechnicalCommittee;
 	type MembershipChanged = TechnicalCommittee;
 }
@@ -423,8 +402,8 @@ parameter_types! {
 
 impl pallet_treasury::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
-	type ApproveOrigin = pallet_collective::EnsureMembers<_4, AccountId, CouncilCollective>;
-	type RejectOrigin = pallet_collective::EnsureMembers<_2, AccountId, CouncilCollective>;
+	type ApproveOrigin = pallet_collective::EnsureMembers<_4, AccountId, Self::Doughnut, CouncilCollective>;
+	type RejectOrigin = pallet_collective::EnsureMembers<_2, AccountId, Self::Doughnut, CouncilCollective>;
 	type Event = Event;
 	type ProposalRejection = ();
 	type ProposalBond = ProposalBond;
@@ -612,7 +591,6 @@ construct_runtime!(
 		GenericAsset: pallet_generic_asset::{Module, Call, Storage, Event<T>, Config<T>},
 		Staking: crml_staking::{Module, Call, Config<T>, Storage, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		Democracy: pallet_democracy::{Module, Call, Storage, Config, Event<T>},
 		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},
@@ -694,10 +672,6 @@ impl_runtime_apis! {
 			Executive::apply_extrinsic(extrinsic)
 		}
 
-		fn apply_trusted_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
-			Executive::apply_trusted_extrinsic(extrinsic)
-		}
-
 		fn finalize_block() -> <Block as BlockT>::Header {
 			Executive::finalize_block()
 		}
@@ -716,8 +690,11 @@ impl_runtime_apis! {
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-			Executive::validate_transaction(tx)
+		fn validate_transaction(
+			source: TransactionSource,
+			tx: <Block as BlockT>::Extrinsic,
+		) -> TransactionValidity {
+			Executive::validate_transaction(source, tx)
 		}
 	}
 
@@ -857,32 +834,6 @@ impl_runtime_apis! {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
-
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn dispatch_benchmark(
-			module: Vec<u8>,
-			extrinsic: Vec<u8>,
-			lowest_range_values: Vec<u32>,
-			highest_range_values: Vec<u32>,
-			steps: Vec<u32>,
-			repeat: u32,
-		) -> Result<Vec<frame_benchmarking::BenchmarkResults>, RuntimeString> {
-			use frame_benchmarking::Benchmarking;
-
-			let result = match module.as_slice() {
-				b"pallet-timestamp" | b"timestamp" => Timestamp::run_benchmark(
-					extrinsic,
-					lowest_range_values,
-					highest_range_values,
-					steps,
-					repeat,
-				),
-				_ => Err("Benchmark not found for this pallet."),
-			};
-
-			result.map_err(|e| e.into())
-		}
-	}
 }
 
 #[cfg(test)]
@@ -912,35 +863,5 @@ mod tests {
 
 		is_submit_signed_transaction::<SubmitTransaction>();
 		is_sign_and_submit_transaction::<SubmitTransaction>();
-	}
-
-	#[test]
-	fn block_hooks_weight_should_not_exceed_limits() {
-		use frame_support::weights::WeighBlock;
-		let check_for_block = |b| {
-			let block_hooks_weight = <AllModules as WeighBlock<BlockNumber>>::on_initialize(b)
-				+ <AllModules as WeighBlock<BlockNumber>>::on_finalize(b);
-
-			assert_eq!(
-				block_hooks_weight, 0,
-				"This test might fail simply because the value being compared to has increased to a \
-				 module declaring a new weight for a hook or call. In this case update the test and \
-				 happily move on.",
-			);
-
-			// Invariant. Always must be like this to have a sane chain.
-			assert!(block_hooks_weight < MaximumBlockWeight::get());
-
-			// Warning.
-			if block_hooks_weight > MaximumBlockWeight::get() / 2 {
-				println!(
-					"block hooks weight is consuming more than a block's capacity. You probably want \
-					 to re-think this. This test will fail now."
-				);
-				assert!(false);
-			}
-		};
-
-		let _ = (0..100_000).for_each(check_for_block);
 	}
 }

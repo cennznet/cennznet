@@ -334,7 +334,7 @@ mod tests {
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Header, TestXt},
-		traits::{BlakeTwo256, Extrinsic, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup},
 		Perbill,
 	};
 	use std::cell::RefCell;
@@ -413,7 +413,7 @@ mod tests {
 					return Err(DispatchError::Module {
 						index: 1,
 						error: 15,
-						message: Some("CoreToAssetPriceAboveMaxLimit"),
+						message: Some("PriceAboveMaxLimit"),
 					});
 				}
 				// buy fee asset at a 1:1 ratio
@@ -683,7 +683,7 @@ mod tests {
 		let call = Call::Balances(pallet_balances::Call::transfer(2, 69));
 		let origin = 111111;
 		let extra = ();
-		let xt = TestXt::new(call, Some((origin, extra))).unwrap();
+		let xt = TestXt::new(call, (origin, extra));
 		let info = xt.get_dispatch_info();
 		let ext = xt.encode();
 		let len = ext.len() as u32;
@@ -879,7 +879,7 @@ mod tests {
 						info_from_weight(3),
 						len
 					),
-					error_from_code(error_code::CORE_TO_ASSET_PRICE_ABOVE_MAX_LIMIT)
+					error_from_code(error_code::PRICE_ABOVE_MAX_LIMIT)
 				);
 			})
 	}

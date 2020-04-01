@@ -1,18 +1,17 @@
-// Copyright (C) 2020 Centrality Investments Limited
-// This file is part of CENNZnet.
-//
-// CENNZnet is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// CENNZnet is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
+/* Copyright 2019-2020 Centrality Investments Limited
+*
+* Licensed under the LGPL, Version 3.0 (the "License");
+* you may not use this file except in compliance with the License.
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+* You may obtain a copy of the License at the root of this project source code,
+* or at:
+*     https://centrality.ai/licenses/gplv3.txt
+*     https://centrality.ai/licenses/lgplv3.txt
+*/
 
 #![allow(dead_code)]
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
@@ -142,6 +141,7 @@ impl ExtBuilder {
 		.unwrap();
 
 		crml_staking::GenesisConfig::<Runtime> {
+			minimum_bond: 1,
 			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
@@ -158,7 +158,13 @@ impl ExtBuilder {
 		pallet_session::GenesisConfig::<Runtime> {
 			keys: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), session_keys(x.clone())))
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut t)

@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2017-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -56,10 +56,7 @@ use frame_support::{
 	traits::{Currency, Imbalance, OnUnbalanced},
 	StorageDoubleMap, StorageMap,
 };
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	PerThing,
-};
+use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
