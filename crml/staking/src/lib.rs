@@ -311,8 +311,8 @@ impl EraPoints {
 	fn add_points_to_index(&mut self, index: u32, points: u32) {
 		if let Some(new_total) = self.total.checked_add(points) {
 			self.total = new_total;
-			self.individual
-				.resize((index as usize + 1).max(self.individual.len()), 0);
+			let new_size = (index as usize + 1).max(self.individual.len());
+			self.individual.resize(new_size, 0);
 			self.individual[index as usize] += points; // Addition is less than total
 		}
 	}
@@ -418,22 +418,22 @@ impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32Bit> StakingL
 
 	/// Re-bond funds that were scheduled for unlocking.
 	fn rebond(mut self, value: Balance) -> Self {
-		let mut unlocking_balance: Balance = Zero::zero();
+		let mut rebonded_total: Balance = Zero::zero();
 
 		while let Some(last) = self.unlocking.last_mut() {
-			if unlocking_balance + last.value <= value {
-				unlocking_balance += last.value;
+			let remaining = value - rebonded_total;
+
+			if last.value <= remaining {
+				rebonded_total += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
 			} else {
-				let diff = value - unlocking_balance;
-
-				unlocking_balance += diff;
-				self.active += diff;
-				last.value -= diff;
+				rebonded_total += remaining;
+				self.active += remaining;
+				last.value -= remaining;
 			}
 
-			if unlocking_balance >= value {
+			if rebonded_total >= value {
 				break;
 			}
 		}
@@ -510,8 +510,6 @@ pub struct Nominations<AccountId> {
 	pub targets: Vec<AccountId>,
 	/// The era the nominations were submitted.
 	pub submitted_in: EraIndex,
-	/// Whether the nominations have been suppressed.
-	pub suppressed: bool,
 }
 
 /// The amount of exposure (to slashing) than an individual nominator has.
@@ -1108,7 +1106,6 @@ decl_module! {
 			let nominations = Nominations {
 				targets,
 				submitted_in: Self::current_era(),
-				suppressed: false,
 			};
 
 			<Validators<T>>::remove(stash);
@@ -1367,12 +1364,6 @@ impl<T: Trait> Module<T> {
 		CurrentEraFeeRewards::<T>::get()
 	}
 
-	pub fn set_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
-		CurrentEraFeeRewards::<T>::mutate(|reward| {
-			*reward = amount;
-		});
-	}
-
 	pub fn add_to_current_era_transaction_fee_reward(amount: RewardBalanceOf<T>) {
 		CurrentEraFeeRewards::<T>::mutate(|reward| *reward = reward.saturating_add(amount));
 	}
@@ -1449,9 +1440,10 @@ impl<T: Trait> Module<T> {
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		let now = T::Time::now();
-		let previous_era_start = <CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
+		let previous_era_start = <CurrentEraStart<T>>::get();
 		let era_duration = now - previous_era_start;
 		<CurrentEraDuration<T>>::put(era_duration);
+		<CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
 
 		if !era_duration.is_zero() {
 			Self::era_reward_payout();
@@ -1555,7 +1547,6 @@ impl<T: Trait> Module<T> {
 			let Nominations {
 				submitted_in,
 				mut targets,
-				suppressed: _,
 			} = nominations;
 
 			// Filter out nomination targets which were nominated before the most recent
