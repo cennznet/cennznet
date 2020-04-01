@@ -1,28 +1,29 @@
-// Copyright 2019-2020 Plug New Zealand Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/* Copyright 2019-2020 Centrality Investments Limited
+*
+* Licensed under the LGPL, Version 3.0 (the "License");
+* you may not use this file except in compliance with the License.
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+* You may obtain a copy of the License at the root of this project source code,
+* or at:
+*     https://centrality.ai/licenses/gplv3.txt
+*     https://centrality.ai/licenses/lgplv3.txt
+*/
 
 // Test for staking rewards in a multi-token economic model
 // i.e. The token at stake is not necessarily the token that is rewarded to validators
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
-use frame_support::{impl_outer_origin, parameter_types};
+use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::{Header, UintAuthorityId},
-	traits::{IdentityLookup, OnInitialize},
+	traits::IdentityLookup,
 	Perbill,
 };
 use sp_staking::SessionIndex;
@@ -155,7 +156,6 @@ impl Trait for Test {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId, ()>;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
@@ -199,6 +199,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let _ = GenesisConfig::<Test> {
+			minimum_bond: 1,
 			current_era: 0,
 			stakers: vec![
 				// (stash, controller, staked_amount, status)
@@ -212,7 +213,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let _ = pallet_session::GenesisConfig::<Test> {
-			keys: validators.iter().map(|x| (*x, UintAuthorityId(*x))).collect(),
+			keys: validators.iter().map(|x| (*x, *x, UintAuthorityId(*x))).collect(),
 		}
 		.assimilate_storage(&mut storage);
 
