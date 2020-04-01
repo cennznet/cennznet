@@ -1417,6 +1417,32 @@ impl<T: Trait> Module<T> {
 		Self::select_validators().1
 	}
 
+	fn era_reward_payout() {
+		let validators = Self::current_elected();
+
+		// Pay the accumulated tx fee as rewards to all validators
+		let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
+		Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
+
+		let (total_payout, max_payout) = Self::current_total_payout(T::RewardCurrency::total_issuance());
+		let mut total_imbalance = T::RewardCurrency::burn(Zero::zero()); // hack to get new ImBalance with asset_id
+
+		let points = CurrentEraPointsEarned::take();
+		for (v, p) in validators.iter().zip(points.individual.into_iter()) {
+			if p != 0 {
+				let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;
+				total_imbalance.subsume(Self::reward_validator(v, reward));
+			}
+		}
+
+		let total_payout = total_imbalance.peek();
+		let rest = max_payout.saturating_sub(total_payout);
+		Self::deposit_event(RawEvent::Reward(total_payout, rest));
+
+		T::Reward::on_unbalanced(total_imbalance);
+		T::RewardRemainder::on_unbalanced(T::RewardCurrency::issue(rest));
+	}
+
 	/// The era has changed - enact new staking set.
 	///
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
@@ -1428,29 +1454,7 @@ impl<T: Trait> Module<T> {
 		<CurrentEraDuration<T>>::put(era_duration);
 
 		if !era_duration.is_zero() {
-			let validators = Self::current_elected();
-
-			// Pay the accumulated tx fee as rewards to all validators
-			let total_tx_fee_reward = CurrentEraFeeRewards::<T>::take();
-			Self::split_fee_rewards_evenly_to_all(&validators, total_tx_fee_reward);
-
-			let (total_payout, max_payout) = Self::current_total_payout(T::RewardCurrency::total_issuance());
-			let mut total_imbalance = T::RewardCurrency::burn(Zero::zero()); // hack to get new ImBalance with asset_id
-
-			let points = CurrentEraPointsEarned::take();
-			for (v, p) in validators.iter().zip(points.individual.into_iter()) {
-				if p != 0 {
-					let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;
-					total_imbalance.subsume(Self::reward_validator(v, reward));
-				}
-			}
-
-			let total_payout = total_imbalance.peek();
-			let rest = max_payout.saturating_sub(total_payout);
-			Self::deposit_event(RawEvent::Reward(total_payout, rest));
-
-			T::Reward::on_unbalanced(total_imbalance);
-			T::RewardRemainder::on_unbalanced(T::RewardCurrency::issue(rest));
+			Self::era_reward_payout();
 		}
 
 		// Increment current era.
