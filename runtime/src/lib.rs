@@ -176,9 +176,7 @@ impl prml_attestation::Trait for Runtime {
 }
 
 impl crml_sylo::groups::Trait for Runtime {}
-impl crml_sylo::e2ee::Trait for Runtime {
-	type Event = Event;
-}
+impl crml_sylo::e2ee::Trait for Runtime {}
 impl crml_sylo::device::Trait for Runtime {}
 impl crml_sylo::response::Trait for Runtime {}
 impl crml_sylo::inbox::Trait for Runtime {}
@@ -603,7 +601,7 @@ construct_runtime!(
 		Offences: pallet_offences::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		SyloGroups: sylo_groups::{Module, Call, Storage},
-		SyloE2EE: sylo_e2ee::{Module, Call, Event<T>, Storage},
+		SyloE2EE: sylo_e2ee::{Module, Call, Storage},
 		SyloDevice: sylo_device::{Module, Call, Storage},
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
