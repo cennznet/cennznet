@@ -237,7 +237,7 @@ decl_module! {
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
 		///
 		/// `asset_id` - The trade asset ID
-		/// `liquidity_to_withdraw` - Amount of user's liquidity to burn
+		/// `liquidity_to_withdraw` - Amount of user's liquidity to withdraw
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
 		pub fn remove_liquidity(
@@ -315,11 +315,11 @@ decl_storage! {
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
 		pub DefaultFeeRate get(fee_rate) config(): FeeRate<PerMillion>;
-		/// Total liquidity in each individual exchange.
-		/// it will always be less than the core asset's total supply
+		/// Total liquidity holdings of all investers in an exchange.
+		/// ie/ total_liquidity(exchange) == sum(liquidity_balance(exchange, user)) at all times
 		pub TotalLiquidity get(total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 
-		/// Asset balance of an investor in an exchange pool.
+		/// Liquidity holdings of a user in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
 		pub LiquidityBalance get(liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
 	}
