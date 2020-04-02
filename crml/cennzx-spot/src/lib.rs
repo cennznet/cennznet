@@ -208,15 +208,11 @@ decl_module! {
 			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
 
-			if total_liquidity.is_zero() {
+			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() {
 				// new exchange pool
 				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
 				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, max_asset_amount)?;
-				let trade_asset_amount = max_asset_amount;
-				let initial_liquidity = core_amount;
-				Self::set_liquidity(&exchange_key, &from_account, initial_liquidity);
-				Self::mint_total_supply(&exchange_key, initial_liquidity);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, initial_liquidity, asset_id, trade_asset_amount));
+				(max_asset_amount, core_amount)
 			} else {
 				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 				let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
@@ -233,12 +229,11 @@ decl_module! {
 
 				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
 				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
-
-				Self::set_liquidity(&exchange_key, &from_account,
-					<LiquidityBalance<T>>::get(&exchange_key, &from_account) + liquidity_minted);
-				Self::mint_total_supply(&exchange_key, liquidity_minted);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
-			}
+				(trade_asset_amount, liquidity_minted)
+			};
+			Self::set_liquidity(&exchange_key, &from_account, <LiquidityBalance<T>>::get(&exchange_key, &from_account) + liquidity_minted);
+			Self::mint_total_supply(&exchange_key, liquidity_minted);
+			Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 		}
 
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
