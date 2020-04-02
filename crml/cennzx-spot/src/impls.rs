@@ -25,7 +25,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
 pub trait ExchangeAddressFor<AssetId: Sized, AccountId: Sized> {
-	fn exchange_address_for(core_asset_id: AssetId, asset_id: AssetId) -> AccountId;
+	fn exchange_address_for(asset_id: AssetId) -> AccountId;
 }
 
 // A CENNZX-Spot exchange address generator implementation
@@ -37,8 +37,9 @@ where
 	T::AssetId: Into<u64>,
 {
 	/// Generates an exchange address for the given core / asset pair
-	fn exchange_address_for(core_asset_id: T::AssetId, asset_id: T::AssetId) -> T::AccountId {
+	fn exchange_address_for(asset_id: T::AssetId) -> T::AccountId {
 		let mut buf = Vec::new();
+		let core_asset_id = Module::<T>::core_asset_id();
 		buf.extend_from_slice(b"cennz-x-spot:");
 		buf.extend_from_slice(&core_asset_id.into().to_le_bytes());
 		buf.extend_from_slice(&asset_id.into().to_le_bytes());
@@ -83,7 +84,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 pub(crate) mod impl_tests {
 	use super::*;
 	use crate::{
-		mock::{self, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
+		mock::{self, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		tests::{CennzXSpot, ExtBuilder, Test},
 		Error,
 	};

@@ -206,7 +206,7 @@ decl_module! {
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
+			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
 
 			if total_liquidity.is_zero() {
 				// new exchange pool
@@ -273,7 +273,7 @@ decl_module! {
 			);
 
 			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
+			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
 			ensure!(
 				total_liquidity > Zero::zero(),
 				Error::<T>::NoLiquidityToRemove
@@ -372,7 +372,7 @@ impl<T: Trait> Module<T> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
@@ -393,7 +393,7 @@ impl<T: Trait> Module<T> {
 		);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
@@ -482,7 +482,7 @@ impl<T: Trait> Module<T> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
 
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
@@ -504,7 +504,7 @@ impl<T: Trait> Module<T> {
 		);
 
 		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_id);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
@@ -603,9 +603,9 @@ impl<T: Trait> Module<T> {
 		// otherwise, we make two exchanges
 		if *asset_to_sell == core_asset_id || *asset_to_buy == core_asset_id {
 			let exchange_address = if *asset_to_buy == core_asset_id {
-				T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell)
+				T::ExchangeAddressGenerator::exchange_address_for(*asset_to_sell)
 			} else {
-				T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy)
+				T::ExchangeAddressGenerator::exchange_address_for(*asset_to_buy)
 			};
 			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
 				&asset_to_sell,
@@ -621,8 +621,8 @@ impl<T: Trait> Module<T> {
 			));
 		} else {
 			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
-			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_sell);
-			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, *asset_to_buy);
+			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(*asset_to_sell);
+			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(*asset_to_buy);
 
 			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
 				asset_to_sell,

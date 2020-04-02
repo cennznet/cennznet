@@ -153,7 +153,6 @@ macro_rules! with_exchange (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for(
-				resolve_asset_id!($a1),
 				resolve_asset_id!($a2),
 			);
 			let _ = $a1::deposit_creating(&exchange_address, $b1);
@@ -168,7 +167,6 @@ macro_rules! assert_exchange_balance_eq (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let exchange_address = <Test as Trait>::ExchangeAddressGenerator::exchange_address_for(
-				resolve_asset_id!($a1),
 				resolve_asset_id!($a2),
 			);
 			let bal1 = $a1::free_balance(&exchange_address);
