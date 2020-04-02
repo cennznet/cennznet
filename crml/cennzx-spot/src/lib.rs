@@ -530,7 +530,7 @@ impl<T: Trait> Module<T> {
 		maximum_sell: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
-		let amount_to_sell = Self::calculate_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
+		let amount_to_sell = Self::get_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
 		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
 
 		// Check the seller has enough balance
@@ -574,7 +574,7 @@ impl<T: Trait> Module<T> {
 		);
 
 		// Check the buy amount meets the minimum requirement
-		let amount_to_buy = Self::calculate_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
+		let amount_to_buy = Self::get_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
 		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
 
 		Self::execute_trade(
@@ -655,12 +655,12 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	/// Calculate the buy price of some asset for another
+	/// Get the buy price of some asset for another
 	/// In simple terms: 'If I want to buy _x_ amount of asset _a_ how much of asset _b_ will it cost?'
 	/// `asset_to_buy` is the asset to buy
 	/// `amount_to_buy` is the amount of `asset_to_buy` required
 	/// `asset_to_pay` is the asset to use for payment (the final price will be given in this asset)
-	pub fn calculate_buy_price(
+	pub fn get_buy_price(
 		asset_to_buy: T::AssetId,
 		amount_to_buy: T::Balance,
 		asset_to_pay: T::AssetId,
@@ -686,12 +686,12 @@ impl<T: Trait> Module<T> {
 		Ok(pay_asset_amount)
 	}
 
-	/// Calculate the sell price of some asset for another
+	/// Get the sell price of some asset for another
 	/// In simple terms: 'If I sell _x_ amount of asset _a_ how much of asset _b_ will I get in return?'
 	/// `asset_to_sell` is the asset to be sold
 	/// `amount_to_sell` is the amount of `asset_to_sell` to be sold
 	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_to_sell` (the final sale value is given in this asset)
-	pub fn calculate_sell_price(
+	pub fn get_sell_price(
 		asset_to_sell: T::AssetId,
 		amount_to_sell: T::Balance,
 		asset_to_payout: T::AssetId,

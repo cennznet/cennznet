@@ -803,7 +803,7 @@ impl_runtime_apis! {
 			buy_amount: Balance,
 			sell_asset: AssetId,
 		) -> CennzxSpotResult<Balance> {
-			let result = CennzxSpot::calculate_buy_price(buy_asset, buy_amount, sell_asset);
+			let result = CennzxSpot::get_buy_price(buy_asset, buy_amount, sell_asset);
 			match result {
 				Ok(value) => CennzxSpotResult::Success(value),
 				Err(_) => CennzxSpotResult::Error,
@@ -815,7 +815,7 @@ impl_runtime_apis! {
 			sell_amount: Balance,
 			buy_asset: AssetId,
 		) -> CennzxSpotResult<Balance> {
-			let result = CennzxSpot::calculate_sell_price(sell_asset, sell_amount, buy_asset);
+			let result = CennzxSpot::get_sell_price(sell_asset, sell_amount, buy_asset);
 			match result {
 				Ok(value) => CennzxSpotResult::Success(value),
 				Err(_) => CennzxSpotResult::Error,
