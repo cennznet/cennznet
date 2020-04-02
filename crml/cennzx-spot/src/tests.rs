@@ -257,17 +257,17 @@ fn investor_can_add_liquidity() {
 }
 
 #[test]
-fn get_output_price_zero_cases() {
+fn calculate_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_output_price(100, 0, 10),
+			CennzXSpot::calculate_buy_price(100, 0, 10),
 			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
-			CennzXSpot::get_output_price(100, 10, 0),
+			CennzXSpot::calculate_buy_price(100, 10, 0),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
@@ -276,12 +276,12 @@ fn get_output_price_zero_cases() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_for_valid_data() {
+fn calculate_buy_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::get_output_price(123, 1000, 1000), 141);
+		assert_ok!(CennzXSpot::calculate_buy_price(123, 1000, 1000), 141);
 
 		assert_ok!(
-			CennzXSpot::get_output_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
+			CennzXSpot::calculate_buy_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
 			589396433540516
 		);
 	});
@@ -290,10 +290,10 @@ fn get_output_price_for_valid_data() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_for_max_reserve_balance() {
+fn calculate_buy_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::get_output_price(
+			CennzXSpot::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value(),
@@ -307,10 +307,10 @@ fn get_output_price_for_max_reserve_balance() {
 /// and apply fee rate to the price
 // Overflows as the both input and output reserve is at max capacity and output amount is little less than max of Balance
 #[test]
-fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
+fn calculate_buy_price_should_fail_with_max_reserve_and_max_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_output_price(
+			CennzXSpot::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() - 100,
 				LowPrecisionUnsigned::max_value(),
 				LowPrecisionUnsigned::max_value(),
@@ -323,17 +323,17 @@ fn get_output_price_should_fail_with_max_reserve_and_max_amount() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_output_price_max_withdrawal() {
+fn calculate_buy_price_max_withdrawal() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_output_price(1000, 1000, 1000),
+			CennzXSpot::calculate_buy_price(1000, 1000, 1000),
 			Error::<Test>::InsufficientAssetReserve
 		);
 
 		assert_err!(
-			CennzXSpot::get_output_price(1_000_000, 1000, 1000),
+			CennzXSpot::calculate_buy_price(1_000_000, 1000, 1000),
 			Error::<Test>::InsufficientAssetReserve
 		);
 	});
@@ -754,23 +754,23 @@ fn core_to_asset_transfer_output() {
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 #[test]
-fn get_input_price_for_valid_data() {
+fn calculate_sell_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::get_input_price(123, 1000, 1000), 108);
+		assert_ok!(CennzXSpot::calculate_sell_price(123, 1000, 1000), 108);
 
 		// No f32/f64 types, so we use large values to test precision
 		assert_ok!(
-			CennzXSpot::get_input_price(123_000_000, 1_000_000_000, 1_000_000_000),
+			CennzXSpot::calculate_sell_price(123_000_000, 1_000_000_000, 1_000_000_000),
 			109236233
 		);
 
 		assert_ok!(
-			CennzXSpot::get_input_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
+			CennzXSpot::calculate_sell_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
 			4128948876492407
 		);
 
 		assert_ok!(
-			CennzXSpot::get_input_price(
+			CennzXSpot::calculate_sell_price(
 				100_000_000_000_000,
 				120_627_710_511_649_660,
 				LowPrecisionUnsigned::max_value()
@@ -784,10 +784,10 @@ fn get_input_price_for_valid_data() {
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 // Input amount is half of max(Balance) and output reserve is max(Balance) and input reserve is half of max(Balance)
 #[test]
-fn get_input_price_for_max_reserve_balance() {
+fn calculate_sell_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::get_input_price(
+			CennzXSpot::calculate_sell_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value()
