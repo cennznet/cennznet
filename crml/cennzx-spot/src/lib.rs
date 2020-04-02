@@ -363,7 +363,7 @@ impl<T: Trait> Module<T> {
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
-		Self::get_output_price(buy_amount, core_reserve, asset_reserve)
+		Self::calculate_buy_price(buy_amount, core_reserve, asset_reserve)
 	}
 
 	/// `asset_id` - Trade asset
@@ -383,10 +383,10 @@ impl<T: Trait> Module<T> {
 
 		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		Self::get_input_price(sell_amount, asset_reserve, core_reserve)
+		Self::calculate_sell_price(sell_amount, asset_reserve, core_reserve)
 	}
 
-	fn get_output_price(
+	fn calculate_buy_price(
 		output_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
@@ -422,7 +422,7 @@ impl<T: Trait> Module<T> {
 		Ok(T::UnsignedIntToBalance::from(output.into()).into())
 	}
 
-	fn get_input_price(
+	fn calculate_sell_price(
 		input_amount: T::Balance,
 		input_reserve: T::Balance,
 		output_reserve: T::Balance,
@@ -473,7 +473,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 
-		Self::get_output_price(buy_amount, trade_asset_reserve, core_asset_reserve)
+		Self::calculate_buy_price(buy_amount, trade_asset_reserve, core_asset_reserve)
 	}
 
 	/// Returns the amount of trade asset to pay for `sell_amount` of core sold.
@@ -494,9 +494,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
 
-		let output_amount = Self::get_input_price(sell_amount, core_asset_reserve, trade_asset_reserve)?;
-
-		Ok(output_amount)
+		Self::calculate_sell_price(sell_amount, core_asset_reserve, trade_asset_reserve)
 	}
 
 	/// Buy `amount_to_buy` of `asset_to_buy` with `asset_to_sell`.
