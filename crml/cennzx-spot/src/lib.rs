@@ -205,7 +205,7 @@ decl_module! {
 				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
 			);
 			let exchange_key = (core_asset_id, asset_id);
-			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
+			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
@@ -231,7 +231,7 @@ decl_module! {
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
 
 			Self::set_liquidity(&exchange_key, &from_account, <LiquidityBalance<T>>::get(&exchange_key, &from_account) + liquidity_minted);
-			Self::mint_total_supply(&exchange_key, liquidity_minted);
+			Self::mint_total_liquidity(&exchange_key, liquidity_minted);
 			Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 		}
 
@@ -258,7 +258,7 @@ decl_module! {
 				Error::<T>::LiquidityTooLow
 			);
 
-			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
+			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(core_asset_id, asset_id);
 			ensure!(
 				total_liquidity > Zero::zero(),
@@ -280,9 +280,8 @@ decl_module! {
 
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
-			Self::set_liquidity(&exchange_key, &from_account,
-									account_liquidity - liquidity_to_withdraw);
-			Self::burn_total_supply(&exchange_key, liquidity_to_withdraw);
+			Self::set_liquidity(&exchange_key, &from_account, account_liquidity - liquidity_to_withdraw);
+			Self::burn_total_liquidity(&exchange_key, liquidity_to_withdraw);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
 			Ok(())
 		}
@@ -318,10 +317,9 @@ decl_storage! {
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
 		pub DefaultFeeRate get(fee_rate) config(): FeeRate<PerMillion>;
-		/// Total supply of exchange token in existence.
+		/// Total liquidity in each individual exchange.
 		/// it will always be less than the core asset's total supply
-		/// Key: `(asset id, core asset id)`
-		pub TotalSupply get(total_supply): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
+		pub TotalLiquidity get(total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 
 		/// Asset balance of an investor in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
@@ -332,12 +330,12 @@ decl_storage! {
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
 	/// mint total supply for an exchange pool
-	fn mint_total_supply(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
+	fn mint_total_liquidity(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
+		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
 	}
 
-	fn burn_total_supply(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
+	fn burn_total_liquidity(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
+		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
 	}
 
 	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, balance: T::Balance) {
