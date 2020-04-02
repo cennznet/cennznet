@@ -98,7 +98,7 @@ decl_module! {
 
 			ensure!(!<Groups<T>>::contains_key(&group_id), "Group already exists");
 			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
@@ -248,7 +248,7 @@ decl_module! {
 
 			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
 
 			let mut group = <Groups<T>>::get(&group_id);
 			let invite = group.clone().invites
