@@ -249,14 +249,6 @@ decl_module! {
 			#[compact] min_core_withdraw: T::Balance
 		) -> DispatchResult {
 			let from_account = ensure_signed(origin)?;
-			ensure!(
-				liquidity_to_withdraw > Zero::zero(),
-				Error::<T>::LiquidityToWithdrawNotAboveZero
-			);
-			ensure!(
-				min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(),
-				Error::<T>::AssetToWithdrawNotAboveZero
-			);
 
 			let core_asset_id = Self::core_asset_id();
 			let exchange_key = (core_asset_id, asset_id);
