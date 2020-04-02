@@ -85,7 +85,7 @@ pub(crate) mod impl_tests {
 	use super::*;
 	use crate::{
 		mock::{self, FEE_ASSET_ID, TRADE_ASSET_A_ID},
-		tests::{CennzXSpot, ExtBuilder, Test},
+		mock::{CennzXSpot, ExtBuilder, Test},
 		Error,
 	};
 	use frame_support::traits::Currency;
