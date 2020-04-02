@@ -238,19 +238,19 @@ decl_module! {
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
 		///
 		/// `asset_id` - The trade asset ID
-		/// `asset_amount` - Amount of exchange asset to burn
+		/// `liquidity_to_withdraw` - Amount of user's liquidity to burn
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
-			#[compact] liquidity_withdrawn: T::Balance,
+			#[compact] liquidity_to_withdraw: T::Balance,
 			#[compact] min_asset_withdraw: T::Balance,
 			#[compact] min_core_withdraw: T::Balance
 		) -> DispatchResult {
 			let from_account = ensure_signed(origin)?;
 			ensure!(
-				liquidity_withdrawn > Zero::zero(),
+				liquidity_to_withdraw > Zero::zero(),
 				Error::<T>::LiquidityToWithdrawNotAboveZero
 			);
 			ensure!(
@@ -262,7 +262,7 @@ decl_module! {
 			let exchange_key = (core_asset_id, asset_id);
 			let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, &from_account);
 			ensure!(
-				account_liquidity >= liquidity_withdrawn,
+				account_liquidity >= liquidity_to_withdraw,
 				Error::<T>::LiquidityTooLow
 			);
 
@@ -275,8 +275,8 @@ decl_module! {
 
 			let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
+			let core_asset_amount = liquidity_to_withdraw * core_asset_reserve / total_liquidity;
+			let trade_asset_amount = liquidity_to_withdraw * trade_asset_reserve / total_liquidity;
 			ensure!(
 				core_asset_amount >= min_core_withdraw,
 				Error::<T>::MinimumCoreAssetIsRequired
@@ -289,8 +289,8 @@ decl_module! {
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
 			Self::set_liquidity(&exchange_key, &from_account,
-									account_liquidity - liquidity_withdrawn);
-			Self::burn_total_supply(&exchange_key, liquidity_withdrawn);
+									account_liquidity - liquidity_to_withdraw);
+			Self::burn_total_supply(&exchange_key, liquidity_to_withdraw);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
 			Ok(())
 		}
