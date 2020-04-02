@@ -415,23 +415,27 @@ impl<T: Trait> Module<T> {
 		Self::calculate_buy_price(buy_amount, core_reserve, asset_reserve)
 	}
 
+	/// `buy_amount` - Amount to buy
+	/// `sell_reserve`- How much of the asset to sell is in the exchange
+	/// `buy_reserve` - How much of the asset to buy is in the exchange
+	/// Returns the amount of sellable asset is required
 	fn calculate_buy_price(
-		output_amount: T::Balance,
-		input_reserve: T::Balance,
-		output_reserve: T::Balance,
+		buy_amount: T::Balance,
+		sell_reserve: T::Balance,
+		buy_reserve: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
-			!input_reserve.is_zero() && !output_reserve.is_zero(),
+			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
 		);
-		ensure!(output_reserve > output_amount, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientAssetReserve);
 
-		let output_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_amount).into());
-		let output_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_reserve).into());
-		let input_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(input_reserve).into());
-		let denominator_hp = output_reserve_hp - output_amount_hp;
-		let price_hp = input_reserve_hp
-			.saturating_mul(output_amount_hp)
+		let buy_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_amount).into());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
+		let sell_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(sell_reserve).into());
+		let denominator_hp = buy_reserve_hp - buy_amount_hp;
+		let price_hp = sell_reserve_hp
+			.saturating_mul(buy_amount_hp)
 			.checked_div(denominator_hp)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
@@ -523,13 +527,17 @@ impl<T: Trait> Module<T> {
 		Self::calculate_sell_price(sell_amount, core_asset_reserve, trade_asset_reserve)
 	}
 
+	/// `sell_amount` - Amount to sell
+	/// `sell_reserve`- How much of the asset to sell is in the exchange
+	/// `buy_reserve` - How much of the asset to buy is in the exchange
+	/// Returns the amount of buyable asset that would be received
 	fn calculate_sell_price(
-		input_amount: T::Balance,
-		input_reserve: T::Balance,
-		output_reserve: T::Balance,
+		sell_amount: T::Balance,
+		sell_reserve: T::Balance,
+		buy_reserve: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
-			!input_reserve.is_zero() && !output_reserve.is_zero(),
+			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
 		);
 
@@ -537,16 +545,16 @@ impl<T: Trait> Module<T> {
 			.checked_add(FeeRate::<PerMillion>::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
 
-		let input_amount_scaled = FeeRate::<PerMillion>::from(T::BalanceToUnsignedInt::from(input_amount).into())
+		let sell_amount_scaled = FeeRate::<PerMillion>::from(T::BalanceToUnsignedInt::from(sell_amount).into())
 			.checked_div(div_rate)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
-		let input_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(input_reserve).into());
-		let output_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(output_reserve).into());
-		let input_amount_scaled_hp = HighPrecisionUnsigned::from(LowPrecisionUnsigned::from(input_amount_scaled));
-		let denominator_hp = input_amount_scaled_hp + input_reserve_hp;
-		let price_hp = output_reserve_hp
-			.saturating_mul(input_amount_scaled_hp)
+		let sell_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(sell_reserve).into());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
+		let sell_amount_scaled_hp = HighPrecisionUnsigned::from(LowPrecisionUnsigned::from(sell_amount_scaled));
+		let denominator_hp = sell_amount_scaled_hp + sell_reserve_hp;
+		let price_hp = buy_reserve_hp
+			.saturating_mul(sell_amount_scaled_hp)
 			.checked_div(denominator_hp)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
 
@@ -555,7 +563,7 @@ impl<T: Trait> Module<T> {
 		let price_lp = price_lp_result.unwrap();
 
 		let price = T::UnsignedIntToBalance::from(price_lp).into();
-		ensure!(output_reserve > price, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > price, Error::<T>::InsufficientAssetReserve);
 		Ok(price)
 	}
 
