@@ -13,12 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
+use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Header, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
-	TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	GenericAsset, Header, ImOnline, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp,
+	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -30,16 +30,19 @@ use frame_support::{
 	traits::{Imbalance, OnInitialize},
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
-use frame_system::{EventRecord, Phase};
+use frame_system::{EventRecord, Phase, RawOrigin};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_keyring::AccountKeyring;
+use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, DoughnutApi, Hash, Header as HeaderT},
 	transaction_validity::InvalidTransaction,
 	Doughnut, DoughnutV0,
+	Perbill,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+
 mod doughnut;
 mod mock;
 use cennznet_runtime::CennznetDoughnut;
@@ -50,14 +53,35 @@ use sp_core::crypto::Pair;
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
 
-fn header() -> Header {
+fn header_for_block_number(n: BlockNumber) -> Header {
 	HeaderT::new(
-		1,                        // block number
+		n,                        // block number
 		sp_core::H256::default(), // extrinsics_root
 		sp_core::H256::default(), // state_root
 		GENESIS_HASH.into(),      // parent_hash
 		Digest::default(),        // digest
 	)
+}
+
+fn header() -> Header {
+	header_for_block_number(1)
+}
+
+fn specify_author(mut header: Header, author_index: AuthorityIndex) -> Header {
+	use digests::RawPreDigest;
+	use digests::SecondaryPreDigest;
+
+	let digest_data = RawPreDigest::<(), ()>::Secondary(SecondaryPreDigest {
+		authority_index: author_index,
+		slot_number: Babe::current_slot(),
+	});
+
+	let digest = header.digest_mut();
+	digest
+		.logs
+		.push(DigestItem::PreRuntime(BABE_ENGINE_ID, digest_data.encode()));
+
+	header
 }
 
 /// Setup a contract on-chain, return it's deployed address
@@ -128,6 +152,37 @@ fn transfer_fee<E: Encode>(extrinsic: &E, runtime_call: &Call) -> Balance {
 	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
 }
 
+/// Send heartbeats for the current authorities
+fn send_heartbeats() {
+	for i in 0..Session::validators().len() {
+		let heartbeat_data = pallet_im_online::Heartbeat {
+			block_number: System::block_number(),
+			network_state: Default::default(),
+			session_index: Session::current_index(),
+			authority_index: i as u32,
+		};
+		let call = pallet_im_online::Call::heartbeat(heartbeat_data, Default::default());
+		ImOnline::dispatch(call, RawOrigin::None.into()).unwrap();
+	}
+}
+
+fn prepare_for_rotating_session() {
+	send_heartbeats();
+	Timestamp::set_timestamp(Timestamp::now() + 1000);
+	pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
+}
+
+fn rotate_to_session(index: SessionIndex) {
+	assert!(Session::current_index() <= index);
+	Session::on_initialize(System::block_number());
+
+	let rotations = index - Session::current_index();
+	for _i in 0..rotations {
+		prepare_for_rotating_session();
+		Session::rotate_session();
+	}
+}
+
 fn start_session(session_index: SessionIndex) {
 	// If we run the function for the first time, block_number is 1, which won't
 	// trigger Babe::should_end_session() so we have to run one extra loop. But
@@ -138,6 +193,7 @@ fn start_session(session_index: SessionIndex) {
 		session_index
 	};
 	for i in Session::current_index()..up_to_session_index {
+		// TODO Untie the block number from the session index as they are independet concepts.
 		System::set_block_number((i + 1).into());
 		pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
 		Timestamp::set_timestamp((System::block_number() * 1000).into());
@@ -168,6 +224,7 @@ fn reward_validators(validators: &[(AccountId, AccountId)]) {
 #[test]
 fn start_session_works() {
 	ExtBuilder::default().build().execute_with(|| {
+		// TODO test the current session index after each set
 		start_session(1);
 		start_session(3);
 		start_session(5);
@@ -463,6 +520,115 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 					balance_amount + per_fee_reward + per_staking_reward
 				);
 			}
+		});
+}
+
+#[test]
+/// This tests if authorship reward of the last block in an era is factored in.
+fn authorship_reward_of_last_block_in_an_era() {
+	let validators = validators(6);
+	let initial_balance = 1_000 * TransactionBaseFee::get();
+
+	ExtBuilder::default()
+		.validator_count(validators.len())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			let last_session_of_era_0 = SessionsPerEra::get() - 1;
+			rotate_to_session(last_session_of_era_0);
+
+			// The last session falls in the era 1
+			assert_eq!(Staking::current_era(), 0);
+			// According to this test config there should be 6 validators elected now
+			assert_eq!(Staking::current_elected().len(), 6);
+
+			// Make a block header whose author is specified as below
+			let author_index = 0; // index 0 of validators
+			let first_block_of_era_1 = System::block_number() + 1;
+			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
+			let header = specify_author(header_of_last_block, author_index.clone());
+
+			let author_stash_id = Session::validators()[(author_index as usize)].clone();
+
+			// The previous session should come to its end
+			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
+
+			send_heartbeats();
+
+			let author_stash_balance_before_adding_block = GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+
+			// Let's go through the first stage of executing the block
+			Executive::initialize_block(&header);
+
+			// initializing the last block should have advanced the session and thus changed the era
+			assert_eq!(Staking::current_era(), 1);
+
+			// If the offended validator is chilled, in the new era, there should be one less than 6 validators elected
+			assert_eq!(Staking::current_elected().len(), 6);
+
+			// There should be a reward calculated for the author
+			assert!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id) > author_stash_balance_before_adding_block);
+		});
+}
+
+#[test]
+/// This tests if authorship reward of the last block in an era is factored in, even when the author
+/// is chilled and thus not going to be an authority in the next era.
+fn authorship_reward_of_a_chilled_validator() {
+	let validators = validators(6);
+	let initial_balance = 1_000 * TransactionBaseFee::get();
+
+	ExtBuilder::default()
+		.validator_count(validators.len())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			let last_session_of_era_0 = SessionsPerEra::get() - 1;
+			rotate_to_session(last_session_of_era_0);
+
+			// The last session falls in the era 1
+			assert_eq!(Staking::current_era(), 0);
+			// According to this test config there should be 6 validators elected now
+			assert_eq!(Staking::current_elected().len(), 6);
+
+			// Make a block header whose author is specified as below
+			let author_index = 0; // index 0 of validators
+			let first_block_of_era_1 = System::block_number() + 1;
+			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
+			let header = specify_author(header_of_last_block, author_index.clone());
+
+			let author_stash_id = Session::validators()[(author_index as usize)].clone();
+
+			// Report an offence for the author of the block that is going to be initialised
+			<Runtime as pallet_offences::Trait>::OnOffenceHandler::on_offence(
+				&[sp_staking::offence::OffenceDetails {
+					offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
+					reporters: vec![],
+				}],
+				&[Perbill::from_percent(0)],
+				Session::current_index(),
+			);
+
+			// The previous session should come to its end
+			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
+
+			send_heartbeats();
+
+			let author_stash_balance_before_adding_block = GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+
+			// Let's go through the first stage of executing the block
+			Executive::initialize_block(&header);
+
+			// initializing the last block should have advanced the session and thus changed the era
+			assert_eq!(Staking::current_era(), 1);
+
+			// If the offended validator is chilled, in the new era, there should be one less than 6 validators elected
+			assert_eq!(Staking::current_elected().len(), 5);
+
+			// There should be a reward calculated for the author even though the author is chilled
+			assert!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id) > author_stash_balance_before_adding_block);
 		});
 }
 
