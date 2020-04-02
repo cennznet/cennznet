@@ -402,13 +402,8 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
-
-		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-
-		Self::calculate_buy_price(buy_amount, trade_asset_reserve, core_asset_reserve)
+		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
+		Self::calculate_buy_price(buy_amount, asset_reserve, core_reserve)
 	}
 
 	/// `asset_id` - Trade asset
@@ -420,12 +415,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
 
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
-
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-
+		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_buy_price(buy_amount, core_reserve, asset_reserve)
 	}
 
@@ -512,11 +502,7 @@ impl<T: Trait> Module<T> {
 			Error::<T>::AssetToCoreSellAmountNotAboveZero
 		);
 
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
-
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_sell_price(sell_amount, asset_reserve, core_reserve)
 	}
 
@@ -533,12 +519,8 @@ impl<T: Trait> Module<T> {
 			Error::<T>::CoreToAssetSellAmountNotAboveZero
 		);
 
-		let core_asset_id = Self::core_asset_id();
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
-		let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-		let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
-
-		Self::calculate_sell_price(sell_amount, core_asset_reserve, trade_asset_reserve)
+		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
+		Self::calculate_sell_price(sell_amount, core_reserve, asset_reserve)
 	}
 
 	/// `sell_amount` - Amount to sell
@@ -579,6 +561,16 @@ impl<T: Trait> Module<T> {
 		let price = T::UnsignedIntToBalance::from(price_lp).into();
 		ensure!(buy_reserve > price, Error::<T>::InsufficientAssetReserve);
 		Ok(price)
+	}
+
+	/// A helper for pricing functions
+	/// Fetches the reserves from an exchange for a particular `asset_id`
+	fn get_exchange_reserves(asset_id: &T::AssetId) -> (T::Balance, T::Balance) {
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
+
+		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&Self::core_asset_id(), &exchange_address);
+		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
+		(core_reserve, asset_reserve)
 	}
 
 	//
@@ -726,5 +718,4 @@ impl<T: Trait> Module<T> {
 
 		Ok(())
 	}
-
 }
