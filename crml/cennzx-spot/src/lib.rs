@@ -31,7 +31,7 @@ pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, 
 extern crate frame_support;
 
 use core::convert::TryFrom;
-use frame_support::{dispatch::Dispatchable, Parameter, StorageDoubleMap, sp_runtime::traits::Saturating};
+use frame_support::{dispatch::Dispatchable, sp_runtime::traits::Saturating, Parameter, StorageDoubleMap};
 use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
 use sp_runtime::traits::{One, Zero};
@@ -327,7 +327,6 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-
 	/// Mint liquidity holdings for a user in a specified exchange
 	fn mint_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, increase: T::Balance) {
 		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
