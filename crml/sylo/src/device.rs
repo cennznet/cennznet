@@ -37,11 +37,11 @@ decl_storage! {
 decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// There are no devices registered for user (missing user_id in Devices)
-		UserId,
+		UserIdNotRegistered,
 		/// Device is already registered to user (device_id is already in use)
-		DeviceId,
+		DeviceIdExists,
 		/// A user can't have more than MAX_DEVICES registered devices
-		MaxDevice,
+		MaxDeviceLimitReached,
 	}
 }
 
@@ -49,8 +49,8 @@ impl<T: Trait> Module<T> {
 	pub fn append_device(user_id: &T::AccountId, device_id: DeviceId) -> DispatchResult {
 		let mut devices = <Devices<T>>::get(user_id);
 
-		ensure!(!devices.contains(&device_id), Error::<T>::DeviceId);
-		ensure!(devices.len() < MAX_DEVICES, Error::<T>::MaxDevice);
+		ensure!(!devices.contains(&device_id), Error::<T>::DeviceIdExists);
+		ensure!(devices.len() < MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
 
 		devices.push(device_id);
 
@@ -60,7 +60,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	pub fn delete_device(user_id: &T::AccountId, device_id: DeviceId) -> DispatchResult {
-		ensure!(<Devices<T>>::contains_key(user_id), Error::<T>::UserId);
+		ensure!(<Devices<T>>::contains_key(user_id), Error::<T>::UserIdNotRegistered);
 		let mut devices = <Devices<T>>::take(user_id);
 		devices.retain(|device| *device != device_id);
 		<Devices<T>>::insert(user_id, devices);
@@ -83,21 +83,47 @@ mod tests {
 			let user_id = H256::from_low_u64_be(1);
 			let device_id = 7357;
 
-			// simple appending of a device works
+			assert_ok!(Device::append_device(&user_id, device_id));
+			assert_eq!(Device::devices(user_id), vec![device_id]);
+		});
+	}
+
+	#[test]
+	fn append_duplicate_device_works() {
+		ExtBuilder.build().execute_with(|| {
+			let user_id = H256::from_low_u64_be(1);
+			let device_id = 7357;
+
 			assert_ok!(Device::append_device(&user_id, device_id));
 			assert_eq!(Device::devices(user_id), vec![device_id]);
 
 			// adding the same device should return error
-			assert_noop!(Device::append_device(&user_id, device_id), Error::<Test>::DeviceId);
+			assert_noop!(
+				Device::append_device(&user_id, device_id),
+				Error::<Test>::DeviceIdExists
+			);
+		});
+	}
 
-			// adding more than MAX_DEVICES is not allowed
-			let new_devices: Vec<_> = ((device_id + 1)..(device_id + MAX_DEVICES as DeviceId)).collect();
-			assert_eq!(new_devices.len(), 999); // length assert is here in case MAX_DEVICES changes
+	#[test]
+	fn append_up_to_max_device_works() {
+		ExtBuilder.build().execute_with(|| {
+			let user_id = H256::from_low_u64_be(1);
+			let device_id = 7357;
+
+			// add up to MAX_DEVICES many devices for user
+			let new_devices: Vec<_> = (device_id..(device_id + MAX_DEVICES as DeviceId)).collect();
+			assert_eq!(new_devices.len(), 1000); // length assert is here in case MAX_DEVICES changes
 			for new_device in new_devices.clone() {
 				assert_ok!(Device::append_device(&user_id, new_device));
 			}
 			assert_eq!(Device::devices(user_id).len(), 1000);
-			assert_noop!(Device::append_device(&user_id, 123), Error::<Test>::MaxDevice);
+
+			// adding more than MAX_DEVICES is not allowed
+			assert_noop!(
+				Device::append_device(&user_id, 123),
+				Error::<Test>::MaxDeviceLimitReached
+			);
 		});
 	}
 
@@ -114,7 +140,7 @@ mod tests {
 				devices.pop().unwrap();
 				assert_eq!(Device::devices(user_id), devices);
 			}
-			assert_eq!(Device::devices(user_id), vec![]);
+			assert!(Device::devices(user_id).is_empty());
 		});
 	}
 

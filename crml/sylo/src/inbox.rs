@@ -27,12 +27,14 @@ pub trait Trait: frame_system::Trait {}
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
-		/// An inbox cannot store more than MAX_MESSAGES where each message is smaller than MAX_MESSAGE_LENGTH
-		Message,
+		/// An inbox cannot store more than MAX_MESSAGES
+		MaxMessage,
+		/// A message cannot be greater than MAX_MESSAGE_LENGTH
+		MaxMessageLength,
 		/// Cannot delete more than MAX_DELETE_MESSAGES at a time
-		Delete,
+		MaxDeleteMessage,
 		/// Cannot assign any more ids to message due to overflow
-		IdOverflow,
+		MessageIdOverflow,
 	}
 }
 
@@ -42,13 +44,13 @@ decl_module! {
 
 		fn add_value(origin, peer_id: T::AccountId, value: Message) -> DispatchResult {
 			ensure_signed(origin)?;
-			ensure!(value.len() <= MAX_MESSAGE_LENGTH, Error::<T>::Message);
+			ensure!(value.len() <= MAX_MESSAGE_LENGTH, Error::<T>::MaxMessageLength);
 			Self::add(peer_id, value)
 		}
 
 		fn delete_values(origin, value_ids: Vec<MessageId>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
-			ensure!(value_ids.len() <= MAX_DELETE_MESSAGES, Error::<T>::Delete);
+			ensure!(value_ids.len() <= MAX_DELETE_MESSAGES, Error::<T>::MaxDeleteMessage);
 			Self::delete(user_id, value_ids)
 		}
 	}
@@ -70,9 +72,9 @@ impl<T: Trait> Module<T> {
 	pub fn add(peer_id: T::AccountId, value: Message) -> DispatchResult {
 		// Get required data
 		let next_index = <NextIndexes<T>>::get(&peer_id);
-		ensure!(next_index != u32::max_value(), Error::<T>::IdOverflow);
+		ensure!(next_index != u32::max_value(), Error::<T>::MessageIdOverflow);
 		let mut account_values = <AccountValues<T>>::get(&peer_id);
-		ensure!(account_values.len() < MAX_MESSAGES, Error::<T>::Message);
+		ensure!(account_values.len() < MAX_MESSAGES, Error::<T>::MaxMessage);
 
 		// Add new mapping to account values
 		account_values.push((peer_id.clone(), next_index));
