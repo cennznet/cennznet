@@ -15,6 +15,7 @@
 
 //! Doughnut integration tests
 
+use cennznet_primitives::types::AccountId;
 use cennznet_runtime::{CennznetDoughnut, Runtime};
 use cennznut::{self};
 use cennznut::{CENNZnut, CENNZnutV0};
@@ -44,8 +45,24 @@ fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> R
 	<Runtime as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method)
 }
 
+fn verify_runtime_to_contract(
+	caller: &AccountId,
+	doughnut: &CennznetDoughnut,
+	contract_addr: &AccountId,
+) -> Result<(), &'static str> {
+	<Runtime as DelegatedDispatchVerifier>::verify_runtime_to_contract_call(caller, doughnut, contract_addr)
+}
+
+fn verify_contract_to_contract(
+	caller: &AccountId,
+	doughnut: &CennznetDoughnut,
+	contract_addr: &AccountId,
+) -> Result<(), &'static str> {
+	<Runtime as DelegatedDispatchVerifier>::verify_contract_to_contract_call(caller, doughnut, contract_addr)
+}
+
 // A helper to make test CENNZnuts
-fn make_cennznut(module: &str, method: &str) -> CENNZnut {
+fn make_runtime_cennznut(module: &str, method: &str) -> CENNZnut {
 	let method_obj = cennznut::v0::method::Method {
 		name: method.to_string(),
 		block_cooldown: None,
@@ -58,27 +75,36 @@ fn make_cennznut(module: &str, method: &str) -> CENNZnut {
 	};
 	CENNZnut::V0(CENNZnutV0 {
 		modules: vec![(module.to_string(), module_obj)],
-		contracts: Default::default()
+		contracts: Default::default(),
+	})
+}
+
+// A helper to make test CENNZnuts
+fn make_contract_cennznut(contract_addr: AccountId) -> CENNZnut {
+	let contract_obj = cennznut::v0::contract::Contract::new(&contract_addr.into());
+	CENNZnut::V0(CENNZnutV0 {
+		modules: Default::default(),
+		contracts: vec![(contract_obj.address, contract_obj)],
 	})
 }
 
 #[test]
 fn it_works() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_ok!(verify_dispatch(&doughnut, "trml-attestation", "attest"));
 }
 
 #[test]
 fn it_works_with_arbitrary_prefix_short() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_ok!(verify_dispatch(&doughnut, "t-attestation", "attest"));
 }
 
 #[test]
 fn it_works_with_arbitrary_prefix_long() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_ok!(verify_dispatch(&doughnut, "trmlcrml-attestation", "attest"));
 }
@@ -103,7 +129,7 @@ fn it_fails_with_bad_cennznut_encoding() {
 
 #[test]
 fn it_fails_when_module_is_not_authorized() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "trml-generic-asset", "attest"),
@@ -113,7 +139,7 @@ fn it_fails_when_module_is_not_authorized() {
 
 #[test]
 fn it_fails_when_method_is_not_authorized() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "trml-attestation", "remove"),
@@ -123,17 +149,17 @@ fn it_fails_when_method_is_not_authorized() {
 
 #[test]
 fn it_fails_when_module_name_is_invalid() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "trmlattestation", "attest"),
-		"error during module name segmentation"
+		"CENNZnut does not grant permission for module"
 	);
 }
 
 #[test]
 fn it_fails_when_prefix_is_empty() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "-attestation", "attest"),
@@ -143,7 +169,7 @@ fn it_fails_when_prefix_is_empty() {
 
 #[test]
 fn it_fails_when_module_name_is_empty() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "trml-", "attest"),
@@ -153,10 +179,20 @@ fn it_fails_when_module_name_is_empty() {
 
 #[test]
 fn it_fails_when_module_name_and_prefix_are_empty() {
-	let cennznut = make_cennznut("attestation", "attest");
+	let cennznut = make_runtime_cennznut("attestation", "attest");
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	assert_err!(
 		verify_dispatch(&doughnut, "-", "attest"),
 		"error during module name segmentation"
+	);
+}
+
+#[test]
+fn it_fails_when_using_contract_cennznut_for_runtime() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_err!(
+		verify_dispatch(&doughnut, "attestation", "attest"),
+		"CENNZnut does not grant permission for module"
 	);
 }

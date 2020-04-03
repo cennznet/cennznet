@@ -555,19 +555,44 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 
 		// Extract Module name from <prefix>-<Module_name>
-		let module_offset = module.find('-').ok_or("error during module name segmentation")? + 1;
+		let module_offset = module
+			.find('-')
+			.ok_or("CENNZnut does not grant permission for module")?
+			+ 1;
 		if module_offset <= 1 || module_offset >= module.len() {
 			return Err("error during module name segmentation");
 		}
 		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
 			Ok(r) => Ok(r),
 			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
-			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => Err("CENNZnut does not grant permission for method"),
-			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => Err("CENNZnut does not grant permission for module"),
+			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => {
+				Err("CENNZnut does not grant permission for method")
+			}
+			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => {
+				Err("CENNZnut does not grant permission for module")
+			}
 			Err(ValidationErr::NoPermission(RuntimeDomain::MethodArguments)) => {
 				Err("CENNZnut does not grant permission for method arguments")
 			}
 		}
+	}
+
+	/// Check the doughnut authorizes a dispatched call from runtime to the specified contract address for this domain.
+	fn verify_runtime_to_contract_call(
+		_caller: &Self::AccountId,
+		_doughnut: &Self::Doughnut,
+		_contract_addr: &Self::AccountId,
+	) -> Result<(), &'static str> {
+		Err("Doughnut runtime to contract call verification is not implemented for this domain")
+	}
+
+	/// Check the doughnut authorizes a dispatched call from a contract to another contract with the specified addresses for this domain.
+	fn verify_contract_to_contract_call(
+		_caller: &Self::AccountId,
+		_doughnut: &Self::Doughnut,
+		_contract_addr: &Self::AccountId,
+	) -> Result<(), &'static str> {
+		Err("Doughnut contract to contract call verification is not implemented for this domain")
 	}
 }
 
