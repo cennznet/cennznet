@@ -31,7 +31,7 @@ pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, 
 extern crate frame_support;
 
 use core::convert::TryFrom;
-use frame_support::{dispatch::Dispatchable, Parameter, StorageDoubleMap};
+use frame_support::{dispatch::Dispatchable, sp_runtime::traits::Saturating, Parameter, StorageDoubleMap};
 use frame_system::{ensure_root, ensure_signed};
 use pallet_generic_asset;
 use sp_runtime::traits::{One, Zero};
@@ -205,21 +205,15 @@ decl_module! {
 				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
 			);
 			let exchange_key = (core_asset_id, asset_id);
-			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
+			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
+			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 
-			if total_liquidity.is_zero() {
+			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() || core_asset_reserve.is_zero() {
 				// new exchange pool
-				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, max_asset_amount)?;
-				let trade_asset_amount = max_asset_amount;
-				let initial_liquidity = core_amount;
-				Self::set_liquidity(&exchange_key, &from_account, initial_liquidity);
-				Self::mint_total_supply(&exchange_key, initial_liquidity);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, initial_liquidity, asset_id, trade_asset_amount));
+				(max_asset_amount, core_amount)
 			} else {
 				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-				let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
 				ensure!(
@@ -230,49 +224,40 @@ decl_module! {
 					max_asset_amount >= trade_asset_amount,
 					Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
 				);
+				(trade_asset_amount, liquidity_minted)
+			};
 
-				<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-				<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
+			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
+			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
 
-				Self::set_liquidity(&exchange_key, &from_account,
-					<LiquidityBalance<T>>::get(&exchange_key, &from_account) + liquidity_minted);
-				Self::mint_total_supply(&exchange_key, liquidity_minted);
-				Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
-			}
+			Self::mint_liquidity(&exchange_key, &from_account, liquidity_minted);
+			Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 		}
 
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
 		///
 		/// `asset_id` - The trade asset ID
-		/// `asset_amount` - Amount of exchange asset to burn
+		/// `liquidity_to_withdraw` - Amount of user's liquidity to withdraw
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
-			#[compact] liquidity_withdrawn: T::Balance,
+			#[compact] liquidity_to_withdraw: T::Balance,
 			#[compact] min_asset_withdraw: T::Balance,
 			#[compact] min_core_withdraw: T::Balance
 		) -> DispatchResult {
 			let from_account = ensure_signed(origin)?;
-			ensure!(
-				liquidity_withdrawn > Zero::zero(),
-				Error::<T>::LiquidityToWithdrawNotAboveZero
-			);
-			ensure!(
-				min_asset_withdraw > Zero::zero() && min_core_withdraw > Zero::zero(),
-				Error::<T>::AssetToWithdrawNotAboveZero
-			);
 
 			let core_asset_id = Self::core_asset_id();
 			let exchange_key = (core_asset_id, asset_id);
 			let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, &from_account);
 			ensure!(
-				account_liquidity >= liquidity_withdrawn,
+				account_liquidity >= liquidity_to_withdraw,
 				Error::<T>::LiquidityTooLow
 			);
 
-			let total_liquidity = <TotalSupply<T>>::get(&exchange_key);
+			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
 			ensure!(
 				total_liquidity > Zero::zero(),
@@ -281,8 +266,8 @@ decl_module! {
 
 			let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = liquidity_withdrawn * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = liquidity_withdrawn * trade_asset_reserve / total_liquidity;
+			let core_asset_amount = liquidity_to_withdraw * core_asset_reserve / total_liquidity;
+			let trade_asset_amount = liquidity_to_withdraw * trade_asset_reserve / total_liquidity;
 			ensure!(
 				core_asset_amount >= min_core_withdraw,
 				Error::<T>::MinimumCoreAssetIsRequired
@@ -294,9 +279,7 @@ decl_module! {
 
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
-			Self::set_liquidity(&exchange_key, &from_account,
-									account_liquidity - liquidity_withdrawn);
-			Self::burn_total_supply(&exchange_key, liquidity_withdrawn);
+			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
 			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
 			Ok(())
 		}
@@ -332,12 +315,11 @@ decl_storage! {
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate
 		pub DefaultFeeRate get(fee_rate) config(): FeeRate<PerMillion>;
-		/// Total supply of exchange token in existence.
-		/// it will always be less than the core asset's total supply
-		/// Key: `(asset id, core asset id)`
-		pub TotalSupply get(total_supply): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
+		/// Total liquidity holdings of all investers in an exchange.
+		/// ie/ total_liquidity(exchange) == sum(liquidity_balance(exchange, user)) at all times
+		pub TotalLiquidity get(total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 
-		/// Asset balance of an investor in an exchange pool.
+		/// Liquidity holdings of a user in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
 		pub LiquidityBalance get(liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
 	}
@@ -345,17 +327,21 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
-	/// mint total supply for an exchange pool
-	fn mint_total_supply(exchange_key: &ExchangeKey<T>, increase: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance += increase); // will not overflow because it's limited by core assets's total supply
+	/// Mint liquidity holdings for a user in a specified exchange
+	fn mint_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, increase: T::Balance) {
+		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
+		let new_balance = balance.saturating_add(increase);
+		<LiquidityBalance<T>>::insert(exchange_key, who, new_balance);
+		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_add(increase));
 	}
 
-	fn burn_total_supply(exchange_key: &ExchangeKey<T>, decrease: T::Balance) {
-		<TotalSupply<T>>::mutate(exchange_key, |balance| *balance -= decrease); // will not underflow for the same reason
-	}
-
-	fn set_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, balance: T::Balance) {
-		<LiquidityBalance<T>>::insert(exchange_key, who, balance);
+	/// Burn liquidity holdings from a user in a specified exchange
+	fn burn_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, decrease: T::Balance) {
+		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
+		let decrease = decrease.min(balance);
+		let new_balance = balance - decrease;
+		<LiquidityBalance<T>>::insert(exchange_key, who, new_balance);
+		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_sub(decrease));
 	}
 
 	//
