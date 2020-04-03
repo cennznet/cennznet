@@ -68,15 +68,15 @@ fn investor_can_add_liquidity() {
 }
 
 #[test]
-fn get_buy_price_zero_cases() {
+fn calculate_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_output_price(10, 0, 100),
+			CennzXSpot::calculate_buy_price(100, 0, 10),
 			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
-			CennzXSpot::get_output_price(10, 100, 0),
+			CennzXSpot::calculate_buy_price(100, 10, 0),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
@@ -85,12 +85,12 @@ fn get_buy_price_zero_cases() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_buy_price_for_valid_data() {
+fn calculate_buy_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::get_output_price(123, 1000, 1000), 141);
+		assert_ok!(CennzXSpot::calculate_buy_price(123, 1000, 1000), 141);
 
 		assert_ok!(
-			CennzXSpot::get_output_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
+			CennzXSpot::calculate_buy_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
 			589396433540516
 		);
 	});
@@ -99,10 +99,10 @@ fn get_buy_price_for_valid_data() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_buy_price_for_max_reserve_balance() {
+fn calculate_buy_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::get_output_price(
+			CennzXSpot::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value(),
@@ -116,10 +116,10 @@ fn get_buy_price_for_max_reserve_balance() {
 /// and apply fee rate to the price
 // Overflows as the both input and output reserve is at max capacity and output amount is little less than max of Balance
 #[test]
-fn get_buy_price_should_fail_with_max_reserve_and_max_amount() {
+fn calculate_buy_price_should_fail_with_max_reserve_and_max_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_output_price(
+			CennzXSpot::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() - 100,
 				LowPrecisionUnsigned::max_value(),
 				LowPrecisionUnsigned::max_value(),
@@ -132,17 +132,17 @@ fn get_buy_price_should_fail_with_max_reserve_and_max_amount() {
 /// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
 /// and apply fee rate to the price
 #[test]
-fn get_buy_price_max_withdrawal() {
+fn calculate_buy_price_max_withdrawal() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_output_price(1000, 1000, 1000),
+			CennzXSpot::calculate_buy_price(1000, 1000, 1000),
 			Error::<Test>::InsufficientAssetReserve
 		);
 
 		assert_err!(
-			CennzXSpot::get_output_price(1_000_000, 1000, 1000),
+			CennzXSpot::calculate_buy_price(1_000_000, 1000, 1000),
 			Error::<Test>::InsufficientAssetReserve
 		);
 	});
@@ -559,23 +559,23 @@ fn core_to_asset_transfer_buy_10_to_1000() {
 /// Calculate input_amount_without_fee using fee rate and input amount and then calculate price
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 #[test]
-fn get_sell_price_works() {
+fn calculate_sell_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::get_input_price(123, 1000, 1000), 108);
+		assert_ok!(CennzXSpot::calculate_sell_price(123, 1000, 1000), 108);
 
 		// No f32/f64 types, so we use large values to test precision
 		assert_ok!(
-			CennzXSpot::get_input_price(123_000_000, 1_000_000_000, 1_000_000_000),
+			CennzXSpot::calculate_sell_price(123_000_000, 1_000_000_000, 1_000_000_000),
 			109236233
 		);
 
 		assert_ok!(
-			CennzXSpot::get_input_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
+			CennzXSpot::calculate_sell_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
 			4128948876492407
 		);
 
 		assert_ok!(
-			CennzXSpot::get_input_price(
+			CennzXSpot::calculate_sell_price(
 				100_000_000_000_000,
 				120_627_710_511_649_660,
 				LowPrecisionUnsigned::max_value()
@@ -589,10 +589,10 @@ fn get_sell_price_works() {
 /// Price = (input_amount_without_fee * output reserve) / (input reserve + input_amount_without_fee)
 // Input amount is half of max(Balance) and output reserve is max(Balance) and input reserve is half of max(Balance)
 #[test]
-fn get_sell_price_for_max_reserve_balance() {
+fn calculate_sell_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::get_input_price(
+			CennzXSpot::calculate_sell_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value()
@@ -1101,14 +1101,14 @@ fn set_fee_rate() {
 }
 
 #[test]
-fn calculate_buy_price_simple() {
+fn get_buy_price_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1119,14 +1119,14 @@ fn calculate_buy_price_simple() {
 }
 
 #[test]
-fn calculate_buy_price_with_fee_rate() {
+fn get_buy_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1137,13 +1137,13 @@ fn calculate_buy_price_with_fee_rate() {
 }
 
 #[test]
-fn calculate_buy_price_when_buying_core() {
+fn get_buy_price_when_buying_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(CoreAssetCurrency),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1154,13 +1154,13 @@ fn calculate_buy_price_when_buying_core() {
 }
 
 #[test]
-fn calculate_buy_price_when_selling_core() {
+fn get_buy_price_when_selling_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(CoreAssetCurrency),
@@ -1171,12 +1171,12 @@ fn calculate_buy_price_when_selling_core() {
 }
 
 #[test]
-fn calculate_buy_price_same_asset_id_ignored() {
+fn get_buy_price_same_asset_id_ignored() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1187,13 +1187,13 @@ fn calculate_buy_price_same_asset_id_ignored() {
 }
 
 #[test]
-fn calculate_buy_price_low_buy_asset_liquidity_error() {
+fn get_buy_price_low_buy_asset_liquidity_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 10);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1204,13 +1204,13 @@ fn calculate_buy_price_low_buy_asset_liquidity_error() {
 }
 
 #[test]
-fn calculate_buy_price_low_buy_core_liquidity_error() {
+fn get_buy_price_low_buy_core_liquidity_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1221,12 +1221,12 @@ fn calculate_buy_price_low_buy_core_liquidity_error() {
 }
 
 #[test]
-fn calculate_buy_price_no_exchange() {
+fn get_buy_price_no_exchange() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(
+			CennzXSpot::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1237,14 +1237,14 @@ fn calculate_buy_price_no_exchange() {
 }
 
 #[test]
-fn calculate_sell_price_simple() {
+fn get_sell_price_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1255,14 +1255,14 @@ fn calculate_sell_price_simple() {
 }
 
 #[test]
-fn calculate_sell_price_with_fee_rate() {
+fn get_sell_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1273,13 +1273,13 @@ fn calculate_sell_price_with_fee_rate() {
 }
 
 #[test]
-fn calculate_sell_price_when_selling_core() {
+fn get_sell_price_when_selling_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(CoreAssetCurrency),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1290,13 +1290,13 @@ fn calculate_sell_price_when_selling_core() {
 }
 
 #[test]
-fn calculate_sell_price_when_buying_core() {
+fn get_sell_price_when_buying_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(CoreAssetCurrency),
@@ -1307,12 +1307,12 @@ fn calculate_sell_price_when_buying_core() {
 }
 
 #[test]
-fn calculate_sell_price_same_asset_id_ignored() {
+fn get_sell_price_same_asset_id_ignored() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1323,13 +1323,13 @@ fn calculate_sell_price_same_asset_id_ignored() {
 }
 
 #[test]
-fn calculate_sell_price_low_sell_asset_liquidity() {
+fn get_sell_price_low_sell_asset_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1340,13 +1340,13 @@ fn calculate_sell_price_low_sell_asset_liquidity() {
 }
 
 #[test]
-fn calculate_sell_price_low_sell_core_liquidity() {
+fn get_sell_price_low_sell_core_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_eq!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1357,12 +1357,12 @@ fn calculate_sell_price_low_sell_core_liquidity() {
 }
 
 #[test]
-fn calculate_sell_price_no_exchange() {
+fn get_sell_price_no_exchange() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_sell_price(
+			CennzXSpot::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
