@@ -71,12 +71,12 @@ fn investor_can_add_liquidity() {
 fn calculate_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::calculate_buy_price(10, 0, 100),
+			CennzXSpot::calculate_buy_price(100, 0, 10),
 			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(10, 100, 0),
+			CennzXSpot::calculate_buy_price(100, 10, 0),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
