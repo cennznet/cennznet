@@ -22,7 +22,7 @@
 #![allow(array_into_iter)]
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
+use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
 use codec::Decode;
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
@@ -559,12 +559,12 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 		if module_offset <= 1 || module_offset >= module.len() {
 			return Err("error during module name segmentation");
 		}
-		match cennznut.validate(&module[module_offset..], method, &[]) {
+		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
 			Ok(r) => Ok(r),
 			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
-			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),
-			Err(ValidationErr::NoPermission(Domain::Module)) => Err("CENNZnut does not grant permission for module"),
-			Err(ValidationErr::NoPermission(Domain::MethodArguments)) => {
+			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => Err("CENNZnut does not grant permission for method"),
+			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => Err("CENNZnut does not grant permission for module"),
+			Err(ValidationErr::NoPermission(RuntimeDomain::MethodArguments)) => {
 				Err("CENNZnut does not grant permission for method arguments")
 			}
 		}

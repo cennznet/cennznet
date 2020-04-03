@@ -46,18 +46,19 @@ fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> R
 
 // A helper to make test CENNZnuts
 fn make_cennznut(module: &str, method: &str) -> CENNZnut {
-	let method_obj = cennznut::Method {
+	let method_obj = cennznut::v0::method::Method {
 		name: method.to_string(),
 		block_cooldown: None,
 		constraints: None,
 	};
-	let module_obj = cennznut::Module {
+	let module_obj = cennznut::v0::module::Module {
 		name: module.to_string(),
 		block_cooldown: None,
 		methods: vec![(method.to_string(), method_obj)],
 	};
 	CENNZnut::V0(CENNZnutV0 {
 		modules: vec![(module.to_string(), module_obj)],
+		contracts: Default::default()
 	})
 }
 
