@@ -111,30 +111,30 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// Convert asset1 to asset2. User specifies maximum
-		/// input and exact output.
-		///  origin
-		/// `recipient` - Account to receive asset_bought, defaults to origin if None
-		/// `asset_sold` - asset ID 1 to sell
-		/// `asset_bought` - asset ID 2 to buy
-		/// `buy_amount` - The amount of asset '2' to purchase
-		/// `max_paying_amount` - Maximum trade asset '1' to pay
-		pub fn asset_swap_output(
+		/// Buy `asset_to_buy` with `asset_to_sell`. User specifies an exact `buy_amount` and
+		/// a `maximum_sell` amount.
+		/// `origin`
+		/// `recipient` - Account to receive `buy_amount`, defaults to `origin` if None
+		/// `asset_to_sell` - asset ID to sell
+		/// `asset_to_buy` - asset ID to buy
+		/// `buy_amount` - The amount `asset_to_buy` to purchase
+		/// `maximum_sell` - Maximum `asset_to_sell` to pay
+		pub fn buy_asset(
 			origin,
 			recipient: Option<T::AccountId>,
-			#[compact] asset_sold: T::AssetId,
-			#[compact] asset_bought: T::AssetId,
+			#[compact] asset_to_sell: T::AssetId,
+			#[compact] asset_to_buy: T::AssetId,
 			#[compact] buy_amount: T::Balance,
-			#[compact] max_paying_amount: T::Balance
+			#[compact] maximum_sell: T::Balance
 		) -> DispatchResult {
-			let buyer = ensure_signed(origin)?;
+			let trader = ensure_signed(origin)?;
 			let _ = Self::execute_buy(
-				&buyer,
-				&recipient.unwrap_or_else(|| buyer.clone()),
-				&asset_sold,
-				&asset_bought,
+				&trader,
+				&recipient.unwrap_or_else(|| trader.clone()),
+				&asset_to_sell,
+				&asset_to_buy,
 				buy_amount,
-				max_paying_amount,
+				maximum_sell,
 			)?;
 			Ok(())
 		}
