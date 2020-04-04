@@ -20,7 +20,7 @@ use crate::keyring::*;
 use cennznet_primitives::types::AccountId;
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	FeeRate, PerMilli, PerMillion,
+	FeeRate, PerThousand, PerMillion,
 };
 use cennznet_runtime::{
 	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, SessionConfig, StakingConfig,
@@ -129,7 +129,7 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 		pallet_sudo: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
 		crml_cennzx_spot: Some(CennzxSpotConfig {
-			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
+			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
 	}

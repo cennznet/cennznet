@@ -24,7 +24,7 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
 use codec::Decode;
-pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMilli, PerMillion};
+pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerThousand, PerMillion};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits::{self, MultiCurrencyAccounting},

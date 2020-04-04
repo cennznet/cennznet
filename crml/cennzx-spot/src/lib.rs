@@ -25,7 +25,7 @@ mod tests;
 mod impls;
 mod types;
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
-pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMilli, PerMillion};
+pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerThousand, PerMillion};
 
 #[macro_use]
 extern crate frame_support;
