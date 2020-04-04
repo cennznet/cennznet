@@ -43,13 +43,6 @@ impl Scaled for PerThousand {
 	const SCALE: LowPrecisionUnsigned = 1_000;
 }
 
-/// Per hundredth of unit price
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PerCent {}
-impl Scaled for PerCent {
-	const SCALE: LowPrecisionUnsigned = 100;
-}
-
 #[derive(Debug)]
 pub enum FeeRateError {
 	Overflow,
@@ -88,17 +81,6 @@ impl TryFrom<FeeRate<PerThousand>> for FeeRate<PerMillion> {
 	type Error = FeeRateError;
 	fn try_from(f: FeeRate<PerThousand>) -> Result<Self, Self::Error> {
 		let rate = PerMillion::SCALE / PerThousand::SCALE;
-		match f.0.checked_mul(rate) {
-			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Self::Error::Overflow),
-		}
-	}
-}
-
-impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMillion> {
-	type Error = FeeRateError;
-	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
-		let rate = PerMillion::SCALE / PerCent::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
 			None => Err(Self::Error::Overflow),
