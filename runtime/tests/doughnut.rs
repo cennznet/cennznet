@@ -24,10 +24,12 @@ use frame_support::additional_traits::DelegatedDispatchVerifier;
 use frame_support::{assert_err, assert_ok};
 use sp_runtime::{Doughnut, DoughnutV0};
 
+const TEST_HOLDER: [u8; 32] = [0xa5_u8; 32];
+
 // A helper to make test doughnuts
 fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut {
 	let doughnut_v0 = DoughnutV0 {
-		holder: Default::default(),
+		holder: TEST_HOLDER,
 		issuer: Default::default(),
 		domains: vec![(domain.to_string(), domain_payload)],
 		expiry: 0,
@@ -198,21 +200,85 @@ fn it_fails_when_using_contract_cennznut_for_runtime() {
 }
 
 #[test]
-fn it_fails_runtime_to_contract_with_incorrect_domain() {
+fn it_fails_runtime_to_contract_with_invalid_domain() {
 	let cennznut = make_contract_cennznut([0x11; 32].into());
 	let doughnut = make_doughnut("sendsnet", cennznut.encode());
 	assert_err!(
-		verify_runtime_to_contract(&Default::default(), &doughnut, &[0x11; 32].into()),
+		verify_runtime_to_contract(&TEST_HOLDER.into(), &doughnut, &[0x11; 32].into()),
 		"CENNZnut does not grant permission for cennznet domain"
 	);
 }
 
 #[test]
-fn it_fails_contract_to_contract_with_incorrect_domain() {
+fn it_fails_contract_to_contract_with_invalid_domain() {
 	let cennznut = make_contract_cennznut([0x11; 32].into());
 	let doughnut = make_doughnut("sendsnet", cennznut.encode());
 	assert_err!(
-		verify_contract_to_contract(&Default::default(), &doughnut, &[0x11; 32].into()),
+		verify_contract_to_contract(&TEST_HOLDER.into(), &doughnut, &[0x11; 32].into()),
 		"CENNZnut does not grant permission for cennznet domain"
+	);
+}
+
+#[test]
+fn it_fails_runtime_to_contract_with_invalid_contract() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_err!(
+		verify_runtime_to_contract(&TEST_HOLDER.into(), &doughnut, &[0x22; 32].into()),
+		"CENNZnut does not grant permission for contract"
+	);
+}
+
+#[test]
+fn it_succeeds_runtime_to_contract_with_valid_contract() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_ok!(verify_runtime_to_contract(
+		&TEST_HOLDER.into(),
+		&doughnut,
+		&[0x11; 32].into()
+	));
+}
+
+#[test]
+fn it_fails_runtime_to_contract_with_invalid_holder() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	let invalid_holder: [u8; 32] = [0x55; 32];
+	assert_err!(
+		verify_runtime_to_contract(&invalid_holder.into(), &doughnut, &[0x11; 32].into()),
+		"Invalid doughnut holder"
+	);
+}
+
+#[test]
+fn it_fails_contract_to_contract_with_invalid_contract() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_err!(
+		verify_contract_to_contract(&TEST_HOLDER.into(), &doughnut, &[0x22; 32].into()),
+		"CENNZnut does not grant permission for contract"
+	);
+}
+
+#[test]
+fn it_succeeds_contract_to_contract_with_valid_contract() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_ok!(verify_contract_to_contract(
+		&TEST_HOLDER.into(),
+		&doughnut,
+		&[0x11; 32].into()
+	));
+}
+
+#[test]
+fn it_fails_contract_to_contract_with_invalid_holder() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	let invalid_holder: [u8; 32] = [0x55; 32];
+	assert_err!(
+		verify_contract_to_contract(&invalid_holder.into(), &doughnut, &[0x11; 32].into()),
+		"Invalid doughnut holder"
 	);
 }

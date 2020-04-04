@@ -22,7 +22,7 @@
 #![allow(array_into_iter)]
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
+use cennznut::{CENNZnut, ContractDomain, RuntimeDomain, ValidationErr};
 use codec::Decode;
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
@@ -543,6 +543,18 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
 
 /// `DelegatedDispatchVerifier` helpers
 impl Runtime {
+	/// Check that the caller is the `holder` of the doughnut
+	fn check_caller(
+		caller: &<Runtime as frame_system::Trait>::AccountId,
+		doughnut: &<Runtime as frame_system::Trait>::Doughnut,
+	) -> Result<(), &'static str> {
+		if caller.clone() != doughnut.holder() {
+			Err("Invalid doughnut holder")
+		} else {
+			Ok(())
+		}
+	}
+
 	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
 	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
 		let mut domain = doughnut
@@ -550,6 +562,21 @@ impl Runtime {
 			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
 		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
 		Ok(cennznut)
+	}
+
+	/// Verify that the smart contract being called is permissioned in the cennznut
+	fn check_contract(
+		contract_address: &<Runtime as frame_system::Trait>::AccountId,
+		cennznut: CENNZnut,
+	) -> Result<(), &'static str> {
+		let address: [u8; 32] = contract_address.clone().into();
+		match cennznut.validate_contract_call(&address) {
+			Ok(r) => Ok(r),
+			Err(ValidationErr::NoPermission(ContractDomain::Contract)) => {
+				Err("CENNZnut does not grant permission for contract")
+			}
+			_ => Err("CENNZnut does not grant permission for contract"),
+		}
 	}
 }
 
@@ -588,22 +615,24 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 
 	/// Check the doughnut authorizes a dispatched call from runtime to the specified contract address for this domain.
 	fn verify_runtime_to_contract_call(
-		_caller: &Self::AccountId,
+		caller: &Self::AccountId,
 		doughnut: &Self::Doughnut,
-		_contract_addr: &Self::AccountId,
+		contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		let _cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		Ok(())
+		let _ = Self::check_caller(caller, doughnut)?;
+		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+		Self::check_contract(contract_addr, cennznut)
 	}
 
 	/// Check the doughnut authorizes a dispatched call from a contract to another contract with the specified addresses for this domain.
 	fn verify_contract_to_contract_call(
-		_caller: &Self::AccountId,
+		caller: &Self::AccountId,
 		doughnut: &Self::Doughnut,
-		_contract_addr: &Self::AccountId,
+		contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		let _cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		Ok(())
+		let _ = Self::check_caller(caller, doughnut)?;
+		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+		Self::check_contract(contract_addr, cennznut)
 	}
 }
 
