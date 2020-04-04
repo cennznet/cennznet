@@ -44,6 +44,12 @@ pub type ExchangeKey<T> = (
 	<T as pallet_generic_asset::Trait>::AssetId,
 );
 
+pub struct LiquidityValue<Balance> {
+	liquidity: Balance,
+	core: Balance,
+	asset: Balance,
+}
+
 pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 	type Call: Parameter + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -258,30 +264,26 @@ decl_module! {
 				Error::<T>::LiquidityTooLow
 			);
 
+			let user_balances = Self::get_liquidity_value(asset_id, liquidity_to_withdraw);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
+
 			ensure!(
 				total_liquidity > Zero::zero(),
 				Error::<T>::NoLiquidityToRemove
 			);
-
-			let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
-			let core_asset_amount = liquidity_to_withdraw * core_asset_reserve / total_liquidity;
-			let trade_asset_amount = liquidity_to_withdraw * trade_asset_reserve / total_liquidity;
 			ensure!(
-				core_asset_amount >= min_core_withdraw,
+				user_balances.core >= min_core_withdraw,
 				Error::<T>::MinimumCoreAssetIsRequired
 			);
 			ensure!(
-				trade_asset_amount >= min_asset_withdraw,
+				user_balances.asset >= min_asset_withdraw,
 				Error::<T>::MinimumTradeAssetIsRequired
 			);
-
-			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, core_asset_amount)?;
-			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, trade_asset_amount)?;
+			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
+			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, user_balances.core)?;
+			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, user_balances.asset)?;
 			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
-			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, core_asset_amount, asset_id, trade_asset_amount));
+			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, user_balances.core, asset_id, user_balances.asset));
 			Ok(())
 		}
 
@@ -328,6 +330,10 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
+	//
+	// Liquidity
+	//
+
 	/// Mint liquidity holdings for a user in a specified exchange
 	fn mint_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, increase: T::Balance) {
 		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
@@ -343,6 +349,65 @@ impl<T: Trait> Module<T> {
 		let new_balance = balance - decrease;
 		<LiquidityBalance<T>>::insert(exchange_key, who, new_balance);
 		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_sub(decrease));
+	}
+
+	/// Account Liquidity Value
+	///
+	/// Returns a struct containing:
+	///   * the total liquidity in an account for a given asset ID
+	///   * the total withdrawable core asset
+	///   * the total withdrawable trade asset
+	fn liquidity_value(who: &T::AccountId, asset_id: T::AssetId) -> LiquidityValue<T::Balance> {
+		let core_asset_id = Self::core_asset_id();
+		let exchange_key = (core_asset_id, asset_id);
+		let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, who);
+		Self::get_liquidity_value(asset_id, account_liquidity)
+	}
+
+	/// Get Liquidity Value
+	///
+	/// Takes an `asset_id` and an amount of `liquidity_to_withdraw` and calculates its value
+	/// from the exchange.
+	///
+	/// Returns a struct containing:
+	///   * the withdrawable liquidity for the given `asset_id`
+	///   * the core asset exchangable for the `liquidity_to_withdraw`
+	///   * the trade asset exchangable for the `liquidity_to_withdraw`
+	fn get_liquidity_value(asset_id: T::AssetId, liquidity_to_withdraw: T::Balance) -> LiquidityValue<T::Balance> {
+		let core_asset_id = Self::core_asset_id();
+		let exchange_key = (core_asset_id, asset_id);
+		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
+		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+		Self::calculate_liquidity_value(asset_reserve, core_reserve, liquidity_to_withdraw, total_liquidity)
+	}
+
+	/// Calculate Liquidity Value
+	///
+	/// Simple helper function to calculate the value of liquidity
+	fn calculate_liquidity_value(
+		asset_reserve: T::Balance,
+		core_reserve: T::Balance,
+		liquidity_to_withdraw: T::Balance,
+		total_liquidity: T::Balance,
+	) -> LiquidityValue<T::Balance> {
+		if total_liquidity == Zero::zero() {
+			LiquidityValue {
+				liquidity: Zero::zero(),
+				core: Zero::zero(),
+				asset: Zero::zero(),
+			}
+		} else {
+			let liquidity_amount = liquidity_to_withdraw.min(total_liquidity);
+			let core_amount = liquidity_amount * core_reserve / total_liquidity;
+			let asset_amount = liquidity_amount * asset_reserve / total_liquidity;
+			LiquidityValue {
+				liquidity: liquidity_amount,
+				core: core_amount,
+				asset: asset_amount,
+			}
+		}
 	}
 
 	//
