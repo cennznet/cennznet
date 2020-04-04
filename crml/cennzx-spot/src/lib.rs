@@ -111,9 +111,9 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// Buy `asset_to_buy` with `asset_to_sell`. User specifies an exact `buy_amount` and
-		/// a `maximum_sell` amount.
-		/// `origin`
+		/// Buy `asset_to_buy` with `asset_to_sell`.
+		/// User specifies an exact `buy_amount` and a `maximum_sell` amount.
+		///
 		/// `recipient` - Account to receive `buy_amount`, defaults to `origin` if None
 		/// `asset_to_sell` - asset ID to sell
 		/// `asset_to_buy` - asset ID to buy
@@ -139,30 +139,30 @@ decl_module! {
 			Ok(())
 		}
 
-
-		/// Convert asset1 to asset2
-		/// Seller specifies exact input (asset 1) and minimum output (asset 2)
-		/// `recipient` - Account to receive asset_bought, defaults to origin if None
-		/// `asset_sold` - asset ID 1 to sell
-		/// `asset_bought` - asset ID 2 to buy
-		/// `sell_amount` - The amount of asset '1' to sell
-		/// `min_receive` - Minimum trade asset '2' to receive from sale
-		pub fn asset_swap_input(
+		/// Sell `asset_to_sell` for `asset_to_buy`.
+		/// User specifies an exact `sell_amount` and a `minimum_buy` amount.
+		///
+		/// `recipient` - Account to receive `buy_amount`, defaults to `origin` if None
+		/// `asset_to_sell` - asset ID to sell
+		/// `asset_to_buy` - asset ID to buy
+		/// `sell_amount` - The amount `asset_to_buy` to purchase
+		/// `minimum_buy` - Maximum `asset_to_sell` to pay
+		pub fn sell_asset(
 			origin,
 			recipient: Option<T::AccountId>,
-			#[compact] asset_sold: T::AssetId,
-			#[compact] asset_bought: T::AssetId,
+			#[compact] asset_to_sell: T::AssetId,
+			#[compact] asset_to_buy: T::AssetId,
 			#[compact] sell_amount: T::Balance,
-			#[compact] min_receive: T::Balance
+			#[compact] minimum_buy: T::Balance
 		) -> DispatchResult {
-			let seller = ensure_signed(origin)?;
+			let trader = ensure_signed(origin)?;
 			let _ = Self::execute_sell(
-				&seller,
-				&recipient.unwrap_or_else(|| seller.clone()),
-				&asset_sold,
-				&asset_bought,
+				&trader,
+				&recipient.unwrap_or_else(|| trader.clone()),
+				&asset_to_sell,
+				&asset_to_buy,
 				sell_amount,
-				min_receive
+				minimum_buy
 			)?;
 			Ok(())
 		}
