@@ -541,6 +541,18 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
 	}
 }
 
+/// `DelegatedDispatchVerifier` helpers
+impl Runtime {
+	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
+	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
+		let mut domain = doughnut
+			.get_domain(<Runtime as additional_traits::DelegatedDispatchVerifier>::DOMAIN)
+			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
+		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
+		Ok(cennznut)
+	}
+}
+
 /// Verify a Doughnut proof authorizes method dispatch given some input parameters
 impl additional_traits::DelegatedDispatchVerifier for Runtime {
 	type Doughnut = <Self as frame_system::Trait>::Doughnut;
@@ -549,10 +561,7 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 	const DOMAIN: &'static str = "cennznet";
 
 	fn verify_dispatch(doughnut: &Self::Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
-		let mut domain = doughnut
-			.get_domain(Self::DOMAIN)
-			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
+		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
 
 		// Extract Module name from <prefix>-<Module_name>
 		let module_offset = module
@@ -580,19 +589,21 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 	/// Check the doughnut authorizes a dispatched call from runtime to the specified contract address for this domain.
 	fn verify_runtime_to_contract_call(
 		_caller: &Self::AccountId,
-		_doughnut: &Self::Doughnut,
+		doughnut: &Self::Doughnut,
 		_contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		Err("Doughnut runtime to contract call verification is not implemented for this domain")
+		let _cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+		Ok(())
 	}
 
 	/// Check the doughnut authorizes a dispatched call from a contract to another contract with the specified addresses for this domain.
 	fn verify_contract_to_contract_call(
 		_caller: &Self::AccountId,
-		_doughnut: &Self::Doughnut,
+		doughnut: &Self::Doughnut,
 		_contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		Err("Doughnut contract to contract call verification is not implemented for this domain")
+		let _cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+		Ok(())
 	}
 }
 

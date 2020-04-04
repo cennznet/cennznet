@@ -196,3 +196,23 @@ fn it_fails_when_using_contract_cennznut_for_runtime() {
 		"CENNZnut does not grant permission for module"
 	);
 }
+
+#[test]
+fn it_fails_runtime_to_contract_with_incorrect_domain() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("sendsnet", cennznut.encode());
+	assert_err!(
+		verify_runtime_to_contract(&Default::default(), &doughnut, &[0x11; 32].into()),
+		"CENNZnut does not grant permission for cennznet domain"
+	);
+}
+
+#[test]
+fn it_fails_contract_to_contract_with_incorrect_domain() {
+	let cennznut = make_contract_cennznut([0x11; 32].into());
+	let doughnut = make_doughnut("sendsnet", cennznut.encode());
+	assert_err!(
+		verify_contract_to_contract(&Default::default(), &doughnut, &[0x11; 32].into()),
+		"CENNZnut does not grant permission for cennznet domain"
+	);
+}
