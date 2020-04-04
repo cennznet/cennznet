@@ -216,16 +216,17 @@ decl_module! {
 				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
-				ensure!(
-					liquidity_minted >= min_liquidity,
-					Error::<T>::LiquidityMintableLowerThanRequired
-				);
-				ensure!(
-					max_asset_amount >= trade_asset_amount,
-					Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
-				);
+
 				(trade_asset_amount, liquidity_minted)
 			};
+			ensure!(
+				liquidity_minted >= min_liquidity,
+				Error::<T>::LiquidityMintableLowerThanRequired
+			);
+			ensure!(
+				max_asset_amount >= trade_asset_amount,
+				Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
+			);
 
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
 			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;

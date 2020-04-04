@@ -394,6 +394,98 @@ fn core_to_asset_transfer_buy() {
 }
 
 #[test]
+fn add_liquidity_exact_min_liquidity() {
+	ExtBuilder::default().build().execute_with(|| {
+		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_ok!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			500, // min_liquidity: T::Balance,
+			500, // max_asset_amount: T::Balance,
+			500, // core_amount: T::Balance,
+		));
+
+		assert_exchange_balance_eq!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 500);
+		assert_balance_eq!(investor, TradeAssetCurrencyA => 500);
+		assert_balance_eq!(investor, CoreAssetCurrency => 500);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_too_high_min_liquidity_on_first_add() {
+	ExtBuilder::default().build().execute_with(|| {
+		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_err!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			501, // min_liquidity: T::Balance,
+			500, // max_asset_amount: T::Balance,
+			500, // core_amount: T::Balance,
+		), Error::<Test>::LiquidityMintableLowerThanRequired);
+
+		assert_exchange_balance_eq!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 0);
+		assert_balance_eq!(investor, TradeAssetCurrencyA => 1000);
+		assert_balance_eq!(investor, CoreAssetCurrency => 1000);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_too_high_min_liquidity_on_consecutive_add() {
+	ExtBuilder::default().build().execute_with(|| {
+		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_ok!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			100, // min_liquidity: T::Balance,
+			100, // max_asset_amount: T::Balance,
+			100, // core_amount: T::Balance,
+		));
+
+		assert_err!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			501, // min_liquidity: T::Balance,
+			500, // max_asset_amount: T::Balance,
+			500, // core_amount: T::Balance,
+		), Error::<Test>::LiquidityMintableLowerThanRequired);
+
+		assert_exchange_balance_eq!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
+		assert_balance_eq!(investor, TradeAssetCurrencyA => 900);
+		assert_balance_eq!(investor, CoreAssetCurrency => 900);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_too_low_trade_asset() {
+	ExtBuilder::default().build().execute_with(|| {
+		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
+
+		assert_ok!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			500, // min_liquidity: T::Balance,
+			500, // max_asset_amount: T::Balance,
+			500, // core_amount: T::Balance,
+		));
+
+		assert_err!(CennzXSpot::add_liquidity(
+			Origin::signed(investor.clone()),
+			resolve_asset_id!(TradeAssetCurrencyA),
+			100, // min_liquidity: T::Balance,
+			 99, // max_asset_amount: T::Balance,
+			100, // core_amount: T::Balance,
+		), Error::<Test>::TradeAssetToAddLiquidityAboveMaxAmount);
+
+		assert_exchange_balance_eq!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 500);
+		assert_balance_eq!(investor, TradeAssetCurrencyA => 500);
+		assert_balance_eq!(investor, CoreAssetCurrency => 500);
+	});
+}
+
+#[test]
 fn remove_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
