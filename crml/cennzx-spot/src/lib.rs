@@ -565,14 +565,14 @@ impl<T: Trait> Module<T> {
 
 	/// Buy `amount_to_buy` of `asset_to_buy` with `asset_to_sell`.
 	///
-	/// `seller` - Account selling `asset_to_sell`
+	/// `trader` - Account selling `asset_to_sell`
 	/// `recipient` - Account to receive `asset_to_buy`
 	/// `asset_to_sell` - asset ID to sell
 	/// `asset_to_buy` - asset ID to buy
 	/// `amount_to_buy` - The amount of `asset_to_buy` to buy
-	/// `maximum_sell` - Maximum acceptable amount of `asset_to_sell` the seller will sell
+	/// `maximum_sell` - Maximum acceptable amount of `asset_to_sell` the trader will sell
 	pub fn execute_buy(
-		seller: &T::AccountId,
+		trader: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_to_sell: &T::AssetId,
 		asset_to_buy: &T::AssetId,
@@ -583,14 +583,14 @@ impl<T: Trait> Module<T> {
 		let amount_to_sell = Self::get_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
 		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
 
-		// Check the seller has enough balance
+		// Check the trader has enough balance
 		ensure!(
-			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, seller) >= amount_to_sell,
+			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, trader) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
 		Self::execute_trade(
-			seller,
+			trader,
 			recipient,
 			asset_to_sell,
 			asset_to_buy,
@@ -603,23 +603,23 @@ impl<T: Trait> Module<T> {
 
 	/// Sell `asset_to_sell` for at least `minimum_buy` of `asset_to_buy`.
 	///
-	/// `seller` - Account selling `asset_to_sell`
+	/// `trader` - Account selling `asset_to_sell`
 	/// `recipient` - Account to receive `asset_to_buy`
 	/// `asset_to_sell` - asset ID to sell
 	/// `asset_to_buy` - asset ID to buy
 	/// `amount_to_sell` - The amount of `asset_to_sell` to sell
 	/// `minimum_buy` - The minimum acceptable amount of `asset_to_buy` to receive
 	pub fn execute_sell(
-		seller: &T::AccountId,
+		trader: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_to_sell: &T::AssetId,
 		asset_to_buy: &T::AssetId,
 		amount_to_sell: T::Balance,
 		minimum_buy: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		// Check the seller has enough balance
+		// Check the trader has enough balance
 		ensure!(
-			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, seller) >= amount_to_sell,
+			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, trader) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
@@ -628,7 +628,7 @@ impl<T: Trait> Module<T> {
 		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
 
 		Self::execute_trade(
-			seller,
+			trader,
 			recipient,
 			asset_to_sell,
 			asset_to_buy,
@@ -640,7 +640,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	fn execute_trade(
-		seller: &T::AccountId,
+		trader: &T::AccountId,
 		recipient: &T::AccountId,
 		asset_to_sell: &T::AssetId,
 		asset_to_buy: &T::AssetId,
@@ -659,7 +659,7 @@ impl<T: Trait> Module<T> {
 			};
 			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
 				&asset_to_sell,
-				seller,
+				trader,
 				&exchange_address,
 				amount_to_sell,
 			)
@@ -676,7 +676,7 @@ impl<T: Trait> Module<T> {
 
 			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
 				asset_to_sell,
-				seller,
+				trader,
 				&exchange_address_a,
 				amount_to_sell,
 			)
@@ -697,7 +697,7 @@ impl<T: Trait> Module<T> {
 		Self::deposit_event(RawEvent::AssetPurchase(
 			*asset_to_sell,
 			*asset_to_buy,
-			seller.clone(),
+			trader.clone(),
 			amount_to_sell,
 			amount_to_buy,
 		));
