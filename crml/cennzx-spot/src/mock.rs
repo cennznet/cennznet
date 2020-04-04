@@ -23,7 +23,7 @@ use pallet_generic_asset::AssetCurrency;
 
 use crate::{
 	impls::ExchangeAddressGenerator,
-	types::{FeeRate, LowPrecisionUnsigned, PerThousand, PerMillion},
+	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerThousand},
 	Call, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;

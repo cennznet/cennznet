@@ -20,7 +20,7 @@ use crate::keyring::*;
 use cennznet_primitives::types::AccountId;
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	FeeRate, PerThousand, PerMillion,
+	FeeRate, PerMillion, PerThousand,
 };
 use cennznet_runtime::{
 	CennzxSpotConfig, ContractsConfig, GenericAssetConfig, GenesisConfig, GrandpaConfig, SessionConfig, StakingConfig,

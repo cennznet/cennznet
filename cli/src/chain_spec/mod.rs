@@ -22,7 +22,7 @@ use cennznet_runtime::{
 	GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
 	TechnicalCommitteeConfig, WASM_BINARY,
 };
-use cennznet_runtime::{Block, FeeRate, PerThousand, PerMillion};
+use cennznet_runtime::{Block, FeeRate, PerMillion, PerThousand};
 use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;

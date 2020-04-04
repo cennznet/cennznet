@@ -19,7 +19,7 @@
 use crate::{
 	impls::ExchangeAddressFor,
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
-	types::{FeeRate, LowPrecisionUnsigned, PerThousand, PerMillion},
+	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerThousand},
 	CoreAssetId, Error, Trait,
 };
 use core::convert::TryFrom;

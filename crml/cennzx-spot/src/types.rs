@@ -141,7 +141,10 @@ mod tests {
 	fn fee_rate_div_when_indivisible() {
 		let fee_rate = FeeRate::<PerMillion>::from(1_100_000u128);
 		let input = FeeRate::<PerMillion>::from(100_000u128);
-		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerMillion>::from(90_909u128));
+		assert_eq!(
+			input.checked_div(fee_rate).unwrap(),
+			FeeRate::<PerMillion>::from(90_909u128)
+		);
 	}
 
 	#[test]

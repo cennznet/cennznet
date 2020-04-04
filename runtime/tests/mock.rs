@@ -19,7 +19,7 @@ use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
-use crml_cennzx_spot::{FeeRate, PerThousand, PerMillion};
+use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
 
