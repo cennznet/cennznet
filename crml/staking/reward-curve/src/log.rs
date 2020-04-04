@@ -17,50 +17,89 @@
 //! Proc macro to generate the reward curve functions and tests.
 use std::convert::TryInto;
 
-/// Return Per-million value.
+/// Returns the k_th per_million taylor term for a log2 function
+fn taylor_term(k: u32, y_num: u128, y_den: u128) -> u32 {
+	let _2_div_ln_2: u128 = 2_885_390u128;
+
+	if k == 0 {
+		(_2_div_ln_2 * (y_num).pow(1) / (y_den).pow(1))
+			.try_into()
+			.unwrap()
+	} else {
+		let mut res = _2_div_ln_2 * (y_num).pow(3) / (y_den).pow(3);
+		for _ in 1..k {
+			res = res * (y_num).pow(2) / (y_den).pow(2);
+		}
+		res /= 2 * k as u128 + 1;
+
+		res.try_into().unwrap()
+	}
+}
+
+/// Simple u32 power of 2 function - simply uses a bit shift
+fn pow2(n: u32) -> u32 {
+	return 1_u32 << n;
+}
+
+/// Performs a log2 operation using a rational fraction
+///
+/// result = log2(q/p) where q/p is bound to (0, 1]
+/// Where:
+/// * p represents the numerator of the rational fraction input
+/// * q represents the denominator of the rational fraction input
+/// * result represents a per-million output of log2
+///   note: because result is u32, and the output of any log function
+///         in interval (0, 1) is negative, the output represents the
+///         absolute per million value of log2 and should be treated as
+///         a negative number
+///   note: yes, rational fractions are usually denoted p/q, but this
+///         function chooses to go q/p
 pub fn log2(p: u32, q: u32) -> u32 {
-	assert!(p >= q);
+	assert!(p >= q); // keep q/p bound to (0, 1]
 	assert!(p <= u32::max_value() / 2);
 
 	// This restriction should not be mandatory. But function is only tested and used for this.
 	assert!(p <= 1_000_000);
 	assert!(q <= 1_000_000);
 
+	// log2(1) = 0
 	if p == q {
 		return 0;
 	}
 
+	// find the power of 2 where q * 2^n <= p < q * 2^(n+1)
 	let mut n = 0u32;
-	while !(p >= 2u32.pow(n) * q) || !(p < 2u32.pow(n + 1) * q) {
+	while !((q * pow2(n) <= p) && (p < q * pow2(n + 1))) {
 		n += 1;
+		assert!(n < 32); // cannot represent 2^32 in u32
 	}
-	assert!(p < 2u32.pow(n + 1) * q);
+	assert!(p < pow2(n + 1) * q);
 
-	let y_num: u32 = (p - 2u32.pow(n) * q).try_into().unwrap();
-	let y_den: u32 = (p + 2u32.pow(n) * q).try_into().unwrap();
+	let y_num: u32 = (p - pow2(n) * q).try_into().unwrap();
+	let y_den: u32 = (p + pow2(n) * q).try_into().unwrap();
 
-	let _2_div_ln_2 = 2_885_390u32;
+	// let _2_div_ln_2 = 2_885_390u32;
 
-	let taylor_term = |k: u32| -> u32 {
-		if k == 0 {
-			(_2_div_ln_2 as u128 * (y_num as u128).pow(1) / (y_den as u128).pow(1))
-				.try_into()
-				.unwrap()
-		} else {
-			let mut res = _2_div_ln_2 as u128 * (y_num as u128).pow(3) / (y_den as u128).pow(3);
-			for _ in 1..k {
-				res = res * (y_num as u128).pow(2) / (y_den as u128).pow(2);
-			}
-			res /= 2 * k as u128 + 1;
+	// let taylor_term = |k: u32| -> u32 {
+	// 	if k == 0 {
+	// 		(_2_div_ln_2 as u128 * (y_num as u128).pow(1) / (y_den as u128).pow(1))
+	// 			.try_into()
+	// 			.unwrap()
+	// 	} else {
+	// 		let mut res = _2_div_ln_2 as u128 * (y_num as u128).pow(3) / (y_den as u128).pow(3);
+	// 		for _ in 1..k {
+	// 			res = res * (y_num as u128).pow(2) / (y_den as u128).pow(2);
+	// 		}
+	// 		res /= 2 * k as u128 + 1;
 
-			res.try_into().unwrap()
-		}
-	};
+	// 		res.try_into().unwrap()
+	// 	}
+	// };
 
 	let mut res = n * 1_000_000u32;
 	let mut k = 0;
 	loop {
-		let term = taylor_term(k);
+		let term = taylor_term(k, y_num.into(), y_den.into());
 		if term == 0 {
 			break;
 		}
