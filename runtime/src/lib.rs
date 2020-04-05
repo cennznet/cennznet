@@ -797,6 +797,7 @@ impl_runtime_apis! {
 		Block,
 		AssetId,
 		Balance,
+		AccountId,
 	> for Runtime {
 		fn buy_price(
 			buy_asset: AssetId,
@@ -820,6 +821,14 @@ impl_runtime_apis! {
 				Ok(value) => CennzxSpotResult::Success(value),
 				Err(_) => CennzxSpotResult::Error,
 			}
+		}
+
+		fn liquidity_value(
+			account: AccountId,
+			asset_id: AssetId,
+		) -> (Balance, Balance, Balance) {
+			let value = CennzxSpot::liquidity_value(&account, asset_id);
+			(value.liquidity, value.core, value.asset)
 		}
 	}
 

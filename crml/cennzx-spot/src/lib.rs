@@ -45,9 +45,9 @@ pub type ExchangeKey<T> = (
 );
 
 pub struct LiquidityValue<Balance> {
-	liquidity: Balance,
-	core: Balance,
-	asset: Balance,
+	pub liquidity: Balance,
+	pub core: Balance,
+	pub asset: Balance,
 }
 
 pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
@@ -357,7 +357,7 @@ impl<T: Trait> Module<T> {
 	///   * the total liquidity in an account for a given asset ID
 	///   * the total withdrawable core asset
 	///   * the total withdrawable trade asset
-	fn liquidity_value(who: &T::AccountId, asset_id: T::AssetId) -> LiquidityValue<T::Balance> {
+	pub fn liquidity_value(who: &T::AccountId, asset_id: T::AssetId) -> LiquidityValue<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, who);

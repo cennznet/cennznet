@@ -33,9 +33,10 @@ pub enum CennzxSpotResult<Balance> {
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with CENNZX Spot Exchange
-	pub trait CennzxSpotApi<AssetId, Balance> where
+	pub trait CennzxSpotApi<AssetId, Balance, AccountId> where
 		AssetId: Codec,
 		Balance: Codec + BaseArithmetic,
+		AccountId: Codec,
 	{
 		/// Query how much `asset_to_buy` will be given in exchange for `amount` of `asset_to_sell`
 		fn buy_price(
@@ -49,5 +50,10 @@ sp_api::decl_runtime_apis! {
 			amount: Balance,
 			asset_to_buy: AssetId,
 		) -> CennzxSpotResult<Balance>;
+		/// Query the value of liquidity in the exchange for `asset_id` for `account`
+		fn liquidity_value(
+			account: AccountId,
+			asset_id: AssetId,
+		) -> (Balance, Balance, Balance);
 	}
 }

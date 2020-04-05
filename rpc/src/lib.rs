@@ -86,7 +86,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UncheckedExtrinsic>,
-	C::Api: crml_cennzx_spot_rpc::CennzxSpotRuntimeApi<Block, AssetId, Balance>,
+	C::Api: crml_cennzx_spot_rpc::CennzxSpotRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: BabeApi<Block>,
 	<C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
 	P: TransactionPool + 'static,
