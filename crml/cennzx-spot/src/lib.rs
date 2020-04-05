@@ -50,6 +50,11 @@ pub struct LiquidityValue<Balance> {
 	pub asset: Balance,
 }
 
+pub struct LiquidityPrice<Balance> {
+	pub core: Balance,
+	pub asset: Balance,
+}
+
 pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 	type Call: Parameter + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -349,6 +354,29 @@ impl<T: Trait> Module<T> {
 		let new_balance = balance - decrease;
 		<LiquidityBalance<T>>::insert(exchange_key, who, new_balance);
 		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_sub(decrease));
+	}
+
+	pub fn liquidity_price(asset_id: T::AssetId, liquidity_to_buy: T::Balance) -> LiquidityPrice<T::Balance> {
+		let core_asset_id = Self::core_asset_id();
+		let exchange_key = (core_asset_id, asset_id);
+		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
+		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
+		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+
+		let (core_amount, asset_amount) = if total_liquidity.is_zero() || core_reserve.is_zero() {
+			// empty exchange pool
+			(liquidity_to_buy, One::one())
+		} else {
+			let core_amount = liquidity_to_buy * core_reserve / total_liquidity;
+			let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+			let asset_amount = core_amount * asset_reserve / core_reserve + One::one();
+
+			(core_amount, asset_amount)
+		};
+		LiquidityPrice{
+			core: core_amount,
+			asset: asset_amount
+		}
 	}
 
 	/// Account Liquidity Value
