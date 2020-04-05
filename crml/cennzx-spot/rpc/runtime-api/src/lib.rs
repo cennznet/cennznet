@@ -55,5 +55,10 @@ sp_api::decl_runtime_apis! {
 			account: AccountId,
 			asset_id: AssetId,
 		) -> (Balance, Balance, Balance);
+		/// Query the price of liquidity for a particular asset_id
+		fn liquidity_price(
+			asset_id: AssetId,
+			liquidity_to_buy: Balance,
+		) -> (Balance, Balance);
 	}
 }

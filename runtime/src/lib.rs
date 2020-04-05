@@ -830,6 +830,14 @@ impl_runtime_apis! {
 			let value = CennzxSpot::liquidity_value(&account, asset_id);
 			(value.liquidity, value.core, value.asset)
 		}
+
+		fn liquidity_price(
+			asset_id: AssetId,
+			liquidity_to_buy: Balance
+		) -> (Balance, Balance) {
+			let value = CennzxSpot::liquidity_price(asset_id, liquidity_to_buy);
+			(value.core, value.asset)
+		}
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
