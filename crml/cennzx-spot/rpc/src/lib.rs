@@ -185,11 +185,13 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let result = api.liquidity_price(&at, asset_id, liquidity_to_buy).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::Runtime.into()),
-			message: "Unable to query liquidity price.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let result = api
+			.liquidity_price(&at, asset_id, liquidity_to_buy)
+			.map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "Unable to query liquidity price.".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?;
 
 		let core = TryInto::<u64>::try_into(result.0.saturated_into::<u128>()).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::PriceOverflow.into()),

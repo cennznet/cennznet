@@ -373,9 +373,9 @@ impl<T: Trait> Module<T> {
 
 			(core_amount, asset_amount)
 		};
-		LiquidityPrice{
+		LiquidityPrice {
 			core: core_amount,
-			asset: asset_amount
+			asset: asset_amount,
 		}
 	}
 

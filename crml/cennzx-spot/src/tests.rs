@@ -497,10 +497,7 @@ fn add_liquidity_fails_with_too_low_trade_asset() {
 #[test]
 fn liquidity_price_new_exchange() {
 	ExtBuilder::default().build().execute_with(|| {
-		let price = CennzXSpot::liquidity_price(
-			resolve_asset_id!(TradeAssetCurrencyA),
-			1_000_000,
-		);
+		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.core, 1_000_000);
 		assert_eq!(price.asset, 1);
@@ -515,15 +512,12 @@ fn liquidity_price_exisiting_exchange_one_to_one() {
 		assert_ok!(CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
-			1,   // min_liquidity: T::Balance,
+			1,     // min_liquidity: T::Balance,
 			1_000, // max_asset_amount: T::Balance,
 			1_000, // core_amount: T::Balance,
 		));
 
-		let price = CennzXSpot::liquidity_price(
-			resolve_asset_id!(TradeAssetCurrencyA),
-			1_000_000,
-		);
+		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.asset, 1_000_000 + 1);
 		assert_eq!(price.core, 1_000_000);
@@ -538,15 +532,12 @@ fn liquidity_price_exisiting_exchange_one_to_three() {
 		assert_ok!(CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
-			1,   // min_liquidity: T::Balance,
+			1,     // min_liquidity: T::Balance,
 			3_000, // max_asset_amount: T::Balance,
 			1_000, // core_amount: T::Balance,
 		));
 
-		let price = CennzXSpot::liquidity_price(
-			resolve_asset_id!(TradeAssetCurrencyA),
-			1_000_000,
-		);
+		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.asset, 3_000_000 + 1);
 		assert_eq!(price.core, 1_000_000);
@@ -561,7 +552,7 @@ fn liquidity_price_exisiting_exchange_accrued() {
 		assert_ok!(CennzXSpot::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
-			1,   // min_liquidity: T::Balance,
+			1,     // min_liquidity: T::Balance,
 			1_000, // max_asset_amount: T::Balance,
 			1_000, // core_amount: T::Balance,
 		));
@@ -570,10 +561,7 @@ fn liquidity_price_exisiting_exchange_accrued() {
 		with_exchange!(CoreAssetCurrency => 999_000, TradeAssetCurrencyA => 499_000);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 1_000_000, TradeAssetCurrencyA => 500_000);
 
-		let price = CennzXSpot::liquidity_price(
-			resolve_asset_id!(TradeAssetCurrencyA),
-			1_000,
-		);
+		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000);
 
 		assert_eq!(price.asset, 500_000 + 1);
 		assert_eq!(price.core, 1_000_000);
