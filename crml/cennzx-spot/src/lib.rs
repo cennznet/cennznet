@@ -356,6 +356,14 @@ impl<T: Trait> Module<T> {
 		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_sub(decrease));
 	}
 
+	/// The Price of Liquidity for a particular `asset` exchange
+	///
+	/// The price includes
+	///   * a required amount of core asset
+	///   * a required amount of `asset`
+	///
+	/// Note: if the exchange does not exist, the cost in `asset` is 1, because the invester
+	///       determines the exchange rate
 	pub fn liquidity_price(asset_id: T::AssetId, liquidity_to_buy: T::Balance) -> LiquidityPrice<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
