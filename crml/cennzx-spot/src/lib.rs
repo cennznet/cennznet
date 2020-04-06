@@ -44,12 +44,23 @@ pub type ExchangeKey<T> = (
 	<T as pallet_generic_asset::Trait>::AssetId,
 );
 
+/// Represents the value of an amount of liquidity in an exchange
+/// Liqudity is always traded for a combination of `core_asset` and `trade_asset`
+///
+/// `liquidity` represents the volume of liquidity holdings being valued
+/// `core` represents the balance of `core_asset` that the liquidity would yield
+/// `asset` represents the balance of `trade_asset` that the liquidity
 pub struct LiquidityValue<Balance> {
 	pub liquidity: Balance,
 	pub core: Balance,
 	pub asset: Balance,
 }
 
+/// Represents the price to buy liqudiity from an exchange
+/// Liqudity is always traded for a combination of `core_asset` and `trade_asset`
+///
+/// `core` represents the balance of `core_asset` required
+/// `asset` represents the balance of `trade_asset` required
 pub struct LiquidityPrice<Balance> {
 	pub core: Balance,
 	pub asset: Balance,
@@ -356,13 +367,13 @@ impl<T: Trait> Module<T> {
 		<TotalLiquidity<T>>::mutate(exchange_key, |balance| *balance = balance.saturating_sub(decrease));
 	}
 
-	/// The Price of Liquidity for a particular `asset` exchange
+	/// The Price of Liquidity for a particular `asset_id` exchange
 	///
 	/// The price includes
 	///   * a required amount of core asset
-	///   * a required amount of `asset`
+	///   * a required amount of `asset_id`
 	///
-	/// Note: if the exchange does not exist, the cost in `asset` is 1, because the invester
+	/// Note: if the exchange does not exist, the cost in `asset` is 1, because the investor
 	///       determines the exchange rate
 	pub fn liquidity_price(asset_id: T::AssetId, liquidity_to_buy: T::Balance) -> LiquidityPrice<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
