@@ -19,7 +19,7 @@
 use crate::{
 	impls::ExchangeAddressFor,
 	mock::{self, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
-	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
+	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerThousand},
 	CoreAssetId, Error, Trait,
 };
 use core::convert::TryFrom;
@@ -1094,7 +1094,7 @@ fn asset_to_asset_transfer_sell() {
 #[test]
 fn set_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(5u128)).unwrap();
+		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(5u128)).unwrap();
 		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
 		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
 	});
