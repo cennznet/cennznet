@@ -66,9 +66,12 @@ impl_outer_origin! {
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default()
-		.build_storage::<Test>()
-		.unwrap()
-		.into()
+pub struct ExtBuilder;
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		frame_system::GenesisConfig::default()
+			.build_storage::<Test>()
+			.unwrap()
+			.into()
+	}
 }

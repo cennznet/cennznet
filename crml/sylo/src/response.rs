@@ -61,7 +61,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 pub(super) mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
@@ -69,7 +69,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_set_response() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let request_id = H256::from([1; 32]);
 			let resp_number = Response::DeviceId(111);
 
