@@ -166,18 +166,18 @@ where
 			code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 			message: "Liquidity too large.".into(),
 			data: Some(format!("{:?}", e).into()),
-		});
+		})?;
 		let core = TryInto::<u64>::try_into(result.1.saturated_into::<u128>()).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 			message: "Core asset too large.".into(),
 			data: Some(format!("{:?}", e).into()),
-		});
+		})?;
 		let asset = TryInto::<u64>::try_into(result.2.saturated_into::<u128>()).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 			message: "Trade asset too large.".into(),
 			data: Some(format!("{:?}", e).into()),
-		});
-		Ok((liquidity.unwrap(), core.unwrap(), asset.unwrap()))
+		})?;
+		Ok((liquidity, core, asset))
 	}
 
 	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: Balance) -> Result<(u64, u64)> {
@@ -194,15 +194,15 @@ where
 			})?;
 
 		let core = TryInto::<u64>::try_into(result.0.saturated_into::<u128>()).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::PriceOverflow.into()),
+				code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 			message: "Core asset too large.".into(),
 			data: Some(format!("{:?}", e).into()),
-		});
+		})?;
 		let asset = TryInto::<u64>::try_into(result.1.saturated_into::<u128>()).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 			message: "Trade asset too large.".into(),
 			data: Some(format!("{:?}", e).into()),
-		});
-		Ok((core.unwrap(), asset.unwrap()))
+		})?;
+		Ok((core, asset))
 	}
 }
