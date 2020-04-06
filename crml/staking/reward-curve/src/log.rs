@@ -43,8 +43,8 @@ fn pow2(n: u32) -> u32 {
 ///
 /// result = log2(q/p) where q/p is bound to (0, 1]
 /// Where:
-/// * p represents the numerator of the rational fraction input
-/// * q represents the denominator of the rational fraction input
+/// * q represents the numerator of the rational fraction input
+/// * p represents the denominator of the rational fraction input
 /// * result represents a per-million output of log2
 ///   note: because result is u32, and the output of any log function
 ///         in interval (0, 1) is negative, the output represents the
