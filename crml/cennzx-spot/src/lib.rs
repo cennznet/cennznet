@@ -439,7 +439,7 @@ impl<T: Trait> Module<T> {
 		liquidity_to_withdraw: T::Balance,
 		total_liquidity: T::Balance,
 	) -> LiquidityValue<T::Balance> {
-		if total_liquidity == Zero::zero() {
+		if total_liquidity.is_zero() {
 			LiquidityValue {
 				liquidity: Zero::zero(),
 				core: Zero::zero(),
