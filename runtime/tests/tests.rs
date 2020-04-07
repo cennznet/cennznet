@@ -32,16 +32,20 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
+use sp_keyring::AccountKeyring;
 use sp_runtime::{
 	testing::Digest,
-	traits::{Convert, Hash, Header as HeaderT},
+	traits::{Convert, DoughnutApi, Hash, Header as HeaderT},
 	transaction_validity::InvalidTransaction,
+	Doughnut, DoughnutV0,
 };
 use sp_staking::SessionIndex;
-
 mod doughnut;
 mod mock;
+use cennznet_runtime::CennznetDoughnut;
+use cennznut::{self, CENNZnut, CENNZnutV0};
 use mock::{validators, ExtBuilder};
+use sp_core::crypto::Pair;
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
@@ -613,6 +617,76 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
+		});
+}
+
+#[test]
+fn generic_asset_transfer_works_with_doughnut() {
+	let method_obj = cennznut::Method {
+		name: "transfer".to_string(),
+		block_cooldown: None,
+		constraints: None,
+	};
+	let module_obj = cennznut::Module {
+		name: "generic-asset".to_string(),
+		block_cooldown: None,
+		methods: vec![("transfer".to_string(), method_obj)],
+	};
+	let cennznut = CENNZnut::V0(CENNZnutV0 {
+		modules: vec![("generic-asset".to_string(), module_obj)],
+	});
+	let (issuer, holder) = (AccountKeyring::Alice, AccountKeyring::Bob);
+	let mut doughnut = DoughnutV0 {
+		issuer: issuer.to_raw_public(),
+		holder: holder.to_raw_public(),
+		expiry: 3000,
+		not_before: 0,
+		payload_version: 0,
+		signature: [1u8; 64].into(),
+		signature_version: 0,
+		domains: vec![("cennznet".to_string(), cennznut.encode())],
+	};
+	let signature_temp: [u8; 64] = issuer.pair().sign(&doughnut.payload()).into();
+	doughnut.signature = signature_temp.into();
+	let doughnut = Doughnut::V0(doughnut);
+	let cennznet_doughnut = CennznetDoughnut::new(doughnut);
+
+	let balance_amount = 1_000_000 * TransactionBaseFee::get();
+	let transfer_amount = 50;
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENNZ_ASSET_ID,
+		charlie(),
+		transfer_amount,
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			// Create an extrinsic where the doughnut is passed
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, Some(cennznet_doughnut), None))),
+				function: runtime_call.clone(),
+			});
+
+			// Initialise block and apply the extrinsic
+			Executive::initialize_block(&header());
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			// Check remaining balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENNZ_ASSET_ID)),
+				balance_amount, // Bob not be charged
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				balance_amount - transfer_amount // transfer is paid by Alice
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENNZ_ASSET_ID)),
 				balance_amount + transfer_amount
 			);
 		});
