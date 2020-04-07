@@ -649,7 +649,7 @@ fn calculate_liquidity_value_ratio() {
 }
 
 #[test]
-fn liquidity_value_simple() {
+fn account_liquidity_value_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -661,7 +661,7 @@ fn liquidity_value_simple() {
 			250, // core_amount: T::Balance,
 		));
 
-		let value = CennzXSpot::liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
+		let value = CennzXSpot::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
 
 		assert_eq!(value.liquidity, 250);
 		assert_eq!(value.core, 250);
@@ -670,7 +670,7 @@ fn liquidity_value_simple() {
 }
 
 #[test]
-fn liquidity_value_accrued() {
+fn account_liquidity_value_accrued() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
@@ -686,7 +686,7 @@ fn liquidity_value_accrued() {
 		with_exchange!(CoreAssetCurrency => 750, TradeAssetCurrencyA => 850);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1200);
 
-		let value = CennzXSpot::liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
+		let value = CennzXSpot::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
 
 		assert_eq!(value.liquidity, 250);
 		assert_eq!(value.core, 1000);
@@ -695,7 +695,7 @@ fn liquidity_value_accrued() {
 }
 
 #[test]
-fn liquidity_value_multi_investor_accrued() {
+fn account_liquidity_value_multi_investor_accrued() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor_1: AccountId = with_account!("andrea", CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		let investor_2: AccountId = with_account!("bob", CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
@@ -720,12 +720,12 @@ fn liquidity_value_multi_investor_accrued() {
 		with_exchange!(CoreAssetCurrency => 300, TradeAssetCurrencyA => 599);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 1000);
 
-		let value_1 = CennzXSpot::liquidity_value(&investor_1, resolve_asset_id!(TradeAssetCurrencyA));
+		let value_1 = CennzXSpot::account_liquidity_value(&investor_1, resolve_asset_id!(TradeAssetCurrencyA));
 		assert_eq!(value_1.liquidity, 150);
 		assert_eq!(value_1.core, 375);
 		assert_eq!(value_1.asset, 750);
 
-		let value_2 = CennzXSpot::liquidity_value(&investor_2, resolve_asset_id!(TradeAssetCurrencyA));
+		let value_2 = CennzXSpot::account_liquidity_value(&investor_2, resolve_asset_id!(TradeAssetCurrencyA));
 		assert_eq!(value_2.liquidity, 50);
 		assert_eq!(value_2.core, 125);
 		assert_eq!(value_2.asset, 250);

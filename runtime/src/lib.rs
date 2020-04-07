@@ -827,7 +827,7 @@ impl_runtime_apis! {
 			account: AccountId,
 			asset_id: AssetId,
 		) -> (Balance, Balance, Balance) {
-			let value = CennzxSpot::liquidity_value(&account, asset_id);
+			let value = CennzxSpot::account_liquidity_value(&account, asset_id);
 			(value.liquidity, value.core, value.asset)
 		}
 
