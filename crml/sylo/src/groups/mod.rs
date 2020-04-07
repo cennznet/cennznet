@@ -156,7 +156,7 @@ decl_module! {
 		/// Leaves a group. If no one is left at the group, delete the group
 		///
 		/// weight:
-		/// O(n1) where n is the number of groups, and m is the number of members in that group
+		/// O(m) where m is the number of members in that group
 		/// Limited number of read and maximum of 2 storage writes.
 		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
@@ -284,7 +284,7 @@ decl_module! {
 		/// Accept the invitation and add a user to the group
 		///
 		/// weight:
-		/// O(n) + O(m) where n is the number of groups, and m is the number of members in the group
+		/// O(n + m) where n is the number of groups, and m is the number of members in the group
 		/// Limited number of read and writes to multiple tables
 		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {

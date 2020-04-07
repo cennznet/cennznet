@@ -65,7 +65,7 @@ decl_module! {
 		/// Add a new PreKey bundle for a given user's device.
 		///
 		/// weight:
-		/// O(1) where n is the number of users and devices registered
+		/// O(1)
 		/// 1 write.
 		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
@@ -79,7 +79,7 @@ decl_module! {
 		/// Retrieve and remove the Prekey bundles of a given list of user accounts and devices
 		///
 		/// weight:
-		/// O(n * k) where n is the size of input ```wanted_pkbs```, and k is the number existing PKBS in the storage
+		/// O(n * k) where n is the size of input `wanted_pkbs`, and k is the number existing PKBS in the storage
 		/// Number of read and write scaled by size of input
 		#[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, DeviceId)>) {
