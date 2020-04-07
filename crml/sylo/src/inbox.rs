@@ -13,7 +13,9 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
+use frame_support::{
+	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo,
+};
 use frame_system::ensure_signed;
 
 const MAX_MESSAGES: usize = 1_000_000;

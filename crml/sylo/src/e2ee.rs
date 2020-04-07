@@ -14,7 +14,12 @@
 */
 
 use crate::{device, groups, inbox, response};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure,weights::{FunctionOf, SimpleDispatchInfo, DispatchClass,},};
+use frame_support::{
+	decl_error, decl_module, decl_storage,
+	dispatch::Vec,
+	ensure,
+	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
 use frame_system::ensure_signed;
 
 const MAX_PKBS: usize = 50;

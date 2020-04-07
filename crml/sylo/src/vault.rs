@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure,weights::SimpleDispatchInfo};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
 use frame_system::ensure_signed;
 
 pub const MAX_KEYS: usize = 100;
@@ -39,7 +39,7 @@ decl_error! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
-		
+
 		/// Insert or update a vault Key
 		///
 		/// weight:

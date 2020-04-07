@@ -19,7 +19,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	dispatch::Vec,
 	ensure,
-	weights::{FunctionOf, SimpleDispatchInfo, DispatchClass,},
+	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 	StorageMap,
 };
 use frame_system::ensure_signed;
