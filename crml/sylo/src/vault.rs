@@ -13,18 +13,33 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
-use frame_system::{self, ensure_signed};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure,weights::SimpleDispatchInfo};
+use frame_system::ensure_signed;
 
-pub const KEYS_MAX: usize = 100;
+pub const MAX_KEYS: usize = 100;
+const MAX_VALUE_LENGTH: usize = 100_000;
+const MAX_DELETE_KEYS: usize = 100;
 
 pub trait Trait: frame_system::Trait {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
 
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// Cannot store more than MAX_KEYS
+		MaxKeys,
+		/// Cannot store value larger than MAX_VALUE_LENGTH
+		MaxValueLength,
+		/// Cannot delete more than MAX_DELETE_KEYS at a time
+		MaxDeleteKeys,
+	}
+}
+
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		type Error = Error<T>;
+		
 		/// Insert or update a vault Key
 		///
 		/// weight:
@@ -33,9 +48,8 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn upsert_value(origin, key: VaultKey, value: VaultValue) {
 			let user_id = ensure_signed(origin)?;
-
-			ensure!(<Vault<T>>::get(&user_id).len() < KEYS_MAX, "Can not store more than maximum amount of keys");
-
+			ensure!(value.len() <= MAX_VALUE_LENGTH, Error::<T>::MaxValueLength);
+			ensure!(<Vault<T>>::get(&user_id).len() < MAX_KEYS, Error::<T>::MaxKeys);
 			Self::upsert(user_id, key, value);
 		}
 
@@ -47,7 +61,7 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn delete_values(origin, keys: Vec<VaultKey>) {
 			let user_id = ensure_signed(origin)?;
-
+			ensure!(keys.len() <= MAX_DELETE_KEYS, Error::<T>::MaxDeleteKeys);
 			Self::delete(user_id, keys);
 		}
 	}
@@ -84,8 +98,8 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
-	use frame_support::assert_ok;
+	use crate::mock::{ExtBuilder, Origin, Test};
+	use frame_support::{assert_noop, assert_ok};
 	use sp_core::H256;
 
 	impl Trait for Test {}
@@ -93,7 +107,7 @@ mod tests {
 
 	#[test]
 	fn should_upsert_values() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
@@ -126,7 +140,7 @@ mod tests {
 
 	#[test]
 	fn should_replace_existing_keys() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
@@ -151,7 +165,7 @@ mod tests {
 
 	#[test]
 	fn should_delete_keys() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();
@@ -179,6 +193,25 @@ mod tests {
 			));
 
 			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
+		});
+	}
+
+	#[test]
+	fn should_not_add_more_than_max_keys() {
+		ExtBuilder.build().execute_with(|| {
+			let user_id = H256::from_low_u64_be(1);
+			for i in 0..MAX_KEYS {
+				let key = format!("key_{}", i).into_bytes();
+				let value = format!("value_{}", i).into_bytes();
+				assert_ok!(Vault::upsert_value(Origin::signed(user_id), key, value));
+			}
+			assert_eq!(Vault::values(user_id).len(), 100);
+
+			// an attempt to add another item to Vault should fail
+			assert_noop!(
+				Vault::upsert_value(Origin::signed(user_id), b"new_key".to_vec(), b"new_value".to_vec()),
+				Error::<Test>::MaxKeys,
+			);
 		});
 	}
 }

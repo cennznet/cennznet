@@ -13,36 +13,28 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{
-	decl_event, decl_module, decl_storage,
-	dispatch::Vec,
-	ensure,
-	weights::{FunctionOf, SimpleDispatchInfo, DispatchClass,},
-};
-use frame_system::{self, ensure_signed};
-
 use crate::{device, groups, inbox, response};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure,weights::{FunctionOf, SimpleDispatchInfo, DispatchClass,},};
+use frame_system::ensure_signed;
 
 const MAX_PKBS: usize = 50;
 
-pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-}
+pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {}
 
 type DeviceId = u32;
 
 // Serialized pre key bundle used to establish one to one e2ee
 pub type PreKeyBundle = Vec<u8>;
 
-decl_event!(
-	pub enum Event<T> where <T as frame_system::Trait>::AccountId {
-		DeviceAdded(AccountId, u32),
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// Cannot store more than MAX_PKBS
+		MaxPreKeyBundle,
 	}
-);
+}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
-		fn deposit_event() = default;
 
 		/// Register a new device for a user
 		///
@@ -50,11 +42,10 @@ decl_module! {
 		/// O(g) where g is the number of groups the user is in
 		/// Multiple reads and writes depending on the user states.
 		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-		fn register_device(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) {
+		fn register_device(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
-			let current_pkbs = <PreKeyBundles<T>>::get((sender.clone(), device_id));
-			ensure!((current_pkbs.len() + pkbs.len()) <= MAX_PKBS, "User can not store more than maximum number of pkbs");
+			ensure!(Self::check_total_pkbs(&sender, device_id, pkbs.len()), Error::<T>::MaxPreKeyBundle);
 
 			<device::Module<T>>::append_device(&sender, device_id)?;
 
@@ -72,11 +63,10 @@ decl_module! {
 		/// O(1) where n is the number of users and devices registered
 		/// 1 write.
 		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
-		fn replenish_pkbs(origin, device_id: u32, pkbs: Vec<PreKeyBundle>) {
+		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
-			let current_pkbs = <PreKeyBundles<T>>::get((sender.clone(), device_id));
-			ensure!((current_pkbs.len() + pkbs.len()) <= MAX_PKBS, "User can not store more than maximum number of pkbs");
+			ensure!(Self::check_total_pkbs(&sender, device_id, pkbs.len()), Error::<T>::MaxPreKeyBundle);
 
 			<PreKeyBundles<T>>::mutate((sender, device_id), |current_pkbs| current_pkbs.extend(pkbs));
 		}
@@ -113,21 +103,22 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait> Module<T> {}
+impl<T: Trait> Module<T> {
+	fn check_total_pkbs(sender_id: &T::AccountId, device_id: DeviceId, pkbs_count: usize) -> bool {
+		let current_pkbs = <PreKeyBundles<T>>::get((sender_id, device_id));
+		(current_pkbs.len() + pkbs_count) <= MAX_PKBS
+	}
+}
 
 #[cfg(test)]
 pub(super) mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
-	impl Trait for Test {
-		type Event = ();
-	}
-	impl device::Trait for Test {
-		type Event = ();
-	}
+	impl Trait for Test {}
+	impl device::Trait for Test {}
 	impl inbox::Trait for Test {}
 	impl response::Trait for Test {}
 	impl groups::Trait for Test {}
@@ -137,7 +128,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_add_device() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -157,7 +148,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_replenish_pkbs() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -178,7 +169,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_withdraw_pkbs() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
