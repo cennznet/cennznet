@@ -572,9 +572,6 @@ impl Runtime {
 		let address: [u8; 32] = contract_address.clone().into();
 		match cennznut.validate_contract_call(&address) {
 			Ok(r) => Ok(r),
-			Err(ValidationErr::NoPermission(ContractDomain::Contract)) => {
-				Err("CENNZnut does not grant permission for contract")
-			}
 			_ => Err("CENNZnut does not grant permission for contract"),
 		}
 	}
