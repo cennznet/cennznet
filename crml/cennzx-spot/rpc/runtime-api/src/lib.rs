@@ -51,11 +51,13 @@ sp_api::decl_runtime_apis! {
 			asset_to_buy: AssetId,
 		) -> CennzxSpotResult<Balance>;
 		/// Query the value of liquidity in the exchange for `asset_id` for `account`
+		/// Returns (liquidity_volume, core_value, asset_value)
 		fn liquidity_value(
 			account: AccountId,
 			asset_id: AssetId,
 		) -> (Balance, Balance, Balance);
 		/// Query the price of liquidity for a particular `asset_id`
+		/// Returns price as a combination of (core, asset)
 		fn liquidity_price(
 			asset_id: AssetId,
 			liquidity_to_buy: Balance,

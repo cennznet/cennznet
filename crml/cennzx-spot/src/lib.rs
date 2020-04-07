@@ -56,7 +56,7 @@ pub struct LiquidityValue<Balance> {
 	pub asset: Balance,
 }
 
-/// Represents the price to buy liqudiity from an exchange
+/// Represents the price to buy liquidity from an exchange
 /// Liqudity is always traded for a combination of `core_asset` and `trade_asset`
 ///
 /// `core` represents the balance of `core_asset` required
