@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, weights::SimpleDispatchInfo};
 use frame_system::{self, ensure_signed};
 
 pub trait Trait: frame_system::Trait {
@@ -22,12 +22,25 @@ pub trait Trait: frame_system::Trait {
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+
+		/// Add a new value into storage
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn add_value(origin, peer_id: T::AccountId, value: Vec<u8>) -> DispatchResult {
 			ensure_signed(origin)?;
 
 			Self::add(peer_id, value)
 		}
 
+		/// Delete a value from storage
+		///
+		/// weight:
+		/// O(n) where n is number of values in the storage
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
 		fn delete_values(origin, value_ids: Vec<u32>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
 
