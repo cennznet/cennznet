@@ -38,16 +38,9 @@ impl Scaled for PerMillion {
 
 /// Per thousandth of unit price
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PerMilli {}
-impl Scaled for PerMilli {
+pub enum PerThousand {}
+impl Scaled for PerThousand {
 	const SCALE: LowPrecisionUnsigned = 1_000;
-}
-
-/// Per hundredth of unit price
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PerCent {}
-impl Scaled for PerCent {
-	const SCALE: LowPrecisionUnsigned = 100;
 }
 
 #[derive(Debug)]
@@ -84,21 +77,10 @@ impl<S: Scaled> TryFrom<HighPrecisionUnsigned> for FeeRate<S> {
 	}
 }
 
-impl TryFrom<FeeRate<PerMilli>> for FeeRate<PerMillion> {
+impl TryFrom<FeeRate<PerThousand>> for FeeRate<PerMillion> {
 	type Error = FeeRateError;
-	fn try_from(f: FeeRate<PerMilli>) -> Result<Self, Self::Error> {
-		let rate = PerMillion::SCALE / PerMilli::SCALE;
-		match f.0.checked_mul(rate) {
-			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
-			None => Err(Self::Error::Overflow),
-		}
-	}
-}
-
-impl TryFrom<FeeRate<PerCent>> for FeeRate<PerMillion> {
-	type Error = FeeRateError;
-	fn try_from(f: FeeRate<PerCent>) -> Result<Self, Self::Error> {
-		let rate = PerMillion::SCALE / PerCent::SCALE;
+	fn try_from(f: FeeRate<PerThousand>) -> Result<Self, Self::Error> {
+		let rate = PerMillion::SCALE / PerThousand::SCALE;
 		match f.0.checked_mul(rate) {
 			Some(x) => Ok(FeeRate::<PerMillion>::from(x)),
 			None => Err(Self::Error::Overflow),
@@ -157,46 +139,49 @@ mod tests {
 
 	#[test]
 	fn fee_rate_div_when_indivisible() {
-		let fee_rate = FeeRate::<PerCent>::from(110u128);
-		let input = FeeRate::<PerCent>::from(10u128);
-		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerCent>::from(9u128));
+		let fee_rate = FeeRate::<PerMillion>::from(1_100_000u128);
+		let input = FeeRate::<PerMillion>::from(100_000u128);
+		assert_eq!(
+			input.checked_div(fee_rate).unwrap(),
+			FeeRate::<PerMillion>::from(90_909u128)
+		);
 	}
 
 	#[test]
 	fn fee_rate_div_when_divisible() {
-		let fee_rate = FeeRate::<PerCent>::from(10u128);
-		let input = FeeRate::<PerCent>::from(10u128);
-		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerCent>::one());
+		let fee_rate = FeeRate::<PerMillion>::from(100_000u128);
+		let input = FeeRate::<PerMillion>::from(100_000u128);
+		assert_eq!(input.checked_div(fee_rate).unwrap(), FeeRate::<PerMillion>::one());
 	}
 
 	#[test]
 	fn fee_rate_div_when_divide_by_zero() {
-		let fee_rate = FeeRate::<PerCent>::from(0);
-		let input = FeeRate::<PerCent>::from(10u128);
+		let fee_rate = FeeRate::<PerMillion>::from(0);
+		let input = FeeRate::<PerMillion>::from(100_000u128);
 		assert_eq!(input.checked_div(fee_rate), None);
 	}
 
 	#[test]
 	fn fee_rate_div_when_overflow() {
-		let fee_rate = FeeRate::<PerCent>::from(10);
-		let input = FeeRate::<PerCent>::from(LowPrecisionUnsigned::max_value());
+		let fee_rate = FeeRate::<PerMillion>::from(100_000u128);
+		let input = FeeRate::<PerMillion>::from(LowPrecisionUnsigned::max_value());
 		assert_eq!(input.checked_div(fee_rate), None);
 	}
 
 	#[test]
 	fn fee_rate_mul_no_overflow() {
 		assert_eq!(
-			FeeRate::<PerCent>::from(50u128)
-				.checked_mul(FeeRate::<PerCent>::from(2u128))
+			FeeRate::<PerMillion>::from(500_000u128)
+				.checked_mul(FeeRate::<PerMillion>::from(20_000u128))
 				.unwrap(),
-			FeeRate::<PerCent>::from(1u128)
+			FeeRate::<PerMillion>::from(10_000u128)
 		);
 	}
 
 	#[test]
 	fn fee_rate_mul_when_overflow() {
-		let fee_rate = FeeRate::<PerCent>::from(200u128);
-		let rhs = FeeRate::<PerCent>::from(LowPrecisionUnsigned::max_value());
+		let fee_rate = FeeRate::<PerMillion>::from(2_000_000u128);
+		let rhs = FeeRate::<PerMillion>::from(LowPrecisionUnsigned::max_value());
 		assert_eq!(fee_rate.checked_mul(rhs), None);
 	}
 }

@@ -13,24 +13,44 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
-use frame_system::{self, ensure_signed};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
+use frame_system::ensure_signed;
 
-pub trait Trait: frame_system::Trait {
-	// add code here
+const MAX_MESSAGES: usize = 1_000_000;
+const MAX_MESSAGE_LENGTH: usize = 100_000;
+const MAX_DELETE_MESSAGES: usize = 10_000;
+
+type MessageId = u32;
+type Message = Vec<u8>;
+
+pub trait Trait: frame_system::Trait {}
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// An inbox cannot store more than MAX_MESSAGES
+		MaxMessage,
+		/// A message cannot be greater than MAX_MESSAGE_LENGTH
+		MaxMessageLength,
+		/// Cannot delete more than MAX_DELETE_MESSAGES at a time
+		MaxDeleteMessage,
+		/// Cannot assign any more ids to message due to overflow
+		MessageIdOverflow,
+	}
 }
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
-		fn add_value(origin, peer_id: T::AccountId, value: Vec<u8>) -> DispatchResult {
-			ensure_signed(origin)?;
+		type Error = Error<T>;
 
+		fn add_value(origin, peer_id: T::AccountId, value: Message) -> DispatchResult {
+			ensure_signed(origin)?;
+			ensure!(value.len() <= MAX_MESSAGE_LENGTH, Error::<T>::MaxMessageLength);
 			Self::add(peer_id, value)
 		}
 
-		fn delete_values(origin, value_ids: Vec<u32>) -> DispatchResult {
+		fn delete_values(origin, value_ids: Vec<MessageId>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
-
+			ensure!(value_ids.len() <= MAX_DELETE_MESSAGES, Error::<T>::MaxDeleteMessage);
 			Self::delete(user_id, value_ids)
 		}
 	}
@@ -38,32 +58,30 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
-		NextIndexes: map hasher(blake2_128_concat) T::AccountId => u32;
-		AccountValues: map hasher(blake2_128_concat) T::AccountId => Vec<(T::AccountId, u32)>;
-		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(u32, Vec<u8>)>;
+		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
+		AccountValues: map hasher(blake2_128_concat) T::AccountId => Vec<(T::AccountId, MessageId)>;
+		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}
 }
 
 impl<T: Trait> Module<T> {
-	pub fn inbox(who: T::AccountId) -> Vec<Vec<u8>> {
+	pub fn inbox(who: T::AccountId) -> Vec<Message> {
 		<Values<T>>::get(who).into_iter().map(|(_, value)| value).collect()
 	}
 
-	pub fn add(peer_id: T::AccountId, value: Vec<u8>) -> DispatchResult {
+	pub fn add(peer_id: T::AccountId, value: Message) -> DispatchResult {
 		// Get required data
 		let next_index = <NextIndexes<T>>::get(&peer_id);
+		ensure!(next_index != u32::max_value(), Error::<T>::MessageIdOverflow);
 		let mut account_values = <AccountValues<T>>::get(&peer_id);
+		ensure!(account_values.len() < MAX_MESSAGES, Error::<T>::MaxMessage);
 
 		// Add new mapping to account values
 		account_values.push((peer_id.clone(), next_index));
 
 		// Store data
 		let mut values = <Values<T>>::get(&peer_id);
-		if let Some((i, _)) = values.iter().enumerate().find(|(_, item)| item.0 == next_index) {
-			values[i] = (next_index, value);
-		} else {
-			values.push((next_index, value));
-		}
+		values.push((next_index, value));
 		<Values<T>>::insert(peer_id.clone(), values);
 		<AccountValues<T>>::insert(&peer_id, account_values);
 
@@ -73,11 +91,11 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
-	pub fn delete(user_id: T::AccountId, value_ids: Vec<u32>) -> DispatchResult {
+	pub fn delete(user_id: T::AccountId, value_ids: Vec<MessageId>) -> DispatchResult {
 		let account_values = <AccountValues<T>>::get(&user_id);
 
 		// Remove reference to value
-		let account_values: Vec<(T::AccountId, u32)> = account_values
+		let account_values: Vec<(T::AccountId, MessageId)> = account_values
 			.into_iter()
 			.filter(|account_value| !value_ids.contains(&account_value.1))
 			.collect();
@@ -101,7 +119,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
@@ -109,7 +127,7 @@ mod tests {
 
 	#[test]
 	fn it_works_adding_values_to_an_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Add a value to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -133,7 +151,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Add values to an empty inbox
 			assert_ok!(Inbox::add_value(
 				Origin::signed(H256::from_low_u64_be(1)),
@@ -173,7 +191,7 @@ mod tests {
 
 	#[test]
 	fn it_works_removing_values_from_an_empty_inbox() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			// Remove a value that doesn't exist
 			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
 		});
