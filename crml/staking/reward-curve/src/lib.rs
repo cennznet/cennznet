@@ -30,7 +30,7 @@ use syn::parse::{Parse, ParseStream};
 
 /// Accepts a number of expressions to create a instance of PiecewiseLinear which represents the
 /// NPoS curve (as detailed
-/// [here](http://research.web3.foundation/en/latest/polkadot/Token%20Economics/#inflation-model))
+/// [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model))
 /// for those parameters. Parameters are:
 /// - `min_inflation`: the minimal amount to be rewarded between validators, expressed as a fraction
 ///   of total issuance. Known as `I_0` in the literature.
@@ -294,14 +294,21 @@ impl INPoS {
 		}
 	}
 
+	// calculates x_ideal from:
+	// y = i_0 + (i_ideal * x_ideal - i_0) * 2^((x_ideal - x)/d)
+	// See web3 docs for the detail - but it is basically an power 2
+	// exponential decay.
 	fn compute_opposite_after_x_ideal(&self, y: u32) -> u32 {
 		if y == self.i_0 {
 			return u32::max_value();
 		}
+		// Note: the log term calculated here represents a negative per_million value
 		let log = log2(self.i_ideal_times_x_ideal - self.i_0, y - self.i_0);
 
 		let term: u32 = ((self.d as u64 * log as u64) / 1_000_000).try_into().unwrap();
 
+		// Normally this should be x_ideal - term, but term represents a negative value
+		// because log represents a negative fraction
 		self.x_ideal + term
 	}
 }
