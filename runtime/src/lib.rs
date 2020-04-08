@@ -22,7 +22,7 @@
 #![allow(array_into_iter)]
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-use cennznut::{CENNZnut, ContractDomain, RuntimeDomain, ValidationErr};
+use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
 use codec::Decode;
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
@@ -543,18 +543,6 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
 
 /// `DelegatedDispatchVerifier` helpers
 impl Runtime {
-	/// Check that the caller is the `holder` of the doughnut
-	fn check_caller(
-		caller: &<Runtime as frame_system::Trait>::AccountId,
-		doughnut: &<Runtime as frame_system::Trait>::Doughnut,
-	) -> Result<(), &'static str> {
-		if caller.clone() != doughnut.holder() {
-			Err("Invalid doughnut holder")
-		} else {
-			Ok(())
-		}
-	}
-
 	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
 	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
 		let mut domain = doughnut
@@ -610,26 +598,34 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 		}
 	}
 
-	/// Check the doughnut authorizes a dispatched call from runtime to the specified contract address for this domain.
+	/// Verify that the contract being called is permissioned on the doughnut
+	/// This is used in two cases:
+	/// * Case 1 - The `holder` of a doughnut wants to invoke a smart contract as the `issuer`
+	/// * Case 2 - The `issuer` wants to execute a contract but only with the permissions avaliable
+	///            in the doughnut being sent. (not implemented yet)
 	fn verify_runtime_to_contract_call(
 		caller: &Self::AccountId,
 		doughnut: &Self::Doughnut,
 		contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		let _ = Self::check_caller(caller, doughnut)?;
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		Self::check_contract(contract_addr, cennznut)
+		if caller.clone() == doughnut.holder() {
+			// Case 1 - account delegation call of a smart contract
+			let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+			return Self::check_contract(contract_addr, cennznut);
+		}
+		Err("Invalid doughnut holder")
 	}
 
-	/// Check the doughnut authorizes a dispatched call from a contract to another contract with the specified addresses for this domain.
+	/// This is used when an issuer delegates permissions to a smart contract
+	/// It should verify that a contract being called by the smart contract is
+	/// permissioned. Not implemented yet.
 	fn verify_contract_to_contract_call(
-		caller: &Self::AccountId,
+		_caller: &Self::AccountId,
 		doughnut: &Self::Doughnut,
-		contract_addr: &Self::AccountId,
+		_contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		let _ = Self::check_caller(caller, doughnut)?;
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		Self::check_contract(contract_addr, cennznut)
+		let _: CENNZnut = Self::get_cennznut(doughnut)?;
+		Ok(()) // Just return OK for now
 	}
 }
 
