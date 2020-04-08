@@ -13,7 +13,9 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
+use frame_support::{
+	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo,
+};
 use frame_system::ensure_signed;
 
 const MAX_MESSAGES: usize = 1_000_000;
@@ -42,12 +44,24 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
+		/// Add a new value into storage
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn add_value(origin, peer_id: T::AccountId, value: Message) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(value.len() <= MAX_MESSAGE_LENGTH, Error::<T>::MaxMessageLength);
 			Self::add(peer_id, value)
 		}
 
+		/// Delete a value from storage
+		///
+		/// weight:
+		/// O(n) where n is number of values in the storage
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
 		fn delete_values(origin, value_ids: Vec<MessageId>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
 			ensure!(value_ids.len() <= MAX_DELETE_MESSAGES, Error::<T>::MaxDeleteMessage);

@@ -14,7 +14,14 @@
 */
 
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, StorageMap};
+use frame_support::{
+	decl_module, decl_storage,
+	dispatch::DispatchResult,
+	dispatch::Vec,
+	ensure,
+	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+	StorageMap,
+};
 use frame_system::ensure_signed;
 use sp_core::{ed25519, hash::H256};
 use sp_runtime::traits::Verify;
@@ -94,6 +101,12 @@ where
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		/// Creates a group with all invitees, set the caller as admin
+		///
+		/// weight:
+		/// O(1). Note: number of member invitee is capped at 15, so equivalent to O(1).
+		/// Limited number of storage writes.
+		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -140,6 +153,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Leaves a group. If no one is left at the group, delete the group
+		///
+		/// weight:
+		/// O(m) where m is the number of members in that group
+		/// Limited number of read and maximum of 2 storage writes.
+		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -167,6 +186,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Update the metadata for the caller in a group
+		///
+		/// weight:
+		/// O(m) where m is the number of members in that group
+		/// Limited number of read and 1 write.
+		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
@@ -194,6 +219,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Merge/update/remove metadata for the group
+		///
+		/// weight:
+		/// O(n) where n is the number of metadata key in the input
+		/// Number of read and writes depending on input data
+		#[weight = FunctionOf(|(_,meta): (&T::Hash, &Meta)|50_000 + (meta.len() as u32)*1_000, DispatchClass::Normal, true)]
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -229,6 +260,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Send invites out to all the invitee
+		///
+		/// weight:
+		/// O(n) where n is the number of invitee
+		/// Limited number of read and writes
+		#[weight = SimpleDispatchInfo::FixedNormal(50_000)]
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -244,6 +281,12 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Accept the invitation and add a user to the group
+		///
+		/// weight:
+		/// O(n + m) where n is the number of groups, and m is the number of members in the group
+		/// Limited number of read and writes to multiple tables
+		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -303,6 +346,12 @@ decl_module! {
 			<inbox::Module<T>>::delete(sender, vec![inbox_id])
 		}
 
+		/// Revoke an invitation
+		///
+		/// weight:
+		/// O(n) where n the number of existing invitation
+		/// Limited number of read and writes
+		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 

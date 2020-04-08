@@ -14,7 +14,7 @@
 */
 
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, weights::SimpleDispatchInfo};
 use frame_system::{self, ensure_signed};
 
 pub trait Trait: frame_system::Trait {}
@@ -35,6 +35,12 @@ impl<T: Encode + Decode> Default for Response<T> {
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		/// Removes a response from a request.
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn remove_response(origin, request_id: T::Hash) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			<Responses<T>>::remove((sender, request_id));

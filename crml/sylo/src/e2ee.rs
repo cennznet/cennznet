@@ -14,7 +14,12 @@
 */
 
 use crate::{device, groups, inbox, response};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_support::{
+	decl_error, decl_module, decl_storage,
+	dispatch::Vec,
+	ensure,
+	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
 use frame_system::ensure_signed;
 
 const MAX_PKBS: usize = 50;
@@ -35,6 +40,13 @@ decl_error! {
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+
+		/// Register a new device for a user
+		///
+		/// weight:
+		/// O(g) where g is the number of groups the user is in
+		/// Multiple reads and writes depending on the user states.
+		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
 		fn register_device(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -50,6 +62,12 @@ decl_module! {
 			<PreKeyBundles<T>>::mutate((sender, device_id), |current_pkbs| current_pkbs.extend(pkbs));
 		}
 
+		/// Add a new PreKey bundle for a given user's device.
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write.
+		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -58,6 +76,12 @@ decl_module! {
 			<PreKeyBundles<T>>::mutate((sender, device_id), |current_pkbs| current_pkbs.extend(pkbs));
 		}
 
+		/// Retrieve and remove the Prekey bundles of a given list of user accounts and devices
+		///
+		/// weight:
+		/// O(n * k) where n is the size of input `wanted_pkbs`, and k is the number existing PKBS in the storage
+		/// Number of read and write scaled by size of input
+		#[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, DeviceId)>) {
 			let sender = ensure_signed(origin)?;
 

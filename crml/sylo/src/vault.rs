@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
 use frame_system::ensure_signed;
 
 pub const MAX_KEYS: usize = 100;
@@ -40,6 +40,12 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
+		/// Insert or update a vault Key
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn upsert_value(origin, key: VaultKey, value: VaultValue) {
 			let user_id = ensure_signed(origin)?;
 			ensure!(value.len() <= MAX_VALUE_LENGTH, Error::<T>::MaxValueLength);
@@ -47,6 +53,12 @@ decl_module! {
 			Self::upsert(user_id, key, value);
 		}
 
+		/// Removes a vault key
+		///
+		/// weight:
+		/// O(1)
+		/// 1 write
+		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
 		fn delete_values(origin, keys: Vec<VaultKey>) {
 			let user_id = ensure_signed(origin)?;
 			ensure!(keys.len() <= MAX_DELETE_KEYS, Error::<T>::MaxDeleteKeys);
