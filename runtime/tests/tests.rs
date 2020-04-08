@@ -1157,3 +1157,47 @@ fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
 			);
 		});
 }
+
+#[test]
+fn generic_asset_transfer_works_with_doughnut() {
+	let cennznut = doughnut::make_runtime_cennznut("generic-asset", "transfer");
+	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+
+	let balance_amount = 1_000_000 * TransactionBaseFee::get();
+	let transfer_amount = 50;
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENNZ_ASSET_ID,
+		charlie(),
+		transfer_amount,
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			// Create an extrinsic where the doughnut is passed
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), None))),
+				function: runtime_call.clone(),
+			});
+
+			// Initialise block and apply the extrinsic
+			Executive::initialize_block(&header());
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			// Check remaining balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENNZ_ASSET_ID)),
+				balance_amount, // Bob not be charged
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				balance_amount - transfer_amount // transfer is paid by Alice
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENNZ_ASSET_ID)),
+				balance_amount + transfer_amount
+			);
+		});
+}
