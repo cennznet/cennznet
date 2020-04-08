@@ -1189,7 +1189,7 @@ fn generic_asset_transfer_works_with_doughnut() {
 			// Check remaining balances
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENNZ_ASSET_ID)),
-				balance_amount, // Bob not be charged
+				balance_amount, // Bob does not transfer CENNZ
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
@@ -1198,6 +1198,62 @@ fn generic_asset_transfer_works_with_doughnut() {
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENNZ_ASSET_ID)),
 				balance_amount + transfer_amount
+			);
+			// Check remaining balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				999995329990000000, // Bob pays transaction fees
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount, // Alice does not pay transaction fees
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount
+			);
+		});
+}
+
+#[test]
+fn contract_call_works_with_doughnut() {
+	let cennznut = doughnut::make_contract_cennznut(&charlie());
+	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+
+	let balance_amount = 10_000 * TransactionBaseFee::get();
+	let transfer_amount = 100000000000000;
+	let gas_limit_amount = 10 * ContractTransactionBaseFee::get();
+	let contract_call = Call::Contracts(pallet_contracts::Call::call::<Runtime>(
+		charlie(),
+		transfer_amount,
+		gas_limit_amount as u64,
+		vec![],
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.gas_price(1)
+		.build()
+		.execute_with(|| {
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), None))),
+				function: contract_call,
+			});
+			Executive::initialize_block(&header());
+			let r = Executive::apply_extrinsic(xt);
+			assert!(r.is_ok());
+
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				9994929990000000, // Bob pays transaction fees
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount + transfer_amount, // charlie receives transfer amount
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount - transfer_amount - 235, // alice pays transfer amount + gas
 			);
 		});
 }

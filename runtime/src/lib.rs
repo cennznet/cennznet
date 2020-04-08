@@ -608,12 +608,12 @@ impl additional_traits::DelegatedDispatchVerifier for Runtime {
 		doughnut: &Self::Doughnut,
 		contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
-		if caller.clone() == doughnut.holder() {
+		if caller.clone() == doughnut.issuer() {
 			// Case 1 - account delegation call of a smart contract
 			let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
 			return Self::check_contract(contract_addr, cennznut);
 		}
-		Err("Invalid doughnut holder")
+		Err("Invalid doughnut caller")
 	}
 
 	/// This is used when an issuer delegates permissions to a smart contract
