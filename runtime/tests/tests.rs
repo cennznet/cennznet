@@ -1142,6 +1142,67 @@ fn generic_asset_transfer_works_with_doughnut() {
 }
 
 #[test]
+fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
+	let cennznut = doughnut::make_runtime_cennznut("attestation", "attest");
+	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+
+	let balance_amount = 1_000_000 * TransactionBaseFee::get();
+	let transfer_amount = 50;
+	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+		CENNZ_ASSET_ID,
+		charlie(),
+		transfer_amount,
+	));
+
+	ExtBuilder::default()
+		.initial_balance(balance_amount)
+		.build()
+		.execute_with(|| {
+			// Create an extrinsic where the doughnut is passed
+			let xt = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), None))),
+				function: runtime_call.clone(),
+			});
+
+			// Initialise block and apply the extrinsic
+			Executive::initialize_block(&header());
+			assert_eq!(
+				Executive::apply_extrinsic(xt),
+				Ok(Err(DispatchError::Other(
+					"CENNZnut does not grant permission for module"
+				)))
+			);
+
+			// All accounts stay the same
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENNZ_ASSET_ID)),
+				balance_amount,
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				balance_amount,
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENNZ_ASSET_ID)),
+				balance_amount,
+			);
+			// Check remaining balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				999995329990000000, // Bob pays transaction fees
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount, // Alice does not pay transaction fees
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENTRAPAY_ASSET_ID)),
+				balance_amount
+			);
+		});
+}
+
+#[test]
 fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 	let cennznut = doughnut::make_runtime_cennznut("generic-asset", "transfer");
 	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
