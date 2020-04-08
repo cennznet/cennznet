@@ -27,7 +27,8 @@ mod tests;
 
 pub trait Trait: frame_system::Trait + inbox::Trait + device::Trait + vault::Trait {}
 
-const INVITES_MAX: usize = 15;
+const MAX_INVITES: usize = 15;
+const MAX_MEMBERS: usize = 100;
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
@@ -97,8 +98,8 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::contains_key(&group_id), "Group already exists");
-			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(invites.len() < MAX_INVITES, "Can not invite more than maximum amount");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
@@ -234,7 +235,7 @@ decl_module! {
 			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
 			ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
-			ensure!(invites.len() < INVITES_MAX, "Can not invite more than maximum amount");
+			ensure!(invites.len() < MAX_INVITES, "Can not invite more than maximum amount");
 
 			for invite in invites {
 				let _ = Self::create_invite(&group_id, invite);
@@ -248,9 +249,10 @@ decl_module! {
 
 			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
 			ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::KEYS_MAX, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
 
 			let mut group = <Groups<T>>::get(&group_id);
+			ensure!(group.members.len() < MAX_MEMBERS, "Can not store more than maximum number of members");
 			let invite = group.clone().invites
 				.into_iter()
 				.find(|invite| invite.invite_key == invite_key)

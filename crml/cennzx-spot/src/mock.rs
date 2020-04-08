@@ -23,7 +23,7 @@ use pallet_generic_asset::AssetCurrency;
 
 use crate::{
 	impls::ExchangeAddressGenerator,
-	types::{FeeRate, LowPrecisionUnsigned, PerMilli, PerMillion},
+	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerThousand},
 	Call, GenesisConfig, Module, Trait,
 };
 use core::convert::TryFrom;
@@ -159,7 +159,7 @@ impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			core_asset_id: 0,
-			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
+			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 		}
 	}
 }

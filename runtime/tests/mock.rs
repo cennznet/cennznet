@@ -19,7 +19,7 @@ use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
-use crml_cennzx_spot::{FeeRate, PerMilli, PerMillion};
+use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
 
@@ -104,7 +104,7 @@ impl ExtBuilder {
 			.build_storage::<Runtime>()
 			.unwrap();
 		crml_cennzx_spot::GenesisConfig::<Runtime> {
-			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerMilli>::from(3u128)).unwrap(),
+			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)

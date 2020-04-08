@@ -16,7 +16,7 @@
 #[cfg(test)]
 mod tests {
 	use crate::groups::{AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
-	use crate::mock::{new_test_ext, Origin, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use crate::vault;
 	use frame_support::{assert_ok, dispatch::DispatchError};
 	use sp_core::{ed25519, Pair, H256};
@@ -26,7 +26,7 @@ mod tests {
 
 	#[test]
 	fn it_works_creating_a_group() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let group_id = H256::from([1; 32]);
 			//Create a group
@@ -72,7 +72,7 @@ mod tests {
 
 	#[test]
 	fn it_works_modifying_meta() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let mut meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let mut meta_2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
@@ -117,7 +117,7 @@ mod tests {
 
 	#[test]
 	fn should_leave_group() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -157,7 +157,7 @@ mod tests {
 
 	#[test]
 	fn should_accept_invite() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let group_id = H256::from([2; 32]);
 
 			//Create a group
@@ -252,7 +252,7 @@ mod tests {
 
 	#[test]
 	fn should_revoke_invites() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -303,7 +303,7 @@ mod tests {
 
 	#[test]
 	fn should_update_member() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder.build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 
