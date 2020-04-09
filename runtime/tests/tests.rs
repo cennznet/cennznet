@@ -526,11 +526,11 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 #[test]
 /// This tests if authorship reward of the last block in an era is factored in.
 fn authorship_reward_of_last_block_in_an_era() {
-	let validators = validators(6);
+	let validators_count = 6;
 	let initial_balance = 1_000 * TransactionBaseFee::get();
 
 	ExtBuilder::default()
-		.validator_count(validators.len())
+		.validator_count(validators_count)
 		.initial_balance(initial_balance)
 		.stash(initial_balance)
 		.build()
@@ -538,10 +538,11 @@ fn authorship_reward_of_last_block_in_an_era() {
 			let last_session_of_era_0 = SessionsPerEra::get() - 1;
 			rotate_to_session(last_session_of_era_0);
 
-			// The last session falls in the era 1
+			// The last session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
-			// According to this test config there should be 6 validators elected now
-			assert_eq!(Staking::current_elected().len(), 6);
+
+			// Make sure we have the correct number of validators elected
+			assert_eq!(Staking::current_elected().len(), validators_count);
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
@@ -556,7 +557,8 @@ fn authorship_reward_of_last_block_in_an_era() {
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block = GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+			let author_stash_balance_before_adding_block =
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
 
 			// Let's go through the first stage of executing the block
 			Executive::initialize_block(&header);
@@ -564,11 +566,14 @@ fn authorship_reward_of_last_block_in_an_era() {
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
 
-			// If the offended validator is chilled, in the new era, there should be one less than 6 validators elected
-			assert_eq!(Staking::current_elected().len(), 6);
+			// No offences should happened. Thus the number of validators shouldn't have changed
+			assert_eq!(Staking::current_elected().len(), validators_count);
 
 			// There should be a reward calculated for the author
-			assert!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id) > author_stash_balance_before_adding_block);
+			assert!(
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
+					> author_stash_balance_before_adding_block
+			);
 		});
 }
 
@@ -576,11 +581,11 @@ fn authorship_reward_of_last_block_in_an_era() {
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
 fn authorship_reward_of_a_chilled_validator() {
-	let validators = validators(6);
+	let validators_count = 6;
 	let initial_balance = 1_000 * TransactionBaseFee::get();
 
 	ExtBuilder::default()
-		.validator_count(validators.len())
+		.validator_count(validators_count)
 		.initial_balance(initial_balance)
 		.stash(initial_balance)
 		.build()
@@ -588,10 +593,11 @@ fn authorship_reward_of_a_chilled_validator() {
 			let last_session_of_era_0 = SessionsPerEra::get() - 1;
 			rotate_to_session(last_session_of_era_0);
 
-			// The last session falls in the era 1
+			// The last session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
-			// According to this test config there should be 6 validators elected now
-			assert_eq!(Staking::current_elected().len(), 6);
+
+			// make sure we have the correct number of validators elected
+			assert_eq!(Staking::current_elected().len(), validators_count);
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
@@ -616,7 +622,8 @@ fn authorship_reward_of_a_chilled_validator() {
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block = GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+			let author_stash_balance_before_adding_block =
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
 
 			// Let's go through the first stage of executing the block
 			Executive::initialize_block(&header);
@@ -624,11 +631,14 @@ fn authorship_reward_of_a_chilled_validator() {
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
 
-			// If the offended validator is chilled, in the new era, there should be one less than 6 validators elected
-			assert_eq!(Staking::current_elected().len(), 5);
+			// If the offended validator is chilled, in the new era, there should be one less elected validators than before
+			assert_eq!(Staking::current_elected().len(), validators_count - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id) > author_stash_balance_before_adding_block);
+			assert!(
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
+					> author_stash_balance_before_adding_block
+			);
 		});
 }
 
