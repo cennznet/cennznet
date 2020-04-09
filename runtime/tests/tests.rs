@@ -691,13 +691,13 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 	// followed by 32 bytes of bob's account id. The last byte is 50 encoded using the compact codec as well.
 	// For more info, see the method signature for generic_asset::transfer() and the use of #[compact] for args.
 	let encoded_test_bytes: Vec<u8> = vec![
-		6, 1, 5, 250, 142, 175, 4, 21, 22, 135, 115, 99, 38, 201, 254, 161, 126, 37, 252, 82, 135, 97, 54, 147, 201,
+		5, 1, 5, 250, 142, 175, 4, 21, 22, 135, 115, 99, 38, 201, 254, 161, 126, 37, 252, 82, 135, 97, 54, 147, 201,
 		18, 144, 156, 178, 38, 170, 71, 148, 242, 106, 72, 200,
 	];
 	assert_eq!(encoded, encoded_test_bytes);
 	assert_eq!(
 		hex::encode(encoded),
-		"060105fa8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48c8"
+		"050105fa8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48c8"
 	);
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -927,7 +927,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				.encode()
 				.as_slice(),
 				vec![
-					6, 1, 1, 250, 144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156,
+					5, 1, 1, 250, 144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156,
 					168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34, 11, 0, 160, 114, 78, 24, 9
 				]
 				.as_slice()
