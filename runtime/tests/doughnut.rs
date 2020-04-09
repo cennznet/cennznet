@@ -16,7 +16,7 @@
 //! Doughnut integration tests
 
 use cennznet_primitives::types::AccountId;
-use cennznet_runtime::{CennznetDoughnut, Runtime};
+use cennznet_runtime::{impls::CENNZnetDispatchVerifier, CennznetDoughnut};
 use cennznut::{self};
 use cennznut::{CENNZnut, CENNZnutV0};
 use codec::Encode;
@@ -55,7 +55,7 @@ pub fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut 
 }
 
 fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
-	<Runtime as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method)
+	<CENNZnetDispatchVerifier as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method)
 }
 
 fn verify_runtime_to_contract(
@@ -63,15 +63,11 @@ fn verify_runtime_to_contract(
 	doughnut: &CennznetDoughnut,
 	contract_addr: &AccountId,
 ) -> Result<(), &'static str> {
-	<Runtime as DelegatedDispatchVerifier>::verify_runtime_to_contract_call(caller, doughnut, contract_addr)
-}
-
-fn verify_contract_to_contract(
-	caller: &AccountId,
-	doughnut: &CennznetDoughnut,
-	contract_addr: &AccountId,
-) -> Result<(), &'static str> {
-	<Runtime as DelegatedDispatchVerifier>::verify_contract_to_contract_call(caller, doughnut, contract_addr)
+	<CENNZnetDispatchVerifier as DelegatedDispatchVerifier>::verify_runtime_to_contract_call(
+		caller,
+		doughnut,
+		contract_addr,
+	)
 }
 
 // A helper to make test CENNZnuts
@@ -232,16 +228,6 @@ fn it_fails_runtime_to_contract_with_invalid_domain() {
 }
 
 #[test]
-fn it_fails_contract_to_contract_with_invalid_domain() {
-	let cennznut = make_contract_cennznut(&CONTRACT_ADDRESS.into());
-	let doughnut = make_doughnut("sendsnet", cennznut.encode());
-	assert_err!(
-		verify_contract_to_contract(&test_issuer().into(), &doughnut, &CONTRACT_ADDRESS.into()),
-		"CENNZnut does not grant permission for cennznet domain"
-	);
-}
-
-#[test]
 fn it_fails_runtime_to_contract_with_invalid_contract() {
 	let cennznut = make_contract_cennznut(&CONTRACT_ADDRESS.into());
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
@@ -264,12 +250,11 @@ fn it_succeeds_runtime_to_contract_with_valid_contract() {
 }
 
 #[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "Invalid doughnut caller")]
 fn it_fails_runtime_to_contract_with_invalid_caller() {
 	let cennznut = make_contract_cennznut(&CONTRACT_ADDRESS.into());
 	let doughnut = make_doughnut("cennznet", cennznut.encode());
 	let invalid_caller: [u8; 32] = [0x55; 32];
-	assert_err!(
-		verify_runtime_to_contract(&invalid_caller.into(), &doughnut, &CONTRACT_ADDRESS.into()),
-		"Invalid doughnut caller"
-	);
+	let _ = verify_runtime_to_contract(&invalid_caller.into(), &doughnut, &CONTRACT_ADDRESS.into());
 }
