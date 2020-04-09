@@ -813,7 +813,7 @@ dependencies = [
 [[package]]
 name = "cennznut"
 version = "0.1.1"
-source = "git+https://github.com/cennznet/cennznut-rs?branch=feature/cennznet-integration#400429ad4579ac9b5b04a338cd092bdac6c8c866"
+source = "git+https://github.com/cennznet/cennznut-rs?branch=0.4.0#f64805d409c4c08730df5bd2175cbbf9715833d3"
 dependencies = [
  "bit_reverse",
  "pact",
