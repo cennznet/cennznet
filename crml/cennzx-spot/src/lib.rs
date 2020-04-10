@@ -95,10 +95,6 @@ decl_error! {
 		MinimumTradeAssetIsRequired,
 		// Minimum core asset is required
 		MinimumCoreAssetIsRequired,
-		// Assets withdrawn to be greater than zero
-		AssetToWithdrawNotAboveZero,
-		// Amount of exchange asset to burn should exist
-		LiquidityToWithdrawNotAboveZero,
 		// Liquidity should exist
 		NoLiquidityToRemove,
 		// trade asset amount must be greater than zero
