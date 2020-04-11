@@ -138,12 +138,12 @@ fn calculate_buy_price_max_withdrawal() {
 
 		assert_err!(
 			CennzXSpot::calculate_buy_price(1000, 1000, 1000),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 
 		assert_err!(
 			CennzXSpot::calculate_buy_price(1_000_000, 1000, 1000),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -189,7 +189,7 @@ fn asset_buy_insufficient_reserve_error() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 
 		assert_err!(
@@ -197,7 +197,7 @@ fn asset_buy_insufficient_reserve_error() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -1537,7 +1537,7 @@ fn get_buy_price_low_buy_asset_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -1554,7 +1554,7 @@ fn get_buy_price_low_buy_core_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }

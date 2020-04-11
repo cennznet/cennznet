@@ -26,7 +26,7 @@ pub mod error_code {
 	pub const UNKNOWN_BUY_FEE_ASSET: u8 = 202;
 	pub const LIQUIDITY_TOO_LOW: u8 = 203;
 	pub const ASSET_CANNOT_SWAP_FOR_ITSELF: u8 = 204;
-	pub const INSUFFICIENT_ASSET_RESERVE: u8 = 205;
+	pub const INSUFFICIENT_EXCHANGE_POOL_RESERVE: u8 = 205;
 	pub const PRICE_ABOVE_MAX_LIMIT: u8 = 206;
 	pub const INSUFFICIENT_BALANCE: u8 = 195;
 
@@ -35,7 +35,7 @@ pub mod error_code {
 	pub fn buy_fee_asset_error_msg_to_code(message: &'static str) -> u8 {
 		match message {
 			"InsufficientBalance" => INSUFFICIENT_BALANCE,
-			"InsufficientAssetReserve" => INSUFFICIENT_ASSET_RESERVE,
+			"InsufficientExchangePoolReserve" => INSUFFICIENT_EXCHANGE_POOL_RESERVE,
 			"BuyAmountNotPositive" => BUY_AMOUNT_NOT_POSITIVE,
 			"SaleValueBelowRequiredMinimum" => SALE_VALUE_BELOW_REQUIRED_MINIMUM,
 			"AssetCannotSwapForItself" => ASSET_CANNOT_SWAP_FOR_ITSELF,

@@ -1047,7 +1047,7 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(INSUFFICIENT_ASSET_RESERVE).into())
+				Err(InvalidTransaction::Custom(INSUFFICIENT_EXCHANGE_POOL_RESERVE).into())
 			);
 		});
 }

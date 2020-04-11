@@ -80,9 +80,11 @@ decl_error! {
 		/// Exchange pool is empty.
 		EmptyExchangePool,
 		// Insufficient asset reserve in exchange
-		InsufficientAssetReserve,
+		InsufficientExchangePoolReserve,
 		// Trader has insufficient balance
 		InsufficientBalance,
+		InsufficientTradeAssetBalance,
+		InsufficientCoreAssetBalance,
 		// Buy amount must be a positive value
 		BuyAmountNotPositive,
 		// The sale value of input is less than the required minimum.
@@ -101,10 +103,6 @@ decl_error! {
 		TradeAssetToAddLiquidityNotAboveZero,
 		// core asset amount must be greater than zero
 		CoreAssetToAddLiquidityNotAboveZero,
-		// not enough core asset in balance
-		CoreAssetBalanceToAddLiquidityTooLow,
-		// not enough trade asset balance
-		TradeAssetBalanceToAddLiquidityTooLow,
 		// Minimum liquidity is required
 		LiquidityMintableLowerThanRequired,
 		// Token liquidity check unsuccessful
@@ -216,11 +214,11 @@ decl_module! {
 			);
 			ensure!(
 				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
-				Error::<T>::CoreAssetBalanceToAddLiquidityTooLow
+				Error::<T>::InsufficientCoreAssetBalance
 			);
 			ensure!(
 				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
-				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
+				Error::<T>::InsufficientTradeAssetBalance
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
@@ -527,7 +525,7 @@ impl<T: Trait> Module<T> {
 			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
 		);
-		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientExchangePoolReserve);
 
 		let buy_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_amount).into());
 		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
@@ -654,7 +652,7 @@ impl<T: Trait> Module<T> {
 		let price_lp = price_lp_result.unwrap();
 
 		let price = T::UnsignedIntToBalance::from(price_lp).into();
-		ensure!(buy_reserve > price, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > price, Error::<T>::InsufficientExchangePoolReserve);
 		Ok(price)
 	}
 
