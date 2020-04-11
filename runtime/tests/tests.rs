@@ -1000,7 +1000,7 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(BUY_PRICE_ABOVE_MAXIMUM_SELL).into())
+				Err(InvalidTransaction::Custom(MAXIMUM_SELL_REQUIREMENT_NOT_MET).into())
 			);
 		});
 }

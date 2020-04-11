@@ -19,15 +19,15 @@
 //! Transaction Payment Customized Error Code Constants
 
 pub mod error_code {
-	pub const SELL_VALUE_BELOW_MINIMUM_BUY: u8 = 197;
+	pub const MINIMUM_BUY_REQUIREMENT_NOT_MET: u8 = 197;
 	pub const CANNOT_TRADE_ZERO: u8 = 199;
 	pub const INSUFFICIENT_FEE_ASSET_BALANCE: u8 = 200;
 	pub const INVALID_ASSET_ID: u8 = 201;
 	pub const UNKNOWN_BUY_FEE_ASSET: u8 = 202;
-	pub const LIQUIDITY_TOO_LOW: u8 = 203;
+	pub const INSUFFICIENT_LIQUIDITY: u8 = 203;
 	pub const ASSET_CANNOT_SWAP_FOR_ITSELF: u8 = 204;
 	pub const INSUFFICIENT_EXCHANGE_POOL_RESERVE: u8 = 205;
-	pub const BUY_PRICE_ABOVE_MAXIMUM_SELL: u8 = 206;
+	pub const MAXIMUM_SELL_REQUIREMENT_NOT_MET: u8 = 206;
 	pub const INSUFFICIENT_BALANCE: u8 = 195;
 
 	// Matches and converts crml-cennzx-spot module errors, such that
@@ -37,11 +37,11 @@ pub mod error_code {
 			"InsufficientBalance" => INSUFFICIENT_BALANCE,
 			"InsufficientExchangePoolReserve" => INSUFFICIENT_EXCHANGE_POOL_RESERVE,
 			"CannotTradeZero" => CANNOT_TRADE_ZERO,
-			"SellValueBelowMinimumBuy" => SELL_VALUE_BELOW_MINIMUM_BUY,
+			"MinimumBuyRequirementNotMet" => MINIMUM_BUY_REQUIREMENT_NOT_MET,
 			"AssetCannotSwapForItself" => ASSET_CANNOT_SWAP_FOR_ITSELF,
-			"BuyPriceAboveMaximumSell" => BUY_PRICE_ABOVE_MAXIMUM_SELL,
+			"MaximumSellRequirementNotMet" => MAXIMUM_SELL_REQUIREMENT_NOT_MET,
 			"InvalidAssetId" => INVALID_ASSET_ID,
-			"LiquidityTooLow" => LIQUIDITY_TOO_LOW,
+			"InsufficientLiquidity" => INSUFFICIENT_LIQUIDITY,
 			_ => UNKNOWN_BUY_FEE_ASSET,
 		}
 	}
