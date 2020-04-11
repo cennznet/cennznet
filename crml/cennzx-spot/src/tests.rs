@@ -170,11 +170,11 @@ fn asset_buy_zero_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
 			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -262,7 +262,7 @@ fn asset_buy_error_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 		// core to asset swap output
 		assert_err!(
@@ -274,7 +274,7 @@ fn asset_buy_error_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -328,7 +328,7 @@ fn asset_buy_error_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::BuyPriceAboveMaximumSell
 		);
 
 		// core to asset swap output
@@ -341,7 +341,7 @@ fn asset_buy_error_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::BuyPriceAboveMaximumSell
 		);
 	});
 }
@@ -963,11 +963,11 @@ fn asset_sell_error_zero_sell_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
 			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::CoreToAssetSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1110,7 +1110,7 @@ fn asset_sell_error_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1122,7 +1122,7 @@ fn asset_sell_error_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			Error::<Test>::CoreToAssetSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1143,7 +1143,7 @@ fn asset_sell_error_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::SellValueBelowMinimumBuy
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1155,7 +1155,7 @@ fn asset_sell_error_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::SellValueBelowMinimumBuy
 		);
 	});
 }
@@ -1246,7 +1246,7 @@ fn asset_to_asset_buy_error_zero_asset_sold() {
 				0,                                      // buy_amount
 				300,                                    // maximum asset A to sell
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1288,7 +1288,7 @@ fn asset_to_asset_buy_error_exceed_max_sale() {
 				156,                                    // buy_amount
 				100,                                    // maximum asset A to sell
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::BuyPriceAboveMaximumSell
 		);
 	});
 }
@@ -1358,7 +1358,7 @@ fn asset_to_asset_swap_sell_error_zero_asset_sold() {
 				0,                                      // sell_amount
 				100,                                    // min buy limit for asset B
 			),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1400,7 +1400,7 @@ fn asset_to_asset_sell_error_less_than_min_sale() {
 				156,                                    // sell_amount
 				200,                                    // min buy limit for asset B
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::SellValueBelowMinimumBuy
 		);
 	});
 }

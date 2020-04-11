@@ -879,7 +879,7 @@ mod tests {
 						info_from_weight(3),
 						len
 					),
-					error_from_code(error_code::PRICE_ABOVE_MAX_LIMIT)
+					error_from_code(error_code::BUY_PRICE_ABOVE_MAXIMUM_SELL)
 				);
 			})
 	}

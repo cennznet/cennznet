@@ -85,12 +85,12 @@ decl_error! {
 		InsufficientBalance,
 		InsufficientTradeAssetBalance,
 		InsufficientCoreAssetBalance,
-		// Buy amount must be a positive value
-		BuyAmountNotPositive,
+		CannotTradeZero,
+		CannotAddLiquidityWithZero,
 		// The sale value of input is less than the required minimum.
-		SaleValueBelowRequiredMinimum,
+		SellValueBelowMinimumBuy,
 		// Price exceeds the specified max. limit
-		PriceAboveMaxLimit,
+		BuyPriceAboveMaximumSell,
 		// Tried to overdraw liquidity
 		LiquidityTooLow,
 		// Minimum trade asset is required
@@ -99,18 +99,10 @@ decl_error! {
 		MinimumCoreAssetIsRequired,
 		// Liquidity should exist
 		NoLiquidityToRemove,
-		// trade asset amount must be greater than zero
-		TradeAssetToAddLiquidityNotAboveZero,
-		// core asset amount must be greater than zero
-		CoreAssetToAddLiquidityNotAboveZero,
 		// Minimum liquidity is required
 		LiquidityMintableLowerThanRequired,
 		// Token liquidity check unsuccessful
 		TradeAssetToAddLiquidityAboveMaxAmount,
-		// Asset to core sell amount must be a positive value
-		AssetToCoreSellAmountNotAboveZero,
-		// Core to Asset sell amount must be a positive value
-		CoreToAssetSellAmountNotAboveZero,
 		// Asset to swap should not be equal
 		AssetCannotSwapForItself,
 		// Asset id doesn't exist
@@ -205,12 +197,8 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
 			ensure!(
-				!max_asset_amount.is_zero(),
-				Error::<T>::TradeAssetToAddLiquidityNotAboveZero
-			);
-			ensure!(
-				!core_amount.is_zero(),
-				Error::<T>::CoreAssetToAddLiquidityNotAboveZero
+				!max_asset_amount.is_zero() || !core_amount.is_zero(),
+				Error::<T>::CannotAddLiquidityWithZero
 			);
 			ensure!(
 				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
@@ -493,7 +481,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
+		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_buy_price(buy_amount, asset_reserve, core_reserve)
@@ -506,7 +494,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
+		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_buy_price(buy_amount, core_reserve, asset_reserve)
@@ -592,7 +580,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			sell_amount > Zero::zero(),
-			Error::<T>::AssetToCoreSellAmountNotAboveZero
+			Error::<T>::CannotTradeZero
 		);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -609,7 +597,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			sell_amount > Zero::zero(),
-			Error::<T>::CoreToAssetSellAmountNotAboveZero
+			Error::<T>::CannotTradeZero
 		);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -688,7 +676,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
 		let amount_to_sell = Self::get_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
-		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
+		ensure!(amount_to_sell <= maximum_sell, Error::<T>::BuyPriceAboveMaximumSell);
 
 		// Check the trader has enough balance
 		ensure!(
@@ -732,7 +720,7 @@ impl<T: Trait> Module<T> {
 
 		// Check the buy amount meets the minimum requirement
 		let amount_to_buy = Self::get_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
-		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
+		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SellValueBelowMinimumBuy);
 
 		Self::execute_trade(
 			trader,
