@@ -257,13 +257,13 @@ where
 
 		// How much user nominated fee asset has been spent so far
 		// used for accounting the 'max payment' preference
-		let mut nominated_asset_spent: BalanceOf<T> = Zero::zero();
+		let mut exchange_asset_spent: BalanceOf<T> = Zero::zero();
 
 		// Only mess with balances if the fee is not zero.
 		if !fee.is_zero() {
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				nominated_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
+				exchange_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
 					let code = match e {
 						DispatchError::Module { message, .. } => error_code::buy_fee_asset_error_msg_to_code(
 							message.unwrap_or("Unknown buy fee asset error"),
@@ -301,7 +301,7 @@ where
 						exchange.asset_id(),
 						exchange
 							.max_payment()
-							.checked_sub(&nominated_asset_spent)
+							.checked_sub(&exchange_asset_spent)
 							.unwrap_or(0.into()),
 					),
 				);
