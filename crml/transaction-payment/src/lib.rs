@@ -916,6 +916,33 @@ mod tests {
 			});
 	}
 
+	#[test]
+	fn fee_exchange_temporary_storage_unused_for_normal_calls() {
+		ExtBuilder::default()
+			.base_fee(5)
+			.balance_factor(1000)
+			.build()
+			.execute_with(|| {
+				let len: u64 = 10;
+
+				// `GAS_FEE_EXCHANGE_KEY` temporary storage should be unset
+				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 111);
+				let transaction_payment_with_fee_exchange =
+					ChargeTransactionPayment::<Runtime>::from(0, Some(fee_exchange.clone()));
+				assert!(transaction_payment_with_fee_exchange
+					.pre_dispatch(&1, CALL, info_from_weight(3), len as usize)
+					.is_ok());
+				assert!(storage::unhashed::get::<Option<()>>(&GAS_FEE_EXCHANGE_KEY).is_none());
+
+				// `GAS_FEE_EXCHANGE_KEY` temporary storage should be unset
+				let transaction_payment_without_fee_exchange = ChargeTransactionPayment::<Runtime>::from(0, None);
+				assert!(transaction_payment_without_fee_exchange
+					.pre_dispatch(&1, CALL, info_from_weight(3), len as usize)
+					.is_ok());
+				assert!(storage::unhashed::get::<Option<()>>(&GAS_FEE_EXCHANGE_KEY).is_none());
+			});
+	}
+
 	// For the () implmentation of NegativeImbalance, we reduce the total issuance by the fee
 	#[test]
 	fn imbalanced_is_executed_for_fee_payment() {
