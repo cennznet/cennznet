@@ -32,14 +32,13 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase, RawOrigin};
 use pallet_contracts::{ContractAddressFor, RawEvent};
-use sp_keyring::AccountKeyring;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
+use sp_keyring::AccountKeyring;
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, DoughnutApi, Hash, Header as HeaderT},
 	transaction_validity::InvalidTransaction,
-	Doughnut, DoughnutV0,
-	Perbill,
+	Doughnut, DoughnutV0, Perbill,
 };
 use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 
@@ -224,7 +223,6 @@ fn reward_validators(validators: &[(AccountId, AccountId)]) {
 #[test]
 fn start_session_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		// TODO test the current session index after each set
 		start_session(1);
 		start_session(3);
 		start_session(5);
