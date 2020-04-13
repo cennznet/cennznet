@@ -68,6 +68,98 @@ fn investor_can_add_liquidity() {
 }
 
 #[test]
+fn add_liquidity_fails_with_insufficient_trade_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let core_balance = 1000;
+		let trade_balance = 100;
+		let investor: AccountId =
+			with_account!(CoreAssetCurrency => core_balance, TradeAssetCurrencyA => trade_balance);
+
+		let min_liquidity = 1;
+		let max_trade_amount = 101;
+		let core_amount = 100;
+
+		let origin = Origin::signed(investor.clone());
+		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
+
+		assert_err!(
+			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
+			Error::<Test>::InsufficientTradeAssetBalance
+		);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_insufficient_core_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let core_balance = 1000;
+		let trade_balance = 100;
+		let investor: AccountId =
+			with_account!(CoreAssetCurrency => core_balance, TradeAssetCurrencyA => trade_balance);
+
+		let min_liquidity = 1;
+		let max_trade_amount = 100;
+		let core_amount = 1001;
+
+		let origin = Origin::signed(investor.clone());
+		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
+
+		assert_err!(
+			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
+			Error::<Test>::InsufficientCoreAssetBalance
+		);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_zero_add() {
+	ExtBuilder::default().build().execute_with(|| {
+		let core_balance = 1000;
+		let trade_balance = 100;
+		let investor: AccountId =
+			with_account!(CoreAssetCurrency => core_balance, TradeAssetCurrencyA => trade_balance);
+
+		let min_liquidity = 1;
+		let max_trade_amount = 10;
+		let core_amount = 100;
+
+		let origin = Origin::signed(investor.clone());
+		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
+
+		assert_err!(
+			CennzXSpot::add_liquidity(origin.clone(), asset_id.clone(), min_liquidity, 0, core_amount),
+			Error::<Test>::CannotAddLiquidityWithZero
+		);
+		assert_err!(
+			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, 0),
+			Error::<Test>::CannotAddLiquidityWithZero
+		);
+	});
+}
+
+#[test]
+fn remove_liquidity_fails_with_empty_pool() {
+	ExtBuilder::default().build().execute_with(|| {
+		let core_balance = 1000;
+		let trade_balance = 100;
+		let investor: AccountId =
+			with_account!(CoreAssetCurrency => core_balance, TradeAssetCurrencyA => trade_balance);
+
+		let liquidity = 0;
+		let min_asset = 0;
+		let min_core = 0;
+
+		let origin = Origin::signed(investor.clone());
+		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
+
+		assert_err!(
+			CennzXSpot::remove_liquidity(origin, asset_id, liquidity, min_asset, min_core),
+			Error::<Test>::EmptyExchangePool
+		);
+	});
+}
+
+#[test]
 fn calculate_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
@@ -138,12 +230,12 @@ fn calculate_buy_price_max_withdrawal() {
 
 		assert_err!(
 			CennzXSpot::calculate_buy_price(1000, 1000, 1000),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 
 		assert_err!(
 			CennzXSpot::calculate_buy_price(1_000_000, 1000, 1000),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -170,11 +262,11 @@ fn asset_buy_zero_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
 			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -189,7 +281,7 @@ fn asset_buy_insufficient_reserve_error() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 
 		assert_err!(
@@ -197,7 +289,7 @@ fn asset_buy_insufficient_reserve_error() {
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -262,7 +354,7 @@ fn asset_buy_error_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 		// core to asset swap output
 		assert_err!(
@@ -274,7 +366,7 @@ fn asset_buy_error_zero_asset_sold() {
 				0,   // buy_amount
 				100, // max_sale,
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -328,7 +420,7 @@ fn asset_buy_error_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::MaximumSellRequirementNotMet
 		);
 
 		// core to asset swap output
@@ -341,7 +433,7 @@ fn asset_buy_error_exceed_max_sale() {
 				50, // buy_amount
 				0,  // max_sale,
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::MaximumSellRequirementNotMet
 		);
 	});
 }
@@ -425,7 +517,7 @@ fn add_liquidity_fails_with_too_high_min_liquidity_on_first_add() {
 				500, // max_asset_amount: T::Balance,
 				500, // core_amount: T::Balance,
 			),
-			Error::<Test>::LiquidityMintableLowerThanRequired
+			Error::<Test>::MinimumLiquidityRequirementNotMet
 		);
 
 		assert_exchange_balance_eq!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 0);
@@ -455,7 +547,7 @@ fn add_liquidity_fails_with_too_high_min_liquidity_on_consecutive_add() {
 				500, // max_asset_amount: T::Balance,
 				500, // core_amount: T::Balance,
 			),
-			Error::<Test>::LiquidityMintableLowerThanRequired
+			Error::<Test>::MinimumLiquidityRequirementNotMet
 		);
 
 		assert_exchange_balance_eq!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
@@ -485,7 +577,7 @@ fn add_liquidity_fails_with_too_low_trade_asset() {
 				99,  // max_asset_amount: T::Balance,
 				100, // core_amount: T::Balance,
 			),
-			Error::<Test>::TradeAssetToAddLiquidityAboveMaxAmount
+			Error::<Test>::MaximumTradeAssetRequirementNotMet
 		);
 
 		assert_exchange_balance_eq!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 500);
@@ -781,7 +873,7 @@ fn remove_liquidity_fails_min_core_asset_limit() {
 				4,  //`min_asset_withdraw` - The minimum trade asset withdrawn
 				14  //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			Error::<Test>::MinimumCoreAssetIsRequired
+			Error::<Test>::MinimumCoreAssetRequirementNotMet
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -811,7 +903,7 @@ fn remove_liquidity_fails_min_trade_asset_limit() {
 				18, //`min_asset_withdraw` - The minimum trade asset withdrawn
 				4   //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			Error::<Test>::MinimumTradeAssetIsRequired
+			Error::<Test>::MinimumTradeAssetRequirementNotMet
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -841,7 +933,7 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 				18, //`min_asset_withdraw` - The minimum trade asset withdrawn
 				4   //`min_core_withdraw` -  The minimum core asset withdrawn
 			),
-			Error::<Test>::LiquidityTooLow
+			Error::<Test>::InsufficientLiquidity
 		);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 10, TradeAssetCurrencyA => 15);
 		assert_balance_eq!(investor, TradeAssetCurrencyA => 85);
@@ -963,11 +1055,11 @@ fn asset_sell_error_zero_sell_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
 			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
 			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
-			Error::<Test>::CoreToAssetSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1110,7 +1202,7 @@ fn asset_sell_error_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1122,7 +1214,7 @@ fn asset_sell_error_zero_asset_sold() {
 				0,   // sell amount
 				100, // min buy,
 			),
-			Error::<Test>::CoreToAssetSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1143,7 +1235,7 @@ fn asset_sell_error_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::MinimumBuyRequirementNotMet
 		);
 		// core to asset swap input
 		assert_err!(
@@ -1155,7 +1247,7 @@ fn asset_sell_error_less_than_min_sale() {
 				50,  // sell_amount
 				100, // min buy,
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::MinimumBuyRequirementNotMet
 		);
 	});
 }
@@ -1246,7 +1338,7 @@ fn asset_to_asset_buy_error_zero_asset_sold() {
 				0,                                      // buy_amount
 				300,                                    // maximum asset A to sell
 			),
-			Error::<Test>::BuyAmountNotPositive
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1288,7 +1380,7 @@ fn asset_to_asset_buy_error_exceed_max_sale() {
 				156,                                    // buy_amount
 				100,                                    // maximum asset A to sell
 			),
-			Error::<Test>::PriceAboveMaxLimit
+			Error::<Test>::MaximumSellRequirementNotMet
 		);
 	});
 }
@@ -1358,7 +1450,7 @@ fn asset_to_asset_swap_sell_error_zero_asset_sold() {
 				0,                                      // sell_amount
 				100,                                    // min buy limit for asset B
 			),
-			Error::<Test>::AssetToCoreSellAmountNotAboveZero
+			Error::<Test>::CannotTradeZero
 		);
 	});
 }
@@ -1400,7 +1492,7 @@ fn asset_to_asset_sell_error_less_than_min_sale() {
 				156,                                    // sell_amount
 				200,                                    // min buy limit for asset B
 			),
-			Error::<Test>::SaleValueBelowRequiredMinimum
+			Error::<Test>::MinimumBuyRequirementNotMet
 		);
 	});
 }
@@ -1537,7 +1629,7 @@ fn get_buy_price_low_buy_asset_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
@@ -1554,7 +1646,7 @@ fn get_buy_price_low_buy_core_liquidity_error() {
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
 			),
-			Error::<Test>::InsufficientAssetReserve
+			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
 }
