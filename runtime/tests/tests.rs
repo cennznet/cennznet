@@ -1000,7 +1000,7 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(PRICE_ABOVE_MAX_LIMIT).into())
+				Err(InvalidTransaction::Custom(MAXIMUM_SELL_REQUIREMENT_NOT_MET).into())
 			);
 		});
 }
@@ -1047,7 +1047,7 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 			Executive::initialize_block(&header());
 			assert_eq!(
 				Executive::apply_extrinsic(xt),
-				Err(InvalidTransaction::Custom(INSUFFICIENT_ASSET_RESERVE).into())
+				Err(InvalidTransaction::Custom(INSUFFICIENT_EXCHANGE_POOL_RESERVE).into())
 			);
 		});
 }

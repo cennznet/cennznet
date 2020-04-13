@@ -77,49 +77,21 @@ pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
-		/// Exchange pool is empty.
 		EmptyExchangePool,
-		// Insufficient asset reserve in exchange
-		InsufficientAssetReserve,
-		// Trader has insufficient balance
+		InsufficientExchangePoolReserve,
 		InsufficientBalance,
-		// Buy amount must be a positive value
-		BuyAmountNotPositive,
-		// The sale value of input is less than the required minimum.
-		SaleValueBelowRequiredMinimum,
-		// Price exceeds the specified max. limit
-		PriceAboveMaxLimit,
-		// Tried to overdraw liquidity
-		LiquidityTooLow,
-		// Minimum trade asset is required
-		MinimumTradeAssetIsRequired,
-		// Minimum core asset is required
-		MinimumCoreAssetIsRequired,
-		// Assets withdrawn to be greater than zero
-		AssetToWithdrawNotAboveZero,
-		// Amount of exchange asset to burn should exist
-		LiquidityToWithdrawNotAboveZero,
-		// Liquidity should exist
-		NoLiquidityToRemove,
-		// trade asset amount must be greater than zero
-		TradeAssetToAddLiquidityNotAboveZero,
-		// core asset amount must be greater than zero
-		CoreAssetToAddLiquidityNotAboveZero,
-		// not enough core asset in balance
-		CoreAssetBalanceToAddLiquidityTooLow,
-		// not enough trade asset balance
-		TradeAssetBalanceToAddLiquidityTooLow,
-		// Minimum liquidity is required
-		LiquidityMintableLowerThanRequired,
-		// Token liquidity check unsuccessful
-		TradeAssetToAddLiquidityAboveMaxAmount,
-		// Asset to core sell amount must be a positive value
-		AssetToCoreSellAmountNotAboveZero,
-		// Core to Asset sell amount must be a positive value
-		CoreToAssetSellAmountNotAboveZero,
-		// Asset to swap should not be equal
+		InsufficientLiquidity,
+		InsufficientTradeAssetBalance,
+		InsufficientCoreAssetBalance,
+		CannotTradeZero,
+		CannotAddLiquidityWithZero,
+		MinimumBuyRequirementNotMet,
+		MaximumSellRequirementNotMet,
+		MinimumTradeAssetRequirementNotMet,
+		MinimumCoreAssetRequirementNotMet,
+		MinimumLiquidityRequirementNotMet,
+		MaximumTradeAssetRequirementNotMet,
 		AssetCannotSwapForItself,
-		// Asset id doesn't exist
 		InvalidAssetId,
 		Overflow,
 		DivideByZero,
@@ -211,20 +183,16 @@ decl_module! {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
 			ensure!(
-				!max_asset_amount.is_zero(),
-				Error::<T>::TradeAssetToAddLiquidityNotAboveZero
-			);
-			ensure!(
-				!core_amount.is_zero(),
-				Error::<T>::CoreAssetToAddLiquidityNotAboveZero
+				!max_asset_amount.is_zero() && !core_amount.is_zero(),
+				Error::<T>::CannotAddLiquidityWithZero
 			);
 			ensure!(
 				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
-				Error::<T>::CoreAssetBalanceToAddLiquidityTooLow
+				Error::<T>::InsufficientCoreAssetBalance
 			);
 			ensure!(
 				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
-				Error::<T>::TradeAssetBalanceToAddLiquidityTooLow
+				Error::<T>::InsufficientTradeAssetBalance
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
@@ -243,11 +211,11 @@ decl_module! {
 			};
 			ensure!(
 				liquidity_minted >= min_liquidity,
-				Error::<T>::LiquidityMintableLowerThanRequired
+				Error::<T>::MinimumLiquidityRequirementNotMet
 			);
 			ensure!(
 				max_asset_amount >= trade_asset_amount,
-				Error::<T>::TradeAssetToAddLiquidityAboveMaxAmount
+				Error::<T>::MaximumTradeAssetRequirementNotMet
 			);
 
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
@@ -277,7 +245,7 @@ decl_module! {
 			let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, &from_account);
 			ensure!(
 				account_liquidity >= liquidity_to_withdraw,
-				Error::<T>::LiquidityTooLow
+				Error::<T>::InsufficientLiquidity
 			);
 
 			let withdraw_value = Self::liquidity_value(asset_id, liquidity_to_withdraw);
@@ -285,15 +253,15 @@ decl_module! {
 
 			ensure!(
 				total_liquidity > Zero::zero(),
-				Error::<T>::NoLiquidityToRemove
+				Error::<T>::EmptyExchangePool
 			);
 			ensure!(
 				withdraw_value.core >= min_core_withdraw,
-				Error::<T>::MinimumCoreAssetIsRequired
+				Error::<T>::MinimumCoreAssetRequirementNotMet
 			);
 			ensure!(
 				withdraw_value.asset >= min_asset_withdraw,
-				Error::<T>::MinimumTradeAssetIsRequired
+				Error::<T>::MinimumTradeAssetRequirementNotMet
 			);
 			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
 			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, withdraw_value.core)?;
@@ -499,7 +467,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
+		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_buy_price(buy_amount, asset_reserve, core_reserve)
@@ -512,7 +480,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(buy_amount > Zero::zero(), Error::<T>::BuyAmountNotPositive);
+		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_buy_price(buy_amount, core_reserve, asset_reserve)
@@ -531,7 +499,7 @@ impl<T: Trait> Module<T> {
 			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
 		);
-		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientExchangePoolReserve);
 
 		let buy_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_amount).into());
 		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
@@ -596,10 +564,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(
-			sell_amount > Zero::zero(),
-			Error::<T>::AssetToCoreSellAmountNotAboveZero
-		);
+		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_sell_price(sell_amount, asset_reserve, core_reserve)
@@ -613,10 +578,7 @@ impl<T: Trait> Module<T> {
 		asset_id: &T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
-		ensure!(
-			sell_amount > Zero::zero(),
-			Error::<T>::CoreToAssetSellAmountNotAboveZero
-		);
+		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
 		Self::calculate_sell_price(sell_amount, core_reserve, asset_reserve)
@@ -658,7 +620,7 @@ impl<T: Trait> Module<T> {
 		let price_lp = price_lp_result.unwrap();
 
 		let price = T::UnsignedIntToBalance::from(price_lp).into();
-		ensure!(buy_reserve > price, Error::<T>::InsufficientAssetReserve);
+		ensure!(buy_reserve > price, Error::<T>::InsufficientExchangePoolReserve);
 		Ok(price)
 	}
 
@@ -694,7 +656,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
 		let amount_to_sell = Self::get_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
-		ensure!(amount_to_sell <= maximum_sell, Error::<T>::PriceAboveMaxLimit);
+		ensure!(amount_to_sell <= maximum_sell, Error::<T>::MaximumSellRequirementNotMet);
 
 		// Check the trader has enough balance
 		ensure!(
@@ -738,7 +700,7 @@ impl<T: Trait> Module<T> {
 
 		// Check the buy amount meets the minimum requirement
 		let amount_to_buy = Self::get_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
-		ensure!(amount_to_buy >= minimum_buy, Error::<T>::SaleValueBelowRequiredMinimum);
+		ensure!(amount_to_buy >= minimum_buy, Error::<T>::MinimumBuyRequirementNotMet);
 
 		Self::execute_trade(
 			trader,
