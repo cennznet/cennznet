@@ -26,7 +26,7 @@ const MAX_PKBS: usize = 50;
 
 pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {}
 
-type DeviceId = u32;
+type DeviceId = device::DeviceId;
 
 // Serialized pre key bundle used to establish one to one e2ee
 pub type PreKeyBundle = Vec<u8>;

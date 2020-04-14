@@ -67,15 +67,9 @@ impl_outer_origin! {
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 #[derive(Default)]
-pub struct ExtBuilder {
-	migrator_account: u64,
-}
+pub struct ExtBuilder {}
 
 impl ExtBuilder {
-	pub fn migrator_account(mut self, account_id: u64) -> Self {
-		self.migrator_account = account_id;
-		self
-	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		frame_system::GenesisConfig::default()
 			.build_storage::<Test>()
