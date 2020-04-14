@@ -257,13 +257,13 @@ where
 
 		// How much user nominated fee asset has been spent so far
 		// used for accounting the 'max payment' preference
-		let mut fee_asset_spent: BalanceOf<T> = Zero::zero();
+		let mut exchange_asset_spent: BalanceOf<T> = Zero::zero();
 
 		// Only mess with balances if the fee is not zero.
 		if !fee.is_zero() {
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
+				exchange_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
 					let code = match e {
 						DispatchError::Module { message, .. } => error_code::buy_fee_asset_error_msg_to_code(
 							message.unwrap_or("Unknown buy fee asset error"),
@@ -274,17 +274,13 @@ where
 				})?;
 			}
 
+			let withdraw_reason = if self.tip.is_zero() {
+				WithdrawReason::TransactionPayment.into()
+			} else {
+				WithdrawReason::TransactionPayment | WithdrawReason::Tip
+			};
 			// Pay for the transaction `fee` in the native fee currency
-			let imbalance = match T::Currency::withdraw(
-				who,
-				fee,
-				if self.tip.is_zero() {
-					WithdrawReason::TransactionPayment.into()
-				} else {
-					WithdrawReason::TransactionPayment | WithdrawReason::Tip
-				},
-				ExistenceRequirement::KeepAlive,
-			) {
+			let imbalance = match T::Currency::withdraw(who, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
 				Ok(imbalance) => imbalance,
 				Err(_) => return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET_BALANCE).into()),
 			};
@@ -303,7 +299,10 @@ where
 					&GAS_FEE_EXCHANGE_KEY,
 					&FeeExchange::new_v1(
 						exchange.asset_id(),
-						exchange.max_payment().checked_sub(&fee_asset_spent).unwrap_or(0.into()),
+						exchange
+							.max_payment()
+							.checked_sub(&exchange_asset_spent)
+							.unwrap_or(0.into()),
 					),
 				);
 			} else {
@@ -941,6 +940,29 @@ mod tests {
 					.pre_dispatch(&1, CALL, info_from_weight(3), len as usize)
 					.is_ok());
 				assert!(storage::unhashed::get::<Option<()>>(&GAS_FEE_EXCHANGE_KEY).is_none());
+			});
+	}
+
+	// For the () implmentation of NegativeImbalance, we reduce the total issuance by the fee
+	#[test]
+	fn imbalanced_is_executed_for_fee_payment() {
+		let base_fee = 5;
+		ExtBuilder::default()
+			.base_fee(base_fee)
+			.balance_factor(1000)
+			.build()
+			.execute_with(|| {
+				let len: u64 = 0;
+				let total_issuance = Balances::total_issuance();
+				let dispatch_info = info_from_weight(1);
+				let fee = ChargeTransactionPayment::<Runtime>::compute_fee(0, dispatch_info.clone(), 0);
+
+				let transaction_payment = ChargeTransactionPayment::<Runtime>::from(0, None);
+				assert!(transaction_payment
+					.pre_dispatch(&1, CALL, dispatch_info, len as usize)
+					.is_ok());
+
+				assert_eq!(Balances::total_issuance(), total_issuance - fee);
 			});
 	}
 }
