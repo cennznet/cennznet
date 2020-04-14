@@ -66,9 +66,11 @@ fn header() -> Header {
 	header_for_block_number(1)
 }
 
-fn specify_author(mut header: Header, author_index: AuthorityIndex) -> Header {
-	use digests::RawPreDigest;
-	use digests::SecondaryPreDigest;
+/// Get a block header and set the author of that block in a way that is recognisable by BABE.
+/// The author will be specified by its index in the Session::validators() list. So the author
+/// should be a current validator. Return the modified header.
+fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
+	use digests::{RawPreDigest, SecondaryPreDigest};
 
 	let digest_data = RawPreDigest::<(), ()>::Secondary(SecondaryPreDigest {
 		authority_index: author_index,
@@ -165,7 +167,9 @@ fn send_heartbeats() {
 	}
 }
 
-fn prepare_for_rotating_session() {
+/// Prior to rotating to a new session, we should make sure the authority heartbeats are sent to the
+/// ImOnline module, time is set accordingly and the babe's current slot is adjusted
+fn pre_rotate_session() {
 	send_heartbeats();
 	Timestamp::set_timestamp(Timestamp::now() + 1000);
 	pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
@@ -177,7 +181,7 @@ fn rotate_to_session(index: SessionIndex) {
 
 	let rotations = index - Session::current_index();
 	for _i in 0..rotations {
-		prepare_for_rotating_session();
+		pre_rotate_session();
 		Session::rotate_session();
 	}
 }
@@ -524,29 +528,29 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 #[test]
 /// This tests if authorship reward of the last block in an era is factored in.
 fn authorship_reward_of_last_block_in_an_era() {
-	let validators_count = 6;
+	let validator_count = 6;
 	let initial_balance = 1_000 * TransactionBaseFee::get();
 
 	ExtBuilder::default()
-		.validator_count(validators_count)
+		.validator_count(validator_count)
 		.initial_balance(initial_balance)
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
-			let last_session_of_era_0 = SessionsPerEra::get() - 1;
-			rotate_to_session(last_session_of_era_0);
+			let final_session_of_era_index = SessionsPerEra::get() - 1;
+			rotate_to_session(final_session_of_era_index);
 
-			// The last session falls in the era 0
+			// The final session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
 
 			// Make sure we have the correct number of validators elected
-			assert_eq!(Staking::current_elected().len(), validators_count);
+			assert_eq!(Staking::current_elected().len(), validator_count);
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = specify_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone());
 
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
@@ -565,7 +569,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 			assert_eq!(Staking::current_era(), 1);
 
 			// No offences should happened. Thus the number of validators shouldn't have changed
-			assert_eq!(Staking::current_elected().len(), validators_count);
+			assert_eq!(Staking::current_elected().len(), validator_count);
 
 			// There should be a reward calculated for the author
 			assert!(
@@ -579,29 +583,29 @@ fn authorship_reward_of_last_block_in_an_era() {
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
 fn authorship_reward_of_a_chilled_validator() {
-	let validators_count = 6;
+	let validator_count = 6;
 	let initial_balance = 1_000 * TransactionBaseFee::get();
 
 	ExtBuilder::default()
-		.validator_count(validators_count)
+		.validator_count(validator_count)
 		.initial_balance(initial_balance)
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
-			let last_session_of_era_0 = SessionsPerEra::get() - 1;
-			rotate_to_session(last_session_of_era_0);
+			let final_session_of_era_index = SessionsPerEra::get() - 1;
+			rotate_to_session(final_session_of_era_index);
 
 			// The last session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
 
 			// make sure we have the correct number of validators elected
-			assert_eq!(Staking::current_elected().len(), validators_count);
+			assert_eq!(Staking::current_elected().len(), validator_count);
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = specify_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone());
 
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
@@ -630,7 +634,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert_eq!(Staking::current_era(), 1);
 
 			// If the offended validator is chilled, in the new era, there should be one less elected validators than before
-			assert_eq!(Staking::current_elected().len(), validators_count - 1);
+			assert_eq!(Staking::current_elected().len(), validator_count - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
 			assert!(
