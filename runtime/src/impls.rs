@@ -21,16 +21,20 @@ use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
+use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
+use codec::Decode;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
-	storage,
+	additional_traits, storage,
 	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
 use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
 use sp_runtime::{
-	traits::{CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero},
+	traits::{
+		CheckedMul, CheckedSub, Convert, PlugDoughnutApi, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero,
+	},
 	DispatchError, Fixed64, Perbill,
 };
 
@@ -279,6 +283,89 @@ impl IsGasMeteredCall for GasMeteredCallResolver {
 			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
 			_ => false,
 		}
+	}
+}
+
+/// Provides a cennznet version of doughnut dispatch verification
+pub struct CENNZnetDispatchVerifier;
+
+/// Helpers which are used by the DelegatedDispatchVerifier
+impl CENNZnetDispatchVerifier {
+	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
+	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
+		let mut domain = doughnut
+			.get_domain(<CENNZnetDispatchVerifier as additional_traits::DelegatedDispatchVerifier>::DOMAIN)
+			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
+		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
+		Ok(cennznut)
+	}
+
+	/// Verify that the smart contract being called is permissioned in the cennznut
+	fn check_contract(
+		contract_address: &<Runtime as frame_system::Trait>::AccountId,
+		cennznut: CENNZnut,
+	) -> Result<(), &'static str> {
+		let address: [u8; 32] = contract_address.clone().into();
+		match cennznut.validate_contract_call(&address) {
+			Ok(r) => Ok(r),
+			_ => Err("CENNZnut does not grant permission for contract"),
+		}
+	}
+}
+
+impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
+	type Doughnut = <Runtime as frame_system::Trait>::Doughnut;
+	type AccountId = <Runtime as frame_system::Trait>::AccountId;
+
+	const DOMAIN: &'static str = "cennznet";
+
+	/// Verify that a call to a runtime module is permissioned by the doughnut
+	fn verify_dispatch(doughnut: &Self::Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
+		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+
+		// Extract Module name from <prefix>-<Module_name>
+		let module_offset = module
+			.find('-')
+			.ok_or("CENNZnut does not grant permission for module")?
+			+ 1;
+		if module_offset <= 1 || module_offset >= module.len() {
+			return Err("error during module name segmentation");
+		}
+		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
+			Ok(r) => Ok(r),
+			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
+			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => {
+				Err("CENNZnut does not grant permission for method")
+			}
+			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => {
+				Err("CENNZnut does not grant permission for module")
+			}
+			Err(ValidationErr::NoPermission(RuntimeDomain::MethodArguments)) => {
+				Err("CENNZnut does not grant permission for method arguments")
+			}
+		}
+	}
+
+	/// Verify that the contract being called is permissioned on the doughnut
+	fn verify_runtime_to_contract_call(
+		caller: &Self::AccountId,
+		doughnut: &Self::Doughnut,
+		contract_addr: &Self::AccountId,
+	) -> Result<(), &'static str> {
+		debug_assert!(caller.clone() == doughnut.issuer(), "Invalid doughnut caller");
+		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
+		return Self::check_contract(contract_addr, cennznut);
+	}
+
+	/// This is used when an issuer delegates permissions to a smart contract
+	/// It should verify that a contract being called by the smart contract is
+	/// permissioned. Not implemented yet.
+	fn verify_contract_to_contract_call(
+		_caller: &Self::AccountId,
+		_doughnut: &Self::Doughnut,
+		_contract_addr: &Self::AccountId,
+	) -> Result<(), &'static str> {
+		Ok(()) // Just return OK for now
 	}
 }
 
