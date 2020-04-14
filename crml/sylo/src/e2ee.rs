@@ -13,7 +13,10 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::{device, groups, inbox, response};
+use crate::{
+	device::{self, DeviceId},
+	groups, inbox, response,
+};
 use frame_support::{
 	decl_error, decl_module, decl_storage,
 	dispatch::Vec,
@@ -25,8 +28,6 @@ use frame_system::ensure_signed;
 const MAX_PKBS: usize = 50;
 
 pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {}
-
-type DeviceId = device::DeviceId;
 
 // Serialized pre key bundle used to establish one to one e2ee
 pub type PreKeyBundle = Vec<u8>;

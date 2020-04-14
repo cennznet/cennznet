@@ -20,11 +20,9 @@ use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
 
 pub trait Trait: device::Trait + groups::Trait + inbox::Trait + vault::Trait {}
 
-type DeviceId = device::DeviceId;
-
 decl_error! {
 	pub enum Error for Module<T: Trait> {
-		InputError,
+		MaxDeviceLimitReached,
 	}
 }
 
@@ -53,17 +51,14 @@ decl_module! {
 		}
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<DeviceId>) -> DispatchResult {
+		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<device::DeviceId>) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
-			ensure!(device_ids.len() <= device::MAX_DEVICES, Error::<T>::InputError);
+			ensure!(device_ids.len() <= device::MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
 
 			let mut devices = <device::Devices<T>>::get(user_id.clone());
-			ensure!(devices.len() + device_ids.len() <= device::MAX_DEVICES, Error::<T>::InputError);
+			ensure!(devices.len() + device_ids.len() <= device::MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
 
-			for device_id in device_ids {
-				devices.push(device_id)
-			}
-
+			devices.extend(device_ids);
 			devices.sort();
 			devices.dedup();
 
