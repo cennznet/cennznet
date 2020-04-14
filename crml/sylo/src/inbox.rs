@@ -18,7 +18,6 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 
-const MAX_MESSAGES: usize = 1_000_000;
 const MAX_MESSAGE_LENGTH: usize = 100_000;
 const MAX_DELETE_MESSAGES: usize = 10_000;
 
@@ -29,8 +28,6 @@ pub trait Trait: frame_system::Trait {}
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
-		/// An inbox cannot store more than MAX_MESSAGES
-		MaxMessage,
 		/// A message cannot be greater than MAX_MESSAGE_LENGTH
 		MaxMessageLength,
 		/// Cannot delete more than MAX_DELETE_MESSAGES at a time
@@ -73,7 +70,6 @@ decl_module! {
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
 		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
-		AccountValues: map hasher(blake2_128_concat) T::AccountId => Vec<(T::AccountId, MessageId)>;
 		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}
 }
@@ -87,17 +83,11 @@ impl<T: Trait> Module<T> {
 		// Get required data
 		let next_index = <NextIndexes<T>>::get(&peer_id);
 		ensure!(next_index != u32::max_value(), Error::<T>::MessageIdOverflow);
-		let mut account_values = <AccountValues<T>>::get(&peer_id);
-		ensure!(account_values.len() < MAX_MESSAGES, Error::<T>::MaxMessage);
-
-		// Add new mapping to account values
-		account_values.push((peer_id.clone(), next_index));
 
 		// Store data
 		let mut values = <Values<T>>::get(&peer_id);
 		values.push((next_index, value));
 		<Values<T>>::insert(peer_id.clone(), values);
-		<AccountValues<T>>::insert(&peer_id, account_values);
 
 		// Update next_index
 		<NextIndexes<T>>::insert(&peer_id, next_index + 1);
@@ -106,14 +96,6 @@ impl<T: Trait> Module<T> {
 	}
 
 	pub fn delete(user_id: T::AccountId, value_ids: Vec<MessageId>) -> DispatchResult {
-		let account_values = <AccountValues<T>>::get(&user_id);
-
-		// Remove reference to value
-		let account_values: Vec<(T::AccountId, MessageId)> = account_values
-			.into_iter()
-			.filter(|account_value| !value_ids.contains(&account_value.1))
-			.collect();
-
 		let mut values = <Values<T>>::get(&user_id);
 		for id in value_ids {
 			// Remove value from storage
@@ -122,10 +104,6 @@ impl<T: Trait> Module<T> {
 			}
 		}
 		<Values<T>>::insert(user_id.clone(), values);
-
-		// Update account reference values
-		<AccountValues<T>>::insert(&user_id, account_values);
-
 		Ok(())
 	}
 }
