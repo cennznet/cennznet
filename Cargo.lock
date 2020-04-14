@@ -812,8 +812,8 @@ dependencies = [
 
 [[package]]
 name = "cennznut"
-version = "0.3.0"
-source = "git+https://github.com/cennznet/cennznut-rs?branch=0.3.0#f0452fff499a57096da315953926dfcca8cf7b8f"
+version = "0.1.1"
+source = "git+https://github.com/cennznet/cennznut-rs?branch=0.4.0#f64805d409c4c08730df5bd2175cbbf9715833d3"
 dependencies = [
  "bit_reverse",
  "pact",

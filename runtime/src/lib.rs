@@ -22,12 +22,10 @@
 #![allow(array_into_iter)]
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-use cennznut::{CENNZnut, Domain, Validate, ValidationErr};
-use codec::Decode;
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
-	additional_traits::{self, MultiCurrencyAccounting},
+	additional_traits::MultiCurrencyAccounting,
 	construct_runtime, debug, parameter_types,
 	traits::{Randomness, SplitTwoWays},
 	weights::Weight,
@@ -47,9 +45,7 @@ use sp_core::u32_trait::{_0, _1, _2, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{
-	self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, PlugDoughnutApi, SaturatedConversion,
-};
+use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
 use sp_std::prelude::*;
@@ -73,8 +69,8 @@ pub use crml_sylo::vault as sylo_vault;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee, SplitToAllValidators,
-	TargetedFeeAdjustment,
+	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
+	SplitToAllValidators, TargetedFeeAdjustment,
 };
 
 /// Constant values used within the runtime.
@@ -131,7 +127,7 @@ impl frame_system::Trait for Runtime {
 	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Doughnut = prml_doughnut::PlugDoughnut<Runtime>;
-	type DelegatedDispatchVerifier = Runtime;
+	type DelegatedDispatchVerifier = CENNZnetDispatchVerifier;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
 	type AvailableBlockRatio = AvailableBlockRatio;
@@ -538,36 +534,6 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
 		let signature = TSigner::sign(public, &raw_payload)?;
 		let (call, extra, _) = raw_payload.deconstruct();
 		Some((call, (account, signature, extra)))
-	}
-}
-
-/// Verify a Doughnut proof authorizes method dispatch given some input parameters
-impl additional_traits::DelegatedDispatchVerifier for Runtime {
-	type Doughnut = <Self as frame_system::Trait>::Doughnut;
-	type AccountId = <Self as frame_system::Trait>::AccountId;
-
-	const DOMAIN: &'static str = "cennznet";
-
-	fn verify_dispatch(doughnut: &Self::Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
-		let mut domain = doughnut
-			.get_domain(Self::DOMAIN)
-			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
-
-		// Extract Module name from <prefix>-<Module_name>
-		let module_offset = module.find('-').ok_or("error during module name segmentation")? + 1;
-		if module_offset <= 1 || module_offset >= module.len() {
-			return Err("error during module name segmentation");
-		}
-		match cennznut.validate(&module[module_offset..], method, &[]) {
-			Ok(r) => Ok(r),
-			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
-			Err(ValidationErr::NoPermission(Domain::Method)) => Err("CENNZnut does not grant permission for method"),
-			Err(ValidationErr::NoPermission(Domain::Module)) => Err("CENNZnut does not grant permission for module"),
-			Err(ValidationErr::NoPermission(Domain::MethodArguments)) => {
-				Err("CENNZnut does not grant permission for method arguments")
-			}
-		}
 	}
 }
 
