@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::{Vec, DispatchResult}, ensure, weights::SimpleDispatchInfo};
 use frame_system::ensure_signed;
 
 pub const MAX_KEYS: usize = 100;
@@ -92,6 +92,11 @@ impl<T: Trait> Module<T> {
 			.collect();
 
 		<Vault<T>>::insert(user_id, remaining_values)
+	}
+
+	pub fn ensure_sylo_migrator(origin: T::Origin) -> DispatchResult {
+		let account_id = ensure_signed(origin)?;
+		Ok(())
 	}
 }
 
