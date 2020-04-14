@@ -140,7 +140,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let min_validator_count = initial_authorities.len().min(3);
+		let min_validator_count = initial_authorities.len().min(3) as u32;
 
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
