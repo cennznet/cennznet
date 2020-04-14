@@ -107,7 +107,7 @@ mod tests {
 
 	#[test]
 	fn should_upsert_values() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
@@ -140,7 +140,7 @@ mod tests {
 
 	#[test]
 	fn should_replace_existing_keys() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
@@ -165,7 +165,7 @@ mod tests {
 
 	#[test]
 	fn should_delete_keys() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let key_0 = b"0".to_vec();
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();
@@ -198,7 +198,7 @@ mod tests {
 
 	#[test]
 	fn should_not_add_more_than_max_keys() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			for i in 0..MAX_KEYS {
 				let key = format!("key_{}", i).into_bytes();

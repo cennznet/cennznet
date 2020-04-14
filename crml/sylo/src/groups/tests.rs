@@ -26,7 +26,7 @@ mod tests {
 
 	#[test]
 	fn it_works_creating_a_group() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let group_id = H256::from([1; 32]);
 			//Create a group
@@ -72,7 +72,7 @@ mod tests {
 
 	#[test]
 	fn it_works_modifying_meta() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let mut meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let mut meta_2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
@@ -117,7 +117,7 @@ mod tests {
 
 	#[test]
 	fn should_leave_group() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -157,7 +157,7 @@ mod tests {
 
 	#[test]
 	fn should_accept_invite() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let group_id = H256::from([2; 32]);
 
 			//Create a group
@@ -252,7 +252,7 @@ mod tests {
 
 	#[test]
 	fn should_revoke_invites() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 
 			//Create a group
@@ -303,7 +303,7 @@ mod tests {
 
 	#[test]
 	fn should_update_member() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let group_id = H256::from([1; 32]);
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 

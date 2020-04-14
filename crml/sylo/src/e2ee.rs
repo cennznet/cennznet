@@ -133,7 +133,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_add_device() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -153,7 +153,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_replenish_pkbs() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,
@@ -174,7 +174,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_withdraw_pkbs() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(E2EE::register_device(
 				Origin::signed(H256::from_low_u64_be(1)),
 				0,

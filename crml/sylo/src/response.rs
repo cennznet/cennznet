@@ -75,7 +75,7 @@ pub(super) mod tests {
 
 	#[test]
 	fn should_set_response() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let request_id = H256::from([1; 32]);
 			let resp_number = Response::DeviceId(111);
 

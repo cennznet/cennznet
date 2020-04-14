@@ -79,7 +79,7 @@ mod tests {
 
 	#[test]
 	fn append_device_works() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let device_id = 7357;
 
@@ -90,7 +90,7 @@ mod tests {
 
 	#[test]
 	fn append_duplicate_device_works() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let device_id = 7357;
 
@@ -107,7 +107,7 @@ mod tests {
 
 	#[test]
 	fn append_up_to_max_device_works() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let device_id = 7357;
 
@@ -129,7 +129,7 @@ mod tests {
 
 	#[test]
 	fn delete_device_works() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let mut devices = vec![1, 2, 3, 4, 5];
 			for device in devices.clone() {
@@ -146,7 +146,7 @@ mod tests {
 
 	#[test]
 	fn delete_non_existing_device_works() {
-		ExtBuilder.build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let devices = vec![1, 2, 3, 4];
 			for device in devices.clone() {
