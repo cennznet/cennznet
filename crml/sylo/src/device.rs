@@ -15,7 +15,7 @@
 
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 
-const MAX_DEVICES: usize = 1000;
+pub const MAX_DEVICES: usize = 1000;
 
 pub type DeviceId = u32;
 

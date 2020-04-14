@@ -14,13 +14,19 @@
 */
 
 use crate::{device, groups, inbox, vault};
-use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
 
 pub trait Trait: device::Trait + groups::Trait + inbox::Trait + vault::Trait {}
 
 type DeviceId = device::DeviceId;
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		InputError,
+	}
+}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloMigration {
@@ -30,6 +36,8 @@ decl_storage! {
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+		type Error = Error<T>;
+
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn set_migrator_account(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
@@ -44,13 +52,23 @@ decl_module! {
 			Ok(())
 		}
 
-		// todo: add weight
+		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<DeviceId>) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
-			for device_id in &device_ids {
-				// We don't care if this fails (for now)
-				let _ = <device::Module<T>>::append_device(&user_id, device_id.clone());
+			ensure!(device_ids.len() <= device::MAX_DEVICES, Error::<T>::InputError);
+
+			let mut devices = <device::Devices<T>>::get(user_id.clone());
+			ensure!(devices.len() <= device::MAX_DEVICES, Error::<T>::InputError);
+
+			for device_id in device_ids {
+				devices.push(device_id)
 			}
+
+			devices.sort();
+			devices.dedup();
+
+			<device::Devices<T>>::insert(user_id, devices);
+
 			Ok(())
 		}
 	}
@@ -183,7 +201,7 @@ mod tests {
 				devices.clone()
 			));
 
-			assert_eq!(Device::devices(user_id), [3, 1, 2, 4]);
+			assert_eq!(Device::devices(user_id), [1, 2, 3, 4]);
 		});
 	}
 
