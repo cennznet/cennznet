@@ -37,7 +37,7 @@ decl_module! {
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn remove_migrator_account(origin) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_sylo_migrator(origin)?;
 			MigrationAccount::<T>::kill();
 			Ok(())
 		}
