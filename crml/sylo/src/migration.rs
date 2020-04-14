@@ -44,7 +44,7 @@ decl_module! {
 		}
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		pub fn remove_migrator_account(origin) -> DispatchResult {
+		pub fn self_destruct(origin) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
 			MigrationAccount::<T>::kill();
 			Ok(())
@@ -134,7 +134,7 @@ mod tests {
 
 			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
 
-			assert_ok!(Migration::remove_migrator_account(Origin::signed(migration_account)));
+			assert_ok!(Migration::self_destruct(Origin::signed(migration_account)));
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(migration_account)),
@@ -152,7 +152,7 @@ mod tests {
 			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
 
 			assert_eq!(
-				Migration::remove_migrator_account(Origin::signed(invalid_account)),
+				Migration::self_destruct(Origin::signed(invalid_account)),
 				Err(BadOrigin)
 			);
 
