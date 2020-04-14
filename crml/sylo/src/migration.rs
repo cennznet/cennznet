@@ -58,7 +58,7 @@ decl_module! {
 			ensure!(device_ids.len() <= device::MAX_DEVICES, Error::<T>::InputError);
 
 			let mut devices = <device::Devices<T>>::get(user_id.clone());
-			ensure!(devices.len() <= device::MAX_DEVICES, Error::<T>::InputError);
+			ensure!(devices.len() + device_ids.len() <= device::MAX_DEVICES, Error::<T>::InputError);
 
 			for device_id in device_ids {
 				devices.push(device_id)
