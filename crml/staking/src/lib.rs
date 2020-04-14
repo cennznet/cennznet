@@ -308,7 +308,7 @@ pub struct EraPoints {
 impl EraPoints {
 	/// Add the reward to the validator at the given index. Index must be valid
 	/// (i.e. `index < current_elected.len()`).
-	fn add_points_to_index(&mut self, index: u32, points: u32) {
+	fn add_points_to_index(&mut self, index: u32, points: Points) {
 		if let Some(new_total) = self.total.checked_add(points) {
 			self.total = new_total;
 			let new_size = (index as usize + 1).max(self.individual.len());
