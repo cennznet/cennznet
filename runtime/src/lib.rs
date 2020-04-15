@@ -63,6 +63,7 @@ pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
 pub use crml_sylo::inbox as sylo_inbox;
+pub use crml_sylo::migration as sylo_migration;
 pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 
@@ -177,6 +178,7 @@ impl crml_sylo::device::Trait for Runtime {}
 impl crml_sylo::response::Trait for Runtime {}
 impl crml_sylo::inbox::Trait for Runtime {}
 impl crml_sylo::vault::Trait for Runtime {}
+impl crml_sylo::migration::Trait for Runtime {}
 
 parameter_types! {
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
@@ -572,6 +574,7 @@ construct_runtime!(
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
+		SyloMigration: sylo_migration::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
