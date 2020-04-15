@@ -58,9 +58,11 @@ decl_module! {
 			let mut devices = <device::Devices<T>>::get(user_id.clone());
 			ensure!(devices.len() + device_ids.len() <= device::MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
 
-			devices.extend(device_ids);
-			devices.sort();
-			devices.dedup();
+			for device_id in device_ids {
+				if !devices.contains(&device_id) {
+					devices.push(device_id);
+				}
+			}
 
 			<device::Devices<T>>::insert(user_id, devices);
 
@@ -196,7 +198,7 @@ mod tests {
 				devices.clone()
 			));
 
-			assert_eq!(Device::devices(user_id), [1, 2, 3, 4]);
+			assert_eq!(Device::devices(user_id), [3, 1, 2, 4]);
 		});
 	}
 
