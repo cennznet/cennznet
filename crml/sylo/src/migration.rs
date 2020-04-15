@@ -13,7 +13,10 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::{device, groups, inbox, vault};
+use crate::{
+	device::{self, DeviceId},
+	groups, inbox, vault,
+};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
@@ -51,7 +54,7 @@ decl_module! {
 		}
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<device::DeviceId>) -> DispatchResult {
+		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<DeviceId>) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
 			ensure!(device_ids.len() <= device::MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
 
