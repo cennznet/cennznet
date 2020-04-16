@@ -15,10 +15,10 @@
 
 #[cfg(test)]
 mod tests {
-	use crate::groups::{AcceptPayload, Encode, Group, Invite, Member, MemberRoles, Module};
+	use crate::groups::{AcceptPayload, Encode, Error, Group, Invite, Member, MemberRoles, Module};
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use crate::vault;
-	use frame_support::{assert_ok, dispatch::DispatchError};
+	use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 	use sp_core::{ed25519, Pair, H256};
 
 	type Groups = Module<Test>;
@@ -57,7 +57,7 @@ mod tests {
 				vec![(b"group".to_vec(), b"data".to_vec())]
 			);
 
-			assert_eq!(
+			assert_err!(
 				Groups::create_group(
 					Origin::signed(H256::from_low_u64_be(1)),
 					group_id.clone(),
@@ -65,7 +65,7 @@ mod tests {
 					vec![],
 					(vec![], vec![])
 				),
-				Err(DispatchError::Other("Group already exists")),
+				Error::<Test>::GroupExists,
 			);
 		});
 	}
@@ -130,15 +130,15 @@ mod tests {
 			));
 
 			// leave wrong group
-			assert_eq!(
+			assert_err!(
 				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32]), None),
-				Err(DispatchError::Other("Group not found")),
+				Error::<Test>::GroupNotFound,
 			);
 
 			// trying to live group user who is not a member
-			assert_eq!(
+			assert_err!(
 				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone(), None),
-				Err(DispatchError::Other("Not a member of group")),
+				Error::<Test>::MemberNotFound,
 			);
 
 			assert_ok!(Groups::leave_group(
@@ -205,7 +205,7 @@ mod tests {
 			assert_ne!(signature, wrong_sig);
 
 			// accept wrong invite
-			assert_eq!(
+			assert_err!(
 				Groups::accept_invite(
 					Origin::signed(H256::from_low_u64_be(2)),
 					group_id.clone(),
@@ -215,7 +215,7 @@ mod tests {
 					wrong_sig,
 					(vec![], vec![])
 				),
-				Err(DispatchError::Other("Failed to verify invite")),
+				Error::<Test>::InvitationSignatureRejected,
 			);
 
 			// accept right sig

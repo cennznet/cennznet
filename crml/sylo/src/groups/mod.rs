@@ -15,7 +15,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_module, decl_storage,
+	decl_error, decl_module, decl_storage,
 	dispatch::DispatchResult,
 	dispatch::Vec,
 	ensure,
@@ -99,6 +99,33 @@ where
 	meta: Meta,
 }
 
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// Group already exists
+		GroupExists,
+		/// Already a member of the group
+		MemberExists,
+		/// Invite already exists
+		InviteExists,
+		/// Can not invite more than maximum amount
+		MaxInvitesReached,
+		/// Can not store more than maximum number of members
+		MaxMembersReached,
+		/// Can not store more than maximum amount of keys for user's vault
+		MaxKeysPerVaultReached,
+		/// Group not found
+		GroupNotFound,
+		/// Not a member of group
+		MemberNotFound,
+		/// Invite not found
+		InviteNotFound,
+		/// Insufficient privileges for the operation
+		InsufficientPrivileges,
+		/// Invitation's signature is rejected. The payload is not signed by the same key as the invite key.
+		InvitationSignatureRejected,
+	}
+}
+
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		/// Creates a group with all invitees, set the caller as admin
@@ -110,9 +137,9 @@ decl_module! {
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(!<Groups<T>>::contains_key(&group_id), "Group already exists");
-			ensure!(invites.len() < MAX_INVITES, "Can not invite more than maximum amount");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(!<Groups<T>>::contains_key(&group_id), Error::<T>::GroupExists);
+			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
@@ -162,8 +189,8 @@ decl_module! {
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
 
 			let mut group = <Groups<T>>::get(&group_id);
 			// Remove the member from the group
@@ -194,8 +221,8 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
 
 			let mut group = <Groups<T>>::get(&group_id);
 
@@ -228,8 +255,8 @@ decl_module! {
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
 
 			let mut group = <Groups<T>>::get(&group_id);
 
@@ -269,10 +296,10 @@ decl_module! {
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
-			ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
-			ensure!(invites.len() < MAX_INVITES, "Can not invite more than maximum amount");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
+			ensure!(Self::is_group_admin(&group_id, &sender), Error::<T>::InsufficientPrivileges);
+			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
 
 			for invite in invites {
 				let _ = Self::create_invite(&group_id, invite);
@@ -290,22 +317,22 @@ decl_module! {
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(!Self::is_group_member(&group_id, &payload.account_id), "Already a member of group");
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, "Can not store more than maximum amount of keys for user's vault");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(!Self::is_group_member(&group_id, &payload.account_id), Error::<T>::MemberExists);
+			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
 			let mut group = <Groups<T>>::get(&group_id);
-			ensure!(group.members.len() < MAX_MEMBERS, "Can not store more than maximum number of members");
+			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
 			let invite = group.clone().invites
 				.into_iter()
 				.find(|invite| invite.invite_key == invite_key)
-				.ok_or("Invite not found")?;
+				.ok_or(Error::<T>::InviteNotFound)?;
 
 			let sig = ed25519::Signature(signature.into());
 			// TODO ensure payload is encoded properly
 			ensure!(
 				sig.verify(payload.encode().as_slice(), &ed25519::Public(invite.invite_key.into())),
-				"Failed to verify invite"
+				Error::<T>::InvitationSignatureRejected
 			);
 
 			let mut roles = vec![MemberRoles::Member];
@@ -355,9 +382,9 @@ decl_module! {
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Groups<T>>::contains_key(&group_id), "Group not found");
-			ensure!(Self::is_group_member(&group_id, &sender), "Not a member of group");
-			ensure!(Self::is_group_admin(&group_id, &sender), "Insufficient permissions for group");
+			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
+			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
+			ensure!(Self::is_group_admin(&group_id, &sender), Error::<T>::InsufficientPrivileges);
 
 			let mut group = <Groups<T>>::get(&group_id);
 
@@ -423,7 +450,7 @@ impl<T: Trait> Module<T> {
 		let mut group = <Groups<T>>::get(group_id);
 		ensure!(
 			!group.invites.iter().any(|i| i.invite_key == invite_key),
-			"Invite already exists"
+			Error::<T>::InviteExists
 		);
 
 		group.invites.push(PendingInvite {
