@@ -76,6 +76,7 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
+			permissions: vec![],
 		}),
 		pallet_session: Some(SessionConfig {
 			keys: vec![
