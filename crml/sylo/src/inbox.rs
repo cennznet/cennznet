@@ -21,8 +21,8 @@ use frame_system::ensure_signed;
 const MAX_MESSAGE_LENGTH: usize = 100_000;
 const MAX_DELETE_MESSAGES: usize = 10_000;
 
-type MessageId = u32;
-type Message = Vec<u8>;
+pub type MessageId = u32;
+pub type Message = Vec<u8>;
 
 pub trait Trait: frame_system::Trait {}
 
@@ -69,8 +69,8 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
-		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
-		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
+		pub NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
+		pub Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}
 }
 
