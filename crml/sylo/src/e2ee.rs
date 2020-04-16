@@ -124,7 +124,6 @@ pub(super) mod tests {
 	use sp_core::H256;
 
 	impl Trait for Test {}
-	impl device::Trait for Test {}
 	impl inbox::Trait for Test {}
 	impl response::Trait for Test {}
 	impl groups::Trait for Test {}

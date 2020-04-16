@@ -27,7 +27,7 @@ use sp_core::{ed25519, hash::H256};
 use sp_runtime::traits::Verify;
 use sp_std::vec;
 
-use crate::{device, inbox, vault};
+use crate::{device, inbox, migration, vault};
 use vault::{VaultKey, VaultValue};
 
 mod tests;
@@ -396,6 +396,16 @@ decl_module! {
 
 			<Groups<T>>::insert(&group_id, group);
 
+			Ok(())
+		}
+
+		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		fn migrate_groups(origin, group_id: T::Hash, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
+			migration::Module::<T>::ensure_sylo_migrator(origin.clone())?;
+			ensure_signed(origin)?;
+			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
+			ensure!(group.invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
+			<Groups<T>>::insert(group_id, group);
 			Ok(())
 		}
 	}
