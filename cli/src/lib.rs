@@ -21,6 +21,9 @@
 
 #![warn(missing_docs)]
 
+#[macro_use]
+extern crate hex_literal;
+
 pub mod chain_spec;
 
 #[macro_use]
@@ -47,8 +50,8 @@ pub enum ChainSpec {
 	Development,
 	/// The CENNZnet Kauri testnet.
 	CennznetKauri,
-	/// The CENNZnet Rimu testnet.
-	CennznetRimu,
+	/// The CENNZnet Azalea MainNet
+	CennznetAzalea,
 }
 
 /// Get a chain config from a spec setting.
@@ -57,7 +60,7 @@ impl ChainSpec {
 		Ok(match self {
 			ChainSpec::Development => chain_spec::dev::config(),
 			ChainSpec::CennznetKauri => chain_spec::kauri::config(),
-			ChainSpec::CennznetRimu => chain_spec::rimu::config(),
+			ChainSpec::CennznetAzalea => chain_spec::azalea::config(),
 		})
 	}
 
@@ -65,7 +68,7 @@ impl ChainSpec {
 		match s {
 			"dev" => Some(ChainSpec::Development),
 			"kauri" => Some(ChainSpec::CennznetKauri),
-			"rimu" => Some(ChainSpec::CennznetRimu),
+			"azalea" => Some(ChainSpec::CennznetAzalea),
 			_ => None,
 		}
 	}

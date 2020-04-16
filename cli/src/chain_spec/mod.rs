@@ -40,9 +40,9 @@ use sp_runtime::{
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
+pub mod azalea;
 pub mod dev;
 pub mod kauri;
-pub mod rimu;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -206,6 +206,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				ARDA_ASSET_ID,
 				NEXT_ASSET_ID,
 			],
+			permissions: vec![],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
 			endowed_accounts: endowed_accounts.clone(),
 			next_asset_id: NEXT_ASSET_ID,
