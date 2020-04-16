@@ -695,7 +695,7 @@ decl_storage! {
 			=> Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
 
 		/// Where the reward payment should be made. Keyed by stash.
-		pub Payee get(fn payee): map hasher(blake2_128_concat) T::AccountId => RewardDestination;
+		pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination;
 
 		/// The map from (wannabe) validator stash key to the preferences of that validator.
 		pub Validators get(fn validators):

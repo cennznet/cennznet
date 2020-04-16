@@ -40,9 +40,9 @@ use sp_runtime::{
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
+pub mod azalea;
 pub mod dev;
-pub mod kauri;
-pub mod rimu;
+pub mod nikau;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -138,7 +138,7 @@ pub fn session_keys(
 
 /// Helper function to create GenesisConfig
 pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> GenesisConfig {
-	const STASH: Balance = 100 * DOLLARS;
+	const INITIAL_BOND: Balance = 100 * DOLLARS;
 	let initial_authorities = network_keys.initial_authorities;
 	let root_key = network_keys.root_key;
 	let endowed_accounts = network_keys.endowed_accounts;
@@ -167,7 +167,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+				.map(|x| (x.0.clone(), x.1.clone(), INITIAL_BOND, StakerStatus::Validator))
 				.collect(),
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
 			minimum_bond: 1,
@@ -189,7 +189,7 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 			},
 			gas_price: 1 * MILLICENTS,
 		}),
-		pallet_sudo: Some(SudoConfig { key: root_key }),
+		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
@@ -197,17 +197,14 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
 		pallet_generic_asset: Some(GenericAssetConfig {
-			assets: vec![
-				CENNZ_ASSET_ID,
-				CENTRAPAY_ASSET_ID,
-				PLUG_ASSET_ID,
-				SYLO_ASSET_ID,
-				CERTI_ASSET_ID,
-				ARDA_ASSET_ID,
-				NEXT_ASSET_ID,
+			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
+			// Grant root key full permissions (mint,burn,update) on the following assets
+			permissions: vec![
+				(CENNZ_ASSET_ID, root_key.clone()),
+				(CENTRAPAY_ASSET_ID, root_key.clone()),
 			],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
-			endowed_accounts: endowed_accounts.clone(),
+			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,

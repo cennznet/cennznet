@@ -21,6 +21,9 @@
 
 #![warn(missing_docs)]
 
+#[macro_use]
+extern crate hex_literal;
+
 pub mod chain_spec;
 
 #[macro_use]
@@ -45,10 +48,10 @@ pub use sc_cli::{Result as CliResult, VersionInfo};
 pub enum ChainSpec {
 	/// Whatever the current runtime is, with just Alice as an auth.
 	Development,
-	/// The CENNZnet Kauri testnet.
-	CennznetKauri,
-	/// The CENNZnet Rimu testnet.
-	CennznetRimu,
+	/// The CENNZnet Nikau testnet.
+	CennznetNikau,
+	/// The CENNZnet Azalea MainNet
+	CennznetAzalea,
 }
 
 /// Get a chain config from a spec setting.
@@ -56,16 +59,16 @@ impl ChainSpec {
 	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
 		Ok(match self {
 			ChainSpec::Development => chain_spec::dev::config(),
-			ChainSpec::CennznetKauri => chain_spec::kauri::config(),
-			ChainSpec::CennznetRimu => chain_spec::rimu::config(),
+			ChainSpec::CennznetNikau => chain_spec::nikau::config(),
+			ChainSpec::CennznetAzalea => chain_spec::azalea::config(),
 		})
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(ChainSpec::Development),
-			"kauri" => Some(ChainSpec::CennznetKauri),
-			"rimu" => Some(ChainSpec::CennznetRimu),
+			"nikau" => Some(ChainSpec::CennznetNikau),
+			"azalea" => Some(ChainSpec::CennznetAzalea),
 			_ => None,
 		}
 	}

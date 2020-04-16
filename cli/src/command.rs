@@ -67,9 +67,9 @@ where
 			match ChainSpec::from(config.expect_chain_spec().id()) {
 				Some(ref c)
 					if c == &ChainSpec::Development
-						|| c == &ChainSpec::CennznetKauri
-						|| c == &ChainSpec::CennznetRimu => {}
-				_ => return Err("Factory is only supported for development, kauri and rimu testnet.".into()),
+						|| c == &ChainSpec::CennznetNikau
+						|| c == &ChainSpec::CennznetAzalea => {}
+				_ => return Err("Factory is only supported for development, nikau, and azalea testnet.".into()),
 			}
 
 			// Setup tracing.
