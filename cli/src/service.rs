@@ -454,15 +454,10 @@ mod tests {
 	#[ignore]
 	fn test_consensus() {
 		sc_service_test::consensus(
-			crate::chain_spec::kauri::config(),
+			crate::chain_spec::nikau::config(),
 			|config| new_full(config),
 			|config| new_light(config),
-			vec![
-				"//Andrea".into(),
-				"//Brooke".into(),
-				"//Courtney".into(),
-				"//Drew".into(),
-			],
+			vec!["//Alice".into(), "//Bob".into(), "//Charlie".into(), "//Nikau".into()],
 		)
 	}
 }
