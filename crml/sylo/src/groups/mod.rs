@@ -102,15 +102,15 @@ where
 decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// Group already exists
-		GroupAlreadyExists,
+		GroupExists,
 		/// Already a member of the group
-		MemberAlreadyExists,
+		MemberExists,
 		/// Invite already exists
-		InviteAlreadyExists,
+		InviteExists,
 		/// Can not invite more than maximum amount
 		MaxInvitesReached,
 		/// Can not store more than maximum number of members
-		MaxNumberOfMembersReached,
+		MaxMembersReached,
 		/// Can not store more than maximum amount of keys for user's vault
 		MaxKeysPerVaultReached,
 		/// Group not found
@@ -137,7 +137,7 @@ decl_module! {
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(!<Groups<T>>::contains_key(&group_id), Error::<T>::GroupAlreadyExists);
+			ensure!(!<Groups<T>>::contains_key(&group_id), Error::<T>::GroupExists);
 			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
 			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
@@ -318,11 +318,11 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
-			ensure!(!Self::is_group_member(&group_id, &payload.account_id), Error::<T>::MemberAlreadyExists);
+			ensure!(!Self::is_group_member(&group_id, &payload.account_id), Error::<T>::MemberExists);
 			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
 			let mut group = <Groups<T>>::get(&group_id);
-			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxNumberOfMembersReached);
+			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
 			let invite = group.clone().invites
 				.into_iter()
 				.find(|invite| invite.invite_key == invite_key)
@@ -450,7 +450,7 @@ impl<T: Trait> Module<T> {
 		let mut group = <Groups<T>>::get(group_id);
 		ensure!(
 			!group.invites.iter().any(|i| i.invite_key == invite_key),
-			Error::<T>::InviteAlreadyExists
+			Error::<T>::InviteExists
 		);
 
 		group.invites.push(PendingInvite {
