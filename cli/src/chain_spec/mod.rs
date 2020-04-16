@@ -40,9 +40,9 @@ use sp_runtime::{
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
+pub mod azalea;
 pub mod dev;
 pub mod nikau;
-pub mod azalea;
 
 type AccountPublic = <Signature as Verify>::Signer;
 

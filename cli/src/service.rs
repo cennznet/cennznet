@@ -457,12 +457,7 @@ mod tests {
 			crate::chain_spec::nikau::config(),
 			|config| new_full(config),
 			|config| new_light(config),
-			vec![
-				"//Alice".into(),
-				"//Bob".into(),
-				"//Charlie".into(),
-				"//Nikau".into(),
-			],
+			vec!["//Alice".into(), "//Bob".into(), "//Charlie".into(), "//Nikau".into()],
 		)
 	}
 }
