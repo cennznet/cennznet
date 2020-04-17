@@ -17,7 +17,7 @@ use crate::{
 	device::{self, DeviceId},
 	groups,
 	inbox::{self, Message, MessageId},
-	vault,
+	vault::{self, VaultKey, VaultValue},
 };
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
 use frame_system::{ensure_root, ensure_signed};
@@ -29,6 +29,7 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		MaxDeviceLimitReached,
 		MaxInboxLimitReached,
+		MaxVaultLimitReached,
 	}
 }
 
@@ -90,9 +91,27 @@ decl_module! {
 			}
 
 			ensure!(existing_messages.len() as u32 <= u32::max_value(), Error::<T>::MaxInboxLimitReached);
-
 			<inbox::Values<T>>::insert(&user_id, existing_messages);
 			<inbox::NextIndexes<T>>::insert(&user_id, next_index);
+			Ok(())
+		}
+
+		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		fn migrate_vault(origin, user_id: T::AccountId, new_vaults: Vec<(VaultKey, VaultValue)>) -> DispatchResult {
+			Self::ensure_sylo_migrator(origin)?;
+
+			let mut existing_vaults = <vault::Vault<T>>::get(&user_id).clone();
+			let (existing_vault_key, _): (Vec<VaultKey>, Vec<_>) = existing_vaults.clone().into_iter().unzip();
+
+			// For repeatability, we update the existing vaults that are assumed to be migrated already.
+			for (new_vault_key, new_vault_value) in new_vaults {
+				if !existing_vault_key.contains(&new_vault_key) {
+					existing_vaults.push((new_vault_key, new_vault_value));
+				}
+			}
+
+			ensure!(existing_vaults.len() <= vault::MAX_KEYS, Error::<T>::MaxVaultLimitReached);
+			<vault::Vault<T>>::insert(&user_id, existing_vaults);
 			Ok(())
 		}
 	}
@@ -118,6 +137,7 @@ mod tests {
 	type Migration = Module<Test>;
 	type Device = device::Module<Test>;
 	type Inbox = inbox::Module<Test>;
+	type Vault = vault::Module<Test>;
 
 	#[test]
 	fn set_migration_account_works() {
@@ -318,6 +338,65 @@ mod tests {
 			];
 			assert_eq!(Inbox::values(user_id), current_messages);
 			assert_eq!(inbox::NextIndexes::<Test>::get(user_id), next_index);
+		});
+	}
+
+	#[test]
+	fn migrate_vault_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let user_id = H256::from_low_u64_be(1);
+			let vaults = vec![
+				(b"key_0".to_vec(), b"value_0".to_vec()),
+				(b"key_1".to_vec(), b"value_1".to_vec()),
+				(b"key_2".to_vec(), b"value_2".to_vec()),
+			];
+			let migration_account = H256::from_low_u64_be(2);
+
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::migrate_vault(
+				Origin::signed(migration_account),
+				user_id.clone(),
+				vaults.clone(),
+			));
+			assert_eq!(Vault::values(user_id), vaults);
+		});
+	}
+
+	#[test]
+	fn migrate_vault_works_with_existing_messages() {
+		ExtBuilder::default().build().execute_with(|| {
+			let user_id = H256::from_low_u64_be(1);
+			let existing_vaults = vec![
+				(b"key_0".to_vec(), b"value_0".to_vec()),
+				(b"key_1".to_vec(), b"value_1".to_vec()),
+				(b"key_2".to_vec(), b"value_2".to_vec()),
+			];
+			for (k, v) in existing_vaults {
+				Vault::upsert(user_id, k, v);
+			}
+
+			let migration_account = H256::from_low_u64_be(2);
+			let new_vaults = vec![
+				(b"key_2".to_vec(), b"value_2".to_vec()),
+				(b"key_3".to_vec(), b"value_3".to_vec()),
+				(b"key_4".to_vec(), b"value_4".to_vec()),
+			];
+
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::migrate_vault(
+				Origin::signed(migration_account),
+				user_id.clone(),
+				new_vaults.clone(),
+			));
+
+			let current_vaults = vec![
+				(b"key_0".to_vec(), b"value_0".to_vec()),
+				(b"key_1".to_vec(), b"value_1".to_vec()),
+				(b"key_2".to_vec(), b"value_2".to_vec()),
+				(b"key_3".to_vec(), b"value_3".to_vec()),
+				(b"key_4".to_vec(), b"value_4".to_vec()),
+			];
+			assert_eq!(Vault::values(user_id), current_vaults);
 		});
 	}
 }
