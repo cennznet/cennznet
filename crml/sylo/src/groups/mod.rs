@@ -404,7 +404,6 @@ decl_module! {
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		fn migrate_groups(origin, group_id: T::Hash, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
-			ensure_signed(origin.clone())?;
 			migration::Module::<T>::ensure_sylo_migrator(origin)?;
 			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
 			ensure!(group.invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
@@ -420,7 +419,6 @@ decl_module! {
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		fn migrate_group_devices(origin, group_id: T::Hash, member_devices: Vec<(T::AccountId, DeviceId)>) -> DispatchResult {
-			ensure_signed(origin.clone())?;
 			migration::Module::<T>::ensure_sylo_migrator(origin)?;
 
 			<MemberDevices<T>>::insert(&group_id, &member_devices);
