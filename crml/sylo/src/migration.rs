@@ -296,7 +296,7 @@ mod tests {
 	}
 
 	#[test]
-	fn migrate_inbox_works_with_existing_messages() {
+	fn migrate_inbox_works_with_existing_data() {
 		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let next_index = 7357;
@@ -363,7 +363,7 @@ mod tests {
 	}
 
 	#[test]
-	fn migrate_vault_works_with_existing_messages() {
+	fn migrate_vault_works_with_existing_data() {
 		ExtBuilder::default().build().execute_with(|| {
 			let user_id = H256::from_low_u64_be(1);
 			let existing_vaults = vec![
