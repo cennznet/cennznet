@@ -80,7 +80,7 @@ decl_module! {
 		fn migrate_inbox(origin, user_id: T::AccountId, next_index: MessageId, new_messages: Vec<(MessageId, Message)>) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
 
-			let mut existing_messages = <inbox::Values<T>>::get(&user_id).clone();
+			let mut existing_messages = <inbox::Values<T>>::get(&user_id);
 			let (existing_indexes, _): (Vec<MessageId>, Vec<_>) = existing_messages.clone().into_iter().unzip();
 
 			// For repeatability, we update the existing messages that are assumed to be migrated already.
@@ -90,7 +90,6 @@ decl_module! {
 				}
 			}
 
-			ensure!(existing_messages.len() as u32 <= u32::max_value(), Error::<T>::MaxInboxLimitReached);
 			<inbox::Values<T>>::insert(&user_id, existing_messages);
 			<inbox::NextIndexes<T>>::insert(&user_id, next_index);
 			Ok(())
@@ -100,7 +99,7 @@ decl_module! {
 		fn migrate_vault(origin, user_id: T::AccountId, new_vaults: Vec<(VaultKey, VaultValue)>) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
 
-			let mut existing_vaults = <vault::Vault<T>>::get(&user_id).clone();
+			let mut existing_vaults = <vault::Vault<T>>::get(&user_id);
 			let (existing_vault_key, _): (Vec<VaultKey>, Vec<_>) = existing_vaults.clone().into_iter().unzip();
 
 			// For repeatability, we update the existing vaults that are assumed to be migrated already.
