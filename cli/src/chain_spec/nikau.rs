@@ -50,10 +50,7 @@ pub fn config() -> ChainSpec {
 		"CENNZnet Nikau",                        // name
 		"CENNZnet Nikau V1",                     // ID
 		|| config_genesis(network_keys(), true), // constructor
-		vec![
-			"/dns4/bootnode-test-0.cennznet.cloud/tcp/30333/p2p/QmNRJKZGS7ySkMSaLoJpNywgxB8vbpUsCSuFmdKpNjup4y"
-				.to_owned(),
-		], // boot nodes
+		vec![],                                  // boot nodes
 		None,                                    // telemetry
 		Some("cennznet-nikau-v1"),               // lib-p2p protocol ID
 		None,                                    // properties
