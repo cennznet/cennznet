@@ -27,7 +27,10 @@ use sp_core::{ed25519, hash::H256};
 use sp_runtime::traits::Verify;
 use sp_std::vec;
 
-use crate::{device, inbox, vault};
+use crate::{
+	device::{self, DeviceId},
+	inbox, migration, vault,
+};
 use vault::{VaultKey, VaultValue};
 
 mod tests;
@@ -162,7 +165,7 @@ decl_module! {
 			Self::store_membership(&sender, group_id.clone());
 
 			// Record user's devices
-			let member_devices: Vec<(T::AccountId, u32)> =
+			let member_devices: Vec<(T::AccountId, DeviceId)> =
 				<device::Devices<T>>::get(&sender)
 					.into_iter()
 					.map(|device| (sender.clone(), device))
@@ -357,7 +360,7 @@ decl_module! {
 			Self::store_membership(&sender, group_id.clone());
 
 			// Record user's devices
-			let member_devices: Vec<(T::AccountId, u32)> =
+			let member_devices: Vec<(T::AccountId, DeviceId)> =
 				<device::Devices<T>>::get(&sender)
 					.into_iter()
 					.map(|device| (sender.clone(), device))
@@ -398,6 +401,32 @@ decl_module! {
 
 			Ok(())
 		}
+
+		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		fn migrate_groups(origin, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
+			migration::Module::<T>::ensure_sylo_migrator(origin)?;
+			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
+			ensure!(group.invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
+
+			let group_id = &group.group_id;
+
+			<Groups<T>>::insert(group_id, &group);
+
+			for member in group.members {
+				Self::store_membership(&member.user_id, group_id.clone());
+			}
+
+			Ok(())
+		}
+
+		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		fn migrate_group_devices(origin, group_id: T::Hash, member_devices: Vec<(T::AccountId, DeviceId)>) -> DispatchResult {
+			migration::Module::<T>::ensure_sylo_migrator(origin)?;
+
+			<MemberDevices<T>>::insert(&group_id, &member_devices);
+
+			Ok(())
+		}
 	}
 }
 
@@ -409,7 +438,7 @@ decl_storage! {
 		pub Memberships get(memberships): map hasher(blake2_128_concat) T::AccountId => Vec<T::Hash>;
 
 		/// Stores the known member/deviceId tuples for a particular group
-		MemberDevices get(member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, u32)>;
+		MemberDevices get(member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, DeviceId)>;
 	}
 }
 
@@ -464,7 +493,7 @@ impl<T: Trait> Module<T> {
 		<inbox::Module<T>>::add(peer_id, invite_data)
 	}
 
-	pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: u32) {
+	pub fn append_member_device(group_id: &T::Hash, account_id: T::AccountId, device_id: DeviceId) {
 		let mut devices = <MemberDevices<T>>::get(group_id);
 
 		let exists = devices
