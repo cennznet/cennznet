@@ -327,6 +327,7 @@ mod tests {
 		});
 	}
 
+	use crate::device::DeviceId;
 	use crate::migration;
 
 	type Migration = migration::Module<Test>;
@@ -424,6 +425,45 @@ mod tests {
 
 			// Test user id 3 is not a member of any groups
 			assert_ne!(Groups::memberships(H256::from_low_u64_be(3)), vec![]);
+		});
+	}
+
+	#[test]
+	fn migrate_group_devices_work() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Allow user id 0 to do the migration of group devices
+			let migrator = H256::from_low_u64_be(0);
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator));
+
+			let group_devices_1 = vec![
+				(H256::from_low_u64_be(0), 0 as DeviceId),
+				(H256::from_low_u64_be(0), 1),
+				(H256::from_low_u64_be(1), 0),
+			];
+			let group_id_1 = H256::from_low_u64_be(3);
+			assert_ok!(Groups::migrate_group_devices(
+				Origin::signed(migrator),
+				group_id_1.clone(),
+				group_devices_1.clone()
+			));
+
+			let group_devices_2 = vec![
+				(H256::from_low_u64_be(5), 6 as DeviceId),
+				(H256::from_low_u64_be(6), 1),
+				(H256::from_low_u64_be(7), 0),
+			];
+			let group_id_2 = H256::from_low_u64_be(5);
+			assert_ok!(Groups::migrate_group_devices(
+				Origin::signed(migrator),
+				group_id_2.clone(),
+				group_devices_2.clone()
+			));
+
+			assert_eq!(Groups::member_devices(group_id_1), group_devices_1);
+			assert_eq!(Groups::member_devices(group_id_2), group_devices_2);
+
+			let group_id_3 = H256::from_low_u64_be(0);
+			assert!(Groups::member_devices(group_id_3).is_empty());
 		});
 	}
 }
