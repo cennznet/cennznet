@@ -403,12 +403,14 @@ decl_module! {
 		}
 
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_groups(origin, group_id: T::Hash, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
+		fn migrate_groups(origin, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
 			migration::Module::<T>::ensure_sylo_migrator(origin)?;
 			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
 			ensure!(group.invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
 
-			<Groups<T>>::insert(&group_id, &group);
+			let group_id = &group.group_id;
+
+			<Groups<T>>::insert(group_id, &group);
 
 			for member in group.members {
 				Self::store_membership(&member.user_id, group_id.clone());

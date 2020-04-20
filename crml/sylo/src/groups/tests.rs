@@ -15,7 +15,7 @@
 
 #[cfg(test)]
 mod tests {
-	use crate::groups::{AcceptPayload, Encode, Error, Group, Invite, Member, MemberRoles, Module};
+	use crate::groups::{AcceptPayload, Encode, Error, Group, Invite, Member, MemberRoles, Module, PendingInvite};
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use crate::vault;
 	use frame_support::{assert_err, assert_ok};
@@ -324,6 +324,106 @@ mod tests {
 			));
 
 			assert_eq!(Groups::group(group_id.clone()).members[0].meta, meta_1.clone())
+		});
+	}
+
+	use crate::migration;
+
+	type Migration = migration::Module<Test>;
+	type TestGroup = Group<H256, H256>;
+	type GroupVec = Vec<TestGroup>;
+
+	/// Set up a vector of groups by taking their number as the input argument and migrate them to the chain.
+	/// The user id 0 does the migration. The groups will have ids ranging from 0..num_of_groups. Each group
+	/// will have two members. The user id 1 is a fixed member of all of them. The second member of the group
+	/// will have the id of i + 2 when the group id is i. For example group 0 will have user ids 1 and 2 as
+	/// its members and group 1 will have 1 and 3.
+	fn setup_migrate_groups(num_of_groups: u32) -> GroupVec {
+		let mut groups: GroupVec = Vec::new();
+
+		// Allow user id 0 to do the groups migration
+		let migrator = H256::from_low_u64_be(0);
+		assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator));
+
+		for i in 0..num_of_groups {
+			let members_vec = vec![
+				Member {
+					user_id: H256::from_low_u64_be((i + 2) as u64),
+					roles: vec![MemberRoles::Admin],
+					meta: vec![(
+						format!("key_{}", i + 2).into_bytes(),
+						format!("value_{}", i + 2).into_bytes(),
+					)],
+				},
+				Member {
+					user_id: H256::from_low_u64_be(1), // leave 1 to be a member in all groups
+					roles: vec![MemberRoles::Member],
+					meta: vec![(b"key_1".to_vec(), b"value_1".to_vec())],
+				},
+			];
+
+			let invites_vec = vec![
+				PendingInvite::<H256> {
+					invite_key: H256::from(ed25519::Pair::generate().0.public()),
+					meta: vec![(b"key_i1".to_vec(), b"value_i1".to_vec())],
+					roles: vec![MemberRoles::Member],
+				},
+				PendingInvite::<H256> {
+					invite_key: H256::from(ed25519::Pair::generate().0.public()),
+					meta: vec![(b"key_i2".to_vec(), b"value_i2".to_vec())],
+					roles: vec![MemberRoles::Admin, MemberRoles::Member],
+				},
+			];
+
+			let group = Group {
+				group_id: H256::from_low_u64_be(i as u64),
+				members: members_vec,
+				invites: invites_vec,
+				meta: vec![(format!("key_g{}", i).into_bytes(), format!("value_g{}", i).into_bytes())],
+			};
+
+			assert_ok!(Groups::migrate_groups(Origin::signed(migrator), group.clone()));
+
+			groups.push(group);
+		}
+		groups
+	}
+
+	#[test]
+	fn migrate_groups_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Set up 1 group
+			let group = &setup_migrate_groups(1)[0];
+
+			// Retrieve the group from the storage by using its id and check everything has stored properly
+			assert_eq!(Groups::group(group.group_id.clone()), *group);
+		});
+	}
+
+	#[test]
+	fn migrate_groups_updates_memberships() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Set up 2 groups
+			setup_migrate_groups(2);
+
+			// Test user id 1 is a member of both groups
+			assert_eq!(
+				Groups::memberships(H256::from_low_u64_be(1)),
+				vec![H256::from_low_u64_be(0), H256::from_low_u64_be(1)]
+			);
+
+			// Test user id 2 is just a member of group 0
+			assert_eq!(
+				Groups::memberships(H256::from_low_u64_be(2)),
+				vec![H256::from_low_u64_be(0)]
+			);
+			assert_ne!(
+				Groups::memberships(H256::from_low_u64_be(2)),
+				vec![H256::from_low_u64_be(1)]
+			);
+
+			// Test user id 3 is not a member of any groups
+			assert_ne!(Groups::memberships(H256::from_low_u64_be(3)), vec![]);
 		});
 	}
 }
