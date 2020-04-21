@@ -423,8 +423,8 @@ mod tests {
 				vec![H256::from_low_u64_be(1)]
 			);
 
-			// Test user id 3 is not a member of any groups
-			assert_ne!(Groups::memberships(H256::from_low_u64_be(3)), vec![]);
+			// Test user id 4 is not a member of any groups
+			assert!(Groups::memberships(H256::from_low_u64_be(4)).is_empty());
 		});
 	}
 
