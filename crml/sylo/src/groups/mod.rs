@@ -460,12 +460,10 @@ impl<T: Trait> Module<T> {
 	}
 
 	fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
-		if <Memberships<T>>::contains_key(account_id) {
-			let mut memberships = <Memberships<T>>::get(account_id);
+		let mut memberships = <Memberships<T>>::get(account_id);
+		if !memberships.contains(&group_id) {
 			memberships.push(group_id);
 			<Memberships<T>>::insert(account_id, memberships)
-		} else {
-			<Memberships<T>>::insert(account_id, vec![group_id])
 		}
 	}
 
