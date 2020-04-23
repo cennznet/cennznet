@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+//! fee multiplier vs. block fullness integration tests
+
 use codec::{Encode, Joiner};
 use frame_support::{storage::StorageDoubleMap, weights::GetDispatchInfo, StorageMap, StorageValue};
 use sp_core::{map, storage::Storage, NeverNativeValue};
@@ -197,122 +199,4 @@ fn transaction_fee_is_correct_ultimate() {
 
 		assert_eq!(GenericAsset::total_balance(&SPENDING_ASSET_ID, &alice()), balance_alice);
 	});
-}
-
-#[test]
-#[should_panic]
-#[cfg(feature = "stress-test")]
-fn block_weight_capacity_report() {
-	// Just report how many transfer calls you could fit into a block. The number should at least
-	// be a few hundred (250 at the time of writing but can change over time). Runs until panic.
-	use cennznet_primitives::types::Index;
-
-	// execution ext.
-	let mut t = new_test_ext(COMPACT_CODE, false);
-	// setup ext.
-	let mut tt = new_test_ext(COMPACT_CODE, false);
-
-	let factor = 50;
-	let mut time = 10;
-	let mut nonce: Index = 0;
-	let mut block_number = 1;
-	let mut previous_hash: Hash = GENESIS_HASH.into();
-
-	loop {
-		let num_transfers = block_number * factor;
-		let mut xts = (0..num_transfers)
-			.map(|i| CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(nonce + i as Index, 0, None, None))),
-				function: Call::GenericAsset(pallet_generic_asset::Call::transfer(SPENDING_ASSET_ID, bob().into(), 0)),
-			})
-			.collect::<Vec<CheckedExtrinsic>>();
-
-		xts.insert(
-			0,
-			CheckedExtrinsic {
-				signed: None,
-				function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
-			},
-		);
-
-		// NOTE: this is super slow. Can probably be improved.
-		let block = construct_block(&mut tt, block_number, previous_hash, xts);
-
-		let len = block.0.len();
-		print!(
-			"++ Executing block with {} transfers. Block size = {} bytes / {} kb / {} mb",
-			num_transfers,
-			len,
-			len / 1024,
-			len / 1024 / 1024,
-		);
-
-		let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
-
-		println!(" || Result = {:?}", r);
-		assert!(r.is_ok());
-
-		previous_hash = block.1;
-		nonce += num_transfers;
-		time += 10;
-		block_number += 1;
-	}
-}
-
-#[test]
-#[should_panic]
-#[cfg(feature = "stress-test")]
-fn block_length_capacity_report() {
-	// Just report how big a block can get. Executes until panic. Should be ignored unless if
-	// manually inspected. The number should at least be a few megabytes (5 at the time of
-	// writing but can change over time).
-	use cennznet_primitives::types::Index;
-
-	// execution ext.
-	let mut t = new_test_ext(COMPACT_CODE, false);
-	// setup ext.
-	let mut tt = new_test_ext(COMPACT_CODE, false);
-
-	let factor = 256 * 1024;
-	let mut time = 10;
-	let mut nonce: Index = 0;
-	let mut block_number = 1;
-	let mut previous_hash: Hash = GENESIS_HASH.into();
-
-	loop {
-		// NOTE: this is super slow. Can probably be improved.
-		let block = construct_block(
-			&mut tt,
-			block_number,
-			previous_hash,
-			vec![
-				CheckedExtrinsic {
-					signed: None,
-					function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
-				},
-				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(nonce, 0, None, None))),
-					function: Call::System(frame_system::Call::remark(vec![0u8; (block_number * factor) as usize])),
-				},
-			],
-		);
-
-		let len = block.0.len();
-		print!(
-			"++ Executing block with big remark. Block size = {} bytes / {} kb / {} mb",
-			len,
-			len / 1024,
-			len / 1024 / 1024,
-		);
-
-		let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
-
-		println!(" || Result = {:?}", r);
-		assert!(r.is_ok());
-
-		previous_hash = block.1;
-		nonce += 1;
-		time += 10;
-		block_number += 1;
-	}
 }

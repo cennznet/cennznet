@@ -449,15 +449,4 @@ mod tests {
 			extrinsic_factory,
 		);
 	}
-
-	#[test]
-	#[ignore]
-	fn test_consensus() {
-		sc_service_test::consensus(
-			crate::chain_spec::nikau::config(),
-			|config| new_full(config),
-			|config| new_light(config),
-			vec!["//Alice".into(), "//Bob".into(), "//Charlie".into(), "//Nikau".into()],
-		)
-	}
 }
