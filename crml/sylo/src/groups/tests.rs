@@ -270,7 +270,7 @@ mod tests {
 				.map(|invite_key| Invite {
 					peer_id: H256::from_low_u64_be(2),
 					invite_data: vec![],
-					invite_key: invite_key,
+					invite_key,
 					meta: vec![],
 					roles: vec![],
 				})
