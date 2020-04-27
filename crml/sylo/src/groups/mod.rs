@@ -152,17 +152,17 @@ decl_module! {
 
 			// Build up group
 			let group = Group {
-				group_id: group_id.clone(),
+				group_id,
 				members: vec![admin],
 				meta,
 				invites: vec![]
 			};
 
 			// Store new group
-			<Groups<T>>::insert(group_id.clone(), group);
+			<Groups<T>>::insert(group_id, group);
 
 			// Record new membership
-			Self::store_membership(&sender, group_id.clone());
+			Self::store_membership(&sender, group_id);
 
 			// Record user's devices
 			let member_devices: Vec<(T::AccountId, DeviceId)> =
@@ -171,9 +171,9 @@ decl_module! {
 					.map(|device| (sender.clone(), device))
 					.collect();
 
-			<MemberDevices<T>>::insert(group_id.clone(), member_devices);
+			<MemberDevices<T>>::insert(group_id, member_devices);
 
-			<vault::Module<T>>::upsert(sender.clone(), group_data.0, group_data.1);
+			<vault::Module<T>>::upsert(sender, group_data.0, group_data.1);
 
 			// Create invites
 			for invite in invites {
@@ -199,10 +199,10 @@ decl_module! {
 			// Remove the member from the group
 			group.members = group.members
 				.into_iter()
-				.filter(|member| &member.user_id != &sender)
+				.filter(|member| member.user_id != sender)
 				.collect();
 
-			if group.members.len() > 0 {
+			if !group.members.is_empty() {
 				// Store the updated group
 				<Groups<T>>::insert(&group_id, group);
 			} else {
@@ -210,7 +210,7 @@ decl_module! {
 			}
 
 			if let Some(key) = group_key {
-				<vault::Module<T>>::delete(sender.clone(), vec![key])
+				<vault::Module<T>>::delete(sender, vec![key])
 			}
 
 			Ok(())
@@ -233,13 +233,13 @@ decl_module! {
 			group.members = group.members
 				.into_iter()
 				.map(|member| {
-					if &member.user_id == &sender {
+					if member.user_id == sender {
 						return Member {
 							meta: meta.clone(),
 							..member
 						};
 					}
-					return member;
+					member
 				})
 				.collect();
 
@@ -269,7 +269,7 @@ decl_module! {
 			 * 3. Add: The key doesn't exist and the data is not empty
 			*/
 			for k_v in meta {
-				let has_value = k_v.1.len() > 0;
+				let has_value = !k_v.1.is_empty();
 				let meta_copy = group.meta.clone();
 				if let Some((i,_)) = meta_copy.iter().enumerate().find(|(_,item)| item.0 == k_v.0) {
 					if has_value {
@@ -342,7 +342,7 @@ decl_module! {
 			roles.extend(invite.roles);
 
 			let new_member: Member<T::AccountId> = Member {
-				user_id: payload.account_id.clone(),
+				user_id: payload.account_id,
 				meta: Vec::new(),
 				roles,
 			};
@@ -357,7 +357,7 @@ decl_module! {
 			<Groups<T>>::insert(&group_id, group);
 
 			// Record new membership
-			Self::store_membership(&sender, group_id.clone());
+			Self::store_membership(&sender, group_id);
 
 			// Record user's devices
 			let member_devices: Vec<(T::AccountId, DeviceId)> =
@@ -371,7 +371,7 @@ decl_module! {
 			let mut all_devices = <MemberDevices<T>>::get(&group_id);
 			all_devices.extend(member_devices);
 
-			<MemberDevices<T>>::insert(group_id.clone(), all_devices);
+			<MemberDevices<T>>::insert(group_id, all_devices);
 
 			<inbox::Module<T>>::delete(sender, vec![inbox_id])
 		}
@@ -413,7 +413,7 @@ decl_module! {
 			<Groups<T>>::insert(group_id, &group);
 
 			for member in group.members {
-				Self::store_membership(&member.user_id, group_id.clone());
+				Self::store_membership(&member.user_id, *group_id);
 			}
 
 			Ok(())
@@ -446,26 +446,22 @@ impl<T: Trait> Module<T> {
 	fn is_group_member(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
 		<Groups<T>>::get(group_id)
 			.members
-			.into_iter()
-			.find(|member| &member.user_id == account_id)
-			.is_some()
+			.iter()
+			.any(|member| &member.user_id == account_id)
 	}
 
 	fn is_group_admin(group_id: &T::Hash, account_id: &T::AccountId) -> bool {
 		<Groups<T>>::get(group_id)
 			.members
-			.into_iter()
-			.find(|member| &member.user_id == account_id && member.is_admin())
-			.is_some()
+			.iter()
+			.any(|member| &member.user_id == account_id && member.is_admin())
 	}
 
 	fn store_membership(account_id: &T::AccountId, group_id: T::Hash) {
-		if <Memberships<T>>::contains_key(account_id) {
-			let mut memberships = <Memberships<T>>::get(account_id);
+		let mut memberships = <Memberships<T>>::get(account_id);
+		if !memberships.contains(&group_id) {
 			memberships.push(group_id);
 			<Memberships<T>>::insert(account_id, memberships)
-		} else {
-			<Memberships<T>>::insert(account_id, vec![group_id])
 		}
 	}
 
@@ -498,8 +494,7 @@ impl<T: Trait> Module<T> {
 
 		let exists = devices
 			.iter()
-			.find(|device| &device.0 == &account_id && &device.1 == &device_id)
-			.is_some();
+			.any(|(member, device)| member == &account_id && device == &device_id);
 
 		if !exists {
 			devices.push((account_id, device_id));

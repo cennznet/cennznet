@@ -29,7 +29,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let meta_1 = vec![(b"key".to_vec(), b"value".to_vec())];
 			let group_id = H256::from([1; 32]);
-			//Create a group
+			// Create a group
 			assert_ok!(Groups::create_group(
 				Origin::signed(H256::from_low_u64_be(1)),
 				group_id.clone(),
@@ -270,7 +270,7 @@ mod tests {
 				.map(|invite_key| Invite {
 					peer_id: H256::from_low_u64_be(2),
 					invite_data: vec![],
-					invite_key: invite_key,
+					invite_key,
 					meta: vec![],
 					roles: vec![],
 				})
@@ -464,6 +464,19 @@ mod tests {
 
 			let group_id_3 = H256::from_low_u64_be(0);
 			assert!(Groups::member_devices(group_id_3).is_empty());
+		});
+	}
+
+	#[test]
+	fn store_membership_is_idempotent() {
+		let user_id = H256::from_low_u64_be(1);
+		let group_id = H256::from_low_u64_be(123);
+
+		ExtBuilder::default().build().execute_with(|| {
+			Groups::store_membership(&user_id, group_id);
+			assert_eq!(Groups::memberships(&user_id), vec![group_id]);
+			Groups::store_membership(&user_id, group_id);
+			assert_eq!(Groups::memberships(&user_id), vec![group_id]);
 		});
 	}
 }

@@ -124,7 +124,7 @@ impl<T: Trait> Module<T> {
 				values.remove(index);
 			}
 		}
-		<Values<T>>::insert(user_id.clone(), values);
+		<Values<T>>::insert(user_id, values);
 		Ok(())
 	}
 }
