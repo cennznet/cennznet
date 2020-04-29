@@ -1830,6 +1830,12 @@ where
 			}
 		};
 
+		<Self as Store>::EarliestUnappliedSlash::mutate(|earliest| {
+			if earliest.is_none() {
+				*earliest = Some(era_now)
+			}
+		});
+
 		let slash_defer_duration = T::SlashDeferDuration::get();
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
@@ -1867,12 +1873,6 @@ where
 				} else {
 					// defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(era_now, move |for_later| for_later.push(unapplied));
-
-					<Self as Store>::EarliestUnappliedSlash::mutate(|earliest| {
-						if earliest.is_none() {
-							*earliest = Some(era_now)
-						}
-					});
 				}
 			}
 		}
