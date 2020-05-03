@@ -13,7 +13,8 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo};
+use sp_std::prelude::*;
+use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo, IterableStorageMap};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
 
@@ -21,33 +22,38 @@ pub trait Trait: frame_system::Trait {}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloMigration {
-		MigrationAccount: T::AccountId;
+		/// Accounts which have authority to make Sylo data migration calls
+		Migrators: map hasher(twox_64_concat) T::AccountId => ();
 	}
 }
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 
+		/// Add `account_id` as a authorized Sylo data migrator
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		pub fn set_migrator_account(origin, account_id: T::AccountId) -> DispatchResult {
+		pub fn authorize_migrator(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
-			MigrationAccount::<T>::put(account_id);
+			Migrators::<T>::insert(account_id, ());
 			Ok(())
 		}
 
+		/// Remove all Sylo migrator accounts from storage, thereby revoking all permissions.
+		/// Any authorized migrator may call this.
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		pub fn self_destruct(origin) -> DispatchResult {
+		pub fn revoke_migrators(origin) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
-			MigrationAccount::<T>::kill();
+			let _ = Migrators::<T>::drain().collect::<Vec<(T::AccountId, ())>>();
 			Ok(())
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
+	// Ensure `origin` is an authorized Sylo data migrator
 	pub fn ensure_sylo_migrator(origin: T::Origin) -> DispatchResult {
 		let account_id = ensure_signed(origin)?;
-		ensure!(MigrationAccount::<T>::get() == account_id, BadOrigin);
+		ensure!(Migrators::<T>::contains_key(account_id), BadOrigin);
 		Ok(())
 	}
 }
@@ -69,7 +75,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let migration_account = H256::from_low_u64_be(2);
 
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
 
 			assert_ok!(Migration::ensure_sylo_migrator(Origin::signed(migration_account)));
 		});
@@ -81,7 +87,7 @@ mod tests {
 			let migration_account = H256::from_low_u64_be(2);
 			let invalid_account = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(invalid_account)),
@@ -107,9 +113,9 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let migration_account = H256::from_low_u64_be(2);
 
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
 
-			assert_ok!(Migration::self_destruct(Origin::signed(migration_account)));
+			assert_ok!(Migration::revoke_migrators(Origin::signed(migration_account)));
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(migration_account)),
@@ -124,10 +130,10 @@ mod tests {
 			let migration_account = H256::from_low_u64_be(2);
 			let invalid_account = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
+			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
 
 			assert_eq!(
-				Migration::self_destruct(Origin::signed(invalid_account)),
+				Migration::revoke_migrators(Origin::signed(invalid_account)),
 				Err(BadOrigin)
 			);
 
