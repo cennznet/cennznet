@@ -23,17 +23,22 @@ fn network_keys() -> NetworkKeys {
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		get_account_id_from_seed::<sr25519::Public>("Bob"),
 		get_account_id_from_seed::<sr25519::Public>("Charlie"),
+		get_account_id_from_seed::<sr25519::Public>("Dave"),
+		get_account_id_from_seed::<sr25519::Public>("Eve"),
 		get_account_id_from_seed::<sr25519::Public>("Nikau"),
 		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Nikau//stash"),
 	];
 	let initial_authorities = vec![
 		get_authority_keys_from_seed("Alice"),
 		get_authority_keys_from_seed("Bob"),
 		get_authority_keys_from_seed("Charlie"),
-		get_authority_keys_from_seed("Nikau"),
+		get_authority_keys_from_seed("Dave"),
+		get_authority_keys_from_seed("Eve"),
 	];
 	let root_key = get_account_id_from_seed::<sr25519::Public>("Nikau");
 
