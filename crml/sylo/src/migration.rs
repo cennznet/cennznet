@@ -13,17 +13,19 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use sp_std::prelude::*;
+//! Manage the authorized account set for the Sylo data migration
+
 use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo, IterableStorageMap};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
+use sp_std::prelude::*;
 
 pub trait Trait: frame_system::Trait {}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloMigration {
 		/// Accounts which have authority to make Sylo data migration calls
-		Migrators: map hasher(twox_64_concat) T::AccountId => ();
+		AuthorisedMigrators: map hasher(twox_64_concat) T::AccountId => ();
 	}
 }
 
@@ -32,9 +34,9 @@ decl_module! {
 
 		/// Add `account_id` as a authorized Sylo data migrator
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		pub fn authorize_migrator(origin, account_id: T::AccountId) -> DispatchResult {
+		pub fn set_migrator_account(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
-			Migrators::<T>::insert(account_id, ());
+			AuthorisedMigrators::<T>::insert(account_id, ());
 			Ok(())
 		}
 
@@ -43,7 +45,7 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn revoke_migrators(origin) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
-			let _ = Migrators::<T>::drain().collect::<Vec<(T::AccountId, ())>>();
+			let _ = AuthorisedMigrators::<T>::drain().collect::<Vec<(T::AccountId, ())>>();
 			Ok(())
 		}
 	}
@@ -53,7 +55,7 @@ impl<T: Trait> Module<T> {
 	// Ensure `origin` is an authorized Sylo data migrator
 	pub fn ensure_sylo_migrator(origin: T::Origin) -> DispatchResult {
 		let account_id = ensure_signed(origin)?;
-		ensure!(Migrators::<T>::contains_key(account_id), BadOrigin);
+		ensure!(AuthorisedMigrators::<T>::contains_key(account_id), BadOrigin);
 		Ok(())
 	}
 }
@@ -73,11 +75,14 @@ mod tests {
 	#[test]
 	fn set_migration_account_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let migration_account = H256::from_low_u64_be(2);
+			let migrator_a = H256::from_low_u64_be(2);
+			let migrator_b = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator_a));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator_b));
 
-			assert_ok!(Migration::ensure_sylo_migrator(Origin::signed(migration_account)));
+			assert_ok!(Migration::ensure_sylo_migrator(Origin::signed(migrator_a)));
+			assert_ok!(Migration::ensure_sylo_migrator(Origin::signed(migrator_b)));
 		});
 	}
 
@@ -87,7 +92,7 @@ mod tests {
 			let migration_account = H256::from_low_u64_be(2);
 			let invalid_account = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(invalid_account)),
@@ -109,28 +114,37 @@ mod tests {
 	}
 
 	#[test]
-	fn remove_migration_account_works() {
+	fn revoke_migrators_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let migration_account = H256::from_low_u64_be(2);
+			let migrator_a = H256::from_low_u64_be(2);
+			let migrator_b = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator_a));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migrator_b));
 
-			assert_ok!(Migration::revoke_migrators(Origin::signed(migration_account)));
+			assert_ok!(Migration::revoke_migrators(Origin::signed(migrator_a)));
 
 			assert_eq!(
-				Migration::ensure_sylo_migrator(Origin::signed(migration_account)),
+				Migration::ensure_sylo_migrator(Origin::signed(migrator_a)),
 				Err(BadOrigin)
 			);
+			assert_eq!(
+				Migration::ensure_sylo_migrator(Origin::signed(migrator_b)),
+				Err(BadOrigin)
+			);
+
+			// Migrator storage has emptied
+			assert!(AuthorisedMigrators::<Test>::iter().collect::<Vec<(_, ())>>().is_empty());
 		});
 	}
 
 	#[test]
-	fn remove_migration_account_with_invalid_account_fails() {
+	fn revoke_migrators_with_invalid_account_fails() {
 		ExtBuilder::default().build().execute_with(|| {
 			let migration_account = H256::from_low_u64_be(2);
 			let invalid_account = H256::from_low_u64_be(3);
 
-			assert_ok!(Migration::authorize_migrator(Origin::ROOT, migration_account));
+			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
 
 			assert_eq!(
 				Migration::revoke_migrators(Origin::signed(invalid_account)),
