@@ -134,7 +134,9 @@ mod tests {
 			);
 
 			// Migrator storage has emptied
-			assert!(AuthorisedMigrators::<Test>::iter().collect::<Vec<(_, bool)>>().is_empty());
+			assert!(AuthorisedMigrators::<Test>::iter()
+				.collect::<Vec<(_, bool)>>()
+				.is_empty());
 		});
 	}
 
