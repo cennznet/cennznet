@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-cli",
  "ctrlc",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
