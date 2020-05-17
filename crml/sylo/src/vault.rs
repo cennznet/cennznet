@@ -76,19 +76,11 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		fn migrate_vault(origin, user_id: T::AccountId, new_vaults: Vec<(VaultKey, VaultValue)>) -> DispatchResult {
 			<Migration<T>>::ensure_sylo_migrator(origin)?;
+			ensure!(new_vaults.len() <= MAX_KEYS, Error::<T>::MaxKeys);
+			ensure!(new_vaults.iter().all(|entry| entry.1.len() <= MAX_VALUE_LENGTH), Error::<T>::MaxValueLength);
 
-			let mut existing_vaults = <Vault<T>>::get(&user_id);
-			let (existing_vault_key, _): (Vec<VaultKey>, Vec<_>) = existing_vaults.clone().into_iter().unzip();
+			<Vault<T>>::insert(&user_id, new_vaults);
 
-			// For repeatability, we update the existing vaults that are assumed to be migrated already.
-			for (new_vault_key, new_vault_value) in new_vaults {
-				if !existing_vault_key.contains(&new_vault_key) {
-					existing_vaults.push((new_vault_key, new_vault_value));
-				}
-			}
-
-			ensure!(existing_vaults.len() <= MAX_KEYS, Error::<T>::MaxKeys);
-			<Vault<T>>::insert(&user_id, existing_vaults);
 			Ok(())
 		}
 	}
@@ -130,6 +122,7 @@ mod tests {
 	use sp_core::H256;
 
 	impl Trait for Test {}
+
 	type Vault = Module<Test>;
 	type Migration = migration::Module<Test>;
 
@@ -271,7 +264,7 @@ mod tests {
 			let existing_vaults = vec![
 				(b"key_0".to_vec(), b"value_0".to_vec()),
 				(b"key_1".to_vec(), b"value_1".to_vec()),
-				(b"key_2".to_vec(), b"value_2".to_vec()),
+				(b"key_2".to_vec(), b"value_2_1".to_vec()),
 			];
 			for (k, v) in existing_vaults {
 				Vault::upsert(user_id, k, v);
@@ -279,7 +272,7 @@ mod tests {
 
 			let migration_account = H256::from_low_u64_be(2);
 			let new_vaults = vec![
-				(b"key_2".to_vec(), b"value_2".to_vec()),
+				(b"key_2".to_vec(), b"value_2_2".to_vec()),
 				(b"key_3".to_vec(), b"value_3".to_vec()),
 				(b"key_4".to_vec(), b"value_4".to_vec()),
 			];
@@ -292,9 +285,7 @@ mod tests {
 			));
 
 			let current_vaults = vec![
-				(b"key_0".to_vec(), b"value_0".to_vec()),
-				(b"key_1".to_vec(), b"value_1".to_vec()),
-				(b"key_2".to_vec(), b"value_2".to_vec()),
+				(b"key_2".to_vec(), b"value_2_2".to_vec()),
 				(b"key_3".to_vec(), b"value_3".to_vec()),
 				(b"key_4".to_vec(), b"value_4".to_vec()),
 			];
