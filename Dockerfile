@@ -22,6 +22,7 @@ RUN apt-get update && \
     ln -s /root/.local/share/cennznet /data
 
 COPY --from=0 /cennznet/target/release/cennznet /usr/local/bin
+COPY --from=0 /cennznet/genesis /cennznet/genesis
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 ENTRYPOINT ["/usr/local/bin/cennznet"]
