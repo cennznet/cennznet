@@ -17,7 +17,7 @@
 
 use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo, IterableStorageMap};
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::{DispatchError::BadOrigin, DispatchResult};
+use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
 
 pub trait Trait: frame_system::Trait {}
@@ -25,7 +25,7 @@ pub trait Trait: frame_system::Trait {}
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloMigration {
 		/// Accounts which have authority to make Sylo data migration calls
-		AuthorisedMigrators: map hasher(twox_64_concat) T::AccountId => ();
+		AuthorisedMigrators: map hasher(twox_64_concat) T::AccountId => bool;
 	}
 }
 
@@ -36,7 +36,7 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn set_migrator_account(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
-			AuthorisedMigrators::<T>::insert(account_id, ());
+			AuthorisedMigrators::<T>::insert(account_id, true);
 			Ok(())
 		}
 
@@ -45,7 +45,7 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn revoke_migrators(origin) -> DispatchResult {
 			Self::ensure_sylo_migrator(origin)?;
-			let _ = AuthorisedMigrators::<T>::drain().collect::<Vec<(T::AccountId, ())>>();
+			let _ = AuthorisedMigrators::<T>::drain().collect::<Vec<(T::AccountId, bool)>>();
 			Ok(())
 		}
 	}
@@ -55,7 +55,7 @@ impl<T: Trait> Module<T> {
 	// Ensure `origin` is an authorized Sylo data migrator
 	pub fn ensure_sylo_migrator(origin: T::Origin) -> DispatchResult {
 		let account_id = ensure_signed(origin)?;
-		ensure!(AuthorisedMigrators::<T>::contains_key(account_id), BadOrigin);
+		ensure!(AuthorisedMigrators::<T>::get(account_id), "NotASyloMigrator");
 		Ok(())
 	}
 }
@@ -66,7 +66,7 @@ mod tests {
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use sp_core::H256;
-	use sp_runtime::DispatchError::BadOrigin;
+	use sp_runtime::DispatchError::Other;
 
 	type Migration = Module<Test>;
 
@@ -96,7 +96,7 @@ mod tests {
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(invalid_account)),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 		});
 	}
@@ -108,7 +108,7 @@ mod tests {
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(migration_account)),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 		});
 	}
@@ -126,15 +126,17 @@ mod tests {
 
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(migrator_a)),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 			assert_eq!(
 				Migration::ensure_sylo_migrator(Origin::signed(migrator_b)),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 
 			// Migrator storage has emptied
-			assert!(AuthorisedMigrators::<Test>::iter().collect::<Vec<(_, ())>>().is_empty());
+			assert!(AuthorisedMigrators::<Test>::iter()
+				.collect::<Vec<(_, bool)>>()
+				.is_empty());
 		});
 	}
 
@@ -148,7 +150,7 @@ mod tests {
 
 			assert_eq!(
 				Migration::revoke_migrators(Origin::signed(invalid_account)),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 
 			assert_ok!(Migration::ensure_sylo_migrator(Origin::signed(migration_account)));

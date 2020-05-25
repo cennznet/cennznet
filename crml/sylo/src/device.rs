@@ -93,9 +93,10 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{ExtBuilder, Test};
+	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::{assert_noop, assert_ok};
 	use sp_core::H256;
+	use sp_runtime::DispatchError::Other;
 
 	type Device = Module<Test>;
 
@@ -180,9 +181,6 @@ mod tests {
 		});
 	}
 
-	use crate::mock::Origin;
-	use sp_runtime::DispatchError::BadOrigin;
-
 	type Migration = migration::Module<Test>;
 
 	impl Trait for Test {}
@@ -239,7 +237,7 @@ mod tests {
 
 			assert_eq!(
 				Device::migrate_devices(Origin::signed(invalid_account), user_id.clone(), devices.clone()),
-				Err(BadOrigin)
+				Err(Other("NotASyloMigrator"))
 			);
 
 			assert_eq!(Device::devices(user_id), []);
