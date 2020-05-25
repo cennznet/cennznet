@@ -13,7 +13,6 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::migration;
 use frame_support::{
 	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo,
 };
@@ -22,30 +21,11 @@ const MAX_DEVICES: usize = 1000;
 
 pub type DeviceId = u32;
 
-pub trait Trait: frame_system::Trait + migration::Trait {}
+pub trait Trait: frame_system::Trait {}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
-
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_devices(origin, user_id: T::AccountId, device_ids: Vec<DeviceId>) -> DispatchResult {
-			migration::Module::<T>::ensure_sylo_migrator(origin)?;
-			ensure!(device_ids.len() <= MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
-
-			let mut devices = <Devices<T>>::get(user_id.clone());
-			ensure!(devices.len() + device_ids.len() <= MAX_DEVICES, Error::<T>::MaxDeviceLimitReached);
-
-			for device_id in device_ids {
-				if !devices.contains(&device_id) {
-					devices.push(device_id);
-				}
-			}
-
-			<Devices<T>>::insert(user_id, devices);
-
-			Ok(())
-		}
 	}
 }
 
@@ -178,69 +158,6 @@ mod tests {
 			// deleting a non-existing device should pass through without an error
 			assert_ok!(Device::delete_device(&user_id, 5));
 			assert_eq!(Device::devices(user_id), [1, 2, 3, 4]);
-		});
-	}
-
-	type Migration = migration::Module<Test>;
-
-	impl Trait for Test {}
-
-	#[test]
-	fn migrate_devices_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
-			let devices = vec![1, 2, 3, 4];
-			let migration_account = H256::from_low_u64_be(2);
-
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
-
-			assert_ok!(Device::migrate_devices(
-				Origin::signed(migration_account),
-				user_id.clone(),
-				devices.clone()
-			));
-
-			assert_eq!(Device::devices(user_id), [1, 2, 3, 4]);
-		});
-	}
-
-	#[test]
-	fn migrate_devices_does_not_double_up() {
-		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
-			let devices = vec![1, 2, 3, 4];
-			let migration_account = H256::from_low_u64_be(2);
-
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
-
-			assert_ok!(Device::append_device(&user_id, 3));
-
-			assert_ok!(Device::migrate_devices(
-				Origin::signed(migration_account),
-				user_id.clone(),
-				devices.clone()
-			));
-
-			assert_eq!(Device::devices(user_id), [3, 1, 2, 4]);
-		});
-	}
-
-	#[test]
-	fn migrate_devices_fails_with_bad_account() {
-		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
-			let devices = vec![1, 2, 3, 4];
-			let migration_account = H256::from_low_u64_be(2);
-			let invalid_account = H256::from_low_u64_be(3);
-
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
-
-			assert_eq!(
-				Device::migrate_devices(Origin::signed(invalid_account), user_id.clone(), devices.clone()),
-				Err(Other("NotASyloMigrator"))
-			);
-
-			assert_eq!(Device::devices(user_id), []);
 		});
 	}
 }
