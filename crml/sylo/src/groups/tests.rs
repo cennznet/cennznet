@@ -327,8 +327,6 @@ mod tests {
 		});
 	}
 
-	use crate::device::DeviceId;
-
 	#[test]
 	fn store_membership_is_idempotent() {
 		let user_id = H256::from_low_u64_be(1);
