@@ -110,7 +110,6 @@ mod tests {
 	impl Trait for Test {}
 
 	type Vault = Module<Test>;
-	type Migration = migration::Module<Test>;
 
 	#[test]
 	fn should_upsert_values() {

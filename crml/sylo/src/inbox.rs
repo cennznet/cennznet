@@ -116,7 +116,6 @@ mod tests {
 	use sp_core::H256;
 
 	type Inbox = Module<Test>;
-	type Migration = migration::Module<Test>;
 
 	#[test]
 	fn it_works_adding_values_to_an_inbox() {
