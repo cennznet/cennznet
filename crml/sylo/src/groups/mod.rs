@@ -29,7 +29,7 @@ use sp_std::vec;
 
 use crate::{
 	device::{self, DeviceId},
-	inbox, migration, vault,
+	inbox, vault,
 };
 use vault::{VaultKey, VaultValue};
 
@@ -398,32 +398,6 @@ decl_module! {
 				.collect();
 
 			<Groups<T>>::insert(&group_id, group);
-
-			Ok(())
-		}
-
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_groups(origin, group: Group<T::AccountId, T::Hash>) -> DispatchResult {
-			migration::Module::<T>::ensure_sylo_migrator(origin)?;
-			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
-			ensure!(group.invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
-
-			let group_id = &group.group_id;
-
-			<Groups<T>>::insert(group_id, &group);
-
-			for member in group.members {
-				Self::store_membership(&member.user_id, *group_id);
-			}
-
-			Ok(())
-		}
-
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_group_devices(origin, group_id: T::Hash, member_devices: Vec<(T::AccountId, DeviceId)>) -> DispatchResult {
-			migration::Module::<T>::ensure_sylo_migrator(origin)?;
-
-			<MemberDevices<T>>::insert(&group_id, &member_devices);
 
 			Ok(())
 		}

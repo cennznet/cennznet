@@ -13,7 +13,6 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::migration;
 use frame_support::{
 	decl_error, decl_module, decl_storage,
 	dispatch::{DispatchResult, Vec},
@@ -26,11 +25,10 @@ pub const MAX_KEYS: usize = 100;
 const MAX_VALUE_LENGTH: usize = 100_000;
 const MAX_DELETE_KEYS: usize = 100;
 
-pub trait Trait: frame_system::Trait + migration::Trait {}
+pub trait Trait: frame_system::Trait {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
-type Migration<T> = migration::Module<T>;
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
@@ -70,18 +68,6 @@ decl_module! {
 			let user_id = ensure_signed(origin)?;
 			ensure!(keys.len() <= MAX_DELETE_KEYS, Error::<T>::MaxDeleteKeys);
 			Self::delete(user_id, keys);
-		}
-
-
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
-		fn migrate_vault(origin, user_id: T::AccountId, new_vaults: Vec<(VaultKey, VaultValue)>) -> DispatchResult {
-			<Migration<T>>::ensure_sylo_migrator(origin)?;
-			ensure!(new_vaults.len() <= MAX_KEYS, Error::<T>::MaxKeys);
-			ensure!(new_vaults.iter().all(|entry| entry.1.len() <= MAX_VALUE_LENGTH), Error::<T>::MaxValueLength);
-
-			<Vault<T>>::insert(&user_id, new_vaults);
-
-			Ok(())
 		}
 	}
 }
@@ -124,7 +110,6 @@ mod tests {
 	impl Trait for Test {}
 
 	type Vault = Module<Test>;
-	type Migration = migration::Module<Test>;
 
 	#[test]
 	fn should_upsert_values() {
@@ -233,63 +218,6 @@ mod tests {
 				Vault::upsert_value(Origin::signed(user_id), b"new_key".to_vec(), b"new_value".to_vec()),
 				Error::<Test>::MaxKeys,
 			);
-		});
-	}
-
-	#[test]
-	fn migrate_vault_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
-			let vaults = vec![
-				(b"key_0".to_vec(), b"value_0".to_vec()),
-				(b"key_1".to_vec(), b"value_1".to_vec()),
-				(b"key_2".to_vec(), b"value_2".to_vec()),
-			];
-			let migration_account = H256::from_low_u64_be(2);
-
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
-			assert_ok!(Vault::migrate_vault(
-				Origin::signed(migration_account),
-				user_id.clone(),
-				vaults.clone(),
-			));
-			assert_eq!(Vault::values(user_id), vaults);
-		});
-	}
-
-	#[test]
-	fn migrate_vault_works_with_existing_data() {
-		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
-			let existing_vaults = vec![
-				(b"key_0".to_vec(), b"value_0".to_vec()),
-				(b"key_1".to_vec(), b"value_1".to_vec()),
-				(b"key_2".to_vec(), b"value_2_1".to_vec()),
-			];
-			for (k, v) in existing_vaults {
-				Vault::upsert(user_id, k, v);
-			}
-
-			let migration_account = H256::from_low_u64_be(2);
-			let new_vaults = vec![
-				(b"key_2".to_vec(), b"value_2_2".to_vec()),
-				(b"key_3".to_vec(), b"value_3".to_vec()),
-				(b"key_4".to_vec(), b"value_4".to_vec()),
-			];
-
-			assert_ok!(Migration::set_migrator_account(Origin::ROOT, migration_account));
-			assert_ok!(Vault::migrate_vault(
-				Origin::signed(migration_account),
-				user_id.clone(),
-				new_vaults.clone(),
-			));
-
-			let current_vaults = vec![
-				(b"key_2".to_vec(), b"value_2_2".to_vec()),
-				(b"key_3".to_vec(), b"value_3".to_vec()),
-				(b"key_4".to_vec(), b"value_4".to_vec()),
-			];
-			assert_eq!(Vault::values(user_id), current_vaults);
 		});
 	}
 }
