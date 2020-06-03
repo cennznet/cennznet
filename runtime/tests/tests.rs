@@ -41,6 +41,7 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 mod doughnut;
 mod mock;
+use crml_transaction_payment::ChargeTransactionPayment;
 use mock::{validators, ExtBuilder};
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
@@ -547,6 +548,22 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		assert_eq!(
 			<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
 			transfer_amount
+		);
+	});
+}
+
+#[test]
+fn compute_fee_scaling() {
+	ExtBuilder::default().build().execute_with(|| {
+		let dispatch_info = DispatchInfo {
+			weight: 1_000_000_000,
+			class: DispatchClass::Operational,
+			pays_fee: true,
+		};
+		// Scales down weight_fee to 1 and adds the TransactionBaseFee (1 * CENTS) - 1000000000000
+		assert_eq!(
+			1_000_000_000_001,
+			ChargeTransactionPayment::<Runtime>::compute_fee(0, dispatch_info, 0)
 		);
 	});
 }

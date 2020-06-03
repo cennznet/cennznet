@@ -69,7 +69,7 @@ pub use crml_sylo::vault as sylo_vault;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee,
+	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaleLinearWeightToFee,
 	SplitToAllValidators, TargetedFeeAdjustment,
 };
 
@@ -227,7 +227,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type OnTransactionPayment = DealWithFees;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
+	type WeightToFee = ScaleLinearWeightToFee<WeightFeeCoefficient>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 	type BuyFeeAsset = CennzxSpot;
 	type GasMeteredCallResolver = GasMeteredCallResolver;

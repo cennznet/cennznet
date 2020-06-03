@@ -25,7 +25,7 @@ use sp_runtime::{
 };
 
 use cennznet_primitives::types::Balance;
-use cennznet_runtime::impls::LinearWeightToFee;
+use cennznet_runtime::impls::ScaleLinearWeightToFee;
 use cennznet_runtime::{
 	constants::asset::SPENDING_ASSET_ID, constants::currency::*, Call, CheckedExtrinsic, GenericAsset, Runtime,
 	TransactionBaseFee, TransactionByteFee, TransactionPayment, WeightFeeCoefficient,
@@ -187,7 +187,7 @@ fn transaction_fee_is_correct_ultimate() {
 		balance_alice -= length_fee;
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
-		let weight_fee = LinearWeightToFee::<WeightFeeCoefficient>::convert(weight);
+		let weight_fee = ScaleLinearWeightToFee::<WeightFeeCoefficient>::convert(weight);
 
 		// we know that weight to fee multiplier is effect-less in block 1.
 		// generic assert uses default weight = 10_000, Balance set weight = 1_000_000
