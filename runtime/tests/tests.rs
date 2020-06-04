@@ -13,12 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1, AssetId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Header, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
-    TransactionByteFee, TransactionPayment, UncheckedExtrinsic, ScaleDownFactor,
+	GenericAsset, Header, Origin, Runtime, ScaleDownFactor, Session, SessionsPerEra, Staking, System, Timestamp,
+	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -26,9 +26,10 @@ use crml_staking::{EraIndex, RewardDestination, StakingLedger};
 use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting as MultiCurrency,
-    storage::StorageValue, StorageMap, StorageDoubleMap,
-    traits::{Imbalance, OnInitialize, OnRuntimeUpgrade},
+	storage::StorageValue,
+	traits::{Imbalance, OnInitialize, OnRuntimeUpgrade},
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
+	StorageDoubleMap, StorageMap,
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
@@ -39,8 +40,10 @@ use sp_runtime::{
 	DispatchError,
 };
 use sp_staking::SessionIndex;
+
 mod doughnut;
 mod mock;
+
 use mock::{validators, ExtBuilder};
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
@@ -672,7 +675,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				Call::GenericAsset(pallet_generic_asset::Call::transfer(
 					CENNZ_ASSET_ID,
 					charlie(),
-					bob_max_funds
+					bob_max_funds,
 				))
 				.encode()
 				.as_slice(),
@@ -1427,33 +1430,49 @@ fn contract_call_with_doughnut_fails_with_invalid_contract_address() {
 
 #[test]
 fn burn_asset_on_runtime_upgrade() {
-    const INITIAL_BALANCE: Balance = 1000_000_000_000;
-    const INITIAL_ISSUANCE: Balance = INITIAL_BALANCE * 1000;
-    const ALICE_BALANCE: Balance = INITIAL_BALANCE * 11;
-    const BOB_BALANCE: Balance = INITIAL_BALANCE * 23;
+	const INITIAL_BALANCE: Balance = 1000_000_000_000;
+	const INITIAL_ISSUANCE: Balance = INITIAL_BALANCE * 1000;
+	const ALICE_BALANCE: Balance = INITIAL_BALANCE * 11;
+	const BOB_BALANCE: Balance = INITIAL_BALANCE * 23;
 
-    ExtBuilder::default().initial_balance(INITIAL_BALANCE).sudoer(alice()).build().execute_with(|| {
-        type TotalIssuance = pallet_generic_asset::TotalIssuance<Runtime>;
-        TotalIssuance::insert(&STAKING_ASSET_ID, INITIAL_ISSUANCE);
-        TotalIssuance::insert(&SPENDING_ASSET_ID, INITIAL_ISSUANCE);
-        TotalIssuance::insert(&PLUG_ASSET_ID, INITIAL_ISSUANCE);
+	ExtBuilder::default()
+		.initial_balance(INITIAL_BALANCE)
+		.sudoer(alice())
+		.build()
+		.execute_with(|| {
+			type TotalIssuance = pallet_generic_asset::TotalIssuance<Runtime>;
+			TotalIssuance::insert(&STAKING_ASSET_ID, INITIAL_ISSUANCE);
+			TotalIssuance::insert(&SPENDING_ASSET_ID, INITIAL_ISSUANCE);
+			TotalIssuance::insert(&PLUG_ASSET_ID, INITIAL_ISSUANCE);
 
-        type FreeBalance = pallet_generic_asset::FreeBalance<Runtime>;
-        FreeBalance::insert::<AssetId, AccountId, Balance>(STAKING_ASSET_ID, alice(), ALICE_BALANCE);
-        FreeBalance::insert::<AssetId, AccountId, Balance>(SPENDING_ASSET_ID, alice(), ALICE_BALANCE);
-        FreeBalance::insert::<AssetId, AccountId, Balance>(PLUG_ASSET_ID, alice(), ALICE_BALANCE);
-        FreeBalance::insert::<AssetId, AccountId, Balance>(STAKING_ASSET_ID, bob(), BOB_BALANCE);
-        FreeBalance::insert::<AssetId, AccountId, Balance>(SPENDING_ASSET_ID, bob(), BOB_BALANCE);
-        FreeBalance::insert::<AssetId, AccountId, Balance>(PLUG_ASSET_ID, bob(), BOB_BALANCE);
+			type FreeBalance = pallet_generic_asset::FreeBalance<Runtime>;
+			FreeBalance::insert::<AssetId, AccountId, Balance>(STAKING_ASSET_ID, alice(), ALICE_BALANCE);
+			FreeBalance::insert::<AssetId, AccountId, Balance>(SPENDING_ASSET_ID, alice(), ALICE_BALANCE);
+			FreeBalance::insert::<AssetId, AccountId, Balance>(PLUG_ASSET_ID, alice(), ALICE_BALANCE);
+			FreeBalance::insert::<AssetId, AccountId, Balance>(STAKING_ASSET_ID, bob(), BOB_BALANCE);
+			FreeBalance::insert::<AssetId, AccountId, Balance>(SPENDING_ASSET_ID, bob(), BOB_BALANCE);
+			FreeBalance::insert::<AssetId, AccountId, Balance>(PLUG_ASSET_ID, bob(), BOB_BALANCE);
 
-        Runtime::on_runtime_upgrade();
+			Runtime::on_runtime_upgrade();
 
-        assert_eq!(GenericAsset::free_balance(&STAKING_ASSET_ID, &alice()), ALICE_BALANCE.checked_div(ScaleDownFactor::get()).unwrap());
-        assert_eq!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &alice()), ALICE_BALANCE.checked_div(ScaleDownFactor::get()).unwrap());
-        assert_eq!(GenericAsset::free_balance(&PLUG_ASSET_ID, &alice()), ALICE_BALANCE);
+			assert_eq!(
+				GenericAsset::free_balance(&STAKING_ASSET_ID, &alice()),
+				ALICE_BALANCE.checked_div(ScaleDownFactor::get()).unwrap()
+			);
+			assert_eq!(
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &alice()),
+				ALICE_BALANCE.checked_div(ScaleDownFactor::get()).unwrap()
+			);
+			assert_eq!(GenericAsset::free_balance(&PLUG_ASSET_ID, &alice()), ALICE_BALANCE);
 
-        assert_eq!(GenericAsset::free_balance(&STAKING_ASSET_ID, &bob()), BOB_BALANCE.checked_div(ScaleDownFactor::get()).unwrap());
-        assert_eq!(GenericAsset::free_balance(&SPENDING_ASSET_ID, &bob()), BOB_BALANCE.checked_div(ScaleDownFactor::get()).unwrap());
-        assert_eq!(GenericAsset::free_balance(&PLUG_ASSET_ID, &bob()), BOB_BALANCE);
-    });
+			assert_eq!(
+				GenericAsset::free_balance(&STAKING_ASSET_ID, &bob()),
+				BOB_BALANCE.checked_div(ScaleDownFactor::get()).unwrap()
+			);
+			assert_eq!(
+				GenericAsset::free_balance(&SPENDING_ASSET_ID, &bob()),
+				BOB_BALANCE.checked_div(ScaleDownFactor::get()).unwrap()
+			);
+			assert_eq!(GenericAsset::free_balance(&PLUG_ASSET_ID, &bob()), BOB_BALANCE);
+		});
 }

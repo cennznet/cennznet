@@ -26,9 +26,10 @@ pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerTho
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
-	construct_runtime, debug, parameter_types, IterableStorageDoubleMap,
-	traits::{Randomness, SplitTwoWays, OnRuntimeUpgrade},
+	construct_runtime, debug, parameter_types,
+	traits::{OnRuntimeUpgrade, Randomness, SplitTwoWays},
 	weights::Weight,
+	IterableStorageDoubleMap,
 };
 use frame_system::offchain::TransactionSubmitter;
 pub use pallet_contracts::Gas;
@@ -819,7 +820,11 @@ impl_runtime_apis! {
 impl OnRuntimeUpgrade for Runtime {
 	fn on_runtime_upgrade() -> Weight {
 		let scale_down = |asset_id| {
-			let balances_iter = <pallet_generic_asset::FreeBalance<Runtime> as IterableStorageDoubleMap<AssetId, AccountId, Balance>>::iter(asset_id);
+			let balances_iter = <pallet_generic_asset::FreeBalance<Runtime> as IterableStorageDoubleMap<
+				AssetId,
+				AccountId,
+				Balance,
+			>>::iter(asset_id);
 			balances_iter.for_each(|(who, balance)| {
 				let scaled_balance = balance.checked_div(ScaleDownFactor::get()).unwrap_or(balance);
 				let burn_amount = balance.checked_sub(scaled_balance).unwrap_or(Zero::zero());
@@ -830,7 +835,7 @@ impl OnRuntimeUpgrade for Runtime {
 		scale_down(GenericAsset::spending_asset_id());
 		scale_down(GenericAsset::staking_asset_id());
 
-		0 // No weight
+		Zero::zero() // No weight
 	}
 }
 
