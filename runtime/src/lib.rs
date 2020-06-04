@@ -26,8 +26,8 @@ pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerTho
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
-	construct_runtime, debug, parameter_types,
-	traits::{Randomness, SplitTwoWays},
+	construct_runtime, debug, parameter_types, StorageMap,
+	traits::{Randomness, SplitTwoWays, OnRuntimeUpgrade},
 	weights::Weight,
 };
 use frame_system::offchain::TransactionSubmitter;
@@ -815,6 +815,19 @@ impl_runtime_apis! {
 	}
 }
 
+impl OnRuntimeUpgrade for Runtime {
+	fn on_runtime_upgrade() -> Weight {
+		const SCALE_DOWN_FACTOR: Balance = 1000_000_000_000;
+
+		type RuntimeUpgradeScalers = pallet_generic_asset::RuntimeUpgradeScalers<Runtime>;
+		RuntimeUpgradeScalers::insert(&GenericAsset::spending_asset_id(), SCALE_DOWN_FACTOR);
+		RuntimeUpgradeScalers::insert(&GenericAsset::staking_asset_id(), SCALE_DOWN_FACTOR);
+
+		GenericAsset::on_runtime_upgrade();
+
+		0 // No weight
+	}
+}
 #[cfg(test)]
 mod tests {
 	use super::*;
