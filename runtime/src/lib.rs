@@ -26,7 +26,7 @@ pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerTho
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
-	construct_runtime, debug, parameter_types, StorageMap,
+	construct_runtime, debug, parameter_types, IterableStorageDoubleMap,
 	traits::{Randomness, SplitTwoWays, OnRuntimeUpgrade},
 	weights::Weight,
 };
@@ -45,7 +45,7 @@ use sp_core::u32_trait::{_0, _1, _2, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion};
+use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion, Zero};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
 use sp_std::prelude::*;
@@ -110,6 +110,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const ScaleDownFactor: Balance = 1000_000_000_000;
 }
 
 pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
@@ -817,17 +818,22 @@ impl_runtime_apis! {
 
 impl OnRuntimeUpgrade for Runtime {
 	fn on_runtime_upgrade() -> Weight {
-		const SCALE_DOWN_FACTOR: Balance = 1000_000_000_000;
+		let scale_down = |asset_id| {
+			let balances_iter = <pallet_generic_asset::FreeBalance<Runtime> as IterableStorageDoubleMap<AssetId, AccountId, Balance>>::iter(asset_id);
+			balances_iter.for_each(|(who, balance)| {
+				let scaled_balance = balance.checked_div(ScaleDownFactor::get()).unwrap_or(balance);
+				let burn_amount = balance.checked_sub(scaled_balance).unwrap_or(Zero::zero());
+				let _ = GenericAsset::burn_free(&asset_id, &Sudo::key(), &who, &burn_amount);
+			});
+		};
 
-		type RuntimeUpgradeScalers = pallet_generic_asset::RuntimeUpgradeScalers<Runtime>;
-		RuntimeUpgradeScalers::insert(&GenericAsset::spending_asset_id(), SCALE_DOWN_FACTOR);
-		RuntimeUpgradeScalers::insert(&GenericAsset::staking_asset_id(), SCALE_DOWN_FACTOR);
-
-		GenericAsset::on_runtime_upgrade();
+		scale_down(GenericAsset::spending_asset_id());
+		scale_down(GenericAsset::staking_asset_id());
 
 		0 // No weight
 	}
 }
+
 #[cfg(test)]
 mod tests {
 	use super::*;

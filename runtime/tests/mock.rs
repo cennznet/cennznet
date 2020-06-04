@@ -14,6 +14,7 @@
 */
 
 #![allow(dead_code)]
+
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
@@ -22,6 +23,7 @@ use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
+use sp_core::crypto::AccountId32;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const SPEC_VERSION: u32 = VERSION.spec_version;
@@ -46,27 +48,29 @@ pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
 }
 
 pub struct ExtBuilder {
-	initial_balance: Balance,
-	gas_price: Balance,
-	// Configurable prices for certain gas metered operations
-	gas_sandbox_data_read_cost: Gas,
-	gas_regular_op_cost: Gas,
-	// Configurable fields for staking module tests
-	stash: Balance,
-	validator_count: usize,
+    initial_balance: Balance,
+    gas_price: Balance,
+    // Configurable prices for certain gas metered operations
+    gas_sandbox_data_read_cost: Gas,
+    gas_regular_op_cost: Gas,
+    // Configurable fields for staking module tests
+    stash: Balance,
+    validator_count: usize,
+    sudoer: AccountId32,
 }
 
 impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {
-			initial_balance: 0,
-			gas_price: 0,
-			gas_sandbox_data_read_cost: 0_u64,
-			gas_regular_op_cost: 0_u64,
-			stash: 0,
-			validator_count: 3,
-		}
-	}
+    fn default() -> Self {
+        Self {
+            initial_balance: 0,
+            gas_price: 0,
+            gas_sandbox_data_read_cost: 0_u64,
+            gas_regular_op_cost: 0_u64,
+            stash: 0,
+            validator_count: 3,
+            sudoer: Default::default(),
+        }
+    }
 }
 
 impl ExtBuilder {
@@ -94,6 +98,10 @@ impl ExtBuilder {
 		self.validator_count = count;
 		self
 	}
+    pub fn sudoer(mut self, key: AccountId32) -> Self {
+        self.sudoer = key;
+        self
+    }
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
 		let initial_authorities = generate_initial_authorities(self.validator_count);
@@ -136,7 +144,7 @@ impl ExtBuilder {
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
-			permissions: vec![],
+            permissions: vec![(SPENDING_ASSET_ID, self.sudoer.clone()), (STAKING_ASSET_ID, self.sudoer.clone()), (PLUG_ASSET_ID, self.sudoer.clone())],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -170,6 +178,12 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+        pallet_sudo::GenesisConfig::<Runtime> {
+            key: alice(),
+        }
+            .assimilate_storage(&mut t)
+            .unwrap();
 
 		t.into()
 	}
