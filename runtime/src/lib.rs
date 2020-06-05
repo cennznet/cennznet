@@ -27,9 +27,8 @@ use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
 	construct_runtime, debug, parameter_types,
-	traits::{OnRuntimeUpgrade, Randomness, SplitTwoWays},
+	traits::{Randomness, SplitTwoWays},
 	weights::Weight,
-	IterableStorageDoubleMap,
 };
 use frame_system::offchain::TransactionSubmitter;
 pub use pallet_contracts::Gas;
@@ -46,7 +45,7 @@ use sp_core::u32_trait::{_0, _1, _2, _4};
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion, Zero};
+use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
 use sp_std::prelude::*;
@@ -167,6 +166,10 @@ impl crml_cennzx_spot::Trait for Runtime {
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 	type BalanceToUnsignedInt = Balance;
 	type UnsignedIntToBalance = Balance;
+}
+
+impl crml_scaling::Trait for Runtime {
+	type ScaleDownFactor = ScaleDownFactor;
 }
 
 impl prml_attestation::Trait for Runtime {
@@ -575,6 +578,7 @@ construct_runtime!(
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
+		Scaling: crml_scaling::{Module},
 	}
 );
 
@@ -814,28 +818,6 @@ impl_runtime_apis! {
 		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
-	}
-}
-
-impl OnRuntimeUpgrade for Runtime {
-	fn on_runtime_upgrade() -> Weight {
-		let scale_down = |asset_id| {
-			let balances_iter = <pallet_generic_asset::FreeBalance<Runtime> as IterableStorageDoubleMap<
-				AssetId,
-				AccountId,
-				Balance,
-			>>::iter(asset_id);
-			balances_iter.for_each(|(who, balance)| {
-				let scaled_balance = balance.checked_div(ScaleDownFactor::get()).unwrap_or(balance);
-				let burn_amount = balance.checked_sub(scaled_balance).unwrap_or(Zero::zero());
-				let _ = GenericAsset::burn_free(&asset_id, &Sudo::key(), &who, &burn_amount);
-			});
-		};
-
-		scale_down(GenericAsset::spending_asset_id());
-		scale_down(GenericAsset::staking_asset_id());
-
-		Zero::zero() // No weight
 	}
 }
 

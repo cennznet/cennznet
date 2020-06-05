@@ -711,6 +711,7 @@ dependencies = [
  "clear_on_drop",
  "crml-cennzx-spot",
  "crml-cennzx-spot-rpc-runtime-api",
+ "crml-scaling",
  "crml-staking",
  "crml-staking-reward-curve",
  "crml-sylo",
@@ -1132,6 +1133,22 @@ dependencies = [
  "sp-arithmetic",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "crml-scaling"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "cennznet-testing",
+ "frame-support",
+ "frame-system",
+ "pallet-generic-asset",
+ "pallet-sudo",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
