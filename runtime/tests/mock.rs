@@ -14,7 +14,6 @@
 */
 
 #![allow(dead_code)]
-
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
@@ -22,7 +21,6 @@ use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
 use pallet_contracts::{Gas, Schedule};
-use sp_core::crypto::AccountId32;
 use sp_runtime::Perbill;
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
@@ -56,7 +54,6 @@ pub struct ExtBuilder {
 	// Configurable fields for staking module tests
 	stash: Balance,
 	validator_count: usize,
-	sudoer: AccountId32,
 }
 
 impl Default for ExtBuilder {
@@ -68,7 +65,6 @@ impl Default for ExtBuilder {
 			gas_regular_op_cost: 0_u64,
 			stash: 0,
 			validator_count: 3,
-			sudoer: Default::default(),
 		}
 	}
 }
@@ -98,10 +94,6 @@ impl ExtBuilder {
 		self.validator_count = count;
 		self
 	}
-	pub fn sudoer(mut self, key: AccountId32) -> Self {
-		self.sudoer = key;
-		self
-	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
 		let initial_authorities = generate_initial_authorities(self.validator_count);
@@ -129,6 +121,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
 		pallet_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
@@ -143,11 +136,7 @@ impl ExtBuilder {
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
-			permissions: vec![
-				(SPENDING_ASSET_ID, self.sudoer.clone()),
-				(STAKING_ASSET_ID, self.sudoer.clone()),
-				(PLUG_ASSET_ID, self.sudoer.clone()),
-			],
+			permissions: vec![],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -182,16 +171,13 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_sudo::GenesisConfig::<Runtime> { key: alice() }
-			.assimilate_storage(&mut t)
-			.unwrap();
-
 		t.into()
 	}
 }
 
 /// Test contracts
 pub mod contracts {
+
 	/// Contract WABT for reading 32 bytes from memory
 	pub const CONTRACT_READ_32_BYTES: &str = r#"
 	(module

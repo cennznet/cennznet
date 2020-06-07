@@ -13,12 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, FeeExchangeV1};
+use cennznet_primitives::types::{AccountId, Balance, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Header, Origin, Runtime, ScaleDownFactor, Session, SessionsPerEra, Staking, System, Timestamp,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	GenericAsset, Header, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TransactionBaseFee,
+	TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -27,9 +27,8 @@ use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting as MultiCurrency,
 	storage::StorageValue,
-	traits::{Imbalance, OnInitialize, OnRuntimeUpgrade},
+	traits::{Imbalance, OnInitialize},
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
-	StorageDoubleMap, StorageMap,
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent};
@@ -40,10 +39,8 @@ use sp_runtime::{
 	DispatchError,
 };
 use sp_staking::SessionIndex;
-
 mod doughnut;
 mod mock;
-
 use mock::{validators, ExtBuilder};
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
@@ -675,7 +672,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				Call::GenericAsset(pallet_generic_asset::Call::transfer(
 					CENNZ_ASSET_ID,
 					charlie(),
-					bob_max_funds,
+					bob_max_funds
 				))
 				.encode()
 				.as_slice(),
