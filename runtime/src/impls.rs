@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, System};
+use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, ScaleDownFactor, System};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -90,9 +90,10 @@ impl<C: Get<Balance>> Convert<Weight, Balance> for ScaleLinearWeightToFee<C> {
 		let coefficient = C::get();
 		let linear_weight = Balance::from(w).saturating_mul(coefficient);
 		// Scale down fees 10^-12
-		let fee_divider: Balance = 1_000_000_000_000;
 		let min_weight: Balance = 10_000_000;
-		let scaled_weight = linear_weight.checked_div(fee_divider).unwrap_or(linear_weight);
+		let scaled_weight = linear_weight
+			.checked_div(ScaleDownFactor::get())
+			.unwrap_or(linear_weight);
 		if scaled_weight.is_zero() {
 			if linear_weight < min_weight {
 				linear_weight
@@ -545,6 +546,13 @@ mod tests {
 		let weight = 2_500;
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
 		assert_eq!(2_500_000, weight_fee);
+	}
+
+	#[test]
+	fn weight_to_fee_scaling_for_zero_weight() {
+		let weight = 0;
+		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
+		assert_eq!(0, weight_fee);
 	}
 
 	#[test]
