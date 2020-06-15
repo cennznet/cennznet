@@ -141,11 +141,13 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
+		let min_validator_count = initial_authorities.len().min(3) as u32;
+
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
 			current_era: 0,
-			validator_count: initial_authorities.len() as u32 * 2,
-			minimum_validator_count: initial_authorities.len() as u32,
+			validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: min_validator_count,
 			stakers: initial_authorities
 				.iter()
 				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))

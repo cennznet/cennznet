@@ -90,8 +90,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 34,
-	impl_version: 34,
+	spec_version: 35,
+	impl_version: 35,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -552,12 +552,12 @@ construct_runtime!(
 		Utility: pallet_utility::{Module, Call, Storage, Event<T>},
 		Babe: pallet_babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-		Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>},
 		TransactionPayment: crml_transaction_payment::{Module, Storage},
 		GenericAsset: pallet_generic_asset::{Module, Call, Storage, Event<T>, Config<T>},
 		Staking: crml_staking::{Module, Call, Config<T>, Storage, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+		Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
 		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},

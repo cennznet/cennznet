@@ -308,7 +308,7 @@ pub struct EraPoints {
 impl EraPoints {
 	/// Add the reward to the validator at the given index. Index must be valid
 	/// (i.e. `index < current_elected.len()`).
-	fn add_points_to_index(&mut self, index: u32, points: u32) {
+	fn add_points_to_index(&mut self, index: u32, points: Points) {
 		if let Some(new_total) = self.total.checked_add(points) {
 			self.total = new_total;
 			let new_size = (index as usize + 1).max(self.individual.len());
@@ -1830,12 +1830,6 @@ where
 			}
 		};
 
-		<Self as Store>::EarliestUnappliedSlash::mutate(|earliest| {
-			if earliest.is_none() {
-				*earliest = Some(era_now)
-			}
-		});
-
 		let slash_defer_duration = T::SlashDeferDuration::get();
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
@@ -1873,6 +1867,12 @@ where
 				} else {
 					// defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(era_now, move |for_later| for_later.push(unapplied));
+
+					<Self as Store>::EarliestUnappliedSlash::mutate(|earliest| {
+						if earliest.is_none() {
+							*earliest = Some(era_now)
+						}
+					});
 				}
 			}
 		}
