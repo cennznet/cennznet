@@ -33,7 +33,6 @@ use frame_support::{
 use frame_system::{EventRecord, Phase, RawOrigin};
 use pallet_contracts::{ContractAddressFor, RawEvent};
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
-use sp_keyring::AccountKeyring;
 use sp_runtime::{
 	testing::Digest,
 	traits::{Convert, Hash, Header as HeaderT},
@@ -1324,7 +1323,7 @@ fn generic_asset_transfer_works_with_doughnut() {
 			// Check remaining balances
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				999995329990000000, // Bob pays transaction fees
+				999995339990000000, // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
@@ -1385,7 +1384,7 @@ fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
 			// Check remaining balances
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				999995329990000000, // Bob pays transaction fees
+				999995339990000000, // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
@@ -1457,7 +1456,7 @@ fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 			// Check remaining balances
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENNZ_ASSET_ID)),
-				999994942846075929, // Bob pays fees (in CENNZ)
+				999994953911842654, // Bob pays fees (in CENNZ)
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
@@ -1500,7 +1499,7 @@ fn contract_call_works_with_doughnut() {
 
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				9_994_929_990_000_000, // Bob pays transaction fees
+				9_994_939_990_000_000, // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENTRAPAY_ASSET_ID)),
@@ -1603,7 +1602,7 @@ fn contract_call_with_doughnut_fails_with_invalid_contract_address() {
 			// Bob pays transaction fees
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				9_994_929_990_000_000,
+				9_994_939_990_000_000,
 			);
 			// All other accounts stay the same
 			assert_eq!(
