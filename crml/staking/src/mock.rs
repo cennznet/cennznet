@@ -17,14 +17,16 @@
 //! Test utilities
 
 use crate::{
-	inflation, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
+	inflation, EraIndex, ErasRewardPoints, ErasStakers, Exposure, GenesisConfig, Module, Nominators, RewardDestination,
+	SessionInterface, StakerStatus, Trait, ValidatorPrefs,
 };
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get, OnInitialize},
+	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
 	weights::Weight,
-	IterableStorageMap, StorageValue,
+	IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
+
 use frame_system as system;
 use sp_core::{crypto::key_types, H256};
 use sp_io;
@@ -36,7 +38,10 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
-use std::{cell::RefCell, collections::HashSet};
+use std::{
+	cell::RefCell,
+	collections::{HashMap, HashSet},
+};
 
 const INIT_TIMESTAMP: u64 = 30_000;
 
@@ -225,11 +230,12 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 }
 impl Trait for Test {
 	type Currency = pallet_balances::Module<Self>;
 	type RewardCurrency = pallet_balances::Module<Self>;
-	type Time = pallet_timestamp::Module<Self>;
+	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
 	type Event = TestEvent;
@@ -240,6 +246,7 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
+	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 }
 
 pub struct ExtBuilder {
@@ -377,7 +384,6 @@ impl ExtBuilder {
 			];
 		}
 		let _ = GenesisConfig::<Test> {
-			current_era: 0,
 			stakers: stakers,
 
 			validator_count: self.validator_count,
@@ -416,38 +422,36 @@ pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Staking = Module<Test>;
 
-pub fn check_exposure_all() {
-	Staking::current_elected()
-		.into_iter()
-		.for_each(|acc| check_exposure(acc));
+pub fn check_exposure_all(era: EraIndex) {
+	ErasStakers::<Test>::iter_prefix(era).for_each(check_exposure)
 }
 
-pub fn check_nominator_all() {
-	<Nominators<Test>>::iter().for_each(|(acc, _)| check_nominator_exposure(acc));
+pub fn check_nominator_all(era: EraIndex) {
+	<Nominators<Test>>::iter().for_each(|(acc, _)| check_nominator_exposure(era, acc));
 }
 
 /// Check for each selected validator: expo.total = Sum(expo.other) + expo.own
-pub fn check_exposure(stash: u64) {
-	assert_is_stash(stash);
-	let expo = Staking::stakers(&stash);
+pub fn check_exposure(expo: Exposure<AccountId, Balance>) {
 	assert_eq!(
 		expo.total as u128,
 		expo.own as u128 + expo.others.iter().map(|e| e.value as u128).sum::<u128>(),
-		"wrong total exposure for {:?}: {:?}",
-		stash,
+		"wrong total exposure {:?}",
 		expo,
 	);
 }
 
 /// Check that for each nominator: slashable_balance > sum(used_balance)
 /// Note: we might not consume all of a nominator's balance, but we MUST NOT over spend it.
-pub fn check_nominator_exposure(stash: u64) {
+pub fn check_nominator_exposure(era: EraIndex, stash: AccountId) {
 	assert_is_stash(stash);
 	let mut sum = 0;
-	Staking::current_elected()
-		.iter()
-		.map(|v| Staking::stakers(v))
-		.for_each(|e| e.others.iter().filter(|i| i.who == stash).for_each(|i| sum += i.value));
+	ErasStakers::<Test>::iter_prefix(era).for_each(|exposure| {
+		exposure
+			.others
+			.iter()
+			.filter(|i| i.who == stash)
+			.for_each(|i| sum += i.value)
+	});
 	let nominator_stake = Staking::slashable_balance_of(&stash);
 	// a nominator cannot over-spend.
 	assert!(
@@ -459,11 +463,11 @@ pub fn check_nominator_exposure(stash: u64) {
 	);
 }
 
-pub fn assert_is_stash(acc: u64) {
+pub fn assert_is_stash(acc: AccountId) {
 	assert!(Staking::bonded(&acc).is_some(), "Not a stash.");
 }
 
-pub fn assert_ledger_consistent(stash: u64) {
+pub fn assert_ledger_consistent(stash: AccountId) {
 	assert_is_stash(stash);
 	let ledger = Staking::ledger(stash - 1).unwrap();
 
@@ -503,11 +507,10 @@ pub fn advance_session() {
 }
 
 pub fn start_session(session_index: SessionIndex) {
-	// Compensate for session delay
-	let session_index = session_index + 1;
 	for i in Session::current_index()..session_index {
+		Staking::on_finalize(System::block_number());
 		System::set_block_number((i + 1).into());
-		Timestamp::set_timestamp(System::block_number() * 1000);
+		Timestamp::set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
 		Session::on_initialize(System::block_number());
 	}
 
@@ -516,13 +519,13 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), era_index);
+	assert_eq!(Staking::active_era().unwrap().index, era_index);
 }
 
 pub fn current_total_payout_for_duration(duration: u64) -> u64 {
 	inflation::compute_total_payout(
 		<Test as Trait>::RewardCurve::get(),
-		<Module<Test>>::slot_stake() * 2,
+		Staking::eras_total_stake(Staking::active_era().unwrap().index),
 		Balances::total_issuance(),
 		duration,
 	)
@@ -530,10 +533,9 @@ pub fn current_total_payout_for_duration(duration: u64) -> u64 {
 }
 
 pub fn reward_all_elected() {
-	let rewards = <Module<Test>>::current_elected()
-		.iter()
-		.map(|v| (*v, 1))
-		.collect::<Vec<_>>();
+	let rewards = <Test as Trait>::SessionInterface::validators()
+		.into_iter()
+		.map(|v| (v, 1));
 
 	<Module<Test>>::reward_by_ids(rewards)
 }
@@ -560,8 +562,12 @@ pub fn on_offence_in_era(
 		}
 	}
 
-	if Staking::current_era() == era {
-		Staking::on_offence(offenders, slash_fraction, Staking::current_era_start_session_index());
+	if Staking::active_era().unwrap().index == era {
+		Staking::on_offence(
+			offenders,
+			slash_fraction,
+			Staking::eras_start_session_index(era).unwrap(),
+		);
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
@@ -571,6 +577,41 @@ pub fn on_offence_now(
 	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
 	slash_fraction: &[Perbill],
 ) {
-	let now = Staking::current_era();
+	let now = Staking::active_era().unwrap().index;
 	on_offence_in_era(offenders, slash_fraction, now)
+}
+
+/// Make all validator and nominator request their payment
+pub fn make_all_reward_payment(era: EraIndex) {
+	let validators_with_reward = ErasRewardPoints::<Test>::get(era)
+		.individual
+		.keys()
+		.cloned()
+		.collect::<Vec<_>>();
+
+	// reward nominators
+	let mut nominator_controllers = HashMap::new();
+	for validator in Staking::eras_reward_points(era).individual.keys() {
+		let validator_exposure = Staking::eras_stakers_clipped(era, validator);
+		for (nom_index, nom) in validator_exposure.others.iter().enumerate() {
+			if let Some(nom_ctrl) = Staking::bonded(nom.who) {
+				nominator_controllers
+					.entry(nom_ctrl)
+					.or_insert(vec![])
+					.push((validator.clone(), nom_index as u32));
+			}
+		}
+	}
+	for (nominator_controller, validators_with_nom_index) in nominator_controllers {
+		assert_ok!(Staking::payout_nominator(
+			Origin::signed(nominator_controller),
+			era,
+			validators_with_nom_index,
+		));
+	}
+
+	// reward validators
+	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
+		assert_ok!(Staking::payout_validator(Origin::signed(validator_controller), era));
+	}
 }

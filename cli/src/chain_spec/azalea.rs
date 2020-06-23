@@ -266,7 +266,6 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			],
 		}),
 		crml_staking: Some(StakingConfig {
-			current_era: 0,
 			validator_count: 12,
 			minimum_validator_count: 6,
 			stakers: initial_authorities

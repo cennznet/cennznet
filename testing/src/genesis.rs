@@ -99,7 +99,6 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 			],
 		}),
 		crml_staking: Some(StakingConfig {
-			current_era: 0,
 			stakers: vec![
 				(dave(), alice(), 111 * DOLLARS, crml_staking::StakerStatus::Validator),
 				(eve(), bob(), 100 * DOLLARS, crml_staking::StakerStatus::Validator),
