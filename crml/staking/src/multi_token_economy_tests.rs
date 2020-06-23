@@ -18,7 +18,7 @@
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
-use frame_support::{assert_ok, impl_outer_origin, parameter_types, StorageMap};
+use frame_support::{impl_outer_origin, parameter_types};
 use sp_core::H256;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -32,10 +32,7 @@ use std::collections::HashSet;
 use crate::mock::{
 	Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler,
 };
-use crate::{
-	inflation, EraIndex, ErasValidatorReward, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger,
-	Trait,
-};
+use crate::{inflation, EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
 use std::cell::RefCell;
 
 const STAKING_ASSET_ID: AssetId = 100;
@@ -160,12 +157,11 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 }
 impl Trait for Test {
 	type Currency = pallet_generic_asset::StakingAssetCurrency<Self>;
 	type RewardCurrency = pallet_generic_asset::SpendingAssetCurrency<Self>;
-	type UnixTime = Timestamp;
+	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
 	type Event = ();
@@ -176,13 +172,11 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
-	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 }
 
 type System = frame_system::Module<Test>;
 type GenericAsset = pallet_generic_asset::Module<Test>;
 type Session = pallet_session::Module<Test>;
-type Timestamp = pallet_timestamp::Module<Test>;
 type Staking = Module<Test>;
 
 pub struct ExtBuilder {
@@ -226,6 +220,7 @@ impl ExtBuilder {
 
 		let _ = GenesisConfig::<Test> {
 			minimum_bond: 1,
+			current_era: 0,
 			stakers: vec![
 				// (stash, controller, staked_amount, status)
 				(11, 10, 500_000, StakerStatus::<AccountId>::Validator),
@@ -271,7 +266,7 @@ pub fn start_era(era_index: EraIndex) {
 pub fn current_total_payout_for_duration(duration: u64) -> u64 {
 	inflation::compute_total_payout(
 		<Test as Trait>::RewardCurve::get(),
-		Staking::eras_total_stake(Staking::active_era().unwrap().index),
+		<Module<Test>>::slot_stake() * 2,
 		GenericAsset::total_issuance(&STAKING_ASSET_ID),
 		duration,
 	)
@@ -283,7 +278,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 	// Rewards go to the correct destination as determined in Payee
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that account 11 is a validator
-		assert!(Session::validators().contains(&11));
+		assert!(Staking::current_elected().contains(&11));
 		// Check the balance of the validator account
 		assert_eq!(GenericAsset::free_balance(&STAKING_ASSET_ID, &10), 1_000_000_000);
 		// Check the balance of the stash account
@@ -296,18 +291,15 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 				total: 500_000,
 				active: 500_000,
 				unlocking: vec![],
-				last_reward: None
 			})
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout = current_total_payout_for_duration(3000);
 		assert!(total_payout > 1); // Test is meaningfull if reward something
-		Staking::reward_by_ids(vec![(11, 1)]);
+		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
-		start_era(0);
-		ErasValidatorReward::<Test>::insert(&0, total_payout);
-		assert_ok!(Staking::payout_validator(Origin::signed(10), 0));
+		start_era(1);
 
 		// Check that RewardDestination is Stash (default)
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
@@ -324,7 +316,6 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 				total: 500_000,
 				active: 500_000,
 				unlocking: vec![],
-				last_reward: Some(0),
 			})
 		);
 		// Check total issuance
