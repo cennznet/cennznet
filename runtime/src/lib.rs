@@ -399,7 +399,7 @@ parameter_types! {
 }
 
 impl pallet_treasury::Trait for Runtime {
-	type Currency = StakingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type ApproveOrigin = pallet_collective::EnsureMembers<_4, AccountId, Self::Doughnut, CouncilCollective>;
 	type RejectOrigin = pallet_collective::EnsureMembers<_2, AccountId, Self::Doughnut, CouncilCollective>;
 	type Event = Event;
