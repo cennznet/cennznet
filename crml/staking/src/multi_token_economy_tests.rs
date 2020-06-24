@@ -18,7 +18,7 @@
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
-use frame_support::{impl_outer_origin, parameter_types};
+use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -177,6 +177,7 @@ impl Trait for Test {
 type System = frame_system::Module<Test>;
 type GenericAsset = pallet_generic_asset::Module<Test>;
 type Session = pallet_session::Module<Test>;
+type Timestamp = pallet_timestamp::Module<Test>;
 type Staking = Module<Test>;
 
 pub struct ExtBuilder {
