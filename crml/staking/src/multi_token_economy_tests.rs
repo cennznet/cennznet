@@ -29,9 +29,7 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use std::collections::HashSet;
 
-use crate::mock::{
-	Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler,
-};
+use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
 use crate::{inflation, EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
 use std::cell::RefCell;
 
