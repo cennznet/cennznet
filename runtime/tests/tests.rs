@@ -501,13 +501,14 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 
 			let total_issuance = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
 			start_era(2);
-			let (staking_payout, max_payout) = Staking::current_total_payout(total_issuance);
+			let issued_fee_reward = per_fee_reward * validator_len; // Don't use "fee" itself directly
+			let (staking_payout, max_payout) = Staking::current_total_payout(total_issuance + issued_fee_reward);
 			let per_staking_reward = staking_payout / validator_len;
 
-			// Check total issuance of Spending Asset updatd after new era
+			// Check total issuance of Spending Asset updated after new era
 			assert_eq!(
 				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout,
+				total_issuance + max_payout + issued_fee_reward,
 			);
 
 			// Check if validator balance changed correctly
