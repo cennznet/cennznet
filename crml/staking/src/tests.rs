@@ -17,14 +17,15 @@
 //! Tests for the module.
 
 use super::*;
+use crate::Store;
 use frame_support::{
 	assert_noop, assert_ok,
-	dispatch::DispatchError,
 	traits::{Currency, OnInitialize, ReservableCurrency},
-	IterableStorageMap, StorageMap,
+	StorageMap,
 };
 use frame_system::{EventRecord, Phase};
 use mock::*;
+use pallet_balances::Error as BalancesError;
 use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
 use sp_staking::offence::OffenceDetails;
 use substrate_test_utils::assert_eq_uvec;
@@ -38,11 +39,7 @@ fn force_unstake_works() {
 		// Cant transfer
 		assert_noop!(
 			Balances::transfer(Origin::signed(11), 1, 10),
-			DispatchError::Module {
-				index: 0,
-				error: 1,
-				message: Some("LiquidityRestrictions"),
-			}
+			BalancesError::<Test, _>::LiquidityRestrictions
 		);
 		// Force unstake requires root.
 		assert_noop!(Staking::force_unstake(Origin::signed(11), 11), BadOrigin);
@@ -368,11 +365,7 @@ fn staking_should_work() {
 			// e.g. it cannot spend more than 500 that it has free from the total 2000
 			assert_noop!(
 				Balances::reserve(&3, 501),
-				DispatchError::Module {
-					index: 0,
-					error: 1,
-					message: Some("LiquidityRestrictions"),
-				}
+				BalancesError::<Test, _>::LiquidityRestrictions
 			);
 			assert_ok!(Balances::reserve(&3, 409));
 		});
@@ -821,11 +814,7 @@ fn cannot_transfer_staked_balance() {
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::transfer(Origin::signed(11), 20, 1),
-			DispatchError::Module {
-				index: 0,
-				error: 1,
-				message: Some("LiquidityRestrictions"),
-			}
+			BalancesError::<Test, _>::LiquidityRestrictions
 		);
 
 		// Give account 11 extra free balance
@@ -854,11 +843,7 @@ fn cannot_transfer_staked_balance_2() {
 			// Confirm account 21 can transfer at most 1000
 			assert_noop!(
 				Balances::transfer(Origin::signed(21), 20, 1001),
-				DispatchError::Module {
-					index: 0,
-					error: 1,
-					message: Some("LiquidityRestrictions"),
-				}
+				BalancesError::<Test, _>::LiquidityRestrictions
 			);
 			assert_ok!(Balances::transfer(Origin::signed(21), 20, 1000));
 		});
@@ -877,11 +862,7 @@ fn cannot_reserve_staked_balance() {
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::reserve(&11, 1),
-			DispatchError::Module {
-				index: 0,
-				error: 1,
-				message: Some("LiquidityRestrictions"),
-			}
+			BalancesError::<Test, _>::LiquidityRestrictions
 		);
 
 		// Give account 11 extra free balance
@@ -2325,7 +2306,7 @@ fn invulnerables_can_be_set() {
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::Event::staking(RawEvent::SetInvulnerables(vec![11])),
+				event: mock::TestEvent::staking(RawEvent::SetInvulnerables(vec![11])),
 				topics: vec![],
 			}]
 		);
@@ -3004,7 +2985,7 @@ fn set_minimum_bond_works() {
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::Event::staking(RawEvent::SetMinimumBond(537)),
+				event: mock::TestEvent::staking(RawEvent::SetMinimumBond(537)),
 				topics: vec![],
 			}]
 		);

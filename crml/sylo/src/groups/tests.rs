@@ -15,7 +15,7 @@
 
 #[cfg(test)]
 mod tests {
-	use crate::groups::{AcceptPayload, Encode, Error, Group, Invite, Member, MemberRoles, Module, PendingInvite};
+	use crate::groups::{AcceptPayload, Encode, Error, Group, Invite, Member, MemberRoles, Module};
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use crate::vault;
 	use frame_support::{assert_err, assert_ok};

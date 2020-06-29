@@ -355,32 +355,6 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
 
 #[cfg(test)]
 mod tests {
-	use crate::service::{new_full, new_light};
-	use cennznet_primitives::types::{AccountId, Block, DigestItem, Signature};
-	use cennznet_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
-	use cennznet_runtime::{constants::asset::SPENDING_ASSET_ID, GenericAssetCall};
-	use cennznet_runtime::{Call, UncheckedExtrinsic};
-	use codec::{Decode, Encode};
-	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
-	use sc_consensus_epochs::descendent_query;
-	use sc_service::AbstractService;
-	use sp_consensus::{
-		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer, RecordProof,
-	};
-	use sp_core::{crypto::Pair as CryptoPair, H256};
-	use sp_finality_tracker;
-	use sp_keyring::AccountKeyring;
-	use sp_runtime::traits::IdentifyAccount;
-	use sp_runtime::{
-		generic::{BlockId, Digest, Era, SignedPayload},
-		traits::Verify,
-		traits::{Block as BlockT, Header as HeaderT},
-		OpaqueExtrinsic,
-	};
-	use sp_timestamp;
-	use std::{any::Any, borrow::Cow, sync::Arc};
-
-	type AccountPublic = <Signature as Verify>::Signer;
 
 	#[cfg(feature = "rhd")]
 	fn test_sync() {
@@ -396,7 +370,19 @@ mod tests {
 		let dummy_runtime = ::tokio::runtime::Runtime::new().unwrap();
 		let block_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
 			let block_id = BlockId::number(service.client().chain_info().best_number);
-			let parent_header = service.client().header(&block_id).unwrap().unwrap();
+			let parent_header = service
+				.client()
+				.best_header(&block_id)
+				.expect("db error")
+				.expect("best block should exist");
+
+			futures::executor::block_on(service.transaction_pool().maintain(ChainEvent::NewBlock {
+				is_new_best: true,
+				id: block_id.clone(),
+				retracted: vec![],
+				header: parent_header,
+			}));
+
 			let consensus_net = ConsensusNetwork::new(service.network(), service.client().clone());
 			let proposer_factory = consensus::ProposerFactory {
 				client: service.client().clone(),

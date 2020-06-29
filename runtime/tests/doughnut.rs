@@ -55,7 +55,7 @@ pub fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut 
 }
 
 fn verify_dispatch(doughnut: &CennznetDoughnut, module: &str, method: &str) -> Result<(), &'static str> {
-	<CENNZnetDispatchVerifier as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method)
+	<CENNZnetDispatchVerifier as DelegatedDispatchVerifier>::verify_dispatch(doughnut, module, method, vec![])
 }
 
 fn verify_runtime_to_contract(

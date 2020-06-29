@@ -1,4 +1,5 @@
 version: 2.1
+
 commands:
   install-rust:
     steps:
@@ -13,8 +14,8 @@ commands:
             source ~/.cargo/env
             rustup install $RUST_VERSION
             rustup default $RUST_VERSION
-            rustup install nightly-2020-04-17
-            rustup target add --toolchain=nightly-2020-04-17 wasm32-unknown-unknown
+            rustup install $RUST_NIGHTLY
+            rustup target add --toolchain=$RUST_NIGHTLY wasm32-unknown-unknown
             rustup target add --toolchain=$RUST_VERSION x86_64-unknown-linux-musl
             rustc --version; cargo --version; rustup --version
   install-sccache:
@@ -110,7 +111,6 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: 1.42.0
     steps:
       - checkout
       - install-rust
@@ -125,7 +125,6 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: 1.42.0
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:
@@ -142,7 +141,6 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: 1.42.0
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
     steps:
@@ -166,9 +164,12 @@ workflows:
   version: 2
   build-test-publish:
     jobs:
-      - format
-      - build-bin
-      - build-test-and-run
+      - format:
+          context: Rust
+      - build-bin:
+          context: Rust    
+      - build-test-and-run:
+          context: Rust     
       - build-docker-and-publish:
           filters:
             branches:

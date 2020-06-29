@@ -120,6 +120,7 @@ impl ExtBuilder {
 				(STAKING_ASSET_ID, self.sudoer.clone()),
 				(PLUG_ASSET_ID, self.sudoer.clone()),
 			],
+			asset_meta: vec![],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
