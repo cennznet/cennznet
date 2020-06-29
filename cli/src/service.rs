@@ -54,11 +54,12 @@ macro_rules! new_full_start {
 			cennznet_executor::Executor,
 		>($config)?
 		.with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
-		.with_transaction_pool(|config, client, _fetcher| {
-			let pool_api = sc_transaction_pool::FullChainApi::new(client.clone());
+		.with_transaction_pool(|builder| {
+			let pool_api = sc_transaction_pool::FullChainApi::new(builder.client().clone());
 			Ok(sc_transaction_pool::BasicPool::new(
-				config,
+				builder.config().transaction_pool.clone(),
 				std::sync::Arc::new(pool_api),
+				builder.prometheus_registry(),
 			))
 		})?
 		.with_import_queue(|_config, client, mut select_chain, _transaction_pool| {
@@ -286,12 +287,15 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
 
 	let service = ServiceBuilder::new_light::<Block, RuntimeApi, cennznet_executor::Executor>(config)?
 		.with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
-		.with_transaction_pool(|config, client, fetcher| {
-			let fetcher = fetcher.ok_or_else(|| "Trying to start light transaction pool without active fetcher")?;
-			let pool_api = sc_transaction_pool::LightChainApi::new(client.clone(), fetcher.clone());
+		.with_transaction_pool(|builder| {
+			let fetcher = builder
+				.fetcher()
+				.ok_or_else(|| "Trying to start light transaction pool without active fetcher")?;
+			let pool_api = sc_transaction_pool::LightChainApi::new(builder.client().clone(), fetcher.clone());
 			let pool = sc_transaction_pool::BasicPool::with_revalidation_type(
-				config,
+				builder.config().transaction_pool.clone(),
 				Arc::new(pool_api),
+				builder.prometheus_registry(),
 				sc_transaction_pool::RevalidationType::Light,
 			);
 			Ok(pool)
@@ -355,84 +359,212 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
 
 #[cfg(test)]
 mod tests {
+	use crate::service::{new_full, new_light};
+	use cennznet_primitives::types::{Block, DigestItem, Signature};
+	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::CENTS, time::SLOT_DURATION};
+	use cennznet_runtime::{Address, Call, GenericAssetCall, UncheckedExtrinsic};
+	use codec::{Decode, Encode};
+	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
+	use sc_consensus_epochs::descendent_query;
+	use sc_service::AbstractService;
+	use sp_consensus::{
+		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer, RecordProof,
+	};
+	use sp_core::{crypto::Pair as CryptoPair, H256};
+	use sp_finality_tracker;
+	use sp_keyring::AccountKeyring;
+	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::{
+		generic::{BlockId, Digest, Era, SignedPayload},
+		traits::Verify,
+		traits::{Block as BlockT, Header as HeaderT},
+		OpaqueExtrinsic,
+	};
+	use sp_timestamp;
+	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool};
+	use std::{any::Any, borrow::Cow, sync::Arc};
 
-	#[cfg(feature = "rhd")]
+	type AccountPublic = <Signature as Verify>::Signer;
+
+	#[test]
 	fn test_sync() {
-		use sp_core::ed25519::Pair;
+		let keystore_path = tempfile::tempdir().expect("Creates keystore path");
+		let keystore = sc_keystore::Store::open(keystore_path.path(), None).expect("Creates keystore");
+		let alice = keystore
+			.write()
+			.insert_ephemeral_from_seed::<sc_consensus_babe::AuthorityPair>("//Alice")
+			.expect("Creates authority pair");
 
-		use sc_client::{BlockImportParams, BlockOrigin};
-		use {service_test, Factory};
+		let chain_spec = crate::chain_spec::dev::config();
 
-		let alice: Arc<ed25519::Pair> = Arc::new(Keyring::Alice.into());
-		let bob: Arc<ed25519::Pair> = Arc::new(Keyring::Bob.into());
-		let validators = vec![alice.public().0.into(), bob.public().0.into()];
-		let keys: Vec<&ed25519::Pair> = vec![&*alice, &*bob];
-		let dummy_runtime = ::tokio::runtime::Runtime::new().unwrap();
-		let block_factory = |service: &<Factory as service::ServiceFactory>::FullService| {
-			let block_id = BlockId::number(service.client().chain_info().best_number);
-			let parent_header = service
-				.client()
-				.best_header(&block_id)
-				.expect("db error")
-				.expect("best block should exist");
+		// For the block factory
+		let mut slot_num = 1u64;
 
-			futures::executor::block_on(service.transaction_pool().maintain(ChainEvent::NewBlock {
-				is_new_best: true,
-				id: block_id.clone(),
-				retracted: vec![],
-				header: parent_header,
-			}));
+		// For the extrinsics factory
+		let bob = Arc::new(AccountKeyring::Bob.pair());
+		let charlie = Arc::new(AccountKeyring::Charlie.pair());
+		let mut index = 0;
 
-			let consensus_net = ConsensusNetwork::new(service.network(), service.client().clone());
-			let proposer_factory = consensus::ProposerFactory {
-				client: service.client().clone(),
-				transaction_pool: service.transaction_pool().clone(),
-				network: consensus_net,
-				force_delay: 0,
-				handle: dummy_runtime.executor(),
-			};
-			let (proposer, _, _) = proposer_factory
-				.init(&parent_header, &validators, alice.clone())
-				.unwrap();
-			let block = proposer.propose().expect("Error making test block");
-			BlockImportParams {
-				origin: BlockOrigin::File,
-				justification: Vec::new(),
-				internal_justification: Vec::new(),
-				finalized: false,
-				body: Some(block.extrinsics),
-				storage_changes: None,
-				header: block.header,
-				auxiliary: Vec::new(),
-			}
-		};
-		let extrinsic_factory = |service: &SyncService<<Factory as service::ServiceFactory>::FullService>| {
-			let payload = (
-				0,
-				Call::GenericAsset(GenericAssetCall::transfer(
-					SPENDING_ASSET_ID,
-					RawAddress::Id(bob.public().0.into()),
-					69.into(),
-				)),
-				Era::immortal(),
-				service.client().genesis_hash(),
-			);
-			let signature = alice.sign(&payload.encode()).into();
-			let id = alice.public().0.into();
-			let xt = UncheckedExtrinsic {
-				signature: Some((RawAddress::Id(id), signature, payload.0, Era::immortal())),
-				function: payload.1,
-			}
-			.encode();
-			let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
-			OpaqueExtrinsic(v)
-		};
 		sc_service_test::sync(
-			sc_chain_spec::integration_test_config(),
-			|config| new_full(config),
-			|mut config| new_light(config),
-			block_factory,
-			extrinsic_factory,
+			chain_spec,
+			|config| {
+				let mut setup_handles = None;
+				new_full!(
+					config,
+					|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
+					 babe_link: &sc_consensus_babe::BabeLink<Block>| {
+						setup_handles = Some((block_import.clone(), babe_link.clone()));
+					}
+				)
+				.map(move |(node, x)| (node, (x, setup_handles.unwrap())))
+			},
+			|config| new_light(config),
+			|service, &mut (ref inherent_data_providers, (ref mut block_import, ref babe_link))| {
+				let mut inherent_data = inherent_data_providers
+					.create_inherent_data()
+					.expect("Creates inherent data.");
+				inherent_data.replace_data(sp_finality_tracker::INHERENT_IDENTIFIER, &1u64);
+
+				let parent_id = BlockId::number(service.client().chain_info().best_number);
+				let parent_header = service.client().header(&parent_id).unwrap().unwrap();
+				let parent_hash = parent_header.hash();
+				let parent_number = *parent_header.number();
+
+				futures::executor::block_on(service.transaction_pool().maintain(ChainEvent::NewBlock {
+					is_new_best: true,
+					hash: parent_header.hash(),
+					tree_route: None,
+					header: parent_header.clone(),
+				}));
+
+				let mut proposer_factory =
+					sc_basic_authorship::ProposerFactory::new(service.client(), service.transaction_pool());
+
+				let epoch_descriptor = babe_link
+					.epoch_changes()
+					.lock()
+					.epoch_descriptor_for_child_of(
+						descendent_query(&*service.client()),
+						&parent_hash,
+						parent_number,
+						slot_num,
+					)
+					.unwrap()
+					.unwrap();
+
+				let mut digest = Digest::<H256>::default();
+
+				// even though there's only one authority some slots might be empty,
+				// so we must keep trying the next slots until we can claim one.
+				let babe_pre_digest = loop {
+					inherent_data.replace_data(sp_timestamp::INHERENT_IDENTIFIER, &(slot_num * SLOT_DURATION));
+					if let Some(babe_pre_digest) = sc_consensus_babe::test_helpers::claim_slot(
+						slot_num,
+						&parent_header,
+						&*service.client(),
+						&keystore,
+						&babe_link,
+					) {
+						break babe_pre_digest;
+					}
+
+					slot_num += 1;
+				};
+
+				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(babe_pre_digest));
+
+				let new_block = futures::executor::block_on(async move {
+					let proposer = proposer_factory.init(&parent_header).await;
+					proposer
+						.unwrap()
+						.propose(
+							inherent_data,
+							digest,
+							std::time::Duration::from_secs(1),
+							RecordProof::Yes,
+						)
+						.await
+				})
+				.expect("Error making test block")
+				.block;
+
+				let (new_header, new_body) = new_block.deconstruct();
+				let pre_hash = new_header.hash();
+				// sign the pre-sealed hash of the block and then
+				// add it to a digest item.
+				let to_sign = pre_hash.encode();
+				let signature = alice.sign(&to_sign[..]);
+				let item = <DigestItem as CompatibleDigestItem>::babe_seal(signature.into());
+				slot_num += 1;
+
+				let mut params = BlockImportParams::new(BlockOrigin::File, new_header);
+				params.post_digests.push(item);
+				params.body = Some(new_body);
+				params.intermediates.insert(
+					Cow::from(INTERMEDIATE_KEY),
+					Box::new(BabeIntermediate::<Block> { epoch_descriptor }) as Box<dyn Any>,
+				);
+				params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+
+				block_import
+					.import_block(params, Default::default())
+					.expect("error importing test block");
+			},
+			|service, _| {
+				let amount = 5 * CENTS;
+				let to: Address = AccountPublic::from(bob.public()).into_account().into();
+				let from: Address = AccountPublic::from(charlie.public()).into_account().into();
+				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
+				let best_block_id = BlockId::number(service.client().chain_info().best_number);
+				let version = service
+					.client()
+					.runtime_version_at(&best_block_id)
+					.unwrap()
+					.spec_version;
+				let signer = charlie.clone();
+
+				let function = Call::GenericAsset(GenericAssetCall::transfer(SPENDING_ASSET_ID, to.into(), amount));
+
+				let check_version = frame_system::CheckVersion::new();
+				let check_genesis = frame_system::CheckGenesis::new();
+				let check_era = frame_system::CheckEra::from(Era::Immortal);
+				let check_nonce = frame_system::CheckNonce::from(index);
+				let check_weight = frame_system::CheckWeight::new();
+				let payment = crml_transaction_payment::ChargeTransactionPayment::from(0, None);
+				let extra = (
+					None,
+					check_version,
+					check_genesis,
+					check_era,
+					check_nonce,
+					check_weight,
+					payment,
+					Default::default(),
+				);
+				let raw_payload = SignedPayload::from_raw(
+					function,
+					extra,
+					((), version, genesis_hash, genesis_hash, (), (), (), ()),
+				);
+				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
+				let (function, extra, _) = raw_payload.deconstruct();
+				let xt = UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra).encode();
+				let v: Vec<u8> = Decode::decode(&mut xt.as_slice()).unwrap();
+
+				index += 1;
+				OpaqueExtrinsic(v)
+			},
 		);
+	}
+
+	#[test]
+	#[ignore]
+	fn test_consensus() {
+		sc_service_test::consensus(
+			crate::chain_spec::dev::config(),
+			|config| new_full(config),
+			|config| new_light(config),
+			vec!["//Alice".into(), "//Bob".into()],
+		)
 	}
 }
