@@ -110,7 +110,6 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
-	pub const ScaleDownFactor: Balance = 1000_000_000_000;
 }
 
 pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
@@ -166,10 +165,6 @@ impl crml_cennzx_spot::Trait for Runtime {
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
 	type BalanceToUnsignedInt = Balance;
 	type UnsignedIntToBalance = Balance;
-}
-
-impl crml_scaling::Trait for Runtime {
-	type ScaleDownFactor = ScaleDownFactor;
 }
 
 impl prml_attestation::Trait for Runtime {
@@ -578,7 +573,6 @@ construct_runtime!(
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
-		Scaling: crml_scaling::{Module},
 	}
 );
 
