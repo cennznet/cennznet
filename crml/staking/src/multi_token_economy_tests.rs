@@ -29,18 +29,23 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use std::collections::HashSet;
 
-use crate::mock::{
-	Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler, SESSION,
-};
+use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
 use crate::{inflation, EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
+use std::cell::RefCell;
 
-const REWARD_ASSET_ID: u32 = 101;
-const STAKING_ASSET_ID: u32 = 100;
+const STAKING_ASSET_ID: AssetId = 100;
+const REWARD_ASSET_ID: AssetId = 101;
+const NEXT_ASSET_ID: AssetId = 102;
 
 /// The AccountId alias in this test module.
-pub type AccountId = u64;
-pub type BlockNumber = u64;
-pub type Balance = u64;
+type AccountId = u64;
+type BlockNumber = u64;
+type Balance = u64;
+type AssetId = u32;
+
+thread_local! {
+	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
+}
 
 use frame_system as system;
 impl_outer_origin! {
@@ -50,6 +55,7 @@ impl_outer_origin! {
 // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Test;
+
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub const MaximumBlockWeight: u32 = 1024;
@@ -76,6 +82,7 @@ impl frame_system::Trait for Test {
 	type Doughnut = ();
 	type DelegatedDispatchVerifier = ();
 }
+
 parameter_types! {
 	pub const TransferFee: Balance = 0;
 	pub const CreationFee: Balance = 0;
@@ -90,11 +97,13 @@ impl pallet_balances::Trait for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type CreationFee = CreationFee;
 }
+
 impl pallet_generic_asset::Trait for Test {
-	type Balance = u64;
-	type AssetId = u32;
+	type Balance = Balance;
+	type AssetId = AssetId;
 	type Event = ();
 }
+
 parameter_types! {
 	pub const Period: BlockNumber = 1;
 	pub const Offset: BlockNumber = 0;
@@ -111,17 +120,18 @@ impl pallet_session::Trait for Test {
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
-
 impl pallet_session::historical::Trait for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
+
 impl pallet_authorship::Trait for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
 	type EventHandler = Module<Test>;
 }
+
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
 }
@@ -130,6 +140,7 @@ impl pallet_timestamp::Trait for Test {
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
 }
+
 crml_staking_reward_curve::build! {
 	const I_NPOS: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
@@ -160,6 +171,12 @@ impl Trait for Test {
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
 }
+
+type System = frame_system::Module<Test>;
+type GenericAsset = pallet_generic_asset::Module<Test>;
+type Session = pallet_session::Module<Test>;
+type Timestamp = pallet_timestamp::Module<Test>;
+type Staking = Module<Test>;
 
 pub struct ExtBuilder {
 	validator_count: u32,
@@ -194,8 +211,9 @@ impl ExtBuilder {
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: REWARD_ASSET_ID,
 			assets: vec![STAKING_ASSET_ID, REWARD_ASSET_ID],
-			next_asset_id: 102,
+			next_asset_id: NEXT_ASSET_ID,
 			permissions: vec![],
+			asset_meta: vec![],
 		}
 		.assimilate_storage(&mut storage);
 
@@ -226,12 +244,6 @@ impl ExtBuilder {
 		t
 	}
 }
-
-pub type System = frame_system::Module<Test>;
-pub type GenericAsset = pallet_generic_asset::Module<Test>;
-pub type Session = pallet_session::Module<Test>;
-pub type Timestamp = pallet_timestamp::Module<Test>;
-pub type Staking = Module<Test>;
 
 pub fn start_session(session_index: SessionIndex) {
 	// Compensate for session delay

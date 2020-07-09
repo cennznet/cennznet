@@ -19,8 +19,6 @@
 //! - `cli` (default): exposes functions that parse command-line options, then start and run the
 //! node as a CLI application.
 
-#![warn(missing_docs)]
-
 #[macro_use]
 extern crate hex_literal;
 

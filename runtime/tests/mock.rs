@@ -137,6 +137,7 @@ impl ExtBuilder {
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 			permissions: vec![],
+			asset_meta: vec![],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

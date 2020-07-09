@@ -13,9 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{
-	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo,
-};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 
 const MAX_DEVICES: usize = 1000;
 
@@ -73,10 +71,9 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{ExtBuilder, Origin, Test};
+	use crate::mock::{ExtBuilder, Test};
 	use frame_support::{assert_noop, assert_ok};
 	use sp_core::H256;
-	use sp_runtime::DispatchError::Other;
 
 	type Device = Module<Test>;
 

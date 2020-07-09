@@ -38,6 +38,8 @@ use sp_staking::{
 };
 use std::{cell::RefCell, collections::HashSet};
 
+const INIT_TIMESTAMP: u64 = 30_000;
+
 /// The AccountId alias in this test module.
 pub type AccountId = u64;
 pub type BlockNumber = u64;
@@ -57,7 +59,7 @@ impl Convert<u128, u64> for CurrencyToVoteHandler {
 }
 
 thread_local! {
-	pub(crate) static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
+	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
 	static EXISTENTIAL_DEPOSIT: RefCell<u64> = RefCell::new(0);
 	static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
 }
@@ -113,7 +115,7 @@ mod staking {
 }
 
 impl_outer_event! {
-	pub enum Event for Test {
+	pub enum TestEvent for Test {
 		system,
 		staking<T>,
 		pallet_balances<T>,
@@ -151,27 +153,27 @@ impl frame_system::Trait for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = Event;
+	type Event = TestEvent;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
 	type ModuleToIndex = ();
-	type Doughnut = ();
 	type DelegatedDispatchVerifier = ();
+	type Doughnut = ();
 }
 parameter_types! {
-	pub const CreationFee: Balance = 0;
+	pub const CreationFee: u64 = 0;
 }
 impl pallet_balances::Trait for Test {
 	type Balance = Balance;
 	type OnReapAccount = (System, Staking);
-	type OnNewAccount = ();
-	type Event = Event;
-	type TransferPayment = ();
 	type DustRemoval = ();
+	type Event = TestEvent;
 	type ExistentialDeposit = ExistentialDeposit;
+	type OnNewAccount = ();
+	type TransferPayment = ();
 	type CreationFee = CreationFee;
 }
 parameter_types! {
@@ -181,13 +183,13 @@ parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Trait for Test {
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
-	type Keys = UintAuthorityId;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionHandler = TestSessionHandler;
-	type Event = Event;
+	type Event = TestEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionHandler = TestSessionHandler;
+	type Keys = UintAuthorityId;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
 
@@ -230,7 +232,7 @@ impl Trait for Test {
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
-	type Event = Event;
+	type Event = TestEvent;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -250,6 +252,7 @@ pub struct ExtBuilder {
 	fair: bool,
 	num_validators: Option<u32>,
 	invulnerables: Vec<u64>,
+	stakers: bool,
 	minimum_bond: u64,
 }
 
@@ -265,6 +268,7 @@ impl Default for ExtBuilder {
 			fair: true,
 			num_validators: None,
 			invulnerables: vec![],
+			stakers: true,
 			minimum_bond: 1,
 		}
 	}
@@ -347,17 +351,17 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let stake_21 = if self.fair { 1000 } else { 2000 };
-		let stake_31 = if self.validator_pool { balance_factor * 1000 } else { 1 };
-		let status_41 = if self.validator_pool {
-			StakerStatus::<AccountId>::Validator
-		} else {
-			StakerStatus::<AccountId>::Idle
-		};
-		let nominated = if self.nominate { vec![11, 21] } else { vec![] };
-		let _ = GenesisConfig::<Test> {
-			current_era: 0,
-			stakers: vec![
+		let mut stakers = vec![];
+		if self.stakers {
+			let stake_21 = if self.fair { 1000 } else { 2000 };
+			let stake_31 = if self.validator_pool { balance_factor * 1000 } else { 1 };
+			let status_41 = if self.validator_pool {
+				StakerStatus::<AccountId>::Validator
+			} else {
+				StakerStatus::<AccountId>::Idle
+			};
+			let nominated = if self.nominate { vec![11, 21] } else { vec![] };
+			stakers = vec![
 				// (stash, controller, staked_amount, status)
 				(11, 10, balance_factor * 1000, StakerStatus::<AccountId>::Validator),
 				(21, 20, stake_21, StakerStatus::<AccountId>::Validator),
@@ -370,7 +374,12 @@ impl ExtBuilder {
 					balance_factor * 500,
 					StakerStatus::<AccountId>::Nominator(nominated),
 				),
-			],
+			];
+		}
+		let _ = GenesisConfig::<Test> {
+			current_era: 0,
+			stakers: stakers,
+
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
@@ -390,6 +399,13 @@ impl ExtBuilder {
 			let validators = Session::validators();
 			SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
 		});
+		// We consider all test to start after timestamp is initialized
+		// This must be ensured by having `timestamp::on_initialize` called before
+		// `staking::on_initialize`
+		ext.execute_with(|| {
+			Timestamp::set_timestamp(INIT_TIMESTAMP);
+		});
+
 		ext
 	}
 }

@@ -87,6 +87,7 @@ where
 	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UncheckedExtrinsic>,
 	C::Api: crml_cennzx_spot_rpc::CennzxSpotRuntimeApi<Block, AssetId, Balance, AccountId>,
+	C::Api: pallet_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
 	C::Api: BabeApi<Block>,
 	<C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
 	P: TransactionPool + 'static,
@@ -95,6 +96,7 @@ where
 {
 	use crml_cennzx_spot_rpc::{CennzxSpot, CennzxSpotApi};
 	use pallet_contracts_rpc::{Contracts, ContractsApi};
+	use pallet_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
@@ -127,6 +129,7 @@ where
 		select_chain,
 	)));
 	io.extend_with(CennzxSpotApi::to_delegate(CennzxSpot::new(client.clone())));
+	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client)));
 
 	io
 }
