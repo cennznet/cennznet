@@ -716,7 +716,6 @@ dependencies = [
  "clear_on_drop",
  "crml-cennzx-spot",
  "crml-cennzx-spot-rpc-runtime-api",
- "crml-scaling",
  "crml-staking",
  "crml-staking-reward-curve",
  "crml-sylo",
