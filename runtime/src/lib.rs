@@ -169,10 +169,6 @@ impl crml_cennzx_spot::Trait for Runtime {
 	type UnsignedIntToBalance = Balance;
 }
 
-impl crml_scaling::Trait for Runtime {
-	type ScaleDownFactor = ScaleDownFactor;
-}
-
 impl prml_attestation::Trait for Runtime {
 	type Event = Event;
 }
@@ -579,7 +575,6 @@ construct_runtime!(
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
-		Scaling: crml_scaling::{Module},
 	}
 );
 

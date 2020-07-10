@@ -21,7 +21,6 @@ cennznet-primitives = { path = "../primitives", default-features = false }
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false }
 crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
-crml-scaling = { path = "../crml/scaling", default-features = false }
 
 # primitives
 sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc4" }
