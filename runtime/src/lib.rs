@@ -33,6 +33,7 @@ use frame_support::{
 use frame_system::offchain::TransactionSubmitter;
 pub use pallet_contracts::Gas;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+pub use pallet_generic_asset::AssetInfo;
 pub use pallet_generic_asset::Call as GenericAssetCall;
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
 use pallet_grandpa::fg_primitives;
@@ -90,8 +91,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 35,
-	impl_version: 35,
+	spec_version: 36,
+	impl_version: 36,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -110,7 +111,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
-	pub const ScaleDownFactor: Balance = 1000_000_000_000;
+	pub const ScaleDownFactor: Balance = 1_000_000_000_000;
 }
 
 pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
@@ -394,7 +395,7 @@ parameter_types! {
 }
 
 impl pallet_treasury::Trait for Runtime {
-	type Currency = StakingAssetCurrency<Self>;
+	type Currency = SpendingAssetCurrency<Self>;
 	type ApproveOrigin = pallet_collective::EnsureMembers<_4, AccountId, Self::Doughnut, CouncilCollective>;
 	type RejectOrigin = pallet_collective::EnsureMembers<_2, AccountId, Self::Doughnut, CouncilCollective>;
 	type Event = Event;
@@ -588,7 +589,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The `SignedExtension` payload for transactions in the plug runtime.
-/// It can contain a doughnut delegation proof as it's second value.
+/// It can contain a doughnut delegation proof as it's first value.
 pub type SignedExtra = (
 	Option<CennznetDoughnut>,
 	frame_system::CheckVersion<Runtime>,
@@ -704,6 +705,12 @@ impl_runtime_apis! {
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {
 			System::account_nonce(account)
+		}
+	}
+
+	impl pallet_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
+			GenericAsset::registered_assets()
 		}
 	}
 

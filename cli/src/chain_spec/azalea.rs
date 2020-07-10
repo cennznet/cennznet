@@ -19,7 +19,7 @@ use super::{session_keys, ChainSpec, NetworkKeys};
 use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, FeeRate,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, FeeRate,
 	GenericAssetConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig,
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
@@ -34,10 +34,15 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 // Reserve Asset IDs
 // We leave ID '0' as it logically indicates 'no asset ID'
+/// CENNZ asset id on Azalea
 pub const CENNZ_ASSET_ID: AssetId = 1;
+/// CPAY asset id on Azalea
 pub const CENTRAPAY_ASSET_ID: AssetId = 2;
+/// Starting id for newly created assets on Azalea
 pub const NEXT_ASSET_ID: AssetId = 1_000;
+/// CENNZ is the staking asset id on Azalea
 pub const STAKING_ASSET_ID: AssetId = CENNZ_ASSET_ID;
+/// CPAY is the spending asset id on Azalea
 pub const SPENDING_ASSET_ID: AssetId = CENTRAPAY_ASSET_ID;
 
 fn network_keys() -> NetworkKeys {
@@ -249,15 +254,16 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		pallet_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
-			permissions: vec![
-				(CENNZ_ASSET_ID, root_key.clone()),
-				(CENTRAPAY_ASSET_ID, root_key.clone()),
-			],
+			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CENTRAPAY_ASSET_ID, root_key)],
 			initial_balance: INITIAL_BOND * 2,
 			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
+			asset_meta: vec![
+				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1)),
+				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
+			],
 		}),
 		crml_staking: Some(StakingConfig {
 			current_era: 0,

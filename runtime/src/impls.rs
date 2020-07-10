@@ -37,6 +37,7 @@ use sp_runtime::{
 	},
 	DispatchError, Fixed64, Perbill,
 };
+use sp_std::{any::Any, prelude::Vec};
 
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
@@ -334,7 +335,12 @@ impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
 	const DOMAIN: &'static str = "cennznet";
 
 	/// Verify that a call to a runtime module is permissioned by the doughnut
-	fn verify_dispatch(doughnut: &Self::Doughnut, module: &str, method: &str) -> Result<(), &'static str> {
+	fn verify_dispatch(
+		doughnut: &Self::Doughnut,
+		module: &str,
+		method: &str,
+		_args: Vec<(&str, &dyn Any)>,
+	) -> Result<(), &'static str> {
 		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
 
 		// Extract Module name from <prefix>-<Module_name>

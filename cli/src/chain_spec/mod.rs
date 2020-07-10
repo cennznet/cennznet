@@ -18,9 +18,9 @@
 
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
-	GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, WASM_BINARY,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMillion, PerThousand};
 use core::convert::TryFrom;
@@ -199,15 +199,16 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 		pallet_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
-			permissions: vec![
-				(CENNZ_ASSET_ID, root_key.clone()),
-				(CENTRAPAY_ASSET_ID, root_key.clone()),
-			],
+			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CENTRAPAY_ASSET_ID, root_key)],
 			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
 			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
+			asset_meta: vec![
+				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1)),
+				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
+			],
 		}),
 		crml_cennzx_spot: Some(CennzxSpotConfig {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
