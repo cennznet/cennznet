@@ -86,6 +86,7 @@ tempfile = "3.1.0"
 assert_cmd = "0.12"
 nix = "0.17"
 serde_json = "1.0"
+crml-transaction-payment = { path = "../crml/transaction-payment" }
 
 [build-dependencies]
 build-script-utils = { package = "substrate-build-script-utils", git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
