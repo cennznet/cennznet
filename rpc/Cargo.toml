@@ -15,20 +15,20 @@ cennznet-runtime = { path = "../runtime" }
 crml-cennzx-spot-rpc = { path = "../crml/cennzx-spot/rpc" }
 
 #frame dependencies
-pallet-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-pallet-generic-asset-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-pallet-transaction-payment-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-substrate-frame-rpc-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
+pallet-contracts-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+pallet-generic-asset-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+pallet-transaction-payment-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+substrate-frame-rpc-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
 
 #primitives and client dependencies
-sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sc-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sc-consensus-babe-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sc-keystore = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sc-consensus-epochs = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-consensus = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
-sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4" }
+sc-client = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sc-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sc-consensus-babe-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sc-keystore = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sc-consensus-epochs = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-consensus-babe = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-consensus = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
+sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }

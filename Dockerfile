@@ -22,7 +22,10 @@ RUN apt-get update && \
     ln -s /root/.local/share/cennznet /data
 
 COPY --from=0 /cennznet/target/release/cennznet /usr/local/bin
+# copy in genesis files
 COPY --from=0 /cennznet/genesis /cennznet/genesis
+# copy in wasm blob
+COPY --from=0 /cennznet/target/release/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm /cennznet
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 ENTRYPOINT ["/usr/local/bin/cennznet"]
