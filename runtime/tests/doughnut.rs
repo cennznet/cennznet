@@ -17,14 +17,11 @@
 
 use cennznet_primitives::types::AccountId;
 use cennznet_runtime::{impls::CENNZnetDispatchVerifier, CennznetDoughnut};
-use cennznut::{self};
-use cennznut::{CENNZnut, CENNZnutV0};
+use cennznut::{self, CENNZnut, CENNZnutV0};
 use codec::Encode;
-use frame_support::additional_traits::DelegatedDispatchVerifier;
-use frame_support::{assert_err, assert_ok};
-use sp_core::crypto::Pair;
+use frame_support::{additional_traits::DelegatedDispatchVerifier, assert_err, assert_ok};
 use sp_keyring::AccountKeyring;
-use sp_runtime::{traits::DoughnutApi, Doughnut, DoughnutV0};
+use sp_runtime::{traits::DoughnutSigning, Doughnut, DoughnutV0};
 
 pub fn test_issuer() -> [u8; 32] {
 	AccountKeyring::Alice.to_raw_public()
@@ -48,8 +45,9 @@ pub fn make_doughnut(domain: &str, domain_payload: Vec<u8>) -> CennznetDoughnut 
 		signature_version: 0,
 		signature: Default::default(),
 	};
-	let signature: [u8; 64] = AccountKeyring::Alice.pair().sign(&doughnut_v0.payload()).into();
-	doughnut_v0.signature = signature.into();
+	doughnut_v0
+		.sign_sr25519(&AccountKeyring::Alice.pair().to_ed25519_bytes())
+		.expect("it signs ok");
 	let doughnut = Doughnut::V0(doughnut_v0);
 	CennznetDoughnut::new(doughnut)
 }

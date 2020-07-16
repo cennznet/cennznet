@@ -361,8 +361,10 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
 mod tests {
 	use crate::service::{new_full, new_light};
 	use cennznet_primitives::types::{Block, DigestItem, Signature};
-	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::CENTS, time::SLOT_DURATION};
-	use cennznet_runtime::{Address, Call, GenericAssetCall, UncheckedExtrinsic};
+	use cennznet_runtime::{
+		constants::{asset::SPENDING_ASSET_ID, currency::CENTS, time::SLOT_DURATION},
+		Address, Call, GenericAssetCall, UncheckedExtrinsic,
+	};
 	use codec::{Decode, Encode};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
@@ -387,6 +389,9 @@ mod tests {
 	type AccountPublic = <Signature as Verify>::Signer;
 
 	#[test]
+	// It is "ignored", but the node-cli ignored tests are running on the CI.
+	// This can be run locally with `cargo test --release -p node-cli test_sync -- --ignored`.
+	#[ignore]
 	fn test_sync() {
 		let keystore_path = tempfile::tempdir().expect("Creates keystore path");
 		let keystore = sc_keystore::Store::open(keystore_path.path(), None).expect("Creates keystore");
