@@ -1,7 +1,5 @@
 #!/bin/bash
-nightly_pattern='^.+(nightly-[0-9]{4}-[0-9]{2}-[0-9]{2}).*$'
-nightly_version=$(grep -E $nightly_pattern ./.circleci/config.yml | head -n 1)
-nightly_version=$(sed -E 's/'$nightly_pattern'/\1/g' <<< "$nightly_version")
+nightly_version=nightly-2020-06-25
 
 echo Installing the stable Rust toolchain...
 rustup install stable
