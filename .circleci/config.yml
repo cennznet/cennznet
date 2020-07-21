@@ -94,16 +94,20 @@ commands:
       - run:
           name: Report test coverage
           command: |
+            set -o xtrace
             cargo install grcov
+            echo "RN = $RUST_NIGHTLY"
             rustup target add --toolchain=$RUST_NIGHTLY x86_64-unknown-linux-gnu
             export CARGO_INCREMENTAL=0
             export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
             export RUSTDOCFLAGS="-Cpanic=abort"
             export SKIP_WASM_BUILD=1
             export LLVM_CONFIG_PATH="/usr/local/opt/llvm/bin/llvm-config"
+            source ~/.cargo/env
             cargo +nightly build --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-gnu
             cargo +nightly test --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-gnu
             grcov ./target/x86_64-unknown-linux-gnu/debug/ -s . -t html --llvm --branch --ignore-not-existing -o /tmp/coverage/
+            set +o xtrace
       - store_artifacts:
           path: /tmp/coverage
   docker-build-and-publish:
