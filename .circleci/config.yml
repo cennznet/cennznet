@@ -17,6 +17,7 @@ commands:
             rustup install $RUST_NIGHTLY
             rustup target add --toolchain=$RUST_NIGHTLY wasm32-unknown-unknown
             rustup target add --toolchain=$RUST_VERSION x86_64-unknown-linux-musl
+            cargo install grcov
             rustc --version; cargo --version; rustup --version
   install-sccache:
     steps:
@@ -89,6 +90,16 @@ commands:
           name: Run tests
           command: |
             cargo test --all
+  cargo-test-coverage:
+    steps:
+      - run:
+          name: Report test coverage
+          command: |
+            cargo +nightly build --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
+            cargo +nightly test --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
+            grcov ./target/x86_64-unknown-linux-musl/debug/ -s . -t html --llvm --branch --ignore-not-existing -o /tmp/coverage/
+      - store_artifacts:
+          path: /tmp/coverage
   docker-build-and-publish:
     steps:
       - run:
@@ -153,6 +164,19 @@ jobs:
       - save-cache
       - save-target-cache
       - cargo-run-test
+  report-test-coverage:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      BASH_ENV: ~/.cargo/env
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
+      SKIP_WASM_BUILD: 1
+      LLVM_CONFIG_PATH: /usr/local/opt/llvm/bin/llvm-config
+    steps:
+      - checkout
+      - install-rust
+      - cargo-test-coverage
   build-docker-and-publish:
     machine:
       image: ubuntu-1604:201903-01
@@ -169,7 +193,9 @@ workflows:
       - build-bin:
           context: Rust    
       - build-test-and-run:
-          context: Rust     
+          context: Rust
+      - report-test-coverage:
+          context: Rust
       - build-docker-and-publish:
           filters:
             branches:
@@ -181,4 +207,5 @@ workflows:
             - format
             - build-bin
             - build-test-and-run
+            - report-test-coverage
             - build-docker-and-publish
