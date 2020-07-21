@@ -91,15 +91,15 @@ commands:
           command: |
             cargo test --all
   cargo-test-coverage:
-    environment:
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
-      SKIP_WASM_BUILD: 1
-      LLVM_CONFIG_PATH: /usr/local/opt/llvm/bin/llvm-config
     steps:
       - run:
           name: Report test coverage
           command: |
+            export CARGO_INCREMENTAL=0
+            export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+            export RUSTDOCFLAGS="-Cpanic=abort"
+            export SKIP_WASM_BUILD=1
+            export LLVM_CONFIG_PATH="/usr/local/opt/llvm/bin/llvm-config"
             cargo +nightly build --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
             cargo +nightly test --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
             grcov ./target/x86_64-unknown-linux-musl/debug/ -s . -t html --llvm --branch --ignore-not-existing -o /tmp/coverage/
