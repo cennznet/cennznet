@@ -17,7 +17,6 @@ commands:
             rustup install $RUST_NIGHTLY
             rustup target add --toolchain=$RUST_NIGHTLY wasm32-unknown-unknown
             rustup target add --toolchain=$RUST_VERSION x86_64-unknown-linux-musl
-            cargo install grcov
             rustc --version; cargo --version; rustup --version
   install-sccache:
     steps:
@@ -95,14 +94,15 @@ commands:
       - run:
           name: Report test coverage
           command: |
+            cargo install grcov
             export CARGO_INCREMENTAL=0
             export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
             export RUSTDOCFLAGS="-Cpanic=abort"
             export SKIP_WASM_BUILD=1
             export LLVM_CONFIG_PATH="/usr/local/opt/llvm/bin/llvm-config"
-            cargo +nightly build --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
-            cargo +nightly test --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-musl
-            grcov ./target/x86_64-unknown-linux-musl/debug/ -s . -t html --llvm --branch --ignore-not-existing -o /tmp/coverage/
+            cargo +nightly build --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-gnu
+            cargo +nightly test --package crml-cennzx-spot  --package crml-sylo --target x86_64-unknown-linux-gnu
+            grcov ./target/x86_64-unknown-linux-gnu/debug/ -s . -t html --llvm --branch --ignore-not-existing -o /tmp/coverage/
       - store_artifacts:
           path: /tmp/coverage
   docker-build-and-publish:
