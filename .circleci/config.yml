@@ -91,6 +91,11 @@ commands:
           command: |
             cargo test --all
   cargo-test-coverage:
+    environment:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
+      SKIP_WASM_BUILD: 1
+      LLVM_CONFIG_PATH: /usr/local/opt/llvm/bin/llvm-config
     steps:
       - run:
           name: Report test coverage
@@ -169,10 +174,6 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
-      SKIP_WASM_BUILD: 1
-      LLVM_CONFIG_PATH: /usr/local/opt/llvm/bin/llvm-config
     steps:
       - checkout
       - install-rust
