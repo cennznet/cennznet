@@ -82,13 +82,13 @@ commands:
       - run:
           name: Build tests
           command: |
-            cargo test --no-run --all
+            cargo test --no-run --workspace --exclude crml-cennzx-spot --exclude crml-sylo
   cargo-run-test:
     steps:
       - run:
           name: Run tests
           command: |
-            cargo test --all
+            cargo test --workspace --exclude crml-cennzx-spot --exclude crml-sylo
   cargo-test-coverage:
     steps:
       - run:
@@ -192,5 +192,24 @@ workflows:
   version: 2
   build-test-publish:
     jobs:
+      - format:
+          context: Rust
+      - build-bin:
+          context: Rust    
+      - build-test-and-run:
+          context: Rust
       - report-test-coverage:
           context: Rust
+      - build-docker-and-publish:
+          filters:
+            branches:
+              only:
+                - develop
+                - /^[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
+      - build:
+          requires:
+            - format
+            - build-bin
+            - build-test-and-run
+            - report-test-coverage
+            - build-docker-and-publish
