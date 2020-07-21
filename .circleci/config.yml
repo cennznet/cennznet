@@ -82,13 +82,21 @@ commands:
       - run:
           name: Build tests
           command: |
-            cargo test --no-run --all
+            cargo test --no-run --workspace --exclude crml-cennzx-spot --exclude crml-sylo
   cargo-run-test:
     steps:
       - run:
           name: Run tests
           command: |
-            cargo test --all
+            cargo test --workspace --exclude crml-cennzx-spot --exclude crml-sylo
+  cargo-test-coverage:
+    steps:
+      - run:
+          name: Report test coverage
+          command: |
+            ./scripts/test-coverage.sh crml-cennzx-spot crml-sylo
+      - store_artifacts:
+          path: /tmp/coverage
   docker-build-and-publish:
     steps:
       - run:
@@ -153,6 +161,15 @@ jobs:
       - save-cache
       - save-target-cache
       - cargo-run-test
+  report-test-coverage:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      BASH_ENV: ~/.cargo/env
+    steps:
+      - checkout
+      - install-rust
+      - cargo-test-coverage
   build-docker-and-publish:
     machine:
       image: ubuntu-1604:201903-01
@@ -169,7 +186,9 @@ workflows:
       - build-bin:
           context: Rust    
       - build-test-and-run:
-          context: Rust     
+          context: Rust
+      - report-test-coverage:
+          context: Rust
       - build-docker-and-publish:
           filters:
             branches:
@@ -181,4 +200,5 @@ workflows:
             - format
             - build-bin
             - build-test-and-run
+            - report-test-coverage
             - build-docker-and-publish
