@@ -104,7 +104,7 @@ commands:
           command: |
             IMAGE_NAME="cennznet/cennznet"
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
-              IMAGE_TAG="latest"
+              IMAGE_TAG="develop-${CIRCLE_SHA1:0:6}"
             else
               IMAGE_TAG="${CIRCLE_BRANCH////-}"
             fi
