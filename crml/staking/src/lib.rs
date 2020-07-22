@@ -496,7 +496,7 @@ where
 			// don't leave a dust balance in the staking system.
 			if *target_funds <= minimum_balance {
 				*total_funds = total_funds.saturating_sub(*target_funds);
-				sp_std::mem::replace(target_funds, Zero::zero());
+				*target_funds = Zero::zero();
 			}
 		}
 		slash_remainder
@@ -1443,7 +1443,7 @@ impl<T: Trait> Module<T> {
 		let previous_era_start = <CurrentEraStart<T>>::get();
 		let era_duration = now - previous_era_start;
 		<CurrentEraDuration<T>>::put(era_duration);
-		<CurrentEraStart<T>>::mutate(|v| sp_std::mem::replace(v, now));
+		<CurrentEraStart<T>>::mutate(|v| *v = now);
 
 		if !era_duration.is_zero() {
 			Self::era_reward_payout();
