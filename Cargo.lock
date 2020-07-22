@@ -818,7 +818,7 @@ dependencies = [
 [[package]]
 name = "cennznut"
 version = "0.1.1"
-source = "git+https://github.com/cennznet/cennznut-rs?branch=0.5.0#7c44bb9278e2300f0325ee1642fabcfdce300195"
+source = "git+https://github.com/cennznet/cennznut-rs?branch=0.5.0#1d07c84ca901bcfd6275470ea53688e81e92726d"
 dependencies = [
  "pact",
  "parity-scale-codec",
