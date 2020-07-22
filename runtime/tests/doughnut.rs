@@ -128,6 +128,15 @@ fn it_works_with_arbitrary_prefix_long() {
 }
 
 #[test]
+fn it_works_with_arbitrary_non_ascii_characters() {
+	let cennznut = make_runtime_cennznut("attestation", "attest");
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
+	assert_ok!(verify_dispatch(&doughnut, "ṫřṁl-attestation", "attest"));
+	assert_eq!("ṫřṁl-attestation".len(), 21);
+	assert_eq!("ṫřṁl-attestation".chars().count(), 16);
+}
+
+#[test]
 fn it_fails_when_not_using_the_cennznet_domain() {
 	let doughnut = make_doughnut("test", Default::default());
 	assert_err!(

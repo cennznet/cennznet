@@ -348,7 +348,7 @@ impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
 			.find('-')
 			.ok_or("CENNZnut does not grant permission for module")?
 			+ 1;
-		if module_offset <= 1 || module_offset >= module.len() {
+		if module_offset <= 1 || module_offset >= module.chars().count() {
 			return Err("error during module name segmentation");
 		}
 		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
