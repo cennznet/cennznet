@@ -818,11 +818,12 @@ dependencies = [
 [[package]]
 name = "cennznut"
 version = "0.1.1"
-source = "git+https://github.com/cennznet/cennznut-rs?branch=0.4.0#f64805d409c4c08730df5bd2175cbbf9715833d3"
+source = "git+https://github.com/cennznet/cennznut-rs?branch=0.5.0#1d07c84ca901bcfd6275470ea53688e81e92726d"
 dependencies = [
- "bit_reverse",
  "pact",
  "parity-scale-codec",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
