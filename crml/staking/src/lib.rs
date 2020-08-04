@@ -271,7 +271,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
 	Perbill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
@@ -280,7 +280,7 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*, result};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use sp_phragmen::ExtendedBalance;
 
@@ -318,7 +318,7 @@ impl EraPoints {
 	}
 }
 
-/// Indicates the initial status of the staker.
+/// Indicates the initial status of a staker (used by genesis config only).
 #[derive(RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum StakerStatus<AccountId> {
@@ -799,7 +799,7 @@ decl_storage! {
 				);
 				let _ = <Module<T>>::bond(
 					T::Origin::from((Some(stash.clone()), None).into()),
-					T::Lookup::unlookup(controller.clone()),
+					controller.clone(),
 					balance,
 					RewardDestination::Stash,
 				);
@@ -813,9 +813,10 @@ decl_storage! {
 					StakerStatus::Nominator(votes) => {
 						<Module<T>>::nominate(
 							T::Origin::from((Some(controller.clone()), None).into()),
-							votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
+							votes.to_vec(),
 						)
-					}, _ => Ok(())
+					},
+					_ => Ok(()),
 				};
 			}
 		});
@@ -905,7 +906,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
 		fn bond(origin,
-			controller: <T::Lookup as StaticLookup>::Source,
+			controller: T::AccountId,
 			#[compact] value: BalanceOf<T>,
 			payee: RewardDestination
 		) {
@@ -914,8 +915,6 @@ decl_module! {
 			if <Bonded<T>>::contains_key(&stash) {
 				Err(Error::<T>::AlreadyBonded)?
 			}
-
-			let controller = T::Lookup::lookup(controller)?;
 
 			if <Ledger<T>>::contains_key(&controller) {
 				Err(Error::<T>::AlreadyPaired)?
@@ -1017,6 +1016,26 @@ decl_module! {
 			}
 		}
 
+		/// Rebond a portion of the stash scheduled to be unlocked.
+		///
+		/// # <weight>
+		/// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
+		/// - Storage changes: Can't increase storage, only decrease it.
+		/// # </weight>
+		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		fn rebond(origin, #[compact] value: BalanceOf<T>) {
+			let controller = ensure_signed(origin)?;
+			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+			ensure!(
+				ledger.unlocking.len() > 0,
+				Error::<T>::NoUnlockChunk,
+			);
+
+			let ledger = ledger.rebond(value);
+
+			Self::update_ledger(&controller, &ledger);
+		}
+
 		/// Remove any unlocked chunks from the `unlocking` queue from our management.
 		///
 		/// This essentially frees up that balance to be used by the stash account to do
@@ -1092,7 +1111,7 @@ decl_module! {
 		/// - Both the reads and writes follow a similar pattern.
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
-		fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
+		fn nominate(origin, targets: Vec<T::AccountId>) {
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1100,8 +1119,7 @@ decl_module! {
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
 			let targets = targets.into_iter()
 				.take(MAX_NOMINATIONS)
-				.map(|t| T::Lookup::lookup(t))
-				.collect::<result::Result<Vec<T::AccountId>, _>>()?;
+				.collect::<Vec<T::AccountId>>();
 
 			let nominations = Nominations {
 				targets,
@@ -1161,10 +1179,9 @@ decl_module! {
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
-		fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
+		fn set_controller(origin, controller: T::AccountId) {
 			let stash = ensure_signed(origin)?;
 			let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
-			let controller = T::Lookup::lookup(controller)?;
 			if <Ledger<T>>::contains_key(&controller) {
 				Err(Error::<T>::AlreadyPaired)?
 			}
@@ -1190,7 +1207,7 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn force_no_eras(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNone);
@@ -1202,14 +1219,14 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNew);
 		}
 
 		/// Set the minimum bond amount.
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn set_minimum_bond(origin, value: BalanceOf<T>) {
 			ensure_root(origin)?;
 			<MinimumBond<T>>::put(value);
@@ -1217,7 +1234,7 @@ decl_module! {
 		}
 
 		/// Set the validators who cannot be slashed (if any).
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
@@ -1227,10 +1244,9 @@ decl_module! {
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
-		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn force_unstake(origin, stash: T::AccountId) {
 			ensure_root(origin)?;
-
 			// remove the lock.
 			T::Currency::remove_lock(STAKING_ID, &stash);
 			// remove all staking-related information.
@@ -1242,7 +1258,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
 		fn force_new_era_always(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceAlways);
@@ -1254,7 +1270,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+		#[weight = SimpleDispatchInfo::FixedOperational(1_000_000)]
 		fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
 			ensure_root(origin)?;
 
@@ -1271,26 +1287,6 @@ decl_module! {
 			}
 
 			<Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
-		}
-
-		/// Rebond a portion of the stash scheduled to be unlocked.
-		///
-		/// # <weight>
-		/// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
-		/// - Storage changes: Can't increase storage, only decrease it.
-		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-		fn rebond(origin, #[compact] value: BalanceOf<T>) {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
-			ensure!(
-				ledger.unlocking.len() > 0,
-				Error::<T>::NoUnlockChunk,
-			);
-
-			let ledger = ledger.rebond(value);
-
-			Self::update_ledger(&controller, &ledger);
 		}
 	}
 }
