@@ -1004,8 +1004,9 @@ decl_module! {
 			if !value.is_zero() {
 				ledger.active -= value;
 
-				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < T::Currency::minimum_balance() {
+				// If active stake drops below the minimum bond threshold or currency minimum
+				// then the entirety of the stash should be unbonded here.
+				if ledger.active < T::Currency::minimum_balance() || ledger.active < Self::minimum_bond() {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}

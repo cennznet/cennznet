@@ -1236,6 +1236,50 @@ fn too_many_unbond_calls_should_not_work() {
 }
 
 #[test]
+fn it_should_unbond_all_active_stake_when_remainder_is_below_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond,
+				unlocking: vec![],
+			})
+		);
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: Zero::zero(),
+				unlocking: vec![UnlockChunk {
+					value: initial_bond,
+					era: 3
+				}],
+			})
+		);
+	});
+}
+
+#[test]
 fn rebond_works() {
 	// * Should test
 	// * Given an account being bonded [and chosen as a validator](not mandatory)
