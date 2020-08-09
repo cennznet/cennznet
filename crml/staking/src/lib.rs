@@ -378,20 +378,25 @@ pub struct UnlockChunk<Balance: HasCompact> {
 pub struct StakingLedger<AccountId, Balance: HasCompact> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: AccountId,
-	/// The total amount of the stash's balance that we are currently accounting for.
-	/// It's just `active` plus all the `unlocking` balances.
+	/// The total amount of the stash's balance (`active` plus any `unlocking` balances).
 	#[codec(compact)]
 	pub total: Balance,
-	/// The total amount of the stash's balance that will be at stake in any forthcoming
-	/// rounds.
+	/// The amount of the stash's balance that will be at stake in any forthcoming
+	/// eras. i.e it will affect voting power in the next election.
+	/// It could lessen in the current round after unbonding.
 	#[codec(compact)]
 	pub active: Balance,
-	/// Any balance that is becoming free, which may eventually be transferred out
+	/// Any balance that has been unbonded and becoming free, which may eventually be transferred out
 	/// of the stash (assuming it doesn't get slashed first).
 	pub unlocking: Vec<UnlockChunk<Balance>>,
 }
 
 impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32Bit> StakingLedger<AccountId, Balance> {
+	/// The amount of stash's funds slashable as of right now.
+	/// It should remain slashable until the bonding duration expires and it is withdrawn.
+	fn slashable_balance(&self) -> Balance {
+		self.total
+	}
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
 	fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
@@ -453,17 +458,17 @@ where
 	/// Slashes from `active` funds first, and then `unlocking`, starting with the
 	/// chunks that are closest to unlocking.
 	fn slash(&mut self, mut value: Balance, minimum_balance: Balance) -> Balance {
-		let pre_total = self.total;
-		let total = &mut self.total;
+		let total_before_slash = self.total;
+		let total_after_slash = &mut self.slashable_balance();
 		let active = &mut self.active;
 
-		value = Self::apply_slash(total, active, value, minimum_balance);
+		value = Self::apply_slash(total_after_slash, active, value, minimum_balance);
 
 		let i = self
 			.unlocking
 			.iter_mut()
 			.map(|chunk| {
-				value = Self::apply_slash(total, &mut chunk.value, value, minimum_balance);
+				value = Self::apply_slash(total_after_slash, &mut chunk.value, value, minimum_balance);
 				chunk.value
 			})
 			.take_while(|value| value.is_zero()) // take all fully-consumed chunks out.
@@ -472,7 +477,9 @@ where
 		// kill all drained chunks.
 		let _ = self.unlocking.drain(..i);
 
-		pre_total.saturating_sub(*total)
+		self.total = *total_after_slash;
+		// return the slashed amount
+		total_before_slash.saturating_sub(*total_after_slash)
 	}
 
 	/// Apply slash to a target set of funds
@@ -860,7 +867,7 @@ decl_error! {
 		/// Slash record index out of bounds.
 		InvalidSlashIndex,
 		/// Can not bond with value less than minimum balance.
-		InsufficientValue,
+		InsufficientBond,
 		/// Can not schedule more unlock chunks.
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.
@@ -922,7 +929,7 @@ decl_module! {
 
 			// reject a bond which is considered to be _dust_.
 			if value < Self::minimum_bond() {
-				Err(Error::<T>::InsufficientValue)?
+				Err(Error::<T>::InsufficientBond)?
 			}
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
@@ -999,22 +1006,28 @@ decl_module! {
 				Error::<T>::NoMoreChunks,
 			);
 
-			let mut value = value.min(ledger.active);
-
-			if !value.is_zero() {
-				ledger.active -= value;
-
-				// If active stake drops below the minimum bond threshold or currency minimum
-				// then the entirety of the stash should be unbonded here.
-				if ledger.active < T::Currency::minimum_balance() || ledger.active < Self::minimum_bond() {
-					value += ledger.active;
-					ledger.active = Zero::zero();
-				}
-
-				let era = Self::current_era() + T::BondingDuration::get();
-				ledger.unlocking.push(UnlockChunk { value, era });
-				Self::update_ledger(&controller, &ledger);
+			if ledger.active.is_zero() || value.is_zero() {
+				return Ok(());
 			}
+
+			// If active stake drops below the minimum bond threshold or currency minimum
+			// then the entirety of the stash should be scheduled to unlock.
+			// Care must be taken to ensure that funds are still at stake until the unlocking period is over.
+			let remaining_active = ledger.active.checked_sub(&value).unwrap_or(Zero::zero());
+			let era = Self::current_era() + T::BondingDuration::get();
+			if remaining_active < T::Currency::minimum_balance() || remaining_active < Self::minimum_bond() {
+				// Must unbond all funds
+				ledger.unlocking.push(UnlockChunk { value: ledger.active, era });
+				ledger.active = Zero::zero();
+				// The account should no longer be considered for election as a validator nor should it have any
+				// voting power via nomination.
+				Self::chill_stash(&ledger.stash);
+			} else {
+				ledger.unlocking.push(UnlockChunk { value, era });
+				ledger.active = remaining_active;
+			}
+
+			Self::update_ledger(&controller, &ledger);
 		}
 
 		/// Rebond a portion of the stash scheduled to be unlocked.
@@ -1090,6 +1103,7 @@ decl_module! {
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+			ensure!(ledger.active >= Self::minimum_bond(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
 
 			let prefs = ValidatorPrefs {
@@ -1117,6 +1131,7 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
+			ensure!(ledger.active >= Self::minimum_bond(), Error::<T>::InsufficientBond);
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
 			let targets = targets.into_iter()
 				.take(MAX_NOMINATIONS)
@@ -1295,11 +1310,21 @@ decl_module! {
 impl<T: Trait> Module<T> {
 	// PUBLIC IMMUTABLES
 
-	/// The total balance that can be slashed from a stash account as of right now.
-	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
+	/// The total balance that is at stake as of right now.
+	/// It will remain slashable at least until bonding duration has exceeded.
+	pub fn active_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		Self::bonded(stash)
 			.and_then(Self::ledger)
 			.map(|l| l.active)
+			.unwrap_or_default()
+	}
+
+	/// The slashable balance of a stash account as of right now.
+	/// It could lessen in the near future as funds become unlocked and are withdrawn.
+	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
+		Self::bonded(stash)
+			.and_then(Self::ledger)
+			.map(|l| l.slashable_balance())
 			.unwrap_or_default()
 	}
 
@@ -1530,11 +1555,12 @@ impl<T: Trait> Module<T> {
 		let mut all_validators_and_prefs = BTreeMap::new();
 		let mut all_validators = Vec::new();
 		for (validator, preference) in <Validators<T>>::iter() {
-			let self_vote = (
-				validator.clone(),
-				Self::slashable_balance_of(&validator),
-				vec![validator.clone()],
-			);
+			let active_bond = Self::active_balance_of(&validator);
+			// Do not consdier zero bonds for election.
+			if active_bond.is_zero() {
+				continue;
+			}
+			let self_vote = (validator.clone(), active_bond, vec![validator.clone()]);
 			all_nominators.push(self_vote);
 			all_validators_and_prefs.insert(validator.clone(), preference);
 			all_validators.push(validator);
@@ -1556,9 +1582,10 @@ impl<T: Trait> Module<T> {
 			(nominator, targets)
 		});
 		all_nominators.extend(nominator_votes.map(|(n, ns)| {
-			let s = Self::slashable_balance_of(&n);
+			let s = Self::active_balance_of(&n);
 			(n, s, ns)
 		}));
+		all_nominators.retain(|(_, active, _)| !active.is_zero());
 
 		let maybe_phragmen_result = sp_phragmen::elect::<_, _, T::CurrencyToVote, Perbill>(
 			Self::validator_count() as usize,
@@ -1581,7 +1608,7 @@ impl<T: Trait> Module<T> {
 			let supports = sp_phragmen::build_support_map::<_, _, _, T::CurrencyToVote, Perbill>(
 				&elected_stashes,
 				&assignments,
-				Self::slashable_balance_of,
+				Self::active_balance_of,
 			);
 
 			// Clear Stakers.

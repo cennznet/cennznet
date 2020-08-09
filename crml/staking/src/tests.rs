@@ -1783,21 +1783,29 @@ fn bond_with_no_staked_value() {
 			// Can't bond with 1
 			assert_noop!(
 				Staking::bond(Origin::signed(1), 2, 1, RewardDestination::Controller),
-				Error::<Test>::InsufficientValue,
+				Error::<Test>::InsufficientBond,
 			);
 			// bonded with absolute minimum value possible.
-			assert_ok!(Staking::bond(Origin::signed(1), 2, 5, RewardDestination::Controller));
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_ok!(Staking::bond(
+				Origin::signed(1),
+				2,
+				Staking::minimum_bond(),
+				RewardDestination::Controller
+			));
+			assert_eq!(Balances::locks(&1)[0].amount, Staking::minimum_bond());
 
-			// unbonding even 1 will cause all to be unbonded.
+			// unbond leaving active < minimum bond will cause all to be unbonded.
 			assert_ok!(Staking::unbond(Origin::signed(2), 1));
 			assert_eq!(
 				Staking::ledger(2),
 				Some(StakingLedger {
 					stash: 1,
 					active: 0,
-					total: 5,
-					unlocking: vec![UnlockChunk { value: 5, era: 3 }]
+					total: Staking::minimum_bond(),
+					unlocking: vec![UnlockChunk {
+						value: Staking::minimum_bond(),
+						era: 3
+					}]
 				})
 			);
 
@@ -1807,7 +1815,7 @@ fn bond_with_no_staked_value() {
 			// not yet removed.
 			assert_ok!(Staking::withdraw_unbonded(Origin::signed(2)));
 			assert!(Staking::ledger(2).is_some());
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_eq!(Balances::locks(&1)[0].amount, Staking::minimum_bond());
 
 			start_era(3);
 
@@ -1835,7 +1843,12 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			let init_balance_10 = Balances::free_balance(&10);
 
 			// Stingy validator.
-			assert_ok!(Staking::bond(Origin::signed(1), 2, 1, RewardDestination::Controller));
+			assert_ok!(Staking::bond(
+				Origin::signed(1),
+				2,
+				Staking::minimum_bond(),
+				RewardDestination::Controller
+			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
 			let total_payout_0 = current_total_payout_for_duration(3000);
@@ -2055,15 +2068,12 @@ fn add_reward_points_fns_works() {
 }
 
 #[test]
-fn unbonded_balance_is_not_slashable() {
+fn unbonded_balance_is_still_slashable() {
 	ExtBuilder::default().build().execute_with(|| {
-		// total amount staked is slashable.
 		assert_eq!(Staking::slashable_balance_of(&11), 1000);
-
 		assert_ok!(Staking::unbond(Origin::signed(10), 800));
-
-		// only the active portion.
-		assert_eq!(Staking::slashable_balance_of(&11), 200);
+		// active amount + unlocking amounts are still slashable
+		assert_eq!(Staking::slashable_balance_of(&11), 1000);
 	})
 }
 
@@ -3041,3 +3051,106 @@ fn set_minimum_bond_works() {
 fn minimum_bond_in_genesis_config_must_be_greater_than_zero() {
 	ExtBuilder::default().minimum_bond(0).build().execute_with(|| {});
 }
+
+#[test]
+fn unbond_requested_value_when_it_leaves_remaining_active_more_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond,
+				unlocking: vec![],
+			})
+		);
+		let unbond_amount = 40;
+		assert_ok!(Staking::unbond(Origin::signed(controller), unbond_amount));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond - unbond_amount,
+				unlocking: vec![UnlockChunk {
+					value: unbond_amount,
+					era: 3
+				}],
+			})
+		);
+	});
+}
+
+#[test]
+fn unbond_should_unstake_validator_when_remaining_bond_is_less_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_ok!(Staking::validate(Origin::signed(controller), ValidatorPrefs::default()));
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+		assert!(!<Staking as crate::Store>::Validators::contains_key(stash));
+	});
+}
+
+#[test]
+fn unbond_should_unstake_nominator_when_remaining_bond_is_less_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_ok!(Staking::nominate(Origin::signed(controller), vec![stash]));
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+		assert!(!<Staking as crate::Store>::Nominators::contains_key(stash));
+	});
+}
+
+#[test]
+fn nominate_should_fail_when_stash_does_not_have_minimum_bond() {}
+
+#[test]
+fn validate_should_fail_when_stash_does_not_have_minimum_bond() {}
+
+#[test]
+fn validators_with_insufficent_active_bond_are_not_elected() {}
