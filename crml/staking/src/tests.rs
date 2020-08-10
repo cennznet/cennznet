@@ -1236,6 +1236,50 @@ fn too_many_unbond_calls_should_not_work() {
 }
 
 #[test]
+fn it_should_unbond_all_active_stake_when_remainder_is_below_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond,
+				unlocking: vec![],
+			})
+		);
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: Zero::zero(),
+				unlocking: vec![UnlockChunk {
+					value: initial_bond,
+					era: 3
+				}],
+			})
+		);
+	});
+}
+
+#[test]
 fn rebond_works() {
 	// * Should test
 	// * Given an account being bonded [and chosen as a validator](not mandatory)
@@ -1736,24 +1780,32 @@ fn bond_with_no_staked_value() {
 		.minimum_bond(3)
 		.build()
 		.execute_with(|| {
-			// Can't bond with 1
+			// Can't bond with value < minimum bond
 			assert_noop!(
 				Staking::bond(Origin::signed(1), 2, 1, RewardDestination::Controller),
-				Error::<Test>::InsufficientValue,
+				Error::<Test>::InsufficientBond,
 			);
 			// bonded with absolute minimum value possible.
-			assert_ok!(Staking::bond(Origin::signed(1), 2, 5, RewardDestination::Controller));
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_ok!(Staking::bond(
+				Origin::signed(1),
+				2,
+				Staking::minimum_bond(),
+				RewardDestination::Controller
+			));
+			assert_eq!(Balances::locks(&1)[0].amount, Staking::minimum_bond());
 
-			// unbonding even 1 will cause all to be unbonded.
+			// unbond leaving active < minimum bond will cause all to be unbonded.
 			assert_ok!(Staking::unbond(Origin::signed(2), 1));
 			assert_eq!(
 				Staking::ledger(2),
 				Some(StakingLedger {
 					stash: 1,
 					active: 0,
-					total: 5,
-					unlocking: vec![UnlockChunk { value: 5, era: 3 }]
+					total: Staking::minimum_bond(),
+					unlocking: vec![UnlockChunk {
+						value: Staking::minimum_bond(),
+						era: 3
+					}]
 				})
 			);
 
@@ -1763,7 +1815,7 @@ fn bond_with_no_staked_value() {
 			// not yet removed.
 			assert_ok!(Staking::withdraw_unbonded(Origin::signed(2)));
 			assert!(Staking::ledger(2).is_some());
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_eq!(Balances::locks(&1)[0].amount, Staking::minimum_bond());
 
 			start_era(3);
 
@@ -1791,7 +1843,12 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			let init_balance_10 = Balances::free_balance(&10);
 
 			// Stingy validator.
-			assert_ok!(Staking::bond(Origin::signed(1), 2, 1, RewardDestination::Controller));
+			assert_ok!(Staking::bond(
+				Origin::signed(1),
+				2,
+				Staking::minimum_bond(),
+				RewardDestination::Controller
+			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
 			let total_payout_0 = current_total_payout_for_duration(3000);
@@ -2011,15 +2068,12 @@ fn add_reward_points_fns_works() {
 }
 
 #[test]
-fn unbonded_balance_is_not_slashable() {
+fn unbonded_balance_is_still_slashable() {
 	ExtBuilder::default().build().execute_with(|| {
-		// total amount staked is slashable.
 		assert_eq!(Staking::slashable_balance_of(&11), 1000);
-
 		assert_ok!(Staking::unbond(Origin::signed(10), 800));
-
-		// only the active portion.
-		assert_eq!(Staking::slashable_balance_of(&11), 200);
+		// active amount + unlocking amounts are still slashable
+		assert_eq!(Staking::slashable_balance_of(&11), 1000);
 	})
 }
 
@@ -2996,4 +3050,256 @@ fn set_minimum_bond_works() {
 #[should_panic(expected = "Minimum bond must be greater than zero.")]
 fn minimum_bond_in_genesis_config_must_be_greater_than_zero() {
 	ExtBuilder::default().minimum_bond(0).build().execute_with(|| {});
+}
+
+#[test]
+fn unbond_works_when_remaining_active_is_more_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond,
+				unlocking: vec![],
+			})
+		);
+		let unbond_amount = 40;
+		assert_ok!(Staking::unbond(Origin::signed(controller), unbond_amount));
+		assert_eq!(
+			Staking::ledger(&controller),
+			Some(StakingLedger {
+				stash,
+				total: initial_bond,
+				active: initial_bond - unbond_amount,
+				unlocking: vec![UnlockChunk {
+					value: unbond_amount,
+					era: 3
+				}],
+			})
+		);
+	});
+}
+
+#[test]
+fn unbond_should_remove_validator_from_future_era_when_remaining_bond_is_less_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_ok!(Staking::validate(Origin::signed(controller), ValidatorPrefs::default()));
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+
+		// Stash will not be onsidered as a validator next era
+		assert!(!<Staking as crate::Store>::Validators::contains_key(stash));
+
+		// Stash cannnot validate again with inactive bond
+		assert_noop!(
+			Staking::validate(Origin::signed(controller), ValidatorPrefs::default()),
+			Error::<Test>::InsufficientBond,
+		);
+	});
+}
+
+#[test]
+fn unbond_should_remove_nominator_from_future_era_when_remaining_bond_is_less_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		// `ExtBuilder` auto configures some IDs < 100 with funds
+		// making tests less clear
+		let stash = 100_u64;
+		let controller = 101_u64;
+		let initial_bond = Staking::minimum_bond() + 50;
+
+		assert!(Balances::deposit_into_existing(&stash, initial_bond).is_ok());
+
+		// Bond with slightly more than the minimum bond
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			initial_bond,
+			RewardDestination::Controller
+		));
+		assert_ok!(Staking::nominate(Origin::signed(controller), vec![stash]));
+		// Unbond just enough to put the active stash below the minimum bond amount
+		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
+
+		// Stash will not be onsidered as a nominator next era
+		assert!(!<Staking as crate::Store>::Nominators::contains_key(stash));
+
+		// Stash cannnot nominate again with inactive bond
+		assert_noop!(
+			Staking::nominate(Origin::signed(controller), vec![1, 2, 3, 4, 5]),
+			Error::<Test>::InsufficientBond,
+		);
+	});
+}
+
+#[test]
+fn validators_with_insufficent_active_bond_are_not_elected() {
+	ExtBuilder::default()
+		.minimum_bond(1_000)
+		.validator_count(5)
+		.minimum_validator_count(3)
+		.simple()
+		.execute_with(|| {
+			// Check some initial parameters are set
+			assert_eq!(<Staking as crate::Store>::ValidatorCount::get(), 5);
+			assert_eq!(<Staking as crate::Store>::MinimumValidatorCount::get(), 3);
+
+			// Setup
+			// 1) Fund and bond stashes
+			// 2) Sign up to validate
+			let stashes = vec![1, 2, 3, 4, 5];
+			let controllers = vec![11, 22, 33, 44, 55];
+			let initial_bond = Staking::minimum_bond() + 50;
+
+			for (stash, controller) in stashes.iter().zip(controllers.iter()) {
+				let _ = Balances::deposit_creating(&stash, initial_bond + controller);
+				// Bond with slightly more than the minimum bond
+				assert_ok!(Staking::bond(
+					Origin::signed(*stash),
+					controller.clone(),
+					initial_bond,
+					RewardDestination::Controller
+				));
+
+				assert_ok!(Staking::validate(
+					Origin::signed(*controller),
+					ValidatorPrefs::default()
+				));
+			}
+
+			// Run an initial election, every stash should be elected
+			let mut initial_elected = Staking::select_validators().1.expect("some were elected");
+			initial_elected.sort();
+			assert_eq!(initial_elected, stashes);
+
+			// Unbond 2 validators and run another election, they should not be elected as their active stash
+			// is now `0` and additionaly should have been removed from the validator candidacy storage.
+			assert_ok!(Staking::unbond(Origin::signed(controllers[0]), 51));
+			assert_ok!(Staking::unbond(Origin::signed(controllers[1]), 51));
+
+			// The unbonded validators are not elected
+			let mut next_elected = Staking::select_validators().1.expect("some were elected");
+			next_elected.sort();
+			assert_eq!(next_elected[..], stashes[2..]);
+		});
+}
+
+#[test]
+fn nominations_with_insufficent_active_bond_are_ignored_during_election() {
+	ExtBuilder::default()
+		.minimum_bond(1_000)
+		.validator_count(3)
+		.minimum_validator_count(3)
+		.simple()
+		.execute_with(|| {
+			// Scenario:
+			// - 5 validators are bonded equally ids: [1,2,3,4,5]
+			// - The validator count is set to 3 (only 3/5 will be selected in the next election)
+			//-  2 nominators bond and nominate validator ids: [1, 2]
+			// - The nominators backing should ensure [1, 2] are elected
+			// - The nominators unbond
+			// - The nominators backing is no longer considered
+
+			// Check some initial parameters are set
+			assert_eq!(<Staking as crate::Store>::ValidatorCount::get(), 3);
+			assert_eq!(<Staking as crate::Store>::MinimumValidatorCount::get(), 3);
+
+			// Setup
+			// 1) Fund and bond stashes
+			// 2) Sign up to validate
+			let stashes = vec![1, 2, 3, 4, 5];
+			let controllers = vec![11, 22, 33, 44, 55];
+			let initial_bond = Staking::minimum_bond() + 50;
+
+			for (stash, controller) in stashes.iter().zip(controllers.iter()) {
+				let _ = Balances::deposit_creating(&stash, initial_bond + controller);
+				// Bond with slightly more than the minimum bond
+				assert_ok!(Staking::bond(
+					Origin::signed(*stash),
+					controller.clone(),
+					// bond less as stash ID increases
+					// This ensures a deterministic candidate order at election time
+					// i.e at election time prefernce is: 1 > 2 > 3 > 4 > 5
+					initial_bond - stash,
+					RewardDestination::Controller
+				));
+
+				assert_ok!(Staking::validate(
+					Origin::signed(*controller),
+					ValidatorPrefs::default()
+				));
+			}
+
+			// 1) Fund and bond stashes
+			// 2) Sign up to nominate
+			let nominator_stashes = vec![100, 200];
+			let nominator_controllers = vec![101, 202];
+			for (stash, controller) in nominator_stashes.iter().zip(nominator_controllers.iter()) {
+				let _ = Balances::deposit_creating(&stash, initial_bond + controller);
+				// Bond with slightly more than the minimum bond
+				assert_ok!(Staking::bond(
+					Origin::signed(*stash),
+					controller.clone(),
+					initial_bond * 2, // Give the nominators a big sway at election time
+					RewardDestination::Controller
+				));
+
+				assert_ok!(Staking::nominate(
+					Origin::signed(*controller),
+					vec![stashes[3], stashes[4]]
+				));
+			}
+
+			// Run an initial election, stashes[3], stashes[4] should be elected with the largest total backing
+			// via nomination.
+			let initial_elected = Staking::select_validators().1.expect("some were elected");
+			assert!(initial_elected.contains(&stashes[3]));
+			assert!(initial_elected.contains(&stashes[4]));
+
+			// Unbond the nominators
+			assert_ok!(Staking::unbond(
+				Origin::signed(nominator_controllers[0]),
+				initial_bond * 2
+			));
+			assert_ok!(Staking::unbond(
+				Origin::signed(nominator_controllers[1]),
+				initial_bond * 2
+			));
+
+			// The unbonded nominations are not considered in subsequent elections
+			// stashes with highest bond from validators should be elected instead.
+			let mut next_elected = Staking::select_validators().1.expect("some were elected");
+			next_elected.sort();
+			assert_eq!(next_elected[..], stashes[..3]);
+		});
 }

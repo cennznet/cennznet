@@ -319,6 +319,24 @@ impl ExtBuilder {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = self.slash_defer_duration);
 	}
+	// Simplified version of `build` taking constant parameters only
+	// no acccount, balance, or staking setup is performed.
+	pub fn simple(self) -> sp_io::TestExternalities {
+		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let _ = GenesisConfig::<Test> {
+			current_era: 0,
+			stakers: vec![],
+			validator_count: self.validator_count,
+			minimum_validator_count: self.minimum_validator_count,
+			invulnerables: self.invulnerables,
+			minimum_bond: self.minimum_bond,
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
+
+		sp_io::TestExternalities::from(storage)
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		self.set_associated_consts();
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
@@ -379,7 +397,6 @@ impl ExtBuilder {
 		let _ = GenesisConfig::<Test> {
 			current_era: 0,
 			stakers: stakers,
-
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
