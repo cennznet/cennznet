@@ -1556,10 +1556,6 @@ impl<T: Trait> Module<T> {
 		let mut all_validators = Vec::new();
 		for (validator, preference) in <Validators<T>>::iter() {
 			let active_bond = Self::active_balance_of(&validator);
-			// Do not consdier zero bonds for election.
-			if active_bond.is_zero() {
-				continue;
-			}
 			let self_vote = (validator.clone(), active_bond, vec![validator.clone()]);
 			all_nominators.push(self_vote);
 			all_validators_and_prefs.insert(validator.clone(), preference);
@@ -1585,7 +1581,6 @@ impl<T: Trait> Module<T> {
 			let s = Self::active_balance_of(&n);
 			(n, s, ns)
 		}));
-		all_nominators.retain(|(_, active, _)| !active.is_zero());
 
 		let maybe_phragmen_result = sp_phragmen::elect::<_, _, T::CurrencyToVote, Perbill>(
 			Self::validator_count() as usize,
