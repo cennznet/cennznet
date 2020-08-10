@@ -909,7 +909,7 @@ decl_module! {
 		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned unless
-		/// the `origin` falls below _existential deposit_ and gets removed as dust.
+		/// the `origin` falls below minimum bond and is removed lazliy in `withdraw_unbonded`.
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
 		fn bond(origin,
@@ -1010,12 +1010,12 @@ decl_module! {
 				return Ok(());
 			}
 
-			// If active stake drops below the minimum bond threshold or currency minimum
-			// then the entirety of the stash should be scheduled to unlock.
+			// If active stake drops below the minimum bond threshold then the entirety of the stash
+			// should be scheduled to unlock.
 			// Care must be taken to ensure that funds are still at stake until the unlocking period is over.
 			let remaining_active = ledger.active.checked_sub(&value).unwrap_or(Zero::zero());
 			let era = Self::current_era() + T::BondingDuration::get();
-			if remaining_active < T::Currency::minimum_balance() || remaining_active < Self::minimum_bond() {
+			if remaining_active < Self::minimum_bond() {
 				// Must unbond all funds
 				ledger.unlocking.push(UnlockChunk { value: ledger.active, era });
 				ledger.active = Zero::zero();
