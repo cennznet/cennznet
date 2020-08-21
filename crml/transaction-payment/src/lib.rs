@@ -161,6 +161,29 @@ impl<T: Trait> Module<T> {
 	}
 }
 
+#[derive(Debug)]
+pub struct FeeParts {
+	/// The length fee
+	length_fee: u128,
+	/// The weight fee after conversion
+	weight_fee: u128,
+	/// The len + fee after adjustment factor is applied
+	adjusted_fee: u128,
+	/// The final fee
+	final_fee: u128,
+}
+
+impl FeeParts {
+	fn new(length_fee: u128, weight_fee: u128, adjusted_fee: u128, final_fee: u128) -> Self {
+		FeeParts {
+			length_fee,
+			weight_fee,
+			adjusted_fee,
+			final_fee,
+		}
+	}
+}
+
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -217,6 +240,38 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 		} else {
 			tip
 		}
+	}
+
+	// Return fee parts (length, weight, adjusted, final)
+	pub fn compute_fee_parts(length: u32, info: <Self as SignedExtension>::DispatchInfo) -> FeeParts
+	where
+		BalanceOf<T>: Sync + Send,
+	{
+		let per_byte_fee = T::TransactionByteFee::get();
+		let length_fee = per_byte_fee.saturating_mul(length.saturated_into());
+
+		let weight_fee = {
+			// cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
+			// `Bounded` maximum of its data type, which is not desired.
+			let capped_weight = info.weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
+			T::WeightToFee::convert(capped_weight)
+		};
+
+		// the adjustable part of the fee
+		let adjustable_fee = length_fee.saturating_add(weight_fee);
+		let targeted_fee_adjustment = NextFeeMultiplier::get();
+		// adjusted_fee = adjustable_fee + (adjustable_fee * targeted_fee_adjustment)
+		let adjusted_fee = targeted_fee_adjustment.saturated_multiply_accumulate(adjustable_fee);
+
+		let base_fee = T::TransactionBaseFee::get();
+		let final_fee = base_fee.saturating_add(adjusted_fee);
+
+		return FeeParts::new(
+			length_fee.saturated_into(),
+			weight_fee.saturated_into(),
+			adjusted_fee.saturated_into(),
+			final_fee.saturated_into(),
+		);
 	}
 }
 

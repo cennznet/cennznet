@@ -16,7 +16,9 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, ScaleDownFactor, System};
+use crate::{
+	Call, MaximumBlockWeight, NegativeImbalance, Runtime, System
+};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -80,30 +82,28 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Convert from weight to balance via a simple coefficient multiplication
-/// The associated type C encapsulates a constant in units of balance per weight
-pub struct ScaleLinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+/// Convert from weight to fee balance by scaling it into the desired fee range.
+/// i.e. transpose weight values to desired fee range i.e. `fee_min` < weight < `fee_max`
+pub struct ScaledWeightToFee;
 
-impl<C: Get<Balance>> Convert<Weight, Balance> for ScaleLinearWeightToFee<C> {
+impl Convert<Weight, Balance> for ScaledWeightToFee {
 	fn convert(w: Weight) -> Balance {
-		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
-		// fees, hence:
-		let coefficient = C::get();
-		let linear_weight = Balance::from(w).saturating_mul(coefficient);
-		// Scale down fees 10^-12
-		let min_weight: Balance = 10_000_000;
-		let scaled_weight = linear_weight
-			.checked_div(ScaleDownFactor::get())
-			.unwrap_or(linear_weight);
-		if scaled_weight.is_zero() {
-			if linear_weight < min_weight {
-				linear_weight
-			} else {
-				min_weight
-			}
-		} else {
-			scaled_weight
-		}
+		let weight = Balance::from(w);
+		// transpose weight values to desired fee range i.e. `fee_min` < x < `fee_max`
+		// note: only a few exceptional extrinsics have a weight > 1_000_000
+
+		// TODO: could be compiled constant
+		// Also feel like there's some prettier math function to do this....
+		let [weight_min, weight_max] = [0_u128, 10_000_000];
+		// $0.0001 -> $100
+		let [fee_min, fee_max] = [1_u128, 100 * 10_000_u128];
+
+		let weight_range = weight_max - weight_min;
+		let fee_range = fee_max - fee_min;
+
+		let scaled = (weight  - weight_min) * fee_range / (weight_range + fee_min);
+
+		scaled
 	}
 }
 

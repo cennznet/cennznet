@@ -70,7 +70,7 @@ pub use crml_sylo::vault as sylo_vault;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaleLinearWeightToFee,
+	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaledWeightToFee,
 	SplitToAllValidators, TargetedFeeAdjustment,
 };
 
@@ -197,10 +197,8 @@ impl pallet_generic_asset::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionBaseFee: Balance = 1 * CENTS;
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
-	// setting this to zero will disable the weight fee.
-	pub const WeightFeeCoefficient: Balance = 1_000;
+	pub const TransactionBaseFee: Balance = 1;
+	pub const TransactionByteFee: Balance = 1;
 	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
 	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
 }
@@ -224,7 +222,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type OnTransactionPayment = DealWithFees;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = ScaleLinearWeightToFee<WeightFeeCoefficient>;
+	type WeightToFee = ScaledWeightToFee;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 	type BuyFeeAsset = CennzxSpot;
 	type GasMeteredCallResolver = GasMeteredCallResolver;
