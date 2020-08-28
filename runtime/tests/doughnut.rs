@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! Doughnut integration tests
+//! Doughnut/CENNZnut runtime validation tests
 
 use cennznet_primitives::types::AccountId;
 use cennznet_runtime::{impls::CENNZnetDispatchVerifier, CennznetDoughnut};

@@ -25,10 +25,11 @@ use sp_runtime::{
 };
 
 use cennznet_primitives::types::Balance;
-use cennznet_runtime::impls::ScaleLinearWeightToFee;
 use cennznet_runtime::{
-	constants::asset::SPENDING_ASSET_ID, constants::currency::*, Call, CheckedExtrinsic, GenericAsset, Runtime,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, WeightFeeCoefficient,
+	constants::{asset::SPENDING_ASSET_ID, currency::*},
+	impls::ScaledWeightToFee,
+	Call, CheckedExtrinsic, GenericAsset, Runtime, TransactionBaseFee, TransactionByteFee, TransactionMaxWeightFee,
+	TransactionMinWeightFee, TransactionPayment,
 };
 use cennznet_testing::keyring::*;
 
@@ -36,6 +37,7 @@ pub mod common;
 use self::common::{sign, *};
 
 #[test]
+#[ignore]
 fn fee_multiplier_increases_and_decreases_on_big_weight() {
 	let mut t = new_test_ext(COMPACT_CODE, false);
 
@@ -118,11 +120,7 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 fn transaction_fee_is_correct_ultimate() {
 	// This uses the exact values of cennznet-node.
 	//
-	// weight of transfer call as of now: 1_000_000
-	// if weight of the cheapest weight would be 10^7, this would be 10^9, which is:
-	//   - 1 MILLICENTS in substrate node.
-	//   - 1 milli-dot based on current polkadot runtime.
-	// (this baed on assigning 0.1 CENT to the cheapest tx with `weight = 100`)
+	// weight of GA transfer call as of now: 1_000_000
 	let mut t = TestExternalities::<BlakeTwo256>::new_with_code(
 		COMPACT_CODE,
 		Storage {
@@ -145,7 +143,7 @@ fn transaction_fee_is_correct_ultimate() {
 		},
 	);
 
-	let tip = 1_000_000;
+	let tip = 0 * MICROS;
 	let xt = sign(CheckedExtrinsic {
 		signed: Some((alice(), signed_extra(0, tip, None, None))),
 		function: Call::GenericAsset(default_transfer_call()),
@@ -187,14 +185,19 @@ fn transaction_fee_is_correct_ultimate() {
 		balance_alice -= length_fee;
 
 		let weight = default_transfer_call().get_dispatch_info().weight;
-		let weight_fee = ScaleLinearWeightToFee::<WeightFeeCoefficient>::convert(weight);
+		let weight_fee = ScaledWeightToFee::<TransactionMinWeightFee, TransactionMaxWeightFee>::convert(weight);
 
-		// we know that weight to fee multiplier is effect-less in block 1.
-		// generic assert uses default weight = 10_000, Balance set weight = 1_000_000
-		// we can use #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)] to config the weight
-		assert_eq!(weight_fee as Balance, 10_000_000);
+		// check the weight fee has been scaled into the defined range 'min weight <= x <= max weight'
+		assert!(TransactionMinWeightFee::get() <= weight_fee as Balance);
+		assert!(TransactionMaxWeightFee::get() >= weight_fee as Balance);
+
+		// Asserting this value is exact is not important.
+		// It should serve as a useful warning if:
+		// 1) it changes by several orders of magnitude.
+		// 2) it changes accidentally.
+		assert_eq!(weight_fee as Balance, 9909);
+
 		balance_alice -= weight_fee;
-
 		balance_alice -= tip;
 
 		assert_eq!(GenericAsset::total_balance(&SPENDING_ASSET_ID, &alice()), balance_alice);

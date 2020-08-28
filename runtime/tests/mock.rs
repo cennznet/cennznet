@@ -224,6 +224,7 @@ pub mod contracts {
 			)
 		)
 		(func (export "deploy"))
+		// TODO UPDATE THIS!
 		(data (i32.const 8) "\06\01\01\FA\90\B5\AB\20\5C\69\74\C9\EA\84\1B\E6\88\86\46\33\DC\9C\A8\A3\57\84\3E\EA\CF\23\14\64\99\65\FE\22\07\00\10\A5\D4\E8")
 	)"#;
 }
