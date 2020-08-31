@@ -37,7 +37,6 @@ pub mod common;
 use self::common::{sign, *};
 
 #[test]
-#[ignore]
 fn fee_multiplier_increases_and_decreases_on_big_weight() {
 	let mut t = new_test_ext(COMPACT_CODE, false);
 
@@ -195,7 +194,7 @@ fn transaction_fee_is_correct_ultimate() {
 		// It should serve as a useful warning if:
 		// 1) it changes by several orders of magnitude.
 		// 2) it changes accidentally.
-		assert_eq!(weight_fee as Balance, 9909);
+		assert_eq!(weight_fee as Balance, 1 * DOLLARS);
 
 		balance_alice -= weight_fee;
 		balance_alice -= tip;

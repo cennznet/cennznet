@@ -16,7 +16,7 @@ frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain"
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 
-#frame dependencies
+# frame dependencies
 sp-state-machine = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
 sc-executor = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.1" }

@@ -871,7 +871,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 			assert!(contract_call_result.is_ok());
 
 			let block_events = frame_system::Module::<Runtime>::events();
-			let events = vec![
+			let expected_events = vec![
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
 					event: Event::pallet_contracts(RawEvent::CodeStored(code_hash.into())),
@@ -912,7 +912,9 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 						CENNZ_ASSET_ID,
 						CENTRAPAY_ASSET_ID,
 						bob(),
-						1636, // below + spot exchange rate
+						// CENNZ sold
+						1636,
+						// CPAY to buy
 						get_extrinsic_fee(&contract_call_extrinsic),
 					)),
 					topics: vec![],
@@ -924,12 +926,17 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 						CENNZ_ASSET_ID,
 						CENTRAPAY_ASSET_ID,
 						bob(),
-						177, // below + spot exchange rate
-						// contract execution gas cost:
+						// CENNZ sold
+						538,
+						// CPAY to buy
+						// = contract execution gas cost:
 						// base call fee + read encoded ga call + deposit event
 						(Schedule::default().call_base_cost
 							+ (Schedule::default().sandbox_data_read_cost * encoded_ga_transfer.len() as u64)
-							+ Schedule::default().event_base_cost) as u128,
+							+ Schedule::default().event_base_cost) as u128
+							// it's not clear where this additional 360 gas cost comes from
+							// prepare_code(CONTRACT_WITH_GA_TRANSFER) will show the implementation code...
+							+ 360,
 					)),
 					topics: vec![],
 				},
@@ -949,7 +956,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 					topics: vec![],
 				},
 			];
-			assert_eq!(block_events, events);
+			assert_eq!(block_events, expected_events);
 		});
 }
 
