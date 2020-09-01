@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, MaximumBlockWeight, NegativeImbalance, Runtime, ScaleDownFactor, System};
+use crate::{sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, ScaleDownFactor, System};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -297,6 +297,28 @@ impl IsGasMeteredCall for GasMeteredCallResolver {
 			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
 			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
 			_ => false,
+		}
+	}
+}
+
+pub struct FeePayerResolver;
+impl crml_transaction_payment::FeePayer for FeePayerResolver {
+	type Call = Call;
+	type AccountId = <Runtime as frame_system::Trait>::AccountId;
+	fn fee_payer(call: &Self::Call) -> Option<<Runtime as frame_system::Trait>::AccountId> {
+		let is_sylo = match call {
+			Call::SyloGroups(_) => true,
+			Call::SyloE2EE(_) => true,
+			Call::SyloDevice(_) => true,
+			Call::SyloInbox(_) => true,
+			Call::SyloResponse(_) => true,
+			Call::SyloVault(_) => true,
+			_ => false,
+		};
+		if is_sylo {
+			sylo_payment::Module::<Runtime>::get_payment_account()
+		} else {
+			None
 		}
 	}
 }
