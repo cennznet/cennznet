@@ -19,6 +19,7 @@ pub mod device;
 pub mod e2ee;
 pub mod groups;
 pub mod inbox;
+pub mod payment;
 pub mod response;
 pub mod vault;
 
