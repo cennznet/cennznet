@@ -110,6 +110,7 @@ pub trait Trait: frame_system::Trait {
 	/// Something which can report whether a call is gas metered
 	type GasMeteredCallResolver: IsGasMeteredCall<Call = <Self as frame_system::Trait>::Call>;
 
+	/// A fee payer, if specified for a call, is an account that can be different from the submitter of an extrinsic.
 	type FeePayer: FeePayer<Call = Self::Call, AccountId = Self::AccountId>;
 }
 

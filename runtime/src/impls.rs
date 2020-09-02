@@ -316,7 +316,7 @@ impl crml_transaction_payment::FeePayer for FeePayerResolver {
 			_ => false,
 		};
 		if is_sylo {
-			sylo_payment::Module::<Runtime>::get_payment_account()
+			sylo_payment::Module::<Runtime>::payment_account()
 		} else {
 			None
 		}
