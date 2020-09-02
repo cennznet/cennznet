@@ -70,7 +70,7 @@ pub use crml_sylo::vault as sylo_vault;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaleLinearWeightToFee,
+	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaledWeightToFee,
 	SplitToAllValidators, TargetedFeeAdjustment,
 };
 
@@ -139,9 +139,9 @@ impl frame_system::Trait for Runtime {
 
 parameter_types! {
 	// One storage item; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const MultisigDepositBase: Balance = 30 * CENTS;
+	pub const MultisigDepositBase: Balance = 30 * MICROS;
 	// Additional storage item size of 32 bytes.
-	pub const MultisigDepositFactor: Balance = 5 * CENTS;
+	pub const MultisigDepositFactor: Balance = 5 * MICROS;
 	pub const MaxSignatories: u16 = 100;
 }
 
@@ -197,10 +197,10 @@ impl pallet_generic_asset::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionBaseFee: Balance = 1 * CENTS;
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
-	// setting this to zero will disable the weight fee.
-	pub const WeightFeeCoefficient: Balance = 1_000;
+	pub const TransactionBaseFee: Balance = 1 * MICROS;
+	pub const TransactionByteFee: Balance = 10 * MICROS;
+	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
+	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
 	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
 	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
 }
@@ -224,7 +224,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type OnTransactionPayment = DealWithFees;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = ScaleLinearWeightToFee<WeightFeeCoefficient>;
+	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 	type BuyFeeAsset = CennzxSpot;
 	type GasMeteredCallResolver = GasMeteredCallResolver;
@@ -321,7 +321,7 @@ parameter_types! {
 	pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
 	pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
 	// One cent: $10,000 / MB
-	pub const PreimageByteDeposit: Balance = 1 * CENTS;
+	pub const PreimageByteDeposit: Balance = 10 * DOLLARS;
 }
 
 parameter_types! {
@@ -391,7 +391,7 @@ parameter_types! {
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
 	pub const TipReportDepositBase: Balance = 1 * DOLLARS;
-	pub const TipReportDepositPerByte: Balance = 1 * CENTS;
+	pub const TipReportDepositPerByte: Balance = 10 * MICROS;
 }
 
 impl pallet_treasury::Trait for Runtime {
@@ -412,15 +412,15 @@ impl pallet_treasury::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const ContractTransferFee: Balance = 1 * NANOCENTS;
-	pub const ContractCreationFee: Balance = 1 * MICROCENTS;
-	pub const ContractTransactionBaseFee: Balance = 1 * NANOCENTS;
-	pub const ContractTransactionByteFee: Balance = 10 * MICROCENTS;
-	pub const ContractFee: Balance = 1 * CENTS;
-	pub const TombstoneDeposit: Balance = 1 * DOLLARS;
-	pub const RentByteFee: Balance = 1 * DOLLARS;
-	pub const RentDepositOffset: Balance = 1000 * DOLLARS;
-	pub const SurchargeReward: Balance = 150 * DOLLARS;
+	pub const ContractTransferFee: Balance = 1 * MICROS;
+	pub const ContractCreationFee: Balance = 1 * DOLLARS;
+	pub const ContractTransactionBaseFee: Balance = 1 * MICROS;
+	pub const ContractTransactionByteFee: Balance = 10 * MICROS;
+	pub const ContractFee: Balance = 100 * MICROS;
+	pub const TombstoneDeposit: Balance = 1_600 * MICROS;
+	pub const RentByteFee: Balance = 400 * MICROS;
+	pub const RentDepositOffset: Balance = 1 * DOLLARS;
+	pub const SurchargeReward: Balance = 1 * DOLLARS;
 	pub const BlockGasLimit: u64 = 100 * DOLLARS as u64;
 }
 

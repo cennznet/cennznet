@@ -242,7 +242,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				enable_println: false, // this should only be enabled on development chains
 				..Default::default()
 			},
-			gas_price: 1 * MILLICENTS,
+			gas_price: 1 * MICROS,
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),

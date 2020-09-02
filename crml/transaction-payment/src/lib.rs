@@ -161,6 +161,39 @@ impl<T: Trait> Module<T> {
 	}
 }
 
+#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq)]
+/// The variable parts of a transaction's fees
+/// It does not store the `base_fee` as it is a runtime constant
+/// The `tip` is also excluded as it is known by the transactor/caller.
+pub struct FeeParts<Balance: Saturating> {
+	/// The length fee
+	/// It changes based on the size of the transaction.
+	length_fee: Balance,
+	/// The weight fee
+	/// It changes based on the computational resources required by the transaction.
+	weight_fee: Balance,
+	/// The peak adjustment fee.
+	/// It changes based on recent network transaction load (or more formally "block fullness").
+	peak_adjustment_fee: Balance,
+}
+
+impl<Balance: Copy + Saturating> FeeParts<Balance> {
+	pub fn new(length_fee: Balance, weight_fee: Balance, peak_adjustment_fee: Balance) -> Self {
+		FeeParts {
+			length_fee,
+			weight_fee,
+			peak_adjustment_fee,
+		}
+	}
+	/// Calculate the total fee from it's parts
+	pub fn total(&self) -> Balance {
+		// total = length_fee + weight_fee + peak_adjustment_fee
+		self.length_fee
+			.saturating_add(self.weight_fee)
+			.saturating_add(self.peak_adjustment_fee)
+	}
+}
+
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -180,43 +213,59 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	///
 	/// The final fee is composed of:
 	///   - _base_fee_: This is the minimum amount a user pays for a transaction.
-	///   - _len_fee_: This is the amount paid merely to pay for size of the transaction.
+	///   - _length_fee_: This is the amount paid merely to pay for size of the transaction.
 	///   - _weight_fee_: This amount is computed based on the weight of the transaction. Unlike
-	///      size-fee, this is not input dependent and reflects the _complexity_ of the execution
+	///      length_fee, this is not input dependent and reflects the _complexity_ of the execution
 	///      and the time it consumes.
-	///   - _targeted_fee_adjustment_: This is a multiplier that can tune the final fee based on
+	///   - _peak_adjustment_fee_: This is a multiplier that can tune the final fee based on
 	///     the congestion of the network.
 	///   - (optional) _tip_: if included in the transaction, it will be added on top. Only signed
 	///      transactions can have a tip.
 	///
-	/// final_fee = base_fee + targeted_fee_adjustment(len_fee + weight_fee) + tip;
-	pub fn compute_fee(len: u32, info: <Self as SignedExtension>::DispatchInfo, tip: BalanceOf<T>) -> BalanceOf<T>
+	/// final_fee = base_fee + peak_adjustment_fee + len_fee + weight_fee + tip;
+	pub fn compute_fee(length: u32, info: <Self as SignedExtension>::DispatchInfo, tip: BalanceOf<T>) -> BalanceOf<T>
 	where
 		BalanceOf<T>: Sync + Send,
 	{
 		if info.pays_fee {
-			let len = <BalanceOf<T>>::from(len);
-			let per_byte = T::TransactionByteFee::get();
-			let len_fee = per_byte.saturating_mul(len);
-
-			let weight_fee = {
-				// cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
-				// `Bounded` maximum of its data type, which is not desired.
-				let capped_weight = info.weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
-				T::WeightToFee::convert(capped_weight)
-			};
-
-			// the adjustable part of the fee
-			let adjustable_fee = len_fee.saturating_add(weight_fee);
-			let targeted_fee_adjustment = NextFeeMultiplier::get();
-			// adjusted_fee = adjustable_fee + (adjustable_fee * targeted_fee_adjustment)
-			let adjusted_fee = targeted_fee_adjustment.saturated_multiply_accumulate(adjustable_fee);
-
+			let fee_parts = Self::compute_fee_parts(length, info);
 			let base_fee = T::TransactionBaseFee::get();
-			base_fee.saturating_add(adjusted_fee).saturating_add(tip)
+			base_fee.saturating_add(fee_parts.total()).saturating_add(tip)
 		} else {
 			tip
 		}
+	}
+
+	/// Compute a transaction's fee constituents (length, weight, peak adjustment)
+	pub fn compute_fee_parts(length: u32, info: <Self as SignedExtension>::DispatchInfo) -> FeeParts<BalanceOf<T>>
+	where
+		BalanceOf<T>: Sync + Send,
+	{
+		let length = <BalanceOf<T>>::from(length);
+		let per_byte = T::TransactionByteFee::get();
+		let length_fee = per_byte.saturating_mul(length);
+
+		let weight_fee = {
+			// cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
+			// `Bounded` maximum of its data type, which is not desired.
+			let capped_weight = info.weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
+			T::WeightToFee::convert(capped_weight)
+		};
+
+		let adjustable_fee = length_fee.saturating_add(weight_fee);
+		let target_adjustment_rate = NextFeeMultiplier::get();
+
+		// note 1: `saturated_multiply_accumulate` also converts `target_adjustment_rate` a `Fixed64` into a `Balance`
+		// there are no other conversion functions available so this sneakily doubles as a type conversion.
+		// note 2: this is equivalent to: `adjustable_fee + (adjustable_fee * target_adjustment_rate)`
+		let peak_adjustment_fee = target_adjustment_rate.saturated_multiply_accumulate(adjustable_fee);
+
+		return FeeParts::new(
+			length_fee,
+			weight_fee,
+			// we only want the value of: `adjustable_fee * target_adjustment_rate`, a bit wasteful :(
+			peak_adjustment_fee.saturating_sub(adjustable_fee),
+		);
 	}
 }
 
@@ -943,7 +992,7 @@ mod tests {
 			});
 	}
 
-	// For the () implmentation of NegativeImbalance, we reduce the total issuance by the fee
+	// For the () implementation of NegativeImbalance, we reduce the total issuance by the fee
 	#[test]
 	fn imbalanced_is_executed_for_fee_payment() {
 		let base_fee = 5;
