@@ -67,9 +67,18 @@ type NegativeImbalanceOf<T> =
 
 pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
 
+/// This is an interface that can return the account id of a fee payer for a specific call.
+/// If there is no such an individual for a call, it returns None which means the submitter of
+/// the extrinsic is going to pay the fee.
 pub trait FeePayer {
+	/// The runtime call type
 	type Call;
+
+	/// The user account identifier type for the runtime.
 	type AccountId;
+
+	/// Return the account id of the fee payer for `call`. Return None if the fee payer
+	/// is the same as the submitter of the call
 	fn fee_payer(call: &Self::Call) -> Option<Self::AccountId>;
 }
 

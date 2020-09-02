@@ -55,7 +55,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	/// Return the first account that is set for payment, or None when nothing is set.
+	/// Return an account that is set for payment, or `None` when nothing is set.
 	/// In the future, we can make this function smart so it returns the account with enough money in it.
 	pub fn payment_account() -> Option<T::AccountId> {
 		AuthorisedPayers::<T>::iter().map(|(x, _)| x).next()

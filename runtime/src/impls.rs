@@ -304,6 +304,7 @@ impl IsGasMeteredCall for GasMeteredCallResolver {
 	}
 }
 
+/// The type that implements FeePayer for the cennznet-runtime Call(s)
 pub struct FeePayerResolver;
 impl crml_transaction_payment::FeePayer for FeePayerResolver {
 	type Call = Call;
