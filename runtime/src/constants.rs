@@ -35,13 +35,12 @@ pub mod asset {
 /// Money matters.
 pub mod currency {
 	use cennznet_primitives::types::Balance;
-
-	pub const PICOCENTS: Balance = 1;
-	pub const NANOCENTS: Balance = 1_000 * PICOCENTS;
-	pub const MICROCENTS: Balance = 1_000 * NANOCENTS;
-	pub const MILLICENTS: Balance = 1_000 * MICROCENTS;
-	pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
-	pub const DOLLARS: Balance = 100 * CENTS;
+	/// The smallest denomination of any currency
+	pub const WEI: Balance = 1;
+	/// The smallest denomination of a 4dp currency
+	pub const MICROS: Balance = WEI;
+	/// The dollar denomination of a 4dp currency
+	pub const DOLLARS: Balance = 10_000;
 }
 
 /// Time.
@@ -100,4 +99,12 @@ pub mod fee {
 
 	/// The block saturation level. Fees will be updates based on this value.
 	pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
+
+	// note: only a few exceptional extrinsics have a weight > 1_000_000.
+	// note: weights are not limited to this range, this range is what has been.
+	// observed in Plug and crml code.
+	/// The maximum weight of a transaction in practice.
+	pub const MAX_WEIGHT: u128 = 10_000_000;
+	/// The minimum weight of a transaction in practice.
+	pub const MIN_WEIGHT: u128 = 10_000;
 }

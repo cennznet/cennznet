@@ -16,7 +16,10 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, ScaleDownFactor, System};
+use crate::{
+	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
+	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
+};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
@@ -80,30 +83,30 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Convert from weight to balance via a simple coefficient multiplication
-/// The associated type C encapsulates a constant in units of balance per weight
-pub struct ScaleLinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+/// Convert from weight to fee balance by scaling it into the desired fee range.
+/// i.e. transpose weight values so that: `min_fee` < weight < `max_fee`
+pub struct ScaledWeightToFee<MinFee, MaxFee>(sp_std::marker::PhantomData<(MinFee, MaxFee)>);
 
-impl<C: Get<Balance>> Convert<Weight, Balance> for ScaleLinearWeightToFee<C> {
+impl<MinFee: Get<Balance>, MaxFee: Get<Balance>> Convert<Weight, Balance> for ScaledWeightToFee<MinFee, MaxFee> {
+	/// Transpose weight values to desired fee range i.e. `min_fee` < x < `max_fee`
 	fn convert(w: Weight) -> Balance {
-		// cennznet-node a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
-		// fees, hence:
-		let coefficient = C::get();
-		let linear_weight = Balance::from(w).saturating_mul(coefficient);
-		// Scale down fees 10^-12
-		let min_weight: Balance = 10_000_000;
-		let scaled_weight = linear_weight
-			.checked_div(ScaleDownFactor::get())
-			.unwrap_or(linear_weight);
-		if scaled_weight.is_zero() {
-			if linear_weight < min_weight {
-				linear_weight
-			} else {
-				min_weight
-			}
-		} else {
-			scaled_weight
-		}
+		let weight = Balance::from(w);
+
+		// Runtime constants
+		let min_fee = MinFee::get();
+		let max_fee = MaxFee::get();
+		debug_assert!(max_fee > min_fee);
+		debug_assert!(MAX_WEIGHT > MIN_WEIGHT);
+
+		//      (weight - MIN_WEIGHT) * [min_fee, max_fee]
+		//  y = ------------------------------------------ + min_fee
+		//              [MIN_WEIGHT, MAX_WEIGHT]
+
+		// ensure `weight` is in range: [MIN_WEIGHT, MAX_WEIGHT] for correct scaling.
+		let capped_weight = weight.min(MAX_WEIGHT).max(MIN_WEIGHT);
+		((capped_weight.saturating_sub(MIN_WEIGHT)).saturating_mul(max_fee.saturating_sub(min_fee))
+			/ (MAX_WEIGHT.saturating_sub(MIN_WEIGHT)))
+		.saturating_add(min_fee)
 	}
 }
 
@@ -111,7 +114,7 @@ impl<C: Get<Balance>> Convert<Weight, Balance> for ScaleLinearWeightToFee<C> {
 ///
 ///   diff = (target_weight - previous_block_weight)
 ///   v = 0.00004
-///   next_weight = weight * (1 + (v . diff) + (v . diff)^2 / 2)
+///   next_weight = weight * (1 + (v . diff) + (v . diff) ^ 2 / 2)
 ///
 /// Where `target_weight` must be given as the `Get` implementation of the `T` generic type.
 /// https://research.web3.foundation/en/latest/polkadot/Token%20Economics/#relay-chain-transaction-fees
@@ -414,8 +417,10 @@ impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{constants::currency::*, TargetBlockFullness, TransactionPayment};
-	use crate::{AvailableBlockRatio, MaximumBlockWeight, Runtime};
+	use crate::{
+		constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
+		MaximumBlockWeight, Runtime, TargetBlockFullness, TransactionMaxWeightFee, TransactionMinWeightFee,
+	};
 	use frame_support::weights::Weight;
 	use sp_runtime::assert_eq_error_rate;
 
@@ -513,74 +518,38 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
-	fn congested_chain_simulation() {
-		// `cargo test congested_chain_simulation -- --nocapture` to get some insight.
-
-		// almost full. The entire quota of normal transactions is taken.
-		let block_weight = AvailableBlockRatio::get() * max() - 100;
-
-		// Default substrate minimum.
-		let tx_weight = 10_000;
-
-		run_with_system_weight(block_weight, || {
-			// initial value configured on module
-			let mut fm = Fixed64::default();
-			assert_eq!(fm, TransactionPayment::next_fee_multiplier());
-
-			let mut iterations: u64 = 0;
-			loop {
-				let next = TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm);
-				// if no change, panic. This should never happen in this case.
-				if fm == next {
-					panic!("The fee should ever increase");
-				}
-				fm = next;
-				iterations += 1;
-				let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(tx_weight);
-				let adjusted_fee = fm.saturated_multiply_accumulate(fee);
-				println!(
-					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} millicents, \
-					{} cents, {} dollars",
-					iterations,
-					fm,
-					adjusted_fee,
-					adjusted_fee / MILLICENTS,
-					adjusted_fee / CENTS,
-					adjusted_fee / DOLLARS,
-				);
-			}
-		});
-	}
-
-	#[test]
-	fn weight_to_fee_scaling() {
-		// max u32 value - 4_294_967_295
+	fn weight_to_fee_scaling_theoretical_max_weight() {
 		let weight = u32::max_value();
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(4, weight_fee);
+		assert_eq!(TransactionMaxWeightFee::get(), weight_fee);
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_returns_min_weight() {
-		let weight = 75_000;
-		// Linear weight becomes - 75_000_000, hence min weight is returned
+	fn weight_to_fee_scaling_practical_max_weight() {
+		let weight = MAX_WEIGHT as u32;
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(10_000_000, weight_fee);
+		assert_eq!(TransactionMaxWeightFee::get(), weight_fee);
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_returns_linear_weight() {
-		let weight = 2_500;
+	fn weight_to_fee_scaling_min_weight() {
+		let weight = MIN_WEIGHT as u32;
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(2_500_000, weight_fee);
+		assert_eq!(TransactionMinWeightFee::get(), weight_fee);
+	}
+
+	#[test]
+	fn weight_to_fee_scaling_returns_transposed_weight() {
+		let weight = 200_000_u32;
+		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
+		assert_eq!(2_000, weight_fee);
 	}
 
 	#[test]
 	fn weight_to_fee_scaling_for_zero_weight() {
 		let weight = 0;
 		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(0, weight_fee);
+		assert_eq!(TransactionMinWeightFee::get(), weight_fee);
 	}
 
 	#[test]

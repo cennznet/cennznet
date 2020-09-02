@@ -119,7 +119,7 @@ pub fn config_endowed(support_changes_trie: bool, code: Option<&[u8]>, extra_end
 		}),
 		pallet_contracts: Some(ContractsConfig {
 			current_schedule: Default::default(),
-			gas_price: 1 * MILLICENTS,
+			gas_price: 1 * MICROS,
 		}),
 		pallet_babe: Some(Default::default()),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),

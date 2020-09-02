@@ -362,7 +362,7 @@ mod tests {
 	use crate::service::{new_full, new_light};
 	use cennznet_primitives::types::{Block, DigestItem, Signature};
 	use cennznet_runtime::{
-		constants::{asset::SPENDING_ASSET_ID, currency::CENTS, time::SLOT_DURATION},
+		constants::{asset::SPENDING_ASSET_ID, currency::MICROS, time::SLOT_DURATION},
 		Address, Call, GenericAssetCall, UncheckedExtrinsic,
 	};
 	use codec::{Decode, Encode};
@@ -516,7 +516,7 @@ mod tests {
 					.expect("error importing test block");
 			},
 			|service, _| {
-				let amount = 5 * CENTS;
+				let amount = 5 * MICROS;
 				let to: Address = AccountPublic::from(bob.public()).into_account().into();
 				let from: Address = AccountPublic::from(charlie.public()).into_account().into();
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
