@@ -64,14 +64,15 @@ pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
 pub use crml_sylo::inbox as sylo_inbox;
+pub use crml_sylo::payment as sylo_payment;
 pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	CENNZnetDispatchVerifier, CurrencyToVoteHandler, GasHandler, GasMeteredCallResolver, ScaledWeightToFee,
-	SplitToAllValidators, TargetedFeeAdjustment,
+	CENNZnetDispatchVerifier, CurrencyToVoteHandler, FeePayerResolver, GasHandler, GasMeteredCallResolver,
+	ScaledWeightToFee, SplitToAllValidators, TargetedFeeAdjustment,
 };
 
 /// Constant values used within the runtime.
@@ -179,6 +180,7 @@ impl crml_sylo::device::Trait for Runtime {}
 impl crml_sylo::response::Trait for Runtime {}
 impl crml_sylo::inbox::Trait for Runtime {}
 impl crml_sylo::vault::Trait for Runtime {}
+impl crml_sylo::payment::Trait for Runtime {}
 
 parameter_types! {
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
@@ -228,6 +230,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 	type BuyFeeAsset = CennzxSpot;
 	type GasMeteredCallResolver = GasMeteredCallResolver;
+	type FeePayer = FeePayerResolver;
 }
 
 parameter_types! {
@@ -574,6 +577,7 @@ construct_runtime!(
 		SyloInbox: sylo_inbox::{Module, Call, Storage},
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
+		SyloPayment: sylo_payment::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );

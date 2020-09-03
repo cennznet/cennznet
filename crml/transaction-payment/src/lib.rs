@@ -67,6 +67,21 @@ type NegativeImbalanceOf<T> =
 
 pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
 
+/// This is an interface that can return the account id of a fee payer for a specific call.
+/// If there is no such an individual for a call, it returns None which means the submitter of
+/// the extrinsic is going to pay the fee.
+pub trait FeePayer {
+	/// The runtime call type
+	type Call;
+
+	/// The user account identifier type for the runtime.
+	type AccountId;
+
+	/// Return the account id of the fee payer for `call`. Return None if the fee payer
+	/// is the same as the submitter of the call
+	fn fee_payer(call: &Self::Call) -> Option<Self::AccountId>;
+}
+
 pub trait Trait: frame_system::Trait {
 	/// The units in which we record balances.
 	type Balance: Parameter + Member + BaseArithmetic + Default + Copy + MaybeSerializeDeserialize + Debug;
@@ -103,6 +118,9 @@ pub trait Trait: frame_system::Trait {
 
 	/// Something which can report whether a call is gas metered
 	type GasMeteredCallResolver: IsGasMeteredCall<Call = <Self as frame_system::Trait>::Call>;
+
+	/// A fee payer, if specified for a call, is an account that can be different from the submitter of an extrinsic.
+	type FeePayer: FeePayer<Call = Self::Call, AccountId = Self::AccountId>;
 }
 
 decl_storage! {
@@ -310,9 +328,10 @@ where
 
 		// Only mess with balances if the fee is not zero.
 		if !fee.is_zero() {
+			let payer = T::FeePayer::fee_payer(call).unwrap_or(who.clone());
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				exchange_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
+				exchange_asset_spent = T::BuyFeeAsset::buy_fee_asset(&payer, fee, &exchange).map_err(|e| {
 					let code = match e {
 						DispatchError::Module { message, .. } => error_code::buy_fee_asset_error_msg_to_code(
 							message.unwrap_or("Unknown buy fee asset error"),
@@ -329,7 +348,7 @@ where
 				WithdrawReason::TransactionPayment | WithdrawReason::Tip
 			};
 			// Pay for the transaction `fee` in the native fee currency
-			let imbalance = match T::Currency::withdraw(who, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
+			let imbalance = match T::Currency::withdraw(&payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
 				Ok(imbalance) => imbalance,
 				Err(_) => return Err(InvalidTransaction::Custom(error_code::INSUFFICIENT_FEE_ASSET_BALANCE).into()),
 			};
@@ -446,6 +465,14 @@ mod tests {
 		}
 	}
 
+	impl FeePayer for MockCallResolver {
+		type Call = Call;
+		type AccountId = u64;
+		fn fee_payer(_call: &Self::Call) -> Option<Self::AccountId> {
+			None
+		}
+	}
+
 	/// Implement a fake BuyFeeAsset for tests
 	impl BuyFeeAsset for Module<Runtime> {
 		type AccountId = u64;
@@ -551,6 +578,7 @@ mod tests {
 		type FeeMultiplierUpdate = ();
 		type BuyFeeAsset = Module<Self>;
 		type GasMeteredCallResolver = MockCallResolver;
+		type FeePayer = MockCallResolver;
 	}
 
 	type Balances = pallet_balances::Module<Runtime>;

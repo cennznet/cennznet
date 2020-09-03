@@ -18,7 +18,7 @@
 
 use crate::{
 	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
+	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
 };
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
@@ -300,6 +300,29 @@ impl IsGasMeteredCall for GasMeteredCallResolver {
 			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
 			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
 			_ => false,
+		}
+	}
+}
+
+/// The type that implements FeePayer for the cennznet-runtime Call(s)
+pub struct FeePayerResolver;
+impl crml_transaction_payment::FeePayer for FeePayerResolver {
+	type Call = Call;
+	type AccountId = <Runtime as frame_system::Trait>::AccountId;
+	fn fee_payer(call: &Self::Call) -> Option<<Runtime as frame_system::Trait>::AccountId> {
+		let is_sylo = match call {
+			Call::SyloGroups(_) => true,
+			Call::SyloE2EE(_) => true,
+			Call::SyloDevice(_) => true,
+			Call::SyloInbox(_) => true,
+			Call::SyloResponse(_) => true,
+			Call::SyloVault(_) => true,
+			_ => false,
+		};
+		if is_sylo {
+			sylo_payment::Module::<Runtime>::payment_account()
+		} else {
+			None
 		}
 	}
 }

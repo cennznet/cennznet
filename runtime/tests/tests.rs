@@ -16,9 +16,10 @@
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Babe, Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, EpochDuration, Event, Executive,
-	GenericAsset, Header, ImOnline, Origin, Runtime, Session, SessionsPerEra, Staking, System, Timestamp,
-	TransactionBaseFee, TransactionByteFee, TransactionPayment, UncheckedExtrinsic,
+	sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Babe, Call, CennzxSpot, CheckedExtrinsic,
+	ContractTransactionBaseFee, EpochDuration, Event, Executive, GenericAsset, Header, ImOnline, Origin, Runtime,
+	Session, SessionsPerEra, Staking, SyloPayment, System, Timestamp, TransactionBaseFee, TransactionByteFee,
+	TransactionMaxWeightFee, TransactionPayment, UncheckedExtrinsic,
 };
 use cennznet_testing::keyring::*;
 use codec::Encode;
@@ -26,6 +27,7 @@ use crml_staking::{EraIndex, RewardDestination, StakingLedger};
 use crml_transaction_payment::{constants::error_code::*, ChargeTransactionPayment};
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting as MultiCurrency,
+	assert_ok,
 	storage::StorageValue,
 	traits::OnInitialize,
 	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
@@ -681,6 +683,147 @@ fn runtime_mock_setup_works() {
 			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
 		}
 	});
+}
+
+fn apply_extrinsic(origin: AccountId, call: Call) -> Balance {
+	let xt = sign(CheckedExtrinsic {
+		signed: Some((origin, signed_extra(0, 0, None, None))),
+		function: call.clone(),
+	});
+
+	let fee = transfer_fee(&xt, &call);
+
+	Executive::initialize_block(&header());
+	let r = Executive::apply_extrinsic(xt);
+	assert!(r.is_ok());
+
+	fee
+}
+
+#[test]
+fn non_sylo_call_is_not_paid_by_payment_account() {
+	let call = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, dave(), 100));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let _ = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance);
+		});
+}
+
+#[test]
+fn sylo_e2ee_call_is_paid_by_payment_account() {
+	let call = Call::SyloE2EE(sylo_e2ee::Call::register_device(1, vec![]));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let call_fee = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
+		});
+}
+
+#[test]
+fn sylo_inbox_call_is_paid_by_payment_account() {
+	let call = Call::SyloInbox(sylo_inbox::Call::add_value(dave(), b"dude!".to_vec()));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let call_fee = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
+		});
+}
+
+#[test]
+fn sylo_vault_call_is_paid_by_payment_account() {
+	let call = Call::SyloVault(sylo_vault::Call::upsert_value(b"key".to_vec(), b"value".to_vec()));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let call_fee = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
+		});
+}
+
+#[test]
+fn sylo_response_call_is_paid_by_payment_account() {
+	let call = Call::SyloResponse(sylo_response::Call::remove_response([0u8; 32].into()));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let call_fee = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
+		});
+}
+
+#[test]
+fn sylo_groups_call_is_paid_by_payment_account() {
+	let meta = vec![(b"key".to_vec(), b"value".to_vec())];
+	let call = Call::SyloGroups(sylo_groups::Call::create_group(
+		[1u8; 32].into(),
+		meta,
+		vec![],
+		(b"group".to_vec(), b"data".to_vec()),
+	));
+
+	ExtBuilder::default()
+		.initial_balance(TransactionMaxWeightFee::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+
+			let fee_asset_id = Some(GenericAsset::spending_asset_id());
+			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
+
+			let call_fee = apply_extrinsic(charlie(), call);
+
+			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
+			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
+		});
 }
 
 #[test]
