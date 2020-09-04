@@ -15,7 +15,7 @@
 
 //! Manage the authorized accounts set for the Sylo fee payment
 
-use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo, IterableStorageMap};
+use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
@@ -27,7 +27,7 @@ const NOT_SYLO_PAYER: &str = "You are not a Sylo payer!";
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloFeePayment {
 		/// Accounts which have authority to pay for Sylo fees on behalf of the users
-		AuthorisedPayers: map hasher(twox_64_concat) T::AccountId => bool;
+		AuthorisedPayers get(fn authorised_payers): Vec<T::AccountId>;
 	}
 }
 
@@ -38,7 +38,7 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn set_payment_account(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
-			AuthorisedPayers::<T>::insert(account_id, true);
+			<AuthorisedPayers<T>>::mutate(|v|{if !v.contains(&account_id) {v.push(account_id)}});
 			Ok(())
 		}
 
@@ -47,8 +47,8 @@ decl_module! {
 		#[weight = SimpleDispatchInfo::FixedOperational(0)]
 		pub fn revoke_payment_account_self(origin) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
-			ensure!(AuthorisedPayers::<T>::get(&account_id), NOT_SYLO_PAYER);
-			AuthorisedPayers::<T>::remove(account_id);
+			ensure!(Self::authorised_payers().contains(&account_id), NOT_SYLO_PAYER);
+			<AuthorisedPayers<T>>::mutate(|v|v.retain(|x| *x != account_id));
 			Ok(())
 		}
 	}
@@ -58,7 +58,7 @@ impl<T: Trait> Module<T> {
 	/// Return an account that is set for payment, or `None` when nothing is set.
 	/// In the future, we can make this function smart so it returns the account with enough money in it.
 	pub fn payment_account() -> Option<T::AccountId> {
-		AuthorisedPayers::<T>::iter().map(|(x, _)| x).next()
+		Self::authorised_payers().first().cloned()
 	}
 }
 
@@ -81,14 +81,14 @@ mod tests {
 			let payer_a = H256::from_low_u64_be(2);
 			let payer_b = H256::from_low_u64_be(3);
 
-			assert!(!AuthorisedPayers::<Test>::get(&payer_a));
-			assert!(!AuthorisedPayers::<Test>::get(&payer_b));
+			assert!(!SyloModule::authorised_payers().contains(&payer_a));
+			assert!(!SyloModule::authorised_payers().contains(&payer_b));
 
 			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_a));
 			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_b));
 
-			assert!(AuthorisedPayers::<Test>::get(&payer_a));
-			assert!(AuthorisedPayers::<Test>::get(&payer_b));
+			assert!(SyloModule::authorised_payers().contains(&payer_a));
+			assert!(SyloModule::authorised_payers().contains(&payer_b));
 		});
 	}
 
@@ -123,7 +123,7 @@ mod tests {
 				RawOrigin::Signed(payer_a.clone())
 			)));
 
-			assert!(!AuthorisedPayers::<Test>::get(&payer_a));
+			assert!(!SyloModule::authorised_payers().contains(&payer_a));
 		});
 	}
 
@@ -137,7 +137,7 @@ mod tests {
 				Err(Other(NOT_SYLO_PAYER))
 			);
 
-			assert!(!AuthorisedPayers::<Test>::get(&payer_a));
+			assert!(!SyloModule::authorised_payers().contains(&payer_a));
 		});
 	}
 }
