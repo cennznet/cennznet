@@ -27,6 +27,9 @@ use sp_runtime::Perbill;
 
 use crate::common::helpers::make_authority_keys;
 
+/// The default number of validators for mock storage setup
+const DEFAULT_VALIDATOR_COUNT: usize = 3;
+
 pub struct ExtBuilder {
 	initial_balance: Balance,
 	gas_price: Balance,
@@ -80,7 +83,7 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
 		let initial_authorities = if self.initial_authorities.is_empty() {
-			make_authority_keys(3)
+			make_authority_keys(DEFAULT_VALIDATOR_COUNT)
 		} else {
 			self.initial_authorities.clone()
 		};

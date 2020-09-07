@@ -23,7 +23,7 @@ use crml_transaction_payment::ChargeTransactionPayment;
 use frame_support::weights::GetDispatchInfo;
 use sp_runtime::{testing::Digest, traits::Header as HeaderT};
 
-/// A genesis hash to use for exstrinsic signing
+/// A genesis hash to use for extrinsic signing
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 /// The runtime version number for signing
 const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
