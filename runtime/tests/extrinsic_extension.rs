@@ -13,75 +13,37 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, FeeExchange, FeeExchangeV1};
+//! Extrinsic extension integration tests (doughnut, fee exchange)
+
+use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Babe, Call, CennzxSpot, CheckedExtrinsic,
-	ContractTransactionBaseFee, EpochDuration, Event, Executive, GenericAsset, Header, ImOnline, Origin, Runtime,
-	Session, SessionsPerEra, Staking, SyloPayment, System, Timestamp, TransactionBaseFee, TransactionByteFee,
-	TransactionMaxWeightFee, TransactionPayment, UncheckedExtrinsic,
+	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
 };
-use cennznet_testing::keyring::*;
+use cennznet_testing::keyring::{alice, bob, charlie, dave, ferdie, signed_extra};
 use codec::Encode;
-use crml_staking::{EraIndex, RewardDestination, StakingLedger};
-use crml_transaction_payment::{constants::error_code::*, ChargeTransactionPayment};
+use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting as MultiCurrency,
-	assert_ok,
-	storage::StorageValue,
-	traits::OnInitialize,
-	weights::{DispatchClass, DispatchInfo, GetDispatchInfo},
+	weights::{DispatchClass, DispatchInfo},
 };
-use frame_system::{EventRecord, Phase, RawOrigin};
+use frame_system::{EventRecord, Phase};
 use pallet_contracts::{ContractAddressFor, RawEvent, Schedule};
-use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
-	testing::Digest,
-	traits::{Convert, Hash, Header as HeaderT},
+	traits::Hash,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	DispatchError, Perbill,
+	DispatchError,
 };
-use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 
+mod common;
 mod doughnut;
-mod mock;
-use mock::{validators, ExtBuilder};
 
-const GENESIS_HASH: [u8; 32] = [69u8; 32];
-const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
-
-fn header_for_block_number(n: BlockNumber) -> Header {
-	HeaderT::new(
-		n,                        // block number
-		sp_core::H256::default(), // extrinsics_root
-		sp_core::H256::default(), // state_root
-		GENESIS_HASH.into(),      // parent_hash
-		Digest::default(),        // digest
-	)
-}
-
-fn header() -> Header {
-	header_for_block_number(1)
-}
-
-/// Get a block header and set the author of that block in a way that is recognisable by BABE.
-/// The author will be specified by its index in the Session::validators() list. So the author
-/// should be a current validator. Return the modified header.
-fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
-	use digests::{RawPreDigest, SecondaryPreDigest};
-
-	let digest_data = RawPreDigest::<(), ()>::Secondary(SecondaryPreDigest {
-		authority_index: author_index,
-		slot_number: Babe::current_slot(),
-	});
-
-	let digest = header.digest_mut();
-	digest
-		.logs
-		.push(DigestItem::PreRuntime(BABE_ENGINE_ID, digest_data.encode()));
-
-	header
-}
+use common::helpers::{extrinsic_fee_for, header, sign};
+use common::mock::{
+	contracts::{CONTRACT_WITH_GA_TRANSFER, CONTRACT_WITH_TRAP},
+	ExtBuilder,
+};
+use doughnut::{make_contract_cennznut, make_doughnut, make_runtime_cennznut};
 
 /// Setup a contract on-chain, return it's deployed address
 /// This does the `put_code` and `instantiate` steps
@@ -137,699 +99,10 @@ fn setup_contract(
 	)
 }
 
-fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	cennznet_testing::keyring::sign(xt, VERSION, GENESIS_HASH)
-}
-
-fn transfer_fee<E: Encode>(extrinsic: &E, runtime_call: &Call) -> Balance {
-	let length_fee = TransactionByteFee::get() * (extrinsic.encode().len() as Balance);
-
-	let weight = runtime_call.get_dispatch_info().weight;
-	let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-
-	let base_fee = TransactionBaseFee::get();
-	let fee_multiplier = TransactionPayment::next_fee_multiplier();
-
-	base_fee + fee_multiplier.saturated_multiply_accumulate(length_fee + weight_fee)
-}
-
-/// Send heartbeats for the current authorities
-fn send_heartbeats() {
-	for i in 0..Session::validators().len() {
-		let heartbeat_data = pallet_im_online::Heartbeat {
-			block_number: System::block_number(),
-			network_state: Default::default(),
-			session_index: Session::current_index(),
-			authority_index: i as u32,
-		};
-		let call = pallet_im_online::Call::heartbeat(heartbeat_data, Default::default());
-		ImOnline::dispatch(call, RawOrigin::None.into()).unwrap();
-	}
-}
-
-/// Prior to rotating to a new session, we should make sure the authority heartbeats are sent to the
-/// ImOnline module, time is set accordingly and the babe's current slot is adjusted
-fn pre_rotate_session() {
-	send_heartbeats();
-	Timestamp::set_timestamp(Timestamp::now() + 1000);
-	pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-}
-
-fn rotate_to_session(index: SessionIndex) {
-	assert!(Session::current_index() <= index);
-	Session::on_initialize(System::block_number());
-
-	let rotations = index - Session::current_index();
-	for _i in 0..rotations {
-		pre_rotate_session();
-		Session::rotate_session();
-	}
-}
-
-fn start_session(session_index: SessionIndex) {
-	// If we run the function for the first time, block_number is 1, which won't
-	// trigger Babe::should_end_session() so we have to run one extra loop. But
-	// successive calls don't need to run one extra loop. See Babe::should_epoch_change()
-	let up_to_session_index = if Session::current_index() == 0 {
-		session_index + 1
-	} else {
-		session_index
-	};
-	for i in Session::current_index()..up_to_session_index {
-		// TODO Untie the block number from the session index as they are independet concepts.
-		System::set_block_number((i + 1).into());
-		pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-		Timestamp::set_timestamp((System::block_number() * 1000).into());
-		Session::on_initialize(System::block_number()); // this ends session
-	}
-	assert_eq!(Session::current_index(), session_index);
-}
-
-fn advance_session() {
-	let current_index = Session::current_index();
-	start_session(current_index + 1);
-}
-
-// Starts all sessions up to `era_index` (eg, start_era(2) will start 14 sessions)
-fn start_era(era_index: EraIndex) {
-	start_session((era_index * SessionsPerEra::get()).into());
-	assert_eq!(Staking::current_era(), era_index);
-}
-
-fn reward_validators(validators: &[(AccountId, AccountId)]) {
-	let validators_points = validators
-		.iter()
-		.map(|v| (v.0.clone(), 1))
-		.collect::<Vec<(AccountId, u32)>>();
-	Staking::reward_by_ids(validators_points);
-}
-
-/// Calculate the transaction fees of `xt` according to the current runtime implementation.
-/// Ignores tip.
-fn get_extrinsic_fee(xt: &UncheckedExtrinsic) -> Balance {
-	ChargeTransactionPayment::<Runtime>::compute_fee(xt.encode().len() as u32, xt.get_dispatch_info(), 0)
-}
-
-#[test]
-fn start_session_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		start_session(1);
-		start_session(3);
-		start_session(5);
-	});
-}
-
-#[test]
-fn advance_session_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		let session_index = 12;
-		start_session(session_index);
-		advance_session();
-		advance_session();
-		advance_session();
-		assert_eq!(Session::current_index(), 15);
-	});
-}
-
-#[test]
-fn start_era_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(Staking::current_era(), 0);
-		start_era(1);
-		assert_eq!(Staking::current_era(), 1);
-		start_era(10);
-		assert_eq!(Staking::current_era(), 10);
-	});
-}
-
-// Test to show that every extrinsic applied will add transfer fee to
-// CurrentEraFeeRewards (until it's paid out at the end of an era)
-#[test]
-fn current_era_transaction_rewards_storage_update_works() {
-	let initial_balance = 10_000 * DOLLARS;
-	let mut total_transfer_fee: Balance = 0;
-
-	let runtime_call_1 = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
-
-	ExtBuilder::default()
-		.initial_balance(initial_balance)
-		.build()
-		.execute_with(|| {
-			let xt_1 = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None, None))),
-				function: runtime_call_1.clone(),
-			});
-			let xt_2 = sign(CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0, None, None))),
-				function: runtime_call_2.clone(),
-			});
-
-			Executive::initialize_block(&header());
-			start_era(1);
-			advance_session(); // advance a session to trigger the beginning of era 2
-			assert_eq!(Staking::current_era(), 2);
-
-			// Start with 0 transaction rewards
-			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
-
-			// Apply first extrinsic and check transaction rewards
-			assert!(Executive::apply_extrinsic(xt_1.clone()).is_ok());
-			total_transfer_fee += transfer_fee(&xt_1, &runtime_call_1);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// Apply second extrinsic and check transaction rewards
-			assert!(Executive::apply_extrinsic(xt_2.clone()).is_ok());
-			total_transfer_fee += transfer_fee(&xt_2, &runtime_call_2);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// Advancing sessions shouldn't change transaction rewards storage
-			advance_session();
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-			advance_session();
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
-			start_era(2);
-			advance_session();
-			assert_eq!(Staking::current_era(), 3);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
-		});
-}
-
-#[test]
-fn staking_genesis_config_works() {
-	let validators = validators(6);
-	let balance_amount = 10_000 * TransactionBaseFee::get();
-	let staked_amount = balance_amount / 6;
-	ExtBuilder::default()
-		.initial_balance(balance_amount)
-		.stash(staked_amount)
-		.validator_count(validators.len())
-		.build()
-		.execute_with(|| {
-			for validator in validators {
-				let (stash, controller) = validator;
-				// Check validator is included in current elected accounts
-				assert!(Staking::current_elected().contains(&stash));
-				// Check that RewardDestination is Stash (default)
-				assert_eq!(Staking::payee(&stash), RewardDestination::Stash);
-				// Check validator free balance
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
-				// Check how much is at stake
-				assert_eq!(
-					Staking::ledger(controller),
-					Some(StakingLedger {
-						stash,
-						total: staked_amount,
-						active: staked_amount,
-						unlocking: vec![],
-					})
-				);
-			}
-		});
-}
-
-#[test]
-fn staking_inflation_and_reward_should_work() {
-	let balance_amount = 100_000_000 * DOLLARS;
-	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
-	let staked_amount = balance_amount / 6;
-	let validators = validators(6);
-
-	ExtBuilder::default()
-		.initial_balance(balance_amount)
-		.stash(staked_amount)
-		.validator_count(validators.len())
-		.build()
-		.execute_with(|| {
-			// Total issuance remains unchanged at era 0.
-			start_session(0);
-			assert_eq!(Staking::current_era(), 0);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
-			// Add points to each validator which use to allocate staking reward in the next new era
-			reward_validators(&validators);
-
-			// Total issuance for CPAY is inflated at the start of era 1, and that for CENNZ is unchanged.
-			start_session(1);
-			assert_eq!(Staking::current_era(), 1);
-			reward_validators(&validators);
-
-			// Compute total payout and inflation for new era
-			let (total_payout, inflation_era_1) = Staking::current_total_payout(total_issuance);
-			assert_eq!(total_payout, 27_900);
-			assert_eq!(inflation_era_1, 74_400);
-
-			// Compute staking reward for each validator
-			let validator_len = validators.len() as Balance;
-			let per_staking_reward = total_payout / validator_len;
-
-			// validators should receive staking reward after new era
-			for (stash, _) in &validators {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_staking_reward
-				);
-			}
-
-			let sessions_era_1 = vec![2, 3, 4, 5, 6];
-			for session in sessions_era_1 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 1);
-				// Total issuance for CENNZ is unchanged
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				// Total issuance for CPAY remain the same within the same era
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1
-				);
-
-				// The balance of stash accounts remain the same within the same era
-				for (stash, _) in &validators {
-					assert_eq!(
-						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-						balance_amount + per_staking_reward
-					);
-				}
-			}
-
-			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
-			start_session(7);
-			assert_eq!(Staking::current_era(), 2);
-
-			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
-			assert_eq!(total_payout, 71_100);
-			assert_eq!(inflation_era_2, 189_600);
-
-			// validators should receive staking reward after new era
-			let per_staking_reward = total_payout / validator_len + per_staking_reward;
-			for (stash, _) in &validators {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_staking_reward
-				);
-			}
-
-			let sessions_era_2 = vec![8, 9, 10, 11, 12];
-			for session in sessions_era_2 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 2);
-				// Total issuance for CENNZ is unchanged
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				// Total issuance for CPAY remain the same within the same era
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1 + inflation_era_2
-				);
-
-				// The balance of stash accounts remain the same within the same era
-				for (stash, _) in &validators {
-					assert_eq!(
-						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-						balance_amount + per_staking_reward
-					);
-				}
-			}
-		});
-}
-
-#[test]
-fn staking_validators_should_receive_equal_transaction_fee_reward() {
-	let validators = validators(6);
-	let balance_amount = 100_000_000 * DOLLARS;
-	let staked_amount = balance_amount / 6;
-	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
-		CENTRAPAY_ASSET_ID,
-		bob(),
-		transfer_amount,
-	));
-
-	ExtBuilder::default()
-		.initial_balance(balance_amount)
-		.validator_count(validators.len())
-		.stash(staked_amount)
-		.build()
-		.execute_with(|| {
-			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None, None))),
-				function: runtime_call.clone(),
-			});
-
-			let fee = transfer_fee(&xt, &runtime_call);
-			let per_fee_reward = fee / validators.len() as Balance;
-
-			start_era(1);
-			let validator_len = validators.len() as Balance;
-			reward_validators(&validators);
-
-			let r = Executive::apply_extrinsic(xt);
-			assert!(r.is_ok());
-
-			// Check if the transfer is successful
-			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - transfer_amount - fee
-			);
-			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount + transfer_amount
-			);
-
-			// Check if stash account balances are not yet changed
-			for (stash, _) in &validators {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
-			}
-
-			let total_issuance = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
-			start_era(2);
-			let issued_fee_reward = per_fee_reward * validator_len; // Don't use "fee" itself directly
-			let (staking_payout, max_payout) = Staking::current_total_payout(total_issuance + issued_fee_reward);
-			let per_staking_reward = staking_payout / validator_len;
-
-			// Check total issuance of Spending Asset updated after new era
-			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout + issued_fee_reward,
-			);
-
-			// Check if validator balance changed correctly
-			for validator in validators {
-				let (stash, _) = validator;
-				// Check tx fee reward went to the stash account of validator
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_fee_reward + per_staking_reward
-				);
-			}
-		});
-}
-
-#[test]
-/// This tests if authorship reward of the last block in an era is factored in.
-fn authorship_reward_of_last_block_in_an_era() {
-	let validator_count = 6;
-	let initial_balance = 1_000 * DOLLARS;
-
-	ExtBuilder::default()
-		.validator_count(validator_count)
-		.initial_balance(initial_balance)
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index);
-
-			// The final session falls in the era 0
-			assert_eq!(Staking::current_era(), 0);
-
-			// Make sure we have the correct number of validators elected
-			assert_eq!(Staking::current_elected().len(), validator_count);
-
-			// Make a block header whose author is specified as below
-			let author_index = 0; // index 0 of validators
-			let first_block_of_era_1 = System::block_number() + 1;
-			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
-
-			let author_stash_id = Session::validators()[(author_index as usize)].clone();
-
-			// The previous session should come to its end
-			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-
-			send_heartbeats();
-
-			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
-
-			// Let's go through the first stage of executing the block
-			Executive::initialize_block(&header);
-
-			// initializing the last block should have advanced the session and thus changed the era
-			assert_eq!(Staking::current_era(), 1);
-
-			// No offences should happened. Thus the number of validators shouldn't have changed
-			assert_eq!(Staking::current_elected().len(), validator_count);
-
-			// There should be a reward calculated for the author
-			assert!(
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
-					> author_stash_balance_before_adding_block
-			);
-		});
-}
-
-#[test]
-/// This tests if authorship reward of the last block in an era is factored in, even when the author
-/// is chilled and thus not going to be an authority in the next era.
-fn authorship_reward_of_a_chilled_validator() {
-	let validator_count = 6;
-	let initial_balance = 1_000 * DOLLARS;
-
-	ExtBuilder::default()
-		.validator_count(validator_count)
-		.initial_balance(initial_balance)
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index);
-
-			// The last session falls in the era 0
-			assert_eq!(Staking::current_era(), 0);
-
-			// make sure we have the correct number of validators elected
-			assert_eq!(Staking::current_elected().len(), validator_count);
-
-			// Make a block header whose author is specified as below
-			let author_index = 0; // index 0 of validators
-			let first_block_of_era_1 = System::block_number() + 1;
-			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
-
-			let author_stash_id = Session::validators()[(author_index as usize)].clone();
-
-			// Report an offence for the author of the block that is going to be initialised
-			<Runtime as pallet_offences::Trait>::OnOffenceHandler::on_offence(
-				&[sp_staking::offence::OffenceDetails {
-					offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
-					reporters: vec![],
-				}],
-				&[Perbill::from_percent(0)],
-				Session::current_index(),
-			);
-
-			// The previous session should come to its end
-			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-
-			send_heartbeats();
-
-			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
-
-			// Let's go through the first stage of executing the block
-			Executive::initialize_block(&header);
-
-			// initializing the last block should have advanced the session and thus changed the era
-			assert_eq!(Staking::current_era(), 1);
-
-			// If the offended validator is chilled, in the new era, there should be one less elected validators than before
-			assert_eq!(Staking::current_elected().len(), validator_count - 1);
-
-			// There should be a reward calculated for the author even though the author is chilled
-			assert!(
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
-					> author_stash_balance_before_adding_block
-			);
-		});
-}
-
-#[test]
-fn runtime_mock_setup_works() {
-	let amount = 100;
-	ExtBuilder::default().initial_balance(amount).build().execute_with(|| {
-		let tests = vec![
-			(alice(), amount),
-			(bob(), amount),
-			(charlie(), amount),
-			(dave(), amount),
-			(eve(), amount),
-			(ferdie(), amount),
-		];
-		let assets = vec![
-			CENNZ_ASSET_ID,
-			CENTRAPAY_ASSET_ID,
-			PLUG_ASSET_ID,
-			SYLO_ASSET_ID,
-			CERTI_ASSET_ID,
-			ARDA_ASSET_ID,
-		];
-		for asset in &assets {
-			for (account, balance) in &tests {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
-					*balance,
-				);
-				assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
-			}
-			// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
-			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
-		}
-	});
-}
-
-fn apply_extrinsic(origin: AccountId, call: Call) -> Balance {
-	let xt = sign(CheckedExtrinsic {
-		signed: Some((origin, signed_extra(0, 0, None, None))),
-		function: call.clone(),
-	});
-
-	let fee = transfer_fee(&xt, &call);
-
-	Executive::initialize_block(&header());
-	let r = Executive::apply_extrinsic(xt);
-	assert!(r.is_ok());
-
-	fee
-}
-
-#[test]
-fn non_sylo_call_is_not_paid_by_payment_account() {
-	let call = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, dave(), 100));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let _ = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance);
-		});
-}
-
-#[test]
-fn sylo_e2ee_call_is_paid_by_payment_account() {
-	let call = Call::SyloE2EE(sylo_e2ee::Call::register_device(1, vec![]));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let call_fee = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
-		});
-}
-
-#[test]
-fn sylo_inbox_call_is_paid_by_payment_account() {
-	let call = Call::SyloInbox(sylo_inbox::Call::add_value(dave(), b"dude!".to_vec()));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let call_fee = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
-		});
-}
-
-#[test]
-fn sylo_vault_call_is_paid_by_payment_account() {
-	let call = Call::SyloVault(sylo_vault::Call::upsert_value(b"key".to_vec(), b"value".to_vec()));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let call_fee = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
-		});
-}
-
-#[test]
-fn sylo_response_call_is_paid_by_payment_account() {
-	let call = Call::SyloResponse(sylo_response::Call::remove_response([0u8; 32].into()));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let call_fee = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
-		});
-}
-
-#[test]
-fn sylo_groups_call_is_paid_by_payment_account() {
-	let meta = vec![(b"key".to_vec(), b"value".to_vec())];
-	let call = Call::SyloGroups(sylo_groups::Call::create_group(
-		[1u8; 32].into(),
-		meta,
-		vec![],
-		(b"group".to_vec(), b"data".to_vec()),
-	));
-
-	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
-		.build()
-		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
-
-			let fee_asset_id = Some(GenericAsset::spending_asset_id());
-			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
-
-			let call_fee = apply_extrinsic(charlie(), call);
-
-			let bob_balance_after_calls = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id);
-			assert_eq!(bob_balance_after_calls, bob_balance - call_fee);
-		});
-}
-
 #[test]
 fn generic_asset_transfer_works_without_fee_exchange() {
 	let initial_balance = 5 * DOLLARS;
-	let transfer_amount = 7777 * MICROS;
+	let transfer_amount = 7_777 * MICROS;
 	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
 		bob(),
@@ -842,7 +115,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, None))),
-				function: runtime_call.clone(),
+				function: runtime_call,
 			});
 
 			Executive::initialize_block(&header());
@@ -851,7 +124,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				initial_balance - transfer_amount - get_extrinsic_fee(&xt)
+				initial_balance - transfer_amount - extrinsic_fee_for(&xt)
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
@@ -894,12 +167,12 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			// Create an extrinsic where the transaction fee is to be paid in CENNZ
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None, Some(fee_exchange)))),
-				function: runtime_call.clone(),
+				function: runtime_call,
 			});
 
 			// Calculate how much CENNZ should be sold to make the above extrinsic
 			let cennz_sold_amount =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, get_extrinsic_fee(&xt)).unwrap();
+				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 			assert_eq!(cennz_sold_amount, 11_807 * MICROS); // 1.1807 CPAY
 
 			// Initialise block and apply the extrinsic
@@ -930,7 +203,7 @@ fn contract_fails() {
 		.gas_price(1)
 		.build()
 		.execute_with(|| {
-			let (contract_address, _) = setup_contract(mock::contracts::CONTRACT_WITH_TRAP, dave());
+			let (contract_address, _) = setup_contract(CONTRACT_WITH_TRAP, dave());
 
 			// Call the newly instantiated contract. The contract is expected to dispatch a call
 			// and then trap.
@@ -989,7 +262,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				.encode(),
 				&encoded_ga_transfer
 			);
-			let (contract_address, code_hash) = setup_contract(mock::contracts::CONTRACT_WITH_GA_TRANSFER, alice());
+			let (contract_address, code_hash) = setup_contract(CONTRACT_WITH_GA_TRANSFER, alice());
 
 			// Call the newly instantiated contract. The contract is expected to dispatch a call
 			// and then trap.
@@ -1058,7 +331,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 						// CENNZ sold
 						1636,
 						// CPAY to buy
-						get_extrinsic_fee(&contract_call_extrinsic),
+						extrinsic_fee_for(&contract_call_extrinsic),
 					)),
 					topics: vec![],
 				},
@@ -1217,7 +490,7 @@ fn contract_call_works_without_fee_exchange() {
 				balance_amount
 					- transfer_amount
 					// transaction fees
-					- get_extrinsic_fee(&xt)
+					- extrinsic_fee_for(&xt)
 					// contract gas fees (contract base fee + transfer fee)
 					- (Schedule::default().call_base_cost + Schedule::default().transfer_cost) as u128,
 			);
@@ -1267,10 +540,10 @@ fn contract_call_works_with_fee_exchange() {
 			let cennz_for_gas_fees = CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, gas_cost).unwrap();
 			// Check CENNZ price to buy tx fees in CPAY
 			let cennz_for_tx_fees =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, get_extrinsic_fee(&xt)).unwrap();
+				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 
 			Executive::initialize_block(&header());
-			let r = Executive::apply_extrinsic(xt.clone());
+			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
 			assert_eq!(
@@ -1401,8 +674,8 @@ fn contract_call_fails_when_cpay_is_used_for_fee_exchange() {
 
 #[test]
 fn generic_asset_transfer_works_with_doughnut() {
-	let cennznut = doughnut::make_runtime_cennznut("generic-asset", "transfer");
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_runtime_cennznut("generic-asset", "transfer");
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	let balance_amount = 10 * DOLLARS;
 
@@ -1420,7 +693,7 @@ fn generic_asset_transfer_works_with_doughnut() {
 			// Create an extrinsic where the doughnut is passed
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), None))),
-				function: runtime_call.clone(),
+				function: runtime_call,
 			});
 
 			// Initialise block and apply the extrinsic
@@ -1444,7 +717,7 @@ fn generic_asset_transfer_works_with_doughnut() {
 			// Check CPAY balances
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - get_extrinsic_fee(&xt), // Bob pays transaction fees
+				balance_amount - extrinsic_fee_for(&xt), // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
@@ -1459,8 +732,8 @@ fn generic_asset_transfer_works_with_doughnut() {
 
 #[test]
 fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
-	let cennznut = doughnut::make_runtime_cennznut("attestation", "attest");
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_runtime_cennznut("attestation", "attest");
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	let initial_balance = 100 * DOLLARS;
 	let transfer_amount = 50 * MICROS;
@@ -1477,7 +750,7 @@ fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
 			// Create an extrinsic where the doughnut is passed
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), None))),
-				function: runtime_call.clone(),
+				function: runtime_call,
 			});
 
 			// Initialise block and apply the extrinsic
@@ -1505,7 +778,7 @@ fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
 			// Check CPAY balances (all same, except bob who pays tx fees)
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				initial_balance - get_extrinsic_fee(&xt), // Bob pays transaction fees
+				initial_balance - extrinsic_fee_for(&xt), // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
@@ -1520,8 +793,8 @@ fn generic_asset_transfer_fails_with_bad_doughnut_permissions() {
 
 #[test]
 fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
-	let cennznut = doughnut::make_runtime_cennznut("generic-asset", "transfer");
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_runtime_cennznut("generic-asset", "transfer");
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	let initial_balance = 100 * DOLLARS;
 	let initial_liquidity = 50 * DOLLARS;
@@ -1554,17 +827,17 @@ fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 			});
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((bob(), signed_extra(0, 0, Some(doughnut), Some(fee_exchange)))),
-				function: runtime_call.clone(),
+				function: runtime_call,
 			});
 
 			// Check CENNZ fee price
 			let cennz_sold_amount =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, get_extrinsic_fee(&xt)).unwrap();
+				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 			assert_eq!(cennz_sold_amount, 14_161 * MICROS); // 1.4161 CPAY
 
 			// Initialise block and apply the extrinsic
 			Executive::initialize_block(&header());
-			let r = Executive::apply_extrinsic(xt.clone());
+			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
 			// Check CPAY balances
@@ -1599,8 +872,8 @@ fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 
 #[test]
 fn contract_call_works_with_doughnut() {
-	let cennznut = doughnut::make_contract_cennznut(&charlie());
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_contract_cennznut(&charlie());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	let initial_balance = 100 * DOLLARS;
 	let transfer_amount = 50 * DOLLARS;
@@ -1628,7 +901,7 @@ fn contract_call_works_with_doughnut() {
 
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				initial_balance - get_extrinsic_fee(&xt), // Bob pays transaction fees
+				initial_balance - extrinsic_fee_for(&xt), // Bob pays transaction fees
 			);
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&charlie(), Some(CENTRAPAY_ASSET_ID)),
@@ -1646,8 +919,8 @@ fn contract_call_works_with_doughnut() {
 
 #[test]
 fn contract_call_fails_with_invalid_doughnut_holder() {
-	let cennznut = doughnut::make_contract_cennznut(&charlie());
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_contract_cennznut(&charlie());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	// defined in: prml_doughnut::constants::error_code::VALIDATION_HOLDER_SIGNER_IDENTITY_MISMATCH
 	let validation_holder_signer_identity_mismatch = 180;
@@ -1701,8 +974,8 @@ fn contract_call_fails_with_invalid_doughnut_holder() {
 
 #[test]
 fn contract_call_with_doughnut_fails_with_invalid_contract_address() {
-	let cennznut = doughnut::make_contract_cennznut(&charlie());
-	let doughnut = doughnut::make_doughnut("cennznet", cennznut.encode());
+	let cennznut = make_contract_cennznut(&charlie());
+	let doughnut = make_doughnut("cennznet", cennznut.encode());
 
 	let initial_balance = 5 * DOLLARS;
 	let transfer_amount = 1 * DOLLARS;
@@ -1734,7 +1007,7 @@ fn contract_call_with_doughnut_fails_with_invalid_contract_address() {
 			// Bob pays transaction fees
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				initial_balance - get_extrinsic_fee(&xt),
+				initial_balance - extrinsic_fee_for(&xt),
 			);
 			// All other accounts stay the same
 			assert_eq!(

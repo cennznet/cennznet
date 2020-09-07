@@ -13,37 +13,19 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-#![allow(dead_code)]
-use cennznet_cli::chain_spec::{get_authority_keys_from_seed, session_keys, AuthorityKeys};
-use cennznet_primitives::types::{AccountId, Balance};
-use cennznet_runtime::{constants::asset::*, Runtime, StakerStatus, VERSION};
+//! Mock runtime storage setup
+
+use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
+use cennznet_primitives::types::Balance;
+use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
+use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
 
-pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
-pub const SPEC_VERSION: u32 = VERSION.spec_version;
-
-fn generate_initial_authorities(n: usize) -> Vec<AuthorityKeys> {
-	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
-	let accounts = vec!["Alice", "Bob", "Charlie", "Dave", "Eve", "Ferdie"];
-	accounts
-		.iter()
-		.take(n)
-		.map(|s| get_authority_keys_from_seed(s))
-		.collect()
-}
-
-// get all validators (stash account , controller account)
-pub fn validators(n: usize) -> Vec<(AccountId, AccountId)> {
-	assert!(n > 0 && n < 7); // because there are 6 pre-defined accounts
-	generate_initial_authorities(n)
-		.iter()
-		.map(|x| (x.0.clone(), x.1.clone()))
-		.collect()
-}
+use crate::common::helpers::make_authority_keys;
 
 pub struct ExtBuilder {
 	initial_balance: Balance,
@@ -53,7 +35,8 @@ pub struct ExtBuilder {
 	gas_regular_op_cost: Gas,
 	// Configurable fields for staking module tests
 	stash: Balance,
-	validator_count: usize,
+	// The initial authority set
+	initial_authorities: Vec<AuthorityKeys>,
 }
 
 impl Default for ExtBuilder {
@@ -64,7 +47,7 @@ impl Default for ExtBuilder {
 			gas_sandbox_data_read_cost: 0_u64,
 			gas_regular_op_cost: 0_u64,
 			stash: 0,
-			validator_count: 3,
+			initial_authorities: Default::default(),
 		}
 	}
 }
@@ -72,6 +55,10 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
+		self
+	}
+	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
+		self.initial_authorities = initial_authorities.to_vec();
 		self
 	}
 	pub fn gas_price(mut self, gas_price: Balance) -> Self {
@@ -90,13 +77,13 @@ impl ExtBuilder {
 		self.stash = stash;
 		self
 	}
-	pub fn validator_count(mut self, count: usize) -> Self {
-		self.validator_count = count;
-		self
-	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
-		let initial_authorities = generate_initial_authorities(self.validator_count);
+		let initial_authorities = if self.initial_authorities.is_empty() {
+			make_authority_keys(3)
+		} else {
+			self.initial_authorities.clone()
+		};
 		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
 		endowed_accounts.extend(stash_accounts);
 
@@ -150,6 +137,7 @@ impl ExtBuilder {
 			validator_count: initial_authorities.len() as u32,
 			minimum_validator_count: min_validator_count,
 			stakers: initial_authorities
+				.clone()
 				.iter()
 				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
 				.collect(),
@@ -178,8 +166,42 @@ impl ExtBuilder {
 	}
 }
 
-/// Test contracts
+#[test]
+fn runtime_mock_setup_works() {
+	let amount = 100;
+	ExtBuilder::default().initial_balance(amount).build().execute_with(|| {
+		let tests = vec![
+			(alice(), amount),
+			(bob(), amount),
+			(charlie(), amount),
+			(dave(), amount),
+			(eve(), amount),
+			(ferdie(), amount),
+		];
+		let assets = vec![
+			CENNZ_ASSET_ID,
+			CENTRAPAY_ASSET_ID,
+			PLUG_ASSET_ID,
+			SYLO_ASSET_ID,
+			CERTI_ASSET_ID,
+			ARDA_ASSET_ID,
+		];
+		for asset in &assets {
+			for (account, balance) in &tests {
+				assert_eq!(
+					<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
+					*balance,
+				);
+				assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
+			}
+			// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
+		}
+	});
+}
+
 pub mod contracts {
+	//! Test contracts
 
 	/// Contract WABT for reading 32 bytes from memory
 	pub const CONTRACT_READ_32_BYTES: &str = r#"
