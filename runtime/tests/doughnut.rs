@@ -23,11 +23,11 @@ use frame_support::{additional_traits::DelegatedDispatchVerifier, assert_err, as
 use sp_keyring::AccountKeyring;
 use sp_runtime::{traits::DoughnutSigning, Doughnut, DoughnutV0};
 
-pub fn test_issuer() -> [u8; 32] {
+fn test_issuer() -> [u8; 32] {
 	AccountKeyring::Alice.to_raw_public()
 }
 
-pub fn test_holder() -> [u8; 32] {
+fn test_holder() -> [u8; 32] {
 	AccountKeyring::Bob.to_raw_public()
 }
 

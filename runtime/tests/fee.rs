@@ -13,6 +13,8 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+//! Fee integration tests
+
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, fee::MAX_WEIGHT},
 	Call, CheckedExtrinsic, Runtime, TransactionBaseFee, TransactionMaxWeightFee, TransactionMinWeightFee,
@@ -22,8 +24,9 @@ use cennznet_testing::keyring::{alice, bob, sign, signed_extra};
 use codec::Encode;
 use crml_transaction_payment::ChargeTransactionPayment;
 use frame_support::weights::{DispatchClass, DispatchInfo, GetDispatchInfo};
-mod mock;
-use mock::ExtBuilder;
+
+mod common;
+use common::mock::ExtBuilder;
 
 // Make signed transaction given a `Call`
 fn signed_tx(call: Call) -> UncheckedExtrinsic {

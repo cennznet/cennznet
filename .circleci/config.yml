@@ -83,6 +83,7 @@ commands:
           name: Build tests
           command: |
             cargo test --no-run --workspace --exclude crml-cennzx-spot --exclude crml-sylo
+          no_output_timeout: 30m
   cargo-run-test:
     steps:
       - run:
