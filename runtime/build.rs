@@ -20,7 +20,10 @@ fn main() {
 	WasmBuilder::new()
 		.with_current_project()
 		// commit hash for: `1.0.0-rc4.1`
-		.with_wasm_builder_from_git("https://github.com/plugblockchain/plug-blockchain", "316757e3f29c6aa1629fc1955fc18078fcb32126")
+		.with_wasm_builder_from_git(
+			"https://github.com/plugblockchain/plug-blockchain",
+			"316757e3f29c6aa1629fc1955fc18078fcb32126",
+		)
 		.export_heap_base()
 		.import_memory()
 		.build()
