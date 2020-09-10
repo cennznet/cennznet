@@ -119,7 +119,6 @@ jobs:
       image: ubuntu-1604:201903-01
     environment:
       BASH_ENV: ~/.cargo/env
-      RUST_VERSION: 1.46.0
     steps:
       - checkout
       - install-rust
@@ -136,7 +135,6 @@ jobs:
       BASH_ENV: ~/.cargo/env
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
-      RUST_VERSION: 1.46.0
     steps:
       - checkout
       - install-rust
@@ -153,7 +151,6 @@ jobs:
       BASH_ENV: ~/.cargo/env
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
-      RUST_VERSION: 1.46.0
     steps:
       - checkout
       - install-rust
