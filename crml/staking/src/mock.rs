@@ -320,7 +320,7 @@ impl ExtBuilder {
 		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = self.slash_defer_duration);
 	}
 	// Simplified version of `build` taking constant parameters only
-	// no acccount, balance, or staking setup is performed.
+	// no account, balance, or staking setup is performed.
 	pub fn simple(self) -> sp_io::TestExternalities {
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let _ = GenesisConfig::<Test> {
