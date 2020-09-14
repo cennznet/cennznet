@@ -32,7 +32,6 @@
 use std::{fmt, sync::Arc};
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Index};
-use cennznet_runtime::UncheckedExtrinsic;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRPCHandler;
 use sc_consensus_epochs::SharedEpochChanges;
@@ -85,7 +84,7 @@ where
 	C: Send + Sync + 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UncheckedExtrinsic>,
+	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: crml_cennzx_spot_rpc::CennzxSpotRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: pallet_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
 	C::Api: BabeApi<Block>,
