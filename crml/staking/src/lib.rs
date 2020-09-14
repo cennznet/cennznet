@@ -269,6 +269,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
+use sp_phragmen::ExtendedBalance;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
@@ -280,9 +281,11 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
-use sp_phragmen::ExtendedBalance;
+use sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	iter::FromIterator,
+	prelude::*,
+};
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
@@ -874,6 +877,8 @@ decl_error! {
 		NoUnlockChunk,
 		/// Items are not sorted and unique.
 		NotSortedAndUnique,
+		/// Cannot nominate the same account multiple times
+		DuplicateNominee,
 	}
 }
 
@@ -1127,12 +1132,16 @@ decl_module! {
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
 		fn nominate(origin, targets: Vec<T::AccountId>) {
-
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
 			ensure!(ledger.active >= Self::minimum_bond(), Error::<T>::InsufficientBond);
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+
+			// nominating the same account multiple times is not allowed
+			let deduped = BTreeSet::from_iter(targets.iter());
+			ensure!(deduped.len() == targets.len(), Error::<T>::DuplicateNominee);
+
 			let targets = targets.into_iter()
 				.take(MAX_NOMINATIONS)
 				.collect::<Vec<T::AccountId>>();

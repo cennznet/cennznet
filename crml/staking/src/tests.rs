@@ -3118,10 +3118,10 @@ fn unbond_should_remove_validator_from_future_era_when_remaining_bond_is_less_th
 		// Unbond just enough to put the active stash below the minimum bond amount
 		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
 
-		// Stash will not be onsidered as a validator next era
+		// Stash will not be considered as a validator next era
 		assert!(!<Staking as crate::Store>::Validators::contains_key(stash));
 
-		// Stash cannnot validate again with inactive bond
+		// Stash cannot validate again with inactive bond
 		assert_noop!(
 			Staking::validate(Origin::signed(controller), ValidatorPrefs::default()),
 			Error::<Test>::InsufficientBond,
@@ -3151,10 +3151,10 @@ fn unbond_should_remove_nominator_from_future_era_when_remaining_bond_is_less_th
 		// Unbond just enough to put the active stash below the minimum bond amount
 		assert_ok!(Staking::unbond(Origin::signed(controller), 51));
 
-		// Stash will not be onsidered as a nominator next era
+		// Stash will not be considered as a nominator next era
 		assert!(!<Staking as crate::Store>::Nominators::contains_key(stash));
 
-		// Stash cannnot nominate again with inactive bond
+		// Stash cannot nominate again with inactive bond
 		assert_noop!(
 			Staking::nominate(Origin::signed(controller), vec![1, 2, 3, 4, 5]),
 			Error::<Test>::InsufficientBond,
@@ -3163,7 +3163,7 @@ fn unbond_should_remove_nominator_from_future_era_when_remaining_bond_is_less_th
 }
 
 #[test]
-fn validators_with_insufficent_active_bond_are_not_elected() {
+fn validators_with_insufficient_active_bond_are_not_elected() {
 	ExtBuilder::default()
 		.minimum_bond(1_000)
 		.validator_count(5)
@@ -3203,7 +3203,7 @@ fn validators_with_insufficent_active_bond_are_not_elected() {
 			assert_eq!(initial_elected, stashes);
 
 			// Unbond 2 validators and run another election, they should not be elected as their active stash
-			// is now `0` and additionaly should have been removed from the validator candidacy storage.
+			// is now `0` and additionally should have been removed from the validator candidacy storage.
 			assert_ok!(Staking::unbond(Origin::signed(controllers[0]), 51));
 			assert_ok!(Staking::unbond(Origin::signed(controllers[1]), 51));
 
@@ -3215,7 +3215,7 @@ fn validators_with_insufficent_active_bond_are_not_elected() {
 }
 
 #[test]
-fn nominations_with_insufficent_active_bond_are_ignored_during_election() {
+fn nominations_with_insufficient_active_bond_are_ignored_during_election() {
 	ExtBuilder::default()
 		.minimum_bond(1_000)
 		.validator_count(3)
@@ -3249,7 +3249,7 @@ fn nominations_with_insufficent_active_bond_are_ignored_during_election() {
 					controller.clone(),
 					// bond less as stash ID increases
 					// This ensures a deterministic candidate order at election time
-					// i.e at election time prefernce is: 1 > 2 > 3 > 4 > 5
+					// i.e at election time preference is: 1 > 2 > 3 > 4 > 5
 					initial_bond - stash,
 					RewardDestination::Controller
 				));
@@ -3301,5 +3301,38 @@ fn nominations_with_insufficent_active_bond_are_ignored_during_election() {
 			let mut next_elected = Staking::select_validators().1.expect("some were elected");
 			next_elected.sort();
 			assert_eq!(next_elected[..], stashes[..3]);
+		});
+}
+
+#[test]
+fn nominate_with_empty_or_duplicate_candidates_fails() {
+	ExtBuilder::default()
+		.minimum_bond(1_000)
+		.validator_count(3)
+		.minimum_validator_count(3)
+		.simple()
+		.execute_with(|| {
+			let (nominator_stash, nominator_controller) = (100_u64, 101);
+
+			// Setup: fund and bond nominator
+			let _ = Balances::deposit_creating(&nominator_stash, Staking::minimum_bond());
+			assert_ok!(Staking::bond(
+				Origin::signed(nominator_stash),
+				nominator_controller,
+				Staking::minimum_bond(),
+				RewardDestination::Controller,
+			));
+
+			// Nominate no candidates
+			assert_noop!(
+				Staking::nominate(Origin::signed(nominator_controller), vec![]),
+				Error::<Test>::EmptyTargets
+			);
+
+			// Nominate selecting candidate `1` multiple times
+			assert_noop!(
+				Staking::nominate(Origin::signed(nominator_controller), vec![1, 1, 1, 2, 3]),
+				Error::<Test>::DuplicateNominee
+			);
 		});
 }
