@@ -252,7 +252,7 @@ pub struct ExtBuilder {
 	fair: bool,
 	num_validators: Option<u32>,
 	invulnerables: Vec<u64>,
-	stakers: bool,
+	has_stakers: bool,
 	minimum_bond: u64,
 }
 
@@ -268,7 +268,7 @@ impl Default for ExtBuilder {
 			fair: true,
 			num_validators: None,
 			invulnerables: vec![],
-			stakers: true,
+			has_stakers: true,
 			minimum_bond: 1,
 		}
 	}
@@ -313,6 +313,10 @@ impl ExtBuilder {
 	}
 	pub fn minimum_bond(mut self, minimum_bond: u64) -> Self {
 		self.minimum_bond = minimum_bond;
+		self
+	}
+	pub fn has_stakers(mut self, has: bool) -> Self {
+		self.has_stakers = has;
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -370,7 +374,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut stakers = vec![];
-		if self.stakers {
+		if self.has_stakers {
 			let stake_21 = if self.fair { 1000 } else { 2000 };
 			let stake_31 = if self.validator_pool { balance_factor * 1000 } else { 1 };
 			let status_41 = if self.validator_pool {
@@ -488,30 +492,28 @@ pub fn assert_ledger_consistent(stash: u64) {
 	assert_eq!(real_total, ledger.total);
 }
 
-pub fn bond_validator(acc: u64, val: u64) {
-	// a = controller
-	// a + 1 = stash
-	let _ = Balances::make_free_balance_be(&(acc + 1), val);
+pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
+	let _ = Balances::make_free_balance_be(&stash, val);
+	let _ = Balances::make_free_balance_be(&ctrl, val);
 	assert_ok!(Staking::bond(
-		Origin::signed(acc + 1),
-		acc,
+		Origin::signed(stash),
+		ctrl,
 		val,
-		RewardDestination::Controller
+		RewardDestination::Controller,
 	));
-	assert_ok!(Staking::validate(Origin::signed(acc), ValidatorPrefs::default()));
+	assert_ok!(Staking::validate(Origin::signed(ctrl), ValidatorPrefs::default()));
 }
 
-pub fn bond_nominator(acc: u64, val: u64, target: Vec<u64>) {
-	// a = controller
-	// a + 1 = stash
-	let _ = Balances::make_free_balance_be(&(acc + 1), val);
+pub(crate) fn bond_nominator(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
+	let _ = Balances::make_free_balance_be(&stash, val);
+	let _ = Balances::make_free_balance_be(&ctrl, val);
 	assert_ok!(Staking::bond(
-		Origin::signed(acc + 1),
-		acc,
+		Origin::signed(stash),
+		ctrl,
 		val,
-		RewardDestination::Controller
+		RewardDestination::Controller,
 	));
-	assert_ok!(Staking::nominate(Origin::signed(acc), target));
+	assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
 }
 
 pub fn advance_session() {
