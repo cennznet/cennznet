@@ -165,11 +165,11 @@ workflows:
   build-test-publish:
     jobs:
       - format:
-          context: Rust
+          context: Rust_Used_For_1.1.0
       - build-bin:
-          context: Rust    
+          context: Rust_Used_For_1.1.0
       - build-test-and-run:
-          context: Rust     
+          context: Rust_Used_For_1.1.0
       - build-docker-and-publish:
           filters:
             branches:
