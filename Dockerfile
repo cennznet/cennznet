@@ -2,12 +2,14 @@ FROM  rustlang/rust:nightly AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 
-ENV RUST_VERSION 1.44.1
+ARG RUST_VERSION=1.44.1
+ARG RUST_NIGHTLY=nightly-2020-06-20
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
     rustup install $RUST_VERSION && \
+    rustup install $RUST_NIGHTLY && \
     rustup default $RUST_VERSION && \
-    rustup target add --toolchain nightly wasm32-unknown-unknown && \
+    rustup target add --toolchain $RUST_NIGHTLY wasm32-unknown-unknown && \
     rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
     mkdir -p /cennznet/.cargo
 ENV CARGO_HOME=/cennznet/.cargo
