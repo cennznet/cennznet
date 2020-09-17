@@ -171,6 +171,7 @@ workflows:
       - build-test-and-run:
           context: Rust_Used_For_1.1.0
       - build-docker-and-publish:
+          context: Rust_Used_For_1.1.0
           filters:
             branches:
               only:
