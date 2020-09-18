@@ -3,14 +3,16 @@ WORKDIR /cennznet
 COPY . /cennznet
 
 ARG RUST_VERSION=1.44.1
-ARG RUST_NIGHTLY=nightly-2020-06-20
+ARG RUST_NIGHTLY=nightly-2020-06-24
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
+    rustup uninstall nightly && \
     rustup install $RUST_VERSION && \
     rustup install $RUST_NIGHTLY && \
     rustup default $RUST_VERSION && \
     rustup target add --toolchain $RUST_NIGHTLY wasm32-unknown-unknown && \
     rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
+    mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
     mkdir -p /cennznet/.cargo
 ENV CARGO_HOME=/cennznet/.cargo
 RUN cargo build --release
