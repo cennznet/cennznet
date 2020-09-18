@@ -12,7 +12,7 @@ RUN apt-get update && \
     rustup default $RUST_VERSION && \
     rustup target add --toolchain $RUST_NIGHTLY wasm32-unknown-unknown && \
     rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
-    mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
+    mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu && \
     mkdir -p /cennznet/.cargo
 ENV CARGO_HOME=/cennznet/.cargo
 RUN cargo build --release
