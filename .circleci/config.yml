@@ -191,6 +191,7 @@ workflows:
       - report-test-coverage:
           context: Rust
       - build-docker-and-publish:
+          context: Rust
           filters:
             branches:
               only:
