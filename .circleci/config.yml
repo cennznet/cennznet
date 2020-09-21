@@ -110,7 +110,7 @@ commands:
               IMAGE_TAG="${CIRCLE_BRANCH////-}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-            docker build --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
+            docker build --build-arg RUST_VERSION=$RUST_VERSION --build-arg RUST_NIGHTLY=$RUST_NIGHTLY --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
             docker push $IMAGE_NAME:$IMAGE_TAG
           no_output_timeout: 60m
 
@@ -191,6 +191,7 @@ workflows:
       - report-test-coverage:
           context: Rust
       - build-docker-and-publish:
+          context: Rust
           filters:
             branches:
               only:
