@@ -18,7 +18,7 @@
 use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, CennzxSpot, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
+	Call, Cennzx, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
 };
 use cennznet_testing::keyring::{alice, bob, charlie, dave, ferdie, signed_extra};
 use codec::Encode;
@@ -150,7 +150,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			// Alice sets up CENNZ <> CPAY liquidity
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(alice()),
 				CENNZ_ASSET_ID,
 				0,                 // min liquidity
@@ -172,7 +172,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 			// Calculate how much CENNZ should be sold to make the above extrinsic
 			let cennz_sold_amount =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
+				Cennzx::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 			assert_eq!(cennz_sold_amount, 11_807 * MICROS); // 1.1807 CPAY
 
 			// Initialise block and apply the extrinsic
@@ -234,7 +234,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 		.build()
 		.execute_with(|| {
 			// Setup CENNZ <> CPAY liquidity
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(dave()),
 				CENNZ_ASSET_ID,
 				0,
@@ -413,7 +413,7 @@ fn contract_call_fails_with_insufficient_gas_with_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			// Setup CENNZ <> CPAY liquidity
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(charlie()),
 				CENNZ_ASSET_ID,
 				0,               // min. liquidity
@@ -515,7 +515,7 @@ fn contract_call_works_with_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			let initial_liquidity = 1_000 * DOLLARS;
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(charlie()),
 				CENNZ_ASSET_ID,
 				0,
@@ -537,10 +537,10 @@ fn contract_call_works_with_fee_exchange() {
 			// Calculate the expected gas cost of contract execution at the current CENNZ-X spot rate.
 			let gas_cost = (Schedule::default().call_base_cost + Schedule::default().transfer_cost) as u128;
 			// Check CENNZ price to buy gas (gas is 1:1 with CPAY)
-			let cennz_for_gas_fees = CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, gas_cost).unwrap();
+			let cennz_for_gas_fees = Cennzx::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, gas_cost).unwrap();
 			// Check CENNZ price to buy tx fees in CPAY
 			let cennz_for_tx_fees =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
+				Cennzx::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 
 			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt);
@@ -575,7 +575,7 @@ fn contract_call_fails_when_fee_exchange_is_not_enough_for_gas() {
 		.gas_price(1)
 		.build()
 		.execute_with(|| {
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(charlie()),
 				CENNZ_ASSET_ID,
 				0,           // min. liquidity
@@ -615,7 +615,7 @@ fn contract_call_fails_when_exchange_liquidity_is_low() {
 		.gas_price(1)
 		.build()
 		.execute_with(|| {
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(charlie()),
 				CENNZ_ASSET_ID,
 				0,            // min. liquidity
@@ -811,7 +811,7 @@ fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 		.build()
 		.execute_with(|| {
 			// setup CENNZ <> CPAY liquidity
-			assert!(CennzxSpot::add_liquidity(
+			assert!(Cennzx::add_liquidity(
 				Origin::signed(ferdie()),
 				CENNZ_ASSET_ID,
 				0,                 // min. liquidity
@@ -832,7 +832,7 @@ fn generic_asset_transfer_works_with_doughnut_and_fee_exchange_combo() {
 
 			// Check CENNZ fee price
 			let cennz_sold_amount =
-				CennzxSpot::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
+				Cennzx::get_asset_to_core_buy_price(&CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
 			assert_eq!(cennz_sold_amount, 14_161 * MICROS); // 1.4161 CPAY
 
 			// Initialise block and apply the extrinsic
