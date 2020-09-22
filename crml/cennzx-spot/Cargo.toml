@@ -1,5 +1,5 @@
 [package]
-name = "crml-cennzx-spot"
+name = "crml-cennzx"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"

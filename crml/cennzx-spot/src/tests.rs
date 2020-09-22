@@ -24,7 +24,7 @@ use crate::{
 };
 use core::convert::TryFrom;
 use frame_support::{traits::Currency, StorageValue};
-use mock::{AccountId, CennzXSpot, ExtBuilder, Origin, Test};
+use mock::{AccountId, Cennzx, ExtBuilder, Origin, Test};
 use sp_core::{crypto::UncheckedInto, H256};
 
 // Default exchange asset IDs
@@ -44,7 +44,7 @@ fn investor_can_add_liquidity() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// First investment
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -54,7 +54,7 @@ fn investor_can_add_liquidity() {
 
 		// Second investment
 		// because a round up, second time asset amount become 15 + 1
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(H256::from_low_u64_be(1).unchecked_into()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -63,7 +63,7 @@ fn investor_can_add_liquidity() {
 		));
 
 		assert_exchange_balance_eq!(CoreAssetCurrency => 20, TradeAssetCurrencyA => 31);
-		assert_eq!(CennzXSpot::liquidity_balance(&DEFAULT_EXCHANGE_KEY, &investor), 20);
+		assert_eq!(Cennzx::liquidity_balance(&DEFAULT_EXCHANGE_KEY, &investor), 20);
 	});
 }
 
@@ -83,7 +83,7 @@ fn add_liquidity_fails_with_insufficient_trade_balance() {
 		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
 
 		assert_err!(
-			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
+			Cennzx::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
 			Error::<Test>::InsufficientTradeAssetBalance
 		);
 	});
@@ -105,7 +105,7 @@ fn add_liquidity_fails_with_insufficient_core_balance() {
 		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
 
 		assert_err!(
-			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
+			Cennzx::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
 			Error::<Test>::InsufficientCoreAssetBalance
 		);
 	});
@@ -127,11 +127,11 @@ fn add_liquidity_fails_with_zero_add() {
 		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
 
 		assert_err!(
-			CennzXSpot::add_liquidity(origin.clone(), asset_id.clone(), min_liquidity, 0, core_amount),
+			Cennzx::add_liquidity(origin.clone(), asset_id.clone(), min_liquidity, 0, core_amount),
 			Error::<Test>::CannotAddLiquidityWithZero
 		);
 		assert_err!(
-			CennzXSpot::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, 0),
+			Cennzx::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, 0),
 			Error::<Test>::CannotAddLiquidityWithZero
 		);
 	});
@@ -153,7 +153,7 @@ fn remove_liquidity_fails_with_empty_pool() {
 		let asset_id = resolve_asset_id!(TradeAssetCurrencyA);
 
 		assert_err!(
-			CennzXSpot::remove_liquidity(origin, asset_id, liquidity, min_asset, min_core),
+			Cennzx::remove_liquidity(origin, asset_id, liquidity, min_asset, min_core),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
@@ -163,12 +163,12 @@ fn remove_liquidity_fails_with_empty_pool() {
 fn calculate_buy_price_zero_cases() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::calculate_buy_price(100, 0, 10),
+			Cennzx::calculate_buy_price(100, 0, 10),
 			Error::<Test>::EmptyExchangePool
 		);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(100, 10, 0),
+			Cennzx::calculate_buy_price(100, 10, 0),
 			Error::<Test>::EmptyExchangePool
 		);
 	});
@@ -179,10 +179,10 @@ fn calculate_buy_price_zero_cases() {
 #[test]
 fn calculate_buy_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::calculate_buy_price(123, 1000, 1000), 141);
+		assert_ok!(Cennzx::calculate_buy_price(123, 1000, 1000), 141);
 
 		assert_ok!(
-			CennzXSpot::calculate_buy_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
+			Cennzx::calculate_buy_price(100_000_000_000_000, 120_627_710_511_649_660, 20_627_710_511_649_660,),
 			589396433540516
 		);
 	});
@@ -194,7 +194,7 @@ fn calculate_buy_price_for_valid_data() {
 fn calculate_buy_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::calculate_buy_price(
+			Cennzx::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value(),
@@ -211,7 +211,7 @@ fn calculate_buy_price_for_max_reserve_balance() {
 fn calculate_buy_price_should_fail_with_max_reserve_and_max_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::calculate_buy_price(
+			Cennzx::calculate_buy_price(
 				LowPrecisionUnsigned::max_value() - 100,
 				LowPrecisionUnsigned::max_value(),
 				LowPrecisionUnsigned::max_value(),
@@ -229,12 +229,12 @@ fn calculate_buy_price_max_withdrawal() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(1000, 1000, 1000),
+			Cennzx::calculate_buy_price(1000, 1000, 1000),
 			Error::<Test>::InsufficientExchangePoolReserve
 		);
 
 		assert_err!(
-			CennzXSpot::calculate_buy_price(1_000_000, 1000, 1000),
+			Cennzx::calculate_buy_price(1_000_000, 1000, 1000),
 			Error::<Test>::InsufficientExchangePoolReserve
 		);
 	});
@@ -246,12 +246,12 @@ fn asset_buy_price() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_ok!(
-			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			Cennzx::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			141
 		);
 
 		assert_ok!(
-			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			Cennzx::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			141
 		);
 	});
@@ -261,11 +261,11 @@ fn asset_buy_price() {
 fn asset_buy_zero_error() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			Cennzx::get_core_to_asset_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
-			CennzXSpot::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			Cennzx::get_asset_to_core_buy_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::CannotTradeZero
 		);
 	});
@@ -277,7 +277,7 @@ fn asset_buy_insufficient_reserve_error() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_asset_to_core_buy_price(
+			Cennzx::get_asset_to_core_buy_price(
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
@@ -285,7 +285,7 @@ fn asset_buy_insufficient_reserve_error() {
 		);
 
 		assert_err!(
-			CennzXSpot::get_core_to_asset_buy_price(
+			Cennzx::get_core_to_asset_buy_price(
 				&resolve_asset_id!(TradeAssetCurrencyA),
 				1001, // amount_bought
 			),
@@ -301,7 +301,7 @@ fn asset_to_core_buy_with_none_for_recipient() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		// asset to core swap output
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(trader.clone()),
 			None,
 			resolve_asset_id!(TradeAssetCurrencyA),
@@ -322,7 +322,7 @@ fn asset_to_core_execute_buy() {
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		assert_ok!(
-			CennzXSpot::execute_buy(
+			Cennzx::execute_buy(
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
@@ -346,7 +346,7 @@ fn asset_buy_error_zero_asset_sold() {
 
 		// asset to core swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader.clone()),
 				None,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -358,7 +358,7 @@ fn asset_buy_error_zero_asset_sold() {
 		);
 		// core to asset swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,
 				<CoreAssetId<Test>>::get(),
@@ -379,7 +379,7 @@ fn asset_buy_error_insufficient_balance() {
 
 		// asset to core swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader.clone()),
 				None,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -391,7 +391,7 @@ fn asset_buy_error_insufficient_balance() {
 		);
 		// core to asset swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,
 				<CoreAssetId<Test>>::get(),
@@ -412,7 +412,7 @@ fn asset_buy_error_exceed_max_sale() {
 
 		// asset to core swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader.clone()),
 				None,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -425,7 +425,7 @@ fn asset_buy_error_exceed_max_sale() {
 
 		// core to asset swap output
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,
 				<CoreAssetId<Test>>::get(),
@@ -445,7 +445,7 @@ fn core_to_asset_buy() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		// core to asset swap output
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(trader.clone()),
 			None,
 			<CoreAssetId<Test>>::get(),
@@ -468,7 +468,7 @@ fn core_to_asset_transfer_buy() {
 		let recipient = with_account!("bob", CoreAssetCurrency => 0, TradeAssetCurrencyA => 0);
 
 		assert_ok!(
-			CennzXSpot::execute_buy(
+			Cennzx::execute_buy(
 				&buyer,
 				&recipient,
 				&resolve_asset_id!(CoreAssetCurrency),
@@ -490,7 +490,7 @@ fn add_liquidity_exact_min_liquidity() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			500, // min_liquidity: T::Balance,
@@ -510,7 +510,7 @@ fn add_liquidity_fails_with_too_high_min_liquidity_on_first_add() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::add_liquidity(
+			Cennzx::add_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				501, // min_liquidity: T::Balance,
@@ -531,7 +531,7 @@ fn add_liquidity_fails_with_too_high_min_liquidity_on_consecutive_add() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			100, // min_liquidity: T::Balance,
@@ -540,7 +540,7 @@ fn add_liquidity_fails_with_too_high_min_liquidity_on_consecutive_add() {
 		));
 
 		assert_err!(
-			CennzXSpot::add_liquidity(
+			Cennzx::add_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				501, // min_liquidity: T::Balance,
@@ -561,7 +561,7 @@ fn add_liquidity_fails_with_too_low_trade_asset() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			500, // min_liquidity: T::Balance,
@@ -570,7 +570,7 @@ fn add_liquidity_fails_with_too_low_trade_asset() {
 		));
 
 		assert_err!(
-			CennzXSpot::add_liquidity(
+			Cennzx::add_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100, // min_liquidity: T::Balance,
@@ -589,7 +589,7 @@ fn add_liquidity_fails_with_too_low_trade_asset() {
 #[test]
 fn liquidity_price_new_exchange() {
 	ExtBuilder::default().build().execute_with(|| {
-		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
+		let price = Cennzx::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.core, 1_000_000);
 		assert_eq!(price.asset, 1);
@@ -601,7 +601,7 @@ fn liquidity_price_exisiting_exchange_one_to_one() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 10_000, TradeAssetCurrencyA => 10_000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,     // min_liquidity: T::Balance,
@@ -609,7 +609,7 @@ fn liquidity_price_exisiting_exchange_one_to_one() {
 			1_000, // core_amount: T::Balance,
 		));
 
-		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
+		let price = Cennzx::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.asset, 1_000_000 + 1);
 		assert_eq!(price.core, 1_000_000);
@@ -621,7 +621,7 @@ fn liquidity_price_exisiting_exchange_one_to_three() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 10_000, TradeAssetCurrencyA => 10_000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,     // min_liquidity: T::Balance,
@@ -629,7 +629,7 @@ fn liquidity_price_exisiting_exchange_one_to_three() {
 			1_000, // core_amount: T::Balance,
 		));
 
-		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
+		let price = Cennzx::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000_000);
 
 		assert_eq!(price.asset, 3_000_000 + 1);
 		assert_eq!(price.core, 1_000_000);
@@ -641,7 +641,7 @@ fn liquidity_price_exisiting_exchange_accrued() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 10_000, TradeAssetCurrencyA => 10_000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,     // min_liquidity: T::Balance,
@@ -653,7 +653,7 @@ fn liquidity_price_exisiting_exchange_accrued() {
 		with_exchange!(CoreAssetCurrency => 999_000, TradeAssetCurrencyA => 499_000);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 1_000_000, TradeAssetCurrencyA => 500_000);
 
-		let price = CennzXSpot::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000);
+		let price = Cennzx::liquidity_price(resolve_asset_id!(TradeAssetCurrencyA), 1_000);
 
 		assert_eq!(price.asset, 500_000 + 1);
 		assert_eq!(price.core, 1_000_000);
@@ -663,7 +663,7 @@ fn liquidity_price_exisiting_exchange_accrued() {
 #[test]
 fn calculate_liquidity_value_simple() {
 	ExtBuilder::default().build().execute_with(|| {
-		let value = CennzXSpot::calculate_liquidity_value(
+		let value = Cennzx::calculate_liquidity_value(
 			1000, // asset_reserve
 			1000, // core_reserve
 			100,  // liquidity_to_withdraw
@@ -679,7 +679,7 @@ fn calculate_liquidity_value_simple() {
 #[test]
 fn calculate_liquidity_value_zero_total() {
 	ExtBuilder::default().build().execute_with(|| {
-		let value = CennzXSpot::calculate_liquidity_value(
+		let value = Cennzx::calculate_liquidity_value(
 			1000, // asset_reserve
 			1000, // core_reserve
 			100,  // liquidity_to_withdraw
@@ -695,7 +695,7 @@ fn calculate_liquidity_value_zero_total() {
 #[test]
 fn calculate_liquidity_value_zero_withdraw() {
 	ExtBuilder::default().build().execute_with(|| {
-		let value = CennzXSpot::calculate_liquidity_value(
+		let value = Cennzx::calculate_liquidity_value(
 			1000, // asset_reserve
 			1000, // core_reserve
 			0,    // liquidity_to_withdraw
@@ -711,7 +711,7 @@ fn calculate_liquidity_value_zero_withdraw() {
 #[test]
 fn calculate_liquidity_value_withdraw_greater_than_total() {
 	ExtBuilder::default().build().execute_with(|| {
-		let value = CennzXSpot::calculate_liquidity_value(
+		let value = Cennzx::calculate_liquidity_value(
 			1000, // asset_reserve
 			1000, // core_reserve
 			2000, // liquidity_to_withdraw
@@ -727,7 +727,7 @@ fn calculate_liquidity_value_withdraw_greater_than_total() {
 #[test]
 fn calculate_liquidity_value_ratio() {
 	ExtBuilder::default().build().execute_with(|| {
-		let value = CennzXSpot::calculate_liquidity_value(
+		let value = Cennzx::calculate_liquidity_value(
 			1000, // asset_reserve
 			300,  // core_reserve
 			50,   // liquidity_to_withdraw
@@ -745,7 +745,7 @@ fn account_liquidity_value_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,   // min_liquidity: T::Balance,
@@ -753,7 +753,7 @@ fn account_liquidity_value_simple() {
 			250, // core_amount: T::Balance,
 		));
 
-		let value = CennzXSpot::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
+		let value = Cennzx::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
 
 		assert_eq!(value.liquidity, 250);
 		assert_eq!(value.core, 250);
@@ -766,7 +766,7 @@ fn account_liquidity_value_accrued() {
 	ExtBuilder::default().build().execute_with(|| {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
-		assert_ok!(CennzXSpot::add_liquidity(
+		assert_ok!(Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,   // min_liquidity: T::Balance,
@@ -778,7 +778,7 @@ fn account_liquidity_value_accrued() {
 		with_exchange!(CoreAssetCurrency => 750, TradeAssetCurrencyA => 850);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1200);
 
-		let value = CennzXSpot::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
+		let value = Cennzx::account_liquidity_value(&investor, resolve_asset_id!(TradeAssetCurrencyA));
 
 		assert_eq!(value.liquidity, 250);
 		assert_eq!(value.core, 1000);
@@ -793,14 +793,14 @@ fn account_liquidity_value_multi_investor_accrued() {
 		let investor_2: AccountId = with_account!("bob", CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		// Investor 1 owns 3/4 of the liquidity, investor 2 owns 1/4
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor_1.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,   // min_liquidity: T::Balance,
 			300, // max_asset_amount: T::Balance,
 			150, // core_amount: T::Balance,
 		);
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor_2.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			1,   // min_liquidity: T::Balance,
@@ -812,12 +812,12 @@ fn account_liquidity_value_multi_investor_accrued() {
 		with_exchange!(CoreAssetCurrency => 300, TradeAssetCurrencyA => 599);
 		assert_exchange_balance_eq!(CoreAssetCurrency => 500, TradeAssetCurrencyA => 1000);
 
-		let value_1 = CennzXSpot::account_liquidity_value(&investor_1, resolve_asset_id!(TradeAssetCurrencyA));
+		let value_1 = Cennzx::account_liquidity_value(&investor_1, resolve_asset_id!(TradeAssetCurrencyA));
 		assert_eq!(value_1.liquidity, 150);
 		assert_eq!(value_1.core, 375);
 		assert_eq!(value_1.asset, 750);
 
-		let value_2 = CennzXSpot::account_liquidity_value(&investor_2, resolve_asset_id!(TradeAssetCurrencyA));
+		let value_2 = Cennzx::account_liquidity_value(&investor_2, resolve_asset_id!(TradeAssetCurrencyA));
 		assert_eq!(value_2.liquidity, 50);
 		assert_eq!(value_2.core, 125);
 		assert_eq!(value_2.asset, 250);
@@ -830,7 +830,7 @@ fn remove_liquidity() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// investment
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -838,7 +838,7 @@ fn remove_liquidity() {
 			10, // core_amount: T::Balance,
 		);
 
-		assert_ok!(CennzXSpot::remove_liquidity(
+		assert_ok!(Cennzx::remove_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			10, //`asset_amount` - Amount of exchange asset to burn
@@ -857,7 +857,7 @@ fn remove_liquidity_fails_min_core_asset_limit() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// investment
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -866,7 +866,7 @@ fn remove_liquidity_fails_min_core_asset_limit() {
 		);
 
 		assert_err!(
-			CennzXSpot::remove_liquidity(
+			Cennzx::remove_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				10, //`asset_amount` - Amount of exchange asset to burn
@@ -887,7 +887,7 @@ fn remove_liquidity_fails_min_trade_asset_limit() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// investment
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -896,7 +896,7 @@ fn remove_liquidity_fails_min_trade_asset_limit() {
 		);
 
 		assert_err!(
-			CennzXSpot::remove_liquidity(
+			Cennzx::remove_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				10, //`asset_amount` - Amount of exchange asset to burn
@@ -917,7 +917,7 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 		let investor: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// investment
-		let _ = CennzXSpot::add_liquidity(
+		let _ = Cennzx::add_liquidity(
 			Origin::signed(investor.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
 			2,  // min_liquidity: T::Balance,
@@ -926,7 +926,7 @@ fn remove_liquidity_fails_on_overdraw_liquidity() {
 		);
 
 		assert_err!(
-			CennzXSpot::remove_liquidity(
+			Cennzx::remove_liquidity(
 				Origin::signed(investor.clone()),
 				resolve_asset_id!(TradeAssetCurrencyA),
 				20, //`asset_amount` - Amount of exchange asset to burn
@@ -949,7 +949,7 @@ fn asset_to_core_buy() {
 		let recipient = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// asset to core swap output
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(buyer.clone()),
 			Some(recipient.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
@@ -972,7 +972,7 @@ fn core_to_asset_transfer_buy_10_to_1000() {
 		let recipient: AccountId = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// core to asset swap output
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(buyer.clone()),
 			Some(recipient.clone()),
 			<CoreAssetId<Test>>::get(),
@@ -992,21 +992,21 @@ fn core_to_asset_transfer_buy_10_to_1000() {
 #[test]
 fn calculate_sell_price_for_valid_data() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(CennzXSpot::calculate_sell_price(123, 1000, 1000), 108);
+		assert_ok!(Cennzx::calculate_sell_price(123, 1000, 1000), 108);
 
 		// No f32/f64 types, so we use large values to test precision
 		assert_ok!(
-			CennzXSpot::calculate_sell_price(123_000_000, 1_000_000_000, 1_000_000_000),
+			Cennzx::calculate_sell_price(123_000_000, 1_000_000_000, 1_000_000_000),
 			109236233
 		);
 
 		assert_ok!(
-			CennzXSpot::calculate_sell_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
+			Cennzx::calculate_sell_price(100_000_000_000_000, 120_627_710_511_649_660, 4_999_727_416_279_531_363),
 			4128948876492407
 		);
 
 		assert_ok!(
-			CennzXSpot::calculate_sell_price(
+			Cennzx::calculate_sell_price(
 				100_000_000_000_000,
 				120_627_710_511_649_660,
 				LowPrecisionUnsigned::max_value()
@@ -1023,7 +1023,7 @@ fn calculate_sell_price_for_valid_data() {
 fn calculate_sell_price_for_max_reserve_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(
-			CennzXSpot::calculate_sell_price(
+			Cennzx::calculate_sell_price(
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value() / 2,
 				LowPrecisionUnsigned::max_value()
@@ -1039,12 +1039,12 @@ fn asset_swap_sell_price() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_ok!(
-			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			Cennzx::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			108
 		);
 
 		assert_ok!(
-			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
+			Cennzx::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 123),
 			108
 		);
 	});
@@ -1054,11 +1054,11 @@ fn asset_swap_sell_price() {
 fn asset_sell_error_zero_sell_amount() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err!(
-			CennzXSpot::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			Cennzx::get_asset_to_core_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::CannotTradeZero
 		);
 		assert_err!(
-			CennzXSpot::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
+			Cennzx::get_core_to_asset_sell_price(&resolve_asset_id!(TradeAssetCurrencyA), 0),
 			Error::<Test>::CannotTradeZero
 		);
 	});
@@ -1071,7 +1071,7 @@ fn asset_sell_error_insufficient_balance() {
 
 		let trader = with_account!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		assert_err!(
-			CennzXSpot::execute_sell(
+			Cennzx::execute_sell(
 				&trader, // seller
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
@@ -1083,7 +1083,7 @@ fn asset_sell_error_insufficient_balance() {
 		);
 
 		assert_err!(
-			CennzXSpot::execute_sell(
+			Cennzx::execute_sell(
 				&trader, // seller
 				&trader, // recipient
 				&resolve_asset_id!(CoreAssetCurrency),
@@ -1103,7 +1103,7 @@ fn asset_to_core_sell() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		// asset to core swap input
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			None,
 			resolve_asset_id!(TradeAssetCurrencyA),
@@ -1124,7 +1124,7 @@ fn core_to_asset_sell() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		// core to asset swap input
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			None,
 			<CoreAssetId<Test>>::get(),
@@ -1146,7 +1146,7 @@ fn asset_to_core_execute_sell() {
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		assert_ok!(
-			CennzXSpot::execute_sell(
+			Cennzx::execute_sell(
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(TradeAssetCurrencyA),
@@ -1170,7 +1170,7 @@ fn core_to_asset_execute_sell() {
 		let trader = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
 		assert_ok!(
-			CennzXSpot::execute_sell(
+			Cennzx::execute_sell(
 				&trader, // buyer
 				&trader, // recipient
 				&resolve_asset_id!(CoreAssetCurrency),
@@ -1194,7 +1194,7 @@ fn asset_sell_error_zero_asset_sold() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 		// asset to core swap input
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader.clone()),
 				None,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1206,7 +1206,7 @@ fn asset_sell_error_zero_asset_sold() {
 		);
 		// core to asset swap input
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader),
 				None,
 				<CoreAssetId<Test>>::get(),
@@ -1227,7 +1227,7 @@ fn asset_sell_error_less_than_min_sale() {
 
 		// asset to core swap input
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader.clone()),
 				None,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1239,7 +1239,7 @@ fn asset_sell_error_less_than_min_sale() {
 		);
 		// core to asset swap input
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader),
 				None,
 				<CoreAssetId<Test>>::get(),
@@ -1260,7 +1260,7 @@ fn asset_to_core_transfer_sell() {
 		let recipient: AccountId = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// asset to core swap input
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()),
 			resolve_asset_id!(TradeAssetCurrencyA),
@@ -1283,7 +1283,7 @@ fn core_to_asset_transfer_sell() {
 		let recipient: AccountId = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		// core to asset swap input
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()),
 			<CoreAssetId<Test>>::get(),
@@ -1305,7 +1305,7 @@ fn asset_to_asset_buy() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(trader.clone()),
 			None,                                   // Account to receive asset_bought, defaults to origin if None
 			resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1330,7 +1330,7 @@ fn asset_to_asset_buy_error_zero_asset_sold() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,                                   // Account to receive asset_bought, defaults to origin if None
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1351,7 +1351,7 @@ fn asset_to_asset_buy_error_insufficient_balance() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 50);
 
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,                                   // Account to receive asset_bought, defaults to origin if None
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1372,7 +1372,7 @@ fn asset_to_asset_buy_error_exceed_max_sale() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		assert_err!(
-			CennzXSpot::buy_asset(
+			Cennzx::buy_asset(
 				Origin::signed(trader),
 				None,                                   // Account to receive asset_bought, defaults to origin if None
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1393,7 +1393,7 @@ fn asset_to_asset_transfer_buy() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 		let recipient: AccountId = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyB => 100);
 
-		assert_ok!(CennzXSpot::buy_asset(
+		assert_ok!(Cennzx::buy_asset(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
 			resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1417,7 +1417,7 @@ fn asset_to_asset_sell() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			None,                                   // Trader is also recipient so passing None in this case
 			resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1442,7 +1442,7 @@ fn asset_to_asset_swap_sell_error_zero_asset_sold() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 100);
 
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader),
 				None,                                   // Trader is also recipient so passing None in this case
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1463,7 +1463,7 @@ fn asset_to_asset_sell_error_insufficient_balance() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 50);
 
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader),
 				None,                                   // Account to receive asset_bought, defaults to origin if None
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1484,7 +1484,7 @@ fn asset_to_asset_sell_error_less_than_min_sale() {
 		let trader = with_account!(CoreAssetCurrency => 100, TradeAssetCurrencyA => 200);
 
 		assert_err!(
-			CennzXSpot::sell_asset(
+			Cennzx::sell_asset(
 				Origin::signed(trader),
 				None,                                   // Account to receive asset_bought, defaults to origin if None
 				resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1505,7 +1505,7 @@ fn asset_to_asset_transfer_sell() {
 		let trader: AccountId = with_account!(CoreAssetCurrency => 2200, TradeAssetCurrencyA => 2200);
 		let recipient: AccountId = with_account!("bob", CoreAssetCurrency => 100, TradeAssetCurrencyB => 100);
 
-		assert_ok!(CennzXSpot::sell_asset(
+		assert_ok!(Cennzx::sell_asset(
 			Origin::signed(trader.clone()),
 			Some(recipient.clone()), // Account to receive asset_bought, defaults to origin if None
 			resolve_asset_id!(TradeAssetCurrencyA), // asset_sold
@@ -1526,8 +1526,8 @@ fn asset_to_asset_transfer_sell() {
 fn set_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		let new_fee_rate = FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(5u128)).unwrap();
-		assert_ok!(CennzXSpot::set_fee_rate(Origin::ROOT, new_fee_rate), ());
-		assert_eq!(CennzXSpot::fee_rate(), new_fee_rate);
+		assert_ok!(Cennzx::set_fee_rate(Origin::ROOT, new_fee_rate), ());
+		assert_eq!(Cennzx::fee_rate(), new_fee_rate);
 	});
 }
 
@@ -1536,10 +1536,10 @@ fn get_buy_price_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1554,10 +1554,10 @@ fn get_buy_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 100_000.into());
 
 		assert_eq!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1571,10 +1571,10 @@ fn get_buy_price_with_fee_rate() {
 fn get_buy_price_when_buying_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(CoreAssetCurrency),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1588,10 +1588,10 @@ fn get_buy_price_when_buying_core() {
 fn get_buy_price_when_selling_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(CoreAssetCurrency),
@@ -1607,7 +1607,7 @@ fn get_buy_price_same_asset_id_ignored() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1624,7 +1624,7 @@ fn get_buy_price_low_buy_asset_liquidity_error() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
 
 		assert_err!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1641,7 +1641,7 @@ fn get_buy_price_low_buy_core_liquidity_error() {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_err!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1657,7 +1657,7 @@ fn get_buy_price_no_exchange() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_buy_price(
+			Cennzx::get_buy_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1672,10 +1672,10 @@ fn get_sell_price_simple() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1690,10 +1690,10 @@ fn get_sell_price_with_fee_rate() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyB => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 100_000.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 100_000.into());
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyB),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1707,10 +1707,10 @@ fn get_sell_price_with_fee_rate() {
 fn get_sell_price_when_selling_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(CoreAssetCurrency),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1724,10 +1724,10 @@ fn get_sell_price_when_selling_core() {
 fn get_sell_price_when_buying_core() {
 	ExtBuilder::default().build().execute_with(|| {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
-		let _ = CennzXSpot::set_fee_rate(Origin::ROOT, 0.into());
+		let _ = Cennzx::set_fee_rate(Origin::ROOT, 0.into());
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(CoreAssetCurrency),
@@ -1743,7 +1743,7 @@ fn get_sell_price_same_asset_id_ignored() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyA),
@@ -1760,7 +1760,7 @@ fn get_sell_price_low_sell_asset_liquidity() {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1777,7 +1777,7 @@ fn get_sell_price_low_sell_core_liquidity() {
 		with_exchange!(CoreAssetCurrency => 10, TradeAssetCurrencyB => 10);
 
 		assert_eq!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),
@@ -1793,7 +1793,7 @@ fn get_sell_price_no_exchange() {
 		with_exchange!(CoreAssetCurrency => 1000, TradeAssetCurrencyA => 1000);
 
 		assert_err!(
-			CennzXSpot::get_sell_price(
+			Cennzx::get_sell_price(
 				resolve_asset_id!(TradeAssetCurrencyA),
 				100,
 				resolve_asset_id!(TradeAssetCurrencyB),

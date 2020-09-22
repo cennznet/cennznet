@@ -14,7 +14,7 @@
 */
 
 //!
-//! CENNZX-Spot exchange
+//! CENNZX spot exchange
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -297,7 +297,7 @@ decl_event!(
 );
 
 decl_storage! {
-	trait Store for Module<T: Trait> as CennzxSpot {
+	trait Store for Module<T: Trait> as Cennzx {
 		/// AssetId of Core Asset
 		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
 		/// Default Trading fee rate

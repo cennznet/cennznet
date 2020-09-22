@@ -20,7 +20,7 @@ use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
-use crml_cennzx_spot::{FeeRate, PerMillion, PerThousand};
+use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
@@ -93,7 +93,7 @@ impl ExtBuilder {
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
-		crml_cennzx_spot::GenesisConfig::<Runtime> {
+		crml_cennzx::GenesisConfig::<Runtime> {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}

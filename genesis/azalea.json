@@ -371,7 +371,7 @@
       "palletAuthorityDiscovery": {
         "keys": []
       },
-      "crmlCennzxSpot": {
+      "crmlCennzx": {
         "coreAssetId": 2,
         "feeRate": [
           3000,

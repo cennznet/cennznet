@@ -30,7 +30,7 @@ pub mod error_code {
 	pub const MAXIMUM_SELL_REQUIREMENT_NOT_MET: u8 = 206;
 	pub const INSUFFICIENT_BALANCE: u8 = 195;
 
-	// Matches and converts crml-cennzx-spot module errors, such that
+	// Matches and converts crml-cennzx module errors, such that
 	// they are propagated in crml-transaction-payment module
 	pub fn buy_fee_asset_error_msg_to_code(message: &'static str) -> u8 {
 		match message {

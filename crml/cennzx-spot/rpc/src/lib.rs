@@ -26,14 +26,12 @@ use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
-pub use self::gen_client::Client as CennzxSpotClient;
-pub use crml_cennzx_spot_rpc_runtime_api::{
-	self as runtime_api, CennzxSpotApi as CennzxSpotRuntimeApi, CennzxSpotResult,
-};
+pub use self::gen_client::Client as CennzxClient;
+pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
 
 /// Contracts RPC methods.
 #[rpc]
-pub trait CennzxSpotApi<AssetId, Balance, AccountId> {
+pub trait CennzxApi<AssetId, Balance, AccountId> {
 	#[rpc(name = "cennzx_buyPrice")]
 	// TODO: prefer to return Result<Balance>, however Serde JSON library only allows u64.
 	//  - change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
@@ -53,15 +51,15 @@ pub trait CennzxSpotApi<AssetId, Balance, AccountId> {
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
-pub struct CennzxSpot<C, T> {
+pub struct Cennzx<C, T> {
 	client: Arc<C>,
 	_marker: std::marker::PhantomData<T>,
 }
 
-impl<C, T> CennzxSpot<C, T> {
-	/// Create new `CennzxSpot` with the given reference to the client.
+impl<C, T> Cennzx<C, T> {
+	/// Create new `Cennzx` with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
-		CennzxSpot {
+		Cennzx {
 			client,
 			_marker: Default::default(),
 		}
@@ -86,11 +84,11 @@ impl From<Error> for i64 {
 	}
 }
 
-impl<C, Block, AssetId, Balance, AccountId> CennzxSpotApi<AssetId, Balance, AccountId> for CennzxSpot<C, Block>
+impl<C, Block, AssetId, Balance, AccountId> CennzxApi<AssetId, Balance, AccountId> for Cennzx<C, Block>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: CennzxSpotRuntimeApi<Block, AssetId, Balance, AccountId>,
+	C::Api: CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
 	AssetId: Codec,
 	Balance: Codec + BaseArithmetic,
 	AccountId: Codec,
@@ -108,14 +106,14 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxSpotResult::Success(price) => {
+			CennzxResult::Success(price) => {
 				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
 					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 					message: "Price too large.".into(),
 					data: Some(format!("{:?}", e).into()),
 				})
 			}
-			CennzxSpotResult::Error => Err(RpcError {
+			CennzxResult::Error => Err(RpcError {
 				code: ErrorCode::ServerError(Error::CannotExchange.into()),
 				message: "Cannot exchange for requested amount.".into(),
 				data: Some("".into()),
@@ -136,14 +134,14 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxSpotResult::Success(price) => {
+			CennzxResult::Success(price) => {
 				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
 					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 					message: "Price too large.".into(),
 					data: Some(format!("{:?}", e).into()),
 				})
 			}
-			CennzxSpotResult::Error => Err(RpcError {
+			CennzxResult::Error => Err(RpcError {
 				code: ErrorCode::ServerError(Error::CannotExchange.into()),
 				message: "Cannot exchange by requested amount.".into(),
 				data: Some("".into()),

@@ -1,6 +1,6 @@
 
 [package]
-name = "crml-cennzx-spot-rpc"
+name = "crml-cennzx-rpc"
 version = "2.0.0"
 authors = ["Centrality Developers <developers@centrality.ai>"]
 edition = "2018"
@@ -22,4 +22,4 @@ sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.2", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "1.0.0-rc4.2", default-features = false }
 
-crml-cennzx-spot-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
+crml-cennzx-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
