@@ -85,7 +85,7 @@ pub(crate) mod impl_tests {
 	use super::*;
 	use crate::{
 		mock::{self, FEE_ASSET_ID, TRADE_ASSET_A_ID},
-		mock::{CennzXSpot, ExtBuilder, Test},
+		mock::{Cennzx, ExtBuilder, Test},
 		Error,
 	};
 	use frame_support::traits::Currency;
@@ -109,7 +109,7 @@ pub(crate) mod impl_tests {
 			let fee_rate_factor = scale_factor + fee_rate; // 1_000_000 + 3_000
 
 			assert_ok!(
-				<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(
 					&user,
 					target_fee,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000)
@@ -173,7 +173,7 @@ pub(crate) mod impl_tests {
 			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
 
 			assert_err!(
-				<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(
 					&user,
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
@@ -192,7 +192,7 @@ pub(crate) mod impl_tests {
 			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
 
 			assert_err!(
-				<CennzXSpot as BuyFeeAsset>::buy_fee_asset(
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(
 					&user,
 					51,
 					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),

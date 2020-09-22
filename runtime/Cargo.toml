@@ -15,8 +15,8 @@ serde = { version = "1.0.102", optional = true }
 
 # internal dependencies
 crml-sylo = { path = "../crml/sylo", default-features = false }
-crml-cennzx-spot = { path = "../crml/cennzx-spot", default-features = false }
-crml-cennzx-spot-rpc-runtime-api = { path =  "../crml/cennzx-spot/rpc/runtime-api", default-features = false }
+crml-cennzx = { path = "../crml/cennzx-spot", default-features = false }
+crml-cennzx-rpc-runtime-api = { path =  "../crml/cennzx-spot/rpc/runtime-api", default-features = false }
 cennznet-primitives = { path = "../primitives", default-features = false }
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false }
@@ -138,7 +138,7 @@ std = [
 	"prml-attestation/std",
 	"prml-doughnut/std",
 	"cennznut/std",
-	"crml-cennzx-spot/std",
-	"crml-cennzx-spot-rpc-runtime-api/std",
+	"crml-cennzx/std",
+	"crml-cennzx-rpc-runtime-api/std",
 	"crml-transaction-payment/std",
 ]

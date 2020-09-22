@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Build and test the specified rust packages to produce the coverage files which is then fed to grcov to generate a report
-example="$0 crml-cennzx-spot crml-sylo"
+example="$0 crml-cennzx crml-sylo"
 
 if [ $# -eq 0 ]; then
   echo "Error: no rust package name is specified"

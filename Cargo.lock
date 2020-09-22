@@ -672,7 +672,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
- "crml-cennzx-spot-rpc",
+ "crml-cennzx-rpc",
  "jsonrpc-core",
  "pallet-contracts-rpc",
  "pallet-generic-asset-rpc",
@@ -714,8 +714,8 @@ dependencies = [
  "cennznet-testing",
  "cennznut",
  "clear_on_drop",
- "crml-cennzx-spot",
- "crml-cennzx-spot-rpc-runtime-api",
+ "crml-cennzx",
+ "crml-cennzx-rpc-runtime-api",
  "crml-staking",
  "crml-staking-reward-curve",
  "crml-sylo",
@@ -1101,7 +1101,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "crml-cennzx-spot"
+name = "crml-cennzx"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
@@ -1118,10 +1118,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "crml-cennzx-spot-rpc"
+name = "crml-cennzx-rpc"
 version = "2.0.0"
 dependencies = [
- "crml-cennzx-spot-rpc-runtime-api",
+ "crml-cennzx-rpc-runtime-api",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -1138,7 +1138,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "crml-cennzx-spot-rpc-runtime-api"
+name = "crml-cennzx-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
  "parity-scale-codec",

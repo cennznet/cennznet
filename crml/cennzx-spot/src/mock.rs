@@ -102,7 +102,7 @@ impl Trait for Test {
 	type UnsignedIntToBalance = UnsignedIntToBalance;
 }
 
-pub type CennzXSpot = Module<Test>;
+pub type Cennzx = Module<Test>;
 
 pub const CORE_ASSET_ID: u32 = 0;
 pub const TRADE_ASSET_A_ID: u32 = 1;

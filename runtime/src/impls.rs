@@ -42,7 +42,7 @@ use sp_runtime::{
 };
 use sp_std::{any::Any, prelude::Vec};
 
-type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
+type Cennzx<T> = crml_cennzx::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
 
@@ -170,7 +170,7 @@ pub struct GasHandler;
 
 impl<T> pallet_contracts::GasHandler<T> for GasHandler
 where
-	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx_spot::Trait,
+	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx::Trait,
 {
 	/// Fill the gas meter
 	///
@@ -215,7 +215,7 @@ where
 		let payment_asset = exchange_op.asset_id();
 
 		// Calculate the `fill_meter_cost` in terms of the user's nominated payment asset
-		let converted_fill_meter_cost = CennzxSpot::<T>::get_asset_to_core_buy_price(
+		let converted_fill_meter_cost = Cennzx::<T>::get_asset_to_core_buy_price(
 			&payment_asset,
 			T::Balance::unique_saturated_from(fill_meter_cost.saturated_into()),
 		)?;
@@ -264,7 +264,7 @@ where
 			// Pay for `gas_spent` in a user nominated currency using the CENNZX spot exchange
 			// Payment can never fail as liquidity is verified before filling the meter
 			if let Some(used_gas_cost) = gas_price.checked_mul(&gas_spent.saturated_into()) {
-				let _ = CennzxSpot::<T>::buy_fee_asset(
+				let _ = Cennzx::<T>::buy_fee_asset(
 					transactor,
 					T::Balance::unique_saturated_from(used_gas_cost.saturated_into()),
 					&exchange_op,

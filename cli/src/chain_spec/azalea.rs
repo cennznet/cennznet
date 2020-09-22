@@ -19,7 +19,7 @@ use super::{session_keys, ChainSpec, NetworkKeys};
 use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, FeeRate,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, ContractsConfig, CouncilConfig, FeeRate,
 	GenericAssetConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig,
 	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
@@ -278,7 +278,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}),
-		crml_cennzx_spot: Some(CennzxSpotConfig {
+		crml_cennzx: Some(CennzxConfig {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),

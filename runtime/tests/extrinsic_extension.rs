@@ -324,7 +324,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				// Pays for transaction fees
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::crml_cennzx_spot(crml_cennzx_spot::RawEvent::AssetPurchase(
+					event: Event::crml_cennzx(crml_cennzx::RawEvent::AssetPurchase(
 						CENNZ_ASSET_ID,
 						CENTRAPAY_ASSET_ID,
 						bob(),
@@ -338,7 +338,7 @@ fn contract_dispatches_runtime_call_funds_are_safu() {
 				// Pays for gas fees
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(2),
-					event: Event::crml_cennzx_spot(crml_cennzx_spot::RawEvent::AssetPurchase(
+					event: Event::crml_cennzx(crml_cennzx::RawEvent::AssetPurchase(
 						CENNZ_ASSET_ID,
 						CENTRAPAY_ASSET_ID,
 						bob(),

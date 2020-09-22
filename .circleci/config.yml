@@ -82,20 +82,20 @@ commands:
       - run:
           name: Build tests
           command: |
-            cargo test --no-run --workspace --exclude crml-cennzx-spot --exclude crml-sylo
+            cargo test --no-run --workspace --exclude crml-cennzx --exclude crml-sylo
           no_output_timeout: 30m
   cargo-run-test:
     steps:
       - run:
           name: Run tests
           command: |
-            cargo test --workspace --exclude crml-cennzx-spot --exclude crml-sylo
+            cargo test --workspace --exclude crml-cennzx --exclude crml-sylo
   cargo-test-coverage:
     steps:
       - run:
           name: Report test coverage
           command: |
-            ./scripts/test-coverage.sh crml-cennzx-spot crml-sylo
+            ./scripts/test-coverage.sh crml-cennzx crml-sylo
       - store_artifacts:
           path: /tmp/coverage
   docker-build-and-publish:

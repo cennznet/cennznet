@@ -24,7 +24,7 @@ use sp_runtime::RuntimeDebug;
 
 /// A result of querying the exchange
 #[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub enum CennzxSpotResult<Balance> {
+pub enum CennzxResult<Balance> {
 	/// The exchange returned successfully.
 	Success(Balance),
 	/// There was an issue querying the exchange
@@ -33,7 +33,7 @@ pub enum CennzxSpotResult<Balance> {
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with CENNZX Spot Exchange
-	pub trait CennzxSpotApi<AssetId, Balance, AccountId> where
+	pub trait CennzxApi<AssetId, Balance, AccountId> where
 		AssetId: Codec,
 		Balance: Codec + BaseArithmetic,
 		AccountId: Codec,
@@ -43,13 +43,13 @@ sp_api::decl_runtime_apis! {
 			asset_to_buy: AssetId,
 			amount: Balance,
 			asset_to_sell: AssetId,
-		) -> CennzxSpotResult<Balance>;
+		) -> CennzxResult<Balance>;
 		/// Query how much `asset_to_sell` is required to buy `amount` of `asset_to_buy`
 		fn sell_price(
 			asset_to_sell: AssetId,
 			amount: Balance,
 			asset_to_buy: AssetId,
-		) -> CennzxSpotResult<Balance>;
+		) -> CennzxResult<Balance>;
 		/// Query the value of liquidity in the exchange for `asset_id` for `account`
 		/// Returns (liquidity_volume, core_value, asset_value)
 		fn liquidity_value(

@@ -22,8 +22,8 @@
 #![allow(array_into_iter)]
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
-use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
+pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
+use crml_cennzx_rpc_runtime_api::CennzxResult;
 use frame_support::{
 	additional_traits::MultiCurrencyAccounting,
 	construct_runtime, debug, parameter_types,
@@ -162,7 +162,7 @@ impl pallet_utility::Trait for Runtime {
 	type MaxSignatories = MaxSignatories;
 }
 
-impl crml_cennzx_spot::Trait for Runtime {
+impl crml_cennzx::Trait for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type ExchangeAddressGenerator = ExchangeAddressGenerator<Self>;
@@ -228,7 +228,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
-	type BuyFeeAsset = CennzxSpot;
+	type BuyFeeAsset = Cennzx;
 	type GasMeteredCallResolver = GasMeteredCallResolver;
 	type FeePayer = FeePayerResolver;
 }
@@ -578,7 +578,7 @@ construct_runtime!(
 		SyloResponse: sylo_response::{Module, Call, Storage},
 		SyloVault: sylo_vault::{Module, Call, Storage},
 		SyloPayment: sylo_payment::{Module, Call, Storage},
-		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
+		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -763,7 +763,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crml_cennzx_spot_rpc_runtime_api::CennzxSpotApi<
+	impl crml_cennzx_rpc_runtime_api::CennzxApi<
 		Block,
 		AssetId,
 		Balance,
@@ -773,11 +773,11 @@ impl_runtime_apis! {
 			buy_asset: AssetId,
 			buy_amount: Balance,
 			sell_asset: AssetId,
-		) -> CennzxSpotResult<Balance> {
-			let result = CennzxSpot::get_buy_price(buy_asset, buy_amount, sell_asset);
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_buy_price(buy_asset, buy_amount, sell_asset);
 			match result {
-				Ok(value) => CennzxSpotResult::Success(value),
-				Err(_) => CennzxSpotResult::Error,
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
 			}
 		}
 
@@ -785,11 +785,11 @@ impl_runtime_apis! {
 			sell_asset: AssetId,
 			sell_amount: Balance,
 			buy_asset: AssetId,
-		) -> CennzxSpotResult<Balance> {
-			let result = CennzxSpot::get_sell_price(sell_asset, sell_amount, buy_asset);
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_sell_price(sell_asset, sell_amount, buy_asset);
 			match result {
-				Ok(value) => CennzxSpotResult::Success(value),
-				Err(_) => CennzxSpotResult::Error,
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
 			}
 		}
 
@@ -797,7 +797,7 @@ impl_runtime_apis! {
 			account: AccountId,
 			asset_id: AssetId,
 		) -> (Balance, Balance, Balance) {
-			let value = CennzxSpot::account_liquidity_value(&account, asset_id);
+			let value = Cennzx::account_liquidity_value(&account, asset_id);
 			(value.liquidity, value.core, value.asset)
 		}
 
@@ -805,7 +805,7 @@ impl_runtime_apis! {
 			asset_id: AssetId,
 			liquidity_to_buy: Balance
 		) -> (Balance, Balance) {
-			let value = CennzxSpot::liquidity_price(asset_id, liquidity_to_buy);
+			let value = Cennzx::liquidity_price(asset_id, liquidity_to_buy);
 			(value.core, value.asset)
 		}
 	}
