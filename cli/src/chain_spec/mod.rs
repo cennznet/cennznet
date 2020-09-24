@@ -16,13 +16,15 @@
 
 //! CENNZnet chain configurations.
 
-use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	constants::{asset::*, currency::*},
+	AssetInfo, Block, FeeRate, PerMillion, PerThousand, SessionKeys, StakerStatus, WASM_BINARY,
 };
-use cennznet_runtime::{Block, FeeRate, PerMillion, PerThousand};
+use cennznet_runtime::{
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
+	GrandpaConfig, ImOnlineConfig, RewardsConfig, SessionConfig, StakingConfig, SudoConfig, SystemConfig,
+	TechnicalCommitteeConfig,
+};
 use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -160,6 +162,9 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 					)
 				})
 				.collect::<Vec<_>>(),
+		}),
+		crml_rewards: Some(RewardsConfig {
+			development_fund_take: Perbill::from_percent(20),
 		}),
 		crml_staking: Some(StakingConfig {
 			current_era: 0,

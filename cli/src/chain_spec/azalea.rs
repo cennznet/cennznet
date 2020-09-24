@@ -17,11 +17,13 @@
 //! CENNZNet MainNet V1 (Azalea) genesis config
 use super::{session_keys, ChainSpec, NetworkKeys};
 use cennznet_primitives::types::{AccountId, AssetId, Balance};
-use cennznet_runtime::constants::currency::*;
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, FeeRate,
-	GenericAssetConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+	constants::currency::*, AssetInfo, FeeRate, PerMillion, PerThousand, StakerStatus, WASM_BINARY,
+};
+use cennznet_runtime::{
+	AuthorityDiscoveryConfig, BabeConfig, CennzxSpotConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
+	GenesisConfig, GrandpaConfig, ImOnlineConfig, RewardsConfig, SessionConfig, StakingConfig, SudoConfig,
+	SystemConfig, TechnicalCommitteeConfig,
 };
 use core::convert::TryFrom;
 use sp_core::crypto::UncheckedInto;
@@ -264,6 +266,9 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1)),
 				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
 			],
+		}),
+		crml_rewards: Some(RewardsConfig {
+			development_fund_take: Perbill::from_percent(20),
 		}),
 		crml_staking: Some(StakingConfig {
 			current_era: 0,

@@ -18,7 +18,7 @@
 
 use crate::{
 	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
+	sylo_payment, Call, MaximumBlockWeight, Runtime, System,
 };
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
@@ -29,7 +29,7 @@ use codec::Decode;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	additional_traits, storage,
-	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
+	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
 use pallet_contracts::{Gas, GasMeter};
@@ -45,21 +45,6 @@ use sp_std::{any::Any, prelude::Vec};
 type CennzxSpot<T> = crml_cennzx_spot::Module<T>;
 type Contracts<T> = pallet_contracts::Module<T>;
 type GenericAsset<T> = pallet_generic_asset::Module<T>;
-
-pub struct SplitToAllValidators;
-
-/// This handles the ```NegativeImbalance``` created for transaction fee.
-/// The reward is split evenly and distributed to all of the current elected validators.
-/// The remainder from the division are burned.
-impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
-		let amount = imbalance.peek();
-
-		if !amount.is_zero() {
-			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
-		}
-	}
-}
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.

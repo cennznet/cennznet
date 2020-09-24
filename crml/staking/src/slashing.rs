@@ -49,8 +49,9 @@
 //! Based on research at https://research.web3.foundation/en/latest/polkadot/slashing/npos/
 
 use super::{
-	BalanceOf, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store, Trait, UnappliedSlash,
+	BalanceOf, EraIndex, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store, Trait, UnappliedSlash,
 };
+use cennznet_primitives::types::Exposure;
 use codec::{Decode, Encode};
 use frame_support::{
 	traits::{Currency, Imbalance, OnUnbalanced},

@@ -21,31 +21,25 @@
 #![recursion_limit = "256"]
 #![allow(array_into_iter)]
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Exposure, Hash, Index, Moment, Signature};
 pub use crml_cennzx_spot::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_spot_rpc_runtime_api::CennzxSpotResult;
-use frame_support::{
-	additional_traits::MultiCurrencyAccounting,
-	construct_runtime, debug, parameter_types,
-	traits::{Randomness, SplitTwoWays},
-	weights::Weight,
-};
+use frame_support::{construct_runtime, debug, parameter_types, traits::Randomness, weights::Weight};
 use frame_system::offchain::TransactionSubmitter;
 pub use pallet_contracts::Gas;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
-pub use pallet_generic_asset::AssetInfo;
-pub use pallet_generic_asset::Call as GenericAssetCall;
+pub use pallet_generic_asset::{AssetInfo, Call as GenericAssetCall};
 use pallet_generic_asset::{SpendingAssetCurrency, StakingAssetCurrency};
-use pallet_grandpa::fg_primitives;
-use pallet_grandpa::AuthorityList as GrandpaAuthorityList;
+use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_0, _1, _2, _4};
-use sp_core::OpaqueMetadata;
+use sp_core::{
+	u32_trait::{_1, _2, _4},
+	OpaqueMetadata,
+};
 use sp_inherents::{CheckInherentsResult, InherentData};
-use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::{self, BlakeTwo256, Block as BlockT, IdentityLookup, OpaqueKeys, SaturatedConversion};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill};
@@ -68,16 +62,16 @@ pub use crml_sylo::payment as sylo_payment;
 pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 
+/// Constant values used within the runtime.
+pub mod constants;
+use constants::{currency::*, time::*};
+
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
 	CENNZnetDispatchVerifier, CurrencyToVoteHandler, FeePayerResolver, GasHandler, GasMeteredCallResolver,
-	ScaledWeightToFee, SplitToAllValidators, TargetedFeeAdjustment,
+	ScaledWeightToFee, TargetedFeeAdjustment,
 };
-
-/// Constant values used within the runtime.
-pub mod constants;
-use constants::{currency::*, time::*};
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -108,11 +102,11 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
+	// is now: `2_000_000_000_000` on latest substrate
 	pub const MaximumBlockWeight: Weight = 1_000_000_000;
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
-	pub const ScaleDownFactor: Balance = 1_000_000_000_000;
 }
 
 pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
@@ -207,23 +201,11 @@ parameter_types! {
 	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
 }
 
-pub type PositiveImbalance = <GenericAsset as MultiCurrencyAccounting>::PositiveImbalance;
-pub type NegativeImbalance = <GenericAsset as MultiCurrencyAccounting>::NegativeImbalance;
-
-pub type DealWithFees = SplitTwoWays<
-	Balance,
-	NegativeImbalance,
-	_0,
-	Treasury,
-	_1,
-	SplitToAllValidators, // 100% goes to elected validators
->;
-
 impl crml_transaction_payment::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = DealWithFees;
+	type OnTransactionPayment = Rewards;
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
@@ -250,7 +232,7 @@ impl pallet_authorship::Trait for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = (Staking, ImOnline);
+	type EventHandler = ImOnline;
 }
 
 impl_opaque_keys! {
@@ -278,42 +260,33 @@ impl pallet_session::Trait for Runtime {
 }
 
 impl pallet_session::historical::Trait for Runtime {
-	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
+	type FullIdentification = Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crml_staking::ExposureOf<Runtime>;
-}
-
-crml_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
 }
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
 impl crml_staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
-	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type RewardRemainder = Treasury;
 	type Event = Event;
+	// TODO: slashed funds should go to rewards development fund
 	type Slash = Treasury; // send the slashed funds to the treasury.
-	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type SessionInterface = Self;
-	type RewardCurve = RewardCurve;
+	type Rewarder = Rewards; // staking rewards are handled by the Rewards module
+}
+
+impl crml_rewards::Trait for Runtime {
+	type Event = Event;
+	type CurrencyToReward = SpendingAssetCurrency<Self>;
 }
 
 parameter_types! {
@@ -398,7 +371,7 @@ parameter_types! {
 }
 
 impl pallet_treasury::Trait for Runtime {
-	type Currency = SpendingAssetCurrency<Self>;
+	type Currency = StakingAssetCurrency<Self>;
 	type ApproveOrigin = pallet_collective::EnsureMembers<_4, AccountId, Self::Doughnut, CouncilCollective>;
 	type RejectOrigin = pallet_collective::EnsureMembers<_2, AccountId, Self::Doughnut, CouncilCollective>;
 	type Event = Event;
@@ -579,6 +552,7 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage},
 		SyloPayment: sylo_payment::{Module, Call, Storage},
 		CennzxSpot: crml_cennzx_spot::{Module, Call, Storage, Config<T>, Event<T>},
+		Rewards: crml_rewards::{Module, Call, Storage, Config, Event<T>},
 	}
 );
 

@@ -18,9 +18,9 @@ crml-sylo = { path = "../crml/sylo", default-features = false }
 crml-cennzx-spot = { path = "../crml/cennzx-spot", default-features = false }
 crml-cennzx-spot-rpc-runtime-api = { path =  "../crml/cennzx-spot/rpc/runtime-api", default-features = false }
 cennznet-primitives = { path = "../primitives", default-features = false }
-crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
+crml-rewards = { path = "../crml/rewards", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false }
-crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
+crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false }
 
 # primitives
 sp-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "1.0.0-rc4.2" }
@@ -140,5 +140,6 @@ std = [
 	"cennznut/std",
 	"crml-cennzx-spot/std",
 	"crml-cennzx-spot-rpc-runtime-api/std",
+	"crml-rewards/std",
 	"crml-transaction-payment/std",
 ]
