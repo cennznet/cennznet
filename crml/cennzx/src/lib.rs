@@ -111,7 +111,7 @@ decl_module! {
 		/// `recipient` - Account to receive assets, defaults to `origin` if None
 		/// `asset_to_sell` - asset ID to sell
 		/// `asset_to_buy` - asset ID to buy
-		/// `buy_amount` - The amount of `asset_to_buy` caller should receive
+		/// `buy_amount` - The amount of `asset_to_buy` to receive
 		/// `maximum_sell` - Maximum `asset_to_sell` caller should pay
 		pub fn buy_asset(
 			origin,
@@ -140,7 +140,7 @@ decl_module! {
 		/// `asset_to_sell` - asset ID to sell
 		/// `asset_to_buy` - asset ID to buy
 		/// `sell_amount` - The amount of `asset_to_sell` the caller should pay
-		/// `minimum_buy` - The minimum `asset_to_buy` to caller should receive
+		/// `minimum_buy` - The minimum `asset_to_buy` to receive
 		pub fn sell_asset(
 			origin,
 			recipient: Option<T::AccountId>,
