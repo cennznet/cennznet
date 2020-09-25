@@ -112,7 +112,6 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
-	pub const ScaleDownFactor: Balance = 1_000_000_000_000;
 }
 
 pub type CennznetDoughnut = prml_doughnut::PlugDoughnut<Runtime>;
