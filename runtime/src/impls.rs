@@ -18,7 +18,7 @@
 
 use crate::{
 	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
+	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System, Treasury,
 };
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
@@ -412,6 +412,15 @@ impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
 		_contract_addr: &Self::AccountId,
 	) -> Result<(), &'static str> {
 		Ok(()) // Just return OK for now
+	}
+}
+
+// An on unbalanced handler which takes a slash amount in the staked currency
+// and moves it to the system Treasury.
+pub struct SlashFundsToTreasury;
+impl OnUnbalanced<NegativeImbalance> for SlashFundsToTreasury {
+	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance) {
+		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
 	}
 }
 

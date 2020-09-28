@@ -20,7 +20,7 @@ use cennznet_primitives::types::{AccountId, Balance, DigestItem};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Header, ImOnline, Runtime, Session,
-	SessionsPerEra, Staking, System, Timestamp,
+	SessionsPerEra, Staking, System, Timestamp, Treasury,
 };
 use cennznet_testing::keyring::{alice, bob, charlie, signed_extra};
 use codec::Encode;
@@ -37,6 +37,7 @@ mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::mock::ExtBuilder;
+use frame_support::additional_traits::MultiCurrencyAccounting;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -546,6 +547,53 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert!(
 				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
 					> author_stash_balance_before_adding_block
+			);
+		});
+}
+
+#[test]
+/// This tests if slash goes to treasury as CENNZ.
+fn slashed_cennz_gets_into_treasury() {
+	let validators = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+
+	ExtBuilder::default()
+		.slash_defer_duration(0)
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			let cennz_amount = 10_000;
+			let cpay_amount = 12_112;
+			let updated_cennz_amount = 4_210_000;
+			let update_rewarded_cpay_amount = 12_449;
+			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
+				&Treasury::account_id(),
+				Some(STAKING_ASSET_ID),
+				cennz_amount,
+			);
+			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
+				&Treasury::account_id(),
+				Some(SPENDING_ASSET_ID),
+				cpay_amount,
+			);
+			assert_eq!(Staking::current_era(), 0);
+
+			// function `apply_unapplied_slashes` is private
+			// Staking::apply_unapplied_slashes(era_now);
+
+			// slashing::apply_slash(unapplied[0]); // slashing module is private to staking and apply_slash is also private
+			// Default slash_defer_duration is 168, so have to set erra to 169 for slash to be applied.
+			start_era(169); // new_era function will internally call apply_unapplied_slashes
+			assert_eq!(Staking::current_era(), 169);
+			assert_eq!(
+				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
+				updated_cennz_amount
+			);
+			assert_eq!(
+				GenericAsset::free_balance(&CENTRAPAY_ASSET_ID, &Treasury::account_id()),
+				update_rewarded_cpay_amount
 			);
 		});
 }
