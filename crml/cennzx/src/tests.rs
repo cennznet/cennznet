@@ -174,7 +174,7 @@ fn calculate_buy_price_zero_cases() {
 	});
 }
 
-/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1 (round up)
 /// and apply fee rate to the price
 #[test]
 fn calculate_buy_price_for_valid_data() {
@@ -188,7 +188,7 @@ fn calculate_buy_price_for_valid_data() {
 	});
 }
 
-/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1 (round up)
 /// and apply fee rate to the price
 #[test]
 fn calculate_buy_price_for_max_reserve_balance() {
@@ -204,7 +204,7 @@ fn calculate_buy_price_for_max_reserve_balance() {
 	});
 }
 
-/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1 (round up)
 /// and apply fee rate to the price
 // Overflows as the both input and output reserve is at max capacity and output amount is little less than max of Balance
 #[test]
@@ -221,7 +221,7 @@ fn calculate_buy_price_should_fail_with_max_reserve_and_max_amount() {
 	});
 }
 
-/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1  (round up)
+/// Formula Price = ((input reserve * output amount) / (output reserve - output amount)) +  1 (round up)
 /// and apply fee rate to the price
 #[test]
 fn calculate_buy_price_max_withdrawal() {

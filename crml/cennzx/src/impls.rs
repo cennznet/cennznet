@@ -15,45 +15,15 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use super::Trait;
-use crate::{Error, Module};
-use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
-use frame_support::{ensure, dispatch::DispatchError, StorageMap};
-use sp_core::crypto::{UncheckedFrom, UncheckedInto};
-use sp_runtime::traits::Hash;
-use sp_std::{marker::PhantomData, prelude::*};
+use crate::{Module, MODULE_ID, Trait};
+use cennznet_primitives::{traits::{BuyFeeAsset, SimpleAssetSystem}, types::FeeExchange};
+use frame_support::dispatch::DispatchError;
+use sp_runtime::traits::AccountIdConversion;
 
-/// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
-pub trait ExchangeAddressFor {
-	/// The asset ID type
-	type AssetId;
-	/// The account ID type
-	type AccountId;
-	/// Generate an account exchange address given `asset_id`
-	fn exchange_address_for(asset_id: Self::AssetId) -> Self::AccountId;
-}
-
-// A CENNZX-Spot exchange address generator implementation
-pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
-
-impl<T: Trait> ExchangeAddressFor for ExchangeAddressGenerator<T>
-where
-	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-	T::AssetId: Into<u64>,
-{
-	type AccountId = T::AssetSystem::AccountId;
-	type AssetId = T::AssetSystem::AssetId;
-
-	/// Generates an exchange address for the given core / asset pair
-	fn exchange_address_for(asset_id: Self::AssetId) -> Self::AccountId {
-		let mut buf = Vec::new();
-		let core_asset_id = Module::<T>::core_asset_id();
-		buf.extend_from_slice(b"cennz-x-spot:");
-		buf.extend_from_slice(&core_asset_id.into().to_le_bytes());
-		buf.extend_from_slice(&asset_id.into().to_le_bytes());
-
-		T::Hashing::hash(&buf[..]).unchecked_into()
-	}
+/// Generate a CENNZX exchange address for a core, `asset_id` pair
+pub fn exchange_address_for<T: Trait>(asset_id: T::AssetId) -> T::AccountId {
+	let core_asset_id = Module::<T>::core_asset_id();
+	MODULE_ID.into_sub_account((core_asset_id, asset_id))
 }
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
@@ -68,13 +38,13 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
 		let fee_exchange_asset_id = exchange_op.asset_id();
-		let fee_asset_id = T::SimpleCurrencySystem::default_asset_id();
+		let fee_asset_id = T::AssetSystem::default_asset_id();
 
 		Self::execute_buy(
 			&who,
 			&who,
-			&fee_exchange_asset_id,
-			&fee_asset_id,
+			fee_exchange_asset_id,
+			fee_asset_id,
 			amount,
 			exchange_op.max_payment(),
 		)

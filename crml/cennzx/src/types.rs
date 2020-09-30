@@ -135,6 +135,12 @@ impl<S: Scaled> From<FeeRate<S>> for LowPrecisionUnsigned {
 	}
 }
 
+impl<S: Scaled> From<FeeRate<S>> for HighPrecisionUnsigned {
+	fn from(f: FeeRate<S>) -> Self {
+		HighPrecisionUnsigned::from(f.0)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

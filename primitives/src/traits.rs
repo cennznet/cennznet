@@ -15,7 +15,9 @@
 
 //! Common traits used by CENNZnet node.
 
+use frame_support::Parameter;
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Member};
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
@@ -49,9 +51,12 @@ pub trait IsGasMeteredCall {
 /// A simple interface to manage account balances in any asset
 /// It's only used to decouple generic-asset from CENNZ-X
 pub trait SimpleAssetSystem {
+	/// The system account identifier type
 	type AccountId: Parameter;
-	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaybeSerializeDeserialize;
-	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaybeSerializeDeserialize;
+	/// The asset identifier identifiers
+	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+	/// The type for denoting asset balances
+	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
 	/// Transfer some `amount` of assets `from` one account `to` another
 	fn transfer(asset_id: Self::AssetId, from: &Self::AccountId, to: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 	/// Get the liquid asset balance of `account`
