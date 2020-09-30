@@ -19,8 +19,8 @@
 use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	DoughnutV0, MultiSignature, OpaqueExtrinsic,
+	traits::{IdentifyAccount, Verify},
+	MultiSignature,
 };
 
 /// An index to a block.
@@ -43,8 +43,8 @@ pub type Balance = u128;
 /// Asset ID for generic asset module.
 pub type AssetId = u32;
 
-/// The runtime supported proof of delegation format.
-pub type Doughnut = DoughnutV0;
+/// Digest item type.
+pub type DigestItem = generic::DigestItem<Hash>;
 
 /// Type used for expressing timestamp.
 pub type Moment = u64;
@@ -59,15 +59,6 @@ pub type Hash = sp_core::H256;
 /// `u64` is enough to represent a duration of half a billion years, when the
 /// time scale is milliseconds.
 pub type Timestamp = u64;
-
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
-/// Header type.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-/// Block type.
-pub type Block = generic::Block<Header, OpaqueExtrinsic>;
-/// Block ID.
-pub type BlockId = generic::BlockId<Block>;
 
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.

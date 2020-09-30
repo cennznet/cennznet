@@ -29,18 +29,21 @@
 
 #![warn(missing_docs)]
 
-use std::{fmt, sync::Arc};
-
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Index};
-use sc_consensus_babe::{Config, Epoch};
-use sc_consensus_babe_rpc::BabeRPCHandler;
-use sc_consensus_epochs::SharedEpochChanges;
-use sc_keystore::KeyStorePtr;
+
+use sc_client_api::light::{Fetcher, RemoteBlockchain};
+use sc_consensus_babe::Epoch;
+use sc_finality_grandpa::FinalityProofProvider;
+pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sp_api::ProvideRuntimeApi;
+use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
-use sp_consensus_babe::BabeApi;
-use sp_transaction_pool::TransactionPool;
+use std::{fmt, sync::Arc};
+use txpool_api::TransactionPool;
+
+/// A type representing all RPC extensions.
+pub type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {
@@ -49,7 +52,7 @@ pub struct LightDeps<C, F, P> {
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
 	/// Remote access to the blockchain (async).
-	pub remote_blockchain: Arc<dyn sc_client::light::blockchain::RemoteBlockchain<Block>>,
+	pub remote_blockchain: Arc<dyn RemoteBlockchain<Block>>,
 	/// Fetcher instance.
 	pub fetcher: Arc<F>,
 }
@@ -57,66 +60,90 @@ pub struct LightDeps<C, F, P> {
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
 	/// BABE protocol config.
-	pub babe_config: Config,
+	pub babe_config: sc_consensus_babe::Config,
 	/// BABE pending epoch changes.
-	pub shared_epoch_changes: SharedEpochChanges<Block, Epoch>,
+	pub shared_epoch_changes: sc_consensus_epochs::SharedEpochChanges<Block, Epoch>,
 	/// The keystore that manages the keys of the node.
-	pub keystore: KeyStorePtr,
+	pub keystore: sc_keystore::KeyStorePtr,
 }
 
-/// Full client dependencies.
-pub struct FullDeps<C, P, SC> {
+/// Dependencies for GRANDPA
+pub struct GrandpaDeps<B> {
+	/// Voting round info.
+	pub shared_voter_state: sc_finality_grandpa::SharedVoterState,
+	/// Authority set info.
+	pub shared_authority_set: sc_finality_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
+	/// Receives notifications about justification events from Grandpa.
+	pub justification_stream: sc_finality_grandpa::GrandpaJustificationStream<Block>,
+	/// Executor to drive the subscription manager in the Grandpa RPC handler.
+	pub subscription_executor: sc_rpc::SubscriptionTaskExecutor,
+	/// Finality proof provider.
+	pub finality_provider: Arc<FinalityProofProvider<B, Block>>,
+}
+
+/// Full client dependencies
+pub struct FullDeps<C, P, SC, B> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
 	/// The SelectChain Strategy
 	pub select_chain: SC,
+	/// Whether to deny unsafe calls
+	pub deny_unsafe: DenyUnsafe,
 	/// BABE specific dependencies.
 	pub babe: BabeDeps,
+	/// GRANDPA specific dependencies.
+	pub grandpa: GrandpaDeps<B>,
 }
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, M, SC>(deps: FullDeps<C, P, SC>) -> jsonrpc_core::IoHandler<M>
+pub fn create_full<C, P, SC, B>(deps: FullDeps<C, P, SC, B>) -> RpcExtension
 where
 	C: ProvideRuntimeApi<Block>,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
+	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
 	C: Send + Sync + 'static,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+	C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: pallet_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
-	C::Api: BabeApi<Block>,
-	<C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
-	P: TransactionPool + 'static,
-	M: jsonrpc_core::Metadata + Default,
+	C::Api: sp_consensus_babe::BabeApi<Block>,
+	C::Api: BlockBuilder<Block>,
+	P: TransactionPool + Sync + Send + 'static,
 	SC: SelectChain<Block> + 'static,
+	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
+	B::State: sc_client_api::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
-	use pallet_contracts_rpc::{Contracts, ContractsApi};
+	use frame_rpc_system::{FullSystem, SystemApi};
 	use pallet_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use substrate_frame_rpc_system::{FullSystem, SystemApi};
+	use sc_consensus_babe_rpc::BabeRpcHandler;
+	use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 
 	let mut io = jsonrpc_core::IoHandler::default();
 	let FullDeps {
 		client,
 		pool,
 		select_chain,
+		deny_unsafe,
 		babe,
+		grandpa,
 	} = deps;
 	let BabeDeps {
 		keystore,
 		babe_config,
 		shared_epoch_changes,
 	} = babe;
+	let GrandpaDeps {
+		shared_voter_state,
+		shared_authority_set,
+		justification_stream,
+		subscription_executor,
+		finality_provider,
+	} = grandpa;
 
 	io.extend_with(SystemApi::to_delegate(FullSystem::new(client.clone(), pool)));
-	// Making synchronous calls in light client freezes the browser currently,
-	// more context: https://github.com/paritytech/substrate/pull/3480
-	// These RPCs should use an asynchronous caller instead.
-	io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
 	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
 		client.clone(),
 	)));
@@ -133,16 +160,18 @@ where
 	io
 }
 
-/// Instantiate all Light RPC extensions.
-pub fn create_light<C, P, M, F>(deps: LightDeps<C, F, P>) -> jsonrpc_core::IoHandler<M>
+/// Instantiate all RPC extensions for light node.
+pub fn create_light<C, P, F>(deps: LightDeps<C, F, P>) -> RpcExtension
 where
-	C: sc_client::blockchain::HeaderBackend<Block>,
+	C: ProvideRuntimeApi<Block>,
+	C: HeaderBackend<Block>,
 	C: Send + Sync + 'static,
-	F: sc_client::light::fetcher::Fetcher<Block> + 'static,
-	P: TransactionPool + 'static,
-	M: jsonrpc_core::Metadata + Default,
+	C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+	P: TransactionPool + Sync + Send + 'static,
+	F: Fetcher<Block> + 'static,
 {
-	use substrate_frame_rpc_system::{LightSystem, SystemApi};
+	use frame_rpc_system::{LightSystem, SystemApi};
 
 	let LightDeps {
 		client,
@@ -151,12 +180,11 @@ where
 		fetcher,
 	} = deps;
 	let mut io = jsonrpc_core::IoHandler::default();
-	io.extend_with(SystemApi::<AccountId, Index>::to_delegate(LightSystem::new(
+	io.extend_with(SystemApi::<Hash, AccountId, Nonce>::to_delegate(LightSystem::new(
 		client,
 		remote_blockchain,
 		fetcher,
 		pool,
 	)));
-
 	io
 }

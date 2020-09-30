@@ -16,6 +16,9 @@
 
 //! CENNZnet chain configurations.
 
+use core::convert::TryFrom;
+use serde::{Deserialize, Serialize};
+
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
@@ -23,12 +26,10 @@ use cennznet_runtime::{
 	TechnicalCommitteeConfig, WASM_BINARY,
 };
 use cennznet_runtime::{Block, FeeRate, PerMillion, PerThousand};
-use core::convert::TryFrom;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service;
-use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};

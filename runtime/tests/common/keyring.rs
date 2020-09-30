@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test accounts.
+//! Test accounts and signing helpers
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, Index};
 use cennznet_runtime::{CennznetDoughnut, CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};

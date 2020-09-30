@@ -18,26 +18,34 @@
 use super::Trait;
 use crate::{Error, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
-use frame_support::{dispatch::DispatchError, StorageMap};
+use frame_support::{ensure, dispatch::DispatchError, StorageMap};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// A function that generates an `AccountId` for a CENNZX-SPOT exchange / (core, asset) pair
-pub trait ExchangeAddressFor<AssetId: Sized, AccountId: Sized> {
-	fn exchange_address_for(asset_id: AssetId) -> AccountId;
+pub trait ExchangeAddressFor {
+	/// The asset ID type
+	type AssetId;
+	/// The account ID type
+	type AccountId;
+	/// Generate an account exchange address given `asset_id`
+	fn exchange_address_for(asset_id: Self::AssetId) -> Self::AccountId;
 }
 
 // A CENNZX-Spot exchange address generator implementation
 pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
 
-impl<T: Trait> ExchangeAddressFor<T::AssetId, T::AccountId> for ExchangeAddressGenerator<T>
+impl<T: Trait> ExchangeAddressFor for ExchangeAddressGenerator<T>
 where
 	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 	T::AssetId: Into<u64>,
 {
+	type AccountId = T::AssetSystem::AccountId;
+	type AssetId = T::AssetSystem::AssetId;
+
 	/// Generates an exchange address for the given core / asset pair
-	fn exchange_address_for(asset_id: T::AssetId) -> T::AccountId {
+	fn exchange_address_for(asset_id: Self::AssetId) -> Self::AccountId {
 		let mut buf = Vec::new();
 		let core_asset_id = Module::<T>::core_asset_id();
 		buf.extend_from_slice(b"cennz-x-spot:");
@@ -59,15 +67,8 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		amount: Self::Balance,
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
-		// check whether exchange asset id exist
 		let fee_exchange_asset_id = exchange_op.asset_id();
-		ensure!(
-			<pallet_generic_asset::TotalIssuance<T>>::contains_key(&fee_exchange_asset_id),
-			Error::<T>::InvalidAssetId,
-		);
-
-		// TODO: Hard coded to use spending asset ID
-		let fee_asset_id = <pallet_generic_asset::Module<T>>::spending_asset_id();
+		let fee_asset_id = T::SimpleCurrencySystem::default_asset_id();
 
 		Self::execute_buy(
 			&who,

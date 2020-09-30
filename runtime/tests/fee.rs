@@ -20,12 +20,13 @@ use cennznet_runtime::{
 	Call, CheckedExtrinsic, Runtime, TransactionBaseFee, TransactionMaxWeightFee, TransactionMinWeightFee,
 	UncheckedExtrinsic,
 };
-use cennznet_testing::keyring::{alice, bob, sign, signed_extra};
 use codec::Encode;
 use crml_transaction_payment::ChargeTransactionPayment;
 use frame_support::weights::{DispatchClass, DispatchInfo, GetDispatchInfo};
 
 mod common;
+
+use common::keyring::{alice, bob, sign, signed_extra};
 use common::mock::ExtBuilder;
 
 // Make signed transaction given a `Call`
