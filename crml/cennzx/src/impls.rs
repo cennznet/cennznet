@@ -15,8 +15,11 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{Module, MODULE_ID, Trait};
-use cennznet_primitives::{traits::{BuyFeeAsset, SimpleAssetSystem}, types::FeeExchange};
+use crate::{Module, Trait, MODULE_ID};
+use cennznet_primitives::{
+	traits::{BuyFeeAsset, SimpleAssetSystem},
+	types::FeeExchange,
+};
 use frame_support::dispatch::DispatchError;
 use sp_runtime::traits::AccountIdConversion;
 

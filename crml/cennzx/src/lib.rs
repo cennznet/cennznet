@@ -18,17 +18,15 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::convert::TryFrom;
 use cennznet_primitives::traits::SimpleAssetSystem;
+use core::convert::TryFrom;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
-	weights::Weight,
-	Parameter, StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure, weights::Weight, Parameter, StorageDoubleMap,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_std::prelude::*;
-use sp_runtime::{DispatchError, DispatchResult, ModuleId, SaturatedConversion};
 use sp_runtime::traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero};
+use sp_runtime::{DispatchError, DispatchResult, ModuleId, SaturatedConversion};
+use sp_std::prelude::*;
 
 mod mock;
 #[macro_use]
@@ -75,7 +73,7 @@ pub trait Trait: frame_system::Trait {
 	/// Type for denoting asset balances
 	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
 	/// Something which can provide asset management
-	type AssetSystem: SimpleAssetSystem<AccountId=Self::AccountId, Balance=Self::Balance, AssetId=Self::AssetId>;
+	type AssetSystem: SimpleAssetSystem<AccountId = Self::AccountId, Balance = Self::Balance, AssetId = Self::AssetId>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
 }
@@ -89,11 +87,21 @@ pub trait WeightInfo {
 }
 
 impl WeightInfo for () {
-	fn buy_asset() -> Weight { 1_000_000 }
-	fn sell_asset() -> Weight { 1_000_000 }
-	fn add_liquidity() -> Weight { 1_000_000 }
-	fn remove_liquidity() -> Weight { 1_000_000 }
-	fn set_fee_rate() -> Weight { 1_000_000 }
+	fn buy_asset() -> Weight {
+		1_000_000
+	}
+	fn sell_asset() -> Weight {
+		1_000_000
+	}
+	fn add_liquidity() -> Weight {
+		1_000_000
+	}
+	fn remove_liquidity() -> Weight {
+		1_000_000
+	}
+	fn set_fee_rate() -> Weight {
+		1_000_000
+	}
 }
 
 decl_error! {
@@ -755,41 +763,27 @@ impl<T: Trait> Module<T> {
 			} else {
 				exchange_address_for::<T>(asset_to_buy)
 			};
-			let _ = T::AssetSystem::transfer(
-				asset_to_sell,
-				trader,
-				&exchange_address,
-				amount_to_sell,
-			)
-			.and(T::AssetSystem::transfer(
-				asset_to_buy,
-				&exchange_address,
-				recipient,
-				amount_to_buy,
-			));
+			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
+				T::AssetSystem::transfer(asset_to_buy, &exchange_address, recipient, amount_to_buy),
+			);
 		} else {
 			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
 			let exchange_address_a = exchange_address_for::<T>(asset_to_sell);
 			let exchange_address_b = exchange_address_for::<T>(asset_to_buy);
 
-			let _ = T::AssetSystem::transfer(
-				asset_to_sell,
-				trader,
-				&exchange_address_a,
-				amount_to_sell,
-			)
-			.and(T::AssetSystem::transfer(
-				core_asset_id,
-				&exchange_address_a,
-				&exchange_address_b,
-				core_amount,
-			))
-			.and(T::AssetSystem::transfer(
-				asset_to_buy,
-				&exchange_address_b,
-				recipient,
-				amount_to_buy,
-			));
+			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
+				.and(T::AssetSystem::transfer(
+					core_asset_id,
+					&exchange_address_a,
+					&exchange_address_b,
+					core_amount,
+				))
+				.and(T::AssetSystem::transfer(
+					asset_to_buy,
+					&exchange_address_b,
+					recipient,
+					amount_to_buy,
+				));
 		};
 
 		Self::deposit_event(RawEvent::AssetPurchase(

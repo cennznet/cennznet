@@ -21,7 +21,7 @@ use core::{
 	marker::PhantomData,
 };
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub use primitive_types::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;

@@ -24,8 +24,8 @@ use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
 
-use crate::common::keyring::*;
 use crate::common::helpers::make_authority_keys;
+use crate::common::keyring::*;
 
 /// The default number of validators for mock storage setup
 const DEFAULT_VALIDATOR_COUNT: usize = 3;
