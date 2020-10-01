@@ -568,6 +568,7 @@ fn slashed_cennz_gets_into_treasury() {
 			let cpay_amount = 12_112;
 			let updated_cennz_amount = 4_210_000;
 			let update_rewarded_cpay_amount = 12_449;
+			// Deposit some CENNZ/CPAY in treasury
 			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
 				&Treasury::account_id(),
 				Some(STAKING_ASSET_ID),
@@ -578,15 +579,21 @@ fn slashed_cennz_gets_into_treasury() {
 				Some(SPENDING_ASSET_ID),
 				cpay_amount,
 			);
+			// Check Treasury balance before starting new era
+			assert_eq!(
+				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
+				cennz_amount
+			);
+			assert_eq!(
+				GenericAsset::free_balance(&CENTRAPAY_ASSET_ID, &Treasury::account_id()),
+				cpay_amount
+			);
 			assert_eq!(Staking::current_era(), 0);
 
-			// function `apply_unapplied_slashes` is private
-			// Staking::apply_unapplied_slashes(era_now);
-
-			// slashing::apply_slash(unapplied[0]); // slashing module is private to staking and apply_slash is also private
-			// Default slash_defer_duration is 168, so have to set erra to 169 for slash to be applied.
+			// Default slash_defer_duration is 168, so have to set era to 169 for slash to be applied.
 			start_era(169); // new_era function will internally call apply_unapplied_slashes
 			assert_eq!(Staking::current_era(), 169);
+			// Check Treasury balance after starting new era
 			assert_eq!(
 				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
 				updated_cennz_amount
