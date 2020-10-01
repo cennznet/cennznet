@@ -72,7 +72,7 @@ pub use crml_sylo::vault as sylo_vault;
 pub mod impls;
 use impls::{
 	CENNZnetDispatchVerifier, CurrencyToVoteHandler, FeePayerResolver, GasHandler, GasMeteredCallResolver,
-	ScaledWeightToFee, SplitToAllValidators, TargetedFeeAdjustment,
+	ScaledWeightToFee, SlashFundsToTreasury, SplitToAllValidators, TargetedFeeAdjustment,
 };
 
 /// Constant values used within the runtime.
@@ -306,7 +306,7 @@ impl crml_staking::Trait for Runtime {
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = Treasury;
 	type Event = Event;
-	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;

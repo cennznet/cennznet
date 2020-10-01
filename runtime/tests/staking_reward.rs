@@ -20,7 +20,7 @@ use cennznet_primitives::types::{AccountId, Balance, DigestItem};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Header, ImOnline, Runtime, Session,
-	SessionsPerEra, Staking, System, Timestamp,
+	SessionsPerEra, Staking, System, Timestamp, Treasury,
 };
 use cennznet_testing::keyring::{alice, bob, charlie, signed_extra};
 use codec::Encode;
@@ -31,12 +31,14 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Perbill};
-use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+use sp_staking::{offence::Offence, offence::OnOffenceHandler, SessionIndex};
 
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::mock::ExtBuilder;
+use frame_support::additional_traits::MultiCurrencyAccounting;
+use pallet_im_online::UnresponsivenessOffence;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -546,6 +548,54 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert!(
 				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
 					> author_stash_balance_before_adding_block
+			);
+		});
+}
+
+#[test]
+/// This tests if slash goes to treasury as CENNZ.
+fn slashed_cennz_gets_into_treasury() {
+	let validators = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			let initial_cennz_amount = 10_000;
+			let validator_set_count: u32 = validators.len() as u32;
+			let offenders: u32 = 6; // All validators are offenders
+
+			// calculate the total slashed amount on Unresponsiveness offence
+			let slashed_amount = UnresponsivenessOffence::<()>::slash_fraction(offenders, validator_set_count);
+			let own_slash = slashed_amount * initial_balance;
+			let total_slashed_cennz = own_slash.saturating_mul(offenders.into());
+
+			// Deposit some CENNZ in treasury
+			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
+				&Treasury::account_id(),
+				Some(STAKING_ASSET_ID),
+				initial_cennz_amount,
+			);
+
+			// Check Treasury CENNZ balance before starting new era
+			assert_eq!(
+				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
+				initial_cennz_amount
+			);
+
+			assert_eq!(Staking::current_era(), 0);
+
+			// Default slash_defer_duration is 168, so have to set era to 169 for slash to be applied.
+			start_era(169);
+			// Unresponsiveness offence will be reported on rotate_session() from all the validators
+			assert_eq!(Staking::current_era(), 169);
+
+			// Check the change in Treasury's CENNZ balance after starting new era
+			assert_eq!(
+				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
+				initial_cennz_amount + total_slashed_cennz
 			);
 		});
 }
