@@ -31,7 +31,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Perbill};
-use sp_staking::{offence::OnOffenceHandler, offence::Offence, SessionIndex};
+use sp_staking::{offence::Offence, offence::OnOffenceHandler, SessionIndex};
 
 mod common;
 
