@@ -566,7 +566,9 @@ fn slashed_cennz_gets_into_treasury() {
 			let initial_cennz_amount = 10_000;
 			let validator_set_count: u32 = validators.len() as u32;
 			let offenders: u32 = 6; // All validators are offenders
+
 			let slashed_amount;
+			// calculate the total slashed amount on Unresponsiveness offence
 			// the formula is min((3 * (k - (n / 10 + 1))) / n, 1) * 0.07
 			// basically, 10% can be offline with no slash, but after that, it linearly climbs up to 7%
 			// when 13/30 are offline (around 5% when 1/3 are offline).
@@ -578,23 +580,28 @@ fn slashed_cennz_gets_into_treasury() {
 			}
 			let own_slash = slashed_amount * initial_balance;
 			let total_slashed_cennz = own_slash.saturating_mul(offenders.into());
+
 			// Deposit some CENNZ in treasury
 			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
 				&Treasury::account_id(),
 				Some(STAKING_ASSET_ID),
 				initial_cennz_amount,
 			);
+
 			// Check Treasury CENNZ balance before starting new era
 			assert_eq!(
 				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
 				initial_cennz_amount
 			);
+
 			assert_eq!(Staking::current_era(), 0);
 
 			// Default slash_defer_duration is 168, so have to set era to 169 for slash to be applied.
-			start_era(169); // new_era function will internally call apply_unapplied_slashes
+			start_era(169);
+			// Unresponsiveness offence will be reported on rotate_session() from all the validators
 			assert_eq!(Staking::current_era(), 169);
-			// Check Treasury balance after starting new era
+
+			// Check the change in Treasury's CENNZ balance after starting new era
 			assert_eq!(
 				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
 				initial_cennz_amount + total_slashed_cennz
