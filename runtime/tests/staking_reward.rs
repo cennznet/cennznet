@@ -38,6 +38,7 @@ mod common;
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::mock::ExtBuilder;
 use frame_support::additional_traits::MultiCurrencyAccounting;
+use sp_runtime::traits::Saturating;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -556,37 +557,37 @@ fn authorship_reward_of_a_chilled_validator() {
 fn slashed_cennz_gets_into_treasury() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
-
 	ExtBuilder::default()
-		.slash_defer_duration(0)
 		.initial_authorities(validators.as_slice())
 		.initial_balance(initial_balance)
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
-			let cennz_amount = 10_000;
-			let cpay_amount = 12_112;
-			let updated_cennz_amount = 4_210_000;
-			let update_rewarded_cpay_amount = 12_449;
-			// Deposit some CENNZ/CPAY in treasury
+			let initial_cennz_amount = 10_000;
+			let validator_set_count: u32 = validators.len() as u32;
+			let offenders: u32 = 6; // All validators are offenders
+			let slashed_amount;
+			// the formula is min((3 * (k - (n / 10 + 1))) / n, 1) * 0.07
+			// basically, 10% can be offline with no slash, but after that, it linearly climbs up to 7%
+			// when 13/30 are offline (around 5% when 1/3 are offline).
+			if let Some(threshold) = offenders.checked_sub(validator_set_count / 10 + 1) {
+				let x = Perbill::from_rational_approximation(3 * threshold, validator_set_count);
+				slashed_amount = x.saturating_mul(Perbill::from_percent(7));
+			} else {
+				slashed_amount = Perbill::default()
+			}
+			let own_slash = slashed_amount * initial_balance;
+			let total_slashed_cennz = own_slash.saturating_mul(offenders.into());
+			// Deposit some CENNZ in treasury
 			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
 				&Treasury::account_id(),
 				Some(STAKING_ASSET_ID),
-				cennz_amount,
+				initial_cennz_amount,
 			);
-			let _ = <GenericAsset as MultiCurrencyAccounting>::deposit_creating(
-				&Treasury::account_id(),
-				Some(SPENDING_ASSET_ID),
-				cpay_amount,
-			);
-			// Check Treasury balance before starting new era
+			// Check Treasury CENNZ balance before starting new era
 			assert_eq!(
 				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
-				cennz_amount
-			);
-			assert_eq!(
-				GenericAsset::free_balance(&CENTRAPAY_ASSET_ID, &Treasury::account_id()),
-				cpay_amount
+				initial_cennz_amount
 			);
 			assert_eq!(Staking::current_era(), 0);
 
@@ -596,11 +597,7 @@ fn slashed_cennz_gets_into_treasury() {
 			// Check Treasury balance after starting new era
 			assert_eq!(
 				GenericAsset::free_balance(&CENNZ_ASSET_ID, &Treasury::account_id()),
-				updated_cennz_amount
-			);
-			assert_eq!(
-				GenericAsset::free_balance(&CENTRAPAY_ASSET_ID, &Treasury::account_id()),
-				update_rewarded_cpay_amount
+				initial_cennz_amount + total_slashed_cennz
 			);
 		});
 }

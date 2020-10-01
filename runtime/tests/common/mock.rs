@@ -15,32 +15,21 @@
 
 //! Mock runtime storage setup
 
-use crate::common::helpers::make_authority_keys;
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use crml_staking::EraIndex;
 use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
-use frame_support::traits::Get;
 use pallet_contracts::{Gas, Schedule};
 use sp_runtime::Perbill;
-use std::cell::RefCell;
+
+use crate::common::helpers::make_authority_keys;
 
 /// The default number of validators for mock storage setup
 const DEFAULT_VALIDATOR_COUNT: usize = 3;
-thread_local! {
-   static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
-}
 
-pub struct SlashDeferDuration;
-impl Get<EraIndex> for SlashDeferDuration {
-	fn get() -> EraIndex {
-		SLASH_DEFER_DURATION.with(|v| *v.borrow())
-	}
-}
 pub struct ExtBuilder {
 	initial_balance: Balance,
 	gas_price: Balance,
@@ -51,7 +40,6 @@ pub struct ExtBuilder {
 	stash: Balance,
 	// The initial authority set
 	initial_authorities: Vec<AuthorityKeys>,
-	slash_defer_duration: EraIndex,
 }
 
 impl Default for ExtBuilder {
@@ -63,7 +51,6 @@ impl Default for ExtBuilder {
 			gas_regular_op_cost: 0_u64,
 			stash: 0,
 			initial_authorities: Default::default(),
-			slash_defer_duration: EraIndex::default(),
 		}
 	}
 }
@@ -91,10 +78,6 @@ impl ExtBuilder {
 	}
 	pub fn stash(mut self, stash: Balance) -> Self {
 		self.stash = stash;
-		self
-	}
-	pub fn slash_defer_duration(mut self, eras: EraIndex) -> Self {
-		self.slash_defer_duration = eras;
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
