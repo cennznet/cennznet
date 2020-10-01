@@ -31,14 +31,14 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Perbill};
-use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+use sp_staking::{offence::OnOffenceHandler, offence::Offence, SessionIndex};
 
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::mock::ExtBuilder;
 use frame_support::additional_traits::MultiCurrencyAccounting;
-use sp_runtime::traits::Saturating;
+use pallet_im_online::UnresponsivenessOffence;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -567,17 +567,8 @@ fn slashed_cennz_gets_into_treasury() {
 			let validator_set_count: u32 = validators.len() as u32;
 			let offenders: u32 = 6; // All validators are offenders
 
-			let slashed_amount;
 			// calculate the total slashed amount on Unresponsiveness offence
-			// the formula is min((3 * (k - (n / 10 + 1))) / n, 1) * 0.07
-			// basically, 10% can be offline with no slash, but after that, it linearly climbs up to 7%
-			// when 13/30 are offline (around 5% when 1/3 are offline).
-			if let Some(threshold) = offenders.checked_sub(validator_set_count / 10 + 1) {
-				let x = Perbill::from_rational_approximation(3 * threshold, validator_set_count);
-				slashed_amount = x.saturating_mul(Perbill::from_percent(7));
-			} else {
-				slashed_amount = Perbill::default()
-			}
+			let slashed_amount = UnresponsivenessOffence::<()>::slash_fraction(offenders, validator_set_count);
 			let own_slash = slashed_amount * initial_balance;
 			let total_slashed_cennz = own_slash.saturating_mul(offenders.into());
 
