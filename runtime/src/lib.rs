@@ -92,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, WeightToCpayFee};
+use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -281,7 +281,7 @@ impl crml_staking::Trait for Runtime {
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = Treasury;
 	type Event = Event;
-	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;

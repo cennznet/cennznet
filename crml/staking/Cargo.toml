@@ -22,13 +22,13 @@ pallet-session = { default-features = false, features = ["historical"], git = "h
 pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 crml-staking-reward-curve = { path = "../staking/reward-curve" }
-substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 hex = "0.4"
+pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [features]
 migrate = []
