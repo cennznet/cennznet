@@ -26,7 +26,6 @@ use frame_support::{additional_traits::MultiCurrencyAccounting as MultiCurrency,
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, sign};
-use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
 fn apply_extrinsic(origin: AccountId, call: Call) -> Balance {

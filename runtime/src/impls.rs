@@ -18,13 +18,12 @@
 
 use crate::{
 	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
+	Call, MaximumBlockWeight, NegativeImbalance, Runtime, System,
 };
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, IsGasMeteredCall},
 	types::{Balance, FeeExchange},
 };
-use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
 use codec::Decode;
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
@@ -32,19 +31,17 @@ use frame_support::{
 	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
 	weights::Weight,
 };
-use pallet_contracts::{Gas, GasMeter};
 use pallet_generic_asset::StakingAssetCurrency;
 use sp_runtime::{
 	traits::{
-		CheckedMul, CheckedSub, Convert, PlugDoughnutApi, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero,
+		CheckedMul, CheckedSub, Convert, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero,
 	},
 	DispatchError, Fixed64, Perbill,
 };
 use sp_std::{any::Any, prelude::Vec};
 
 type Cennzx<T> = crml_cennzx::Module<T>;
-type Contracts<T> = pallet_contracts::Module<T>;
-type GenericAsset<T> = pallet_generic_asset::Module<T>;
+type GenericAsset<T> = prml_generic_asset::Module<T>;
 
 pub struct SplitToAllValidators;
 
@@ -165,255 +162,6 @@ impl<T: Get<Perbill>> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T> {
 	}
 }
 
-/// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
-pub struct GasHandler;
-
-impl<T> pallet_contracts::GasHandler<T> for GasHandler
-where
-	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx::Trait,
-{
-	/// Fill the gas meter
-	///
-	/// The process is as follows:
-	/// 1) Calculate the cost to fill the gas meter (gas price * gas limit)
-	/// 2a) Default case:
-	///    - User is paying in the native fee currency
-	///    - Deduct the 'fill meter cost' from the users balance and fill the gas meter
-	/// 2b) User has nominated to pay fees in another currency
-	///    - Calculate the 'fill gas cost' in terms of their nominated payment currency-
-	///      using the CENNZX spot exchange rate
-	///....- Check the user has liquid balance to pay the converted 'fill gas cost' and fill the gas meter
-	fn fill_gas(transactor: &T::AccountId, gas_limit: Gas) -> Result<GasMeter<T>, DispatchError> {
-		// Calculate the cost to fill the meter in the CENNZnet fee currency
-		let gas_price = Contracts::<T>::gas_price();
-		let fill_meter_cost = if gas_price.is_zero() {
-			// Gas is free in this configuration, fill the meter
-			return Ok(GasMeter::with_limit(gas_limit, gas_price));
-		} else {
-			gas_price
-				.checked_mul(&gas_limit.saturated_into())
-				.ok_or("Overflow during gas cost calculation")?
-		};
-
-		// Check if a fee exchange has been specified by the user
-		let fee_exchange: Option<FeeExchange<T::AssetId, T::Balance>> = storage::unhashed::get(&GAS_FEE_EXCHANGE_KEY);
-
-		if fee_exchange.is_none() {
-			// User will pay for gas in CENNZnet's native fee currency
-			let imbalance = T::Currency::withdraw(
-				transactor,
-				fill_meter_cost,
-				WithdrawReason::Fee.into(),
-				ExistenceRequirement::KeepAlive,
-			)?;
-			T::GasPayment::on_unbalanced(imbalance);
-			return Ok(GasMeter::with_limit(gas_limit, gas_price));
-		}
-
-		// User wants to pay fee in a nominated currency
-		let exchange_op = fee_exchange.unwrap();
-		let payment_asset = exchange_op.asset_id();
-
-		// Calculate the `fill_meter_cost` in terms of the user's nominated payment asset
-		let converted_fill_meter_cost = Cennzx::<T>::get_asset_to_core_buy_price(
-			&payment_asset,
-			T::Balance::unique_saturated_from(fill_meter_cost.saturated_into()),
-		)?;
-
-		// Respect the user's max. fee preference
-		if converted_fill_meter_cost > exchange_op.max_payment() {
-			return Err("Fee cost exceeds max. payment limit".into());
-		}
-
-		// Calculate the expected user balance after paying the `converted_fill_meter_cost`
-		// This value is required to ensure liquidity restrictions are upheld
-		let balance_after_fill_meter = GenericAsset::<T>::free_balance(&payment_asset, transactor)
-			.checked_sub(&converted_fill_meter_cost)
-			.ok_or("Insufficient liquidity to fill gas meter")?;
-
-		// Does the user have enough funds to pay the `converted_fill_meter_cost` with `payment_asset`
-		// also taking into consideration any liquidity restrictions
-		GenericAsset::<T>::ensure_can_withdraw(
-			&payment_asset,
-			transactor,
-			converted_fill_meter_cost,
-			WithdrawReason::Fee.into(),
-			balance_after_fill_meter,
-		)?;
-
-		// User has the requisite amount of `payment_asset` to fund the meter
-		// Actual payment will be handled in `empty_unused_gas` as the user may not spend the entire limit
-		// Performing payment on the known gas spent will avoid a refund situation
-		return Ok(GasMeter::with_limit(gas_limit, gas_price));
-	}
-
-	/// Handle settlement of unused gas after contract execution
-	///
-	/// The process is as follows:
-	/// - Default case: refund unused gas tokens to the user (`transactor`) in CENNZnet's native fee currency as the current gas price
-	/// - FeeExchange case: Gas spent will be charged to the user in their nominated fee currency at the current gas price
-	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
-		// TODO: Update `GasSpent` for the block
-		let gas_left = gas_meter.gas_left();
-		let gas_price = Contracts::<T>::gas_price();
-		let gas_spent = gas_meter.spent();
-
-		// The `take()` function ensures the entry is killed after access
-		if let Some(exchange_op) = storage::unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY)
-		{
-			// Pay for `gas_spent` in a user nominated currency using the CENNZX spot exchange
-			// Payment can never fail as liquidity is verified before filling the meter
-			if let Some(used_gas_cost) = gas_price.checked_mul(&gas_spent.saturated_into()) {
-				let _ = Cennzx::<T>::buy_fee_asset(
-					transactor,
-					T::Balance::unique_saturated_from(used_gas_cost.saturated_into()),
-					&exchange_op,
-				);
-				let imbalance = T::Currency::withdraw(
-					transactor,
-					used_gas_cost,
-					WithdrawReason::Fee.into(),
-					ExistenceRequirement::KeepAlive,
-				)
-				.expect("Used gas cost could not be withdrawn");
-				T::GasPayment::on_unbalanced(imbalance);
-			}
-		} else {
-			// Refund remaining gas by minting it as CENNZnet fee currency
-			if let Some(refund) = gas_price.checked_mul(&gas_left.saturated_into()) {
-				let _imbalance = T::Currency::deposit_creating(transactor, refund);
-			}
-		}
-	}
-}
-
-// It implements `IsGasMeteredCall`
-pub struct GasMeteredCallResolver;
-
-impl IsGasMeteredCall for GasMeteredCallResolver {
-	/// The runtime extrinsic `Call` type
-	type Call = Call;
-	/// Return whether the given `call` is gas metered
-	fn is_gas_metered(call: &Self::Call) -> bool {
-		match call {
-			Call::Contracts(pallet_contracts::Call::call(_, _, _, _)) => true,
-			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
-			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
-			_ => false,
-		}
-	}
-}
-
-/// The type that implements FeePayer for the cennznet-runtime Call(s)
-pub struct FeePayerResolver;
-impl crml_transaction_payment::FeePayer for FeePayerResolver {
-	type Call = Call;
-	type AccountId = <Runtime as frame_system::Trait>::AccountId;
-	fn fee_payer(call: &Self::Call) -> Option<<Runtime as frame_system::Trait>::AccountId> {
-		let is_sylo = match call {
-			Call::SyloGroups(_) => true,
-			Call::SyloE2EE(_) => true,
-			Call::SyloDevice(_) => true,
-			Call::SyloInbox(_) => true,
-			Call::SyloResponse(_) => true,
-			Call::SyloVault(_) => true,
-			_ => false,
-		};
-		if is_sylo {
-			sylo_payment::Module::<Runtime>::payment_account()
-		} else {
-			None
-		}
-	}
-}
-
-/// Provides a cennznet version of doughnut dispatch verification
-pub struct CENNZnetDispatchVerifier;
-
-/// Helpers which are used by the DelegatedDispatchVerifier
-impl CENNZnetDispatchVerifier {
-	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
-	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
-		let mut domain = doughnut
-			.get_domain(<CENNZnetDispatchVerifier as additional_traits::DelegatedDispatchVerifier>::DOMAIN)
-			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
-		Ok(cennznut)
-	}
-
-	/// Verify that the smart contract being called is permissioned in the cennznut
-	fn check_contract(
-		contract_address: &<Runtime as frame_system::Trait>::AccountId,
-		cennznut: CENNZnut,
-	) -> Result<(), &'static str> {
-		let address: [u8; 32] = contract_address.clone().into();
-		match cennznut.validate_contract_call(&address) {
-			Ok(r) => Ok(r),
-			_ => Err("CENNZnut does not grant permission for contract"),
-		}
-	}
-}
-
-impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
-	type Doughnut = <Runtime as frame_system::Trait>::Doughnut;
-	type AccountId = <Runtime as frame_system::Trait>::AccountId;
-
-	const DOMAIN: &'static str = "cennznet";
-
-	/// Verify that a call to a runtime module is permissioned by the doughnut
-	fn verify_dispatch(
-		doughnut: &Self::Doughnut,
-		module: &str,
-		method: &str,
-		_args: Vec<(&str, &dyn Any)>,
-	) -> Result<(), &'static str> {
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-
-		// Extract Module name from <prefix>-<Module_name>
-		let module_offset = module
-			.find('-')
-			.ok_or("CENNZnut does not grant permission for module")?
-			+ 1;
-		if module_offset <= 1 || module_offset >= module.chars().count() {
-			return Err("error during module name segmentation");
-		}
-		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
-			Ok(r) => Ok(r),
-			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
-			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => {
-				Err("CENNZnut does not grant permission for method")
-			}
-			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => {
-				Err("CENNZnut does not grant permission for module")
-			}
-			Err(ValidationErr::NoPermission(RuntimeDomain::MethodArguments)) => {
-				Err("CENNZnut does not grant permission for method arguments")
-			}
-		}
-	}
-
-	/// Verify that the contract being called is permissioned on the doughnut
-	fn verify_runtime_to_contract_call(
-		caller: &Self::AccountId,
-		doughnut: &Self::Doughnut,
-		contract_addr: &Self::AccountId,
-	) -> Result<(), &'static str> {
-		debug_assert!(caller.clone() == doughnut.issuer(), "Invalid doughnut caller");
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		return Self::check_contract(contract_addr, cennznut);
-	}
-
-	/// This is used when an issuer delegates permissions to a smart contract
-	/// It should verify that a contract being called by the smart contract is
-	/// permissioned. Not implemented yet.
-	fn verify_contract_to_contract_call(
-		_caller: &Self::AccountId,
-		_doughnut: &Self::Doughnut,
-		_contract_addr: &Self::AccountId,
-	) -> Result<(), &'static str> {
-		Ok(()) // Just return OK for now
-	}
-}
 
 #[cfg(test)]
 mod tests {

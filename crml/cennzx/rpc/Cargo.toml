@@ -7,7 +7,7 @@ edition = "2018"
 license = "GPL-3.0"
 
 [dependencies]
-codec = { version = "1.3.5", package = "parity-scale-codec" }
+codec = { version = "1.3.5", package = "parity-scale-codec", default-features = false }
 jsonrpc-core = "15.0.0"
 jsonrpc-core-client = "15.0.0"
 jsonrpc-derive = "15.0.0"

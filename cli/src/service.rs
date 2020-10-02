@@ -151,20 +151,20 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let telemetry_connection_sinks = sc_service::TelemetryConnectionSinks::default();
 
-	let rpc_extensions_builder = {
-		let client = client.clone();
-		let pool = transaction_pool.clone();
+	// let rpc_extensions_builder = {
+	// 	let client = client.clone();
+	// 	let pool = transaction_pool.clone();
 
-		Box::new(move |deny_unsafe, _| {
-			let deps = crate::rpc::FullDeps {
-				client: client.clone(),
-				pool: pool.clone(),
-				deny_unsafe,
-			};
+	// 	Box::new(move |deny_unsafe, _| {
+	// 		let deps = crate::rpc::FullDeps {
+	// 			client: client.clone(),
+	// 			pool: pool.clone(),
+	// 			deny_unsafe,
+	// 		};
 
-			crate::rpc::create_full(deps)
-		})
-	};
+	// 		crate::rpc::create_full(deps)
+	// 	})
+	// };
 
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
@@ -173,7 +173,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		telemetry_connection_sinks: telemetry_connection_sinks.clone(),
-		rpc_extensions_builder: rpc_extensions_builder,
+		rpc_extensions_builder: None,
 		on_demand: None,
 		remote_blockchain: None,
 		backend,

@@ -20,6 +20,7 @@ use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, Cennzx, CheckedExtrinsic, ContractTransactionBaseFee, Event, Executive, GenericAsset, Origin, Runtime,
 };
+use cennznet_testing::keyring::{alice, bob, charlie, dave, ferdie, signed_extra};
 use codec::Encode;
 use crml_transaction_payment::constants::error_code::*;
 use frame_support::{
@@ -38,7 +39,6 @@ mod common;
 mod doughnut;
 
 use common::helpers::{extrinsic_fee_for, header, sign};
-use common::keyring::{alice, bob, charlie, dave, ferdie, signed_extra};
 use common::mock::{
 	contracts::{CONTRACT_WITH_GA_TRANSFER, CONTRACT_WITH_TRAP},
 	ExtBuilder,

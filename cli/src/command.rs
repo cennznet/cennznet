@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{chain_spec, service};
+use crate::service;
 use crate::cli::{Cli, Subcommand};
 use sc_cli::{SubstrateCli, RuntimeVersion, Role, ChainSpec};
 use sc_service::PartialComponents;
@@ -48,9 +48,9 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"dev" => Box::new(chain_spec::dev::config()?),
-			"azalea" => Box::new(chain_spec::azalea::config()?),
-			"nikau" => Box::new(chain_spec::nikau::config()?),
+			// "dev" => Box::new(chain_spec::dev::config()?),
+			// "azalea" => Box::new(chain_spec::azalea::config()?),
+			// "nikau" => Box::new(chain_spec::nikau::config()?),
 			path => Box::new(chain_spec::ChainSpec::from_json_file(
 				std::path::PathBuf::from(path),
 			)?),

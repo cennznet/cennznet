@@ -33,15 +33,15 @@ hex = "0.4"
 migrate = []
 default = ["std"]
 std = [
-	"serde",
-	"sp-keyring",
 	"codec/std",
-	"sp-std/std",
+	"serde",
 	"sp-io/std",
+	"sp-keyring",
+	"sp-std/std",
 	"frame-support/std",
+	"frame-system/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"pallet-session/std",
-	"frame-system/std",
 	"pallet-authorship/std",
+	"pallet-session/std",
 ]
