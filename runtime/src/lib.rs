@@ -25,9 +25,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::Encode;
 
+use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_authority_discovery;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
@@ -36,10 +36,14 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, Extrinsic, IdentifyAccount, IdentityLookup, NumberFor, SaturatedConversion, Saturating, Verify,
+	BlakeTwo256, Block as BlockT, Extrinsic, IdentifyAccount, IdentityLookup, NumberFor, SaturatedConversion,
+	Saturating, Verify,
 };
 use sp_runtime::{
-	create_runtime_str, generic::{self, Era}, traits::OpaqueKeys, impl_opaque_keys,
+	create_runtime_str,
+	generic::{self, Era},
+	impl_opaque_keys,
+	traits::OpaqueKeys,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
@@ -266,7 +270,7 @@ parameter_types! {
 impl pallet_session::Trait for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Trait>::AccountId;
-	type ValidatorIdOf =();
+	type ValidatorIdOf = ();
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = ();
@@ -418,8 +422,8 @@ impl pallet_identity::Trait for Runtime {
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-	where
-		Call: From<LocalCall>,
+where
+	Call: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: Call,
@@ -453,10 +457,7 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
 				debug::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
-		let signature = raw_payload
-			.using_encoded(|payload| {
-				C::sign(payload, public)
-			})?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let (call, extra, _) = raw_payload.deconstruct();
 		Some((call, (account, signature.into(), extra)))
 	}

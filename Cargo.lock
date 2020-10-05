@@ -624,7 +624,7 @@ dependencies = [
 name = "cennznet-primitives"
 version = "1.0.0"
 dependencies = [
- "frame-support",
+ "frame-support 2.0.0",
  "parity-scale-codec",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -637,8 +637,8 @@ dependencies = [
  "cennznet-primitives",
  "frame-benchmarking",
  "frame-executive",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "futures 0.3.5",
@@ -754,6 +754,15 @@ dependencies = [
  "textwrap",
  "unicode-width",
  "vec_map",
+]
+
+[[package]]
+name = "clear_on_drop"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9cc5db465b294c3fa986d5bbb0f3017cd850bff6dd6c52f9ccff8b4d21b7b08"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -937,8 +946,8 @@ name = "crml-cennzx"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "primitive-types 0.6.2",
  "prml-generic-asset",
@@ -987,8 +996,8 @@ name = "crml-staking"
 version = "1.0.0"
 dependencies = [
  "crml-staking-reward-curve",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "hex",
  "pallet-authorship",
  "pallet-balances",
@@ -1021,14 +1030,14 @@ dependencies = [
 name = "crml-sylo"
 version = "1.0.0"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0-alpha.5",
+ "frame-system 2.0.0-alpha.5",
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-core 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -1036,8 +1045,8 @@ name = "crml-transaction-payment"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-balances",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
@@ -1231,6 +1240,18 @@ checksum = "c4d33be9473d06f75f58220f71f7a9317aca647dc061dbd3c361b0bef505fbea"
 dependencies = [
  "byteorder 1.3.4",
  "quick-error",
+]
+
+[[package]]
+name = "doughnut_rs"
+version = "0.5.1"
+source = "git+https://github.com/cennznet/doughnut-rs?branch=0.5.1#8329b85f6f34c7167666391a214a8f058f9901b3"
+dependencies = [
+ "clear_on_drop",
+ "ed25519-dalek",
+ "parity-scale-codec",
+ "primitive-types 0.7.2",
+ "schnorrkel",
 ]
 
 [[package]]
@@ -1503,8 +1524,8 @@ name = "frame-benchmarking"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "linregress",
  "parity-scale-codec",
  "paste",
@@ -1539,8 +1560,8 @@ name = "frame-executive"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -1548,6 +1569,17 @@ dependencies = [
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-tracing 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "frame-metadata"
+version = "11.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -1563,12 +1595,36 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "bitmask",
+ "frame-metadata 11.0.0-alpha.5",
+ "frame-support-procedural 2.0.0-alpha.5",
+ "impl-trait-for-tuples",
+ "log",
+ "once_cell 1.4.0",
+ "parity-scale-codec",
+ "paste",
+ "serde",
+ "sp-arithmetic 2.0.0-alpha.5",
+ "sp-core 2.0.0-alpha.5",
+ "sp-inherents 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
+ "sp-state-machine 0.8.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "tracing",
+]
+
+[[package]]
+name = "frame-support"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "bitmask",
- "frame-metadata",
- "frame-support-procedural",
+ "frame-metadata 12.0.0",
+ "frame-support-procedural 2.0.0",
  "impl-trait-for-tuples",
  "log",
  "once_cell 1.4.0",
@@ -1588,10 +1644,33 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "frame-support-procedural-tools 2.0.0-alpha.5",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "frame-support-procedural"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support-procedural-tools",
+ "frame-support-procedural-tools 2.0.0",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "frame-support-procedural-tools"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "frame-support-procedural-tools-derive 2.0.0-alpha.5",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",
@@ -1602,8 +1681,18 @@ name = "frame-support-procedural-tools"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support-procedural-tools-derive",
+ "frame-support-procedural-tools-derive 2.0.0",
  "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "frame-support-procedural-tools-derive"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn",
@@ -1621,10 +1710,26 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "frame-support 2.0.0-alpha.5",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "sp-version 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "frame-system"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
+ "frame-support 2.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
@@ -1641,8 +1746,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -2289,6 +2394,15 @@ dependencies = [
 
 [[package]]
 name = "impl-serde"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58e3cae7e99c7ff5a995da2cf78dd0a5383740eda71d98cf7b1910c301ac69b8"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "impl-serde"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b47ca4d2b6931707a55fce5cf66aff80e2178c8b63bbb4ecb5695cbc870ddf6f"
@@ -2558,7 +2672,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0315ef2f688e33844400b31f11c263f2b3dc21d8b9355c6891c5f185fae43f9a"
 dependencies = [
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "smallvec 1.4.2",
 ]
 
@@ -2569,7 +2683,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73de822b260a3bdfb889dbbb65bb2d473eee2253973d6fa4a5d149a2a4a7c66e"
 dependencies = [
  "kvdb",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
 ]
 
@@ -2584,7 +2698,7 @@ dependencies = [
  "log",
  "num_cpus",
  "owning_ref",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "regex",
  "rocksdb",
@@ -3232,13 +3346,25 @@ dependencies = [
 
 [[package]]
 name = "memory-db"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be512cb2ccb4ecbdca937fdd4a62ea5f09f8e7195466a85e4632b3d5bcce82e6"
+dependencies = [
+ "ahash 0.2.18",
+ "hash-db",
+ "hashbrown 0.6.3",
+ "parity-util-mem 0.6.0",
+]
+
+[[package]]
+name = "memory-db"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36f36ddb0b2cdc25d38babba472108798e3477f02be5165f038c5e393e50c57a"
 dependencies = [
  "hash-db",
  "hashbrown 0.8.2",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
 ]
 
 [[package]]
@@ -3607,8 +3733,8 @@ name = "pallet-authority-discovery"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-session",
  "parity-scale-codec",
  "serde",
@@ -3623,8 +3749,8 @@ name = "pallet-authorship"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "sp-authorship",
@@ -3639,8 +3765,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-authorship",
  "pallet-session",
  "pallet-timestamp",
@@ -3664,8 +3790,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3677,8 +3803,8 @@ name = "pallet-finality-tracker"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
@@ -3694,8 +3820,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-authorship",
  "pallet-finality-tracker",
  "pallet-session",
@@ -3717,8 +3843,8 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3731,8 +3857,8 @@ name = "pallet-im-online"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",
@@ -3750,8 +3876,8 @@ name = "pallet-multisig"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3765,8 +3891,8 @@ name = "pallet-offences"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-balances",
  "parity-scale-codec",
  "serde",
@@ -3780,8 +3906,8 @@ name = "pallet-randomness-collective-flip"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "safe-mix",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3794,8 +3920,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3808,8 +3934,8 @@ name = "pallet-session"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "impl-trait-for-tuples",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -3828,8 +3954,8 @@ name = "pallet-sudo"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3843,8 +3969,8 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
@@ -3860,8 +3986,8 @@ name = "pallet-transaction-payment"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
@@ -3895,7 +4021,7 @@ name = "pallet-transaction-payment-rpc-runtime-api"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
+ "frame-support 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -3908,8 +4034,8 @@ name = "pallet-treasury"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "pallet-balances",
  "parity-scale-codec",
  "serde",
@@ -3922,8 +4048,8 @@ name = "pallet-utility"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -4011,6 +4137,20 @@ dependencies = [
  "tokio 0.1.22",
  "tokio-named-pipes",
  "tokio-uds",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "parity-util-mem"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e42755f26e5ea21a6a819d9e63cbd70713e9867a2b767ec2cc65ca7659532c5"
+dependencies = [
+ "cfg-if",
+ "impl-trait-for-tuples",
+ "parity-util-mem-derive",
+ "parking_lot 0.10.2",
+ "primitive-types 0.7.2",
  "winapi 0.3.9",
 ]
 
@@ -4322,7 +4462,7 @@ checksum = "c55c21c64d0eaa4d7ed885d959ef2d62d9e488c27c0e02d9aa5ce6c877b7d5f8"
 dependencies = [
  "fixed-hash 0.6.1",
  "impl-codec",
- "impl-serde",
+ "impl-serde 0.3.1",
  "uint",
 ]
 
@@ -4331,8 +4471,8 @@ name = "prml-generic-asset"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 2.0.0",
+ "frame-system 2.0.0",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -5141,7 +5281,7 @@ dependencies = [
  "names",
  "nix",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "rand 0.7.3",
  "regex",
  "rpassword",
@@ -5221,7 +5361,7 @@ dependencies = [
  "log",
  "parity-db",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "sc-client-api",
  "sc-executor",
@@ -5513,7 +5653,7 @@ dependencies = [
  "ansi_term 0.12.1",
  "futures 0.3.5",
  "log",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "sc-client-api",
  "sc-network",
  "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -5767,7 +5907,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "pin-project",
  "rand 0.7.3",
@@ -5819,7 +5959,7 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0
 dependencies = [
  "log",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parity-util-mem-derive",
  "parking_lot 0.10.2",
  "sc-client-api",
@@ -5875,7 +6015,7 @@ dependencies = [
  "futures 0.3.5",
  "linked-hash-map",
  "log",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "retain_mut",
  "serde",
@@ -5898,7 +6038,7 @@ dependencies = [
  "intervalier",
  "log",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "sc-client-api",
  "sc-transaction-graph",
@@ -6387,6 +6527,18 @@ dependencies = [
 
 [[package]]
 name = "sp-application-crypto"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "sp-application-crypto"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6408,6 +6560,19 @@ dependencies = [
  "sp-core 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-io 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sp-arithmetic"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "integer-sqrt",
+ "num-traits",
+ "parity-scale-codec",
+ "serde",
+ "sp-debug-derive 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -6624,6 +6789,46 @@ dependencies = [
 
 [[package]]
 name = "sp-core"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "base58",
+ "blake2-rfc",
+ "byteorder 1.3.4",
+ "ed25519-dalek",
+ "futures 0.3.5",
+ "hash-db",
+ "hash256-std-hasher",
+ "hex",
+ "impl-serde 0.3.1",
+ "lazy_static",
+ "libsecp256k1",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "parity-util-mem 0.6.0",
+ "parking_lot 0.10.2",
+ "primitive-types 0.7.2",
+ "rand 0.7.3",
+ "regex",
+ "schnorrkel",
+ "serde",
+ "sha2 0.8.2",
+ "sp-debug-derive 2.0.0-alpha.5",
+ "sp-externalities 0.8.0-alpha.5",
+ "sp-runtime-interface 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "sp-storage 2.0.0-alpha.5",
+ "substrate-bip39",
+ "tiny-bip39",
+ "tiny-keccak",
+ "twox-hash",
+ "wasmi",
+ "zeroize",
+]
+
+[[package]]
+name = "sp-core"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6637,14 +6842,14 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "impl-serde",
+ "impl-serde 0.3.1",
  "lazy_static",
  "libsecp256k1",
  "log",
  "merlin",
  "num-traits",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "primitive-types 0.7.2",
  "rand 0.7.3",
@@ -6682,14 +6887,14 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "impl-serde",
+ "impl-serde 0.3.1",
  "lazy_static",
  "libsecp256k1",
  "log",
  "merlin",
  "num-traits",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "parking_lot 0.10.2",
  "primitive-types 0.7.2",
  "rand 0.7.3",
@@ -6732,6 +6937,16 @@ dependencies = [
 
 [[package]]
 name = "sp-debug-derive"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "sp-debug-derive"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6749,6 +6964,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sp-externalities"
+version = "0.8.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "environmental",
+ "sp-std 2.0.0-alpha.5",
+ "sp-storage 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -6802,6 +7027,18 @@ dependencies = [
 
 [[package]]
 name = "sp-inherents"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "derive_more",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "sp-core 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "sp-inherents"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6823,6 +7060,24 @@ dependencies = [
  "parking_lot 0.10.2",
  "sp-core 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sp-io"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "hash-db",
+ "libsecp256k1",
+ "log",
+ "parity-scale-codec",
+ "sp-core 2.0.0-alpha.5",
+ "sp-externalities 0.8.0-alpha.5",
+ "sp-runtime-interface 2.0.0-alpha.5",
+ "sp-state-machine 0.8.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "sp-trie 2.0.0-alpha.5",
+ "sp-wasm-interface 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -6895,6 +7150,15 @@ dependencies = [
 
 [[package]]
 name = "sp-panic-handler"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "backtrace",
+ "log",
+]
+
+[[package]]
+name = "sp-panic-handler"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6933,6 +7197,28 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "doughnut_rs",
+ "hash256-std-hasher",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "parity-util-mem 0.6.0",
+ "paste",
+ "rand 0.7.3",
+ "serde",
+ "sp-application-crypto 2.0.0-alpha.5",
+ "sp-arithmetic 2.0.0-alpha.5",
+ "sp-core 2.0.0-alpha.5",
+ "sp-inherents 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "sp-runtime"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -6941,7 +7227,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "paste",
  "rand 0.7.3",
  "serde",
@@ -6964,7 +7250,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "parity-util-mem",
+ "parity-util-mem 0.7.0",
  "paste",
  "rand 0.7.3",
  "serde",
@@ -6974,6 +7260,20 @@ dependencies = [
  "sp-inherents 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-io 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sp-runtime-interface"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "parity-scale-codec",
+ "primitive-types 0.7.2",
+ "sp-externalities 0.8.0-alpha.5",
+ "sp-runtime-interface-proc-macro 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "sp-wasm-interface 2.0.0-alpha.5",
+ "static_assertions",
 ]
 
 [[package]]
@@ -7007,6 +7307,18 @@ dependencies = [
  "sp-tracing 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-wasm-interface 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "static_assertions",
+]
+
+[[package]]
+name = "sp-runtime-interface-proc-macro"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "Inflector",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -7068,6 +7380,25 @@ dependencies = [
 
 [[package]]
 name = "sp-state-machine"
+version = "0.8.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "hash-db",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "rand 0.7.3",
+ "sp-core 2.0.0-alpha.5",
+ "sp-externalities 0.8.0-alpha.5",
+ "sp-panic-handler 2.0.0-alpha.5",
+ "sp-trie 2.0.0-alpha.5",
+ "trie-db 0.20.1",
+ "trie-root",
+]
+
+[[package]]
+name = "sp-state-machine"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
@@ -7083,7 +7414,7 @@ dependencies = [
  "sp-panic-handler 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-trie 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "trie-db",
+ "trie-db 0.22.1",
  "trie-root",
 ]
 
@@ -7105,9 +7436,14 @@ dependencies = [
  "sp-panic-handler 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "trie-db",
+ "trie-db 0.22.1",
  "trie-root",
 ]
+
+[[package]]
+name = "sp-std"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
 
 [[package]]
 name = "sp-std"
@@ -7122,10 +7458,21 @@ checksum = "fa2d6e166cead2d3b1d3d8fe0e787d076b7d0296b1760a0d7d340846d0ba42c5"
 
 [[package]]
 name = "sp-storage"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "impl-serde 0.2.3",
+ "serde",
+ "sp-debug-derive 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "sp-storage"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.1",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -7139,7 +7486,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f4625e6f8f40995939560f48f89028f658b7929657c68d01c571c81ab5619ff"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.1",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -7205,15 +7552,29 @@ dependencies = [
 
 [[package]]
 name = "sp-trie"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "hash-db",
+ "memory-db 0.20.1",
+ "parity-scale-codec",
+ "sp-core 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+ "trie-db 0.20.1",
+ "trie-root",
+]
+
+[[package]]
+name = "sp-trie"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "hash-db",
- "memory-db",
+ "memory-db 0.24.1",
  "parity-scale-codec",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "trie-db",
+ "trie-db 0.22.1",
  "trie-root",
 ]
 
@@ -7224,11 +7585,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3aae57c8ae81ba978503137a8c625d2963eb425dd90dec0d96b4ed18d8bfd55"
 dependencies = [
  "hash-db",
- "memory-db",
+ "memory-db 0.24.1",
  "parity-scale-codec",
  "sp-core 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "trie-db",
+ "trie-db 0.22.1",
  "trie-root",
 ]
 
@@ -7259,10 +7620,22 @@ dependencies = [
 
 [[package]]
 name = "sp-version"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "impl-serde 0.2.3",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
+]
+
+[[package]]
+name = "sp-version"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.1",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -7275,11 +7648,22 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21935199c8765f0d02facc718f9c83149a70ea684fb03612e5161c682b38a301"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.1",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sp-wasm-interface"
+version = "2.0.0-alpha.5"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=1.0.0-rc4.2#4671224b22fb521df2d6a00656fe7d242e09630f"
+dependencies = [
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "sp-std 2.0.0-alpha.5",
+ "wasmi",
 ]
 
 [[package]]
@@ -8062,6 +8446,19 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcc309f34008563989045a4c4dbcc5770467f3a3785ee80a9b5cc0d83362475f"
+dependencies = [
+ "hash-db",
+ "hashbrown 0.6.3",
+ "log",
+ "rustc-hex",
+ "smallvec 1.4.2",
 ]
 
 [[package]]
