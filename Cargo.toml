@@ -16,6 +16,7 @@ is-it-maintained-open-issues = { repository = "cennznet/cennznet" }
 
 [dependencies]
 cennznet-cli = { path = "./cli" }
+sc-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
 
 [workspace]
 members = [

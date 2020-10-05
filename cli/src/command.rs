@@ -15,11 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde::{Serialize, Deserialize};
+
 use crate::service;
 use crate::cli::{Cli, Subcommand};
+use sc_chain_spec::ChainSpecExtension;
 use sc_cli::{SubstrateCli, RuntimeVersion, Role, ChainSpec};
 use sc_service::PartialComponents;
-use node_template_runtime::Block;
+use cennznet_runtime::{Block, GenesisConfig};
+
+// TODO: make it compile, this should move to ./chain_spec/
+/// Specialized `ChainSpec`.
+pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -51,14 +58,14 @@ impl SubstrateCli for Cli {
 			// "dev" => Box::new(chain_spec::dev::config()?),
 			// "azalea" => Box::new(chain_spec::azalea::config()?),
 			// "nikau" => Box::new(chain_spec::nikau::config()?),
-			path => Box::new(chain_spec::ChainSpec::from_json_file(
+			path => Box::new(CENNZnetChainSpec::from_json_file(
 				std::path::PathBuf::from(path),
 			)?),
 		})
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&node_template_runtime::VERSION
+		&cennznet_runtime::VERSION
 	}
 }
 

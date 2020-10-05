@@ -570,6 +570,7 @@ name = "cennznet"
 version = "1.1.0"
 dependencies = [
  "cennznet-cli",
+ "sc-cli",
 ]
 
 [[package]]
@@ -581,25 +582,34 @@ dependencies = [
  "crml-cennzx-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "futures 0.3.5",
  "jsonrpc-core",
  "pallet-transaction-payment-rpc",
  "prml-generic-asset-rpc",
+ "sc-authority-discovery",
  "sc-basic-authorship",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-aura",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-epochs",
  "sc-executor",
  "sc-finality-grandpa",
+ "sc-finality-grandpa-rpc",
+ "sc-keystore",
+ "sc-network",
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
  "sc-transaction-pool",
+ "serde",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-block-builder 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-consensus 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-finality-grandpa",
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -631,25 +641,39 @@ dependencies = [
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "futures 0.3.5",
  "hex-literal",
- "pallet-aura",
- "pallet-balances",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-finality-tracker",
  "pallet-grandpa",
+ "pallet-identity",
+ "pallet-im-online",
+ "pallet-multisig",
+ "pallet-offences",
  "pallet-randomness-collective-flip",
+ "pallet-scheduler",
+ "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-utility",
  "parity-scale-codec",
+ "prml-generic-asset",
  "serde",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-authority-discovery",
  "sp-block-builder 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-io 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-offchain",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime-interface 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-session",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-transaction-pool",
@@ -1264,6 +1288,26 @@ name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+
+[[package]]
+name = "enumflags2"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83c8d82922337cd23a15f88b70d8e4ef5f11da38dd7cdb55e84dd5de99695da0"
+dependencies = [
+ "enumflags2_derive",
+]
+
+[[package]]
+name = "enumflags2_derive"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "946ee94e3dbf58fdd324f9ce245c7b238d46a66f00e86a020b71996349e46cce"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "env_logger"
@@ -3559,22 +3603,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-aura"
+name = "pallet-authority-discovery"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "frame-support",
  "frame-system",
  "pallet-session",
- "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-consensus-aura",
- "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-authority-discovery",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-timestamp",
 ]
 
 [[package]]
@@ -3590,6 +3631,31 @@ dependencies = [
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-babe"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-consensus-babe",
+ "sp-consensus-vrf",
+ "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-session",
+ "sp-staking",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -3645,6 +3711,71 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-identity"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-im-online"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-staking",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-multisig"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-offences"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-staking",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
 name = "pallet-randomness-collective-flip"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
@@ -3653,6 +3784,21 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "safe-mix",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-scheduler"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
@@ -3753,6 +3899,35 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-treasury"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "pallet-utility"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
@@ -4024,6 +4199,12 @@ dependencies = [
  "crypto-mac 0.7.0",
  "rayon",
 ]
+
+[[package]]
+name = "pdqselect"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec91767ecc0a0bbe558ce8c9da33c068066c57ecc8bb8477ef8c1ad3ef77c27"
 
 [[package]]
 name = "peeking_take_while"
@@ -4845,6 +5026,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-authority-discovery"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "bytes 0.5.6",
+ "derive_more",
+ "either",
+ "futures 0.3.5",
+ "futures-timer 3.0.2",
+ "libp2p",
+ "log",
+ "parity-scale-codec",
+ "prost",
+ "prost-build",
+ "rand 0.7.3",
+ "sc-client-api",
+ "sc-keystore",
+ "sc-network",
+ "serde_json",
+ "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-authority-discovery",
+ "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "substrate-prometheus-endpoint 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
 name = "sc-basic-authorship"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
@@ -5040,34 +5249,84 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-consensus-aura"
+name = "sc-consensus-babe"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
  "derive_more",
+ "fork-tree",
  "futures 0.3.5",
  "futures-timer 3.0.2",
  "log",
+ "merlin",
+ "num-bigint",
+ "num-rational",
+ "num-traits",
  "parity-scale-codec",
  "parking_lot 0.10.2",
- "sc-block-builder",
+ "pdqselect",
+ "rand 0.7.3",
+ "retain_mut",
  "sc-client-api",
+ "sc-consensus-epochs",
  "sc-consensus-slots",
+ "sc-consensus-uncles",
  "sc-keystore",
  "sc-telemetry",
+ "schnorrkel",
+ "serde",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-block-builder 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-consensus 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
- "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-consensus-vrf",
  "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-io 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-timestamp",
+ "sp-utils 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-version 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "substrate-prometheus-endpoint 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "sc-consensus-babe-rpc"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "derive_more",
+ "futures 0.3.5",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-keystore",
+ "sc-rpc-api",
+ "serde",
+ "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-consensus 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-consensus-babe",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "sc-consensus-epochs"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "fork-tree",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "sc-client-api",
+ "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
 
 [[package]]
@@ -5091,6 +5350,20 @@ dependencies = [
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-state-machine 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "sc-consensus-uncles"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "log",
+ "sc-client-api",
+ "sp-authorship",
+ "sp-consensus 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
 
 [[package]]
@@ -5206,6 +5479,30 @@ dependencies = [
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-utils 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "substrate-prometheus-endpoint 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "sc-finality-grandpa-rpc"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "derive_more",
+ "finality-grandpa",
+ "futures 0.3.5",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "jsonrpc-pubsub",
+ "log",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-finality-grandpa",
+ "sc-rpc",
+ "serde",
+ "serde_json",
+ "sp-blockchain 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
 
 [[package]]
@@ -6141,6 +6438,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-authority-discovery"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
 name = "sp-authorship"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
@@ -6274,13 +6583,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-consensus-aura"
+name = "sp-consensus-babe"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
 dependencies = [
+ "merlin",
  "parity-scale-codec",
  "sp-api 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-application-crypto 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-consensus 0.8.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-consensus-slots",
+ "sp-consensus-vrf",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-inherents 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
  "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
@@ -6294,6 +6608,18 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0
 dependencies = [
  "parity-scale-codec",
  "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+]
+
+[[package]]
+name = "sp-consensus-vrf"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#3780398ac7bb3b9b85d18ad39c4faa15a40ea579"
+dependencies = [
+ "parity-scale-codec",
+ "schnorrkel",
+ "sp-core 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-runtime 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "sp-std 2.0.0 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
 ]
 
 [[package]]

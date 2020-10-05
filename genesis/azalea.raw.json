@@ -2,20 +2,19 @@
   "name": "CENNZnet Azalea",
   "id": "CENNZnet Azalea V1",
   "bootNodes": [
-    "/dns4/bootnode-0.cennznet.cloud/tcp/30333/p2p/QmfZPLAQGLc8UsmQpAwj3CTo3xTtfKxFiqD4SNvESv4Qn6",
-    "/dns4/bootnode-1.cennznet.cloud/tcp/30333/p2p/QmW5Uc3YuX7Ch9H6zikk4pfzqVZu1aPkN3htFd8r7BdhfC",
-    "/dns4/bootnode-2.cennznet.cloud/tcp/30333/p2p/QmTP4ywbknv5DEPXUKoZKD3wkxnBVpm48x5Qqcevay3D9m",
-    "/dns4/bootnode-3.cennznet.cloud/tcp/30333/p2p/QmZKzALNjgXHtybv5oFFdpRVYXW5Cmq14yb6CxG9Y2iKqB",
-    "/dns4/bootnode-4.cennznet.cloud/tcp/30333/p2p/Qmdj7T3jvW4NonXP7yTQtNgEXta689nBZeN2agfpCSiSC4",
-    "/dns4/bootnode-5.cennznet.cloud/tcp/30333/p2p/Qmdh9erm8wY7taRtwFLqKddavyZoJtVqmc2hb2T9w2KKfP",
-    "/dns4/bootnode-6.cennznet.cloud/tcp/30333/p2p/Qma4MkSe8zgYTa8RACt3CMvWYyayesfanq65ASV7ePruhN",
-    "/dns4/bootnode-7.cennznet.cloud/tcp/30333/p2p/QmWwHTPc77UtQQ3zibccjwZioeu9SJTojNGZevionNyKkn",
-    "/dns4/bootnode-8.cennznet.cloud/tcp/30333/p2p/QmeSgGkM3TwGwb5oLgaYNietGzQRcrDBvTAk2o9azz6dJL"
+    "/dns4/bootnode-0.cennznet.cloud/tcp/30333/p2p/12D3KooWGvfVZMbUrp8kmc9DQkMbBwL32ybFVLhPeibaiwg6hDZf",
+    "/dns4/bootnode-1.cennznet.cloud/tcp/30333/p2p/12D3KooWHpFXNhN1ZWhU4iGUmqKMKnJuM1hs6w1xphBS1Ss4CSNV",
+    "/dns4/bootnode-2.cennznet.cloud/tcp/30333/p2p/12D3KooWK7VWczCUBRaKUFB5u3R4KDds9Q4xeoopaoZC8XyCyUfe",
+    "/dns4/bootnode-3.cennznet.cloud/tcp/30333/p2p/12D3KooWGRSq1LGLQXjTasMwB61PWSsrGC5zyagAcbUDS9SL5TFS",
+    "/dns4/bootnode-4.cennznet.cloud/tcp/30333/p2p/12D3KooWDSHezHfxydjRBfM4kQuu6bpMbgUtgBWGuqN2ZMUHM4kZ",
+    "/dns4/bootnode-5.cennznet.cloud/tcp/30333/p2p/12D3KooWEdwHEzwjkCMgNu3GZE9qzxajay6g5SMRmks7vi711wHy",
+    "/dns4/bootnode-6.cennznet.cloud/tcp/30333/p2p/12D3KooWH5JfL1LfKJuFN92yUHsinMsdEKmYuxYA9y6joyBC4ukt",
+    "/dns4/bootnode-7.cennznet.cloud/tcp/30333/p2p/12D3KooWDv33N5V66jsKR9itHPFRW38FyABWURTcBKprzsdc24bQ",
+    "/dns4/bootnode-8.cennznet.cloud/tcp/30333/p2p/12D3KooWARcCeS7qhxQF95ohPTETcrEnnWBqoHFrHCFTZ3erajwL"
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-azalea-v1",
   "properties": null,
-  "fork_blocks": null,
   "consensusEngine": null,
   "genesis": {
     "raw": {
@@ -245,7 +244,7 @@
         "0x223416315e3dddca3b5a47fd0ac8e4916482b9ade7bc6657aaca787ba1add3b45153cb1f00942ff4010000003766ebc05a29ce371451cdafbbf93dd920f19870983485e540112505cf09a5aa2a13fefbd7d0bb0cc555f6a0ea32b840": "0x0000c84e676dc11b0000000000000000",
         "0xcec5070d609dd3497f72bde07fc96ba0726380404683fc89e8233450c8aa195026bfe9af6d2dd317696d6f6e80c43d061b0b7d0f8ec1b3cf47272c8e797cd6c86c67e9c3566543e9ab024b2e21": "0x8abf2505bc274ec7b4df6e40a6c8740eeda4f4781a9bd62d701c1a18a10b436a"
       },
-      "children": {}
+      "childrenDefault": {}
     }
   }
 }

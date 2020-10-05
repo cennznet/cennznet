@@ -23,16 +23,23 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::Encode;
+
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_authority_discovery;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_session;
+use pallet_session::historical as session_historical;
 use sp_api::impl_runtime_apis;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
+	BlakeTwo256, Block as BlockT, Extrinsic, IdentifyAccount, IdentityLookup, NumberFor, SaturatedConversion, Saturating, Verify,
 };
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	create_runtime_str, generic::{self, Era}, traits::OpaqueKeys, impl_opaque_keys,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
@@ -42,15 +49,15 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, debug, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-		IdentityFee, Weight,
+		IdentityFee, TransactionPriority, Weight,
 	},
 	StorageValue,
 };
-pub use pallet_balances::Call as BalancesCall;
+use frame_system::EnsureRoot;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -58,20 +65,25 @@ pub use sp_runtime::{Perbill, Permill};
 
 // CENNZnet only imports
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
-use crml_cennzx_rpc_runtime_api::CennzxResult;
-use crml_sylo::device as sylo_device;
-use crml_sylo::e2ee as sylo_e2ee;
-use crml_sylo::groups as sylo_groups;
-use crml_sylo::inbox as sylo_inbox;
-use crml_sylo::payment as sylo_payment;
-use crml_sylo::response as sylo_response;
-use crml_sylo::vault as sylo_vault;
-use pallet_generic_asset::{AssetInfo, Call as GenericAssetCall};
+// pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
+// use crml_cennzx_rpc_runtime_api::CennzxResult;
+// use crml_sylo::device as sylo_device;
+// use crml_sylo::e2ee as sylo_e2ee;
+// use crml_sylo::groups as sylo_groups;
+// use crml_sylo::inbox as sylo_inbox;
+// use crml_sylo::payment as sylo_payment;
+// use crml_sylo::response as sylo_response;
+// use crml_sylo::vault as sylo_vault;
+use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 
 /// Constant values used within the runtime.
 pub mod constants;
 use constants::{currency::*, time::*};
+
+/// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
+pub mod legacy_host_functions;
+
+use crate::opaque::SessionKeys;
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -112,7 +124,7 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 }
-const_assert!(AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct());
+// const_assert!(AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct());
 
 impl frame_system::Trait for Runtime {
 	/// The basic call filter to use in dispatchable.
@@ -168,7 +180,6 @@ impl frame_system::Trait for Runtime {
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
 	/// The data to be stored in an account.
-	/// TODO: Investigate the merits of using generic asset here...
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
@@ -181,7 +192,7 @@ impl pallet_authorship::Trait for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = (Staking, ImOnline);
+	type EventHandler = (ImOnline);
 }
 
 parameter_types! {
@@ -225,30 +236,29 @@ impl pallet_scheduler::Trait for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-}
-impl crml_staking::Trait for Runtime {
-	type Currency = StakingAssetCurrency<Self>;
-	type RewardCurrency = SpendingAssetCurrency<Self>;
-	type Time = Timestamp;
-	type CurrencyToVote = CurrencyToVoteHandler;
-	type RewardRemainder = Treasury;
-	type Event = Event;
-	type Slash = Treasury; // send the slashed funds to the treasury.
-	type Reward = (); // rewards are minted from the void
-	type SessionsPerEra = SessionsPerEra;
-	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = SlashDeferDuration;
-	type SessionInterface = Self;
-	type RewardCurve = RewardCurve;
-}
+// parameter_types! {
+// 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+// 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
+// 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+// }
+// impl crml_staking::Trait for Runtime {
+// 	type Currency = StakingAssetCurrency<Self>;
+// 	type RewardCurrency = SpendingAssetCurrency<Self>;
+// 	type Time = Timestamp;
+// 	type CurrencyToVote = CurrencyToVoteHandler;
+// 	type RewardRemainder = Treasury;
+// 	type Event = Event;
+// 	type Slash = Treasury; // send the slashed funds to the treasury.
+// 	type Reward = (); // rewards are minted from the void
+// 	type SessionsPerEra = SessionsPerEra;
+// 	type BondingDuration = BondingDuration;
+// 	type SlashDeferDuration = SlashDeferDuration;
+// 	type SessionInterface = Self;
+// 	type RewardCurve = ();
+// }
 
 parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -256,14 +266,14 @@ parameter_types! {
 impl pallet_session::Trait for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Trait>::AccountId;
-	type ValidatorIdOf = <crml_staking>::StashOf<Self>;
+	type ValidatorIdOf =();
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+	type SessionManager = ();
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -272,47 +282,43 @@ parameter_types! {
 impl pallet_timestamp::Trait for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = Babe;
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
 
-impl pallet_generic_asset::Trait for Runtime {
+impl prml_generic_asset::Trait for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = Event;
+	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const TransactionBaseFee: Balance = 1 * MICROS;
-	pub const TransactionByteFee: Balance = 10 * MICROS;
-	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
-	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
-	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
-	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
-}
+// parameter_types! {
+// 	pub const TransactionBaseFee: Balance = 1 * MICROS;
+// 	pub const TransactionByteFee: Balance = 10 * MICROS;
+// 	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
+// 	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
+// 	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
+// 	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
+// }
 
-pub type DealWithFees = SplitTwoWays<
-	Balance,
-	NegativeImbalance,
-	_0,
-	Treasury,
-	_1,
-	SplitToAllValidators, // 100% goes to elected validators
->;
+// impl crml_transaction_payment::Trait for Runtime {
+// 	type Balance = Balance;
+// 	type AssetId = AssetId;
+// 	type Currency = SpendingAssetCurrency<Self>;
+// 	type OnTransactionPayment = ();
+// 	type TransactionBaseFee = TransactionBaseFee;
+// 	type TransactionByteFee = TransactionByteFee;
+// 	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
+// 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
+// 	type BuyFeeAsset = Cennzx;
+// 	type GasMeteredCallResolver = GasMeteredCallResolver;
+// 	type FeePayer = FeePayerResolver;
+// }
 
-impl crml_transaction_payment::Trait for Runtime {
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = DealWithFees;
-	type TransactionBaseFee = TransactionBaseFee;
-	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
-	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
-	type BuyFeeAsset = Cennzx;
-	type GasMeteredCallResolver = GasMeteredCallResolver;
-	type FeePayer = FeePayerResolver;
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+	items as Balance * 15 + (bytes as Balance) * 6
 }
 
 parameter_types! {
@@ -325,11 +331,11 @@ parameter_types! {
 impl pallet_multisig::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type Currency = Balances;
+	type Currency = SpendingAssetCurrency<Self>;
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
-	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_sudo::Trait for Runtime {
@@ -340,15 +346,15 @@ impl pallet_sudo::Trait for Runtime {
 impl pallet_utility::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_authority_discovery::Trait for Runtime {}
 
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 impl pallet_im_online::Trait for Runtime {
 	type AuthorityId = ImOnlineId;
@@ -375,13 +381,13 @@ parameter_types! {
 impl pallet_offences::Trait for Runtime {
 	type Event = Event;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = Staking;
+	type OnOffenceHandler = ();
 	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl pallet_session::historical::Trait for Runtime {
-	type FullIdentification = cennznet_primitives::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = crml_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = ();
 }
 
 parameter_types! {
@@ -396,60 +402,63 @@ parameter_types! {
 
 impl pallet_identity::Trait for Runtime {
 	type Event = Event;
-	type Currency = Balances;
+	type Currency = SpendingAssetCurrency<Self>;
 	type BasicDeposit = BasicDeposit;
 	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = Treasury;
-	type ForceOrigin = MoreThanHalfCouncil;
-	type RegistrarOrigin = MoreThanHalfCouncil;
+	type Slashed = ();
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-where
-	Call: From<LocalCall>,
+	where
+		Call: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: Call,
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
-		nonce: <Runtime as frame_system::Trait>::Index,
-	) -> Option<(Call, <UncheckedExtrinsic as ExtrinsicT>::SignaturePayload)> {
+		nonce: Index,
+	) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+		let tip = 0;
 		// take the biggest period possible.
 		let period = BlockHashCount::get()
 			.checked_next_power_of_two()
 			.map(|c| c / 2)
 			.unwrap_or(2) as u64;
-
 		let current_block = System::block_number()
 			.saturated_into::<u64>()
 			// The `System::block_number` is initialized with `n+1`,
 			// so the actual block number is `n`.
 			.saturating_sub(1);
-		let tip = 0;
-		let extra: SignedExtra = (
+		let era = Era::mortal(period, current_block);
+		let extra = (
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
 			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckMortality::<Runtime>::from(generic::Era::mortal(period, current_block)),
+			frame_system::CheckEra::<Runtime>::from(era),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
 				debug::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
-		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let signature = raw_payload
+			.using_encoded(|payload| {
+				C::sign(payload, public)
+			})?;
 		let (call, extra, _) = raw_payload.deconstruct();
-		Some((call, (account, signature, extra)))
+		Some((call, (account, signature.into(), extra)))
 	}
 }
 
@@ -479,7 +488,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
 		GenericAsset: prml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
 		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
+		// Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
 		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
 		FinalityTracker: pallet_finality_tracker::{Module, Call, Storage, Inherent} = 9,
@@ -492,22 +501,22 @@ construct_runtime!(
 		// Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
 		// TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
 		// TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>}
-		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
+		// Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
 		Utility: pallet_utility::{Module, Call, Event} = 15,
 		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
-		TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
+		// TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
-		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
+		//Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
 		// TODO: these should all be in one module
-		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
-		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
-		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
-		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
-		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
-		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
+		// SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
+		// SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
+		// SyloDevice: sylo_device::{Module, Call, Storage} = 24,
+		// SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
+		// SyloResponse: sylo_response::{Module, Call, Storage} = 26,
+		// SyloVault: sylo_vault::{Module, Call, Storage} = 27,
+		// SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
 	}
 );
 
@@ -529,11 +538,13 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	crml_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// crml_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+/// The payload being signed in transactions.
+pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
@@ -598,6 +609,12 @@ impl_runtime_apis! {
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
 		}
 	}
 
@@ -690,14 +707,14 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
-		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
-		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
-		}
-	}
+	// impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+	// 	fn query_info(
+	// 		uxt: <Block as BlockT>::Extrinsic,
+	// 		len: u32,
+	// 	) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
+	// 		TransactionPayment::query_info(uxt, len)
+	// 	}
+	// }
 	// TODO: benchmarking goes here
 }
 

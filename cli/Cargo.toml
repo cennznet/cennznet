@@ -8,19 +8,27 @@ edition = "2018"
 license = "GPL-3.0"
 
 [dependencies]
+futures = { version = "0.3.1", features = ["compat"] }
+serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
+
+sc-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
 sp-core = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-executor = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-keystore = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-service = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
 sp-inherents = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-aura = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus-aura = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-finality-grandpa = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-finality-grandpa = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-client-api = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -36,6 +44,8 @@ sp-blockchain = { branch = "spike/2.0", git = "https://github.com/plugblockchain
 sp-block-builder = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-basic-authorship = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 substrate-frame-rpc-system = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
