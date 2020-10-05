@@ -406,13 +406,13 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloGroups {
-		Groups get(fn group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
+		Groups get(group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
 
 		/// Stores the group ids that a user is a member of
-		pub Memberships get(fn memberships): map hasher(blake2_128_concat) T::AccountId => Vec<T::Hash>;
+		pub Memberships get(memberships): map hasher(blake2_128_concat) T::AccountId => Vec<T::Hash>;
 
 		/// Stores the known member/deviceId tuples for a particular group
-		MemberDevices get(fn member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, DeviceId)>;
+		MemberDevices get(member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, DeviceId)>;
 	}
 }
 

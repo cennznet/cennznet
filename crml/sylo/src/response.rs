@@ -52,7 +52,7 @@ decl_module! {
 // The data that is stored
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloResponse {
-		Responses get(fn response): map hasher(blake2_128_concat) (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
+		Responses get(response): map hasher(blake2_128_concat) (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
 	}
 }
 
