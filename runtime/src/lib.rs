@@ -71,13 +71,13 @@ pub use sp_runtime::{Perbill, Permill};
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
 // pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 // use crml_cennzx_rpc_runtime_api::CennzxResult;
-// use crml_sylo::device as sylo_device;
-// use crml_sylo::e2ee as sylo_e2ee;
-// use crml_sylo::groups as sylo_groups;
-// use crml_sylo::inbox as sylo_inbox;
-// use crml_sylo::payment as sylo_payment;
-// use crml_sylo::response as sylo_response;
-// use crml_sylo::vault as sylo_vault;
+use crml_sylo::device as sylo_device;
+use crml_sylo::e2ee as sylo_e2ee;
+use crml_sylo::groups as sylo_groups;
+use crml_sylo::inbox as sylo_inbox;
+use crml_sylo::payment as sylo_payment;
+use crml_sylo::response as sylo_response;
+use crml_sylo::vault as sylo_vault;
 use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 
 /// Constant values used within the runtime.
@@ -86,6 +86,9 @@ use constants::{currency::*, time::*};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
+
+/// Weights for cennznet runtime modules (crml packages)
+mod weights;
 
 use crate::opaque::SessionKeys;
 
@@ -419,6 +422,18 @@ impl pallet_identity::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+impl crml_sylo::Trait for Runtime {
+	type WeightInfo = weights::crml_sylo::WeightInfo;
+}
+
+impl crml_sylo::e2ee::Trait for Runtime {}
+impl crml_sylo::payment::Trait for Runtime {}
+impl crml_sylo::device::Trait for Runtime {}
+impl crml_sylo::inbox::Trait for Runtime {}
+impl crml_sylo::response::Trait for Runtime {}
+impl crml_sylo::vault::Trait for Runtime {}
+impl crml_sylo::groups::Trait for Runtime {}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -511,13 +526,13 @@ construct_runtime!(
 		Historical: session_historical::{Module} = 20,
 		//Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
 		// TODO: these should all be in one module
-		// SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
-		// SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
-		// SyloDevice: sylo_device::{Module, Call, Storage} = 24,
-		// SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
-		// SyloResponse: sylo_response::{Module, Call, Storage} = 26,
-		// SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		// SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
+		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
+		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
+		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
+		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
+		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
+		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
+		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
 	}
 );
 
@@ -716,7 +731,47 @@ impl_runtime_apis! {
 	// 		TransactionPayment::query_info(uxt, len)
 	// 	}
 	// }
-	// TODO: benchmarking goes here
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl frame_benchmarking::Benchmark<Block> for Runtime {
+		fn dispatch_benchmark(
+			config: frame_benchmarking::BenchmarkConfig
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+			use frame_system_benchmarking::Module as SystemBench;
+
+			impl frame_system_benchmarking::Trait for Runtime {}
+
+			let whitelist: Vec<TrackedStorageKey> = vec![
+				// Block Number
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+				// Total Issuance
+				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+				// Execution Phase
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+				// Event Count
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+				// System Events
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+				// Treasury Account
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
+			];
+
+			let mut batches = Vec::<BenchmarkBatch>::new();
+			let params = (&config, &whitelist);
+
+			add_benchmark!(params, batches, crml_sylo, SyloDevice);
+			add_benchmark!(params, batches, crml_sylo, SyloGroups);
+			add_benchmark!(params, batches, crml_sylo, SyloE2EE);
+			add_benchmark!(params, batches, crml_sylo, SyloInbox);
+			add_benchmark!(params, batches, crml_sylo, SyloPayment);
+			add_benchmark!(params, batches, crml_sylo, SyloResponse);
+			add_benchmark!(params, batches, crml_sylo, SyloVault);
+
+			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+			Ok(batches)
+		}
+	}
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

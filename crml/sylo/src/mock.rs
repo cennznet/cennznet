@@ -15,7 +15,7 @@
 
 #![cfg(test)]
 
-use frame_support::{additional_traits::DummyDispatchVerifier, impl_outer_origin, parameter_types};
+use frame_support::{impl_outer_origin, parameter_types};
 use sp_core::H256;
 
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -40,24 +40,31 @@ parameter_types! {
 }
 
 impl frame_system::Trait for Test {
+	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = H256;
-	type Lookup = IdentityLookup<H256>;
+	type AccountId = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
-	type Doughnut = ();
-	type DelegatedDispatchVerifier = DummyDispatchVerifier<Self::Doughnut, Self::AccountId>;
 	type MaximumBlockWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
+	type DbWeight = ();
+	type BlockExecutionWeight = ();
+	type ExtrinsicBaseWeight = ();
+	type MaximumExtrinsicWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
+	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type ModuleToIndex = ();
+	type PalletInfo = ();
+	type AccountData = ();
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
 }
 
 impl_outer_origin! {

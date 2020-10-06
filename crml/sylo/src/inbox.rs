@@ -13,9 +13,8 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use frame_support::{
-	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::SimpleDispatchInfo,
-};
+use super::{Trait as SyloTrait, WeightInfo};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 use frame_system::ensure_signed;
 
 const MAX_MESSAGE_LENGTH: usize = 100_000;
@@ -24,7 +23,7 @@ const MAX_DELETE_MESSAGES: usize = 10_000;
 type MessageId = u32;
 type Message = Vec<u8>;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: SyloTrait {}
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
@@ -46,7 +45,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::add_value()]
 		fn add_value(origin, peer_id: T::AccountId, value: Message) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(value.len() <= MAX_MESSAGE_LENGTH, Error::<T>::MaxMessageLength);
@@ -58,7 +57,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is number of values in the storage
 		/// 1 write
-		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
+		#[weight = T::WeightInfo::delete_values()]
 		fn delete_values(origin, value_ids: Vec<MessageId>) -> DispatchResult {
 			let user_id = ensure_signed(origin)?;
 			ensure!(value_ids.len() <= MAX_DELETE_MESSAGES, Error::<T>::MaxDeleteMessage);
@@ -70,7 +69,7 @@ decl_module! {
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloInbox {
 		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
-		Values get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
+		Values get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}
 }
 
@@ -113,7 +112,6 @@ mod tests {
 	use super::*;
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
-	use sp_core::H256;
 
 	type Inbox = Module<Test>;
 
@@ -121,23 +119,12 @@ mod tests {
 	fn it_works_adding_values_to_an_inbox() {
 		ExtBuilder::default().build().execute_with(|| {
 			// Add a value to an empty inbox
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"hello, world".to_vec()
-			));
-			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"hello, world".to_vec()]);
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"hello, world".to_vec()));
+			assert_eq!(Inbox::inbox(2), vec![b"hello, world".to_vec()]);
 
 			// Add another value
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"sylo".to_vec()
-			));
-			assert_eq!(
-				Inbox::inbox(H256::from_low_u64_be(2)),
-				vec![b"hello, world".to_vec(), b"sylo".to_vec()]
-			);
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
+			assert_eq!(Inbox::inbox(2), vec![b"hello, world".to_vec(), b"sylo".to_vec()]);
 		});
 	}
 
@@ -145,39 +132,20 @@ mod tests {
 	fn it_works_removing_values_from_an_inbox() {
 		ExtBuilder::default().build().execute_with(|| {
 			// Add values to an empty inbox
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"hello, world".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"sylo".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"foo".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(H256::from_low_u64_be(1)),
-				H256::from_low_u64_be(2),
-				b"bar".to_vec()
-			));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"hello, world".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"foo".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"bar".to_vec()));
 
 			// Remove a single value
-			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
+			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![0]));
 			assert_eq!(
-				Inbox::inbox(H256::from_low_u64_be(2)),
+				Inbox::inbox(2),
 				vec![b"sylo".to_vec(), b"foo".to_vec(), b"bar".to_vec()]
 			);
 
-			assert_ok!(Inbox::delete_values(
-				Origin::signed(H256::from_low_u64_be(2)),
-				vec![2, 3]
-			));
-			assert_eq!(Inbox::inbox(H256::from_low_u64_be(2)), vec![b"sylo".to_vec()]);
+			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![2, 3]));
+			assert_eq!(Inbox::inbox(2), vec![b"sylo".to_vec()]);
 		});
 	}
 
@@ -185,7 +153,7 @@ mod tests {
 	fn it_works_removing_values_from_an_empty_inbox() {
 		ExtBuilder::default().build().execute_with(|| {
 			// Remove a value that doesn't exist
-			assert_ok!(Inbox::delete_values(Origin::signed(H256::from_low_u64_be(2)), vec![0]));
+			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![0]));
 		});
 	}
 }

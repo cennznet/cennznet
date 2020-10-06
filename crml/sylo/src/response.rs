@@ -13,11 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::{Trait as SyloTrait, WeightInfo};
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, weights::SimpleDispatchInfo};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
 use frame_system::{self, ensure_signed};
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: SyloTrait {}
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -40,7 +41,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::remove_response()]
 		fn remove_response(origin, request_id: T::Hash) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			<Responses<T>>::remove((sender, request_id));
@@ -52,7 +53,7 @@ decl_module! {
 // The data that is stored
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloResponse {
-		Responses get(response): map hasher(blake2_128_concat) (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
+		Responses get(fn response): map hasher(blake2_128_concat) (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
 	}
 }
 
@@ -80,29 +81,17 @@ pub(super) mod tests {
 			let resp_number = Response::DeviceId(111);
 
 			// setting number
-			Responses::set_response(H256::from_low_u64_be(1), request_id.clone(), resp_number.clone());
-			assert_eq!(
-				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
-				resp_number.clone()
-			);
+			Responses::set_response(1, request_id.clone(), resp_number.clone());
+			assert_eq!(Responses::response((1, request_id.clone())), resp_number.clone());
 
 			// // setting pkb type
-			let resp_pkb = Response::PreKeyBundles(vec![(H256::from_low_u64_be(1), 2, b"test data".to_vec())]);
-			Responses::set_response(H256::from_low_u64_be(1), request_id.clone(), resp_pkb.clone());
-			assert_eq!(
-				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
-				resp_pkb.clone()
-			);
+			let resp_pkb = Response::PreKeyBundles(vec![(1, 2, b"test data".to_vec())]);
+			Responses::set_response(1, request_id.clone(), resp_pkb.clone());
+			assert_eq!(Responses::response((1, request_id.clone())), resp_pkb.clone());
 
 			// // remove response
-			assert_ok!(Responses::remove_response(
-				Origin::signed(H256::from_low_u64_be(1)),
-				request_id.clone()
-			));
-			assert_eq!(
-				Responses::response((H256::from_low_u64_be(1), request_id.clone())),
-				Response::None
-			);
+			assert_ok!(Responses::remove_response(Origin::signed(1), request_id.clone()));
+			assert_eq!(Responses::response((1, request_id.clone())), Response::None);
 		});
 	}
 }

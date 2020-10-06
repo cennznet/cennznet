@@ -13,14 +13,10 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::{Trait as SyloTrait, WeightInfo};
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_module, decl_storage,
-	dispatch::DispatchResult,
-	dispatch::Vec,
-	ensure,
-	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
-	StorageMap,
+	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, StorageMap,
 };
 use frame_system::ensure_signed;
 use sp_core::{ed25519, hash::H256};
@@ -35,7 +31,7 @@ use vault::{VaultKey, VaultValue};
 
 mod tests;
 
-pub trait Trait: frame_system::Trait + inbox::Trait + device::Trait + vault::Trait {}
+pub trait Trait: SyloTrait + inbox::Trait + device::Trait + vault::Trait {}
 
 const MAX_INVITES: usize = 15;
 const MAX_MEMBERS: usize = 100;
@@ -136,7 +132,7 @@ decl_module! {
 		/// weight:
 		/// O(1). Note: number of member invitee is capped at 15, so equivalent to O(1).
 		/// Limited number of storage writes.
-		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
+		#[weight = T::WeightInfo::create_group()]
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -188,7 +184,7 @@ decl_module! {
 		/// weight:
 		/// O(m) where m is the number of members in that group
 		/// Limited number of read and maximum of 2 storage writes.
-		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+		#[weight = T::WeightInfo::leave_group()]
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -221,7 +217,7 @@ decl_module! {
 		/// weight:
 		/// O(m) where m is the number of members in that group
 		/// Limited number of read and 1 write.
-		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
+		#[weight = T::WeightInfo::update_member()]
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
@@ -254,7 +250,9 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of metadata key in the input
 		/// Number of read and writes depending on input data
-		#[weight = FunctionOf(|(_,meta): (&T::Hash, &Meta)|50_000 + (meta.len() as u32)*1_000, DispatchClass::Normal, true)]
+		// TODO the following weight calculation should be taken into account
+		//#[weight = FunctionOf(|(_,meta): (&T::Hash, &Meta)|50_000 + (meta.len() as u32)*1_000, DispatchClass::Normal, true)]
+		#[weight = T::WeightInfo::upsert_group_meta()]
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -295,7 +293,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of invitee
 		/// Limited number of read and writes
-		#[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+		#[weight = T::WeightInfo::create_invites()]
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -316,7 +314,7 @@ decl_module! {
 		/// weight:
 		/// O(n + m) where n is the number of groups, and m is the number of members in the group
 		/// Limited number of read and writes to multiple tables
-		#[weight = SimpleDispatchInfo::FixedNormal(100_000)]
+		#[weight = T::WeightInfo::accept_invite()]
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -381,7 +379,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n the number of existing invitation
 		/// Limited number of read and writes
-		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
+		#[weight = T::WeightInfo::revoke_invites()]
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -406,13 +404,13 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloGroups {
-		Groups get(group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
+		Groups get(fn group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
 
 		/// Stores the group ids that a user is a member of
-		pub Memberships get(memberships): map hasher(blake2_128_concat) T::AccountId => Vec<T::Hash>;
+		pub Memberships get(fn memberships): map hasher(blake2_128_concat) T::AccountId => Vec<T::Hash>;
 
 		/// Stores the known member/deviceId tuples for a particular group
-		MemberDevices get(member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, DeviceId)>;
+		MemberDevices get(fn member_devices): map hasher(blake2_128_concat) T::Hash => Vec<(T::AccountId, DeviceId)>;
 	}
 }
 
