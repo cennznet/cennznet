@@ -136,18 +136,10 @@ pub(super) mod tests {
 	#[test]
 	fn should_add_device() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(1),
-				0,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
 			assert_eq!(Device::devices(1).len(), 1);
 
-			assert_ok!(E2EE::register_device(
-				Origin::signed(1),
-				1,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 1, vec![]));
 			assert_eq!(Device::devices(1).len(), 2);
 			assert_eq!(Device::devices(1)[1], 1);
 		});
@@ -156,19 +148,11 @@ pub(super) mod tests {
 	#[test]
 	fn should_replenish_pkbs() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(1),
-				0,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
 
 			let mock_pkb = b"10".to_vec();
 
-			assert_ok!(E2EE::replenish_pkbs(
-				Origin::signed(1),
-				0,
-				vec![mock_pkb.clone()]
-			));
+			assert_ok!(E2EE::replenish_pkbs(Origin::signed(1), 0, vec![mock_pkb.clone()]));
 
 			assert_eq!(E2EE::pkbs((1, 0)), vec![mock_pkb]);
 		});
@@ -177,28 +161,16 @@ pub(super) mod tests {
 	#[test]
 	fn should_withdraw_pkbs() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(1),
-				0,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
 
 			let mock_pkb = b"10".to_vec();
 
-			assert_ok!(E2EE::replenish_pkbs(
-				Origin::signed(1),
-				0,
-				vec![mock_pkb.clone()]
-			));
+			assert_ok!(E2EE::replenish_pkbs(Origin::signed(1), 0, vec![mock_pkb.clone()]));
 
 			let req_id = H256::from([3; 32]);
 			let wanted_pkbs = vec![(1, 0)];
 
-			assert_ok!(E2EE::withdraw_pkbs(
-				Origin::signed(2),
-				req_id.clone(),
-				wanted_pkbs
-			));
+			assert_ok!(E2EE::withdraw_pkbs(Origin::signed(2), req_id.clone(), wanted_pkbs));
 
 			assert_eq!(
 				Response::response((2, req_id)),

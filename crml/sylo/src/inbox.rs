@@ -119,23 +119,12 @@ mod tests {
 	fn it_works_adding_values_to_an_inbox() {
 		ExtBuilder::default().build().execute_with(|| {
 			// Add a value to an empty inbox
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"hello, world".to_vec()
-			));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"hello, world".to_vec()));
 			assert_eq!(Inbox::inbox(2), vec![b"hello, world".to_vec()]);
 
 			// Add another value
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"sylo".to_vec()
-			));
-			assert_eq!(
-				Inbox::inbox(2),
-				vec![b"hello, world".to_vec(), b"sylo".to_vec()]
-			);
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
+			assert_eq!(Inbox::inbox(2), vec![b"hello, world".to_vec(), b"sylo".to_vec()]);
 		});
 	}
 
@@ -143,26 +132,10 @@ mod tests {
 	fn it_works_removing_values_from_an_inbox() {
 		ExtBuilder::default().build().execute_with(|| {
 			// Add values to an empty inbox
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"hello, world".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"sylo".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"foo".to_vec()
-			));
-			assert_ok!(Inbox::add_value(
-				Origin::signed(1),
-				2,
-				b"bar".to_vec()
-			));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"hello, world".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"sylo".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"foo".to_vec()));
+			assert_ok!(Inbox::add_value(Origin::signed(1), 2, b"bar".to_vec()));
 
 			// Remove a single value
 			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![0]));
@@ -171,10 +144,7 @@ mod tests {
 				vec![b"sylo".to_vec(), b"foo".to_vec(), b"bar".to_vec()]
 			);
 
-			assert_ok!(Inbox::delete_values(
-				Origin::signed(2),
-				vec![2, 3]
-			));
+			assert_ok!(Inbox::delete_values(Origin::signed(2), vec![2, 3]));
 			assert_eq!(Inbox::inbox(2), vec![b"sylo".to_vec()]);
 		});
 	}

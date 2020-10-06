@@ -52,10 +52,7 @@ mod tests {
 				}
 			);
 
-			assert_eq!(
-				Vault::values(1),
-				vec![(b"group".to_vec(), b"data".to_vec())]
-			);
+			assert_eq!(Vault::values(1), vec![(b"group".to_vec(), b"data".to_vec())]);
 
 			assert_err!(
 				Groups::create_group(
@@ -169,9 +166,7 @@ mod tests {
 				(b"group".to_vec(), b"data".to_vec())
 			));
 
-			let payload = AcceptPayload {
-				account_id: 2,
-			};
+			let payload = AcceptPayload { account_id: 2 };
 			let encoded = payload.encode();
 			let message = encoded.as_slice();
 			let (invite_key, signature) = {
@@ -243,10 +238,7 @@ mod tests {
 			// invite should be deleted
 			assert_eq!(group.invites.len(), 0);
 
-			assert_eq!(
-				Vault::values(1),
-				vec![(b"group".to_vec(), b"data".to_vec())]
-			);
+			assert_eq!(Vault::values(1), vec![(b"group".to_vec(), b"data".to_vec())]);
 		});
 	}
 
@@ -276,11 +268,7 @@ mod tests {
 				})
 				.collect();
 
-			assert_ok!(Groups::create_invites(
-				Origin::signed(1),
-				group_id.clone(),
-				invites
-			));
+			assert_ok!(Groups::create_invites(Origin::signed(1), group_id.clone(), invites));
 
 			// invite should be added
 			let invites = Groups::group(group_id.clone()).invites;

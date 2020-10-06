@@ -111,30 +111,16 @@ mod tests {
 			let key_0 = b"0".to_vec();
 			let value_0 = b"1".to_vec();
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_0.clone(),
-				value_0.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_0.clone(), value_0.clone()));
 
-			assert_eq!(
-				Vault::values(1),
-				vec![(key_0.clone(), value_0.clone())]
-			);
+			assert_eq!(Vault::values(1), vec![(key_0.clone(), value_0.clone())]);
 
 			let key_1 = b"01".to_vec();
 			let value_1 = b"10".to_vec();
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_1.clone(),
-				value_1.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_1.clone(), value_1.clone()));
 
-			assert_eq!(
-				Vault::values(1),
-				vec![(key_0, value_0), (key_1, value_1)]
-			);
+			assert_eq!(Vault::values(1), vec![(key_0, value_0), (key_1, value_1)]);
 		});
 	}
 
@@ -145,19 +131,11 @@ mod tests {
 			let value_0 = b"1".to_vec();
 			let value_1 = b"01".to_vec();
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_0.clone(),
-				value_0.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_0.clone(), value_0.clone()));
 
 			assert_eq!(Vault::values(1), vec![(key_0.clone(), value_0)]);
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_0.clone(),
-				value_1.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_0.clone(), value_1.clone()));
 
 			assert_eq!(Vault::values(1), vec![(key_0, value_1)]);
 		});
@@ -170,27 +148,16 @@ mod tests {
 			let key_1 = b"1".to_vec();
 			let value_0 = b"01".to_vec();
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_0.clone(),
-				value_0.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_0.clone(), value_0.clone()));
 
-			assert_ok!(Vault::upsert_value(
-				Origin::signed(1),
-				key_1.clone(),
-				value_0.clone()
-			));
+			assert_ok!(Vault::upsert_value(Origin::signed(1), key_1.clone(), value_0.clone()));
 
 			assert_eq!(
 				Vault::values(1),
 				vec![(key_0.clone(), value_0.clone()), (key_1.clone(), value_0)]
 			);
 
-			assert_ok!(Vault::delete_values(
-				Origin::signed(1),
-				vec![key_0, key_1]
-			));
+			assert_ok!(Vault::delete_values(Origin::signed(1), vec![key_0, key_1]));
 
 			assert_eq!(Vault::values(1), vec![]);
 		});
