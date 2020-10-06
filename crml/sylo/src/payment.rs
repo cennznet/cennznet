@@ -15,12 +15,13 @@
 
 //! Manage the authorized accounts set for the Sylo fee payment
 
-use frame_support::{decl_module, decl_storage, ensure, weights::SimpleDispatchInfo};
+use super::{Trait as SyloTrait, WeightInfo};
+use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: SyloTrait {}
 
 const NOT_SYLO_PAYER: &str = "You are not a Sylo payer!";
 
@@ -35,7 +36,7 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 
 		/// Add `account_id` as an authorized Sylo fee payer. Only Sudo can set a payment account.
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		#[weight = T::WeightInfo::set_payment_account()]
 		pub fn set_payment_account(origin, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			<AuthorisedPayers<T>>::mutate(|v|{if !v.contains(&account_id) {v.push(account_id)}});
@@ -44,7 +45,7 @@ decl_module! {
 
 		/// If the origin of the call is an authorised payer, revoke its authorisation.
 		/// NOTE: This may halt all Sylo operations if there are no other payers.
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		#[weight = T::WeightInfo::revoke_payment_account_self()]
 		pub fn revoke_payment_account_self(origin) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
 			ensure!(Self::authorised_payers().contains(&account_id), NOT_SYLO_PAYER);
@@ -68,7 +69,6 @@ mod tests {
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use sp_core::H256;
 	use sp_runtime::DispatchError::Other;
 
 	type SyloModule = Module<Test>;
@@ -78,14 +78,14 @@ mod tests {
 	#[test]
 	fn set_payment_account() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payer_a = H256::from_low_u64_be(2);
-			let payer_b = H256::from_low_u64_be(3);
+			let payer_a = 2;
+			let payer_b = 3;
 
 			assert!(!SyloModule::authorised_payers().contains(&payer_a));
 			assert!(!SyloModule::authorised_payers().contains(&payer_b));
 
-			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_a));
-			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_b));
+			assert_ok!(SyloModule::set_payment_account(Origin::root(), payer_a));
+			assert_ok!(SyloModule::set_payment_account(Origin::root(), payer_b));
 
 			assert!(SyloModule::authorised_payers().contains(&payer_a));
 			assert!(SyloModule::authorised_payers().contains(&payer_b));
@@ -95,11 +95,11 @@ mod tests {
 	#[test]
 	fn get_payment_account() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payer_a = H256::from_low_u64_be(2);
-			let payer_b = H256::from_low_u64_be(3);
+			let payer_a = 2;
+			let payer_b = 3;
 
-			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_a.clone()));
-			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_b));
+			assert_ok!(SyloModule::set_payment_account(Origin::root(), payer_a.clone()));
+			assert_ok!(SyloModule::set_payment_account(Origin::root(), payer_b));
 
 			assert_eq!(SyloModule::payment_account().unwrap(), payer_a);
 		});
@@ -115,9 +115,9 @@ mod tests {
 	#[test]
 	fn revoke_payment_account_self_a_payer() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payer_a = H256::from_low_u64_be(2);
+			let payer_a = 2;
 
-			assert_ok!(SyloModule::set_payment_account(Origin::ROOT, payer_a));
+			assert_ok!(SyloModule::set_payment_account(Origin::root(), payer_a));
 
 			assert_ok!(SyloModule::revoke_payment_account_self(Origin::from(
 				RawOrigin::Signed(payer_a.clone())
@@ -130,7 +130,7 @@ mod tests {
 	#[test]
 	fn revoke_payment_account_self_a_non_payer() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payer_a = H256::from_low_u64_be(2);
+			let payer_a = 2;
 
 			assert_eq!(
 				SyloModule::revoke_payment_account_self(Origin::from(RawOrigin::Signed(payer_a.clone()))),

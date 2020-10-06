@@ -31,7 +31,7 @@ mod tests {
 			let group_id = H256::from([1; 32]);
 			// Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				meta_1.clone(),
 				vec![],
@@ -43,7 +43,7 @@ mod tests {
 				Group {
 					group_id: group_id.clone(),
 					members: vec![Member {
-						user_id: H256::from_low_u64_be(1),
+						user_id: 1,
 						roles: vec![MemberRoles::Admin],
 						meta: vec![],
 					}],
@@ -53,13 +53,13 @@ mod tests {
 			);
 
 			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
+				Vault::values(1),
 				vec![(b"group".to_vec(), b"data".to_vec())]
 			);
 
 			assert_err!(
 				Groups::create_group(
-					Origin::signed(H256::from_low_u64_be(1)),
+					Origin::signed(1),
 					group_id.clone(),
 					meta_1.clone(),
 					vec![],
@@ -79,7 +79,7 @@ mod tests {
 
 			//Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				meta_1.clone(),
 				vec![],
@@ -91,7 +91,7 @@ mod tests {
 
 			// Add another key
 			assert_ok!(Groups::upsert_group_meta(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				meta_2.clone()
 			));
@@ -105,7 +105,7 @@ mod tests {
 			meta_1[0].1 = b"foo".to_vec();
 			// Update value
 			assert_ok!(Groups::upsert_group_meta(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				meta_1.clone()
 			));
@@ -122,7 +122,7 @@ mod tests {
 
 			//Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				vec![],
 				vec![],
@@ -131,18 +131,18 @@ mod tests {
 
 			// leave wrong group
 			assert_err!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(1)), H256::from([3; 32]), None),
+				Groups::leave_group(Origin::signed(1), H256::from([3; 32]), None),
 				Error::<Test>::GroupNotFound,
 			);
 
 			// trying to live group user who is not a member
 			assert_err!(
-				Groups::leave_group(Origin::signed(H256::from_low_u64_be(2)), group_id.clone(), None),
+				Groups::leave_group(Origin::signed(2), group_id.clone(), None),
 				Error::<Test>::MemberNotFound,
 			);
 
 			assert_ok!(Groups::leave_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				Some(b"key".to_vec())
 			));
@@ -151,7 +151,7 @@ mod tests {
 			assert_eq!(Groups::group(group_id.clone()).members, vec![]);
 
 			// check group data has been removed from user's vault
-			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
+			assert_eq!(Vault::values(1), vec![]);
 		});
 	}
 
@@ -162,7 +162,7 @@ mod tests {
 
 			//Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				vec![],
 				vec![],
@@ -170,7 +170,7 @@ mod tests {
 			));
 
 			let payload = AcceptPayload {
-				account_id: H256::from_low_u64_be(2),
+				account_id: 2,
 			};
 			let encoded = payload.encode();
 			let message = encoded.as_slice();
@@ -180,7 +180,7 @@ mod tests {
 			};
 
 			let invite = Invite {
-				peer_id: H256::from_low_u64_be(2),
+				peer_id: 2,
 				invite_data: vec![],
 				invite_key: invite_key.clone(),
 				meta: vec![],
@@ -189,7 +189,7 @@ mod tests {
 
 			// create invite
 			assert_ok!(Groups::create_invites(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				vec![invite],
 			));
@@ -207,7 +207,7 @@ mod tests {
 			// accept wrong invite
 			assert_err!(
 				Groups::accept_invite(
-					Origin::signed(H256::from_low_u64_be(2)),
+					Origin::signed(2),
 					group_id.clone(),
 					payload.clone(),
 					invite_key.clone(),
@@ -220,7 +220,7 @@ mod tests {
 
 			// accept right sig
 			assert_ok!(Groups::accept_invite(
-				Origin::signed(H256::from_low_u64_be(2)),
+				Origin::signed(2),
 				group_id.clone(),
 				payload.clone(),
 				invite_key.clone(),
@@ -235,7 +235,7 @@ mod tests {
 			assert_eq!(
 				group.members[1],
 				Member {
-					user_id: H256::from_low_u64_be(2),
+					user_id: 2,
 					roles: vec![MemberRoles::Member],
 					meta: vec![],
 				}
@@ -244,7 +244,7 @@ mod tests {
 			assert_eq!(group.invites.len(), 0);
 
 			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
+				Vault::values(1),
 				vec![(b"group".to_vec(), b"data".to_vec())]
 			);
 		});
@@ -257,7 +257,7 @@ mod tests {
 
 			//Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				vec![],
 				vec![],
@@ -268,7 +268,7 @@ mod tests {
 				.clone()
 				.into_iter()
 				.map(|invite_key| Invite {
-					peer_id: H256::from_low_u64_be(2),
+					peer_id: 2,
 					invite_data: vec![],
 					invite_key,
 					meta: vec![],
@@ -277,7 +277,7 @@ mod tests {
 				.collect();
 
 			assert_ok!(Groups::create_invites(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				invites
 			));
@@ -289,7 +289,7 @@ mod tests {
 
 			// revoke 2 invites
 			assert_ok!(Groups::revoke_invites(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				invite_keys[1..].to_vec()
 			));
@@ -309,7 +309,7 @@ mod tests {
 
 			//Create a group
 			assert_ok!(Groups::create_group(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				vec![],
 				vec![],
@@ -318,7 +318,7 @@ mod tests {
 
 			// update member's meta
 			assert_ok!(Groups::update_member(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				group_id.clone(),
 				meta_1.clone()
 			));
@@ -329,7 +329,7 @@ mod tests {
 
 	#[test]
 	fn store_membership_is_idempotent() {
-		let user_id = H256::from_low_u64_be(1);
+		let user_id = 1;
 		let group_id = H256::from_low_u64_be(123);
 
 		ExtBuilder::default().build().execute_with(|| {

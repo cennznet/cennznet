@@ -12,15 +12,15 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::SimpleDispatchInfo};
+use super::{Trait as SyloTrait, WeightInfo};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
 use frame_system::ensure_signed;
 
 pub const MAX_KEYS: usize = 100;
 const MAX_VALUE_LENGTH: usize = 100_000;
 const MAX_DELETE_KEYS: usize = 100;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: SyloTrait {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
@@ -45,7 +45,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::upsert_value()]
 		fn upsert_value(origin, key: VaultKey, value: VaultValue) {
 			let user_id = ensure_signed(origin)?;
 			ensure!(value.len() <= MAX_VALUE_LENGTH, Error::<T>::MaxValueLength);
@@ -58,7 +58,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::delete_values()]
 		fn delete_values(origin, keys: Vec<VaultKey>) {
 			let user_id = ensure_signed(origin)?;
 			ensure!(keys.len() <= MAX_DELETE_KEYS, Error::<T>::MaxDeleteKeys);
@@ -69,7 +69,7 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloVault {
-		pub Vault get(values): map hasher(blake2_128_concat) T::AccountId => Vec<(VaultKey, VaultValue)>;
+		pub Vault get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }
 
@@ -100,7 +100,6 @@ mod tests {
 	use super::*;
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::{assert_noop, assert_ok};
-	use sp_core::H256;
 
 	impl Trait for Test {}
 
@@ -113,13 +112,13 @@ mod tests {
 			let value_0 = b"1".to_vec();
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_0.clone(),
 				value_0.clone()
 			));
 
 			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
+				Vault::values(1),
 				vec![(key_0.clone(), value_0.clone())]
 			);
 
@@ -127,13 +126,13 @@ mod tests {
 			let value_1 = b"10".to_vec();
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_1.clone(),
 				value_1.clone()
 			));
 
 			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
+				Vault::values(1),
 				vec![(key_0, value_0), (key_1, value_1)]
 			);
 		});
@@ -147,20 +146,20 @@ mod tests {
 			let value_1 = b"01".to_vec();
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_0.clone(),
 				value_0.clone()
 			));
 
-			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![(key_0.clone(), value_0)]);
+			assert_eq!(Vault::values(1), vec![(key_0.clone(), value_0)]);
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_0.clone(),
 				value_1.clone()
 			));
 
-			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![(key_0, value_1)]);
+			assert_eq!(Vault::values(1), vec![(key_0, value_1)]);
 		});
 	}
 
@@ -172,35 +171,35 @@ mod tests {
 			let value_0 = b"01".to_vec();
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_0.clone(),
 				value_0.clone()
 			));
 
 			assert_ok!(Vault::upsert_value(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				key_1.clone(),
 				value_0.clone()
 			));
 
 			assert_eq!(
-				Vault::values(H256::from_low_u64_be(1)),
+				Vault::values(1),
 				vec![(key_0.clone(), value_0.clone()), (key_1.clone(), value_0)]
 			);
 
 			assert_ok!(Vault::delete_values(
-				Origin::signed(H256::from_low_u64_be(1)),
+				Origin::signed(1),
 				vec![key_0, key_1]
 			));
 
-			assert_eq!(Vault::values(H256::from_low_u64_be(1)), vec![]);
+			assert_eq!(Vault::values(1), vec![]);
 		});
 	}
 
 	#[test]
 	fn should_not_add_more_than_max_keys() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			for i in 0..MAX_KEYS {
 				let key = format!("key_{}", i).into_bytes();
 				let value = format!("value_{}", i).into_bytes();
