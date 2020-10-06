@@ -426,6 +426,14 @@ impl crml_sylo::Trait for Runtime {
 	type WeightInfo = weights::crml_sylo::WeightInfo;
 }
 
+impl crml_sylo::e2ee::Trait for Runtime {}
+impl crml_sylo::payment::Trait for Runtime {}
+impl crml_sylo::device::Trait for Runtime {}
+impl crml_sylo::inbox::Trait for Runtime {}
+impl crml_sylo::response::Trait for Runtime {}
+impl crml_sylo::vault::Trait for Runtime {}
+impl crml_sylo::groups::Trait for Runtime {}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
