@@ -16,34 +16,27 @@
 
 //! CENNZnet chain configurations.
 
-use core::convert::TryFrom;
-use serde::{Deserialize, Serialize};
-
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, ContractsConfig, CouncilConfig, GenericAssetConfig,
-	GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, WASM_BINARY,
+	opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, GenericAssetConfig, GrandpaConfig,
+	ImOnlineConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use cennznet_runtime::{Block, FeeRate, PerMillion, PerThousand};
-use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_chain_spec::ChainSpecExtension;
-use sc_service;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
-	Perbill,
-};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
-pub mod azalea;
+// pub mod azalea;
 pub mod dev;
 pub mod nikau;
+
+/// Specialized `ChainSpec`.
+pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -73,18 +66,8 @@ pub struct NetworkKeys {
 	pub root_key: AccountId,
 }
 
-/// Node `ChainSpec` extensions.
-///
-/// Additional parameters for some Substrate core modules,
-/// customizable from the chain spec.
-#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
-pub struct Extensions {
-	/// Block numbers with known hashes.
-	pub fork_blocks: sc_client::ForkBlocks<Block>,
-}
-
 /// Specialised `ChainSpec`.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, ()>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -162,42 +145,25 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				})
 				.collect::<Vec<_>>(),
 		}),
-		crml_staking: Some(StakingConfig {
-			current_era: 0,
-			validator_count: initial_authorities.len() as u32 * 2,
-			minimum_validator_count: initial_authorities.len() as u32,
-			stakers: initial_authorities
-				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), INITIAL_BOND, StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			minimum_bond: 1,
-			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
-		}),
-		pallet_collective_Instance1: Some(CouncilConfig {
-			members: endowed_accounts.iter().cloned().collect::<Vec<_>>()[..(num_endowed_accounts + 1) / 2].to_vec(),
-			phantom: Default::default(),
-		}),
-		pallet_collective_Instance2: Some(TechnicalCommitteeConfig {
-			members: endowed_accounts.iter().cloned().collect::<Vec<_>>()[..(num_endowed_accounts + 1) / 2].to_vec(),
-			phantom: Default::default(),
-		}),
-		pallet_contracts: Some(ContractsConfig {
-			current_schedule: pallet_contracts::Schedule {
-				enable_println, // this should only be enabled on development chains
-				..Default::default()
-			},
-			gas_price: 1 * MICROS,
-		}),
+		// crml_staking: Some(StakingConfig {
+		// 	current_era: 0,
+		// 	validator_count: initial_authorities.len() as u32 * 2,
+		// 	minimum_validator_count: initial_authorities.len() as u32,
+		// 	stakers: initial_authorities
+		// 		.iter()
+		// 		.map(|x| (x.0.clone(), x.1.clone(), INITIAL_BOND, StakerStatus::Validator))
+		// 		.collect(),
+		// 	invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+		// 	minimum_bond: 1,
+		// 	slash_reward_fraction: Perbill::from_percent(10),
+		// 	..Default::default()
+		// }),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		pallet_membership_Instance1: Some(Default::default()),
-		pallet_treasury: Some(Default::default()),
-		pallet_generic_asset: Some(GenericAssetConfig {
+		prml_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CENTRAPAY_ASSET_ID, root_key)],
@@ -211,9 +177,9 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
 			],
 		}),
-		crml_cennzx: Some(CennzxConfig {
-			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
-			core_asset_id: CENTRAPAY_ASSET_ID,
-		}),
+		// crml_cennzx: Some( {
+		// 	fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
+		// 	core_asset_id: CENTRAPAY_ASSET_ID,
+		// }),
 	}
 }

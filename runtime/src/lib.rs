@@ -36,8 +36,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, Extrinsic, IdentifyAccount, IdentityLookup, NumberFor, SaturatedConversion,
-	Saturating, Verify,
+	BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, SaturatedConversion, Saturating, Verify,
 };
 use sp_runtime::{
 	create_runtime_str,
@@ -45,7 +44,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::OpaqueKeys,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -53,8 +52,10 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use frame_support::{
-	construct_runtime, debug, parameter_types,
-	traits::{KeyOwnerProofSystem, Randomness},
+	construct_runtime, debug,
+	dispatch::marker::PhantomData,
+	ord_parameter_types, parameter_types,
+	traits::{Contains, ContainsLengthBound, KeyOwnerProofSystem, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, TransactionPriority, Weight,
@@ -65,7 +66,7 @@ use frame_system::EnsureRoot;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{ModuleId, Perbill, Percent, Permill};
 
 // CENNZnet only imports
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
@@ -78,7 +79,7 @@ use crml_sylo::inbox as sylo_inbox;
 use crml_sylo::payment as sylo_payment;
 use crml_sylo::response as sylo_response;
 use crml_sylo::vault as sylo_vault;
-use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
+pub use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -422,6 +423,72 @@ impl pallet_identity::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+// TODO: move this to /impls.rs
+/// Provides a membership set with only the configured sudo user
+pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
+impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		t == (&pallet_sudo::Module::<T>::key())
+	}
+	fn sorted_members() -> Vec<T::AccountId> {
+		vec![(pallet_sudo::Module::<T>::key())]
+	}
+	fn count() -> usize {
+		1
+	}
+}
+impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
+	fn min_len() -> usize {
+		1
+	}
+	fn max_len() -> usize {
+		1
+	}
+}
+parameter_types! {
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 1 * DAYS;
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TipCountdown: BlockNumber = 1 * DAYS;
+	pub const TipFindersFee: Percent = Percent::from_percent(20);
+	pub const TipReportDepositBase: Balance = 1 * DOLLARS;
+	pub const DataDepositPerByte: Balance = 1 * MICROS;
+	pub const BountyDepositBase: Balance = 1 * DOLLARS;
+	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
+	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
+	pub const MaximumReasonLength: u32 = 16384;
+	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
+	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
+}
+impl pallet_treasury::Trait for Runtime {
+	type ModuleId = TreasuryModuleId;
+	type Currency = SpendingAssetCurrency<Self>;
+	// root only is sufficient for launch phase
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type RejectOrigin = EnsureRoot<AccountId>;
+	type Tippers = RootMemberOnly<Self>;
+	type TipCountdown = TipCountdown;
+	type TipFindersFee = TipFindersFee;
+	type TipReportDepositBase = TipReportDepositBase;
+	type DataDepositPerByte = DataDepositPerByte;
+	type Event = Event;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type SpendPeriod = SpendPeriod;
+	type Burn = Burn;
+	type BountyDepositBase = BountyDepositBase;
+	type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
+	type BountyCuratorDeposit = BountyCuratorDeposit;
+	type BountyValueMinimum = BountyValueMinimum;
+	type MaximumReasonLength = MaximumReasonLength;
+	type BurnDestination = ();
+	type WeightInfo = ();
+}
+
 impl crml_sylo::Trait for Runtime {
 	type WeightInfo = weights::crml_sylo::WeightInfo;
 }
@@ -517,7 +584,7 @@ construct_runtime!(
 		// Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
 		// TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
 		// TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>}
-		// Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
+		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
 		Utility: pallet_utility::{Module, Call, Event} = 15,
 		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
 		// TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
