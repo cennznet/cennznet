@@ -22,7 +22,6 @@ use cennznet_runtime::{
 	ImOnlineConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_service;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
@@ -34,7 +33,7 @@ pub use cennznet_runtime::GenesisConfig;
 
 // pub mod azalea;
 pub mod dev;
-// pub mod nikau;
+pub mod nikau;
 
 /// Specialized `ChainSpec`.
 pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
