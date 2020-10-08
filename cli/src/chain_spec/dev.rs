@@ -16,7 +16,8 @@
 
 //! Dev genesis config
 
-use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
+use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, CENNZnetChainSpec, NetworkKeys};
+use sc_service::ChainType;
 use sp_core::sr25519;
 
 fn network_keys() -> NetworkKeys {
@@ -47,10 +48,11 @@ fn network_keys() -> NetworkKeys {
 }
 
 /// Returns ChainSpec for dev
-pub fn config() -> ChainSpec {
-	ChainSpec::from_genesis(
+pub fn config() -> CENNZnetChainSpec {
+	CENNZnetChainSpec::from_genesis(
 		"Development",
 		"dev",
+		ChainType::Development,
 		|| config_genesis(network_keys(), true),
 		vec![],
 		None,

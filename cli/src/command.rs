@@ -15,18 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
-
+use crate::chain_spec::{self, CENNZnetChainSpec};
 use crate::cli::{Cli, Subcommand};
 use crate::service;
-use cennznet_runtime::{Block, GenesisConfig};
-use sc_chain_spec::ChainSpecExtension;
+use cennznet_runtime::Block;
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
-
-// TODO: make it compile, this should move to ./chain_spec/
-/// Specialized `ChainSpec`.
-pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -55,9 +49,9 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			// "dev" => Box::new(chain_spec::dev::config()?),
+			"dev" => Box::new(chain_spec::dev::config()),
 			// "azalea" => Box::new(chain_spec::azalea::config()?),
-			// "nikau" => Box::new(chain_spec::nikau::config()?),
+			"nikau" => Box::new(chain_spec::nikau::config()),
 			path => Box::new(CENNZnetChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
 	}

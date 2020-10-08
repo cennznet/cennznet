@@ -12,7 +12,6 @@ futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
-
 sc-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-chain-spec = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
@@ -23,6 +22,7 @@ sc-service = { branch = "spike/2.0", git = "https://github.com/plugblockchain/pl
 sp-inherents = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -57,6 +57,9 @@ cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 prml-generic-asset-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [build-dependencies]
 substrate-build-script-utils = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }

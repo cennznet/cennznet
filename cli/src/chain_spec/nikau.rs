@@ -15,7 +15,8 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! CENNZNet Nikau V1 test net genesis config
-use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, ChainSpec, NetworkKeys};
+use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, CENNZnetChainSpec, NetworkKeys};
+use sc_service::ChainType;
 use sp_core::sr25519;
 
 fn network_keys() -> NetworkKeys {
@@ -49,11 +50,12 @@ fn network_keys() -> NetworkKeys {
 	}
 }
 
-/// Returns ChainSpec for Nikau test net
-pub fn config() -> ChainSpec {
-	ChainSpec::from_genesis(
+/// Returns ChainSpec for the Nikau test net
+pub fn config() -> CENNZnetChainSpec {
+	CENNZnetChainSpec::from_genesis(
 		"CENNZnet Nikau",                        // name
 		"CENNZnet Nikau V1",                     // ID
+		ChainType::Live,                         // chain type description
 		|| config_genesis(network_keys(), true), // constructor
 		vec![],                                  // boot nodes
 		None,                                    // telemetry
