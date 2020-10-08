@@ -636,6 +636,7 @@ version = "1.1.0"
 dependencies = [
  "cennznet-primitives",
  "crml-sylo",
+ "crml-transaction-payment",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -658,7 +659,6 @@ dependencies = [
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
- "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "pallet-utility",
@@ -3857,23 +3857,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
-]
-
-[[package]]
-name = "pallet-transaction-payment"
-version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#6b68bcda0872c2a25d38f9d5542b86dc420f6a8e"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
- "serde",
- "smallvec 1.4.2",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
