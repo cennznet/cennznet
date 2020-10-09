@@ -31,6 +31,7 @@ use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthority
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
+use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
@@ -44,7 +45,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::OpaqueKeys,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, FixedPointNumber,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -66,10 +67,12 @@ use frame_system::EnsureRoot;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{ModuleId, Perbill, Percent, Permill};
+pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
+use cennznet_primitives::types::{
+	AccountId, AssetId, Balance, BlockNumber, FeeExchange, Hash, Index, Moment, Signature,
+};
 // pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 // use crml_cennzx_rpc_runtime_api::CennzxResult;
 use crml_sylo::device as sylo_device;
@@ -79,7 +82,12 @@ use crml_sylo::inbox as sylo_inbox;
 use crml_sylo::payment as sylo_payment;
 use crml_sylo::response as sylo_response;
 use crml_sylo::vault as sylo_vault;
+pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 pub use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
+
+/// Implementations of some helper traits passed into runtime modules as associated types.
+pub mod impls;
+use impls::FeePayerResolver;
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -200,7 +208,7 @@ impl pallet_authorship::Trait for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = (ImOnline);
+	type EventHandler = ImOnline;
 }
 
 parameter_types! {
@@ -302,28 +310,41 @@ impl prml_generic_asset::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-// parameter_types! {
-// 	pub const TransactionBaseFee: Balance = 1 * MICROS;
-// 	pub const TransactionByteFee: Balance = 10 * MICROS;
-// 	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
-// 	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
-// 	// for a sane configuration, this should always be less than `AvailableBlockRatio`.
-// 	pub const TargetBlockFullness: Perbill = Perbill::from_percent(25);
-// }
+// TODO remove the following code after activating Cennzx
+use cennznet_primitives::traits::BuyFeeAsset;
+use frame_support::dispatch::DispatchError;
+pub struct TemporaryCennzxReplacer;
+impl BuyFeeAsset for TemporaryCennzxReplacer {
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type FeeExchange = FeeExchange<AssetId, Balance>;
+	fn buy_fee_asset(
+		_who: &Self::AccountId,
+		_amount: Self::Balance,
+		_fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError> {
+		Err(DispatchError::Other("Cennzx is not enabled yet"))
+	}
+}
 
-// impl crml_transaction_payment::Trait for Runtime {
-// 	type Balance = Balance;
-// 	type AssetId = AssetId;
-// 	type Currency = SpendingAssetCurrency<Self>;
-// 	type OnTransactionPayment = ();
-// 	type TransactionBaseFee = TransactionBaseFee;
-// 	type TransactionByteFee = TransactionByteFee;
-// 	type WeightToFee = ScaledWeightToFee<TransactionMinWeightFee, TransactionMaxWeightFee>;
-// 	type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
-// 	type BuyFeeAsset = Cennzx;
-// 	type GasMeteredCallResolver = GasMeteredCallResolver;
-// 	type FeePayer = FeePayerResolver;
-// }
+parameter_types! {
+	pub const TransactionByteFee: Balance = 10 * MICROS;
+	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
+	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
+	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+}
+impl crml_transaction_payment::Trait for Runtime {
+	type AssetId = AssetId;
+	type Currency = SpendingAssetCurrency<Self>;
+	type OnTransactionPayment = ();
+	type TransactionByteFee = TransactionByteFee;
+	type WeightToFee = IdentityFee<Balance>;
+	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
+	type BuyFeeAsset = TemporaryCennzxReplacer;
+	type FeePayer = FeePayerResolver;
+}
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	items as Balance * 15 + (bytes as Balance) * 6
@@ -532,7 +553,7 @@ where
 			frame_system::CheckEra::<Runtime>::from(era),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			crml_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip, None),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -587,7 +608,7 @@ construct_runtime!(
 		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
 		Utility: pallet_utility::{Module, Call, Event} = 15,
 		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
-		// TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
+		TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
@@ -621,7 +642,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	// crml_transaction_payment::ChargeTransactionPayment<Runtime>,
+	crml_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -790,14 +811,14 @@ impl_runtime_apis! {
 		}
 	}
 
-	// impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
-	// 	fn query_info(
-	// 		uxt: <Block as BlockT>::Extrinsic,
-	// 		len: u32,
-	// 	) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-	// 		TransactionPayment::query_info(uxt, len)
-	// 	}
-	// }
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+		fn query_info(
+			uxt: <Block as BlockT>::Extrinsic,
+			len: u32,
+		) -> RuntimeDispatchInfo<Balance> {
+			TransactionPayment::query_info(uxt, len)
+		}
+	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
