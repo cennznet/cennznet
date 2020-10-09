@@ -262,9 +262,9 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
 	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnReapAccount, OnUnbalanced, Time, WithdrawReasons,
+		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnNewAccount, OnUnbalanced, Time, WithdrawReasons,
 	},
-	weights::SimpleDispatchInfo,
+	weights::{Weight, DispatchInfo},
 	IterableStorageMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -285,6 +285,84 @@ use sp_std::{
 	iter::FromIterator,
 	prelude::*,
 };
+
+pub trait WeightInfo {
+	fn bond() -> Weight;
+	fn bond_extra() -> Weight;
+	fn unbond() -> Weight;
+	fn rebond() -> Weight;
+	fn withdraw_unbonded() -> Weight;
+	fn validate() -> Weight;
+	fn nominate() -> Weight;
+	fn chill() -> Weight;
+	fn set_payee() -> Weight;
+	fn set_controller() -> Weight;
+	fn set_validator_count() -> Weight;
+	fn force_no_eras() -> Weight;
+	fn force_new_era() -> Weight;
+	fn set_minimum_bond() -> Weight;
+	fn set_invulnerables() -> Weight;
+	fn force_unstake() -> Weight;
+	fn force_new_era_always() -> Weight;
+	fn cancel_deferred_slash() -> Weight;
+}
+
+impl WeightInfo for () {
+	fn bond() -> Weight {
+		0 as Weight
+	}
+	fn bond_extra() -> Weight {
+		0 as Weight
+	}
+	fn unbond() -> Weight {
+		0 as Weight
+	}
+	fn rebond() -> Weight {
+		0 as Weight
+	}
+	fn withdraw_unbonded() -> Weight {
+		0 as Weight
+	}
+	fn validate() -> Weight {
+		0 as Weight
+	}
+	fn nominate() -> Weight {
+		0 as Weight
+	}
+	fn chill() -> Weight {
+		0 as Weight
+	}
+	fn set_payee() -> Weight {
+		0 as Weight
+	}
+	fn set_controller() -> Weight {
+		0 as Weight
+	}
+	fn set_validator_count() -> Weight {
+		0 as Weight
+	}
+	fn force_no_eras() -> Weight {
+		0 as Weight
+	}
+	fn force_new_era() -> Weight {
+		0 as Weight
+	}
+	fn set_minimum_bond() -> Weight {
+		0 as Weight
+	}
+	fn set_invulnerables() -> Weight {
+		0 as Weight
+	}
+	fn force_unstake() -> Weight {
+		0 as Weight
+	}
+	fn force_new_era_always() -> Weight {
+		0 as Weight
+	}
+	fn cancel_deferred_slash() -> Weight {
+		0 as Weight
+	}
+}
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
@@ -658,6 +736,8 @@ pub trait Trait: frame_system::Trait {
 
 	/// The NPoS reward curve to use.
 	type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
+
+	type WeightInfo: WeightInfo;
 }
 
 /// Mode of era-forcing.
@@ -917,7 +997,7 @@ decl_module! {
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned unless
 		/// the `origin` falls below minimum bond and is removed lazliy in `withdraw_unbonded`.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::bond()]
 		fn bond(origin,
 			controller: T::AccountId,
 			#[compact] value: BalanceOf<T>,
@@ -963,7 +1043,7 @@ decl_module! {
 		/// - O(1).
 		/// - One DB entry.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
 			let stash = ensure_signed(origin)?;
 
@@ -1003,7 +1083,7 @@ decl_module! {
 		///   The only way to clean the aforementioned storage item is also user-controlled via `withdraw_unbonded`.
 		/// - One DB entry.
 		/// </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
 			let controller = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1042,7 +1122,7 @@ decl_module! {
 		/// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
 		/// - Storage changes: Can't increase storage, only decrease it.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::rebond()]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1072,7 +1152,7 @@ decl_module! {
 		/// - Contains a limited number of reads, yet the size of which could be large based on `ledger`.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+		#[weight = T::WeightInfo::withdraw_unbonded()]
 		fn withdraw_unbonded(origin) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1104,7 +1184,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::validate()]
 		fn validate(origin, prefs: ValidatorPrefs) {
 
 			let controller = ensure_signed(origin)?;
@@ -1131,7 +1211,7 @@ decl_module! {
 		/// which is capped at `MAX_NOMINATIONS`.
 		/// - Both the reads and writes follow a similar pattern.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::nominate()]
 		fn nominate(origin, targets: Vec<T::AccountId>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1167,7 +1247,7 @@ decl_module! {
 		/// - Contains one read.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::chill()]
 		fn chill(origin) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1185,7 +1265,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::set_payee()]
 		fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1204,7 +1284,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::set_controller()]
 		fn set_controller(origin, controller: T::AccountId) {
 			let stash = ensure_signed(origin)?;
 			let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1220,7 +1300,7 @@ decl_module! {
 		}
 
 		/// The ideal number of validators.
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::set_validator_count()]
 		fn set_validator_count(origin, #[compact] new: u32) {
 			ensure_root(origin)?;
 			ValidatorCount::put(new);
@@ -1233,7 +1313,7 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_no_eras()]
 		fn force_no_eras(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNone);
@@ -1245,14 +1325,14 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_new_era()]
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNew);
 		}
 
 		/// Set the minimum bond amount.
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::set_minimum_bond()]
 		fn set_minimum_bond(origin, value: BalanceOf<T>) {
 			ensure_root(origin)?;
 			<MinimumBond<T>>::put(value);
@@ -1260,7 +1340,7 @@ decl_module! {
 		}
 
 		/// Set the validators who cannot be slashed (if any).
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::set_invulnerables()]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
@@ -1270,7 +1350,7 @@ decl_module! {
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_unstake()]
 		fn force_unstake(origin, stash: T::AccountId) {
 			ensure_root(origin)?;
 			// remove the lock.
@@ -1284,7 +1364,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_new_era_always()]
 		fn force_new_era_always(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceAlways);
@@ -1296,7 +1376,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(1_000_000)]
+		#[weight = T::WeightInfo::cancel_deferred_slash()]
 		fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
 			ensure_root(origin)?;
 
@@ -1665,8 +1745,8 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 	}
 }
 
-impl<T: Trait> OnReapAccount<T::AccountId> for Module<T> {
-	fn on_reap_account(stash: &T::AccountId) {
+impl<T: Trait> OnNewAccount<T::AccountId> for Module<T> {
+	fn on_new_account(stash: &T::AccountId) {
 		Self::kill_stash(stash);
 	}
 }
@@ -1705,7 +1785,7 @@ impl<T: Trait> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Trait> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>> for Module<T>
+impl<T: Trait> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
 where
 	T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
 	T: pallet_session::historical::Trait<
@@ -1791,6 +1871,10 @@ where
 				}
 			}
 		}
+	}
+
+	fn can_report() -> bool {
+		false
 	}
 }
 

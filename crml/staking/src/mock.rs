@@ -30,7 +30,7 @@ use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, UintAuthorityId};
-use sp_runtime::traits::{Convert, IdentityLookup, OpaqueKeys, SaturatedConversion};
+use sp_runtime::traits::{BlakeTwo256, Convert, IdentityLookup, OpaqueKeys, SaturatedConversion};
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -116,7 +116,7 @@ mod staking {
 
 impl_outer_event! {
 	pub enum TestEvent for Test {
-		system,
+		system<T>,
 		staking<T>,
 		pallet_balances<T>,
 		pallet_session,
@@ -143,39 +143,49 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
+
 impl frame_system::Trait for Test {
+	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Index = u64;
-	type BlockNumber = BlockNumber;
 	type Call = ();
+	type BlockNumber = u64;
 	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
+	type Hashing = BlakeTwo256;
+	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = TestEvent;
+	type Event = ();
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
+	type DbWeight = ();
+	type BlockExecutionWeight = ();
+	type ExtrinsicBaseWeight = ();
+	type MaximumExtrinsicWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type ModuleToIndex = ();
-	type DelegatedDispatchVerifier = ();
-	type Doughnut = ();
+	type PalletInfo = ();
+	type AccountData = ();
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
 }
+
 parameter_types! {
 	pub const CreationFee: u64 = 0;
 }
+
 impl pallet_balances::Trait for Test {
+	type MaxLocks = ();
 	type Balance = Balance;
-	type OnReapAccount = (System, Staking);
-	type DustRemoval = ();
 	type Event = TestEvent;
+	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type OnNewAccount = ();
-	type TransferPayment = ();
-	type CreationFee = CreationFee;
+	type AccountStore = System;
+	type WeightInfo = ();
 }
+
 parameter_types! {
 	pub const Period: BlockNumber = 1;
 	pub const Offset: BlockNumber = 0;
@@ -187,10 +197,12 @@ impl pallet_session::Trait for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = ();
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type SessionHandler = TestSessionHandler;
 	type Keys = UintAuthorityId;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Test {
@@ -210,6 +222,7 @@ impl pallet_timestamp::Trait for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 crml_staking_reward_curve::build! {
 	const I_NPOS: PiecewiseLinear<'static> = curve!(

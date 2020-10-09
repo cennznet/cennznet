@@ -1,0 +1,653 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
+    <generated />
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="6c98250a-ae35-45b1-b553-dc77e18c1731" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/crml/staking/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crml/staking/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crml/staking/src/mock.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crml/staking/src/mock.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crml/staking/src/multi_token_economy_tests.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crml/staking/src/multi_token_economy_tests.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="develop" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="gxyi9t1j" />
+  </component>
+  <component name="ProjectId" id="1foLQjIZMabLqzE8BVLBhnol3au" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="autoscrollFromSource" value="true" />
+    <option name="autoscrollToSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="Git.Branch.Popup.ShowAllRemotes" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="TERMINAL_CUSTOM_COMMANDS_GOT_IT" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="cf.first.check.clang-format" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_package_manager_path" value="npm" />
+    <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
+    <property name="settings.editor.selected.configurable" value="language.rust" />
+  </component>
+  <component name="RunManager" selected="Cargo.Test tests::force_unstake_works">
+    <configuration name="Purge chain" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="run -- purge-chain --dev" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run node" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="run -- --dev" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test slashed_cennz_gets_into_treasury" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="test --package cennznet-runtime --test staking_reward slashed_cennz_gets_into_treasury -- --exact" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test tests::force_unstake_works" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="test --package crml-staking --lib tests::force_unstake_works -- --exact" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test tests::slashed_cennz_gets_to_treasury" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="test --package crml-staking --lib tests::slashed_cennz_gets_to_treasury -- --exact" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test tests::tip_new_cannot_be_used_twice" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="test --package pallet-treasury --lib tests::tip_new_cannot_be_used_twice -- --exact" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Cargo.Purge chain" />
+      <item itemvalue="Cargo.Run node" />
+      <item itemvalue="Cargo.Test slashed_cennz_gets_into_treasury" />
+      <item itemvalue="Cargo.Test tests::slashed_cennz_gets_to_treasury" />
+      <item itemvalue="Cargo.Test tests::tip_new_cannot_be_used_twice" />
+      <item itemvalue="Cargo.Test tests::force_unstake_works" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Test tests::force_unstake_works" />
+        <item itemvalue="Cargo.Test tests::tip_new_cannot_be_used_twice" />
+        <item itemvalue="Cargo.Test tests::slashed_cennz_gets_to_treasury" />
+        <item itemvalue="Cargo.Test slashed_cennz_gets_into_treasury" />
+        <item itemvalue="Cargo.Test tests::slashed_cennz_gets_to_treasury" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+    <option name="version" value="2" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="6c98250a-ae35-45b1-b553-dc77e18c1731" name="Default Changelist" comment="" />
+      <created>1596879484083</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1596879484083</updated>
+      <workItem from="1596879485810" duration="486000" />
+      <workItem from="1596883659583" duration="4203000" />
+      <workItem from="1601278962998" duration="5859000" />
+      <workItem from="1601286010782" duration="3793000" />
+      <workItem from="1601330956491" duration="594000" />
+      <workItem from="1601334192762" duration="36844000" />
+      <workItem from="1601848648537" duration="583000" />
+      <workItem from="1601849698747" duration="12842000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="2" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="306" y="303" key="#Purge_chain" timestamp="1601279385986">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="306" y="303" key="#Purge_chain/0.0.1792.1120@0.0.1792.1120" timestamp="1601279385986" />
+    <state x="306" y="303" key="#Run_node" timestamp="1601279264772">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="306" y="303" key="#Run_node/0.0.1792.1120@0.0.1792.1120" timestamp="1601279264772" />
+    <state x="360" y="222" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1602036442396">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="360" y="222" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1602036442396" />
+    <state x="360" y="227" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.23.1792.1030@0.23.1792.1030" timestamp="1601602569058" />
+    <state x="100" y="123" width="1592" height="824" key="#com.intellij.execution.junit2.states.ComparisonFailureState$DiffDialog" timestamp="1601431602011">
+      <screen x="0" y="23" width="1792" height="1026" />
+    </state>
+    <state x="100" y="123" width="1592" height="824" key="#com.intellij.execution.junit2.states.ComparisonFailureState$DiffDialog/0.23.1792.1026@0.23.1792.1026" timestamp="1601431602011" />
+    <state x="709" y="283" key="#com.intellij.ide.util.MemberChooser" timestamp="1602199585711">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="709" y="283" key="#com.intellij.ide.util.MemberChooser/0.0.1792.1120@0.0.1792.1120" timestamp="1602199585711" />
+    <state x="674" y="325" key="#xdebugger.evaluate" timestamp="1601514268236">
+      <screen x="0" y="23" width="1792" height="1026" />
+    </state>
+    <state x="674" y="325" key="#xdebugger.evaluate/0.23.1792.1026@0.23.1792.1026" timestamp="1601514268236" />
+    <state x="100" y="109" width="1592" height="900" key="DiffContextDialog" timestamp="1602194129397">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="100" y="109" width="1592" height="900" key="DiffContextDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1602194129397" />
+    <state x="100" y="123" width="1592" height="824" key="DiffContextDialog/0.23.1792.1026@0.23.1792.1026" timestamp="1601511684653" />
+    <state width="1750" height="468" key="GridCell.Tab.0.bottom" timestamp="1602193456669">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="468" key="GridCell.Tab.0.bottom/0.0.1792.1120@0.0.1792.1120" timestamp="1602193456669" />
+    <state width="1750" height="471" key="GridCell.Tab.0.bottom/0.23.1792.1026@0.23.1792.1026" timestamp="1601515121391" />
+    <state width="1750" height="413" key="GridCell.Tab.0.bottom/0.23.1792.1028@0.23.1792.1028" timestamp="1601541525125" />
+    <state width="1750" height="413" key="GridCell.Tab.0.bottom/0.23.1792.1030@0.23.1792.1030" timestamp="1601602503345" />
+    <state width="1750" height="468" key="GridCell.Tab.0.center" timestamp="1602193456667">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="468" key="GridCell.Tab.0.center/0.0.1792.1120@0.0.1792.1120" timestamp="1602193456667" />
+    <state width="1750" height="471" key="GridCell.Tab.0.center/0.23.1792.1026@0.23.1792.1026" timestamp="1601515121385" />
+    <state width="1750" height="413" key="GridCell.Tab.0.center/0.23.1792.1028@0.23.1792.1028" timestamp="1601541525123" />
+    <state width="1750" height="413" key="GridCell.Tab.0.center/0.23.1792.1030@0.23.1792.1030" timestamp="1601602503343" />
+    <state width="1750" height="468" key="GridCell.Tab.0.left" timestamp="1602193456666">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="468" key="GridCell.Tab.0.left/0.0.1792.1120@0.0.1792.1120" timestamp="1602193456666" />
+    <state width="1750" height="471" key="GridCell.Tab.0.left/0.23.1792.1026@0.23.1792.1026" timestamp="1601515121384" />
+    <state width="1750" height="413" key="GridCell.Tab.0.left/0.23.1792.1028@0.23.1792.1028" timestamp="1601541525122" />
+    <state width="1750" height="413" key="GridCell.Tab.0.left/0.23.1792.1030@0.23.1792.1030" timestamp="1601602503342" />
+    <state width="1750" height="468" key="GridCell.Tab.0.right" timestamp="1602193456668">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="468" key="GridCell.Tab.0.right/0.0.1792.1120@0.0.1792.1120" timestamp="1602193456668" />
+    <state width="1750" height="471" key="GridCell.Tab.0.right/0.23.1792.1026@0.23.1792.1026" timestamp="1601515121386" />
+    <state width="1750" height="413" key="GridCell.Tab.0.right/0.23.1792.1028@0.23.1792.1028" timestamp="1601541525124" />
+    <state width="1750" height="413" key="GridCell.Tab.0.right/0.23.1792.1030@0.23.1792.1030" timestamp="1601602503344" />
+    <state width="1750" height="471" key="GridCell.Tab.1.bottom" timestamp="1601848587967">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="471" key="GridCell.Tab.1.bottom/0.0.1792.1120@0.0.1792.1120" timestamp="1601848587967" />
+    <state width="1750" height="471" key="GridCell.Tab.1.bottom/0.23.1792.1026@0.23.1792.1026" timestamp="1601515128007" />
+    <state width="1750" height="471" key="GridCell.Tab.1.bottom/0.23.1792.1028@0.23.1792.1028" timestamp="1601516063200" />
+    <state width="1750" height="471" key="GridCell.Tab.1.center" timestamp="1601848587966">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="471" key="GridCell.Tab.1.center/0.0.1792.1120@0.0.1792.1120" timestamp="1601848587966" />
+    <state width="1750" height="471" key="GridCell.Tab.1.center/0.23.1792.1026@0.23.1792.1026" timestamp="1601515128006" />
+    <state width="1750" height="471" key="GridCell.Tab.1.center/0.23.1792.1028@0.23.1792.1028" timestamp="1601516063199" />
+    <state width="1750" height="471" key="GridCell.Tab.1.left" timestamp="1601848587965">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="471" key="GridCell.Tab.1.left/0.0.1792.1120@0.0.1792.1120" timestamp="1601848587965" />
+    <state width="1750" height="471" key="GridCell.Tab.1.left/0.23.1792.1026@0.23.1792.1026" timestamp="1601515128005" />
+    <state width="1750" height="471" key="GridCell.Tab.1.left/0.23.1792.1028@0.23.1792.1028" timestamp="1601516063198" />
+    <state width="1750" height="471" key="GridCell.Tab.1.right" timestamp="1601848587967">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state width="1750" height="471" key="GridCell.Tab.1.right/0.0.1792.1120@0.0.1792.1120" timestamp="1601848587967" />
+    <state width="1750" height="471" key="GridCell.Tab.1.right/0.23.1792.1026@0.23.1792.1026" timestamp="1601515128006" />
+    <state width="1750" height="471" key="GridCell.Tab.1.right/0.23.1792.1028@0.23.1792.1028" timestamp="1601516063200" />
+    <state x="397" y="199" key="SettingsEditor" timestamp="1601279413122">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="397" y="199" key="SettingsEditor/0.0.1792.1120@0.0.1792.1120" timestamp="1601279413122" />
+    <state x="832" y="218" width="754" height="518" key="find.popup" timestamp="1602200931001">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="832" y="218" width="754" height="518" key="find.popup/0.0.1792.1120@0.0.1792.1120" timestamp="1602200931001" />
+    <state x="542" y="235" width="920" height="490" key="find.popup/0.23.1792.1026@0.23.1792.1026" timestamp="1601514301706" />
+    <state x="542" y="235" width="920" height="518" key="find.popup/0.23.1792.1028@0.23.1792.1028" timestamp="1601541174649" />
+    <state x="542" y="235" width="920" height="520" key="find.popup/0.23.1792.1030@0.23.1792.1030" timestamp="1601609023408" />
+    <state x="644" y="280" key="git4idea.branch.GitSmartOperationDialog" timestamp="1601285677404">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="644" y="280" key="git4idea.branch.GitSmartOperationDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1601285677404" />
+    <state x="705" y="466" key="git4idea.ui.GitStashDialog" timestamp="1601284894314">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="705" y="466" key="git4idea.ui.GitStashDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1601284894314" />
+    <state x="561" y="251" width="670" height="676" key="search.everywhere.popup" timestamp="1602193090145">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="561" y="251" width="670" height="676" key="search.everywhere.popup/0.0.1792.1120@0.0.1792.1120" timestamp="1602193090145" />
+    <state x="561" y="253" width="670" height="620" key="search.everywhere.popup/0.23.1792.1026@0.23.1792.1026" timestamp="1601428314256" />
+    <state x="561" y="253" width="670" height="622" key="search.everywhere.popup/0.23.1792.1028@0.23.1792.1028" timestamp="1601520743309" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/treasury/src/tests.rs</url>
+          <line>125</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/treasury/src/tests.rs</url>
+          <line>126</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/treasury/src/tests.rs</url>
+          <line>127</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/treasury/src/tests.rs</url>
+          <line>129</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/treasury/src/tests.rs</url>
+          <line>131</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>589</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>599</line>
+          <option name="timeStamp" value="16" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>600</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>583</line>
+          <option name="timeStamp" value="18" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>573</line>
+          <option name="timeStamp" value="19" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/runtime/src/impls.rs</url>
+          <line>164</line>
+          <option name="timeStamp" value="20" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/support/src/traits.rs</url>
+          <line>183</line>
+          <option name="timeStamp" value="23" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/support/src/traits.rs</url>
+          <line>543</line>
+          <option name="timeStamp" value="26" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1631</line>
+          <option name="timeStamp" value="27" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1630</line>
+          <option name="timeStamp" value="28" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1629</line>
+          <option name="timeStamp" value="30" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>590</line>
+          <option name="timeStamp" value="31" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>603</line>
+          <option name="timeStamp" value="32" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1632</line>
+          <option name="timeStamp" value="38" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1863</line>
+          <option name="timeStamp" value="41" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1866</line>
+          <option name="timeStamp" value="42" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1394</line>
+          <option name="timeStamp" value="43" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>612</line>
+          <option name="timeStamp" value="44" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>615</line>
+          <option name="timeStamp" value="45" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>635</line>
+          <option name="timeStamp" value="46" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>619</line>
+          <option name="timeStamp" value="47" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>620</line>
+          <option name="timeStamp" value="48" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>622</line>
+          <option name="timeStamp" value="49" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>621</line>
+          <option name="timeStamp" value="50" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>592</line>
+          <option name="timeStamp" value="51" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>594</line>
+          <option name="timeStamp" value="52" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>596</line>
+          <option name="timeStamp" value="53" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1803</line>
+          <option name="timeStamp" value="54" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1806</line>
+          <option name="timeStamp" value="55" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1805</line>
+          <option name="timeStamp" value="56" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/runtime/tests/staking_reward.rs</url>
+          <line>548</line>
+          <option name="timeStamp" value="57" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/mock.rs</url>
+          <line>587</line>
+          <option name="timeStamp" value="60" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/mock.rs</url>
+          <line>586</line>
+          <option name="timeStamp" value="61" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/mock.rs</url>
+          <line>595</line>
+          <option name="timeStamp" value="63" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/mock.rs</url>
+          <line>606</line>
+          <option name="timeStamp" value="64" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>105</line>
+          <option name="timeStamp" value="65" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>106</line>
+          <option name="timeStamp" value="66" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>610</line>
+          <option name="timeStamp" value="67" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>132</line>
+          <option name="timeStamp" value="68" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>133</line>
+          <option name="timeStamp" value="69" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>611</line>
+          <option name="timeStamp" value="70" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>612</line>
+          <option name="timeStamp" value="72" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>613</line>
+          <option name="timeStamp" value="73" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>107</line>
+          <option name="timeStamp" value="74" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>116</line>
+          <option name="timeStamp" value="75" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>118</line>
+          <option name="timeStamp" value="76" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>122</line>
+          <option name="timeStamp" value="77" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>124</line>
+          <option name="timeStamp" value="78" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>127</line>
+          <option name="timeStamp" value="79" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>129</line>
+          <option name="timeStamp" value="80" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>130</line>
+          <option name="timeStamp" value="81" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/offences/src/lib.rs</url>
+          <line>80</line>
+          <option name="timeStamp" value="82" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>709</line>
+          <option name="timeStamp" value="83" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>710</line>
+          <option name="timeStamp" value="84" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>711</line>
+          <option name="timeStamp" value="85" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/git/checkouts/plug-blockchain-25dc95d3d20d1ef4/f7839e5/frame/im-online/src/lib.rs</url>
+          <line>713</line>
+          <option name="timeStamp" value="86" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>241</line>
+          <option name="timeStamp" value="92" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>240</line>
+          <option name="timeStamp" value="93" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/lib.rs</url>
+          <line>1827</line>
+          <option name="timeStamp" value="94" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/slashing.rs</url>
+          <line>244</line>
+          <option name="timeStamp" value="95" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/crml/staking/src/mock.rs</url>
+          <line>117</line>
+          <option name="timeStamp" value="98" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="CargoCommandRunConfiguration">
+        <watch expression="earliest-&gt;*earliest" />
+        <watch expression="validators" language="Rust" />
+        <watch expression="validators.len()" language="Rust" />
+        <watch expression="slash * exposure.own" language="Rust" />
+        <watch expression="validators.len" language="Rust" />
+      </configuration>
+    </watches-manager>
+  </component>
+</project>
