@@ -17,6 +17,9 @@ sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "s
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 
+[dev-dependencies]
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+
 [features]
 default = ["std"]
 std = [

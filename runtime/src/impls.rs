@@ -22,14 +22,12 @@ use crate::{
 };
 use cennznet_primitives::types::Balance;
 use frame_support::{
-	traits::{Currency, Get, Imbalance, OnUnbalanced},
+	traits::{Contains, ContainsLengthBound, Currency, Get},
 	weights::Weight,
 };
 use prml_generic_asset::StakingAssetCurrency;
 use sp_runtime::traits::Convert;
-
-// type Cennzx<T> = crml_cennzx::Module<T>;
-type GenericAsset<T> = prml_generic_asset::Module<T>;
+use sp_std::{marker::PhantomData, prelude::*};
 
 // TODO uncomment the following code after enable cennznet staking module
 // use crate::NegativeImbalance
@@ -117,6 +115,28 @@ impl crml_transaction_payment::FeePayer for FeePayerResolver {
 		} else {
 			None
 		}
+	}
+}
+
+/// Provides a membership set with only the configured sudo user
+pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
+impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		t == (&pallet_sudo::Module::<T>::key())
+	}
+	fn sorted_members() -> Vec<T::AccountId> {
+		vec![(pallet_sudo::Module::<T>::key())]
+	}
+	fn count() -> usize {
+		1
+	}
+}
+impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
+	fn min_len() -> usize {
+		1
+	}
+	fn max_len() -> usize {
+		1
 	}
 }
 

@@ -53,7 +53,7 @@ pub fn config() -> CENNZnetChainSpec {
 		"Development",
 		"dev",
 		ChainType::Development,
-		|| config_genesis(network_keys(), true),
+		|| config_genesis(network_keys()),
 		vec![],
 		None,
 		None,

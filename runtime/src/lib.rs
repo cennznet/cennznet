@@ -32,6 +32,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use prml_generic_asset_rpc_runtime_api;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
@@ -56,7 +57,7 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{Contains, ContainsLengthBound, KeyOwnerProofSystem, Randomness},
+	traits::{KeyOwnerProofSystem, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, TransactionPriority, Weight,
@@ -73,8 +74,8 @@ pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 use cennznet_primitives::types::{
 	AccountId, AssetId, Balance, BlockNumber, FeeExchange, Hash, Index, Moment, Signature,
 };
-// pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
-// use crml_cennzx_rpc_runtime_api::CennzxResult;
+pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand, SimpleAssetShim};
+use crml_cennzx_rpc_runtime_api::CennzxResult;
 use crml_sylo::device as sylo_device;
 use crml_sylo::e2ee as sylo_e2ee;
 use crml_sylo::groups as sylo_groups;
@@ -85,18 +86,18 @@ use crml_sylo::vault as sylo_vault;
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 pub use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 
-/// Implementations of some helper traits passed into runtime modules as associated types.
-pub mod impls;
-use impls::FeePayerResolver;
-
 /// Constant values used within the runtime.
 pub mod constants;
 use constants::{currency::*, time::*};
 
+// Implementations of some helper traits passed into runtime modules as associated types.
+pub mod impls;
+use impls::{FeePayerResolver, RootMemberOnly};
+
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
 
-/// Weights for cennznet runtime modules (crml packages)
+/// Weights for CENNZnet runtime modules (crml packages)
 mod weights;
 
 use crate::opaque::SessionKeys;
@@ -444,28 +445,6 @@ impl pallet_identity::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-// TODO: move this to /impls.rs
-/// Provides a membership set with only the configured sudo user
-pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
-impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
-	fn contains(t: &T::AccountId) -> bool {
-		t == (&pallet_sudo::Module::<T>::key())
-	}
-	fn sorted_members() -> Vec<T::AccountId> {
-		vec![(pallet_sudo::Module::<T>::key())]
-	}
-	fn count() -> usize {
-		1
-	}
-}
-impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
-	fn min_len() -> usize {
-		1
-	}
-	fn max_len() -> usize {
-		1
-	}
-}
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
@@ -521,6 +500,15 @@ impl crml_sylo::inbox::Trait for Runtime {}
 impl crml_sylo::response::Trait for Runtime {}
 impl crml_sylo::vault::Trait for Runtime {}
 impl crml_sylo::groups::Trait for Runtime {}
+
+impl crml_cennzx::Trait for Runtime {
+	type AssetId = AssetId;
+	type Balance = Balance;
+	type Event = Event;
+	type AssetSystem = SimpleAssetShim<Self>;
+	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
+	type WeightInfo = ();
+}
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
@@ -612,7 +600,7 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
-		//Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
+		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
 		// TODO: these should all be in one module
 		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
 		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
@@ -811,12 +799,66 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
+			GenericAsset::registered_assets()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
+		}
+	}
+
+
+	impl crml_cennzx_rpc_runtime_api::CennzxApi<
+		Block,
+		AssetId,
+		Balance,
+		AccountId,
+	> for Runtime {
+		fn buy_price(
+			buy_asset: AssetId,
+			buy_amount: Balance,
+			sell_asset: AssetId,
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_buy_price(buy_asset, buy_amount, sell_asset);
+			match result {
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
+			}
+		}
+
+		fn sell_price(
+			sell_asset: AssetId,
+			sell_amount: Balance,
+			buy_asset: AssetId,
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_sell_price(sell_asset, sell_amount, buy_asset);
+			match result {
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
+			}
+		}
+
+		fn liquidity_value(
+			account: AccountId,
+			asset_id: AssetId,
+		) -> (Balance, Balance, Balance) {
+			let value = Cennzx::account_liquidity_value(&account, asset_id);
+			(value.liquidity, value.core, value.asset)
+		}
+
+		fn liquidity_price(
+			asset_id: AssetId,
+			liquidity_to_buy: Balance
+		) -> (Balance, Balance) {
+			let value = Cennzx::liquidity_price(asset_id, liquidity_to_buy);
+			(value.core, value.asset)
 		}
 	}
 
