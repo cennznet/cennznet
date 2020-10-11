@@ -21,7 +21,7 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::{AccountId, Balance, BlockNumber, Hash, Index};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index};
 use cennznet_runtime::opaque::Block;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
@@ -102,11 +102,14 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
+	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
+	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
+	use crml_cennzx_rpc::{Cennzx, CennzxApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use prml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -140,7 +143,7 @@ where
 		deny_unsafe,
 	)));
 	io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(BabeRpcHandler::new(
-		client,
+		client.clone(),
 		shared_epoch_changes,
 		keystore,
 		babe_config,
@@ -156,6 +159,8 @@ where
 			finality_provider,
 		),
 	));
+	io.extend_with(CennzxApi::to_delegate(Cennzx::new(client.clone())));
+	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client)));
 
 	io
 }

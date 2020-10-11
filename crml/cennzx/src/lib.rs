@@ -25,19 +25,18 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero};
-use sp_runtime::{DispatchError, DispatchResult, ModuleId, SaturatedConversion};
+use sp_runtime::{DispatchError, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
 
-mod mock;
+// import `mock` first so its macros are defined in `impl` and `tests`.
 #[macro_use]
-mod tests;
-
+mod mock;
 mod impls;
+mod tests;
 mod types;
-pub use impls::exchange_address_for;
-pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion, PerThousand};
 
-const MODULE_ID: ModuleId = ModuleId(*b"cennzxsp");
+pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator, SimpleAssetShim};
+pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion, PerThousand};
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (<T as Trait>::AssetId, <T as Trait>::AssetId);
@@ -73,7 +72,9 @@ pub trait Trait: frame_system::Trait {
 	/// Type for denoting asset balances
 	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
 	/// Something which can provide asset management
-	type AssetSystem: SimpleAssetSystem<AccountId = Self::AccountId, Balance = Self::Balance, AssetId = Self::AssetId>;
+	type AssetSystem: SimpleAssetSystem<AccountId = Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>;
+	/// Something which can generate addresses for exchange pools
+	type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
 }
@@ -228,7 +229,7 @@ decl_module! {
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-			let exchange_address = exchange_address_for::<T>(asset_id);
+			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 			let core_asset_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 
 			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() || core_asset_reserve.is_zero() {
@@ -254,7 +255,7 @@ decl_module! {
 			T::AssetSystem::transfer(asset_id, &from_account, &exchange_address, trade_asset_amount)?;
 
 			Self::mint_liquidity(&exchange_key, &from_account, liquidity_minted);
-			Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
+			Self::deposit_event(Event::<T>::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 		}
 
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
@@ -296,11 +297,11 @@ decl_module! {
 				withdraw_value.asset >= min_asset_withdraw,
 				Error::<T>::MinimumTradeAssetRequirementNotMet
 			);
-			let exchange_address = exchange_address_for::<T>(asset_id);
+			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 			T::AssetSystem::transfer(core_asset_id, &exchange_address, &from_account, withdraw_value.core)?;
 			T::AssetSystem::transfer(asset_id, &exchange_address, &from_account, withdraw_value.asset)?;
 			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
-			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
+			Self::deposit_event(Event::<T>::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
 			Ok(())
 		}
 
@@ -314,29 +315,30 @@ decl_module! {
 	}
 }
 
-decl_event!(
-	pub enum Event<T>
-	where
-		<T as frame_system::Trait>::AccountId,
-		<T as Trait>::AssetId,
-		<T as Trait>::Balance
+decl_event! {
+	pub enum Event<T> where
+		AccountId = <T as frame_system::Trait>::AccountId,
+		AssetId = <T as Trait>::AssetId,
+		Balance = <T as Trait>::Balance
 	{
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		RemoveLiquidity(AccountId, Balance, AssetId, Balance),
 		/// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
-		AssetPurchase(AssetId, AssetId, AccountId, Balance, Balance),
+		AssetBought(AssetId, AssetId, AccountId, Balance, Balance),
+		/// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
+		AssetSold(AssetId, AssetId, AccountId, Balance, Balance),
 	}
-);
+}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Cennzx {
-		/// AssetId of Core Asset
+		/// Asset Id of the core liquidity asset
 		pub CoreAssetId get(fn core_asset_id) config(): T::AssetId;
-		/// Default Trading fee rate
+		/// Default trading fee rate
 		pub DefaultFeeRate get(fn fee_rate) config(): FeeRate<PerMillion>;
-		/// Total liquidity holdings of all investers in an exchange.
+		/// Total liquidity holdings of all investors in an exchange.
 		/// ie/ total_liquidity(exchange) == sum(liquidity_balance(exchange, user)) at all times
 		pub TotalLiquidity get(fn total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 		/// Liquidity holdings of a user in an exchange pool.
@@ -380,7 +382,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-		let exchange_address = exchange_address_for::<T>(asset_id);
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 
 		let (core_amount, asset_amount) = if total_liquidity.is_zero() || core_reserve.is_zero() {
@@ -425,7 +427,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-		let exchange_address = exchange_address_for::<T>(asset_id);
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
 		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 		Self::calculate_liquidity_value(asset_reserve, core_reserve, liquidity_to_withdraw, total_liquidity)
@@ -658,7 +660,7 @@ impl<T: Trait> Module<T> {
 	/// A helper for pricing functions
 	/// Fetches the reserves from an exchange for a particular `asset_id`
 	fn get_exchange_reserves(asset_id: T::AssetId) -> (T::Balance, T::Balance) {
-		let exchange_address = exchange_address_for::<T>(asset_id);
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 
 		let core_reserve = T::AssetSystem::free_balance(Self::core_asset_id(), &exchange_address);
 		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
@@ -704,6 +706,14 @@ impl<T: Trait> Module<T> {
 			amount_to_buy,
 		)?;
 
+		Self::deposit_event(Event::<T>::AssetBought(
+			asset_to_sell,
+			asset_to_buy,
+			trader.clone(),
+			amount_to_sell,
+			amount_to_buy,
+		));
+
 		Ok(amount_to_sell)
 	}
 
@@ -742,6 +752,14 @@ impl<T: Trait> Module<T> {
 			amount_to_buy,
 		)?;
 
+		Self::deposit_event(Event::<T>::AssetSold(
+			asset_to_sell,
+			asset_to_buy,
+			trader.clone(),
+			amount_to_sell,
+			amount_to_buy,
+		));
+
 		Ok(amount_to_buy)
 	}
 
@@ -759,17 +777,17 @@ impl<T: Trait> Module<T> {
 		// otherwise, we make two exchanges
 		if asset_to_sell == core_asset_id || asset_to_buy == core_asset_id {
 			let exchange_address = if asset_to_buy == core_asset_id {
-				exchange_address_for::<T>(asset_to_sell)
+				T::ExchangeAddressFor::exchange_address_for(asset_to_sell)
 			} else {
-				exchange_address_for::<T>(asset_to_buy)
+				T::ExchangeAddressFor::exchange_address_for(asset_to_buy)
 			};
 			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
 				T::AssetSystem::transfer(asset_to_buy, &exchange_address, recipient, amount_to_buy),
 			);
 		} else {
 			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
-			let exchange_address_a = exchange_address_for::<T>(asset_to_sell);
-			let exchange_address_b = exchange_address_for::<T>(asset_to_buy);
+			let exchange_address_a = T::ExchangeAddressFor::exchange_address_for(asset_to_sell);
+			let exchange_address_b = T::ExchangeAddressFor::exchange_address_for(asset_to_buy);
 
 			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
 				.and(T::AssetSystem::transfer(
@@ -785,14 +803,6 @@ impl<T: Trait> Module<T> {
 					amount_to_buy,
 				));
 		};
-
-		Self::deposit_event(RawEvent::AssetPurchase(
-			asset_to_sell,
-			asset_to_buy,
-			trader.clone(),
-			amount_to_sell,
-			amount_to_buy,
-		));
 
 		Ok(())
 	}

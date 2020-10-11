@@ -31,6 +31,7 @@ use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthority
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
+use prml_generic_asset_rpc_runtime_api;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
@@ -69,8 +70,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 // CENNZnet only imports
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
-// pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
-// use crml_cennzx_rpc_runtime_api::CennzxResult;
+use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand, SimpleAssetShim};
+use crml_cennzx_rpc_runtime_api::CennzxResult;
 // use crml_sylo::device as sylo_device;
 // use crml_sylo::e2ee as sylo_e2ee;
 // use crml_sylo::groups as sylo_groups;
@@ -83,6 +84,8 @@ use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurre
 /// Constant values used within the runtime.
 pub mod constants;
 use constants::{currency::*, time::*};
+
+mod impls;
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -419,6 +422,15 @@ impl pallet_identity::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+impl crml_cennzx::Trait for Runtime {
+	type AssetId = AssetId;
+	type Balance = Balance;
+	type Event = Event;
+	type AssetSystem = SimpleAssetShim<Self>;
+	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
+	type WeightInfo = ();
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -509,7 +521,7 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
-		//Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
+		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
 		// TODO: these should all be in one module
 		// SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
 		// SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
@@ -705,6 +717,59 @@ impl_runtime_apis! {
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {
 			System::account_nonce(account)
+		}
+	}
+
+	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
+			GenericAsset::registered_assets()
+		}
+	}
+
+	impl crml_cennzx_rpc_runtime_api::CennzxApi<
+		Block,
+		AssetId,
+		Balance,
+		AccountId,
+	> for Runtime {
+		fn buy_price(
+			buy_asset: AssetId,
+			buy_amount: Balance,
+			sell_asset: AssetId,
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_buy_price(buy_asset, buy_amount, sell_asset);
+			match result {
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
+			}
+		}
+
+		fn sell_price(
+			sell_asset: AssetId,
+			sell_amount: Balance,
+			buy_asset: AssetId,
+		) -> CennzxResult<Balance> {
+			let result = Cennzx::get_sell_price(sell_asset, sell_amount, buy_asset);
+			match result {
+				Ok(value) => CennzxResult::Success(value),
+				Err(_) => CennzxResult::Error,
+			}
+		}
+
+		fn liquidity_value(
+			account: AccountId,
+			asset_id: AssetId,
+		) -> (Balance, Balance, Balance) {
+			let value = Cennzx::account_liquidity_value(&account, asset_id);
+			(value.liquidity, value.core, value.asset)
+		}
+
+		fn liquidity_price(
+			asset_id: AssetId,
+			liquidity_to_buy: Balance
+		) -> (Balance, Balance) {
+			let value = Cennzx::liquidity_price(asset_id, liquidity_to_buy);
+			(value.core, value.asset)
 		}
 	}
 
