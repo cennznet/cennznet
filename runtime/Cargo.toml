@@ -32,7 +32,6 @@ pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", 
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0", features = ["historical"] }
 pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
-pallet-transaction-payment = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 
 frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
@@ -68,6 +67,7 @@ frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-bloc
 hex-literal = { version = "0.3.1", optional = true }
 
 crml-sylo = { path = "../crml/sylo", default-features = false}
+crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 
 [build-dependencies]
 wasm-builder-runner = { version = "1.0.5", package = "substrate-wasm-builder-runner" }
@@ -92,7 +92,7 @@ std = [
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
-	"pallet-transaction-payment/std",
+	"crml-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
