@@ -1604,6 +1604,9 @@ fn on_free_balance_zero_stash_removes_validator() {
 		// Check total balance of stash
 		assert_eq!(Balances::total_balance(&11), 0);
 
+		// Reap the stash
+		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+
 		// Check storage items do not exist
 		assert!(!<Ledger<Test>>::contains_key(&10));
 		assert!(!<Bonded<Test>>::contains_key(&11));
