@@ -638,6 +638,8 @@ name = "cennznet-runtime"
 version = "1.1.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-cennzx",
+ "crml-cennzx-rpc-runtime-api",
  "crml-sylo",
  "crml-transaction-payment",
  "frame-benchmarking",
@@ -667,6 +669,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "prml-generic-asset",
+ "prml-generic-asset-rpc-runtime-api",
  "serde",
  "sp-api",
  "sp-authority-discovery",
@@ -941,6 +944,7 @@ name = "crml-cennzx"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
+ "cennznet-runtime",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -949,6 +953,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

@@ -18,9 +18,10 @@
 
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, GenericAssetConfig, GrandpaConfig,
-	ImOnlineConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig,
+	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
+use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -121,12 +122,11 @@ pub fn session_keys(
 }
 
 /// Helper function to create GenesisConfig
-pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> GenesisConfig {
+pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	const INITIAL_BOND: Balance = 100 * DOLLARS;
 	let initial_authorities = network_keys.initial_authorities;
 	let root_key = network_keys.root_key;
 	let endowed_accounts = network_keys.endowed_accounts;
-	let num_endowed_accounts = endowed_accounts.len();
 
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
@@ -177,9 +177,10 @@ pub fn config_genesis(network_keys: NetworkKeys, enable_println: bool) -> Genesi
 				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
 			],
 		}),
-		// crml_cennzx: Some( {
-		// 	fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
-		// 	core_asset_id: CENTRAPAY_ASSET_ID,
-		// }),
+		crml_cennzx: Some(CennzxConfig {
+			// 0.003%
+			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
+			core_asset_id: CENTRAPAY_ASSET_ID,
+		}),
 	}
 }
