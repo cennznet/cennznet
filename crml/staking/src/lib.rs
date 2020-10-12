@@ -269,9 +269,10 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
+use sp_npos_elections::{ExtendedBalance, VoteWeight};
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{AtLeast32Bit, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero, Bounded},
+	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
 	Perbill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
@@ -281,13 +282,13 @@ use sp_staking::{
 	SessionIndex,
 };
 use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
-use sp_npos_elections::{ExtendedBalance, VoteWeight};
 
 pub trait WeightInfo {
 	fn bond() -> Weight;
 	fn bond_extra() -> Weight;
 	fn unbond() -> Weight;
 	fn rebond() -> Weight;
+	fn reap_stash() -> Weight;
 	fn withdraw_unbonded() -> Weight;
 	fn validate() -> Weight;
 	fn nominate() -> Weight;
@@ -306,58 +307,61 @@ pub trait WeightInfo {
 
 impl WeightInfo for () {
 	fn bond() -> Weight {
-		0 as Weight
+		0
 	}
 	fn bond_extra() -> Weight {
-		0 as Weight
+		0
 	}
 	fn unbond() -> Weight {
-		0 as Weight
+		0
 	}
 	fn rebond() -> Weight {
-		0 as Weight
+		0
+	}
+	fn reap_stash() -> Weight {
+		0
 	}
 	fn withdraw_unbonded() -> Weight {
-		0 as Weight
+		0
 	}
 	fn validate() -> Weight {
-		0 as Weight
+		0
 	}
 	fn nominate() -> Weight {
-		0 as Weight
+		0
 	}
 	fn chill() -> Weight {
-		0 as Weight
+		0
 	}
 	fn set_payee() -> Weight {
-		0 as Weight
+		0
 	}
 	fn set_controller() -> Weight {
-		0 as Weight
+		0
 	}
 	fn set_validator_count() -> Weight {
-		0 as Weight
+		0
 	}
 	fn force_no_eras() -> Weight {
-		0 as Weight
+		0
 	}
 	fn force_new_era() -> Weight {
-		0 as Weight
+		0
 	}
 	fn set_minimum_bond() -> Weight {
-		0 as Weight
+		0
 	}
 	fn set_invulnerables() -> Weight {
-		0 as Weight
+		0
 	}
 	fn force_unstake() -> Weight {
-		0 as Weight
+		0
 	}
 	fn force_new_era_always() -> Weight {
-		0 as Weight
+		0
 	}
 	fn cancel_deferred_slash() -> Weight {
-		0 as Weight
+		0
 	}
 }
 
@@ -953,6 +957,8 @@ decl_error! {
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.
 		NoUnlockChunk,
+		/// Attempting to target a stash that still has funds.
+		FundedTarget,
 		/// Items are not sorted and unique.
 		NotSortedAndUnique,
 		/// Cannot nominate the same account multiple times
@@ -1131,6 +1137,28 @@ decl_module! {
 			let ledger = ledger.rebond(value);
 
 			Self::update_ledger(&controller, &ledger);
+		}
+
+		/// Remove all data structure concerning a staker/stash once its balance is zero.
+		/// This is essentially equivalent to `withdraw_unbonded` except it can be called by anyone
+		/// and the target `stash` must have no funds left.
+		///
+		/// This can be called from any origin.
+		///
+		/// - `stash`: The stash account to reap. Its balance must be zero.
+		///
+		/// # <weight>
+		/// Complexity: O(S) where S is the number of slashing spans on the account.
+		/// DB Weight:
+		/// - Reads: Stash Account, Bonded, Slashing Spans, Locks
+		/// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
+		/// - Writes Each: SpanSlash * S
+		/// # </weight>
+		#[weight = T::WeightInfo::reap_stash()]
+		fn reap_stash(_origin, stash: T::AccountId) {
+			ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
+			Self::kill_stash(&stash);
+			T::Currency::remove_lock(STAKING_ID, &stash);
 		}
 
 		/// Remove any unlocked chunks from the `unlocking` queue from our management.
@@ -1418,9 +1446,7 @@ impl<T: Trait> Module<T> {
 
 	/// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].
 	fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
-		<T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(
-			Self::active_balance_of(stash)
-		)
+		<T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(Self::active_balance_of(stash))
 	}
 
 	// MUTABLES (DANGEROUS)
@@ -1653,21 +1679,26 @@ impl<T: Trait> Module<T> {
 		let mut all_validators = Vec::new();
 		for (validator, _) in <Validators<T>>::iter() {
 			// append self vote
-			let self_vote = (validator.clone(), Self::slashable_balance_of_vote_weight(&validator), vec![validator.clone()]);
+			let self_vote = (
+				validator.clone(),
+				Self::slashable_balance_of_vote_weight(&validator),
+				vec![validator.clone()],
+			);
 			all_nominators.push(self_vote);
 			all_validators.push(validator);
 		}
 
 		let nominator_votes = <Nominators<T>>::iter().map(|(nominator, nominations)| {
-			let Nominations { submitted_in, mut targets } = nominations;
+			let Nominations {
+				submitted_in,
+				mut targets,
+			} = nominations;
 
 			// Filter out nomination targets which were nominated before the most recent
 			// slashing span.
 			targets.retain(|stash| {
-				<Self as Store>::SlashingSpans::get(&stash).map_or(
-					true,
-					|spans| submitted_in >= spans.last_nonzero_slash(),
-				)
+				<Self as Store>::SlashingSpans::get(&stash)
+					.map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
 			});
 
 			(nominator, targets)
@@ -1692,15 +1723,14 @@ impl<T: Trait> Module<T> {
 				.collect::<Vec<T::AccountId>>();
 			let assignments = phragmen_result.assignments;
 
-			let staked_assignments = sp_npos_elections::assignment_ratio_to_staked(
-				assignments,
-				Self::slashable_balance_of_vote_weight,
-			);
+			let staked_assignments =
+				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_vote_weight);
 
 			let to_balance =
 				|e: ExtendedBalance| <T::CurrencyToVote as Convert<ExtendedBalance, BalanceOf<T>>>::convert(e);
 
-			let (supports, _) = sp_npos_elections::build_support_map::<T::AccountId>(&elected_stashes, &staked_assignments);
+			let (supports, _) =
+				sp_npos_elections::build_support_map::<T::AccountId>(&elected_stashes, &staked_assignments);
 
 			// Clear Stakers.
 			for v in Self::current_elected().iter() {

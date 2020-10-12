@@ -2526,6 +2526,13 @@ fn garbage_collection_after_slashing() {
 		// so we don't test those here.
 
 		assert_eq!(Balances::free_balance(11), 0);
+		assert_eq!(Balances::total_balance(&11), 0);
+
+		let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
+		assert_eq!(slashing_spans.iter().count(), 2);
+
+		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+
 		assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
 		assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
 	})
