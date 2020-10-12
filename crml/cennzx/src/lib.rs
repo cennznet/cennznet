@@ -21,11 +21,14 @@
 use cennznet_primitives::traits::SimpleAssetSystem;
 use core::convert::TryFrom;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, weights::Weight, Parameter, StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure, transactional, weights::Weight, Parameter,
+	StorageDoubleMap,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero};
-use sp_runtime::{DispatchError, DispatchResult, SaturatedConversion};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero},
+	DispatchError, DispatchResult, SaturatedConversion,
+};
 use sp_std::prelude::*;
 
 // import `mock` first so its macros are defined in `impl` and `tests`.
@@ -763,6 +766,9 @@ impl<T: Trait> Module<T> {
 		Ok(amount_to_buy)
 	}
 
+	/// Perform the transfer of funds between `trader`/`recipient` and the target exchange pools.
+	/// Note: this operation is atomic, if one intermediate transfer fails, then the entire trade will be rolled back and return error.
+	#[transactional]
 	fn execute_trade(
 		trader: &T::AccountId,
 		recipient: &T::AccountId,
@@ -781,29 +787,29 @@ impl<T: Trait> Module<T> {
 			} else {
 				T::ExchangeAddressFor::exchange_address_for(asset_to_buy)
 			};
-			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
+
+			T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
 				T::AssetSystem::transfer(asset_to_buy, &exchange_address, recipient, amount_to_buy),
-			);
+			)
 		} else {
-			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
 			let exchange_address_a = T::ExchangeAddressFor::exchange_address_for(asset_to_sell);
 			let exchange_address_b = T::ExchangeAddressFor::exchange_address_for(asset_to_buy);
 
-			let _ = T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
-				.and(T::AssetSystem::transfer(
-					core_asset_id,
-					&exchange_address_a,
-					&exchange_address_b,
-					core_amount,
-				))
-				.and(T::AssetSystem::transfer(
-					asset_to_buy,
-					&exchange_address_b,
-					recipient,
-					amount_to_buy,
-				));
-		};
-
-		Ok(())
+			Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell).and_then(|core_amount| {
+				T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
+					.and(T::AssetSystem::transfer(
+						core_asset_id,
+						&exchange_address_a,
+						&exchange_address_b,
+						core_amount,
+					))
+					.and(T::AssetSystem::transfer(
+						asset_to_buy,
+						&exchange_address_b,
+						recipient,
+						amount_to_buy,
+					))
+			})
+		}
 	}
 }

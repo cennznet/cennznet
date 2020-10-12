@@ -1711,3 +1711,96 @@ fn get_sell_price_no_exchange() {
 		);
 	});
 }
+
+#[test]
+fn execute_trade_rollback_on_intermediate_failure_core_to_asset() {
+	// scenario:
+	// Given: Trader funds are transferred to the exchange
+	// When: Exchange fails to transfer funds back
+	// Then: Trader fund transfer is rolled back
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CORE_ASSET_ID => 10, TRADE_ASSET_A_ID => 10);
+		let trader = with_account!(CORE_ASSET_ID => 1000, TRADE_ASSET_A_ID => 1000);
+
+		// Execute trade will transfer 2 times to complete:
+		// 1) trader funds goto exchange A
+		// 2) exchange A funds goto trader B << forcing failure here (min buy: 11 > liquidity: 10)
+		assert!(Cennzx::execute_trade(
+			&trader, // seller
+			&trader, // recipient
+			TRADE_ASSET_A_ID,
+			CORE_ASSET_ID,
+			1000, // sell_amount
+			11    // min buy limit
+		)
+		.is_err());
+
+		// trader funds untouched
+		assert_balance_eq!(trader, CORE_ASSET_ID => 1000);
+		assert_balance_eq!(trader, TRADE_ASSET_A_ID => 1000);
+		// exchange funds untouched
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 10, TRADE_ASSET_A_ID => 10);
+	});
+}
+
+#[test]
+fn execute_trade_rollback_on_intermediate_failure_asset_to_asset() {
+	// scenario:
+	// Given: Trader funds are transferred to the exchange
+	// When: Exchange fails to transfer funds back
+	// Then: Trader fund transfer is rolled back
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CORE_ASSET_ID => 5, TRADE_ASSET_A_ID => 5);
+		with_exchange!(CORE_ASSET_ID => 5, TRADE_ASSET_B_ID => 5);
+		let trader = with_account!(TRADE_ASSET_A_ID => 5, TRADE_ASSET_B_ID => u128::max_value());
+
+		// Execute trade will transfer 3 times to complete:
+		// 1) trader funds goto exchange A
+		// 2) exchange A funds goto exchange B
+		// 3) exchange B funds goto trader  << fail here
+		// forcing failure as trader balance will overflow
+		assert!(Cennzx::execute_trade(
+			&trader, // seller
+			&trader, // recipient
+			TRADE_ASSET_A_ID,
+			TRADE_ASSET_B_ID,
+			5, // sell_amount
+			1  // min buy limit
+		)
+		.is_err());
+
+		// trader funds unchanged
+		assert_balance_eq!(trader, TRADE_ASSET_A_ID => 5);
+		assert_balance_eq!(trader, TRADE_ASSET_B_ID => u128::max_value());
+		// exchange funds unchanged
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_A_ID => 5);
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_B_ID => 5);
+	});
+}
+
+#[test]
+fn execute_trade_calculate_sale_price_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		with_exchange!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 0);
+		let trader = with_account!(CORE_ASSET_ID => 5, TRADE_ASSET_A_ID => 5);
+
+		// empty exchange pool will cause a div by 0 and fail price calculation
+		assert_err!(
+			Cennzx::execute_trade(
+				&trader, // seller
+				&trader, // recipient
+				TRADE_ASSET_A_ID,
+				TRADE_ASSET_B_ID,
+				100, // sell_amount
+				10   // min buy limit
+			),
+			Error::<Test>::EmptyExchangePool
+		);
+
+		// trader funds unchanged
+		assert_balance_eq!(trader, CORE_ASSET_ID => 5);
+		assert_balance_eq!(trader, TRADE_ASSET_A_ID => 5);
+		// exchange funds unchanged
+		assert_exchange_balance_eq!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 0);
+	});
+}
