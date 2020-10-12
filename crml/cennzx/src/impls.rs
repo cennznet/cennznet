@@ -15,18 +15,49 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{Module, Trait, MODULE_ID};
+use crate::{Module, Trait};
 use cennznet_primitives::{
 	traits::{BuyFeeAsset, SimpleAssetSystem},
 	types::FeeExchange,
 };
 use frame_support::dispatch::DispatchError;
-use sp_runtime::traits::AccountIdConversion;
+use sp_core::crypto::{UncheckedFrom, UncheckedInto};
+use sp_runtime::traits::Hash;
+use sp_std::{marker::PhantomData, prelude::*};
 
-/// Generate a CENNZX exchange address for a core, `asset_id` pair
-pub fn exchange_address_for<T: Trait>(asset_id: T::AssetId) -> T::AccountId {
-	let core_asset_id = Module::<T>::core_asset_id();
-	MODULE_ID.into_sub_account((core_asset_id, asset_id))
+/// A function that generates an `AccountId` for a CENNZX exchange / (core, asset) pair
+pub trait ExchangeAddressFor {
+	/// The Account Id type
+	type AccountId;
+	/// The Asset Id type
+	type AssetId;
+	/// Create and exchange address given `asset_id`
+	fn exchange_address_for(asset_id: Self::AssetId) -> Self::AccountId;
+}
+
+/// A CENNZX exchange address generator implementation
+pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
+
+impl<T: Trait> ExchangeAddressFor for ExchangeAddressGenerator<T>
+where
+	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+	T::AssetId: Into<u64>,
+{
+	type AccountId = T::AccountId;
+	type AssetId = T::AssetId;
+
+	/// Generates a unique, deterministic exchange address for the given `core_asset_id`, `asset_id` pair
+	/// It's uniqueness and collision resistance is determined by the `T::Hashing` implementation
+	fn exchange_address_for(asset_id: T::AssetId) -> T::AccountId {
+		let core_asset_id = Module::<T>::core_asset_id();
+		// 13 + 64 + 64
+		let mut buf = Vec::<u8>::with_capacity(141);
+		buf.extend_from_slice(b"cennz-x-spot:");
+		buf.extend_from_slice(&core_asset_id.into().to_le_bytes());
+		buf.extend_from_slice(&asset_id.into().to_le_bytes());
+
+		T::Hashing::hash(&buf).unchecked_into()
+	}
 }
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
@@ -34,7 +65,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 	type Balance = T::Balance;
 	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;
 
-	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
+	/// Use CENNZX to seamlessly buy fee asset
 	fn buy_fee_asset(
 		who: &Self::AccountId,
 		amount: Self::Balance,
@@ -58,25 +89,30 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 pub(crate) mod impl_tests {
 	use super::*;
 	use crate::{
-		mock::{self, FEE_ASSET_ID, TRADE_ASSET_A_ID},
-		mock::{Cennzx, ExtBuilder, Test},
+		mock::{Cennzx, ExtBuilder, Test, CORE_ASSET_ID, FEE_ASSET_ID, TRADE_ASSET_A_ID},
 		Error,
 	};
-	use frame_support::traits::Currency;
-	use sp_core::H256;
+	use cennznet_primitives::types::FeeExchange;
+	use frame_support::{assert_err, assert_ok};
+	use prml_generic_asset::MultiCurrencyAccounting;
 
-	type CoreAssetCurrency = mock::CoreAssetCurrency<Test>;
-	type TradeAssetCurrencyA = mock::TradeAssetCurrencyA<Test>;
-	type FeeAssetCurrency = mock::FeeAssetCurrency<Test>;
-	type TestFeeExchange = FeeExchange<u32, u128>;
+	#[test]
+	fn it_generates_an_exchange_address() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ne!(
+				ExchangeAddressGenerator::<Test>::exchange_address_for(1),
+				ExchangeAddressGenerator::<Test>::exchange_address_for(2)
+			);
+		});
+	}
 
 	#[test]
 	fn buy_fee_asset() {
 		ExtBuilder::default().build().execute_with(|| {
-			with_exchange!(CoreAssetCurrency => 10_000, TradeAssetCurrencyA => 10_000);
-			with_exchange!(CoreAssetCurrency => 10_000, FeeAssetCurrency => 10_000);
+			with_exchange!(CORE_ASSET_ID => 10_000, TRADE_ASSET_A_ID => 10_000);
+			with_exchange!(CORE_ASSET_ID => 10_000, FEE_ASSET_ID => 10_000);
 
-			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 1_000);
+			let user = with_account!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 1_000);
 			let target_fee = 510;
 			let scale_factor = 1_000_000;
 			let fee_rate = 3_000; // fee is 0.3%
@@ -86,7 +122,7 @@ pub(crate) mod impl_tests {
 				<Cennzx as BuyFeeAsset>::buy_fee_asset(
 					&user,
 					target_fee,
-					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000)
+					&FeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000)
 				),
 				571
 			);
@@ -94,8 +130,8 @@ pub(crate) mod impl_tests {
 			// For more detail, see `fn get_output_price` in lib.rs
 			let core_asset_price = {
 				let output_amount = target_fee;
-				let input_reserve = 10_000; // CoreAssetCurrency reserve
-				let output_reserve = 10_000; // FeeAssetCurrency reserve
+				let input_reserve = 10_000; // CORE_ASSET_ID reserve
+				let output_reserve = 10_000; // FEE_ASSET_ID reserve
 				let denom = output_reserve - output_amount; // 10000 - 510 = 9490
 				let res = (input_reserve * output_amount) / denom; // 537 (decimals truncated)
 				let price = res + 1; // 537 + 1 = 538
@@ -104,8 +140,8 @@ pub(crate) mod impl_tests {
 
 			let trade_asset_price = {
 				let output_amount = core_asset_price;
-				let input_reserve = 10_000; // TradeAssetCurrencyA reserve
-				let output_reserve = 10_000; // CoreAssetCurrency reserve
+				let input_reserve = 10_000; // TRADE_ASSET_A_ID reserve
+				let output_reserve = 10_000; // CORE_ASSET_ID reserve
 				let denom = output_reserve - output_amount; // 10000 - 539 = 9461
 				let res = (input_reserve * output_amount) / denom; // 569 (decimals truncated)
 				let price = res + 1; // 569 + 1 = 570
@@ -124,63 +160,55 @@ pub(crate) mod impl_tests {
 			let exchange2_fee = 10_000 - target_fee;
 
 			assert_exchange_balance_eq!(
-				CoreAssetCurrency => exchange1_core,
-				TradeAssetCurrencyA => exchange1_trade
+				CORE_ASSET_ID => exchange1_core,
+				TRADE_ASSET_A_ID => exchange1_trade
 			);
 			assert_exchange_balance_eq!(
-				CoreAssetCurrency => exchange2_core,
-				FeeAssetCurrency => exchange2_fee
+				CORE_ASSET_ID => exchange2_core,
+				FEE_ASSET_ID => exchange2_fee
 			);
 
 			let trade_asset_remainder = 1_000 - trade_asset_price;
-			assert_balance_eq!(user, CoreAssetCurrency => 0);
-			assert_balance_eq!(user, FeeAssetCurrency => target_fee);
-			assert_balance_eq!(user, TradeAssetCurrencyA => trade_asset_remainder);
+			assert_balance_eq!(user, CORE_ASSET_ID => 0);
+			assert_balance_eq!(user, FEE_ASSET_ID => target_fee);
+			assert_balance_eq!(user, TRADE_ASSET_A_ID => trade_asset_remainder);
 		});
 	}
 
 	#[test]
 	fn buy_fee_asset_insufficient_trade_asset() {
 		ExtBuilder::default().build().execute_with(|| {
-			with_exchange!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 100);
-			with_exchange!(CoreAssetCurrency => 0, FeeAssetCurrency => 100);
-			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
+			with_exchange!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 100);
+			with_exchange!(CORE_ASSET_ID => 0, FEE_ASSET_ID => 100);
+			let user = with_account!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 10);
 
 			assert_err!(
-				<Cennzx as BuyFeeAsset>::buy_fee_asset(
-					&user,
-					51,
-					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
-				),
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(&user, 51, &FeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),),
 				Error::<Test>::EmptyExchangePool
 			);
 
-			assert_balance_eq!(user, CoreAssetCurrency => 0);
-			assert_balance_eq!(user, TradeAssetCurrencyA => 10);
+			assert_balance_eq!(user, CORE_ASSET_ID => 0);
+			assert_balance_eq!(user, TRADE_ASSET_A_ID => 10);
 		});
 	}
 
 	#[test]
 	fn buy_fee_asset_from_empty_pool() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user = with_account!(CoreAssetCurrency => 0, TradeAssetCurrencyA => 10);
+			let user = with_account!(CORE_ASSET_ID => 0, TRADE_ASSET_A_ID => 10);
 
 			assert_err!(
-				<Cennzx as BuyFeeAsset>::buy_fee_asset(
-					&user,
-					51,
-					&TestFeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),
-				),
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(&user, 51, &FeeExchange::new_v1(TRADE_ASSET_A_ID, 2_000_000),),
 				Error::<Test>::EmptyExchangePool
 			);
 
 			assert_exchange_balance_eq!(
-				CoreAssetCurrency => 0,
-				TradeAssetCurrencyA => 0
+				CORE_ASSET_ID => 0,
+				TRADE_ASSET_A_ID => 0
 			);
 			assert_exchange_balance_eq!(
-				CoreAssetCurrency => 0,
-				FeeAssetCurrency => 0
+				CORE_ASSET_ID => 0,
+				FEE_ASSET_ID => 0
 			);
 		});
 	}

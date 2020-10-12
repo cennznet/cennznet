@@ -53,14 +53,14 @@ fn network_keys() -> NetworkKeys {
 /// Returns ChainSpec for the Nikau test net
 pub fn config() -> CENNZnetChainSpec {
 	CENNZnetChainSpec::from_genesis(
-		"CENNZnet Nikau",                        // name
-		"CENNZnet Nikau V1",                     // ID
-		ChainType::Live,                         // chain type description
-		|| config_genesis(network_keys(), true), // constructor
-		vec![],                                  // boot nodes
-		None,                                    // telemetry
-		Some("cennznet-nikau-v1"),               // lib-p2p protocol ID
-		None,                                    // properties
-		Default::default(),                      // generic extension types
+		"CENNZnet Nikau",                  // name
+		"CENNZnet Nikau V1",               // ID
+		ChainType::Live,                   // chain type description
+		|| config_genesis(network_keys()), // constructor
+		vec![],                            // boot nodes
+		None,                              // telemetry
+		Some("cennznet-nikau-v1"),         // lib-p2p protocol ID
+		None,                              // properties
+		Default::default(),                // generic extension types
 	)
 }
