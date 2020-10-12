@@ -1406,6 +1406,16 @@ impl<T: Trait> Module<T> {
 			.unwrap_or_default()
 	}
 
+	#[cfg(test)]
+	/// The slashable balance of a stash account as of right now.
+	/// It could lessen in the near future as funds become unlocked and are withdrawn.
+	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
+		Self::bonded(stash)
+			.and_then(Self::ledger)
+			.map(|l| l.slashable_balance())
+			.unwrap_or_default()
+	}
+
 	/// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].
 	fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
 		<T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(
