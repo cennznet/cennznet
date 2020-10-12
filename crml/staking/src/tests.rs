@@ -2351,6 +2351,8 @@ fn invulnerables_are_not_slashed() {
 fn invulnerables_can_be_set() {
 	// Invulnerable validator set can be modified
 	ExtBuilder::default().invulnerables(vec![21]).build().execute_with(|| {
+		System::set_block_number(1);
+
 		assert_eq!(Balances::free_balance(11), 1000);
 		assert_eq!(Balances::free_balance(21), 2000);
 
