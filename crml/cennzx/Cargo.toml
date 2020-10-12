@@ -18,6 +18,7 @@ sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 
 [dev-dependencies]
+cennznet-runtime = { path = "../../runtime" }
 sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [features]

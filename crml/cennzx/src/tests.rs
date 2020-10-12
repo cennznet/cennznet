@@ -13,15 +13,18 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 //!
-//! CENNZX-SPOT Tests
+//! CENNZX Tests
 //!
 #![cfg(test)]
 
 use crate::{
 	assert_balance_eq, assert_exchange_balance_eq,
-	mock::{AccountId, Cennzx, ExtBuilder, Origin, Test, CORE_ASSET_ID, TRADE_ASSET_A_ID, TRADE_ASSET_B_ID},
+	mock::{
+		last_event, AccountId, Cennzx, Event, ExtBuilder, Origin, Test, CORE_ASSET_ID, TRADE_ASSET_A_ID,
+		TRADE_ASSET_B_ID,
+	},
 	types::{FeeRate, LowPrecisionUnsigned, PerMillion, PerThousand},
-	with_account, with_exchange, Error, ExchangeAddressFor,
+	with_account, with_exchange, Error, ExchangeAddressFor, RawEvent,
 };
 use core::convert::TryFrom;
 use frame_support::{assert_err, assert_ok};
@@ -40,6 +43,10 @@ fn investor_can_add_liquidity() {
 			15, // max_asset_amount: T::Balance,
 			10, // core_amount: T::Balance,
 		));
+		assert_eq!(
+			last_event(),
+			Event::cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 15)),
+		);
 
 		// Second investment
 		// because a round up, second time asset amount become 15 + 1
@@ -50,6 +57,10 @@ fn investor_can_add_liquidity() {
 			16, // max_asset_amount: T::Balance,
 			10, // core_amount: T::Balance,
 		));
+		assert_eq!(
+			last_event(),
+			Event::cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 16)),
+		);
 
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 20, TRADE_ASSET_A_ID => 31);
 		assert_eq!(
@@ -318,7 +329,10 @@ fn asset_to_core_execute_buy() {
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 5, TRADE_ASSET_A_ID => 2004);
 		assert_balance_eq!(trader, TRADE_ASSET_A_ID => 1196);
 
-		// TODO: test event deposited
+		assert_eq!(
+			last_event(),
+			Event::cennzx(RawEvent::AssetBought(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 1004, 5)),
+		);
 	});
 }
 
@@ -1139,7 +1153,10 @@ fn asset_to_core_execute_sell() {
 		assert_balance_eq!(trader, TRADE_ASSET_A_ID => 2110);
 		assert_balance_eq!(trader, CORE_ASSET_ID => 2281);
 
-		// TODO: test event deposited
+		assert_eq!(
+			last_event(),
+			Event::cennzx(RawEvent::AssetSold(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 90, 81)),
+		);
 	});
 }
 

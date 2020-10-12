@@ -35,7 +35,7 @@ mod impls;
 mod tests;
 mod types;
 
-pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator, SimpleAssetShim};
+pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion, PerThousand};
 
 // (core_asset_id, asset_id)

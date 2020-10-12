@@ -20,12 +20,13 @@ use crate::{
 	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
 	Call, Runtime,
 };
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
+	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get},
 	weights::Weight,
 };
-use prml_generic_asset::StakingAssetCurrency;
+use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, StakingAssetCurrency};
 use sp_runtime::traits::Convert;
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -137,6 +138,34 @@ impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
 	}
 	fn max_len() -> usize {
 		1
+	}
+}
+
+/// Provides an impl for the `SimpleAssetSystem` trait
+/// Used to integrate GA with CENNZX
+pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
+
+impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
+	type AccountId = T::AccountId;
+	type AssetId = T::AssetId;
+	type Balance = T::Balance;
+	/// Transfer some `amount` of assets `from` one account `to` another
+	fn transfer(
+		asset_id: Self::AssetId,
+		from: &Self::AccountId,
+		to: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		// note: we don't emit a 'transferred' event with this method
+		prml_generic_asset::Module::<T>::make_transfer(asset_id, from, to, amount)
+	}
+	/// Get the liquid asset balance of `account`
+	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance {
+		prml_generic_asset::Module::<T>::free_balance(asset_id, account)
+	}
+	/// Get the default asset/currency ID in the system
+	fn default_asset_id() -> Self::AssetId {
+		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
 	}
 }
 

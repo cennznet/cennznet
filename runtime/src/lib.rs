@@ -71,10 +71,8 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{
-	AccountId, AssetId, Balance, BlockNumber, FeeExchange, Hash, Index, Moment, Signature,
-};
-pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand, SimpleAssetShim};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, Moment, Signature};
+pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 use crml_sylo::device as sylo_device;
 use crml_sylo::e2ee as sylo_e2ee;
@@ -92,7 +90,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{FeePayerResolver, RootMemberOnly};
+use impls::{FeePayerResolver, RootMemberOnly, SimpleAssetShim};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -311,23 +309,6 @@ impl prml_generic_asset::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-// TODO remove the following code after activating Cennzx
-use cennznet_primitives::traits::BuyFeeAsset;
-use frame_support::dispatch::DispatchError;
-pub struct TemporaryCennzxReplacer;
-impl BuyFeeAsset for TemporaryCennzxReplacer {
-	type AccountId = AccountId;
-	type Balance = Balance;
-	type FeeExchange = FeeExchange<AssetId, Balance>;
-	fn buy_fee_asset(
-		_who: &Self::AccountId,
-		_amount: Self::Balance,
-		_fee_exchange: &Self::FeeExchange,
-	) -> Result<Self::Balance, DispatchError> {
-		Err(DispatchError::Other("Cennzx is not enabled yet"))
-	}
-}
-
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MICROS;
 	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
@@ -343,7 +324,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
-	type BuyFeeAsset = TemporaryCennzxReplacer;
+	type BuyFeeAsset = Cennzx;
 	type FeePayer = FeePayerResolver;
 }
 

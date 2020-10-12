@@ -20,8 +20,7 @@ use cennznet_primitives::{
 	traits::{BuyFeeAsset, SimpleAssetSystem},
 	types::FeeExchange,
 };
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting};
+use frame_support::dispatch::DispatchError;
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -86,34 +85,6 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 	}
 }
 
-/// Provides an impl for the `SimpleAssetSystem` trait
-/// Used to integrate GA with CENNZX
-pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
-
-impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
-	type AccountId = T::AccountId;
-	type AssetId = T::AssetId;
-	type Balance = T::Balance;
-	/// Transfer some `amount` of assets `from` one account `to` another
-	fn transfer(
-		asset_id: Self::AssetId,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult {
-		// note: we don't emit a 'transferred' event with this method
-		prml_generic_asset::Module::<T>::make_transfer(asset_id, from, to, amount)
-	}
-	/// Get the liquid asset balance of `account`
-	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance {
-		prml_generic_asset::Module::<T>::free_balance(asset_id, account)
-	}
-	/// Get the default asset/currency ID in the system
-	fn default_asset_id() -> Self::AssetId {
-		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
-	}
-}
-
 #[cfg(test)]
 pub(crate) mod impl_tests {
 	use super::*;
@@ -123,6 +94,7 @@ pub(crate) mod impl_tests {
 	};
 	use cennznet_primitives::types::FeeExchange;
 	use frame_support::{assert_err, assert_ok};
+	use prml_generic_asset::MultiCurrencyAccounting;
 
 	#[test]
 	fn it_generates_an_exchange_address() {

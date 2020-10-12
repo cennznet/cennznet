@@ -26,13 +26,14 @@ pub const TRADE_ASSET_B_ID: AssetId = 3;
 pub const FEE_ASSET_ID: AssetId = 10;
 
 use crate::{
-	impls::{ExchangeAddressGenerator, SimpleAssetShim},
+	impls::ExchangeAddressGenerator,
 	types::{FeeRate, PerMillion, PerThousand},
 	GenesisConfig, Module, Trait,
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
+use cennznet_runtime::impls::SimpleAssetShim;
 use core::convert::TryFrom;
-use frame_support::impl_outer_origin;
+use frame_support::{impl_outer_event, impl_outer_origin};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -43,6 +44,19 @@ pub type Cennzx = Module<Test>;
 
 impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}
+}
+
+// alias the Event from this crate under `cennzx` for event testing
+mod cennzx {
+	pub use crate::Event;
+}
+
+impl_outer_event! {
+	pub enum Event for Test {
+		cennzx<T>,
+		frame_system<T>,
+		prml_generic_asset<T>,
+	}
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -62,7 +76,7 @@ impl frame_system::Trait for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = ();
 	type MaximumBlockWeight = ();
 	type DbWeight = ();
@@ -82,12 +96,12 @@ impl frame_system::Trait for Test {
 impl prml_generic_asset::Trait for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
-	type Event = ();
+	type Event = Event;
 	type WeightInfo = ();
 }
 
 impl Trait for Test {
-	type Event = ();
+	type Event = Event;
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type AssetSystem = SimpleAssetShim<Self>;
@@ -129,7 +143,11 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
-		sp_io::TestExternalities::new(t)
+		let mut ext = sp_io::TestExternalities::new(t);
+
+		// Run in the context of the first block
+		ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
+		ext
 	}
 }
 
@@ -140,10 +158,13 @@ impl ExtBuilder {
 #[macro_export]
 macro_rules! with_exchange (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
-		let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-		let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a1), $b1);
-		let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a2), $b2);
-	};
+		{
+			let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
+			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a1), $b1);
+			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a2), $b2);
+			exchange_address
+		}
+	}
 );
 
 /// Assert an exchange pair has a balance equal to
@@ -217,3 +238,11 @@ macro_rules! assert_balance_eq (
 		);
 	};
 );
+
+/// Returns the last recorded block event
+pub fn last_event() -> Event {
+	frame_system::Module::<Test>::events()
+		.pop()
+		.expect("Event expected")
+		.event
+}
