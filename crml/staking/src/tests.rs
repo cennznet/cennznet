@@ -3043,6 +3043,7 @@ fn show_that_max_commission_is_100_percent() {
 #[test]
 fn set_minimum_bond_works() {
 	ExtBuilder::default().minimum_bond(7357).build().execute_with(|| {
+		System::set_block_number(1);
 		// Non-root accounts cannot set minimum bond
 		assert_noop!(Staking::set_minimum_bond(Origin::signed(1), 123), BadOrigin);
 		assert_eq!(Staking::minimum_bond(), 7357);
