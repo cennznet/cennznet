@@ -150,7 +150,13 @@ impl SlashingSpans {
 
 		sp_std::iter::once(last).chain(prior)
 	}
-	
+
+	#[cfg(test)]
+	/// Yields the era index where the most recent non-zero slash occurred.
+	pub(crate) fn last_nonzero_slash(&self) -> EraIndex {
+		self.last_nonzero_slash
+	}
+
 	// prune the slashing spans against a window, whose start era index is given.
 	//
 	// If this returns `Some`, then it includes a range start..end of all the span

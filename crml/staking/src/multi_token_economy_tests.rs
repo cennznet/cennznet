@@ -47,7 +47,6 @@ thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
 }
 
-use frame_system as system;
 impl_outer_origin! {
 	pub enum Origin for Test {}
 }
@@ -68,7 +67,7 @@ impl frame_system::Trait for Test {
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Hash = H256;
 	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = u64;
@@ -85,7 +84,7 @@ impl frame_system::Trait for Test {
 	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
 	type PalletInfo = ();
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -105,17 +104,6 @@ impl pallet_balances::Trait for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 }
-
-// impl pallet_balances::Trait for Test {
-// 	type Balance = Balance;
-// 	type OnReapAccount = System;
-// 	type OnNewAccount = ();
-// 	type Event = ();
-// 	type TransferPayment = ();
-// 	type DustRemoval = ();
-// 	type ExistentialDeposit = ExistentialDeposit;
-// 	type CreationFee = CreationFee;
-// }
 
 impl prml_generic_asset::Trait for Test {
 	type Balance = Balance;
@@ -161,6 +149,7 @@ impl pallet_timestamp::Trait for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 
 crml_staking_reward_curve::build! {
@@ -192,6 +181,7 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
+	type WeightInfo = ();
 }
 
 type System = frame_system::Module<Test>;
@@ -301,9 +291,9 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check that account 11 is a validator
 		assert!(Staking::current_elected().contains(&11));
 		// Check the balance of the validator account
-		assert_eq!(GenericAsset::free_balance(&STAKING_ASSET_ID, &10), 1_000_000_000);
+		assert_eq!(GenericAsset::free_balance(STAKING_ASSET_ID, &10), 1_000_000_000);
 		// Check the balance of the stash account
-		assert_eq!(GenericAsset::free_balance(&REWARD_ASSET_ID, &11), 1_000_000_000);
+		assert_eq!(GenericAsset::free_balance(REWARD_ASSET_ID, &11), 1_000_000_000);
 		// Check how much is at stake
 		assert_eq!(
 			Staking::ledger(&10),
@@ -326,7 +316,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 		// Check that reward went to the stash account of validator
 		assert_eq!(
-			GenericAsset::free_balance(&REWARD_ASSET_ID, &11),
+			GenericAsset::free_balance(REWARD_ASSET_ID, &11),
 			1_000_000_000 + total_payout
 		);
 		// Check that amount at stake has NOT changed

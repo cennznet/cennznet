@@ -25,7 +25,6 @@ use frame_support::{
 	weights::Weight,
 	IterableStorageMap, StorageValue,
 };
-use frame_system as system;
 use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
@@ -111,15 +110,19 @@ impl_outer_origin! {
 }
 
 mod staking {
-	pub use crate::Event;
+	// Re-export needed for `impl_outer_event!`.
+	pub use super::super::*;
 }
+use frame_system as system;
+use pallet_balances as balances;
+use pallet_session as session;
 
 impl_outer_event! {
-	pub enum TestEvent for Test {
+	pub enum MetaEvent for Test {
 		system<T>,
+		balances<T>,
+		session,
 		staking<T>,
-		pallet_balances<T>,
-		pallet_session,
 	}
 }
 
@@ -149,13 +152,13 @@ impl frame_system::Trait for Test {
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = MetaEvent;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type DbWeight = ();
@@ -166,7 +169,7 @@ impl frame_system::Trait for Test {
 	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
 	type PalletInfo = ();
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -179,7 +182,7 @@ parameter_types! {
 impl pallet_balances::Trait for Test {
 	type MaxLocks = ();
 	type Balance = Balance;
-	type Event = TestEvent;
+	type Event = MetaEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -193,7 +196,7 @@ parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Trait for Test {
-	type Event = TestEvent;
+	type Event = MetaEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -245,7 +248,7 @@ impl Trait for Test {
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
-	type Event = TestEvent;
+	type Event = MetaEvent;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -253,6 +256,7 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
+	type WeightInfo = ();
 }
 
 pub struct ExtBuilder {
@@ -585,7 +589,7 @@ pub fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			Staking::on_offence(offenders, slash_fraction, start_session);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
 			return;
 		} else if bonded_era > era {
 			break;
@@ -593,7 +597,7 @@ pub fn on_offence_in_era(
 	}
 
 	if Staking::current_era() == era {
-		Staking::on_offence(offenders, slash_fraction, Staking::current_era_start_session_index());
+		let _ = Staking::on_offence(offenders, slash_fraction, Staking::current_era_start_session_index());
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
