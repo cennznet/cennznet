@@ -264,14 +264,14 @@ use frame_support::{
 	traits::{
 		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnNewAccount, OnUnbalanced, Time, WithdrawReasons,
 	},
-	weights::{Weight, DispatchInfo},
+	weights::Weight,
 	IterableStorageMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
+	traits::{AtLeast32Bit, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
 	Perbill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
@@ -280,11 +280,7 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	iter::FromIterator,
-	prelude::*,
-};
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
 pub trait WeightInfo {
 	fn bond() -> Weight;
@@ -889,7 +885,7 @@ decl_storage! {
 					"Stash does not have enough balance to bond."
 				);
 				let _ = <Module<T>>::bond(
-					T::Origin::from((Some(stash.clone()), None).into()),
+					T::Origin::from(Some(stash.clone()).into()),
 					controller.clone(),
 					balance,
 					RewardDestination::Stash,
@@ -897,13 +893,13 @@ decl_storage! {
 				let _ = match status {
 					StakerStatus::Validator => {
 						<Module<T>>::validate(
-							T::Origin::from((Some(controller.clone()), None).into()),
+							T::Origin::from(Some(controller.clone()).into()),
 							Default::default(),
 						)
 					},
 					StakerStatus::Nominator(votes) => {
 						<Module<T>>::nominate(
-							T::Origin::from((Some(controller.clone()), None).into()),
+							T::Origin::from(Some(controller.clone()).into()),
 							votes.to_vec(),
 						)
 					},
@@ -1640,7 +1636,10 @@ impl<T: Trait> Module<T> {
 
 	fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {
 		// The validator set shall not change until federated staking is live
-		(Self::slote_stake(), Some(<Validators<T>>::iter().collect()))
+		(
+			Self::slot_stake(),
+			Some(<Validators<T>>::iter().map(|(account_id, _)| account_id).collect()),
+		)
 	}
 
 	/// Check that list is sorted and has no duplicates.
@@ -1800,19 +1799,24 @@ where
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-	) {
+	) -> Result<Weight, ()> {
 		let reward_proportion = SlashRewardFraction::get();
+		let mut consumed_weight: Weight = 0;
+		let mut add_db_reads_writes = |reads, writes| {
+			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+		};
 
 		let era_now = Self::current_era();
 		let window_start = era_now.saturating_sub(T::BondingDuration::get());
 		let current_era_start_session = CurrentEraStartSessionIndex::get();
+		add_db_reads_writes(2, 0);
 
 		// fast path for current-era report - most likely.
 		let slash_era = if slash_session >= current_era_start_session {
 			era_now
 		} else {
 			let eras = BondedEras::get();
-
+			add_db_reads_writes(1, 0);
 			// reverse because it's more likely to find reports from recent eras.
 			match eras
 				.iter()
@@ -1820,12 +1824,13 @@ where
 				.filter(|&&(_, ref sesh)| sesh <= &slash_session)
 				.next()
 			{
-				None => return, // before bonding period. defensive - should be filtered out.
+				None => return Ok(consumed_weight), // before bonding period. defensive - should be filtered out.
 				Some(&(ref slash_era, _)) => *slash_era,
 			}
 		};
 
 		let slash_defer_duration = T::SlashDeferDuration::get();
+		add_db_reads_writes(1, 0);
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
 			let stash = &details.offender.0;
@@ -1855,10 +1860,26 @@ where
 			});
 
 			if let Some(mut unapplied) = unapplied {
+				let nominators_len = unapplied.others.len() as u64;
+				let reporters_len = details.reporters.len() as u64;
+
+				{
+					let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+					let rw = upper_bound + nominators_len * upper_bound;
+					add_db_reads_writes(rw, rw);
+				}
 				unapplied.reporters = details.reporters.clone();
 				if slash_defer_duration == 0 {
 					// apply right away.
 					slashing::apply_slash::<T>(unapplied);
+					{
+						let slash_cost = (6, 5);
+						let reward_cost = (2, 2);
+						add_db_reads_writes(
+							(1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+							(1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
+						);
+					}
 				} else {
 					// defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(era_now, move |for_later| for_later.push(unapplied));
@@ -1868,9 +1889,13 @@ where
 							*earliest = Some(era_now)
 						}
 					});
+					add_db_reads_writes(2, 2);
 				}
+			} else {
+				add_db_reads_writes(4 /* fetch_spans */, 5 /* kick_out_if_recent */)
 			}
 		}
+		Ok(consumed_weight)
 	}
 
 	fn can_report() -> bool {
@@ -1904,5 +1929,9 @@ where
 			<Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
 			Ok(())
 		}
+	}
+
+	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+		R::is_known_offence(offenders, time_slot)
 	}
 }
