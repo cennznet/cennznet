@@ -125,6 +125,7 @@ std = [
 	"crml-cennzx-rpc-runtime-api/std",
 	"crml-transaction-payment/std",
 	"crml-sylo/std",
+	"crml-staking/std",
 ]
 runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
