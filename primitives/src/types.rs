@@ -19,7 +19,7 @@
 use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
-	traits::{IdentifyAccount, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiSignature,
 };
 
@@ -59,6 +59,9 @@ pub type Hash = sp_core::H256;
 /// `u64` is enough to represent a duration of half a billion years, when the
 /// time scale is milliseconds.
 pub type Timestamp = u64;
+
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.

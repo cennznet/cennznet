@@ -23,7 +23,7 @@ sp-inherents = { branch = "spike/2.0", git = "https://github.com/plugblockchain/
 sc-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
 sp-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus-epochs = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -60,6 +60,16 @@ prml-generic-asset-rpc = { branch = "spike/2.0", git = "https://github.com/plugb
 prml-generic-asset = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+
+[dev-dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.5", features = ["derive"] }
+sp-finality-tracker = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+crml-transaction-payment = { path = "../crml/transaction-payment" }
+tempfile = "3.1.0"
 
 [build-dependencies]
 substrate-build-script-utils = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }

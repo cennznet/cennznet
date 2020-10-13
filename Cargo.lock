@@ -580,12 +580,15 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-transaction-payment",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-system",
  "futures 0.3.5",
  "jsonrpc-core",
  "pallet-im-online",
  "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
  "prml-generic-asset",
  "prml-generic-asset-rpc",
  "sc-authority-discovery",
@@ -605,6 +608,7 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "sc-service-test",
  "sc-transaction-pool",
  "serde",
  "sp-api",
@@ -615,12 +619,16 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core",
  "sp-finality-grandpa",
+ "sp-finality-tracker",
  "sp-inherents",
+ "sp-keyring",
  "sp-runtime",
+ "sp-timestamp",
  "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "tempfile",
 ]
 
 [[package]]
@@ -689,7 +697,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
+ "substrate-wasm-builder-runner 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5814,6 +5822,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-service-test"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "fdlimit",
+ "futures 0.1.29",
+ "futures 0.3.5",
+ "hex-literal",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-executor",
+ "sc-light",
+ "sc-network",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-externalities",
+ "sp-panic-handler",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-tracing",
+ "sp-transaction-pool",
+ "sp-trie",
+ "substrate-test-runtime",
+ "substrate-test-runtime-client",
+ "tempfile",
+ "tokio 0.1.22",
+]
+
+[[package]]
 name = "sc-state-db"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -6470,6 +6515,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-consensus-aura"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "sp-consensus-babe"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -7082,6 +7141,95 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-test-client"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "futures 0.1.29",
+ "futures 0.3.5",
+ "hash-db",
+ "hex",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-executor",
+ "sc-light",
+ "sc-service",
+ "serde",
+ "serde_json",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-state-machine",
+]
+
+[[package]]
+name = "substrate-test-runtime"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "cfg-if",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "memory-db",
+ "pallet-babe",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "parity-util-mem",
+ "sc-service",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-externalities",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-session",
+ "sp-state-machine",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "trie-db",
+]
+
+[[package]]
+name = "substrate-test-runtime-client"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "futures 0.3.5",
+ "parity-scale-codec",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-light",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-runtime",
+ "substrate-test-client",
+ "substrate-test-runtime",
+]
+
+[[package]]
 name = "substrate-test-utils"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -7106,6 +7254,11 @@ name = "substrate-wasm-builder-runner"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2a965994514ab35d3893e9260245f2947fd1981cdd4fffd2c6e6d1a9ce02e6a"
+
+[[package]]
+name = "substrate-wasm-builder-runner"
+version = "1.0.6"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
 
 [[package]]
 name = "subtle"

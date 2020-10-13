@@ -496,10 +496,10 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 #[cfg(test)]
 mod tests {
 	use crate::service::{new_full_base, new_light_base, NewFullBase};
+	use cennznet_primitives::types::{DigestItem, Signature};
+	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::DOLLARS, time::SLOT_DURATION};
+	use cennznet_runtime::{Address, Block, Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::Encode;
-	use node_primitives::{Block, DigestItem, Signature};
-	use node_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
-	use node_runtime::{Address, BalancesCall, Call, UncheckedExtrinsic};
 	use sc_client_api::BlockBackend;
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
@@ -665,7 +665,7 @@ mod tests {
 					.expect("error importing test block");
 			},
 			|service, _| {
-				let amount = 5 * CENTS;
+				let amount = 5 * DOLLARS;
 				let to: Address = AccountPublic::from(bob.public()).into_account().into();
 				let from: Address = AccountPublic::from(charlie.public()).into_account().into();
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
@@ -676,7 +676,12 @@ mod tests {
 				};
 				let signer = charlie.clone();
 
-				let function = Call::Balances(BalancesCall::transfer(to.into(), amount));
+				let function = Call::GenericAsset(GenericAssetCall::make_transfer(
+					SPENDING_ASSET_ID,
+					from.into(),
+					to.into(),
+					amount,
+				));
 
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
@@ -684,7 +689,7 @@ mod tests {
 				let check_era = frame_system::CheckEra::from(Era::Immortal);
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
-				let payment = pallet_transaction_payment::ChargeTransactionPayment::from(0);
+				let payment = crml_transaction_payment::ChargeTransactionPayment::from(0, None);
 				let extra = (
 					check_spec_version,
 					check_tx_version,
