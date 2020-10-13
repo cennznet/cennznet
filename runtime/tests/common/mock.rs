@@ -18,7 +18,6 @@
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
-use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use pallet_contracts::{Gas, Schedule};
@@ -26,6 +25,7 @@ use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::Perbill;
 
 use crate::common::helpers::make_authority_keys;
+use crate::common::keyring::*;
 
 /// The default number of validators for mock storage setup
 const DEFAULT_VALIDATOR_COUNT: usize = 3;

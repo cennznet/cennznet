@@ -22,7 +22,6 @@ use cennznet_runtime::{
 	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Header, ImOnline, Runtime, Session,
 	SessionsPerEra, Staking, System, Timestamp,
 };
-use cennznet_testing::keyring::{alice, bob, charlie, signed_extra};
 use codec::Encode;
 use crml_staking::{EraIndex, RewardDestination, StakingLedger};
 use frame_support::{storage::StorageValue, traits::OnInitialize};
@@ -35,6 +34,7 @@ use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
+use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
 /// Get a list of stash accounts only from `authority_keys`
