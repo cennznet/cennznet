@@ -37,14 +37,15 @@ use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, SaturatedConversion, Saturating, Verify,
-};
 use sp_runtime::{
 	create_runtime_str,
+	curve::PiecewiseLinear,
 	generic::{self, Era},
 	impl_opaque_keys,
-	traits::OpaqueKeys,
+	traits::{
+		BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys, SaturatedConversion,
+		Saturating, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber,
 };
@@ -53,6 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+pub use crml_staking::StakerStatus;
 pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
@@ -90,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{FeePayerResolver, RootMemberOnly, SimpleAssetShim};
+use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -254,26 +256,40 @@ impl pallet_scheduler::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-// parameter_types! {
-// 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-// 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
-// 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
-// }
-// impl crml_staking::Trait for Runtime {
-// 	type Currency = StakingAssetCurrency<Self>;
-// 	type RewardCurrency = SpendingAssetCurrency<Self>;
-// 	type Time = Timestamp;
-// 	type CurrencyToVote = CurrencyToVoteHandler;
-// 	type RewardRemainder = Treasury;
-// 	type Event = Event;
-// 	type Slash = Treasury; // send the slashed funds to the treasury.
-// 	type Reward = (); // rewards are minted from the void
-// 	type SessionsPerEra = SessionsPerEra;
-// 	type BondingDuration = BondingDuration;
-// 	type SlashDeferDuration = SlashDeferDuration;
-// 	type SessionInterface = Self;
-// 	type RewardCurve = ();
-// }
+// TODO Reconfigure the following curve for CENNZnet dual token economy
+crml_staking_reward_curve::build! {
+	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+
+parameter_types! {
+	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
+	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+}
+impl crml_staking::Trait for Runtime {
+	type Currency = StakingAssetCurrency<Self>;
+	type RewardCurrency = SpendingAssetCurrency<Self>;
+	type Time = Timestamp;
+	type CurrencyToVote = CurrencyToVoteHandler;
+	type RewardRemainder = Treasury;
+	type Event = Event;
+	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Reward = (); // rewards are minted from the void
+	type SessionsPerEra = SessionsPerEra;
+	type BondingDuration = BondingDuration;
+	type SlashDeferDuration = SlashDeferDuration;
+	type SessionInterface = Self;
+	type RewardCurve = RewardCurve;
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -284,7 +300,7 @@ impl pallet_session::Trait for Runtime {
 	type ValidatorIdOf = ();
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = ();
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Runtime, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -397,8 +413,8 @@ impl pallet_offences::Trait for Runtime {
 }
 
 impl pallet_session::historical::Trait for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = ();
+	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = crml_staking::ExposureOf<Runtime>;
 }
 
 parameter_types! {
@@ -561,7 +577,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
 		GenericAsset: prml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
 		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		// Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
+		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>} = 6,
 		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
 		FinalityTracker: pallet_finality_tracker::{Module, Call, Storage, Inherent} = 9,

@@ -19,7 +19,8 @@
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig,
-	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
+	SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -27,7 +28,10 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	Perbill,
+};
 
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
@@ -145,19 +149,19 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				})
 				.collect::<Vec<_>>(),
 		}),
-		// crml_staking: Some(StakingConfig {
-		// 	current_era: 0,
-		// 	validator_count: initial_authorities.len() as u32 * 2,
-		// 	minimum_validator_count: initial_authorities.len() as u32,
-		// 	stakers: initial_authorities
-		// 		.iter()
-		// 		.map(|x| (x.0.clone(), x.1.clone(), INITIAL_BOND, StakerStatus::Validator))
-		// 		.collect(),
-		// 	invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-		// 	minimum_bond: 1,
-		// 	slash_reward_fraction: Perbill::from_percent(10),
-		// 	..Default::default()
-		// }),
+		crml_staking: Some(StakingConfig {
+			current_era: 0,
+			validator_count: initial_authorities.len() as u32 * 2,
+			minimum_validator_count: initial_authorities.len() as u32,
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), x.1.clone(), INITIAL_BOND, StakerStatus::Validator))
+				.collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			minimum_bond: 1,
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
