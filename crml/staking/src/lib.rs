@@ -281,7 +281,7 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*, vec};
 
 pub trait WeightInfo {
 	fn bond() -> Weight;

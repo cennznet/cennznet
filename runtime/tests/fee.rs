@@ -17,8 +17,7 @@
 
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, fee::MAX_WEIGHT},
-	Call, CheckedExtrinsic, Runtime, TransactionBaseFee, TransactionMaxWeightFee, TransactionMinWeightFee,
-	UncheckedExtrinsic,
+	Call, CheckedExtrinsic, Runtime, TransactionMaxWeightFee, TransactionMinWeightFee, UncheckedExtrinsic,
 };
 use codec::Encode;
 use crml_transaction_payment::ChargeTransactionPayment;

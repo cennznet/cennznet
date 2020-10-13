@@ -25,10 +25,9 @@ use cennznet_runtime::{
 use cennznet_testing::keyring::{alice, bob, charlie, signed_extra};
 use codec::Encode;
 use crml_staking::{EraIndex, RewardDestination, StakingLedger};
-use frame_support::{
-	additional_traits::MultiCurrencyAccounting as MultiCurrency, storage::StorageValue, traits::OnInitialize,
-};
+use frame_support::{storage::StorageValue, traits::OnInitialize};
 use frame_system::RawOrigin;
+use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Perbill};
 use sp_staking::{offence::OnOffenceHandler, SessionIndex};
