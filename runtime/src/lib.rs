@@ -985,7 +985,7 @@ mod tests {
 				4, 1, 1, 250, 142, 175, 4, 21, 22, 135, 115, 99, 38, 201, 254, 161, 126, 37, 252, 82, 135, 97, 54, 147, 201, 18, 144, 156, 178, 38, 170, 71, 148, 242, 106, 72, 113, 64
 			];
 			System::set_block_number(119);
-			<BlockHash<P>>::insert(118, H256::repeat_byte(1));
+			<BlockHash<<Runtime>>::insert(118, H256::repeat_byte(1));
 			let call = Call::decode(&mut &buf2[..]);
 			let sp = SignedPayload::new(extrinsic.clone().unwrap().function, extra.unwrap());
 			println!("{:?}", sp.encode());
