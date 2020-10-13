@@ -21,8 +21,8 @@ use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus}
 use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
 use pallet_contracts::{Gas, Schedule};
+use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::Perbill;
 
 use crate::common::helpers::make_authority_keys;

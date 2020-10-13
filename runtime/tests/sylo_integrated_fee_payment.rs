@@ -15,12 +15,12 @@
 
 //! Sylo integrated fee payment tests
 
+use crate::keyring::{bob, charlie, dave, signed_extra};
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{
 	constants::asset::*, sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic,
 	Executive, GenericAsset, Origin, SyloPayment, TransactionMaxWeightFee,
 };
-use cennznet_testing::keyring::{bob, charlie, dave, signed_extra};
 use frame_support::{additional_traits::MultiCurrencyAccounting as MultiCurrency, assert_ok};
 
 mod common;

@@ -110,7 +110,6 @@ where
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
-	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use prml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
 

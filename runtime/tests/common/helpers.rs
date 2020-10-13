@@ -16,8 +16,8 @@
 //! Test helper functions
 
 use cennznet_cli::chain_spec::{get_authority_keys_from_seed, AuthorityKeys};
-use cennznet_primitives::types::{Balance, BlockNumber, Header};
-use cennznet_runtime::{CheckedExtrinsic, Runtime, UncheckedExtrinsic};
+use cennznet_primitives::types::{Balance, BlockNumber};
+use cennznet_runtime::{CheckedExtrinsic, Header, Runtime, UncheckedExtrinsic};
 use codec::Encode;
 use crml_transaction_payment::ChargeTransactionPayment;
 use frame_support::weights::GetDispatchInfo;
