@@ -498,7 +498,7 @@ mod tests {
 	use crate::service::{new_full_base, new_light_base, NewFullBase};
 	use cennznet_primitives::types::{DigestItem, Signature};
 	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::DOLLARS, time::SLOT_DURATION};
-	use cennznet_runtime::{Address, Block, Call, GenericAssetCall, UncheckedExtrinsic};
+	use cennznet_runtime::{opaque::Block, Address, Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::Encode;
 	use sc_client_api::BlockBackend;
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -676,12 +676,7 @@ mod tests {
 				};
 				let signer = charlie.clone();
 
-				let function = Call::GenericAsset(GenericAssetCall::make_transfer(
-					SPENDING_ASSET_ID,
-					from.into(),
-					to.into(),
-					amount,
-				));
+				let function = Call::GenericAsset(GenericAssetCall::transfer(SPENDING_ASSET_ID, to.into(), amount));
 
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
