@@ -140,4 +140,3 @@ runtime-benchmarks = [
 	"crml-sylo/runtime-benchmarks",
 ]
 test-doughnut = []
-test-contract = []
