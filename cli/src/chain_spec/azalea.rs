@@ -251,7 +251,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
-		pallet_generic_asset: Some(GenericAssetConfig {
+		prml_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CENTRAPAY_ASSET_ID, root_key)],

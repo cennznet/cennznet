@@ -16,26 +16,30 @@
 //! Staking reward tests
 
 use cennznet_cli::chain_spec::AuthorityKeys;
-use cennznet_primitives::types::{AccountId, Balance, DigestItem};
+use cennznet_primitives::types::{AccountId, Balance, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Header, ImOnline, Runtime, Session,
-	SessionsPerEra, Staking, System, Timestamp,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Runtime, Session, SessionsPerEra, Staking,
+	System, Timestamp,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, RewardDestination, StakingLedger};
-use frame_support::{storage::StorageValue, traits::OnInitialize};
+use frame_support::{
+	assert_ok,
+	storage::StorageValue,
+	traits::{OnInitialize, UnfilteredDispatchable},
+};
 use frame_system::RawOrigin;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Perbill};
 use sp_staking::{offence::OnOffenceHandler, SessionIndex};
-
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
+use frame_support::weights::Weight;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -46,9 +50,9 @@ fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
 /// The author will be specified by its index in the Session::validators() list. So the author
 /// should be a current validator. Return the modified header.
 fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
-	use digests::{RawPreDigest, SecondaryPreDigest};
+	use digests::{PreDigest, SecondaryPlainPreDigest};
 
-	let digest_data = RawPreDigest::<(), ()>::Secondary(SecondaryPreDigest {
+	let digest_data = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 		authority_index: author_index,
 		slot_number: Babe::current_slot(),
 	});
@@ -69,9 +73,14 @@ fn send_heartbeats() {
 			network_state: Default::default(),
 			session_index: Session::current_index(),
 			authority_index: i as u32,
+			validators_len: Session::validators().len() as u32,
 		};
 		let call = pallet_im_online::Call::heartbeat(heartbeat_data, Default::default());
-		ImOnline::dispatch(call, RawOrigin::None.into()).unwrap();
+		<pallet_im_online::Call<Runtime> as UnfilteredDispatchable>::dispatch_bypass_filter(
+			call,
+			RawOrigin::None.into(),
+		)
+		.unwrap();
 	}
 }
 
@@ -169,19 +178,19 @@ fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
 	let mut total_transfer_fee: Balance = 0;
 
-	let runtime_call_1 = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
 			let xt_1 = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				signed: Some((alice(), signed_extra(0, 0, None))),
 				function: runtime_call_1.clone(),
 			});
 			let xt_2 = sign(CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0, None, None))),
+				signed: Some((bob(), signed_extra(0, 0, None))),
 				function: runtime_call_2.clone(),
 			});
 
@@ -362,7 +371,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 	let balance_amount = 100_000_000 * DOLLARS;
 	let staked_amount = balance_amount / validators.len() as Balance;
 	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(pallet_generic_asset::Call::transfer(
+	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
 		bob(),
 		transfer_amount,
@@ -375,7 +384,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 		.build()
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None, None))),
+				signed: Some((alice(), signed_extra(0, 0, None))),
 				function: runtime_call,
 			});
 
@@ -465,7 +474,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 			send_heartbeats();
 
 			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id);
 
 			// Let's go through the first stage of executing the block
 			Executive::initialize_block(&header);
@@ -478,7 +487,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 
 			// There should be a reward calculated for the author
 			assert!(
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
+				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id)
 					> author_stash_balance_before_adding_block
 			);
 		});
@@ -515,13 +524,19 @@ fn authorship_reward_of_a_chilled_validator() {
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
 			// Report an offence for the author of the block that is going to be initialised
-			<Runtime as pallet_offences::Trait>::OnOffenceHandler::on_offence(
-				&[sp_staking::offence::OffenceDetails {
-					offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
-					reporters: vec![],
-				}],
-				&[Perbill::from_percent(0)],
-				Session::current_index(),
+			assert_ok!(
+				<<Runtime as pallet_offences::Trait>::OnOffenceHandler as OnOffenceHandler<
+					<Runtime as frame_system::Trait>::AccountId,
+					<Runtime as pallet_offences::Trait>::IdentificationTuple,
+					Weight,
+				>>::on_offence(
+					&[sp_staking::offence::OffenceDetails {
+						offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
+						reporters: vec![],
+					}],
+					&[Perbill::from_percent(0)],
+					Session::current_index(),
+				)
 			);
 
 			// The previous session should come to its end
@@ -530,7 +545,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			send_heartbeats();
 
 			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id);
+				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id);
 
 			// Let's go through the first stage of executing the block
 			Executive::initialize_block(&header);
@@ -543,7 +558,7 @@ fn authorship_reward_of_a_chilled_validator() {
 
 			// There should be a reward calculated for the author even though the author is chilled
 			assert!(
-				GenericAsset::free_balance(&SPENDING_ASSET_ID, &author_stash_id)
+				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id)
 					> author_stash_balance_before_adding_block
 			);
 		});

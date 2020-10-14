@@ -228,7 +228,7 @@ macro_rules! with_account (
 );
 
 /// Assert account has asset balance equal to
-// alias for `assert_eq!(<pallet_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
+// alias for `assert_eq!(<prml_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
 #[macro_export]
 macro_rules! assert_balance_eq (
 	($address:expr, $asset_id:ident => $balance:expr) => {
