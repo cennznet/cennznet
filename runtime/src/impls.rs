@@ -16,18 +16,16 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{
-	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	Call, Runtime,
-};
+use crate::{Call, Runtime};
 use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get},
-	weights::Weight,
+	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, StakingAssetCurrency};
-use sp_runtime::traits::Convert;
+use smallvec::smallvec;
+use sp_runtime::{traits::Convert, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
 
 // TODO uncomment the following code after enable cennznet staking module
@@ -69,30 +67,21 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Convert from weight to fee balance by scaling it into the desired fee range.
-/// i.e. transpose weight values so that: `min_fee` < weight < `max_fee`
-pub struct ScaledWeightToFee<MinFee, MaxFee>(sp_std::marker::PhantomData<(MinFee, MaxFee)>);
+/// Provides a weight to fee conversion function for
+/// use with the CENNZnet 4dp spending asset, CPAY.
+pub struct WeightToCpayFee<G: Get<Perbill>>(sp_std::marker::PhantomData<G>);
 
-impl<MinFee: Get<Balance>, MaxFee: Get<Balance>> Convert<Weight, Balance> for ScaledWeightToFee<MinFee, MaxFee> {
-	/// Transpose weight values to desired fee range i.e. `min_fee` < x < `max_fee`
-	fn convert(w: Weight) -> Balance {
-		let weight = Balance::from(w);
-
-		// Runtime constants
-		let min_fee = MinFee::get();
-		let max_fee = MaxFee::get();
-		debug_assert!(max_fee > min_fee);
-		debug_assert!(MAX_WEIGHT > MIN_WEIGHT);
-
-		//      (weight - MIN_WEIGHT) * [min_fee, max_fee]
-		//  y = ------------------------------------------ + min_fee
-		//              [MIN_WEIGHT, MAX_WEIGHT]
-
-		// ensure `weight` is in range: [MIN_WEIGHT, MAX_WEIGHT] for correct scaling.
-		let capped_weight = weight.min(MAX_WEIGHT).max(MIN_WEIGHT);
-		((capped_weight.saturating_sub(MIN_WEIGHT)).saturating_mul(max_fee.saturating_sub(min_fee))
-			/ (MAX_WEIGHT.saturating_sub(MIN_WEIGHT)))
-		.saturating_add(min_fee)
+impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
+	/// The runtime Balance type
+	type Balance = Balance;
+	/// Scale weights to fees by a factor of 1/G
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		smallvec!(WeightToFeeCoefficient {
+			coeff_integer: 0,
+			coeff_frac: G::get(),
+			negative: false,
+			degree: 1,
+		})
 	}
 }
 

@@ -92,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim};
+use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -327,9 +327,9 @@ impl prml_generic_asset::Trait for Runtime {
 
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MICROS;
-	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
-	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+	// weight: 100, 1: cpay
+	pub const WeightToCpayFactor: Perbill = Perbill::from_percent(1);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
@@ -338,7 +338,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = ();
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 	type BuyFeeAsset = Cennzx;
 	type FeePayer = FeePayerResolver;
