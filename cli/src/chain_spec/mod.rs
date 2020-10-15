@@ -18,12 +18,14 @@
 
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig,
-	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	opaque::Block, opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, StakerStatus,
+	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::ChainSpecExtension;
+use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
@@ -71,8 +73,21 @@ pub struct NetworkKeys {
 	pub root_key: AccountId,
 }
 
+/// Node `ChainSpec` extensions.
+///
+/// Additional parameters for some Substrate core modules,
+/// customizable from the chain spec.
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+	/// Block numbers with known hashes.
+	pub fork_blocks: sc_client_api::ForkBlocks<Block>,
+	/// Known bad block hashes.
+	pub bad_blocks: sc_client_api::BadBlocks<Block>,
+}
+
 /// Specialised `ChainSpec`.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, ()>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -186,5 +201,116 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
 		}),
+	}
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+	use super::*;
+	use crate::service::{new_full_base, new_light_base, NewFullBase};
+	use sc_service::ChainType;
+	use sc_service_test;
+	use sp_runtime::BuildStorage;
+
+	fn local_testnet_genesis_instant_single() -> GenesisConfig {
+		let endowed_accounts = vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+		];
+		let initial_authorities = vec![get_authority_keys_from_seed("Alice")];
+		let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");
+
+		config_genesis(NetworkKeys {
+			endowed_accounts,
+			initial_authorities,
+			root_key,
+		})
+	}
+
+	fn local_testnet_genesis_instant_multi() -> GenesisConfig {
+		let endowed_accounts = vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		];
+		let initial_authorities = vec![
+			get_authority_keys_from_seed("Alice"),
+			get_authority_keys_from_seed("Bob"),
+		];
+		let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");
+
+		config_genesis(NetworkKeys {
+			endowed_accounts,
+			initial_authorities,
+			root_key,
+		})
+	}
+
+	/// Local testnet config (single validator - Alice)
+	pub fn integration_test_config_with_single_authority() -> ChainSpec {
+		ChainSpec::from_genesis(
+			"Integration Test",
+			"test",
+			ChainType::Development,
+			local_testnet_genesis_instant_single,
+			vec![],
+			None,
+			None,
+			None,
+			Default::default(),
+		)
+	}
+
+	/// Local testnet config (multivalidator Alice + Bob)
+	pub fn integration_test_config_with_two_authorities() -> ChainSpec {
+		ChainSpec::from_genesis(
+			"Integration Test",
+			"test",
+			ChainType::Development,
+			local_testnet_genesis_instant_multi,
+			vec![],
+			None,
+			None,
+			None,
+			Default::default(),
+		)
+	}
+
+	#[test]
+	#[ignore]
+	fn test_connectivity() {
+		sc_service_test::connectivity(
+			integration_test_config_with_two_authorities(),
+			|config| {
+				let NewFullBase {
+					task_manager,
+					client,
+					network,
+					transaction_pool,
+					..
+				} = new_full_base(config, |_, _| ())?;
+				Ok(sc_service_test::TestNetComponents::new(
+					task_manager,
+					client,
+					network,
+					transaction_pool,
+				))
+			},
+			|config| {
+				let (keep_alive, _, client, network, transaction_pool) = new_light_base(config)?;
+				Ok(sc_service_test::TestNetComponents::new(
+					keep_alive,
+					client,
+					network,
+					transaction_pool,
+				))
+			},
+		);
+	}
+
+	#[test]
+	fn test_create_development_chain_spec() {
+		dev::config().build_storage().unwrap();
 	}
 }

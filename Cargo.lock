@@ -580,12 +580,15 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-transaction-payment",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-system",
  "futures 0.3.5",
  "jsonrpc-core",
  "pallet-im-online",
  "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
  "prml-generic-asset",
  "prml-generic-asset-rpc",
  "sc-authority-discovery",
@@ -605,6 +608,7 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "sc-service-test",
  "sc-transaction-pool",
  "serde",
  "sp-api",
@@ -615,12 +619,16 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core",
  "sp-finality-grandpa",
+ "sp-finality-tracker",
  "sp-inherents",
+ "sp-keyring",
  "sp-runtime",
+ "sp-timestamp",
  "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "tempfile",
 ]
 
 [[package]]
@@ -681,6 +689,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime",
  "sp-runtime-interface",
@@ -689,7 +698,8 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
+ "substrate-wasm-builder-runner 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wabt",
 ]
 
 [[package]]
@@ -747,7 +757,7 @@ version = "0.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe6837df1d5cba2397b835c8530f51723267e16abbf83892e9e5af4f0e5dd10a"
 dependencies = [
- "glob",
+ "glob 0.3.0",
  "libc",
  "libloading",
 ]
@@ -783,6 +793,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4344512281c643ae7638bbabc3af17a11307803ec8f0fcad9fae512a8bf36467"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "cmake"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e56268c17a6248366d66d4a47a3381369d068cce8409bb1716ed77ea32163bb"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -1973,6 +1992,12 @@ dependencies = [
 
 [[package]]
 name = "glob"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
+
+[[package]]
+name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
@@ -3065,7 +3090,7 @@ checksum = "eb5b56f651c204634b936be2f92dbb42c36867e00ff7fe2405591f3b9fa66f09"
 dependencies = [
  "bindgen",
  "cc",
- "glob",
+ "glob 0.3.0",
  "libc",
 ]
 
@@ -5814,6 +5839,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-service-test"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "fdlimit",
+ "futures 0.1.29",
+ "futures 0.3.5",
+ "hex-literal",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-executor",
+ "sc-light",
+ "sc-network",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-externalities",
+ "sp-panic-handler",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-tracing",
+ "sp-transaction-pool",
+ "sp-trie",
+ "substrate-test-runtime",
+ "substrate-test-runtime-client",
+ "tempfile",
+ "tokio 0.1.22",
+]
+
+[[package]]
 name = "sc-state-db"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -6470,6 +6532,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-consensus-aura"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "sp-consensus-babe"
 version = "0.8.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -7082,6 +7158,95 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-test-client"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "futures 0.1.29",
+ "futures 0.3.5",
+ "hash-db",
+ "hex",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-executor",
+ "sc-light",
+ "sc-service",
+ "serde",
+ "serde_json",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-state-machine",
+]
+
+[[package]]
+name = "substrate-test-runtime"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "cfg-if",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "memory-db",
+ "pallet-babe",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "parity-util-mem",
+ "sc-service",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-externalities",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-session",
+ "sp-state-machine",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0)",
+ "trie-db",
+]
+
+[[package]]
+name = "substrate-test-runtime-client"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "futures 0.3.5",
+ "parity-scale-codec",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-light",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-runtime",
+ "substrate-test-client",
+ "substrate-test-runtime",
+]
+
+[[package]]
 name = "substrate-test-utils"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -7106,6 +7271,11 @@ name = "substrate-wasm-builder-runner"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2a965994514ab35d3893e9260245f2947fd1981cdd4fffd2c6e6d1a9ce02e6a"
+
+[[package]]
+name = "substrate-wasm-builder-runner"
+version = "1.0.6"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
 
 [[package]]
 name = "subtle"
@@ -7847,6 +8017,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
+name = "wabt"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00bef93d5e6c81a293bccf107cf43aa47239382f455ba14869d36695d8963b9c"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "wabt-sys",
+]
+
+[[package]]
+name = "wabt-sys"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a4e043159f63e16986e713e9b5e1c06043df4848565bf672e27c523864c7791"
+dependencies = [
+ "cc",
+ "cmake",
+ "glob 0.2.11",
+]
+
+[[package]]
 name = "waker-fn"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8350,7 +8543,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b89249644df056b522696b1bb9e7c18c87e8ffa3e2f0dc3b0155875d6498f01b"
 dependencies = [
  "cc",
- "glob",
+ "glob 0.3.0",
  "itertools 0.9.0",
  "libc",
 ]
