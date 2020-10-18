@@ -507,6 +507,11 @@ impl crml_cennzx::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+impl prml_attestation::Trait for Runtime {
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -606,6 +611,7 @@ construct_runtime!(
 		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
+		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 29,
 	}
 );
 

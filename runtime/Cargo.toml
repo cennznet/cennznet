@@ -55,6 +55,7 @@ sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain
 sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 
+prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 
@@ -103,6 +104,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
+	"prml-attestation/std",
 	"prml-generic-asset/std",
 	"prml-generic-asset-rpc-runtime-api/std",
 	"serde",
