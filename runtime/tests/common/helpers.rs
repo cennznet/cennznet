@@ -24,12 +24,14 @@ use sp_runtime::{testing::Digest, traits::Header as HeaderT};
 
 /// A genesis hash to use for extrinsic signing
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
-/// The runtime version number for signing
-const VERSION: u32 = cennznet_runtime::VERSION.spec_version;
+/// The runtime spec version number for signing
+const SPEC_VERSION: u32 = cennznet_runtime::VERSION.spec_version;
+/// The runtime tx version number for signing
+const TX_VERSION: u32 = cennznet_runtime::VERSION.transaction_version;
 
-/// Sign the given `CheckedExtrinsic`, `xt`. Return the signed `UncheckedExtrinsic`
+/// Sign the given `CheckedExtrinsic` `xt` using pre-configured genesis hash, spec version, and tx version, values.
 pub fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	super::keyring::sign(xt, VERSION, GENESIS_HASH)
+	super::keyring::sign(xt, SPEC_VERSION, TX_VERSION, GENESIS_HASH)
 }
 
 /// Calculate the transaction fees of `xt` according to the current runtime implementation.

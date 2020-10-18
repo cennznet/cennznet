@@ -17,8 +17,8 @@
 
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{
-	constants::asset::*, sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic,
-	Executive, GenericAsset, Origin, SyloPayment, TransactionMaxWeightFee,
+	constants::{asset::*, currency::DOLLARS}, sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic,
+	Executive, GenericAsset, Origin, SyloPayment,
 };
 use frame_support::assert_ok;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
@@ -49,7 +49,7 @@ fn non_sylo_call_is_not_paid_by_payment_account() {
 	let call = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, dave(), 100));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
@@ -69,7 +69,7 @@ fn sylo_e2ee_call_is_paid_by_payment_account() {
 	let call = Call::SyloE2EE(sylo_e2ee::Call::register_device(1, vec![]));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
@@ -89,7 +89,7 @@ fn sylo_inbox_call_is_paid_by_payment_account() {
 	let call = Call::SyloInbox(sylo_inbox::Call::add_value(dave(), b"dude!".to_vec()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
@@ -109,7 +109,7 @@ fn sylo_vault_call_is_paid_by_payment_account() {
 	let call = Call::SyloVault(sylo_vault::Call::upsert_value(b"key".to_vec(), b"value".to_vec()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
@@ -129,7 +129,7 @@ fn sylo_response_call_is_paid_by_payment_account() {
 	let call = Call::SyloResponse(sylo_response::Call::remove_response([0u8; 32].into()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
@@ -155,7 +155,7 @@ fn sylo_groups_call_is_paid_by_payment_account() {
 	));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
 			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));

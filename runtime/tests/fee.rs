@@ -16,14 +16,15 @@
 //! Fee integration tests
 
 use cennznet_runtime::{
-	constants::{asset::*, currency::*, fee::MAX_WEIGHT},
-	Call, CheckedExtrinsic, TransactionMaxWeightFee, TransactionMinWeightFee, TransactionPayment, UncheckedExtrinsic,
+	constants::{asset::*, currency::*},
+	Call, CheckedExtrinsic, TransactionPayment, UncheckedExtrinsic,
 };
 use codec::Encode;
 use frame_support::weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 
 mod common;
-use common::keyring::{alice, bob, sign, signed_extra};
+use common::helpers::sign;
+use common::keyring::{alice, bob, signed_extra};
 use common::mock::ExtBuilder;
 
 // Make signed transaction given a `Call`
@@ -33,41 +34,7 @@ fn signed_tx(call: Call) -> UncheckedExtrinsic {
 			signed: Some((alice(), signed_extra(0, 0, None))),
 			function: call,
 		},
-		4,                  // tx version
-		Default::default(), // genesis hash
 	)
-}
-
-#[test]
-fn fee_scaling_max_weight() {
-	ExtBuilder::default().build().execute_with(|| {
-		let dispatch_info = DispatchInfo {
-			weight: MAX_WEIGHT as u64,
-			class: DispatchClass::Operational,
-			pays_fee: Pays::Yes,
-		};
-		// Scales to maximum weight fee + transaction base fee
-		assert_eq!(
-			TransactionMaxWeightFee::get() + TransactionMinWeightFee::get(),
-			TransactionPayment::compute_fee(0, &dispatch_info, 0)
-		);
-	});
-}
-
-#[test]
-fn fee_scaling_min_weight() {
-	ExtBuilder::default().build().execute_with(|| {
-		let dispatch_info = DispatchInfo {
-			weight: 1,
-			class: DispatchClass::Operational,
-			pays_fee: Pays::Yes,
-		};
-		// Scales to minimum weight fee + transaction base fee
-		assert_eq!(
-			TransactionMinWeightFee::get(),
-			TransactionPayment::compute_fee(0, &dispatch_info, 0)
-		);
-	});
 }
 
 // These following tests may be used to inspect transaction fee values.

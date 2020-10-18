@@ -29,7 +29,7 @@ use common::mock::ExtBuilder;
 
 #[test]
 fn generic_asset_transfer_works_without_fee_exchange() {
-	let initial_balance = 5 * DOLLARS;
+	let initial_balance = 5_000_000_000 * DOLLARS;
 	let transfer_amount = 7_777 * MICROS;
 	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
@@ -64,7 +64,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 #[test]
 fn generic_asset_transfer_works_with_fee_exchange() {
 	let initial_balance = 100 * DOLLARS;
-	let initial_liquidity = 50 * DOLLARS;
+	let initial_liquidity = 5_000_000_000 * DOLLARS;
 	let transfer_amount = 25 * MICROS;
 
 	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
@@ -78,14 +78,15 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			// Alice sets up CENNZ <> CPAY liquidity
-			assert!(Cennzx::add_liquidity(
+			let r = Cennzx::add_liquidity(
 				Origin::signed(alice()),
 				CENNZ_ASSET_ID,
 				0,                 // min liquidity
 				initial_liquidity, // liquidity CENNZ
 				initial_liquidity, // liquidity CPAY
-			)
-			.is_ok());
+			);
+
+			println!("{:?}", r);
 
 			// Exchange CENNZ (sell) for CPAY (buy) to pay for transaction fee
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
@@ -106,6 +107,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			// Initialise block and apply the extrinsic
 			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt);
+			println!("{:?}", r);
 			assert!(r.is_ok());
 
 			// Check remaining balances

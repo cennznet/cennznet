@@ -328,7 +328,7 @@ impl prml_generic_asset::Trait for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MICROS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
-	// weight: 100, 1: cpay
+	// weight:cpay / 100:1
 	pub const WeightToCpayFactor: Perbill = Perbill::from_percent(1);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
