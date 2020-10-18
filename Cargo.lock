@@ -679,6 +679,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
+ "prml-attestation",
  "prml-generic-asset",
  "prml-generic-asset-rpc-runtime-api",
  "serde",
@@ -4352,6 +4353,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "prml-attestation"
+version = "2.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "prml-generic-asset"
 version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
@@ -7269,13 +7285,13 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder-runner"
 version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2a965994514ab35d3893e9260245f2947fd1981cdd4fffd2c6e6d1a9ce02e6a"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
 
 [[package]]
 name = "substrate-wasm-builder-runner"
 version = "1.0.6"
-source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#307a6e04404a52d00c24ee051c577085f29e1d71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2a965994514ab35d3893e9260245f2947fd1981cdd4fffd2c6e6d1a9ce02e6a"
 
 [[package]]
 name = "subtle"
