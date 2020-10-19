@@ -306,12 +306,11 @@ mod tests {
 			let mut fm = Multiplier::one();
 			// `DAYS` is a function of `SECS_PER_BLOCK`
 			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
-			// second block time
+			// 3 second block time
 			for _ in 0..DAYS {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
 			}
-			println!("{:?}", fm);
 			assert!(fm > Multiplier::saturating_from_rational(1234, 1000));
 		})
 	}
@@ -471,8 +470,8 @@ mod tests {
 
 	#[test]
 	fn weight_to_cpay_fee_scaling() {
-		// 100,000:1, configured in runtime/src/lib.rs `WeightToCpayFactor`
-		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&100_000), 1 * MICROS);
+		// ~1,000,000:1, configured in runtime/src/lib.rs `WeightToCpayFactor`
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&1_000_000), 1 * MICROS);
 		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
 		// check no issues at max. value
 		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());

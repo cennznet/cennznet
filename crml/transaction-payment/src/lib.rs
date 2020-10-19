@@ -477,9 +477,9 @@ where
 
 #[derive(Debug, Encode, Decode, Clone, Eq, PartialEq)]
 /// The variable parts of a transaction's fees
-/// It does not store the `base_fee` as it is a runtime constant
 /// The `tip` is also excluded as it is known by the transactor/caller.
 pub struct FeeParts<Balance: Saturating> {
+	/// The base weight fee for any extrinsic
 	base_fee: Balance,
 	/// The length fee
 	/// It changes based on the size of the transaction.
