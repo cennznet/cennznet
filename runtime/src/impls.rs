@@ -16,18 +16,16 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{
-	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	Call, Runtime,
-};
+use crate::{Call, Runtime};
 use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get},
-	weights::Weight,
+	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, StakingAssetCurrency};
-use sp_runtime::traits::Convert;
+use smallvec::smallvec;
+use sp_runtime::{traits::Convert, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
 
 // TODO uncomment the following code after enable cennznet staking module
@@ -69,30 +67,21 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Convert from weight to fee balance by scaling it into the desired fee range.
-/// i.e. transpose weight values so that: `min_fee` < weight < `max_fee`
-pub struct ScaledWeightToFee<MinFee, MaxFee>(sp_std::marker::PhantomData<(MinFee, MaxFee)>);
+/// Provides a simple weight to fee conversion function for
+/// use with the CENNZnet 4dp spending asset, CPAY.
+pub struct WeightToCpayFee<G: Get<Perbill>>(sp_std::marker::PhantomData<G>);
 
-impl<MinFee: Get<Balance>, MaxFee: Get<Balance>> Convert<Weight, Balance> for ScaledWeightToFee<MinFee, MaxFee> {
-	/// Transpose weight values to desired fee range i.e. `min_fee` < x < `max_fee`
-	fn convert(w: Weight) -> Balance {
-		let weight = Balance::from(w);
-
-		// Runtime constants
-		let min_fee = MinFee::get();
-		let max_fee = MaxFee::get();
-		debug_assert!(max_fee > min_fee);
-		debug_assert!(MAX_WEIGHT > MIN_WEIGHT);
-
-		//      (weight - MIN_WEIGHT) * [min_fee, max_fee]
-		//  y = ------------------------------------------ + min_fee
-		//              [MIN_WEIGHT, MAX_WEIGHT]
-
-		// ensure `weight` is in range: [MIN_WEIGHT, MAX_WEIGHT] for correct scaling.
-		let capped_weight = weight.min(MAX_WEIGHT).max(MIN_WEIGHT);
-		((capped_weight.saturating_sub(MIN_WEIGHT)).saturating_mul(max_fee.saturating_sub(min_fee))
-			/ (MAX_WEIGHT.saturating_sub(MIN_WEIGHT)))
-		.saturating_add(min_fee)
+impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
+	/// The runtime Balance type
+	type Balance = Balance;
+	/// Scale weights to fees by a factor of 1/`G`
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		smallvec!(WeightToFeeCoefficient {
+			coeff_integer: 0,
+			coeff_frac: G::get(),
+			negative: false,
+			degree: 1,
+		})
 	}
 }
 
@@ -178,7 +167,7 @@ mod tests {
 			time::DAYS,
 		},
 		AdjustmentVariable, AvailableBlockRatio, MaximumBlockWeight, MinimumMultiplier, Multiplier, Runtime, System,
-		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment,
+		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
 	use frame_support::weights::{Weight, WeightToFeePolynomial};
 	use sp_runtime::{assert_eq_error_rate, FixedPointNumber};
@@ -310,10 +299,14 @@ mod tests {
 
 	#[test]
 	fn min_change_per_day() {
+		// Start with an adjustment multiplier of 1.
+		// if every block in 24 hour period has a maximum weight then the multiplier should have increased
+		// to > ~23% by the end of the period.
 		run_with_system_weight(max(), || {
 			let mut fm = Multiplier::one();
-			// See the example in the doc of `TargetedFeeAdjustment`. are at least 0.234, hence
-			// `fm > 1.234`.
+			// `DAYS` is a function of `SECS_PER_BLOCK`
+			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
+			// 3 second block time
 			for _ in 0..DAYS {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
@@ -473,5 +466,14 @@ mod tests {
 				assert_eq!(fm, max_fm);
 			})
 		});
+	}
+
+	#[test]
+	fn weight_to_cpay_fee_scaling() {
+		// ~1,000,000:1, configured in runtime/src/lib.rs `WeightToCpayFactor`
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&1_000_000), 1 * MICROS);
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
+		// check no issues at max. value
+		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());
 	}
 }

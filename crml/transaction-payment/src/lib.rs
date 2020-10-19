@@ -438,11 +438,76 @@ where
 		}
 	}
 
+	/// Introspectable version of `compute_fee_raw`.
+	/// Used to inspect fee composition in runtime integration tests, `tip` is ignored.
+	pub fn compute_fee_parts(len: u32, info: &DispatchInfoOf<T::Call>) -> FeeParts<BalanceOf<T>>
+	where
+		T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	{
+		let weight = info.weight;
+		let len = <BalanceOf<T>>::from(len);
+		let per_byte = T::TransactionByteFee::get();
+
+		// length fee. this is not adjusted.
+		let fixed_len_fee = per_byte.saturating_mul(len);
+
+		// the adjustable part of the fee.
+		let unadjusted_weight_fee = Self::weight_to_fee(weight);
+		let multiplier = Self::next_fee_multiplier();
+		// final adjusted weight fee.
+		let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
+
+		let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
+
+		FeeParts::new(
+			base_fee,
+			fixed_len_fee,
+			unadjusted_weight_fee,
+			adjusted_weight_fee - unadjusted_weight_fee,
+		)
+	}
+
 	fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
-		// cap the weight to the maximum defined in runtime, otherwise it will be the
+		// cap the weight to the per block maximum defined in runtime, otherwise it will be the
 		// `Bounded` maximum of its data type, which is not desired.
 		let capped_weight = weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
 		T::WeightToFee::calc(&capped_weight)
+	}
+}
+
+#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq)]
+/// The variable parts of a transaction's fees
+/// The `tip` is also excluded as it is known by the transactor/caller.
+pub struct FeeParts<Balance: Saturating> {
+	/// The base weight fee for any extrinsic
+	base_fee: Balance,
+	/// The length fee
+	/// It changes based on the size of the transaction.
+	length_fee: Balance,
+	/// The weight fee
+	/// It changes based on the computational resources required by the transaction.
+	weight_fee: Balance,
+	/// The peak adjustment fee.
+	/// It changes based on recent network transaction load (or more formally "block fullness").
+	peak_adjustment_fee: Balance,
+}
+
+impl<Balance: Copy + Saturating> FeeParts<Balance> {
+	pub fn new(base_fee: Balance, length_fee: Balance, weight_fee: Balance, peak_adjustment_fee: Balance) -> Self {
+		FeeParts {
+			base_fee,
+			length_fee,
+			weight_fee,
+			peak_adjustment_fee,
+		}
+	}
+	/// Calculate the total fee from it's parts
+	pub fn total(&self) -> Balance {
+		// total = length_fee + weight_fee + peak_adjustment_fee
+		self.length_fee
+			.saturating_add(self.base_fee)
+			.saturating_add(self.weight_fee)
+			.saturating_add(self.peak_adjustment_fee)
 	}
 }
 

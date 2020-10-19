@@ -683,6 +683,7 @@ dependencies = [
  "prml-generic-asset",
  "prml-generic-asset-rpc-runtime-api",
  "serde",
+ "smallvec 1.4.2",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",

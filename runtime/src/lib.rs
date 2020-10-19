@@ -92,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim};
+use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -319,26 +319,30 @@ impl pallet_timestamp::Trait for Runtime {
 }
 
 impl prml_generic_asset::Trait for Runtime {
-	type Balance = Balance;
 	type AssetId = AssetId;
+	type Balance = Balance;
 	type Event = Event;
 	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MICROS;
-	pub const TransactionMinWeightFee: Balance = 100 * MICROS;
-	pub const TransactionMaxWeightFee: Balance = 10 * DOLLARS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
-	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
-	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+	// weight:cpay/0.0015%
+	// optimising for a GA transfer fee of ~1.0000 CPAY
+	pub const WeightToCpayFactor: Perbill = Perbill::from_parts(1_500);
+	// `1/50_000` comes from  halving substrate's: `1/100,000` config.
+	// due to CENNZnet having a blocktime ~2x slower.
+	// We do this to constrain fee adjustment to the recommended +/-23% fee adjustment per day
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 50_000);
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 500_000_000u128);
 }
 impl crml_transaction_payment::Trait for Runtime {
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = ();
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 	type BuyFeeAsset = Cennzx;
 	type FeePayer = FeePayerResolver;
