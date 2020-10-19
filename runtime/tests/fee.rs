@@ -20,7 +20,7 @@ use cennznet_runtime::{
 	Call, CheckedExtrinsic, TransactionPayment, UncheckedExtrinsic,
 };
 use codec::Encode;
-use frame_support::weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::weights::GetDispatchInfo;
 
 mod common;
 use common::helpers::sign;
@@ -29,36 +29,37 @@ use common::mock::ExtBuilder;
 
 // Make signed transaction given a `Call`
 fn signed_tx(call: Call) -> UncheckedExtrinsic {
-	sign(
-		CheckedExtrinsic {
-			signed: Some((alice(), signed_extra(0, 0, None))),
-			function: call,
-		},
-	)
+	sign(CheckedExtrinsic {
+		signed: Some((alice(), signed_extra(0, 0, None))),
+		function: call,
+	})
 }
 
 // These following tests may be used to inspect transaction fee values.
 // They are not required to assert correctness.
+// last run range:
+// ```ignore
+// FeeParts { base_fee: 187, length_fee: 1490, weight_fee: 8760, peak_adjustment_fee: 0 }
+// ```
 #[test]
-#[ignore]
 fn fee_components_ga() {
 	ExtBuilder::default().build().execute_with(|| {
 		for amount in &[
-			1,
 			1 * DOLLARS,
 			100 * DOLLARS,
 			1000 * DOLLARS,
 			10_000 * DOLLARS,
 			100_000 * DOLLARS,
+			1_000_000 * DOLLARS,
 		] {
 			let call = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), *amount));
 			let tx = signed_tx(call);
-
-			let tx_fee = TransactionPayment::compute_fee(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info(), 0);
-			println!("{:?}", tx_fee);
+			let tx_fee =
+				TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());
+			println!("{:#?}", tx_fee);
+			// optimising for a GA transfer fee of ~1.0000 CPAY
+			assert!(1 * DOLLARS < tx_fee.total() && tx_fee.total() <= 2 * DOLLARS);
 		}
-
-		assert!(false);
 	});
 }
 
@@ -82,9 +83,8 @@ fn fee_components_sylo_e2ee_call() {
 			],
 		));
 		let tx = signed_tx(sylo_call);
-
-		let tx_fee = TransactionPayment::compute_fee(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info(), 0);
-		println!("{:?}", tx_fee);
+		let tx_fee = TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());
+		println!("{:#?}", tx_fee);
 
 		assert!(false);
 	});
@@ -103,8 +103,7 @@ fn fee_components_sylo_group_update_member() {
 			)],
 		));
 		let tx = signed_tx(sylo_call);
-
-		let tx_fee = TransactionPayment::compute_fee(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info(), 0);
+		let tx_fee = TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());
 		println!("{:?}", tx_fee);
 
 		assert!(false);
@@ -133,8 +132,7 @@ fn fee_components_sylo_vault_replenish_pkbs() {
 			],
 		));
 		let tx = signed_tx(sylo_call);
-
-		let tx_fee = TransactionPayment::compute_fee(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info(), 0);
+		let tx_fee = TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());
 		println!("{:?}", tx_fee);
 
 		assert!(false);
@@ -150,8 +148,7 @@ fn fee_components_sylo_vault_upsert_value() {
 			[2_u8; 64].to_vec(),
 		));
 		let tx = signed_tx(sylo_call);
-
-		let tx_fee = TransactionPayment::compute_fee(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info(), 0);
+		let tx_fee = TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());
 		println!("{:?}", tx_fee);
 
 		assert!(false);

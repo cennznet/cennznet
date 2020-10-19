@@ -319,8 +319,8 @@ impl pallet_timestamp::Trait for Runtime {
 }
 
 impl prml_generic_asset::Trait for Runtime {
-	type Balance = Balance;
 	type AssetId = AssetId;
+	type Balance = Balance;
 	type Event = Event;
 	type WeightInfo = ();
 }
@@ -328,10 +328,14 @@ impl prml_generic_asset::Trait for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MICROS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
-	// weight:cpay / 100:1
-	pub const WeightToCpayFactor: Perbill = Perbill::from_percent(1);
-	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
-	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+	// weight:cpay/1,000,000:1/0.0015%
+	// optimising for a GA transfer fee of ~1.0000 CPAY
+	pub const WeightToCpayFactor: Perbill = Perbill::from_parts(1_500);
+	// `1/50_000` comes from  halving substrate's: `1/100,000` config.
+	// due to CENNZnet having a blocktime ~2x slower.
+	// We do this to constrain fee adjustment to the recommended +/-23% fee adjustment per day
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 50_000);
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 500_000_000u128);
 }
 impl crml_transaction_payment::Trait for Runtime {
 	type AssetId = AssetId;

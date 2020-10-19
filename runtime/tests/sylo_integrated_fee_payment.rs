@@ -17,8 +17,9 @@
 
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{
-	constants::{asset::*, currency::DOLLARS}, sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic,
-	Executive, GenericAsset, Origin, SyloPayment,
+	constants::{asset::*, currency::DOLLARS},
+	sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic, Executive, GenericAsset,
+	Origin, SyloPayment,
 };
 use frame_support::assert_ok;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;

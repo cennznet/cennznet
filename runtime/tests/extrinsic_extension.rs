@@ -20,6 +20,7 @@ use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
+use frame_support::assert_ok;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 
 mod common;
@@ -29,7 +30,7 @@ use common::mock::ExtBuilder;
 
 #[test]
 fn generic_asset_transfer_works_without_fee_exchange() {
-	let initial_balance = 5_000_000_000 * DOLLARS;
+	let initial_balance = 10 * DOLLARS;
 	let transfer_amount = 7_777 * MICROS;
 	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
@@ -48,6 +49,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 
 			Executive::initialize_block(&header());
 			let r = Executive::apply_extrinsic(xt.clone());
+			println!("{:?}", r);
 			assert!(r.is_ok());
 
 			assert_eq!(
@@ -64,7 +66,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 #[test]
 fn generic_asset_transfer_works_with_fee_exchange() {
 	let initial_balance = 100 * DOLLARS;
-	let initial_liquidity = 5_000_000_000 * DOLLARS;
+	let initial_liquidity = 50 * DOLLARS;
 	let transfer_amount = 25 * MICROS;
 
 	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
@@ -78,20 +80,18 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			// Alice sets up CENNZ <> CPAY liquidity
-			let r = Cennzx::add_liquidity(
+			assert_ok!(Cennzx::add_liquidity(
 				Origin::signed(alice()),
 				CENNZ_ASSET_ID,
-				0,                 // min liquidity
+				initial_liquidity, // min. liquidity
 				initial_liquidity, // liquidity CENNZ
 				initial_liquidity, // liquidity CPAY
-			);
-
-			println!("{:?}", r);
+			));
 
 			// Exchange CENNZ (sell) for CPAY (buy) to pay for transaction fee
 			let fee_exchange = FeeExchange::V1(FeeExchangeV1 {
 				asset_id: CENNZ_ASSET_ID,
-				max_payment: 5 * DOLLARS,
+				max_payment: 10 * DOLLARS,
 			});
 			// Create an extrinsic where the transaction fee is to be paid in CENNZ
 			let xt = sign(CheckedExtrinsic {
@@ -102,7 +102,6 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			// Calculate how much CENNZ should be sold to make the above extrinsic
 			let cennz_sold_amount =
 				Cennzx::get_asset_to_core_buy_price(CENNZ_ASSET_ID, extrinsic_fee_for(&xt)).unwrap();
-			assert_eq!(cennz_sold_amount, 11_807 * MICROS); // 1.1807 CPAY
 
 			// Initialise block and apply the extrinsic
 			Executive::initialize_block(&header());
