@@ -254,7 +254,8 @@ mod multi_token_economy_tests;
 #[cfg(test)]
 mod tests;
 
-pub mod slashing;
+mod slashing;
+pub use slashing::REWARD_F1;
 
 pub mod inflation;
 
