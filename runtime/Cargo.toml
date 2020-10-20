@@ -10,6 +10,7 @@ repository = "https://github.com/cennznet/cennznet"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
+crml-staking = { path = "../crml/staking", default-features = false}
 cennznet-cli = { path = "../cli", default-features = false }
 sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 wabt = "0.10.0"
@@ -76,11 +77,11 @@ crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
-crml-staking = { path = "../crml/staking", default-features = false}
+crml-staking = { path = "../crml/staking", default-features = false, features = ["no-bond"]}
 crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
 
 [build-dependencies]
-wasm-builder-runner = { version = "1.0.5", package = "substrate-wasm-builder-runner" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [features]
 default = ["std"]

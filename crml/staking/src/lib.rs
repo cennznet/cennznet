@@ -1006,6 +1006,10 @@ decl_module! {
 			#[compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>
 		) {
+			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
+			#[cfg(no_bond)]
+			let _ = ensure_root(origin.clone())?;
+
 			let stash = ensure_signed(origin)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
@@ -1048,6 +1052,10 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
+			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
+			#[cfg(no_bond)]
+			let _ = ensure_root(origin.clone())?;
+
 			let stash = ensure_signed(origin)?;
 
 			let controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1088,6 +1096,10 @@ decl_module! {
 		/// </weight>
 		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
+			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
+			#[cfg(no_bond)]
+			let _ = ensure_root(origin.clone())?;
+
 			let controller = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1127,6 +1139,10 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::rebond()]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
+			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
+			#[cfg(no_bond)]
+			let _ = ensure_root(origin.clone())?;
+
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1179,6 +1195,10 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::withdraw_unbonded()]
 		fn withdraw_unbonded(origin) {
+			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
+			#[cfg(no_bond)]
+			let _ = ensure_root(origin.clone())?;
+
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let ledger = ledger.consolidate_unlocked(Self::current_era());

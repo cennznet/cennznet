@@ -47,3 +47,4 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 ]
+no-bond = []
