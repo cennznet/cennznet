@@ -28,10 +28,8 @@ use frame_support::{
 	assert_ok,
 	storage::StorageValue,
 	traits::{OnInitialize, UnfilteredDispatchable},
-	weights::Weight,
 };
 use frame_system::RawOrigin;
-use pallet_im_online::UnresponsivenessOffence;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
@@ -373,7 +371,6 @@ fn staking_inflation_and_reward_should_work() {
 }
 
 #[test]
-#[ignore]
 fn staking_validators_should_receive_equal_transaction_fee_reward() {
 	let validators = make_authority_keys(6);
 	let balance_amount = 100_000_000 * DOLLARS;
@@ -567,8 +564,7 @@ fn authorship_reward_of_a_chilled_validator() {
 }
 
 #[test]
-/// This tests if slash goes to treasury as CENNZ.
-fn slashed_cennz_gets_into_treasury() {
+fn slashed_cennz_goes_to_treasury() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 	ExtBuilder::default()
@@ -580,10 +576,11 @@ fn slashed_cennz_gets_into_treasury() {
 			// Initially treasury has no CENNZ
 			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
 
-			// Simulate a 100% slash able offence on validator[0]
+			// validators[0].0 is the stash account of the first validator
+			let offender = &validators[0].0;
+			// Simulate a slash-able offence on validator[0]
 			let offence = OffenceDetails {
-				// validators[0].0 is the stash account of the first validator
-				offender: (validators[0].0.clone(), Staking::stakers(&validators[0].0)),
+				offender: (offender.clone(), Staking::stakers(&offender)),
 				reporters: vec![],
 			};
 			let slash_fraction = Perbill::from_percent(100);
@@ -601,6 +598,56 @@ fn slashed_cennz_gets_into_treasury() {
 				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
 				initial_balance
 			);
-			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &validators[0].0).is_zero());
+			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &offender).is_zero());
+		});
+}
+
+#[test]
+fn slashed_cennz_goes_to_reporter() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Initially treasury has no CENNZ
+			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
+			let offender = &validators[0].0;
+			let reporter = &validators[1].0;
+
+			// Simulate a slash-able offence on validator[0]
+			let offence = OffenceDetails {
+				// validators[0].0 is the stash account of the first validator
+				offender: (offender.clone(), Staking::stakers(&offender)),
+				reporters: vec![reporter.clone()],
+			};
+			let slash_fraction = Perbill::from_percent(90);
+			assert_ok!(Staking::on_offence(
+				&[offence],
+				&[slash_fraction],
+				Staking::current_era_start_session_index(),
+			));
+			let total_slash = slash_fraction * initial_balance;
+
+			// Fast-forward eras so that the slash is applied
+			start_era(SlashDeferDuration::get() + 1);
+			// offender CENNZ funds are fully slashed
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &offender),
+				initial_balance - total_slash
+			);
+			// reporter is paid a CENNZ reporter's fee
+			let reporter_fee = (Staking::slash_reward_fraction() * total_slash) / 2;
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &reporter),
+				initial_balance + reporter_fee
+			);
+			// Treasury should receive remainder of slash after the CENNZ reporter's fee
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
+				total_slash - reporter_fee
+			);
 		});
 }
