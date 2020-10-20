@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, Runtime};
+use crate::{Call, Runtime, Treasury};
 use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
 	dispatch::DispatchResult,
