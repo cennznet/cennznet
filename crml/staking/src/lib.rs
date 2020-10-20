@@ -876,6 +876,10 @@ decl_storage! {
 		/// The earliest era for which we have a pending, unapplied slash.
 		EarliestUnappliedSlash: Option<EraIndex>;
 
+		// TODO remove the following variable when https://github.com/cennznet/cennznet/issues/297
+		/// Used to toggle the bonding functionality off/on
+		BlockBonding get(fn block_bonding) config(): bool;
+
 		/// The version of storage for upgrade.
 		StorageVersion: u32;
 	}
@@ -963,6 +967,8 @@ decl_error! {
 		NotSortedAndUnique,
 		/// Cannot nominate the same account multiple times
 		DuplicateNominee,
+		// TODO remove the following error when https://github.com/cennznet/cennznet/issues/297
+		BondingNotEnabled,
 	}
 }
 
@@ -1006,9 +1012,7 @@ decl_module! {
 			#[compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>
 		) {
-			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(feature = "no-bond")]
-			let _ = ensure_root(origin.clone())?;
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
 			let stash = ensure_signed(origin)?;
 
@@ -1052,9 +1056,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
-			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(feature = "no-bond")]
-			let _ = ensure_root(origin.clone())?;
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
 			let stash = ensure_signed(origin)?;
 
@@ -1096,9 +1098,7 @@ decl_module! {
 		/// </weight>
 		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
-			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(feature = "no-bond")]
-			let _ = ensure_root(origin.clone())?;
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
 			let controller = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1139,9 +1139,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::rebond()]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
-			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(feature = "no-bond")]
-			let _ = ensure_root(origin.clone())?;
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1195,9 +1193,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::withdraw_unbonded()]
 		fn withdraw_unbonded(origin) {
-			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(feature = "no-bond")]
-			let _ = ensure_root(origin.clone())?;
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
