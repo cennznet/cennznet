@@ -1007,7 +1007,7 @@ decl_module! {
 			payee: RewardDestination<T::AccountId>
 		) {
 			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(no_bond)]
+			#[cfg(feature = "no-bond")]
 			let _ = ensure_root(origin.clone())?;
 
 			let stash = ensure_signed(origin)?;
@@ -1053,7 +1053,7 @@ decl_module! {
 		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
 			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(no_bond)]
+			#[cfg(feature = "no-bond")]
 			let _ = ensure_root(origin.clone())?;
 
 			let stash = ensure_signed(origin)?;
@@ -1097,7 +1097,7 @@ decl_module! {
 		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
 			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(no_bond)]
+			#[cfg(feature = "no-bond")]
 			let _ = ensure_root(origin.clone())?;
 
 			let controller = ensure_signed(origin)?;
@@ -1140,7 +1140,7 @@ decl_module! {
 		#[weight = T::WeightInfo::rebond()]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
 			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(no_bond)]
+			#[cfg(feature = "no-bond")]
 			let _ = ensure_root(origin.clone())?;
 
 			let controller = ensure_signed(origin)?;
@@ -1196,7 +1196,7 @@ decl_module! {
 		#[weight = T::WeightInfo::withdraw_unbonded()]
 		fn withdraw_unbonded(origin) {
 			// TODO remove the following 2 lines when https://github.com/cennznet/cennznet/issues/297
-			#[cfg(no_bond)]
+			#[cfg(feature = "no-bond")]
 			let _ = ensure_root(origin.clone())?;
 
 			let controller = ensure_signed(origin)?;
