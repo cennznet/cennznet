@@ -61,7 +61,7 @@ use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
-const REWARD_F1: Perbill = Perbill::from_percent(50);
+pub const REWARD_F1: Perbill = Perbill::from_percent(50);
 
 /// The index of a slashing span - unique to each stash.
 pub(crate) type SpanIndex = u32;

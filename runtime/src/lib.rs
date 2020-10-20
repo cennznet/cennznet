@@ -92,7 +92,9 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{
+	CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, SlashFundsToTreasury, WeightToCpayFee,
+};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
