@@ -1,0 +1,32 @@
+[package]
+name = "crml-rewards"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+description = "CENNZnet rewards pallet"
+
+[dependencies]
+serde = { version = "1.0.102", optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
+cennznet-primitives = { default-features = false, path = "../../primitives" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+sp-io = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+sp-arithmetic = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"cennznet-primitives/std",
+	"sp-arithmetic/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"frame-support/std",
+	"frame-system/std",
+]

@@ -6,10 +6,10 @@ edition = "2018"
 repository = "https://github.com/cennznet/cennznet"
 description = "CENNZnet staking pallet"
 
-
 [dependencies]
 serde = { version = "1.0.101", optional = true }
 codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
+cennznet-primitives = { default-features = false, path = "../../primitives" }
 sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 sp-npos-elections = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
@@ -22,7 +22,6 @@ pallet-session = { default-features = false, features = ["historical"], git = "h
 pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [dev-dependencies]
-crml-staking-reward-curve = { path = "../staking/reward-curve" }
 hex = "0.4"
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
@@ -36,6 +35,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"serde",
+	"cennznet-primitives/std",
 	"sp-io/std",
 	"sp-keyring",
 	"sp-std/std",

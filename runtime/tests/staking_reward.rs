@@ -644,8 +644,7 @@ fn slashed_cennz_goes_to_reporter() {
 			);
 			// reporter fee calculation doesn't have a nice API
 			// so we reproduce it here from variables, this is the calculation for the first slash of a slashing span.
-			let reporter_fee =
-				(Staking::slash_reward_fraction().saturating_mul(crml_staking::REWARD_F1)) * total_slash;
+			let reporter_fee = (Staking::slash_reward_fraction().saturating_mul(crml_staking::REWARD_F1)) * total_slash;
 			// reporter is paid a CENNZ reporter's fee
 			assert_eq!(
 				GenericAsset::free_balance(CENNZ_ASSET_ID, &reporter),
