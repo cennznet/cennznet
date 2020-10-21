@@ -16,14 +16,14 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, Runtime};
+use crate::{Call, Runtime, Treasury};
 use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
 	dispatch::DispatchResult,
-	traits::{Contains, ContainsLengthBound, Currency, Get},
+	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, StakingAssetCurrency};
+use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, NegativeImbalance, StakingAssetCurrency};
 use smallvec::smallvec;
 use sp_runtime::{traits::Convert, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
@@ -133,7 +133,6 @@ impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
 /// Provides an impl for the `SimpleAssetSystem` trait
 /// Used to integrate GA with CENNZX
 pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
-
 impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
 	type AccountId = T::AccountId;
 	type AssetId = T::AssetId;
@@ -155,6 +154,15 @@ impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
 	/// Get the default asset/currency ID in the system
 	fn default_asset_id() -> Self::AssetId {
 		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
+	}
+}
+
+/// An on unbalanced handler which takes a slash amount in the staked currency
+/// and moves it to the system `Treasury` account.
+pub struct SlashFundsToTreasury;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for SlashFundsToTreasury {
+	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance<Runtime>) {
+		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
 	}
 }
 

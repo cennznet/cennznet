@@ -18,9 +18,9 @@
 use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, DigestItem, Header};
 use cennznet_runtime::{
-	constants::{asset::*, currency::*},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Runtime, Session, SessionsPerEra, Staking,
-	System, Timestamp,
+	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Runtime, Session, SessionsPerEra,
+	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, RewardDestination, StakingLedger};
@@ -30,16 +30,22 @@ use frame_support::{
 	traits::{OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
+use pallet_im_online::UnresponsivenessOffence;
 use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
-use sp_runtime::{traits::Header as HeaderT, Perbill};
-use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+use sp_runtime::{
+	traits::{Header as HeaderT, Saturating, Zero},
+	Perbill,
+};
+use sp_staking::{
+	offence::{Offence, OffenceDetails, OnOffenceHandler},
+	SessionIndex,
+};
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
-use frame_support::weights::Weight;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
@@ -107,16 +113,16 @@ fn start_session(session_index: SessionIndex) {
 	// If we run the function for the first time, block_number is 1, which won't
 	// trigger Babe::should_end_session() so we have to run one extra loop. But
 	// successive calls don't need to run one extra loop. See Babe::should_epoch_change()
-	let up_to_session_index = if Session::current_index() == 0 {
+	let up_to_session_index = if Session::current_index().is_zero() {
 		session_index + 1
 	} else {
 		session_index
 	};
 	for i in Session::current_index()..up_to_session_index {
-		// TODO Untie the block number from the session index as they are independet concepts.
+		// TODO Untie the block number from the session index as they are independent concepts.
 		System::set_block_number((i + 1).into());
 		pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-		Timestamp::set_timestamp((System::block_number() * 1000).into());
+		Timestamp::set_timestamp((System::block_number() * MILLISECS_PER_BLOCK as u32).into());
 		Session::on_initialize(System::block_number()); // this ends session
 	}
 	assert_eq!(Session::current_index(), session_index);
@@ -524,20 +530,14 @@ fn authorship_reward_of_a_chilled_validator() {
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
 			// Report an offence for the author of the block that is going to be initialised
-			assert_ok!(
-				<<Runtime as pallet_offences::Trait>::OnOffenceHandler as OnOffenceHandler<
-					<Runtime as frame_system::Trait>::AccountId,
-					<Runtime as pallet_offences::Trait>::IdentificationTuple,
-					Weight,
-				>>::on_offence(
-					&[sp_staking::offence::OffenceDetails {
-						offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
-						reporters: vec![],
-					}],
-					&[Perbill::from_percent(0)],
-					Session::current_index(),
-				)
-			);
+			assert_ok!(Staking::on_offence(
+				&[sp_staking::offence::OffenceDetails {
+					offender: (author_stash_id.clone(), Staking::stakers(&author_stash_id)),
+					reporters: vec![],
+				}],
+				&[Perbill::from_percent(0)],
+				Session::current_index(),
+			));
 
 			// The previous session should come to its end
 			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
@@ -560,6 +560,100 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert!(
 				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id)
 					> author_stash_balance_before_adding_block
+			);
+		});
+}
+
+#[test]
+fn slashed_cennz_goes_to_treasury() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Initially treasury has no CENNZ
+			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
+
+			let validator_set_count = validators.len() as u32;
+			let offenders_count = validator_set_count; // All validators are offenders
+
+			// calculate the total slashed amount for an Unresponsiveness offence
+			let slashed_amount = UnresponsivenessOffence::<()>::slash_fraction(offenders_count, validator_set_count);
+			let per_offender_slash = slashed_amount * initial_balance;
+			let total_slashed_cennz = per_offender_slash.saturating_mul(offenders_count.into());
+
+			// Fast-forward eras, 'i'm online' heartbeats are not submitted during this process which will
+			// result in automatic slash reports being generated by the protocol against all staked validators.
+			// Once `SlashDeferDuration` + 1 eras have passed the offence from era(0) will be applied.
+			start_era(SlashDeferDuration::get() + 1);
+
+			// Treasury should receive all offenders stake
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
+				total_slashed_cennz,
+			);
+			// All validators stashes are slashed entirely
+			validators.iter().for_each(|validator_keys| {
+				assert_eq!(
+					GenericAsset::free_balance(CENNZ_ASSET_ID, &validator_keys.0),
+					initial_balance - per_offender_slash
+				)
+			});
+		});
+}
+
+#[test]
+fn slashed_cennz_goes_to_reporter() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(1);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Initially treasury has no CENNZ
+			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
+			let offender = &validators[0].0;
+			let reporter = bob();
+
+			// Make a slash-able offence report on validator[0]
+			let offence = OffenceDetails {
+				// validators[0].0 is the stash account of the first validator
+				offender: (offender.clone(), Staking::stakers(&offender)),
+				reporters: vec![reporter.clone()],
+			};
+			let slash_fraction = Perbill::from_percent(90);
+			assert_ok!(Staking::on_offence(
+				&[offence],
+				&[slash_fraction],
+				Staking::current_era_start_session_index(),
+			));
+
+			// Fast-forward eras so that the slash is applied
+			start_era(SlashDeferDuration::get() + 1);
+
+			// offender CENNZ funds are slashed
+			let total_slash = slash_fraction * initial_balance;
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &offender),
+				initial_balance - total_slash
+			);
+			// reporter fee calculation doesn't have a nice API
+			// so we reproduce it here from variables, this is the calculation for the first slash of a slashing span.
+			let reporter_fee = (Staking::slash_reward_fraction().saturating_mul(crml_staking::REWARD_F1)) * total_slash;
+			// reporter is paid a CENNZ reporter's fee
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &reporter),
+				initial_balance + reporter_fee
+			);
+			// Treasury should receive remainder of slash after the CENNZ reporter's fee
+			assert_eq!(
+				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
+				total_slash - reporter_fee
 			);
 		});
 }

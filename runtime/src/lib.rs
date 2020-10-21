@@ -92,7 +92,9 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, WeightToCpayFee};
+use impls::{
+	CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, SlashFundsToTreasury, WeightToCpayFee,
+};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -281,7 +283,7 @@ impl crml_staking::Trait for Runtime {
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = Treasury;
 	type Event = Event;
-	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -297,10 +299,10 @@ parameter_types! {
 impl pallet_session::Trait for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Trait>::AccountId;
-	type ValidatorIdOf = ();
+	type ValidatorIdOf = crml_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Runtime, Staking>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -412,13 +414,13 @@ parameter_types! {
 impl pallet_offences::Trait for Runtime {
 	type Event = Event;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = ();
+	type OnOffenceHandler = Staking;
 	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl pallet_session::historical::Trait for Runtime {
 	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = crml_staking::ExposureOf<Runtime>;
+	type FullIdentificationOf = crml_staking::ExposureOf<Self>;
 }
 
 parameter_types! {
@@ -430,7 +432,6 @@ parameter_types! {
 	pub const MaxAdditionalFields: u32 = 100;
 	pub const MaxRegistrars: u32 = 20;
 }
-
 impl pallet_identity::Trait for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;

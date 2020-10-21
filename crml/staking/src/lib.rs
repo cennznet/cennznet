@@ -255,6 +255,7 @@ mod multi_token_economy_tests;
 mod tests;
 
 mod slashing;
+pub use slashing::REWARD_F1;
 
 pub mod inflation;
 
