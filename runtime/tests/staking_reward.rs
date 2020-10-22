@@ -180,6 +180,7 @@ fn start_era_works() {
 // Test to show that every extrinsic applied will add transfer fee to
 // CurrentEraFeeRewards (until it's paid out at the end of an era)
 #[test]
+#[ignore]
 fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
 	let mut total_transfer_fee: Balance = 0;
@@ -268,6 +269,7 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
+#[ignore]
 fn staking_inflation_and_reward_should_work() {
 	let balance_amount = 100_000_000 * DOLLARS;
 	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
@@ -372,6 +374,7 @@ fn staking_inflation_and_reward_should_work() {
 }
 
 #[test]
+#[ignore]
 fn staking_validators_should_receive_equal_transaction_fee_reward() {
 	let validators = make_authority_keys(6);
 	let balance_amount = 100_000_000 * DOLLARS;
@@ -446,6 +449,7 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 }
 
 #[test]
+#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in.
 fn authorship_reward_of_last_block_in_an_era() {
 	let validators = make_authority_keys(6);
@@ -500,6 +504,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 }
 
 #[test]
+#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
 fn authorship_reward_of_a_chilled_validator() {

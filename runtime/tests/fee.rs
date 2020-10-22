@@ -42,6 +42,7 @@ fn signed_tx(call: Call) -> UncheckedExtrinsic {
 // FeeParts { base_fee: 187, length_fee: 1490, weight_fee: 8760, peak_adjustment_fee: 0 }
 // ```
 #[test]
+#[ignore]
 fn fee_components_ga() {
 	ExtBuilder::default().build().execute_with(|| {
 		for amount in &[
