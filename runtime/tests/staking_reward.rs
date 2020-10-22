@@ -46,8 +46,6 @@ mod common;
 use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
-use frame_support::additional_traits::MultiCurrencyAccounting;
-use pallet_im_online::UnresponsivenessOffence;
 
 /// Get a list of stash accounts only from `authority_keys`
 fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {

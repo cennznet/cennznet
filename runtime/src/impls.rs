@@ -166,15 +166,6 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for SlashFundsToTreasury {
 	}
 }
 
-// An on unbalanced handler which takes a slash amount in the staked currency
-// and moves it to the system Treasury.
-pub struct SlashFundsToTreasury;
-impl OnUnbalanced<NegativeImbalance> for SlashFundsToTreasury {
-	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance) {
-		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
