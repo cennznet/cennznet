@@ -13,13 +13,14 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::Trait as SyloTrait;
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 
 const MAX_DEVICES: usize = 1000;
 
 pub type DeviceId = u32;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: SyloTrait {}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
@@ -30,7 +31,7 @@ decl_module! {
 // The data that is stored
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloDevice {
-		pub Devices get(devices): map hasher(blake2_128_concat) T::AccountId => Vec<DeviceId>;
+		pub Devices get(fn devices): map hasher(blake2_128_concat) T::AccountId => Vec<DeviceId>;
 	}
 }
 
@@ -73,14 +74,13 @@ mod tests {
 	use super::*;
 	use crate::mock::{ExtBuilder, Test};
 	use frame_support::{assert_noop, assert_ok};
-	use sp_core::H256;
 
 	type Device = Module<Test>;
 
 	#[test]
 	fn append_device_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			let device_id = 7357;
 
 			assert_ok!(Device::append_device(&user_id, device_id));
@@ -91,7 +91,7 @@ mod tests {
 	#[test]
 	fn append_duplicate_device_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			let device_id = 7357;
 
 			assert_ok!(Device::append_device(&user_id, device_id));
@@ -108,7 +108,7 @@ mod tests {
 	#[test]
 	fn append_up_to_max_device_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			let device_id = 7357;
 
 			// add up to MAX_DEVICES many devices for user
@@ -130,7 +130,7 @@ mod tests {
 	#[test]
 	fn delete_device_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			let mut devices = vec![1, 2, 3, 4, 5];
 			for device in devices.clone() {
 				assert_ok!(Device::append_device(&user_id, device));
@@ -147,7 +147,7 @@ mod tests {
 	#[test]
 	fn delete_non_existing_device_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let user_id = H256::from_low_u64_be(1);
+			let user_id = 1;
 			let devices = vec![1, 2, 3, 4];
 			for device in devices.clone() {
 				assert_ok!(Device::append_device(&user_id, device));

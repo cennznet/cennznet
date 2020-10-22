@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test accounts.
+//! Test accounts and signing helpers
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, Index};
-use cennznet_runtime::{CennznetDoughnut, CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+use cennznet_runtime::{opaque::SessionKeys, CheckedExtrinsic, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::generic::Era;
@@ -66,26 +66,31 @@ pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr255
 pub fn signed_extra(
 	nonce: Index,
 	extra_fee: Balance,
-	doughnut: Option<CennznetDoughnut>,
 	fee_exchange: Option<FeeExchange<AssetId, Balance>>,
 ) -> SignedExtra {
 	(
-		doughnut,
-		frame_system::CheckVersion::new(),
+		frame_system::CheckSpecVersion::new(),
+		frame_system::CheckTxVersion::new(),
 		frame_system::CheckGenesis::new(),
-		frame_system::CheckEra::from(Era::mortal(256, 0)),
+		frame_system::CheckEra::from(Era::mortal(0, 0)),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
 		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, fee_exchange),
-		Default::default(),
 	)
 }
 
 /// Sign given `CheckedExtrinsic`.
-pub fn sign(xt: CheckedExtrinsic, version: u32, genesis_hash: [u8; 32]) -> UncheckedExtrinsic {
+pub fn sign(xt: CheckedExtrinsic, spec_version: u32, tx_version: u32, genesis_hash: [u8; 32]) -> UncheckedExtrinsic {
 	match xt.signed {
 		Some((signed, extra)) => {
-			let payload = (xt.function, extra.clone(), version, genesis_hash, genesis_hash);
+			let payload = (
+				xt.function,
+				extra.clone(),
+				spec_version,
+				tx_version,
+				genesis_hash,
+				genesis_hash,
+			);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
 			let signature = payload
 				.using_encoded(|b| {

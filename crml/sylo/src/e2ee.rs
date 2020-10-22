@@ -13,21 +13,17 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::{Trait as SyloTrait, WeightInfo};
 use crate::{
 	device::{self, DeviceId},
 	groups, inbox, response,
 };
-use frame_support::{
-	decl_error, decl_module, decl_storage,
-	dispatch::Vec,
-	ensure,
-	weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
-};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
 use frame_system::ensure_signed;
 
 const MAX_PKBS: usize = 50;
 
-pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {}
+pub trait Trait: SyloTrait + inbox::Trait + response::Trait + device::Trait + groups::Trait {}
 
 // Serialized pre key bundle used to establish one to one e2ee
 pub type PreKeyBundle = Vec<u8>;
@@ -47,7 +43,7 @@ decl_module! {
 		/// weight:
 		/// O(g) where g is the number of groups the user is in
 		/// Multiple reads and writes depending on the user states.
-		#[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+		#[weight = T::WeightInfo::register_device()]
 		fn register_device(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -68,7 +64,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write.
-		#[weight = SimpleDispatchInfo::FixedNormal(10_000)]
+		#[weight = T::WeightInfo::replenish_pkbs()]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -82,7 +78,9 @@ decl_module! {
 		/// weight:
 		/// O(n * k) where n is the size of input `wanted_pkbs`, and k is the number existing PKBS in the storage
 		/// Number of read and write scaled by size of input
-		#[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
+		// TODO the following weight calculation should be taken into account
+		// #[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
+		#[weight = T::WeightInfo::withdraw_pkbs()]
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, DeviceId)>) {
 			let sender = ensure_signed(origin)?;
 
@@ -105,7 +103,7 @@ decl_module! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SyloE2EE {
-		PreKeyBundles get(pkbs): map hasher(blake2_128_concat) (T::AccountId, DeviceId) => Vec<PreKeyBundle>;
+		PreKeyBundles get(fn pkbs): map hasher(blake2_128_concat) (T::AccountId, DeviceId) => Vec<PreKeyBundle>;
 	}
 }
 
@@ -123,6 +121,9 @@ pub(super) mod tests {
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
+	impl SyloTrait for Test {
+		type WeightInfo = ();
+	}
 	impl Trait for Test {}
 	impl device::Trait for Test {}
 	impl inbox::Trait for Test {}
@@ -135,73 +136,45 @@ pub(super) mod tests {
 	#[test]
 	fn should_add_device() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(H256::from_low_u64_be(1)),
-				0,
-				vec![]
-			));
-			assert_eq!(Device::devices(H256::from_low_u64_be(1)).len(), 1);
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
+			assert_eq!(Device::devices(1).len(), 1);
 
-			assert_ok!(E2EE::register_device(
-				Origin::signed(H256::from_low_u64_be(1)),
-				1,
-				vec![]
-			));
-			assert_eq!(Device::devices(H256::from_low_u64_be(1)).len(), 2);
-			assert_eq!(Device::devices(H256::from_low_u64_be(1))[1], 1);
+			assert_ok!(E2EE::register_device(Origin::signed(1), 1, vec![]));
+			assert_eq!(Device::devices(1).len(), 2);
+			assert_eq!(Device::devices(1)[1], 1);
 		});
 	}
 
 	#[test]
 	fn should_replenish_pkbs() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(H256::from_low_u64_be(1)),
-				0,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
 
 			let mock_pkb = b"10".to_vec();
 
-			assert_ok!(E2EE::replenish_pkbs(
-				Origin::signed(H256::from_low_u64_be(1)),
-				0,
-				vec![mock_pkb.clone()]
-			));
+			assert_ok!(E2EE::replenish_pkbs(Origin::signed(1), 0, vec![mock_pkb.clone()]));
 
-			assert_eq!(E2EE::pkbs((H256::from_low_u64_be(1), 0)), vec![mock_pkb]);
+			assert_eq!(E2EE::pkbs((1, 0)), vec![mock_pkb]);
 		});
 	}
 
 	#[test]
 	fn should_withdraw_pkbs() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(E2EE::register_device(
-				Origin::signed(H256::from_low_u64_be(1)),
-				0,
-				vec![]
-			));
+			assert_ok!(E2EE::register_device(Origin::signed(1), 0, vec![]));
 
 			let mock_pkb = b"10".to_vec();
 
-			assert_ok!(E2EE::replenish_pkbs(
-				Origin::signed(H256::from_low_u64_be(1)),
-				0,
-				vec![mock_pkb.clone()]
-			));
+			assert_ok!(E2EE::replenish_pkbs(Origin::signed(1), 0, vec![mock_pkb.clone()]));
 
 			let req_id = H256::from([3; 32]);
-			let wanted_pkbs = vec![(H256::from_low_u64_be(1), 0)];
+			let wanted_pkbs = vec![(1, 0)];
 
-			assert_ok!(E2EE::withdraw_pkbs(
-				Origin::signed(H256::from_low_u64_be(2)),
-				req_id.clone(),
-				wanted_pkbs
-			));
+			assert_ok!(E2EE::withdraw_pkbs(Origin::signed(2), req_id.clone(), wanted_pkbs));
 
 			assert_eq!(
-				Response::response((H256::from_low_u64_be(2), req_id)),
-				response::Response::PreKeyBundles(vec![(H256::from_low_u64_be(1), 0, mock_pkb)])
+				Response::response((2, req_id)),
+				response::Response::PreKeyBundles(vec![(1, 0, mock_pkb)])
 			);
 		});
 	}

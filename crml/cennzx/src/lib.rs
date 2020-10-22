@@ -18,34 +18,34 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod mock;
-#[macro_use]
-mod tests;
+use cennznet_primitives::traits::SimpleAssetSystem;
+use core::convert::TryFrom;
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage, ensure, transactional, weights::Weight, Parameter,
+	StorageDoubleMap,
+};
+use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero},
+	DispatchError, DispatchResult, SaturatedConversion,
+};
+use sp_std::prelude::*;
 
+// import `mock` first so its macros are defined in `impl` and `tests`.
+#[macro_use]
+mod mock;
 mod impls;
+mod tests;
 mod types;
+
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion, PerThousand};
 
-#[macro_use]
-extern crate frame_support;
-
-use core::convert::TryFrom;
-use frame_support::{dispatch::Dispatchable, sp_runtime::traits::Saturating, Parameter, StorageDoubleMap};
-use frame_system::{ensure_root, ensure_signed};
-use pallet_generic_asset;
-use sp_runtime::traits::{One, Zero};
-use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::prelude::*;
-
 // (core_asset_id, asset_id)
-pub type ExchangeKey<T> = (
-	<T as pallet_generic_asset::Trait>::AssetId,
-	<T as pallet_generic_asset::Trait>::AssetId,
-);
+pub type ExchangeKey<T> = (<T as Trait>::AssetId, <T as Trait>::AssetId);
 
 /// Represents the value of an amount of liquidity in an exchange
-/// Liqudity is always traded for a combination of `core_asset` and `trade_asset`
+/// Liquidity is always traded for a combination of `core_asset` and `trade_asset`
 ///
 /// `liquidity` represents the volume of liquidity holdings being valued
 /// `core` represents the balance of `core_asset` that the liquidity would yield
@@ -57,7 +57,7 @@ pub struct LiquidityValue<Balance> {
 }
 
 /// Represents the price to buy liquidity from an exchange
-/// Liqudity is always traded for a combination of `core_asset` and `trade_asset`
+/// Liquidity is always traded for a combination of `core_asset` and `trade_asset`
 ///
 /// `core` represents the balance of `core_asset` required
 /// `asset` represents the balance of `trade_asset` required
@@ -66,13 +66,46 @@ pub struct LiquidityPrice<Balance> {
 	pub asset: Balance,
 }
 
-pub trait Trait: frame_system::Trait + pallet_generic_asset::Trait {
-	type Call: Parameter + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>;
+pub trait Trait: frame_system::Trait {
+	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-	/// A function type to get an exchange address given the asset ID pair.
-	type ExchangeAddressGenerator: ExchangeAddressFor<Self::AssetId, Self::AccountId>;
-	type BalanceToUnsignedInt: From<<Self as pallet_generic_asset::Trait>::Balance> + Into<LowPrecisionUnsigned>;
-	type UnsignedIntToBalance: From<LowPrecisionUnsigned> + Into<<Self as pallet_generic_asset::Trait>::Balance>;
+	/// Type for identifying assets
+	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + Into<u64>;
+	/// The type for asset amounts
+	/// Type for denoting asset balances
+	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+	/// Something which can provide asset management
+	type AssetSystem: SimpleAssetSystem<AccountId = Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>;
+	/// Something which can generate addresses for exchange pools
+	type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
+	/// Provides the public call to weight mapping
+	type WeightInfo: WeightInfo;
+}
+
+pub trait WeightInfo {
+	fn buy_asset() -> Weight;
+	fn sell_asset() -> Weight;
+	fn add_liquidity() -> Weight;
+	fn remove_liquidity() -> Weight;
+	fn set_fee_rate() -> Weight;
+}
+
+impl WeightInfo for () {
+	fn buy_asset() -> Weight {
+		1_000_000
+	}
+	fn sell_asset() -> Weight {
+		1_000_000
+	}
+	fn add_liquidity() -> Weight {
+		1_000_000
+	}
+	fn remove_liquidity() -> Weight {
+		1_000_000
+	}
+	fn set_fee_rate() -> Weight {
+		1_000_000
+	}
 }
 
 decl_error! {
@@ -113,6 +146,7 @@ decl_module! {
 		/// `asset_to_buy` - asset ID to buy
 		/// `buy_amount` - The amount of `asset_to_buy` to receive
 		/// `maximum_sell` - Maximum `asset_to_sell` caller should pay
+		#[weight = T::WeightInfo::buy_asset()]
 		pub fn buy_asset(
 			origin,
 			recipient: Option<T::AccountId>,
@@ -125,8 +159,8 @@ decl_module! {
 			let _ = Self::execute_buy(
 				&trader,
 				&recipient.unwrap_or_else(|| trader.clone()),
-				&asset_to_sell,
-				&asset_to_buy,
+				asset_to_sell,
+				asset_to_buy,
 				buy_amount,
 				maximum_sell,
 			)?;
@@ -141,6 +175,7 @@ decl_module! {
 		/// `asset_to_buy` - asset ID to buy
 		/// `sell_amount` - The amount of `asset_to_sell` the caller should pay
 		/// `minimum_buy` - The minimum `asset_to_buy` to receive
+		#[weight = T::WeightInfo::sell_asset()]
 		pub fn sell_asset(
 			origin,
 			recipient: Option<T::AccountId>,
@@ -153,8 +188,8 @@ decl_module! {
 			let _ = Self::execute_sell(
 				&trader,
 				&recipient.unwrap_or_else(|| trader.clone()),
-				&asset_to_sell,
-				&asset_to_buy,
+				asset_to_sell,
+				asset_to_buy,
 				sell_amount,
 				minimum_buy
 			)?;
@@ -173,6 +208,7 @@ decl_module! {
 		/// `min_liquidity` - The minimum liquidity to add
 		/// `asset_amount` - Amount of trade asset to add
 		/// `core_amount` - Amount of core asset to add
+		#[weight = T::WeightInfo::add_liquidity()]
 		pub fn add_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
@@ -187,23 +223,23 @@ decl_module! {
 				Error::<T>::CannotAddLiquidityWithZero
 			);
 			ensure!(
-				<pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &from_account) >= core_amount,
+				T::AssetSystem::free_balance(core_asset_id, &from_account) >= core_amount,
 				Error::<T>::InsufficientCoreAssetBalance
 			);
 			ensure!(
-				<pallet_generic_asset::Module<T>>::free_balance(&asset_id, &from_account) >= max_asset_amount,
+				T::AssetSystem::free_balance(asset_id, &from_account) >= max_asset_amount,
 				Error::<T>::InsufficientTradeAssetBalance
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
-			let core_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
+			let core_asset_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 
 			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() || core_asset_reserve.is_zero() {
 				// new exchange pool
 				(max_asset_amount, core_amount)
 			} else {
-				let trade_asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+				let trade_asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
 
@@ -218,11 +254,11 @@ decl_module! {
 				Error::<T>::MaximumTradeAssetRequirementNotMet
 			);
 
-			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &from_account, &exchange_address, core_amount)?;
-			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &from_account, &exchange_address, trade_asset_amount)?;
+			T::AssetSystem::transfer(core_asset_id, &from_account, &exchange_address, core_amount)?;
+			T::AssetSystem::transfer(asset_id, &from_account, &exchange_address, trade_asset_amount)?;
 
 			Self::mint_liquidity(&exchange_key, &from_account, liquidity_minted);
-			Self::deposit_event(RawEvent::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
+			Self::deposit_event(Event::<T>::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
 		}
 
 		/// Burn exchange assets to withdraw core asset and trade asset at current ratio
@@ -231,6 +267,7 @@ decl_module! {
 		/// `liquidity_to_withdraw` - Amount of user's liquidity to withdraw
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
+		#[weight = T::WeightInfo::remove_liquidity()]
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
@@ -263,15 +300,16 @@ decl_module! {
 				withdraw_value.asset >= min_asset_withdraw,
 				Error::<T>::MinimumTradeAssetRequirementNotMet
 			);
-			let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
-			<pallet_generic_asset::Module<T>>::make_transfer(&core_asset_id, &exchange_address, &from_account, withdraw_value.core)?;
-			<pallet_generic_asset::Module<T>>::make_transfer(&asset_id, &exchange_address, &from_account, withdraw_value.asset)?;
+			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
+			T::AssetSystem::transfer(core_asset_id, &exchange_address, &from_account, withdraw_value.core)?;
+			T::AssetSystem::transfer(asset_id, &exchange_address, &from_account, withdraw_value.asset)?;
 			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
-			Self::deposit_event(RawEvent::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
+			Self::deposit_event(Event::<T>::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
 			Ok(())
 		}
 
 		/// Set the spot exchange wide fee rate (root only)
+		#[weight = T::WeightInfo::set_fee_rate()]
 		pub fn set_fee_rate(origin, new_fee_rate: FeeRate<PerMillion>) -> DispatchResult {
 			ensure_root(origin)?;
 			DefaultFeeRate::mutate(|fee_rate| *fee_rate = new_fee_rate);
@@ -280,35 +318,35 @@ decl_module! {
 	}
 }
 
-decl_event!(
-	pub enum Event<T>
-	where
-		<T as frame_system::Trait>::AccountId,
-		<T as pallet_generic_asset::Trait>::AssetId,
-		<T as pallet_generic_asset::Trait>::Balance
+decl_event! {
+	pub enum Event<T> where
+		AccountId = <T as frame_system::Trait>::AccountId,
+		AssetId = <T as Trait>::AssetId,
+		Balance = <T as Trait>::Balance
 	{
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		RemoveLiquidity(AccountId, Balance, AssetId, Balance),
 		/// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
-		AssetPurchase(AssetId, AssetId, AccountId, Balance, Balance),
+		AssetBought(AssetId, AssetId, AccountId, Balance, Balance),
+		/// AssetSold, AssetBought, Buyer, SoldAmount, BoughtAmount
+		AssetSold(AssetId, AssetId, AccountId, Balance, Balance),
 	}
-);
+}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Cennzx {
-		/// AssetId of Core Asset
-		pub CoreAssetId get(core_asset_id) config(): T::AssetId;
-		/// Default Trading fee rate
-		pub DefaultFeeRate get(fee_rate) config(): FeeRate<PerMillion>;
-		/// Total liquidity holdings of all investers in an exchange.
+		/// Asset Id of the core liquidity asset
+		pub CoreAssetId get(fn core_asset_id) config(): T::AssetId;
+		/// Default trading fee rate
+		pub DefaultFeeRate get(fn fee_rate) config(): FeeRate<PerMillion>;
+		/// Total liquidity holdings of all investors in an exchange.
 		/// ie/ total_liquidity(exchange) == sum(liquidity_balance(exchange, user)) at all times
-		pub TotalLiquidity get(total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
-
+		pub TotalLiquidity get(fn total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 		/// Liquidity holdings of a user in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
-		pub LiquidityBalance get(liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
+		pub LiquidityBalance get(fn liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
 	}
 }
 
@@ -347,15 +385,15 @@ impl<T: Trait> Module<T> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
+		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 
 		let (core_amount, asset_amount) = if total_liquidity.is_zero() || core_reserve.is_zero() {
 			// empty exchange pool
 			(liquidity_to_buy, One::one())
 		} else {
 			let core_amount = liquidity_to_buy * core_reserve / total_liquidity;
-			let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
+			let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
 			let asset_amount = core_amount * asset_reserve / core_reserve + One::one();
 
 			(core_amount, asset_amount)
@@ -392,9 +430,9 @@ impl<T: Trait> Module<T> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(asset_id);
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(&asset_id, &exchange_address);
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&core_asset_id, &exchange_address);
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
+		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
+		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
 		Self::calculate_liquidity_value(asset_reserve, core_reserve, liquidity_to_withdraw, total_liquidity)
 	}
 
@@ -446,7 +484,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_buy == Self::core_asset_id() {
 			amount_to_buy
 		} else {
-			Self::get_core_to_asset_buy_price(&asset_to_buy, amount_to_buy)?
+			Self::get_core_to_asset_buy_price(asset_to_buy, amount_to_buy)?
 		};
 
 		// Find the price of `core_asset_amount` in terms of `asset_to_pay`
@@ -454,7 +492,7 @@ impl<T: Trait> Module<T> {
 		let pay_asset_amount = if asset_to_pay == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_asset_to_core_buy_price(&asset_to_pay, core_asset_amount)?
+			Self::get_asset_to_core_buy_price(asset_to_pay, core_asset_amount)?
 		};
 
 		Ok(pay_asset_amount)
@@ -464,7 +502,7 @@ impl<T: Trait> Module<T> {
 	/// `buy_amount` - Amount of output core
 	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
 	pub fn get_asset_to_core_buy_price(
-		asset_id: &T::AssetId,
+		asset_id: T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
@@ -477,7 +515,7 @@ impl<T: Trait> Module<T> {
 	/// `buy_amount`- Amount of the trade asset to buy
 	/// Returns the amount of core asset needed to purchase `buy_amount` of trade asset.
 	pub fn get_core_to_asset_buy_price(
-		asset_id: &T::AssetId,
+		asset_id: T::AssetId,
 		buy_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
@@ -501,9 +539,9 @@ impl<T: Trait> Module<T> {
 		);
 		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientExchangePoolReserve);
 
-		let buy_amount_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_amount).into());
-		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
-		let sell_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(sell_reserve).into());
+		let buy_amount_hp = HighPrecisionUnsigned::from(buy_amount.saturated_into());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into());
+		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into());
 		let denominator_hp = buy_reserve_hp - buy_amount_hp;
 		let price_hp = sell_reserve_hp
 			.saturating_mul(buy_amount_hp)
@@ -523,7 +561,7 @@ impl<T: Trait> Module<T> {
 		let output = fee_rate_plus_one
 			.checked_mul(price_plus_one.into())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		Ok(T::UnsignedIntToBalance::from(output.into()).into())
+		Ok(T::Balance::saturated_from(output.into()))
 	}
 
 	/// Get the sell price of some asset for another
@@ -543,7 +581,7 @@ impl<T: Trait> Module<T> {
 		let core_asset_amount = if asset_to_sell == Self::core_asset_id() {
 			amount_to_sell
 		} else {
-			Self::get_asset_to_core_sell_price(&asset_to_sell, amount_to_sell)?
+			Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?
 		};
 
 		// Skip payout asset price if asset to be paid out is core
@@ -551,7 +589,7 @@ impl<T: Trait> Module<T> {
 		let payout_asset_value = if asset_to_payout == Self::core_asset_id() {
 			core_asset_amount
 		} else {
-			Self::get_core_to_asset_sell_price(&asset_to_payout, core_asset_amount)?
+			Self::get_core_to_asset_sell_price(asset_to_payout, core_asset_amount)?
 		};
 
 		Ok(payout_asset_value)
@@ -561,7 +599,7 @@ impl<T: Trait> Module<T> {
 	/// `amount_sold` - Amount of the trade asset to sell
 	/// Returns amount of core that can be bought with input assets.
 	pub fn get_asset_to_core_sell_price(
-		asset_id: &T::AssetId,
+		asset_id: T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
@@ -575,7 +613,7 @@ impl<T: Trait> Module<T> {
 	/// `asset_id` - Trade asset
 	/// `sell_amount` - Amount of input core to sell
 	pub fn get_core_to_asset_sell_price(
-		asset_id: &T::AssetId,
+		asset_id: T::AssetId,
 		sell_amount: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
@@ -601,14 +639,12 @@ impl<T: Trait> Module<T> {
 		let div_rate: FeeRate<PerMillion> = Self::fee_rate()
 			.checked_add(FeeRate::<PerMillion>::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-
-		let sell_amount_scaled = FeeRate::<PerMillion>::from(T::BalanceToUnsignedInt::from(sell_amount).into())
+		let sell_amount_scaled = FeeRate::<PerMillion>::from(sell_amount.saturated_into())
 			.checked_div(div_rate)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
-
-		let sell_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(sell_reserve).into());
-		let buy_reserve_hp = HighPrecisionUnsigned::from(T::BalanceToUnsignedInt::from(buy_reserve).into());
-		let sell_amount_scaled_hp = HighPrecisionUnsigned::from(LowPrecisionUnsigned::from(sell_amount_scaled));
+		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into());
+		let sell_amount_scaled_hp = HighPrecisionUnsigned::from(sell_amount_scaled);
 		let denominator_hp = sell_amount_scaled_hp + sell_reserve_hp;
 		let price_hp = buy_reserve_hp
 			.saturating_mul(sell_amount_scaled_hp)
@@ -619,18 +655,18 @@ impl<T: Trait> Module<T> {
 		ensure!(price_lp_result.is_ok(), Error::<T>::Overflow);
 		let price_lp = price_lp_result.unwrap();
 
-		let price = T::UnsignedIntToBalance::from(price_lp).into();
+		let price: T::Balance = price_lp.saturated_into();
 		ensure!(buy_reserve > price, Error::<T>::InsufficientExchangePoolReserve);
 		Ok(price)
 	}
 
 	/// A helper for pricing functions
 	/// Fetches the reserves from an exchange for a particular `asset_id`
-	fn get_exchange_reserves(asset_id: &T::AssetId) -> (T::Balance, T::Balance) {
-		let exchange_address = T::ExchangeAddressGenerator::exchange_address_for(*asset_id);
+	fn get_exchange_reserves(asset_id: T::AssetId) -> (T::Balance, T::Balance) {
+		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 
-		let core_reserve = <pallet_generic_asset::Module<T>>::free_balance(&Self::core_asset_id(), &exchange_address);
-		let asset_reserve = <pallet_generic_asset::Module<T>>::free_balance(asset_id, &exchange_address);
+		let core_reserve = T::AssetSystem::free_balance(Self::core_asset_id(), &exchange_address);
+		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
 		(core_reserve, asset_reserve)
 	}
 
@@ -649,18 +685,18 @@ impl<T: Trait> Module<T> {
 	pub fn execute_buy(
 		trader: &T::AccountId,
 		recipient: &T::AccountId,
-		asset_to_sell: &T::AssetId,
-		asset_to_buy: &T::AssetId,
+		asset_to_sell: T::AssetId,
+		asset_to_buy: T::AssetId,
 		amount_to_buy: T::Balance,
 		maximum_sell: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
-		let amount_to_sell = Self::get_buy_price(*asset_to_buy, amount_to_buy, *asset_to_sell)?;
+		let amount_to_sell = Self::get_buy_price(asset_to_buy, amount_to_buy, asset_to_sell)?;
 		ensure!(amount_to_sell <= maximum_sell, Error::<T>::MaximumSellRequirementNotMet);
 
 		// Check the trader has enough balance
 		ensure!(
-			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, trader) >= amount_to_sell,
+			T::AssetSystem::free_balance(asset_to_sell, trader) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
@@ -672,6 +708,14 @@ impl<T: Trait> Module<T> {
 			amount_to_sell,
 			amount_to_buy,
 		)?;
+
+		Self::deposit_event(Event::<T>::AssetBought(
+			asset_to_sell,
+			asset_to_buy,
+			trader.clone(),
+			amount_to_sell,
+			amount_to_buy,
+		));
 
 		Ok(amount_to_sell)
 	}
@@ -687,19 +731,19 @@ impl<T: Trait> Module<T> {
 	pub fn execute_sell(
 		trader: &T::AccountId,
 		recipient: &T::AccountId,
-		asset_to_sell: &T::AssetId,
-		asset_to_buy: &T::AssetId,
+		asset_to_sell: T::AssetId,
+		asset_to_buy: T::AssetId,
 		amount_to_sell: T::Balance,
 		minimum_buy: T::Balance,
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the trader has enough balance
 		ensure!(
-			<pallet_generic_asset::Module<T>>::free_balance(&asset_to_sell, trader) >= amount_to_sell,
+			T::AssetSystem::free_balance(asset_to_sell, trader) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
 		// Check the buy amount meets the minimum requirement
-		let amount_to_buy = Self::get_sell_price(*asset_to_sell, amount_to_sell, *asset_to_buy)?;
+		let amount_to_buy = Self::get_sell_price(asset_to_sell, amount_to_sell, asset_to_buy)?;
 		ensure!(amount_to_buy >= minimum_buy, Error::<T>::MinimumBuyRequirementNotMet);
 
 		Self::execute_trade(
@@ -711,14 +755,25 @@ impl<T: Trait> Module<T> {
 			amount_to_buy,
 		)?;
 
+		Self::deposit_event(Event::<T>::AssetSold(
+			asset_to_sell,
+			asset_to_buy,
+			trader.clone(),
+			amount_to_sell,
+			amount_to_buy,
+		));
+
 		Ok(amount_to_buy)
 	}
 
+	/// Perform the transfer of funds between `trader`/`recipient` and the target exchange pools.
+	/// Note: this operation is atomic, if one intermediate transfer fails, then the entire trade will be rolled back and return error.
+	#[transactional]
 	fn execute_trade(
 		trader: &T::AccountId,
 		recipient: &T::AccountId,
-		asset_to_sell: &T::AssetId,
-		asset_to_buy: &T::AssetId,
+		asset_to_sell: T::AssetId,
+		asset_to_buy: T::AssetId,
 		amount_to_sell: T::Balance,
 		amount_to_buy: T::Balance,
 	) -> DispatchResult {
@@ -726,57 +781,35 @@ impl<T: Trait> Module<T> {
 
 		// If either asset is core, we only need to make one exchange
 		// otherwise, we make two exchanges
-		if *asset_to_sell == core_asset_id || *asset_to_buy == core_asset_id {
-			let exchange_address = if *asset_to_buy == core_asset_id {
-				T::ExchangeAddressGenerator::exchange_address_for(*asset_to_sell)
+		if asset_to_sell == core_asset_id || asset_to_buy == core_asset_id {
+			let exchange_address = if asset_to_buy == core_asset_id {
+				T::ExchangeAddressFor::exchange_address_for(asset_to_sell)
 			} else {
-				T::ExchangeAddressGenerator::exchange_address_for(*asset_to_buy)
+				T::ExchangeAddressFor::exchange_address_for(asset_to_buy)
 			};
-			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
-				&asset_to_sell,
-				trader,
-				&exchange_address,
-				amount_to_sell,
+
+			T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
+				T::AssetSystem::transfer(asset_to_buy, &exchange_address, recipient, amount_to_buy),
 			)
-			.and(<pallet_generic_asset::Module<T>>::make_transfer(
-				&asset_to_buy,
-				&exchange_address,
-				recipient,
-				amount_to_buy,
-			));
 		} else {
-			let core_amount = Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell)?;
-			let exchange_address_a = T::ExchangeAddressGenerator::exchange_address_for(*asset_to_sell);
-			let exchange_address_b = T::ExchangeAddressGenerator::exchange_address_for(*asset_to_buy);
+			let exchange_address_a = T::ExchangeAddressFor::exchange_address_for(asset_to_sell);
+			let exchange_address_b = T::ExchangeAddressFor::exchange_address_for(asset_to_buy);
 
-			let _ = <pallet_generic_asset::Module<T>>::make_transfer(
-				asset_to_sell,
-				trader,
-				&exchange_address_a,
-				amount_to_sell,
-			)
-			.and(<pallet_generic_asset::Module<T>>::make_transfer(
-				&core_asset_id,
-				&exchange_address_a,
-				&exchange_address_b,
-				core_amount,
-			))
-			.and(<pallet_generic_asset::Module<T>>::make_transfer(
-				asset_to_buy,
-				&exchange_address_b,
-				recipient,
-				amount_to_buy,
-			));
-		};
-
-		Self::deposit_event(RawEvent::AssetPurchase(
-			*asset_to_sell,
-			*asset_to_buy,
-			trader.clone(),
-			amount_to_sell,
-			amount_to_buy,
-		));
-
-		Ok(())
+			Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell).and_then(|core_amount| {
+				T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
+					.and(T::AssetSystem::transfer(
+						core_asset_id,
+						&exchange_address_a,
+						&exchange_address_b,
+						core_amount,
+					))
+					.and(T::AssetSystem::transfer(
+						asset_to_buy,
+						&exchange_address_b,
+						recipient,
+						amount_to_buy,
+					))
+			})
+		}
 	}
 }

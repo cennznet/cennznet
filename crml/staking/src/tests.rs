@@ -44,7 +44,7 @@ fn force_unstake_works() {
 		// Force unstake requires root.
 		assert_noop!(Staking::force_unstake(Origin::signed(11), 11), BadOrigin);
 		// We now force them to unstake
-		assert_ok!(Staking::force_unstake(Origin::ROOT, 11));
+		assert_ok!(Staking::force_unstake(Origin::root(), 11));
 		// No longer bonded.
 		assert_eq!(Staking::bonded(&11), None);
 		// Transfer works.
@@ -1604,6 +1604,9 @@ fn on_free_balance_zero_stash_removes_validator() {
 		// Check total balance of stash
 		assert_eq!(Balances::total_balance(&11), 0);
 
+		// Reap the stash
+		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+
 		// Check storage items do not exist
 		assert!(!<Ledger<Test>>::contains_key(&10));
 		assert!(!<Bonded<Test>>::contains_key(&11));
@@ -1656,6 +1659,9 @@ fn on_free_balance_zero_stash_removes_nominator() {
 		let _ = Balances::slash(&11, u64::max_value());
 		// Check total balance of stash
 		assert_eq!(Balances::total_balance(&11), 0);
+
+		// Reap the stash
+		assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
 		// Check storage items do not exist
 		assert!(!<Ledger<Test>>::contains_key(&10));
@@ -2120,7 +2126,7 @@ fn offence_forces_new_era() {
 #[test]
 fn offence_ensures_new_era_without_clobbering() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(Staking::force_new_era_always(Origin::ROOT));
+		assert_ok!(Staking::force_new_era_always(Origin::root()));
 
 		on_offence_now(
 			&[OffenceDetails {
@@ -2351,16 +2357,18 @@ fn invulnerables_are_not_slashed() {
 fn invulnerables_can_be_set() {
 	// Invulnerable validator set can be modified
 	ExtBuilder::default().invulnerables(vec![21]).build().execute_with(|| {
+		System::set_block_number(1);
+
 		assert_eq!(Balances::free_balance(11), 1000);
 		assert_eq!(Balances::free_balance(21), 2000);
 
 		//Changing the invulnerables set from [21] to [11].
-		let _ = Staking::set_invulnerables(Origin::ROOT, vec![11]);
+		let _ = Staking::set_invulnerables(Origin::root(), vec![11]);
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::TestEvent::staking(RawEvent::SetInvulnerables(vec![11])),
+				event: mock::MetaEvent::staking(RawEvent::SetInvulnerables(vec![11])),
 				topics: vec![],
 			}]
 		);
@@ -2412,7 +2420,7 @@ fn invulnerables_can_only_be_set_by_root() {
 		assert_eq!(Staking::invulnerables(), vec![11]);
 
 		//Changing the invulnerables with root access.
-		let _ = Staking::set_invulnerables(Origin::ROOT, vec![21, 11]);
+		let _ = Staking::set_invulnerables(Origin::root(), vec![21, 11]);
 		assert_eq!(Staking::invulnerables(), vec![21, 11]);
 	});
 }
@@ -2426,8 +2434,9 @@ fn invulnerables_be_empty() {
 			assert_eq!(Staking::invulnerables(), vec![11, 21]);
 
 			//Changing the invulnerables with root access.
-			let _ = Staking::set_invulnerables(Origin::ROOT, vec![]);
-			assert_eq!(Staking::invulnerables(), vec![]);
+			let invulnerables: Vec<AccountId> = vec![];
+			let _ = Staking::set_invulnerables(Origin::root(), invulnerables.clone());
+			assert_eq!(Staking::invulnerables(), invulnerables);
 		});
 }
 
@@ -2525,6 +2534,13 @@ fn garbage_collection_after_slashing() {
 		// so we don't test those here.
 
 		assert_eq!(Balances::free_balance(11), 0);
+		assert_eq!(Balances::total_balance(&11), 0);
+
+		let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
+		assert_eq!(slashing_spans.iter().count(), 2);
+
+		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+
 		assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
 		assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
 	})
@@ -2815,11 +2831,11 @@ fn remove_deferred() {
 
 		// fails if empty
 		assert_noop!(
-			Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![]),
+			Staking::cancel_deferred_slash(Origin::root(), 1, vec![]),
 			Error::<Test>::EmptyTargets
 		);
 
-		assert_ok!(Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![0]));
+		assert_ok!(Staking::cancel_deferred_slash(Origin::root(), 1, vec![0]));
 
 		assert_eq!(Balances::free_balance(11), 1000);
 		assert_eq!(Balances::free_balance(101), 2000);
@@ -2906,21 +2922,21 @@ fn remove_multi_deferred() {
 
 		// fails if list is not sorted
 		assert_noop!(
-			Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![2, 0, 4]),
+			Staking::cancel_deferred_slash(Origin::root(), 1, vec![2, 0, 4]),
 			Error::<Test>::NotSortedAndUnique
 		);
 		// fails if list is not unique
 		assert_noop!(
-			Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![0, 2, 2]),
+			Staking::cancel_deferred_slash(Origin::root(), 1, vec![0, 2, 2]),
 			Error::<Test>::NotSortedAndUnique
 		);
 		// fails if bad index
 		assert_noop!(
-			Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![1, 2, 3, 4, 5]),
+			Staking::cancel_deferred_slash(Origin::root(), 1, vec![1, 2, 3, 4, 5]),
 			Error::<Test>::InvalidSlashIndex
 		);
 
-		assert_ok!(Staking::cancel_deferred_slash(Origin::ROOT, 1, vec![0, 2, 4]));
+		assert_ok!(Staking::cancel_deferred_slash(Origin::root(), 1, vec![0, 2, 4]));
 
 		let slashes = <Staking as Store>::UnappliedSlashes::get(&1);
 		assert_eq!(slashes.len(), 2);
@@ -3027,19 +3043,20 @@ fn show_that_max_commission_is_100_percent() {
 #[test]
 fn set_minimum_bond_works() {
 	ExtBuilder::default().minimum_bond(7357).build().execute_with(|| {
+		System::set_block_number(1);
 		// Non-root accounts cannot set minimum bond
 		assert_noop!(Staking::set_minimum_bond(Origin::signed(1), 123), BadOrigin);
 		assert_eq!(Staking::minimum_bond(), 7357);
 		assert_eq!(System::events(), vec![]);
 
 		// Root accounts can set minimum bond
-		assert_ok!(Staking::set_minimum_bond(Origin::ROOT, 537));
+		assert_ok!(Staking::set_minimum_bond(Origin::root(), 537));
 		assert_eq!(Staking::minimum_bond(), 537);
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::TestEvent::staking(RawEvent::SetMinimumBond(537)),
+				event: mock::MetaEvent::staking(RawEvent::SetMinimumBond(537)),
 				topics: vec![],
 			}]
 		);
@@ -3363,4 +3380,34 @@ fn payout_to_any_account_works() {
 		// Payment is successful
 		assert!(Balances::free_balance(42) > 0);
 	})
+}
+
+#[test]
+fn bonding_can_be_blocked() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Block bonding should be disabled by default
+		assert!(!BlockBonding::get());
+
+		BlockBonding::put(true);
+		assert_noop!(
+			Staking::bond(Origin::signed(11), 10, 43, RewardDestination::Controller),
+			Error::<Test>::BondingNotEnabled
+		);
+		assert_noop!(
+			Staking::bond_extra(Origin::signed(11), 43),
+			Error::<Test>::BondingNotEnabled
+		);
+		assert_noop!(
+			Staking::unbond(Origin::signed(11), 43),
+			Error::<Test>::BondingNotEnabled
+		);
+		assert_noop!(
+			Staking::rebond(Origin::signed(11), 43),
+			Error::<Test>::BondingNotEnabled
+		);
+		assert_noop!(
+			Staking::withdraw_unbonded(Origin::signed(11)),
+			Error::<Test>::BondingNotEnabled
+		);
+	});
 }

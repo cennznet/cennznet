@@ -20,6 +20,8 @@ use core::{
 	convert::{From, Into, TryFrom},
 	marker::PhantomData,
 };
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 pub use primitive_types::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;
@@ -56,7 +58,7 @@ impl Into<&'static str> for FeeRateError {
 	}
 }
 
-/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `pallet_generic_asset::Balance` type
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `prml_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);
@@ -130,6 +132,12 @@ impl<S: Scaled> From<LowPrecisionUnsigned> for FeeRate<S> {
 impl<S: Scaled> From<FeeRate<S>> for LowPrecisionUnsigned {
 	fn from(f: FeeRate<S>) -> Self {
 		f.0
+	}
+}
+
+impl<S: Scaled> From<FeeRate<S>> for HighPrecisionUnsigned {
+	fn from(f: FeeRate<S>) -> Self {
+		HighPrecisionUnsigned::from(f.0)
 	}
 }
 

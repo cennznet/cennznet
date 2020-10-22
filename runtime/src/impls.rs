@@ -16,50 +16,34 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{
-	constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-	sylo_payment, Call, MaximumBlockWeight, NegativeImbalance, Runtime, System, Treasury,
-};
-use cennznet_primitives::{
-	traits::{BuyFeeAsset, IsGasMeteredCall},
-	types::{Balance, FeeExchange},
-};
-use cennznut::{CENNZnut, RuntimeDomain, ValidationErr};
-use codec::Decode;
-use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
+use crate::{Call, Runtime, Treasury};
+use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
-	additional_traits, storage,
-	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
-	weights::Weight,
+	dispatch::DispatchResult,
+	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
+	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_contracts::{Gas, GasMeter};
-use pallet_generic_asset::StakingAssetCurrency;
-use sp_runtime::{
-	traits::{
-		CheckedMul, CheckedSub, Convert, PlugDoughnutApi, SaturatedConversion, Saturating, UniqueSaturatedFrom, Zero,
-	},
-	DispatchError, Fixed64, Perbill,
-};
-use sp_std::{any::Any, prelude::Vec};
+use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, NegativeImbalance, StakingAssetCurrency};
+use smallvec::smallvec;
+use sp_runtime::{traits::Convert, Perbill};
+use sp_std::{marker::PhantomData, prelude::*};
 
-type Cennzx<T> = crml_cennzx::Module<T>;
-type Contracts<T> = pallet_contracts::Module<T>;
-type GenericAsset<T> = pallet_generic_asset::Module<T>;
-
-pub struct SplitToAllValidators;
-
-/// This handles the ```NegativeImbalance``` created for transaction fee.
-/// The reward is split evenly and distributed to all of the current elected validators.
-/// The remainder from the division are burned.
-impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
-		let amount = imbalance.peek();
-
-		if !amount.is_zero() {
-			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
-		}
-	}
-}
+// TODO uncomment the following code after enable cennznet staking module
+// use crate::NegativeImbalance
+// pub struct SplitToAllValidators;
+//
+// /// This handles the ```NegativeImbalance``` created for transaction fee.
+// /// The reward is split evenly and distributed to all of the current elected validators.
+// /// The remainder from the division are burned.
+// impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
+// 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
+// 		let amount = imbalance.peek();
+//
+// 		if !amount.is_zero() {
+// 			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
+// 		}
+// 	}
+// }
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -83,224 +67,21 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 	}
 }
 
-/// Convert from weight to fee balance by scaling it into the desired fee range.
-/// i.e. transpose weight values so that: `min_fee` < weight < `max_fee`
-pub struct ScaledWeightToFee<MinFee, MaxFee>(sp_std::marker::PhantomData<(MinFee, MaxFee)>);
+/// Provides a simple weight to fee conversion function for
+/// use with the CENNZnet 4dp spending asset, CPAY.
+pub struct WeightToCpayFee<G: Get<Perbill>>(sp_std::marker::PhantomData<G>);
 
-impl<MinFee: Get<Balance>, MaxFee: Get<Balance>> Convert<Weight, Balance> for ScaledWeightToFee<MinFee, MaxFee> {
-	/// Transpose weight values to desired fee range i.e. `min_fee` < x < `max_fee`
-	fn convert(w: Weight) -> Balance {
-		let weight = Balance::from(w);
-
-		// Runtime constants
-		let min_fee = MinFee::get();
-		let max_fee = MaxFee::get();
-		debug_assert!(max_fee > min_fee);
-		debug_assert!(MAX_WEIGHT > MIN_WEIGHT);
-
-		//      (weight - MIN_WEIGHT) * [min_fee, max_fee]
-		//  y = ------------------------------------------ + min_fee
-		//              [MIN_WEIGHT, MAX_WEIGHT]
-
-		// ensure `weight` is in range: [MIN_WEIGHT, MAX_WEIGHT] for correct scaling.
-		let capped_weight = weight.min(MAX_WEIGHT).max(MIN_WEIGHT);
-		((capped_weight.saturating_sub(MIN_WEIGHT)).saturating_mul(max_fee.saturating_sub(min_fee))
-			/ (MAX_WEIGHT.saturating_sub(MIN_WEIGHT)))
-		.saturating_add(min_fee)
-	}
-}
-
-/// Update the given multiplier based on the following formula
-///
-///   diff = (target_weight - previous_block_weight)
-///   v = 0.00004
-///   next_weight = weight * (1 + (v . diff) + (v . diff) ^ 2 / 2)
-///
-/// Where `target_weight` must be given as the `Get` implementation of the `T` generic type.
-/// https://research.web3.foundation/en/latest/polkadot/Token%20Economics/#relay-chain-transaction-fees
-pub struct TargetedFeeAdjustment<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: Get<Perbill>> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T> {
-	fn convert(multiplier: Fixed64) -> Fixed64 {
-		let block_weight = System::all_extrinsics_weight();
-		let max_weight = MaximumBlockWeight::get();
-		let target_weight = (T::get() * max_weight) as u128;
-		let block_weight = block_weight as u128;
-
-		// determines if the first_term is positive
-		let positive = block_weight >= target_weight;
-		let diff_abs = block_weight.max(target_weight) - block_weight.min(target_weight);
-		// diff is within u32, safe.
-		let diff = Fixed64::from_rational(diff_abs as i64, max_weight as u64);
-		let diff_squared = diff.saturating_mul(diff);
-
-		// 0.00004 = 4/100_000 = 40_000/10^9
-		let v = Fixed64::from_rational(4, 100_000);
-		// 0.00004^2 = 16/10^10 ~= 2/10^9. Taking the future /2 into account, then it is just 1
-		// parts from a billionth.
-		let v_squared_2 = Fixed64::from_rational(1, 1_000_000_000);
-
-		let first_term = v.saturating_mul(diff);
-		// It is very unlikely that this will exist (in our poor perbill estimate) but we are giving
-		// it a shot.
-		let second_term = v_squared_2.saturating_mul(diff_squared);
-
-		if positive {
-			// Note: this is merely bounded by how big the multiplier and the inner value can go,
-			// not by any economical reasoning.
-			let excess = first_term.saturating_add(second_term);
-			multiplier.saturating_add(excess)
-		} else {
-			// Proof: first_term > second_term. Safe subtraction.
-			let negative = first_term - second_term;
-			multiplier
-				.saturating_sub(negative)
-				// despite the fact that apply_to saturates weight (final fee cannot go below 0)
-				// it is crucially important to stop here and don't further reduce the weight fee
-				// multiplier. While at -1, it means that the network is so un-congested that all
-				// transactions have no weight fee. We stop here and only increase if the network
-				// became more busy.
-				.max(Fixed64::from_rational(-1, 1))
-		}
-	}
-}
-
-/// Handles gas payment post contract execution (before deferring runtime calls) via CENNZX-Spot exchange.
-pub struct GasHandler;
-
-impl<T> pallet_contracts::GasHandler<T> for GasHandler
-where
-	T: pallet_contracts::Trait + pallet_generic_asset::Trait + crml_cennzx::Trait,
-{
-	/// Fill the gas meter
-	///
-	/// The process is as follows:
-	/// 1) Calculate the cost to fill the gas meter (gas price * gas limit)
-	/// 2a) Default case:
-	///    - User is paying in the native fee currency
-	///    - Deduct the 'fill meter cost' from the users balance and fill the gas meter
-	/// 2b) User has nominated to pay fees in another currency
-	///    - Calculate the 'fill gas cost' in terms of their nominated payment currency-
-	///      using the CENNZX spot exchange rate
-	///....- Check the user has liquid balance to pay the converted 'fill gas cost' and fill the gas meter
-	fn fill_gas(transactor: &T::AccountId, gas_limit: Gas) -> Result<GasMeter<T>, DispatchError> {
-		// Calculate the cost to fill the meter in the CENNZnet fee currency
-		let gas_price = Contracts::<T>::gas_price();
-		let fill_meter_cost = if gas_price.is_zero() {
-			// Gas is free in this configuration, fill the meter
-			return Ok(GasMeter::with_limit(gas_limit, gas_price));
-		} else {
-			gas_price
-				.checked_mul(&gas_limit.saturated_into())
-				.ok_or("Overflow during gas cost calculation")?
-		};
-
-		// Check if a fee exchange has been specified by the user
-		let fee_exchange: Option<FeeExchange<T::AssetId, T::Balance>> = storage::unhashed::get(&GAS_FEE_EXCHANGE_KEY);
-
-		if fee_exchange.is_none() {
-			// User will pay for gas in CENNZnet's native fee currency
-			let imbalance = T::Currency::withdraw(
-				transactor,
-				fill_meter_cost,
-				WithdrawReason::Fee.into(),
-				ExistenceRequirement::KeepAlive,
-			)?;
-			T::GasPayment::on_unbalanced(imbalance);
-			return Ok(GasMeter::with_limit(gas_limit, gas_price));
-		}
-
-		// User wants to pay fee in a nominated currency
-		let exchange_op = fee_exchange.unwrap();
-		let payment_asset = exchange_op.asset_id();
-
-		// Calculate the `fill_meter_cost` in terms of the user's nominated payment asset
-		let converted_fill_meter_cost = Cennzx::<T>::get_asset_to_core_buy_price(
-			&payment_asset,
-			T::Balance::unique_saturated_from(fill_meter_cost.saturated_into()),
-		)?;
-
-		// Respect the user's max. fee preference
-		if converted_fill_meter_cost > exchange_op.max_payment() {
-			return Err("Fee cost exceeds max. payment limit".into());
-		}
-
-		// Calculate the expected user balance after paying the `converted_fill_meter_cost`
-		// This value is required to ensure liquidity restrictions are upheld
-		let balance_after_fill_meter = GenericAsset::<T>::free_balance(&payment_asset, transactor)
-			.checked_sub(&converted_fill_meter_cost)
-			.ok_or("Insufficient liquidity to fill gas meter")?;
-
-		// Does the user have enough funds to pay the `converted_fill_meter_cost` with `payment_asset`
-		// also taking into consideration any liquidity restrictions
-		GenericAsset::<T>::ensure_can_withdraw(
-			&payment_asset,
-			transactor,
-			converted_fill_meter_cost,
-			WithdrawReason::Fee.into(),
-			balance_after_fill_meter,
-		)?;
-
-		// User has the requisite amount of `payment_asset` to fund the meter
-		// Actual payment will be handled in `empty_unused_gas` as the user may not spend the entire limit
-		// Performing payment on the known gas spent will avoid a refund situation
-		return Ok(GasMeter::with_limit(gas_limit, gas_price));
-	}
-
-	/// Handle settlement of unused gas after contract execution
-	///
-	/// The process is as follows:
-	/// - Default case: refund unused gas tokens to the user (`transactor`) in CENNZnet's native fee currency as the current gas price
-	/// - FeeExchange case: Gas spent will be charged to the user in their nominated fee currency at the current gas price
-	fn empty_unused_gas(transactor: &T::AccountId, gas_meter: GasMeter<T>) {
-		// TODO: Update `GasSpent` for the block
-		let gas_left = gas_meter.gas_left();
-		let gas_price = Contracts::<T>::gas_price();
-		let gas_spent = gas_meter.spent();
-
-		// The `take()` function ensures the entry is killed after access
-		if let Some(exchange_op) = storage::unhashed::take::<FeeExchange<T::AssetId, T::Balance>>(&GAS_FEE_EXCHANGE_KEY)
-		{
-			// Pay for `gas_spent` in a user nominated currency using the CENNZX spot exchange
-			// Payment can never fail as liquidity is verified before filling the meter
-			if let Some(used_gas_cost) = gas_price.checked_mul(&gas_spent.saturated_into()) {
-				let _ = Cennzx::<T>::buy_fee_asset(
-					transactor,
-					T::Balance::unique_saturated_from(used_gas_cost.saturated_into()),
-					&exchange_op,
-				);
-				let imbalance = T::Currency::withdraw(
-					transactor,
-					used_gas_cost,
-					WithdrawReason::Fee.into(),
-					ExistenceRequirement::KeepAlive,
-				)
-				.expect("Used gas cost could not be withdrawn");
-				T::GasPayment::on_unbalanced(imbalance);
-			}
-		} else {
-			// Refund remaining gas by minting it as CENNZnet fee currency
-			if let Some(refund) = gas_price.checked_mul(&gas_left.saturated_into()) {
-				let _imbalance = T::Currency::deposit_creating(transactor, refund);
-			}
-		}
-	}
-}
-
-// It implements `IsGasMeteredCall`
-pub struct GasMeteredCallResolver;
-
-impl IsGasMeteredCall for GasMeteredCallResolver {
-	/// The runtime extrinsic `Call` type
-	type Call = Call;
-	/// Return whether the given `call` is gas metered
-	fn is_gas_metered(call: &Self::Call) -> bool {
-		match call {
-			Call::Contracts(pallet_contracts::Call::call(_, _, _, _)) => true,
-			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
-			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
-			_ => false,
-		}
+impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
+	/// The runtime Balance type
+	type Balance = Balance;
+	/// Scale weights to fees by a factor of 1/`G`
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		smallvec!(WeightToFeeCoefficient {
+			coeff_integer: 0,
+			coeff_frac: G::get(),
+			negative: false,
+			degree: 1,
+		})
 	}
 }
 
@@ -320,106 +101,67 @@ impl crml_transaction_payment::FeePayer for FeePayerResolver {
 			_ => false,
 		};
 		if is_sylo {
-			sylo_payment::Module::<Runtime>::payment_account()
+			crml_sylo::payment::Module::<Runtime>::payment_account()
 		} else {
 			None
 		}
 	}
 }
 
-/// Provides a cennznet version of doughnut dispatch verification
-pub struct CENNZnetDispatchVerifier;
-
-/// Helpers which are used by the DelegatedDispatchVerifier
-impl CENNZnetDispatchVerifier {
-	/// Checks if the doughnut holds a `cennznut` and if so, it returns the decoded `cennznut`
-	fn get_cennznut(doughnut: &<Runtime as frame_system::Trait>::Doughnut) -> Result<CENNZnut, &'static str> {
-		let mut domain = doughnut
-			.get_domain(<CENNZnetDispatchVerifier as additional_traits::DelegatedDispatchVerifier>::DOMAIN)
-			.ok_or("CENNZnut does not grant permission for cennznet domain")?;
-		let cennznut: CENNZnut = Decode::decode(&mut domain).map_err(|_| "Bad CENNZnut encoding")?;
-		Ok(cennznut)
+/// Provides a membership set with only the configured sudo user
+pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
+impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		t == (&pallet_sudo::Module::<T>::key())
 	}
-
-	/// Verify that the smart contract being called is permissioned in the cennznut
-	fn check_contract(
-		contract_address: &<Runtime as frame_system::Trait>::AccountId,
-		cennznut: CENNZnut,
-	) -> Result<(), &'static str> {
-		let address: [u8; 32] = contract_address.clone().into();
-		match cennznut.validate_contract_call(&address) {
-			Ok(r) => Ok(r),
-			_ => Err("CENNZnut does not grant permission for contract"),
-		}
+	fn sorted_members() -> Vec<T::AccountId> {
+		vec![(pallet_sudo::Module::<T>::key())]
+	}
+	fn count() -> usize {
+		1
+	}
+}
+impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
+	fn min_len() -> usize {
+		1
+	}
+	fn max_len() -> usize {
+		1
 	}
 }
 
-impl additional_traits::DelegatedDispatchVerifier for CENNZnetDispatchVerifier {
-	type Doughnut = <Runtime as frame_system::Trait>::Doughnut;
-	type AccountId = <Runtime as frame_system::Trait>::AccountId;
-
-	const DOMAIN: &'static str = "cennznet";
-
-	/// Verify that a call to a runtime module is permissioned by the doughnut
-	fn verify_dispatch(
-		doughnut: &Self::Doughnut,
-		module: &str,
-		method: &str,
-		_args: Vec<(&str, &dyn Any)>,
-	) -> Result<(), &'static str> {
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-
-		// Extract Module name from <prefix>-<Module_name>
-		let module_offset = module
-			.find('-')
-			.ok_or("CENNZnut does not grant permission for module")?
-			+ 1;
-		if module_offset <= 1 || module_offset >= module.chars().count() {
-			return Err("error during module name segmentation");
-		}
-		match cennznut.validate_runtime_call(&module[module_offset..], method, &[]) {
-			Ok(r) => Ok(r),
-			Err(ValidationErr::ConstraintsInterpretation) => Err("error while interpreting constraints"),
-			Err(ValidationErr::NoPermission(RuntimeDomain::Method)) => {
-				Err("CENNZnut does not grant permission for method")
-			}
-			Err(ValidationErr::NoPermission(RuntimeDomain::Module)) => {
-				Err("CENNZnut does not grant permission for module")
-			}
-			Err(ValidationErr::NoPermission(RuntimeDomain::MethodArguments)) => {
-				Err("CENNZnut does not grant permission for method arguments")
-			}
-		}
+/// Provides an impl for the `SimpleAssetSystem` trait
+/// Used to integrate GA with CENNZX
+pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
+impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
+	type AccountId = T::AccountId;
+	type AssetId = T::AssetId;
+	type Balance = T::Balance;
+	/// Transfer some `amount` of assets `from` one account `to` another
+	fn transfer(
+		asset_id: Self::AssetId,
+		from: &Self::AccountId,
+		to: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		// note: we don't emit a 'transferred' event with this method
+		prml_generic_asset::Module::<T>::make_transfer(asset_id, from, to, amount)
 	}
-
-	/// Verify that the contract being called is permissioned on the doughnut
-	fn verify_runtime_to_contract_call(
-		caller: &Self::AccountId,
-		doughnut: &Self::Doughnut,
-		contract_addr: &Self::AccountId,
-	) -> Result<(), &'static str> {
-		debug_assert!(caller.clone() == doughnut.issuer(), "Invalid doughnut caller");
-		let cennznut: CENNZnut = Self::get_cennznut(doughnut)?;
-		return Self::check_contract(contract_addr, cennznut);
+	/// Get the liquid asset balance of `account`
+	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance {
+		prml_generic_asset::Module::<T>::free_balance(asset_id, account)
 	}
-
-	/// This is used when an issuer delegates permissions to a smart contract
-	/// It should verify that a contract being called by the smart contract is
-	/// permissioned. Not implemented yet.
-	fn verify_contract_to_contract_call(
-		_caller: &Self::AccountId,
-		_doughnut: &Self::Doughnut,
-		_contract_addr: &Self::AccountId,
-	) -> Result<(), &'static str> {
-		Ok(()) // Just return OK for now
+	/// Get the default asset/currency ID in the system
+	fn default_asset_id() -> Self::AssetId {
+		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
 	}
 }
 
-// An on unbalanced handler which takes a slash amount in the staked currency
-// and moves it to the system Treasury.
+/// An on unbalanced handler which takes a slash amount in the staked currency
+/// and moves it to the system `Treasury` account.
 pub struct SlashFundsToTreasury;
-impl OnUnbalanced<NegativeImbalance> for SlashFundsToTreasury {
-	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance) {
+impl OnUnbalanced<NegativeImbalance<Runtime>> for SlashFundsToTreasury {
+	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance<Runtime>) {
 		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
 	}
 }
@@ -428,39 +170,55 @@ impl OnUnbalanced<NegativeImbalance> for SlashFundsToTreasury {
 mod tests {
 	use super::*;
 	use crate::{
-		constants::fee::{MAX_WEIGHT, MIN_WEIGHT},
-		MaximumBlockWeight, Runtime, TargetBlockFullness, TransactionMaxWeightFee, TransactionMinWeightFee,
+		constants::{
+			currency::{DOLLARS, MICROS, WEI},
+			time::DAYS,
+		},
+		AdjustmentVariable, AvailableBlockRatio, MaximumBlockWeight, MinimumMultiplier, Multiplier, Runtime, System,
+		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
-	use frame_support::weights::Weight;
-	use sp_runtime::assert_eq_error_rate;
+	use frame_support::weights::{Weight, WeightToFeePolynomial};
+	use sp_runtime::{assert_eq_error_rate, FixedPointNumber};
 
 	fn max() -> Weight {
-		MaximumBlockWeight::get()
+		AvailableBlockRatio::get() * MaximumBlockWeight::get()
+	}
+
+	fn min_multiplier() -> Multiplier {
+		MinimumMultiplier::get()
 	}
 
 	fn target() -> Weight {
 		TargetBlockFullness::get() * max()
 	}
 
-	// poc reference implementation.
-	fn fee_multiplier_update(block_weight: Weight, previous: Fixed64) -> Fixed64 {
-		let block_weight = block_weight as f32;
-		let v: f32 = 0.00004;
+	// update based on runtime impl.
+	fn runtime_multiplier_update(fm: Multiplier) -> Multiplier {
+		TargetedFeeAdjustment::<Runtime, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>::convert(fm)
+	}
+
+	// update based on reference impl.
+	fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier {
+		let accuracy = Multiplier::accuracy() as f64;
+		let previous_float = previous.into_inner() as f64 / accuracy;
+		// bump if it is zero.
+		let previous_float = previous_float.max(min_multiplier().into_inner() as f64 / accuracy);
 
 		// maximum tx weight
-		let m = max() as f32;
+		let m = max() as f64;
+		// block weight always truncated to max weight
+		let block_weight = (block_weight as f64).min(m);
+		let v: f64 = AdjustmentVariable::get().to_fraction();
+
 		// Ideal saturation in terms of weight
-		let ss = target() as f32;
+		let ss = target() as f64;
 		// Current saturation in terms of weight
 		let s = block_weight;
 
-		let fm = (v * (s / m - ss / m)) + (v.powi(2) * (s / m - ss / m).powi(2)) / 2.0;
-		let addition_fm = Fixed64::from_parts((fm * 1_000_000_000_f32) as i64);
-		previous.saturating_add(addition_fm)
-	}
-
-	fn feemul(parts: i64) -> Fixed64 {
-		Fixed64::from_parts(parts)
+		let t1 = v * (s / m - ss / m);
+		let t2 = v.powi(2) * (s / m - ss / m).powi(2) / 2.0;
+		let next_float = previous_float * (1.0 + t1 + t2);
+		Multiplier::from_fraction(next_float)
 	}
 
 	fn run_with_system_weight<F>(w: Weight, assertions: F)
@@ -478,11 +236,12 @@ mod tests {
 	}
 
 	#[test]
-	fn fee_multiplier_update_poc_works() {
-		let fm = Fixed64::from_rational(0, 1);
+	fn truth_value_update_poc_works() {
+		let fm = Multiplier::saturating_from_rational(1, 2);
 		let test_set = vec![
 			(0, fm.clone()),
 			(100, fm.clone()),
+			(1000, fm.clone()),
 			(target(), fm.clone()),
 			(max() / 2, fm.clone()),
 			(max(), fm.clone()),
@@ -490,153 +249,186 @@ mod tests {
 		test_set.into_iter().for_each(|(w, fm)| {
 			run_with_system_weight(w, || {
 				assert_eq_error_rate!(
-					fee_multiplier_update(w, fm).into_inner(),
-					TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm).into_inner(),
-					5,
+					truth_value_update(w, fm),
+					runtime_multiplier_update(fm),
+					// Error is only 1 in 100^18
+					Multiplier::from_inner(100),
 				);
 			})
 		})
 	}
 
 	#[test]
-	fn empty_chain_simulation() {
-		// just a few txs per_block.
-		let block_weight = 0;
-		run_with_system_weight(block_weight, || {
-			let mut fm = Fixed64::default();
-			let mut iterations: u64 = 0;
-			loop {
-				let next = TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm);
-				fm = next;
-				if fm == Fixed64::from_rational(-1, 1) {
-					break;
-				}
-				iterations += 1;
-			}
-			println!("iteration {}, new fm = {:?}. Weight fee is now zero", iterations, fm);
-			assert!(
-				iterations > 50_000,
-				"This assertion is just a warning; Don't panic. \
-				Current substrate/polkadot node are configured with a _slow adjusting fee_ \
-				mechanism. Hence, it is really unlikely that fees collapse to zero even on an \
-				empty chain in less than at least of couple of thousands of empty blocks. But this \
-				simulation indicates that fees collapsed to zero after {} almost-empty blocks. \
-				Check it",
-				iterations,
-			);
+	fn multiplier_can_grow_from_zero() {
+		// if the min is too small, then this will not change, and we are doomed forever.
+		// the weight is 1/100th bigger than target.
+		run_with_system_weight(target() * 101 / 100, || {
+			let next = runtime_multiplier_update(min_multiplier());
+			assert!(next > min_multiplier(), "{:?} !>= {:?}", next, min_multiplier());
 		})
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_theoretical_max_weight() {
-		let weight = u32::max_value();
-		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(TransactionMaxWeightFee::get(), weight_fee);
+	fn multiplier_cannot_go_below_limit() {
+		// will not go any further below even if block is empty.
+		run_with_system_weight(0, || {
+			let next = runtime_multiplier_update(min_multiplier());
+			assert_eq!(next, min_multiplier());
+		})
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_practical_max_weight() {
-		let weight = MAX_WEIGHT as u32;
-		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(TransactionMaxWeightFee::get(), weight_fee);
+	fn time_to_reach_zero() {
+		// blocks per 24h in substrate-node: 28,800 (k)
+		// s* = 0.1875
+		// The bound from the research in an empty chain is:
+		// v <~ (p / k(0 - s*))
+		// p > v * k * -0.1875
+		// to get p == -1 we'd need
+		// -1 > 0.00001 * k * -0.1875
+		// 1 < 0.00001 * k * 0.1875
+		// 10^9 / 1875 < k
+		// k > 533_333 ~ 18,5 days.
+		run_with_system_weight(0, || {
+			// start from 1, the default.
+			let mut fm = Multiplier::one();
+			let mut iterations: u64 = 0;
+			loop {
+				let next = runtime_multiplier_update(fm);
+				fm = next;
+				if fm == min_multiplier() {
+					break;
+				}
+				iterations += 1;
+			}
+			assert!(iterations > 533_333);
+		})
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_min_weight() {
-		let weight = MIN_WEIGHT as u32;
-		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(TransactionMinWeightFee::get(), weight_fee);
+	fn min_change_per_day() {
+		// Start with an adjustment multiplier of 1.
+		// if every block in 24 hour period has a maximum weight then the multiplier should have increased
+		// to > ~23% by the end of the period.
+		run_with_system_weight(max(), || {
+			let mut fm = Multiplier::one();
+			// `DAYS` is a function of `SECS_PER_BLOCK`
+			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
+			// 3 second block time
+			for _ in 0..DAYS {
+				let next = runtime_multiplier_update(fm);
+				fm = next;
+			}
+			assert!(fm > Multiplier::saturating_from_rational(1234, 1000));
+		})
 	}
 
 	#[test]
-	fn weight_to_fee_scaling_returns_transposed_weight() {
-		let weight = 200_000_u32;
-		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(2_000, weight_fee);
-	}
+	#[ignore]
+	fn congested_chain_simulation() {
+		// `cargo test congested_chain_simulation -- --nocapture` to get some insight.
 
-	#[test]
-	fn weight_to_fee_scaling_for_zero_weight() {
-		let weight = 0;
-		let weight_fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::convert(weight);
-		assert_eq!(TransactionMinWeightFee::get(), weight_fee);
+		// almost full. The entire quota of normal transactions is taken.
+		let block_weight = AvailableBlockRatio::get() * max() - 100;
+
+		// Default substrate weight.
+		let tx_weight = frame_support::weights::constants::ExtrinsicBaseWeight::get();
+
+		run_with_system_weight(block_weight, || {
+			// initial value configured on module
+			let mut fm = Multiplier::one();
+			assert_eq!(fm, TransactionPayment::next_fee_multiplier());
+
+			let mut iterations: u64 = 0;
+			loop {
+				let next = runtime_multiplier_update(fm);
+				// if no change, panic. This should never happen in this case.
+				if fm == next {
+					panic!("The fee should ever increase");
+				}
+				fm = next;
+				iterations += 1;
+				let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::calc(&tx_weight);
+				let adjusted_fee = fm.saturating_mul_acc_int(fee);
+				println!(
+					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} weis, \
+					{} micros, {} dollars",
+					iterations,
+					fm,
+					adjusted_fee,
+					adjusted_fee / WEI,
+					adjusted_fee / MICROS,
+					adjusted_fee / DOLLARS,
+				);
+			}
+		});
 	}
 
 	#[test]
 	fn stateless_weight_mul() {
+		let fm = Multiplier::saturating_from_rational(1, 2);
 		run_with_system_weight(target() / 4, || {
-			// Light block. Fee is reduced a little.
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(-7500),
-			);
+			let next = runtime_multiplier_update(fm);
+			assert_eq_error_rate!(next, truth_value_update(target() / 4, fm), Multiplier::from_inner(100),);
+
+			// Light block. Multiplier is reduced a little.
+			assert!(next < fm);
 		});
+
 		run_with_system_weight(target() / 2, || {
-			// a bit more. Fee is decreased less, meaning that the fee increases as the block grows.
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(-5000),
-			);
+			let next = runtime_multiplier_update(fm);
+			assert_eq_error_rate!(next, truth_value_update(target() / 2, fm), Multiplier::from_inner(100),);
+			// Light block. Multiplier is reduced a little.
+			assert!(next < fm);
 		});
 		run_with_system_weight(target(), || {
-			// ideal. Original fee. No changes.
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(0),
-			);
+			let next = runtime_multiplier_update(fm);
+			assert_eq_error_rate!(next, truth_value_update(target(), fm), Multiplier::from_inner(100),);
+			// ideal. No changes.
+			assert_eq!(next, fm)
 		});
 		run_with_system_weight(target() * 2, || {
-			// // More than ideal. Fee is increased.
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(10000),
-			);
+			// More than ideal. Fee is increased.
+			let next = runtime_multiplier_update(fm);
+			assert_eq_error_rate!(next, truth_value_update(target() * 2, fm), Multiplier::from_inner(100),);
+
+			// Heavy block. Fee is increased a little.
+			assert!(next > fm);
 		});
 	}
 
 	#[test]
-	fn stateful_weight_mul_grow_to_infinity() {
+	fn weight_mul_grow_on_big_block() {
 		run_with_system_weight(target() * 2, || {
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(10000)
-			);
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(10000)),
-				feemul(20000)
-			);
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(20000)),
-				feemul(30000)
-			);
-			// ...
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(1_000_000_000)),
-				feemul(1_000_000_000 + 10000)
-			);
+			let mut original = Multiplier::zero();
+			let mut next = Multiplier::default();
+
+			(0..1_000).for_each(|_| {
+				next = runtime_multiplier_update(original);
+				assert_eq_error_rate!(
+					next,
+					truth_value_update(target() * 2, original),
+					Multiplier::from_inner(100),
+				);
+				// must always increase
+				assert!(next > original, "{:?} !>= {:?}", next, original);
+				original = next;
+			});
 		});
 	}
 
 	#[test]
-	fn stateful_weight_mil_collapse_to_minus_one() {
-		run_with_system_weight(0, || {
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
-				feemul(-10000)
-			);
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(-10000)),
-				feemul(-20000)
-			);
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(-20000)),
-				feemul(-30000)
-			);
-			// ...
-			assert_eq!(
-				TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(1_000_000_000 * -1)),
-				feemul(-1_000_000_000)
-			);
+	fn weight_mul_decrease_on_small_block() {
+		run_with_system_weight(target() / 2, || {
+			let mut original = Multiplier::saturating_from_rational(1, 2);
+			let mut next;
+
+			for _ in 0..100 {
+				// decreases
+				next = runtime_multiplier_update(original);
+				assert!(next < original, "{:?} !<= {:?}", next, original);
+				original = next;
+			}
 		})
 	}
 
@@ -644,7 +436,7 @@ mod tests {
 	fn weight_to_fee_should_not_overflow_on_large_weights() {
 		let kb = 1024 as Weight;
 		let mb = kb * kb;
-		let max_fm = Fixed64::from_natural(i64::max_value());
+		let max_fm = Multiplier::saturating_from_integer(i128::max_value());
 
 		// check that for all values it can compute, correctly.
 		vec![
@@ -657,15 +449,19 @@ mod tests {
 			100 * kb,
 			mb,
 			10 * mb,
+			2147483647,
+			4294967295,
+			MaximumBlockWeight::get() / 2,
+			MaximumBlockWeight::get(),
 			Weight::max_value() / 2,
 			Weight::max_value(),
 		]
 		.into_iter()
 		.for_each(|i| {
 			run_with_system_weight(i, || {
-				let next = TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default());
-				let truth = fee_multiplier_update(i, Fixed64::default());
-				assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 5);
+				let next = runtime_multiplier_update(Multiplier::one());
+				let truth = truth_value_update(i, Multiplier::one());
+				assert_eq_error_rate!(truth, next, Multiplier::from_inner(50_000_000));
 			});
 		});
 
@@ -673,10 +469,19 @@ mod tests {
 		let t = target();
 		vec![t + 100, t * 2, t * 4].into_iter().for_each(|i| {
 			run_with_system_weight(i, || {
-				let fm = TargetedFeeAdjustment::<TargetBlockFullness>::convert(max_fm);
+				let fm = runtime_multiplier_update(max_fm);
 				// won't grow. The convert saturates everything.
 				assert_eq!(fm, max_fm);
 			})
 		});
+	}
+
+	#[test]
+	fn weight_to_cpay_fee_scaling() {
+		// ~1,000,000:1, configured in runtime/src/lib.rs `WeightToCpayFactor`
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&1_000_000), 1 * MICROS);
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
+		// check no issues at max. value
+		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());
 	}
 }
