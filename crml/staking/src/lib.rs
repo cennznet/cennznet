@@ -146,7 +146,7 @@
 //!
 //! decl_module! {
 //! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//!			/// Reward a validator.
+//! 		#[weight = 0]
 //! 		pub fn reward_myself(origin) -> dispatch::DispatchResult {
 //! 			let reported = ensure_signed(origin)?;
 //! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
@@ -255,6 +255,7 @@ mod multi_token_economy_tests;
 mod tests;
 
 mod slashing;
+pub use slashing::REWARD_F1;
 
 pub mod inflation;
 
@@ -262,14 +263,14 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
 	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnReapAccount, OnUnbalanced, Time, WithdrawReasons,
+		Currency, Get, Imbalance, LockIdentifier, LockableCurrency, OnNewAccount, OnUnbalanced, Time, WithdrawReasons,
 	},
-	weights::SimpleDispatchInfo,
+	weights::Weight,
 	IterableStorageMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
-use sp_phragmen::ExtendedBalance;
+use sp_npos_elections::{ExtendedBalance, VoteWeight};
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, Zero},
@@ -281,11 +282,89 @@ use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	iter::FromIterator,
-	prelude::*,
-};
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*, vec};
+
+pub trait WeightInfo {
+	fn bond() -> Weight;
+	fn bond_extra() -> Weight;
+	fn unbond() -> Weight;
+	fn rebond() -> Weight;
+	fn reap_stash() -> Weight;
+	fn withdraw_unbonded() -> Weight;
+	fn validate() -> Weight;
+	fn nominate() -> Weight;
+	fn chill() -> Weight;
+	fn set_payee() -> Weight;
+	fn set_controller() -> Weight;
+	fn set_validator_count() -> Weight;
+	fn force_no_eras() -> Weight;
+	fn force_new_era() -> Weight;
+	fn set_minimum_bond() -> Weight;
+	fn set_invulnerables() -> Weight;
+	fn force_unstake() -> Weight;
+	fn force_new_era_always() -> Weight;
+	fn cancel_deferred_slash() -> Weight;
+}
+
+impl WeightInfo for () {
+	fn bond() -> Weight {
+		0
+	}
+	fn bond_extra() -> Weight {
+		0
+	}
+	fn unbond() -> Weight {
+		0
+	}
+	fn rebond() -> Weight {
+		0
+	}
+	fn reap_stash() -> Weight {
+		0
+	}
+	fn withdraw_unbonded() -> Weight {
+		0
+	}
+	fn validate() -> Weight {
+		0
+	}
+	fn nominate() -> Weight {
+		0
+	}
+	fn chill() -> Weight {
+		0
+	}
+	fn set_payee() -> Weight {
+		0
+	}
+	fn set_controller() -> Weight {
+		0
+	}
+	fn set_validator_count() -> Weight {
+		0
+	}
+	fn force_no_eras() -> Weight {
+		0
+	}
+	fn force_new_era() -> Weight {
+		0
+	}
+	fn set_minimum_bond() -> Weight {
+		0
+	}
+	fn set_invulnerables() -> Weight {
+		0
+	}
+	fn force_unstake() -> Weight {
+		0
+	}
+	fn force_new_era_always() -> Weight {
+		0
+	}
+	fn cancel_deferred_slash() -> Weight {
+		0
+	}
+}
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
@@ -659,6 +738,8 @@ pub trait Trait: frame_system::Trait {
 
 	/// The NPoS reward curve to use.
 	type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
+
+	type WeightInfo: WeightInfo;
 }
 
 /// Mode of era-forcing.
@@ -796,6 +877,10 @@ decl_storage! {
 		/// The earliest era for which we have a pending, unapplied slash.
 		EarliestUnappliedSlash: Option<EraIndex>;
 
+		// TODO remove the following variable when https://github.com/cennznet/cennznet/issues/297
+		/// Used to toggle the bonding functionality off/on
+		BlockBonding get(fn block_bonding) config(): bool;
+
 		/// The version of storage for upgrade.
 		StorageVersion: u32;
 	}
@@ -810,7 +895,7 @@ decl_storage! {
 					"Stash does not have enough balance to bond."
 				);
 				let _ = <Module<T>>::bond(
-					T::Origin::from((Some(stash.clone()), None).into()),
+					T::Origin::from(Some(stash.clone()).into()),
 					controller.clone(),
 					balance,
 					RewardDestination::Stash,
@@ -818,13 +903,13 @@ decl_storage! {
 				let _ = match status {
 					StakerStatus::Validator => {
 						<Module<T>>::validate(
-							T::Origin::from((Some(controller.clone()), None).into()),
+							T::Origin::from(Some(controller.clone()).into()),
 							Default::default(),
 						)
 					},
 					StakerStatus::Nominator(votes) => {
 						<Module<T>>::nominate(
-							T::Origin::from((Some(controller.clone()), None).into()),
+							T::Origin::from(Some(controller.clone()).into()),
 							votes.to_vec(),
 						)
 					},
@@ -877,10 +962,14 @@ decl_error! {
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.
 		NoUnlockChunk,
+		/// Attempting to target a stash that still has funds.
+		FundedTarget,
 		/// Items are not sorted and unique.
 		NotSortedAndUnique,
 		/// Cannot nominate the same account multiple times
 		DuplicateNominee,
+		// TODO remove the following error when https://github.com/cennznet/cennznet/issues/297
+		BondingNotEnabled,
 	}
 }
 
@@ -918,12 +1007,14 @@ decl_module! {
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned unless
 		/// the `origin` falls below minimum bond and is removed lazliy in `withdraw_unbonded`.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::bond()]
 		fn bond(origin,
 			controller: T::AccountId,
 			#[compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>
 		) {
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
+
 			let stash = ensure_signed(origin)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
@@ -964,8 +1055,10 @@ decl_module! {
 		/// - O(1).
 		/// - One DB entry.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
+
 			let stash = ensure_signed(origin)?;
 
 			let controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1004,8 +1097,10 @@ decl_module! {
 		///   The only way to clean the aforementioned storage item is also user-controlled via `withdraw_unbonded`.
 		/// - One DB entry.
 		/// </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
+
 			let controller = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1043,8 +1138,10 @@ decl_module! {
 		/// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
 		/// - Storage changes: Can't increase storage, only decrease it.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::rebond()]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
+
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1055,6 +1152,28 @@ decl_module! {
 			let ledger = ledger.rebond(value);
 
 			Self::update_ledger(&controller, &ledger);
+		}
+
+		/// Remove all data structure concerning a staker/stash once its balance is zero.
+		/// This is essentially equivalent to `withdraw_unbonded` except it can be called by anyone
+		/// and the target `stash` must have no funds left.
+		///
+		/// This can be called from any origin.
+		///
+		/// - `stash`: The stash account to reap. Its balance must be zero.
+		///
+		/// # <weight>
+		/// Complexity: O(S) where S is the number of slashing spans on the account.
+		/// DB Weight:
+		/// - Reads: Stash Account, Bonded, Slashing Spans, Locks
+		/// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
+		/// - Writes Each: SpanSlash * S
+		/// # </weight>
+		#[weight = T::WeightInfo::reap_stash()]
+		fn reap_stash(_origin, stash: T::AccountId) {
+			ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
+			Self::kill_stash(&stash);
+			T::Currency::remove_lock(STAKING_ID, &stash);
 		}
 
 		/// Remove any unlocked chunks from the `unlocking` queue from our management.
@@ -1073,8 +1192,10 @@ decl_module! {
 		/// - Contains a limited number of reads, yet the size of which could be large based on `ledger`.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+		#[weight = T::WeightInfo::withdraw_unbonded()]
 		fn withdraw_unbonded(origin) {
+			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
+
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let ledger = ledger.consolidate_unlocked(Self::current_era());
@@ -1105,7 +1226,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::validate()]
 		fn validate(origin, prefs: ValidatorPrefs) {
 
 			let controller = ensure_signed(origin)?;
@@ -1132,7 +1253,7 @@ decl_module! {
 		/// which is capped at `MAX_NOMINATIONS`.
 		/// - Both the reads and writes follow a similar pattern.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::nominate()]
 		fn nominate(origin, targets: Vec<T::AccountId>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1168,7 +1289,7 @@ decl_module! {
 		/// - Contains one read.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::chill()]
 		fn chill(origin) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1186,7 +1307,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+		#[weight = T::WeightInfo::set_payee()]
 		fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1205,7 +1326,7 @@ decl_module! {
 		/// - Contains a limited number of reads.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+		#[weight = T::WeightInfo::set_controller()]
 		fn set_controller(origin, controller: T::AccountId) {
 			let stash = ensure_signed(origin)?;
 			let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1221,7 +1342,7 @@ decl_module! {
 		}
 
 		/// The ideal number of validators.
-		#[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+		#[weight = T::WeightInfo::set_validator_count()]
 		fn set_validator_count(origin, #[compact] new: u32) {
 			ensure_root(origin)?;
 			ValidatorCount::put(new);
@@ -1234,7 +1355,7 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_no_eras()]
 		fn force_no_eras(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNone);
@@ -1246,14 +1367,14 @@ decl_module! {
 		/// # <weight>
 		/// - No arguments.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_new_era()]
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceNew);
 		}
 
 		/// Set the minimum bond amount.
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::set_minimum_bond()]
 		fn set_minimum_bond(origin, value: BalanceOf<T>) {
 			ensure_root(origin)?;
 			<MinimumBond<T>>::put(value);
@@ -1261,7 +1382,7 @@ decl_module! {
 		}
 
 		/// Set the validators who cannot be slashed (if any).
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::set_invulnerables()]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
@@ -1271,7 +1392,7 @@ decl_module! {
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_unstake()]
 		fn force_unstake(origin, stash: T::AccountId) {
 			ensure_root(origin)?;
 			// remove the lock.
@@ -1285,7 +1406,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+		#[weight = T::WeightInfo::force_new_era_always()]
 		fn force_new_era_always(origin) {
 			ensure_root(origin)?;
 			ForceEra::put(Forcing::ForceAlways);
@@ -1297,7 +1418,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(1_000_000)]
+		#[weight = T::WeightInfo::cancel_deferred_slash()]
 		fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
 			ensure_root(origin)?;
 
@@ -1330,6 +1451,7 @@ impl<T: Trait> Module<T> {
 			.unwrap_or_default()
 	}
 
+	#[cfg(test)]
 	/// The slashable balance of a stash account as of right now.
 	/// It could lessen in the near future as funds become unlocked and are withdrawn.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
@@ -1337,6 +1459,11 @@ impl<T: Trait> Module<T> {
 			.and_then(Self::ledger)
 			.map(|l| l.slashable_balance())
 			.unwrap_or_default()
+	}
+
+	/// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].
+	fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
+		<T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(Self::active_balance_of(stash))
 	}
 
 	// MUTABLES (DANGEROUS)
@@ -1565,14 +1692,16 @@ impl<T: Trait> Module<T> {
 	///
 	/// Assumes storage is coherent with the declaration.
 	fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {
-		let mut all_nominators: Vec<(T::AccountId, BalanceOf<T>, Vec<T::AccountId>)> = Vec::new();
-		let mut all_validators_and_prefs = BTreeMap::new();
+		let mut all_nominators: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)> = Vec::new();
 		let mut all_validators = Vec::new();
-		for (validator, preference) in <Validators<T>>::iter() {
-			let active_bond = Self::active_balance_of(&validator);
-			let self_vote = (validator.clone(), active_bond, vec![validator.clone()]);
+		for (validator, _) in <Validators<T>>::iter() {
+			// append self vote
+			let self_vote = (
+				validator.clone(),
+				Self::slashable_balance_of_vote_weight(&validator),
+				vec![validator.clone()],
+			);
 			all_nominators.push(self_vote);
-			all_validators_and_prefs.insert(validator.clone(), preference);
 			all_validators.push(validator);
 		}
 
@@ -1583,7 +1712,7 @@ impl<T: Trait> Module<T> {
 			} = nominations;
 
 			// Filter out nomination targets which were nominated before the most recent
-			// non-zero slash.
+			// slashing span.
 			targets.retain(|stash| {
 				<Self as Store>::SlashingSpans::get(&stash)
 					.map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
@@ -1592,11 +1721,11 @@ impl<T: Trait> Module<T> {
 			(nominator, targets)
 		});
 		all_nominators.extend(nominator_votes.map(|(n, ns)| {
-			let s = Self::active_balance_of(&n);
+			let s = Self::slashable_balance_of_vote_weight(&n);
 			(n, s, ns)
 		}));
 
-		let maybe_phragmen_result = sp_phragmen::elect::<_, _, T::CurrencyToVote, Perbill>(
+		let maybe_phragmen_result = sp_npos_elections::seq_phragmen::<T::AccountId, Perbill>(
 			Self::validator_count() as usize,
 			Self::minimum_validator_count().max(1) as usize,
 			all_validators,
@@ -1611,14 +1740,14 @@ impl<T: Trait> Module<T> {
 				.collect::<Vec<T::AccountId>>();
 			let assignments = phragmen_result.assignments;
 
+			let staked_assignments =
+				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_vote_weight);
+
 			let to_balance =
 				|e: ExtendedBalance| <T::CurrencyToVote as Convert<ExtendedBalance, BalanceOf<T>>>::convert(e);
 
-			let supports = sp_phragmen::build_support_map::<_, _, _, T::CurrencyToVote, Perbill>(
-				&elected_stashes,
-				&assignments,
-				Self::active_balance_of,
-			);
+			let (supports, _) =
+				sp_npos_elections::build_support_map::<T::AccountId>(&elected_stashes, &staked_assignments);
 
 			// Clear Stakers.
 			for v in Self::current_elected().iter() {
@@ -1783,8 +1912,8 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 	}
 }
 
-impl<T: Trait> OnReapAccount<T::AccountId> for Module<T> {
-	fn on_reap_account(stash: &T::AccountId) {
+impl<T: Trait> OnNewAccount<T::AccountId> for Module<T> {
+	fn on_new_account(stash: &T::AccountId) {
 		Self::kill_stash(stash);
 	}
 }
@@ -1823,7 +1952,7 @@ impl<T: Trait> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Trait> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>> for Module<T>
+impl<T: Trait> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
 where
 	T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
 	T: pallet_session::historical::Trait<
@@ -1838,19 +1967,24 @@ where
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-	) {
+	) -> Result<Weight, ()> {
 		let reward_proportion = SlashRewardFraction::get();
+		let mut consumed_weight: Weight = 0;
+		let mut add_db_reads_writes = |reads, writes| {
+			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+		};
 
 		let era_now = Self::current_era();
 		let window_start = era_now.saturating_sub(T::BondingDuration::get());
 		let current_era_start_session = CurrentEraStartSessionIndex::get();
+		add_db_reads_writes(2, 0);
 
 		// fast path for current-era report - most likely.
 		let slash_era = if slash_session >= current_era_start_session {
 			era_now
 		} else {
 			let eras = BondedEras::get();
-
+			add_db_reads_writes(1, 0);
 			// reverse because it's more likely to find reports from recent eras.
 			match eras
 				.iter()
@@ -1858,12 +1992,13 @@ where
 				.filter(|&&(_, ref sesh)| sesh <= &slash_session)
 				.next()
 			{
-				None => return, // before bonding period. defensive - should be filtered out.
+				None => return Ok(consumed_weight), // before bonding period. defensive - should be filtered out.
 				Some(&(ref slash_era, _)) => *slash_era,
 			}
 		};
 
 		let slash_defer_duration = T::SlashDeferDuration::get();
+		add_db_reads_writes(1, 0);
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
 			let stash = &details.offender.0;
@@ -1893,10 +2028,26 @@ where
 			});
 
 			if let Some(mut unapplied) = unapplied {
+				let nominators_len = unapplied.others.len() as u64;
+				let reporters_len = details.reporters.len() as u64;
+
+				{
+					let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+					let rw = upper_bound + nominators_len * upper_bound;
+					add_db_reads_writes(rw, rw);
+				}
 				unapplied.reporters = details.reporters.clone();
 				if slash_defer_duration == 0 {
 					// apply right away.
 					slashing::apply_slash::<T>(unapplied);
+					{
+						let slash_cost = (6, 5);
+						let reward_cost = (2, 2);
+						add_db_reads_writes(
+							(1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+							(1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
+						);
+					}
 				} else {
 					// defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(era_now, move |for_later| for_later.push(unapplied));
@@ -1906,9 +2057,17 @@ where
 							*earliest = Some(era_now)
 						}
 					});
+					add_db_reads_writes(2, 2);
 				}
+			} else {
+				add_db_reads_writes(4 /* fetch_spans */, 5 /* kick_out_if_recent */)
 			}
 		}
+		Ok(consumed_weight)
+	}
+
+	fn can_report() -> bool {
+		false
 	}
 }
 
@@ -1938,5 +2097,9 @@ where
 			<Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
 			Ok(())
 		}
+	}
+
+	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+		R::is_known_offence(offenders, time_slot)
 	}
 }

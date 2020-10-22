@@ -23,5 +23,83 @@ pub mod payment;
 pub mod response;
 pub mod vault;
 
+mod benchmarking;
+
 #[cfg(test)]
 pub(crate) mod mock;
+
+use frame_support::weights::Weight;
+
+pub trait WeightInfo {
+	fn register_device() -> Weight;
+	fn replenish_pkbs() -> Weight;
+	fn withdraw_pkbs() -> Weight;
+	fn add_value() -> Weight;
+	fn delete_values() -> Weight;
+	fn set_payment_account() -> Weight;
+	fn revoke_payment_account_self() -> Weight;
+	fn remove_response() -> Weight;
+	fn upsert_value() -> Weight;
+	fn create_group() -> Weight;
+	fn leave_group() -> Weight;
+	fn update_member() -> Weight;
+	fn upsert_group_meta() -> Weight;
+	fn create_invites() -> Weight;
+	fn accept_invite() -> Weight;
+	fn revoke_invites() -> Weight;
+}
+
+impl WeightInfo for () {
+	fn register_device() -> Weight {
+		0 as Weight
+	}
+	fn replenish_pkbs() -> Weight {
+		0 as Weight
+	}
+	fn withdraw_pkbs() -> Weight {
+		0 as Weight
+	}
+	fn add_value() -> Weight {
+		0 as Weight
+	}
+	fn delete_values() -> Weight {
+		0 as Weight
+	}
+	fn set_payment_account() -> Weight {
+		0 as Weight
+	}
+	fn revoke_payment_account_self() -> Weight {
+		0 as Weight
+	}
+	fn remove_response() -> Weight {
+		0 as Weight
+	}
+	fn upsert_value() -> Weight {
+		0 as Weight
+	}
+	fn create_group() -> Weight {
+		0 as Weight
+	}
+	fn leave_group() -> Weight {
+		0 as Weight
+	}
+	fn update_member() -> Weight {
+		0 as Weight
+	}
+	fn upsert_group_meta() -> Weight {
+		0 as Weight
+	}
+	fn create_invites() -> Weight {
+		0 as Weight
+	}
+	fn accept_invite() -> Weight {
+		0 as Weight
+	}
+	fn revoke_invites() -> Weight {
+		0 as Weight
+	}
+}
+
+pub trait Trait: frame_system::Trait {
+	type WeightInfo: WeightInfo;
+}

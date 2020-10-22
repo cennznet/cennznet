@@ -61,7 +61,7 @@ use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
-const REWARD_F1: Perbill = Perbill::from_percent(50);
+pub const REWARD_F1: Perbill = Perbill::from_percent(50);
 
 /// The index of a slashing span - unique to each stash.
 pub(crate) type SpanIndex = u32;
@@ -587,7 +587,7 @@ fn do_slash<T: Trait>(
 
 /// Apply a previously-unapplied slash.
 pub(crate) fn apply_slash<T: Trait>(unapplied_slash: UnappliedSlash<T::AccountId, BalanceOf<T>>) {
-	let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
+	let mut slashed_imbalance = T::Currency::issue(Zero::zero()); // returns a negative imbalance with asset ID
 	let mut reward_payout = unapplied_slash.payout;
 
 	do_slash::<T>(

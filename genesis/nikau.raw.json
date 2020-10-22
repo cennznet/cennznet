@@ -7,7 +7,6 @@
   "telemetryEndpoints": null,
   "protocolId": "cennznet-nikau-v1",
   "properties": null,
-  "fork_blocks": null,
   "consensusEngine": null,
   "genesis": {
     "raw": {
@@ -134,7 +133,7 @@
         "0x5f3e4907f716ac89b6347d15ececedca28dccb559b95c40168a1b2696581b5a7": "0x00000000000000000000000000000000",
         "0x5f3e4907f716ac89b6347d15ececedcaea07de2b8f010516dca3f7ef52f7ac5a": "0x040000000000000000"
       },
-      "children": {}
+      "childrenDefault": {}
     }
   }
 }

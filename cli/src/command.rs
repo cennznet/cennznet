@@ -1,109 +1,150 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Copyright (C) 2017-2020 Parity Technologies (UK) Ltd and Centrality Investment Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+use crate::chain_spec::{self, CENNZnetChainSpec};
+use crate::cli::{Cli, Subcommand};
+use crate::service;
+use cennznet_runtime::Block;
+use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_service::PartialComponents;
 
-use crate::{factory_impl::FactoryState, load_spec, service, ChainSpec, Cli, Subcommand};
-use node_transaction_factory::RuntimeAdapter;
-use sc_cli::VersionInfo;
-use sc_service::Roles as ServiceRoles;
+impl SubstrateCli for Cli {
+	fn impl_name() -> String {
+		"CENNZnet Node".into()
+	}
 
-/// Parse command line arguments into service configuration.
-pub fn run<I, T>(args: I, version: VersionInfo) -> sc_cli::Result<()>
-where
-	I: Iterator<Item = T>,
-	T: Into<std::ffi::OsString> + Clone,
-{
-	let args: Vec<_> = args.collect();
-	let opt = sc_cli::from_iter::<Cli, _>(args.clone(), &version);
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
 
-	let mut config = sc_service::Configuration::from_version(&version);
+	fn description() -> String {
+		env!("CARGO_PKG_DESCRIPTION").into()
+	}
 
-	match opt.subcommand {
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"support@centrality.ai".into()
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+
+	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
+		Ok(match id {
+			"dev" => Box::new(chain_spec::dev::config()),
+			// "azalea" => Box::new(chain_spec::azalea::config()?),
+			"nikau" => Box::new(chain_spec::nikau::config()),
+			path => Box::new(CENNZnetChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+		})
+	}
+
+	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		&cennznet_runtime::VERSION
+	}
+}
+
+/// Parse and run command line arguments
+pub fn run() -> sc_cli::Result<()> {
+	let cli = Cli::from_args();
+
+	match &cli.subcommand {
+		Some(Subcommand::BuildSpec(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+		}
+		Some(Subcommand::CheckBlock(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents {
+					client,
+					task_manager,
+					import_queue,
+					..
+				} = service::new_partial(&config)?;
+				Ok((cmd.run(client, import_queue), task_manager))
+			})
+		}
+		Some(Subcommand::ExportBlocks(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents {
+					client, task_manager, ..
+				} = service::new_partial(&config)?;
+				Ok((cmd.run(client, config.database), task_manager))
+			})
+		}
+		Some(Subcommand::ExportState(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents {
+					client, task_manager, ..
+				} = service::new_partial(&config)?;
+				Ok((cmd.run(client, config.chain_spec), task_manager))
+			})
+		}
+		Some(Subcommand::ImportBlocks(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents {
+					client,
+					task_manager,
+					import_queue,
+					..
+				} = service::new_partial(&config)?;
+				Ok((cmd.run(client, import_queue), task_manager))
+			})
+		}
+		Some(Subcommand::PurgeChain(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|config| cmd.run(config.database))
+		}
+		Some(Subcommand::Revert(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents {
+					client,
+					task_manager,
+					backend,
+					..
+				} = service::new_partial(&config)?;
+				Ok((cmd.run(client, backend), task_manager))
+			})
+		}
+		Some(Subcommand::Benchmark(cmd)) => {
+			if cfg!(feature = "runtime-benchmarks") {
+				let runner = cli.create_runner(cmd)?;
+
+				runner.sync_run(|config| cmd.run::<Block, service::Executor>(config))
+			} else {
+				Err("Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+					.into())
+			}
+		}
 		None => {
-			opt.run.init(&version)?;
-			opt.run.update_config(&mut config, load_spec, &version)?;
-			opt.run.run(config, service::new_light, service::new_full, &version)
-		}
-		Some(Subcommand::Inspect(cmd)) => {
-			cmd.init(&version)?;
-			cmd.update_config(&mut config, load_spec, &version)?;
-
-			let client = sc_service::new_full_client::<
-				cennznet_primitives::types::Block,
-				cennznet_runtime::RuntimeApi,
-				cennznet_executor::Executor,
-			>(&config)?;
-			let inspect = node_inspect::Inspector::<cennznet_primitives::types::Block>::new(client);
-
-			cmd.run(inspect)
-		}
-		// Some(Subcommand::Benchmark(cmd)) => {
-		// 	cmd.init(&version)?;
-		// 	cmd.update_config(&mut config, load_spec, &version)?;
-
-		// 	cmd.run::<cennznet_primitives::types::Block, cennznet_executor::Executor>(config)
-		// }
-		Some(Subcommand::Factory(cli_args)) => {
-			cli_args.shared_params.init(&version)?;
-			cli_args.shared_params.update_config(&mut config, load_spec, &version)?;
-			cli_args
-				.import_params
-				.update_config(&mut config, ServiceRoles::FULL, cli_args.shared_params.dev)?;
-
-			config.use_in_memory_keystore()?;
-
-			match ChainSpec::from(config.expect_chain_spec().id()) {
-				Some(ref c)
-					if c == &ChainSpec::Development
-						|| c == &ChainSpec::CennznetNikau
-						|| c == &ChainSpec::CennznetAzalea => {}
-				_ => return Err("Factory is only supported for development, nikau, and azalea testnet.".into()),
-			}
-
-			// Setup tracing.
-			if let Some(tracing_targets) = cli_args.import_params.tracing_targets.as_ref() {
-				let subscriber = sc_tracing::ProfilingSubscriber::new(
-					cli_args.import_params.tracing_receiver.into(),
-					tracing_targets,
-				);
-				if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
-					return Err(format!("Unable to set global default subscriber {}", e).into());
-				}
-			}
-
-			let factory_state = FactoryState::new(cli_args.blocks, cli_args.transactions);
-
-			let service_builder = new_full_start!(config).0;
-			node_transaction_factory::factory(
-				factory_state,
-				service_builder.client(),
-				service_builder
-					.select_chain()
-					.expect("The select_chain is always initialized by new_full_start!; QED"),
-			)
-			.map_err(|e| format!("Error in transaction factory: {}", e))?;
-
-			Ok(())
-		}
-		Some(Subcommand::Base(subcommand)) => {
-			subcommand.init(&version)?;
-			subcommand.update_config(&mut config, load_spec, &version)?;
-			subcommand.run(
-				config,
-				|config: sc_service::Configuration| Ok(new_full_start!(config).0),
-			)
+			let runner = cli.create_runner(&cli.run)?;
+			runner.run_node_until_exit(|config| match config.role {
+				Role::Light => service::new_light(config),
+				_ => service::new_full(config),
+			})
 		}
 	}
 }

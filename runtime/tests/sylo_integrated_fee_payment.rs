@@ -17,20 +17,22 @@
 
 use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{
-	constants::asset::*, sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic,
-	Executive, GenericAsset, Origin, SyloPayment, TransactionMaxWeightFee,
+	constants::{asset::*, currency::DOLLARS},
+	sylo_e2ee, sylo_groups, sylo_inbox, sylo_response, sylo_vault, Call, CheckedExtrinsic, Executive, GenericAsset,
+	Origin, SyloPayment,
 };
-use cennznet_testing::keyring::{bob, charlie, dave, signed_extra};
-use frame_support::{additional_traits::MultiCurrencyAccounting as MultiCurrency, assert_ok};
+use frame_support::assert_ok;
+use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header, sign};
+use common::keyring::{bob, charlie, dave, signed_extra};
 use common::mock::ExtBuilder;
 
 fn apply_extrinsic(origin: AccountId, call: Call) -> Balance {
 	let xt = sign(CheckedExtrinsic {
-		signed: Some((origin, signed_extra(0, 0, None, None))),
+		signed: Some((origin, signed_extra(0, 0, None))),
 		function: call,
 	});
 
@@ -45,13 +47,13 @@ fn apply_extrinsic(origin: AccountId, call: Call) -> Balance {
 
 #[test]
 fn non_sylo_call_is_not_paid_by_payment_account() {
-	let call = Call::GenericAsset(pallet_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, dave(), 100));
+	let call = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, dave(), 100));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
@@ -68,10 +70,10 @@ fn sylo_e2ee_call_is_paid_by_payment_account() {
 	let call = Call::SyloE2EE(sylo_e2ee::Call::register_device(1, vec![]));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
@@ -88,10 +90,10 @@ fn sylo_inbox_call_is_paid_by_payment_account() {
 	let call = Call::SyloInbox(sylo_inbox::Call::add_value(dave(), b"dude!".to_vec()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
@@ -108,10 +110,10 @@ fn sylo_vault_call_is_paid_by_payment_account() {
 	let call = Call::SyloVault(sylo_vault::Call::upsert_value(b"key".to_vec(), b"value".to_vec()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
@@ -128,10 +130,10 @@ fn sylo_response_call_is_paid_by_payment_account() {
 	let call = Call::SyloResponse(sylo_response::Call::remove_response([0u8; 32].into()));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());
@@ -154,10 +156,10 @@ fn sylo_groups_call_is_paid_by_payment_account() {
 	));
 
 	ExtBuilder::default()
-		.initial_balance(TransactionMaxWeightFee::get())
+		.initial_balance(100 * DOLLARS)
 		.build()
 		.execute_with(|| {
-			assert_ok!(SyloPayment::set_payment_account(Origin::ROOT, bob()));
+			assert_ok!(SyloPayment::set_payment_account(Origin::root(), bob()));
 
 			let fee_asset_id = Some(GenericAsset::spending_asset_id());
 			let bob_balance = <GenericAsset as MultiCurrency>::free_balance(&bob(), fee_asset_id.clone());

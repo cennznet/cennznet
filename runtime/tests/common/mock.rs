@@ -18,24 +18,19 @@
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
-use cennznet_testing::keyring::*;
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use frame_support::additional_traits::MultiCurrencyAccounting as MultiCurrency;
-use pallet_contracts::{Gas, Schedule};
+use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::Perbill;
 
 use crate::common::helpers::make_authority_keys;
+use crate::common::keyring::*;
 
 /// The default number of validators for mock storage setup
 const DEFAULT_VALIDATOR_COUNT: usize = 3;
 
 pub struct ExtBuilder {
 	initial_balance: Balance,
-	gas_price: Balance,
-	// Configurable prices for certain gas metered operations
-	gas_sandbox_data_read_cost: Gas,
-	gas_regular_op_cost: Gas,
 	// Configurable fields for staking module tests
 	stash: Balance,
 	// The initial authority set
@@ -46,9 +41,6 @@ impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			initial_balance: 0,
-			gas_price: 0,
-			gas_sandbox_data_read_cost: 0_u64,
-			gas_regular_op_cost: 0_u64,
 			stash: 0,
 			initial_authorities: Default::default(),
 		}
@@ -62,18 +54,6 @@ impl ExtBuilder {
 	}
 	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
 		self.initial_authorities = initial_authorities.to_vec();
-		self
-	}
-	pub fn gas_price(mut self, gas_price: Balance) -> Self {
-		self.gas_price = gas_price;
-		self
-	}
-	pub fn gas_sandbox_data_read_cost<T: Into<Gas>>(mut self, cost: T) -> Self {
-		self.gas_sandbox_data_read_cost = cost.into();
-		self
-	}
-	pub fn gas_regular_op_cost<T: Into<Gas>>(mut self, cost: T) -> Self {
-		self.gas_regular_op_cost = cost.into();
 		self
 	}
 	pub fn stash(mut self, stash: Balance) -> Self {
@@ -100,19 +80,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		// Configure the gas schedule
-		let mut gas_price_schedule = Schedule::default();
-		gas_price_schedule.sandbox_data_read_cost = self.gas_sandbox_data_read_cost;
-		gas_price_schedule.regular_op_cost = self.gas_regular_op_cost;
-
-		pallet_contracts::GenesisConfig::<Runtime> {
-			current_schedule: gas_price_schedule,
-			gas_price: self.gas_price,
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-		pallet_generic_asset::GenesisConfig::<Runtime> {
+		prml_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
 				CENTRAPAY_ASSET_ID,

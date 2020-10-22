@@ -47,7 +47,6 @@ thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
 }
 
-use frame_system as system;
 impl_outer_origin! {
 	pub enum Origin for Test {}
 }
@@ -62,46 +61,55 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
+
 impl frame_system::Trait for Test {
+	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Index = u64;
-	type BlockNumber = BlockNumber;
 	type Call = ();
+	type BlockNumber = BlockNumber;
 	type Hash = H256;
 	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
+	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
+	type DbWeight = ();
+	type BlockExecutionWeight = ();
+	type ExtrinsicBaseWeight = ();
+	type MaximumExtrinsicWeight = MaximumBlockWeight;
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type ModuleToIndex = ();
-	type Doughnut = ();
-	type DelegatedDispatchVerifier = ();
+	type PalletInfo = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
 }
 
 parameter_types! {
 	pub const TransferFee: Balance = 0;
 	pub const CreationFee: Balance = 0;
 }
+
 impl pallet_balances::Trait for Test {
+	type MaxLocks = ();
 	type Balance = Balance;
-	type OnReapAccount = System;
-	type OnNewAccount = ();
 	type Event = ();
-	type TransferPayment = ();
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type CreationFee = CreationFee;
+	type AccountStore = System;
+	type WeightInfo = ();
 }
 
-impl pallet_generic_asset::Trait for Test {
+impl prml_generic_asset::Trait for Test {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = ();
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -119,6 +127,8 @@ impl pallet_session::Trait for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+	type NextSessionRotation = ();
+	type WeightInfo = ();
 }
 impl pallet_session::historical::Trait for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
@@ -139,6 +149,7 @@ impl pallet_timestamp::Trait for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 
 crml_staking_reward_curve::build! {
@@ -157,8 +168,8 @@ parameter_types! {
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 impl Trait for Test {
-	type Currency = pallet_generic_asset::StakingAssetCurrency<Self>;
-	type RewardCurrency = pallet_generic_asset::SpendingAssetCurrency<Self>;
+	type Currency = prml_generic_asset::StakingAssetCurrency<Self>;
+	type RewardCurrency = prml_generic_asset::SpendingAssetCurrency<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type RewardRemainder = ();
@@ -170,10 +181,11 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
+	type WeightInfo = ();
 }
 
 type System = frame_system::Module<Test>;
-type GenericAsset = pallet_generic_asset::Module<Test>;
+type GenericAsset = prml_generic_asset::Module<Test>;
 type Session = pallet_session::Module<Test>;
 type Timestamp = pallet_timestamp::Module<Test>;
 type Staking = Module<Test>;
@@ -205,7 +217,7 @@ impl ExtBuilder {
 
 		let _ = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-		let _ = pallet_generic_asset::GenesisConfig::<Test> {
+		let _ = prml_generic_asset::GenesisConfig::<Test> {
 			endowed_accounts: vec![10, 11],
 			initial_balance: 1_000_000_000,
 			staking_asset_id: STAKING_ASSET_ID,
@@ -279,9 +291,9 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check that account 11 is a validator
 		assert!(Staking::current_elected().contains(&11));
 		// Check the balance of the validator account
-		assert_eq!(GenericAsset::free_balance(&STAKING_ASSET_ID, &10), 1_000_000_000);
+		assert_eq!(GenericAsset::free_balance(STAKING_ASSET_ID, &10), 1_000_000_000);
 		// Check the balance of the stash account
-		assert_eq!(GenericAsset::free_balance(&REWARD_ASSET_ID, &11), 1_000_000_000);
+		assert_eq!(GenericAsset::free_balance(REWARD_ASSET_ID, &11), 1_000_000_000);
 		// Check how much is at stake
 		assert_eq!(
 			Staking::ledger(&10),
@@ -304,7 +316,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 		// Check that reward went to the stash account of validator
 		assert_eq!(
-			GenericAsset::free_balance(&REWARD_ASSET_ID, &11),
+			GenericAsset::free_balance(REWARD_ASSET_ID, &11),
 			1_000_000_000 + total_payout
 		);
 		// Check that amount at stake has NOT changed
