@@ -34,6 +34,8 @@ use sp_std::prelude::*;
 // import `mock` first so its macros are defined in `impl` and `tests`.
 #[macro_use]
 mod mock;
+mod benchmarking;
+mod default_weights;
 mod impls;
 mod tests;
 mod types;
@@ -88,24 +90,6 @@ pub trait WeightInfo {
 	fn add_liquidity() -> Weight;
 	fn remove_liquidity() -> Weight;
 	fn set_fee_rate() -> Weight;
-}
-
-impl WeightInfo for () {
-	fn buy_asset() -> Weight {
-		1_000_000
-	}
-	fn sell_asset() -> Weight {
-		1_000_000
-	}
-	fn add_liquidity() -> Weight {
-		1_000_000
-	}
-	fn remove_liquidity() -> Weight {
-		1_000_000
-	}
-	fn set_fee_rate() -> Weight {
-		1_000_000
-	}
 }
 
 decl_error! {

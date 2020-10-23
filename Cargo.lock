@@ -581,7 +581,6 @@ dependencies = [
  "cennznet-runtime",
  "crml-cennzx-rpc",
  "crml-transaction-payment",
- "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
  "futures 0.3.5",
@@ -972,6 +971,7 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -3897,7 +3897,6 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-inherents",
- "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-timestamp",

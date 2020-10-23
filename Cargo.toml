@@ -93,3 +93,10 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[features]
+default = []
+runtime-benchmarks = [
+	"cennznet-cli/runtime-benchmarks",
+]
+
