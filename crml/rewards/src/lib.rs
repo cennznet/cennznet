@@ -35,9 +35,6 @@ use sp_runtime::{
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
-/// The number of historical eras for which tx fee payout info should be retained.
-const HISTORICAL_PAYOUT_ERAS: usize = 7;
-
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// A pending increase to total issuance of the reward currency
@@ -54,6 +51,8 @@ pub trait Trait: frame_system::Trait {
 	type CurrencyToReward: Currency<Self::AccountId>;
 	/// The treasury account for payouts
 	type TreasuryModuleId: Get<ModuleId>;
+	/// The number of historical eras for which tx fee payout info should be retained.
+	type HistoricalPayoutEras: Get<u16>;
 }
 
 decl_event!(
@@ -173,11 +172,11 @@ impl<T: Trait> Module<T> {
 		TransactionFeePot::<T>::mutate(|acc| *acc = acc.saturating_add(amount));
 	}
 
-	/// Note a fee payout for future calculations Retaining only the latest `HISTORICAL_PAYOUT_ERAS`
+	/// Note a fee payout for future calculations Retaining only the latest `T::HistoricalPayoutEras::get()`
 	fn note_fee_payout(amount: BalanceOf<T>) {
 		let mut history = TransactionFeePotHistory::<T>::get();
 		history.push_front(amount);
-		history.truncate(HISTORICAL_PAYOUT_ERAS); // truncate the oldest
+		history.truncate(T::HistoricalPayoutEras::get() as usize); // truncate the oldest
 		TransactionFeePotHistory::<T>::put(history);
 	}
 
@@ -305,14 +304,13 @@ mod tests {
 
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+		pub const HistoricalPayoutEras: u16 = 7;
 	}
 	impl Trait for TestRuntime {
-		/// The system event type
 		type Event = ();
-		/// The reward currency system (total issuance, account balance, etc.) for payouts.
 		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
-		/// The treasury account for payouts
 		type TreasuryModuleId = TreasuryModuleId;
+		type HistoricalPayoutEras = HistoricalPayoutEras;
 	}
 
 	// Provides configurable mock genesis storage data.
@@ -330,8 +328,8 @@ mod tests {
 
 	/// Alias for the mocked module under test
 	type Rewards = Module<TestRuntime>;
-	/// Alias for the currency to payout rewards with
-	type RewardCurrency = prml_generic_asset::SpendingAssetCurrency<TestRuntime>;
+	/// Alias for the reward currency in the module under test
+	type RewardCurrency = <TestRuntime as Trait>::CurrencyToReward;
 
 	/// Helper for creating the info required for validator reward payout
 	struct MockCommissionStakeInfo {
@@ -387,7 +385,7 @@ mod tests {
 	fn note_fee_payout_retains_n_latest() {
 		// note multiple fee payouts, it should keep only the latest n in state.
 		ExtBuilder::default().build().execute_with(|| {
-			let historical_payouts = [1_000_u64; HISTORICAL_PAYOUT_ERAS];
+			let historical_payouts = [1_000_u64; <TestRuntime as Trait>::HistoricalPayoutEras::get() as usize];
 			for payout in &historical_payouts {
 				Rewards::note_fee_payout(*payout);
 			}
@@ -446,7 +444,7 @@ mod tests {
 	#[test]
 	fn set_inflation_rate_bounds() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_err!(
+			assert_noop!(
 				Rewards::set_inflation_rate(Origin::root(), 0, 0),
 				"denominator cannot be zero"
 			);
