@@ -639,6 +639,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -649,6 +650,7 @@ dependencies = [
  "cennznet-primitives",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-rewards",
  "crml-staking",
  "crml-staking-reward-curve",
  "crml-sylo",
@@ -1012,6 +1014,23 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-arithmetic",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-rewards"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "prml-generic-asset",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

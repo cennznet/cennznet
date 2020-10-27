@@ -15,9 +15,16 @@
 
 //! Common traits used by CENNZnet node.
 
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::Parameter;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Member};
+use crate::types::Exposure;
+use codec::HasCompact;
+use frame_support::{
+	dispatch::{DispatchError, DispatchResult},
+	Parameter,
+};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Member},
+	FixedI128, Perbill,
+};
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
@@ -68,4 +75,21 @@ pub trait SimpleAssetSystem {
 	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance;
 	/// Get the default asset/currency ID in the system
 	fn default_asset_id() -> Self::AssetId;
+}
+
+/// Something which can perform reward payment to staked validators
+pub trait StakerRewardPayment {
+	/// The system account ID type
+	type AccountId;
+	/// The system balance type
+	type Balance: HasCompact;
+	/// Make a staking reward payout to validators and nominators.
+	/// `validator_commission_stake_map` is a mapping of a validator payment account, validator commission %, and
+	/// a validator + nominator exposure map.
+	fn make_reward_payout(
+		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+	);
+	/// Calculate the value of the next reward payout as of right now.
+	/// i.e calling `make_reward_payout` would distribute this total value among stakers.
+	fn calculate_next_reward_payout() -> FixedI128;
 }

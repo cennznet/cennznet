@@ -19,8 +19,8 @@
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	opaque::Block, opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, SessionConfig, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -200,6 +200,9 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			// 0.003%
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CENTRAPAY_ASSET_ID,
+		}),
+		crml_rewards: Some(RewardsConfig {
+			development_fund_take: Perbill::from_percent(20),
 		}),
 	}
 }
