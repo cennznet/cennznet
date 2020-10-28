@@ -20,7 +20,7 @@
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::{traits::StakerRewardPayment, types::Exposure};
+use crate::Exposure;
 use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
@@ -34,6 +34,9 @@ use sp_runtime::{
 	ModuleId, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
+
+mod types;
+pub(crate) use types::*;
 
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -237,7 +240,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cennznet_primitives::types::IndividualExposure;
+	use crate::IndividualExposure;
 	use frame_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
 	use sp_core::H256;
 	use sp_runtime::{
