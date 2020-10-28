@@ -16,12 +16,13 @@
 
 //! Low-level types used by CENNZnet node.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, HasCompact};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature,
+	MultiSignature, RuntimeDebug,
 };
+use sp_std::prelude::*;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -115,4 +116,29 @@ impl<AssetId: Copy, Balance: Copy> FeeExchange<AssetId, Balance> {
 			FeeExchange::V1(x) => x.max_payment,
 		}
 	}
+}
+
+// the following types are shared by crml staking and rewards.
+
+/// The amount of exposure (to slashing) than an individual nominator has.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
+pub struct IndividualExposure<AccountId, Balance: HasCompact> {
+	/// The stash account of the nominator in question.
+	pub who: AccountId,
+	/// Amount of funds exposed.
+	#[codec(compact)]
+	pub value: Balance,
+}
+
+/// A snapshot of the stake backing a single validator in the system.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct Exposure<AccountId, Balance: HasCompact> {
+	/// The total balance backing this validator.
+	#[codec(compact)]
+	pub total: Balance,
+	/// The validator's own stash that is exposed.
+	#[codec(compact)]
+	pub own: Balance,
+	/// The portions of nominators stashes that are exposed.
+	pub others: Vec<IndividualExposure<AccountId, Balance>>,
 }
