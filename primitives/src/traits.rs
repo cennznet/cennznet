@@ -19,9 +19,7 @@ use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	Parameter,
 };
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Member},
-};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Member};
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
