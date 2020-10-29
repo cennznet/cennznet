@@ -102,11 +102,8 @@ impl prml_generic_asset::Trait for Test {
 impl Trait for Test {
 	type Event = Event;
 	type AssetId = AssetId;
-	type Balance = Balance;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type NegativeImbalance = prml_generic_asset::NegativeImbalance<Test>;
-	type PositiveImbalance = prml_generic_asset::PositiveImbalance<Test>;
-	type MultiCurrency = prml_generic_asset::Module<Test>;
+	type MultiCurrency = prml_generic_asset::Module<Self>;
 	type WeightInfo = ();
 }
 pub struct ExtBuilder {
