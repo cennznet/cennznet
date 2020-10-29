@@ -238,23 +238,23 @@ decl_module! {
 				Error::<T>::CannotAddLiquidityWithZero
 			);
 			ensure!(
-				T::MultiCurrency::free_balance(&from_account, Some(core_asset_id.clone())) >= core_amount,
+				T::MultiCurrency::free_balance(&from_account, Some(core_asset_id)) >= core_amount,
 				Error::<T>::InsufficientCoreAssetBalance
 			);
 			ensure!(
-				T::MultiCurrency::free_balance(&from_account, Some(asset_id.clone())) >= max_asset_amount,
+				T::MultiCurrency::free_balance(&from_account, Some(asset_id)) >= max_asset_amount,
 				Error::<T>::InsufficientTradeAssetBalance
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
-			let core_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(core_asset_id.clone()));
+			let core_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(core_asset_id));
 
 			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() || core_asset_reserve.is_zero() {
 				// new exchange pool
 				(max_asset_amount, core_amount)
 			} else {
-				let trade_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id.clone()));
+				let trade_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id));
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
 
@@ -270,7 +270,7 @@ decl_module! {
 			);
 
 			T::MultiCurrency::transfer(&from_account, &exchange_address, Some(core_asset_id), core_amount, ExistenceRequirement::KeepAlive)?;
-			T::MultiCurrency::transfer(&from_account, &exchange_address, Some(asset_id.clone()), trade_asset_amount, ExistenceRequirement::KeepAlive)?;
+			T::MultiCurrency::transfer(&from_account, &exchange_address, Some(asset_id), trade_asset_amount, ExistenceRequirement::KeepAlive)?;
 
 			Self::mint_liquidity(&exchange_key, &from_account, liquidity_minted);
 			Self::deposit_event(Event::<T>::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
@@ -317,7 +317,7 @@ decl_module! {
 			);
 			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 			T::MultiCurrency::transfer(&exchange_address, &from_account, Some(core_asset_id), withdraw_value.core, ExistenceRequirement::KeepAlive)?;
-			T::MultiCurrency::transfer(&exchange_address, &from_account, Some(asset_id.clone()), withdraw_value.asset, ExistenceRequirement::KeepAlive)?;
+			T::MultiCurrency::transfer(&exchange_address, &from_account, Some(asset_id), withdraw_value.asset, ExistenceRequirement::KeepAlive)?;
 			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
 			Self::deposit_event(Event::<T>::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
 			Ok(())
