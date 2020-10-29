@@ -503,10 +503,7 @@ impl crml_sylo::groups::Trait for Runtime {}
 
 impl crml_cennzx::Trait for Runtime {
 	type AssetId = AssetId;
-	type Balance = Balance;
 	type Event = Event;
-	type NegativeImbalance = prml_generic_asset::NegativeImbalance<Self>;
-	type PositiveImbalance = prml_generic_asset::PositiveImbalance<Self>;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
 	type WeightInfo = ();

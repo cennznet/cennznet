@@ -20,16 +20,13 @@
 
 use core::convert::TryFrom;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
-	traits::{ExistenceRequirement, Imbalance},
-	transactional,
-	weights::Weight,
-	Parameter, StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure, traits::ExistenceRequirement, transactional,
+	weights::Weight, Parameter, StorageDoubleMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member, One, Saturating, Zero},
+	traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero},
 	DispatchError, DispatchResult, SaturatedConversion,
 };
 use sp_std::prelude::*;
