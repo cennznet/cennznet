@@ -16,11 +16,9 @@
 //! Extra CENNZX-Spot traits + implementations
 //!
 use crate::{Module, Trait};
-use cennznet_primitives::{
-	traits::{BuyFeeAsset, SimpleAssetSystem},
-	types::FeeExchange,
-};
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use frame_support::dispatch::DispatchError;
+use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -72,7 +70,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
 		let fee_exchange_asset_id = exchange_op.asset_id();
-		let fee_asset_id = T::AssetSystem::default_asset_id();
+		let fee_asset_id = <T::MultiCurrency as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id();
 
 		Self::execute_buy(
 			&who,
@@ -94,7 +92,6 @@ pub(crate) mod impl_tests {
 	};
 	use cennznet_primitives::types::FeeExchange;
 	use frame_support::{assert_err, assert_ok};
-	use prml_generic_asset::MultiCurrencyAccounting;
 
 	#[test]
 	fn it_generates_an_exchange_address() {

@@ -31,7 +31,6 @@ use crate::{
 	GenesisConfig, Module, Trait,
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
-use cennznet_runtime::impls::SimpleAssetShim;
 use core::convert::TryFrom;
 use frame_support::{impl_outer_event, impl_outer_origin};
 use sp_core::H256;
@@ -104,8 +103,10 @@ impl Trait for Test {
 	type Event = Event;
 	type AssetId = AssetId;
 	type Balance = Balance;
-	type AssetSystem = SimpleAssetShim<Self>;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
+	type NegativeImbalance = prml_generic_asset::NegativeImbalance<Test>;
+	type PositiveImbalance = prml_generic_asset::PositiveImbalance<Test>;
+	type MultiCurrency = prml_generic_asset::Module<Test>;
 	type WeightInfo = ();
 }
 pub struct ExtBuilder {

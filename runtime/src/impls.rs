@@ -23,7 +23,8 @@ use frame_support::{
 	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use prml_generic_asset::{AssetIdAuthority, MultiCurrencyAccounting, NegativeImbalance, StakingAssetCurrency};
+use prml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
+use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use smallvec::smallvec;
 use sp_runtime::{traits::Convert, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};

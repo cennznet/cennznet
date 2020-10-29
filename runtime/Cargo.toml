@@ -59,6 +59,7 @@ sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", defaul
 prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "spike/2.0" }
 
 futures = { version = "0.3.1", features = ["compat"] }
 
