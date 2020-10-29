@@ -21,7 +21,7 @@ use cennznet_runtime::{
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
 use frame_support::assert_ok;
-use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
+use prml_support::MultiCurrencyAccounting as MultiCurrency;
 
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};

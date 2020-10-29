@@ -31,7 +31,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_im_online::UnresponsivenessOffence;
-use prml_generic_asset::MultiCurrencyAccounting as MultiCurrency;
+use prml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
