@@ -28,7 +28,7 @@ use crate::{
 };
 use core::convert::TryFrom;
 use frame_support::{assert_err, assert_ok};
-use prml_generic_asset::MultiCurrencyAccounting;
+use prml_support::MultiCurrencyAccounting;
 
 #[test]
 fn investor_can_add_liquidity() {

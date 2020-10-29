@@ -92,9 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{
-	CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SimpleAssetShim, SlashFundsToTreasury, WeightToCpayFee,
-};
+use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -507,7 +505,9 @@ impl crml_cennzx::Trait for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type AssetSystem = SimpleAssetShim<Self>;
+	type NegativeImbalance = prml_generic_asset::NegativeImbalance<Self>;
+	type PositiveImbalance = prml_generic_asset::PositiveImbalance<Self>;
+	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
 	type WeightInfo = ();
 }

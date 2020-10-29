@@ -18,15 +18,18 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::traits::SimpleAssetSystem;
 use core::convert::TryFrom;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, transactional, weights::Weight, Parameter,
-	StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure,
+	traits::{ExistenceRequirement, Imbalance},
+	transactional,
+	weights::Weight,
+	Parameter, StorageDoubleMap,
 };
 use frame_system::{ensure_root, ensure_signed};
+use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero},
+	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member, One, Saturating, Zero},
 	DispatchError, DispatchResult, SaturatedConversion,
 };
 use sp_std::prelude::*;
@@ -73,9 +76,21 @@ pub trait Trait: frame_system::Trait {
 	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + Into<u64>;
 	/// The type for asset amounts
 	/// Type for denoting asset balances
-	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
-	/// Something which can provide asset management
-	type AssetSystem: SimpleAssetSystem<AccountId = Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>;
+	type Balance: Parameter + Member + AtLeast32BitUnsigned + MaybeSerializeDeserialize + Default + Copy;
+	/// The opaque token type for an imbalance of a particular currency. This is returned by unbalanced operations
+	/// and must be dealt with. It may be dropped but cannot be cloned.
+	type NegativeImbalance: Imbalance<Self::Balance, Opposite = Self::PositiveImbalance>;
+	/// The opaque token type for an imbalance of a particular currency. This is returned by unbalanced operations
+	/// and must be dealt with. It may be dropped but cannot be cloned.
+	type PositiveImbalance: Imbalance<Self::Balance, Opposite = Self::NegativeImbalance>;
+	/// Something which can provide multi currency asset management
+	type MultiCurrency: MultiCurrencyAccounting<
+		AccountId = Self::AccountId,
+		Balance = Self::Balance,
+		CurrencyId = Self::AssetId,
+		NegativeImbalance = Self::NegativeImbalance,
+		PositiveImbalance = Self::PositiveImbalance,
+	>;
 	/// Something which can generate addresses for exchange pools
 	type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
 	/// Provides the public call to weight mapping
@@ -223,23 +238,23 @@ decl_module! {
 				Error::<T>::CannotAddLiquidityWithZero
 			);
 			ensure!(
-				T::AssetSystem::free_balance(core_asset_id, &from_account) >= core_amount,
+				T::MultiCurrency::free_balance(&from_account, Some(core_asset_id)) >= core_amount,
 				Error::<T>::InsufficientCoreAssetBalance
 			);
 			ensure!(
-				T::AssetSystem::free_balance(asset_id, &from_account) >= max_asset_amount,
+				T::MultiCurrency::free_balance(&from_account, Some(asset_id)) >= max_asset_amount,
 				Error::<T>::InsufficientTradeAssetBalance
 			);
 			let exchange_key = (core_asset_id, asset_id);
 			let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
-			let core_asset_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
+			let core_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(core_asset_id));
 
 			let (trade_asset_amount, liquidity_minted) = if total_liquidity.is_zero() || core_asset_reserve.is_zero() {
 				// new exchange pool
 				(max_asset_amount, core_amount)
 			} else {
-				let trade_asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
+				let trade_asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id));
 				let trade_asset_amount = core_amount * trade_asset_reserve / core_asset_reserve + One::one();
 				let liquidity_minted = core_amount * total_liquidity / core_asset_reserve;
 
@@ -254,8 +269,8 @@ decl_module! {
 				Error::<T>::MaximumTradeAssetRequirementNotMet
 			);
 
-			T::AssetSystem::transfer(core_asset_id, &from_account, &exchange_address, core_amount)?;
-			T::AssetSystem::transfer(asset_id, &from_account, &exchange_address, trade_asset_amount)?;
+			T::MultiCurrency::transfer(&from_account, &exchange_address, Some(core_asset_id), core_amount, ExistenceRequirement::KeepAlive)?;
+			T::MultiCurrency::transfer(&from_account, &exchange_address, Some(asset_id), trade_asset_amount, ExistenceRequirement::KeepAlive)?;
 
 			Self::mint_liquidity(&exchange_key, &from_account, liquidity_minted);
 			Self::deposit_event(Event::<T>::AddLiquidity(from_account, core_amount, asset_id, trade_asset_amount));
@@ -301,8 +316,8 @@ decl_module! {
 				Error::<T>::MinimumTradeAssetRequirementNotMet
 			);
 			let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
-			T::AssetSystem::transfer(core_asset_id, &exchange_address, &from_account, withdraw_value.core)?;
-			T::AssetSystem::transfer(asset_id, &exchange_address, &from_account, withdraw_value.asset)?;
+			T::MultiCurrency::transfer(&exchange_address, &from_account, Some(core_asset_id), withdraw_value.core, ExistenceRequirement::KeepAlive)?;
+			T::MultiCurrency::transfer(&exchange_address, &from_account, Some(asset_id), withdraw_value.asset, ExistenceRequirement::KeepAlive)?;
 			Self::burn_liquidity(&exchange_key, &from_account, liquidity_to_withdraw);
 			Self::deposit_event(Event::<T>::RemoveLiquidity(from_account, withdraw_value.core, asset_id, withdraw_value.asset));
 			Ok(())
@@ -386,14 +401,14 @@ impl<T: Trait> Module<T> {
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
-		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
+		let core_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(core_asset_id));
 
 		let (core_amount, asset_amount) = if total_liquidity.is_zero() || core_reserve.is_zero() {
 			// empty exchange pool
 			(liquidity_to_buy, One::one())
 		} else {
 			let core_amount = liquidity_to_buy * core_reserve / total_liquidity;
-			let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
+			let asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id));
 			let asset_amount = core_amount * asset_reserve / core_reserve + One::one();
 
 			(core_amount, asset_amount)
@@ -431,8 +446,8 @@ impl<T: Trait> Module<T> {
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
 		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
-		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
-		let core_reserve = T::AssetSystem::free_balance(core_asset_id, &exchange_address);
+		let asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id));
+		let core_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(core_asset_id));
 		Self::calculate_liquidity_value(asset_reserve, core_reserve, liquidity_to_withdraw, total_liquidity)
 	}
 
@@ -665,8 +680,8 @@ impl<T: Trait> Module<T> {
 	fn get_exchange_reserves(asset_id: T::AssetId) -> (T::Balance, T::Balance) {
 		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 
-		let core_reserve = T::AssetSystem::free_balance(Self::core_asset_id(), &exchange_address);
-		let asset_reserve = T::AssetSystem::free_balance(asset_id, &exchange_address);
+		let core_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(Self::core_asset_id()));
+		let asset_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(asset_id));
 		(core_reserve, asset_reserve)
 	}
 
@@ -696,7 +711,7 @@ impl<T: Trait> Module<T> {
 
 		// Check the trader has enough balance
 		ensure!(
-			T::AssetSystem::free_balance(asset_to_sell, trader) >= amount_to_sell,
+			T::MultiCurrency::free_balance(trader, Some(asset_to_sell),) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
@@ -738,7 +753,7 @@ impl<T: Trait> Module<T> {
 	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the trader has enough balance
 		ensure!(
-			T::AssetSystem::free_balance(asset_to_sell, trader) >= amount_to_sell,
+			T::MultiCurrency::free_balance(trader, Some(asset_to_sell),) >= amount_to_sell,
 			Error::<T>::InsufficientBalance
 		);
 
@@ -788,27 +803,46 @@ impl<T: Trait> Module<T> {
 				T::ExchangeAddressFor::exchange_address_for(asset_to_buy)
 			};
 
-			T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address, amount_to_sell).and(
-				T::AssetSystem::transfer(asset_to_buy, &exchange_address, recipient, amount_to_buy),
+			T::MultiCurrency::transfer(
+				trader,
+				&exchange_address,
+				Some(asset_to_sell),
+				amount_to_sell,
+				ExistenceRequirement::KeepAlive,
 			)
+			.and(T::MultiCurrency::transfer(
+				&exchange_address,
+				recipient,
+				Some(asset_to_buy),
+				amount_to_buy,
+				ExistenceRequirement::KeepAlive,
+			))
 		} else {
 			let exchange_address_a = T::ExchangeAddressFor::exchange_address_for(asset_to_sell);
 			let exchange_address_b = T::ExchangeAddressFor::exchange_address_for(asset_to_buy);
 
 			Self::get_asset_to_core_sell_price(asset_to_sell, amount_to_sell).and_then(|core_amount| {
-				T::AssetSystem::transfer(asset_to_sell, trader, &exchange_address_a, amount_to_sell)
-					.and(T::AssetSystem::transfer(
-						core_asset_id,
-						&exchange_address_a,
-						&exchange_address_b,
-						core_amount,
-					))
-					.and(T::AssetSystem::transfer(
-						asset_to_buy,
-						&exchange_address_b,
-						recipient,
-						amount_to_buy,
-					))
+				T::MultiCurrency::transfer(
+					trader,
+					&exchange_address_a,
+					Some(asset_to_sell),
+					amount_to_sell,
+					ExistenceRequirement::KeepAlive,
+				)
+				.and(T::MultiCurrency::transfer(
+					&exchange_address_a,
+					&exchange_address_b,
+					Some(core_asset_id),
+					core_amount,
+					ExistenceRequirement::KeepAlive,
+				))
+				.and(T::MultiCurrency::transfer(
+					&exchange_address_b,
+					recipient,
+					Some(asset_to_buy),
+					amount_to_buy,
+					ExistenceRequirement::KeepAlive,
+				))
 			})
 		}
 	}
