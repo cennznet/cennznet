@@ -85,8 +85,27 @@ benchmarks! {
 		let top_up = 20u32.into();
 	}: _(RawOrigin::Signed(investor.clone()), trade_asset_id, top_up, 20u32.into(), 30u32.into())
 	verify {
-		assert!(
-			<Cennzx<T>>::liquidity_balance((core_asset_id, trade_asset_id), &investor) >= initial_liquidity + top_up
+		assert_eq!(
+			<Cennzx<T>>::liquidity_balance((core_asset_id, trade_asset_id), &investor), 50u32.into()
+		);
+	}
+
+	remove_liquidity {
+		let investor: T::AccountId = whitelisted_caller();
+
+		let core_asset_id: T::AssetId = 1u32.into();
+		let trade_asset_id: T::AssetId = 2u32.into();
+
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(trade_asset_id), 100u32.into());
+
+		let initial_liquidity = 10u32.into();
+		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), trade_asset_id, initial_liquidity, 9u32.into(), 20u32.into());
+
+	}: _(RawOrigin::Signed(investor.clone()), trade_asset_id, initial_liquidity, 4u32.into(), 4u32.into())
+	verify {
+		assert_eq!(
+			<Cennzx<T>>::liquidity_balance((core_asset_id, trade_asset_id), &investor), 10u32.into()
 		);
 	}
 }
@@ -115,6 +134,13 @@ mod tests {
 	fn add_liquidity() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_add_liquidity::<Test>());
+		});
+	}
+
+	#[test]
+	fn remove_liquidity() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_remove_liquidity::<Test>());
 		});
 	}
 }
