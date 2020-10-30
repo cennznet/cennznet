@@ -39,7 +39,6 @@ use sp_consensus_babe;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
-	curve::PiecewiseLinear,
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
@@ -54,6 +53,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
 pub use frame_support::{
 	construct_runtime, debug,
@@ -209,7 +209,7 @@ impl pallet_authorship::Trait for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = ImOnline;
+	type EventHandler = (Staking, ImOnline);
 }
 
 parameter_types! {
@@ -244,7 +244,6 @@ parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
-
 impl pallet_scheduler::Trait for Runtime {
 	type Event = Event;
 	type Origin = Origin;
@@ -256,38 +255,22 @@ impl pallet_scheduler::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-// TODO Reconfigure the following curve for CENNZnet dual token economy
-crml_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
-
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 impl crml_staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
-	type RewardCurrency = SpendingAssetCurrency<Self>;
 	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type RewardRemainder = Treasury;
 	type Event = Event;
 	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
-	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type SessionInterface = Self;
-	type RewardCurve = RewardCurve;
+	type Rewarder = Rewards;
 	type WeightInfo = ();
 }
 
@@ -340,7 +323,7 @@ parameter_types! {
 impl crml_transaction_payment::Trait for Runtime {
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = ();
+	type OnTransactionPayment = Rewards;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
@@ -489,6 +472,16 @@ impl pallet_treasury::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const HistoricalPayoutEras: u16 = 7;
+}
+impl crml_staking_rewards::Trait for Runtime {
+	type CurrencyToReward = SpendingAssetCurrency<Self>;
+	type Event = Event;
+	type HistoricalPayoutEras = HistoricalPayoutEras;
+	type TreasuryModuleId = TreasuryModuleId;
+}
+
 impl crml_sylo::Trait for Runtime {
 	type WeightInfo = weights::crml_sylo::WeightInfo;
 }
@@ -614,6 +607,7 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 29,
+		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 30,
 	}
 );
 

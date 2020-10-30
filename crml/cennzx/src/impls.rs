@@ -92,6 +92,7 @@ pub(crate) mod impl_tests {
 	};
 	use cennznet_primitives::types::FeeExchange;
 	use frame_support::{assert_err, assert_ok};
+	use prml_support::MultiCurrencyAccounting;
 
 	#[test]
 	fn it_generates_an_exchange_address() {

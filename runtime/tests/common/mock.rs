@@ -23,7 +23,7 @@ use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::Perbill;
 
-use crate::common::helpers::make_authority_keys;
+use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
 
 /// The default number of validators for mock storage setup
@@ -133,7 +133,20 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		t.into()
+		crml_staking::rewards::GenesisConfig {
+			development_fund_take: Perbill::from_percent(10),
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| {
+			// Ensure our test genesis hash exists in storage.
+			// This allows signed extrinsics to validate.
+			frame_system::Module::<Runtime>::set_parent_hash(GENESIS_HASH.into());
+		});
+
+		ext
 	}
 }
 
