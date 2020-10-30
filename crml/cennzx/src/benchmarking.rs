@@ -108,6 +108,13 @@ benchmarks! {
 			<Cennzx<T>>::liquidity_balance((core_asset_id, trade_asset_id), &investor), 10u32.into()
 		);
 	}
+
+	set_fee_rate {
+		let rate = FeeRate::<PerMillion>::from(1234u128);
+	}: _(RawOrigin::Root, rate)
+	verify {
+		assert_eq!(<Cennzx<T>>::fee_rate(), rate);
+	}
 }
 
 #[cfg(test)]
@@ -141,6 +148,13 @@ mod tests {
 	fn remove_liquidity() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_remove_liquidity::<Test>());
+		});
+	}
+
+	#[test]
+	fn set_fee_rate() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_set_fee_rate::<Test>());
 		});
 	}
 }
