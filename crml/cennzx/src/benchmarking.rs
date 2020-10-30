@@ -19,13 +19,34 @@
 
 use super::*;
 
-use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 
 use crate::Module as Cennzx;
 
 benchmarks! {
 	_{ }
+
+	buy_asset {
+		let investor: T::AccountId = whitelisted_caller();
+		let buyer: T::AccountId = account("buyer", 0, 0);
+
+		let core_asset: T::AssetId = 1u32.into();
+		let asset_a: T::AssetId = 2u32.into();
+		let asset_b: T::AssetId = 3u32.into();
+
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset), 1000u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_b), 300u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(asset_a), 100u32.into());
+
+		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_a, 20u32.into(), 20u32.into(), 100u32.into());
+		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_b, 30u32.into(), 30u32.into(), 100u32.into());
+
+	}: _(RawOrigin::Signed(buyer.clone()), None, asset_a, asset_b, 10u32.into(), 50u32.into())
+	verify {
+		assert_eq!(T::MultiCurrency::free_balance(&buyer, Some(asset_a)), 79u32.into());
+	}
 
 	add_liquidity {
 		let investor: T::AccountId = whitelisted_caller();
@@ -56,7 +77,14 @@ mod tests {
 	use frame_support::assert_ok;
 
 	#[test]
-	fn test_benchmarks() {
+	fn buy_asset() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_buy_asset::<Test>());
+		});
+	}
+
+	#[test]
+	fn add_liquidity() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_add_liquidity::<Test>());
 		});
