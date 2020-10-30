@@ -48,6 +48,27 @@ benchmarks! {
 		assert_eq!(T::MultiCurrency::free_balance(&buyer, Some(asset_a)), 79u32.into());
 	}
 
+	sell_asset {
+		let investor: T::AccountId = whitelisted_caller();
+		let seller: T::AccountId = account("seller", 0, 0);
+
+		let core_asset: T::AssetId = 1u32.into();
+		let asset_a: T::AssetId = 2u32.into();
+		let asset_b: T::AssetId = 3u32.into();
+
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset), 1000u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_b), 300u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&seller, Some(asset_a), 100u32.into());
+
+		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_a, 20u32.into(), 20u32.into(), 100u32.into());
+		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_b, 30u32.into(), 30u32.into(), 100u32.into());
+
+	}: _(RawOrigin::Signed(seller.clone()), None, asset_a, asset_b, 20u32.into(), 5u32.into())
+	verify {
+		assert_eq!(T::MultiCurrency::free_balance(&seller, Some(asset_a)), 80u32.into());
+	}
+
 	add_liquidity {
 		let investor: T::AccountId = whitelisted_caller();
 
@@ -80,6 +101,13 @@ mod tests {
 	fn buy_asset() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_buy_asset::<Test>());
+		});
+	}
+
+	#[test]
+	fn sell_asset() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_sell_asset::<Test>());
 		});
 	}
 
