@@ -45,7 +45,10 @@ native_executor_instance!(
 	pub Executor,
 	cennznet_runtime::api::dispatch,
 	cennznet_runtime::native_version,
-	cennznet_runtime::legacy_host_functions::storage::HostFunctions,
+	(
+		cennznet_runtime::legacy_host_functions::storage::HostFunctions,
+		frame_benchmarking::benchmarking::HostFunctions,
+	),
 );
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
