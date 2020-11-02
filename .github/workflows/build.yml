@@ -14,6 +14,8 @@ jobs:
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
+    - name: Check Out
+      uses: actions/checkout@v2
     - name: Install toolchain
       uses: actions-rs/toolchain@v1
       with:
