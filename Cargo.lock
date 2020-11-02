@@ -570,7 +570,6 @@ name = "cennznet"
 version = "1.1.0"
 dependencies = [
  "cennznet-cli",
- "sc-cli",
 ]
 
 [[package]]

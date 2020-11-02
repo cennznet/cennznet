@@ -1,4 +1,5 @@
 use sc_cli::RunCmd;
+pub use sc_cli::Result;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

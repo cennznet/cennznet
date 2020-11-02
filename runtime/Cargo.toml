@@ -136,6 +136,10 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking",
 	"hex-literal",
+	"frame-system-benchmarking",
+	"sp-runtime/runtime-benchmarks",
 	"crml-cennzx/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 ]
 test-doughnut = []

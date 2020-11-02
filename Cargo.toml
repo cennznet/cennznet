@@ -8,15 +8,8 @@ version = "1.1.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
-[badges]
-circle-ci = { repository = "cennznet/cennznet", branch = "develop" }
-maintenance = { status = "actively-developed" }
-is-it-maintained-issue-resolution = { repository = "cennznet/cennznet" }
-is-it-maintained-open-issues = { repository = "cennznet/cennznet" }
-
 [dependencies]
-cennznet-cli = { path = "./cli" }
-sc-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+cennznet-cli = { path = "cli" }
 
 [workspace]
 members = [
@@ -95,8 +88,6 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [features]
-default = []
 runtime-benchmarks = [
-	"cennznet-cli/runtime-benchmarks",
+	"cennznet-cli/runtime-benchmarks"
 ]
-
