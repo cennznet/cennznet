@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  pull_request:
+    branches:
+    - develop
+  push:
+    branches:
+    - develop
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+    env:
+      SCCACHE_CACHE_SIZE: "50G"
+    steps:
+    - name: Check Out
+      uses: actions/checkout@v2
+    - name: Install toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly-2020-09-27
+        components: rustfmt
+        target: wasm32-unknown-unknown
+        default: true
+    - name: Format
+      run: cargo fmt --all -- --check
+    - name: Build
+      run: cargo build --locked
+    - name: Test
+      run: cargo test --all
