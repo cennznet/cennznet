@@ -264,11 +264,12 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
 	debug, decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{Currency, Get, LockIdentifier, LockableCurrency, OnNewAccount, OnUnbalanced, Time, WithdrawReasons},
-	weights::Weight,
+	weights::{DispatchClass, Weight},
 	IterableStorageMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::historical::SessionManager;
+use pallet_staking::WeightInfo;
 use sp_npos_elections::{ExtendedBalance, VoteWeight};
 use sp_runtime::{
 	traits::{AtLeast32Bit, Bounded, CheckedSub, Convert, Saturating, Zero},
@@ -281,88 +282,6 @@ use sp_staking::{
 	SessionIndex,
 };
 use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*, vec};
-
-pub trait WeightInfo {
-	fn bond() -> Weight;
-	fn bond_extra() -> Weight;
-	fn unbond() -> Weight;
-	fn rebond() -> Weight;
-	fn reap_stash() -> Weight;
-	fn withdraw_unbonded() -> Weight;
-	fn validate() -> Weight;
-	fn nominate() -> Weight;
-	fn chill() -> Weight;
-	fn set_payee() -> Weight;
-	fn set_controller() -> Weight;
-	fn set_validator_count() -> Weight;
-	fn force_no_eras() -> Weight;
-	fn force_new_era() -> Weight;
-	fn set_minimum_bond() -> Weight;
-	fn set_invulnerables() -> Weight;
-	fn force_unstake() -> Weight;
-	fn force_new_era_always() -> Weight;
-	fn cancel_deferred_slash() -> Weight;
-}
-
-impl WeightInfo for () {
-	fn bond() -> Weight {
-		0
-	}
-	fn bond_extra() -> Weight {
-		0
-	}
-	fn unbond() -> Weight {
-		0
-	}
-	fn rebond() -> Weight {
-		0
-	}
-	fn reap_stash() -> Weight {
-		0
-	}
-	fn withdraw_unbonded() -> Weight {
-		0
-	}
-	fn validate() -> Weight {
-		0
-	}
-	fn nominate() -> Weight {
-		0
-	}
-	fn chill() -> Weight {
-		0
-	}
-	fn set_payee() -> Weight {
-		0
-	}
-	fn set_controller() -> Weight {
-		0
-	}
-	fn set_validator_count() -> Weight {
-		0
-	}
-	fn force_no_eras() -> Weight {
-		0
-	}
-	fn force_new_era() -> Weight {
-		0
-	}
-	fn set_minimum_bond() -> Weight {
-		0
-	}
-	fn set_invulnerables() -> Weight {
-		0
-	}
-	fn force_unstake() -> Weight {
-		0
-	}
-	fn force_new_era_always() -> Weight {
-		0
-	}
-	fn cancel_deferred_slash() -> Weight {
-		0
-	}
-}
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
@@ -1123,7 +1042,7 @@ decl_module! {
 		/// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
 		/// - Storage changes: Can't increase storage, only decrease it.
 		/// # </weight>
-		#[weight = T::WeightInfo::rebond()]
+		#[weight = T::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
 			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
@@ -1154,7 +1073,7 @@ decl_module! {
 		/// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
 		/// - Writes Each: SpanSlash * S
 		/// # </weight>
-		#[weight = T::WeightInfo::reap_stash()]
+		#[weight = T::WeightInfo::reap_stash(1_u32)]
 		fn reap_stash(_origin, stash: T::AccountId) {
 			ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
 			Self::kill_stash(&stash);
@@ -1177,7 +1096,7 @@ decl_module! {
 		/// - Contains a limited number of reads, yet the size of which could be large based on `ledger`.
 		/// - Writes are limited to the `origin` account key.
 		/// # </weight>
-		#[weight = T::WeightInfo::withdraw_unbonded()]
+		#[weight = T::WeightInfo::withdraw_unbonded_kill(1_u32)]
 		fn withdraw_unbonded(origin) {
 			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
@@ -1238,7 +1157,7 @@ decl_module! {
 		/// which is capped at `MAX_NOMINATIONS`.
 		/// - Both the reads and writes follow a similar pattern.
 		/// # </weight>
-		#[weight = T::WeightInfo::nominate()]
+		#[weight = T::WeightInfo::nominate(targets.len() as u32)]
 		fn nominate(origin, targets: Vec<T::AccountId>) {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1364,7 +1283,7 @@ decl_module! {
 		}
 
 		/// Set the minimum bond amount.
-		#[weight = T::WeightInfo::set_minimum_bond()]
+		#[weight = (1_000_000, DispatchClass::Operational)]
 		fn set_minimum_bond(origin, value: BalanceOf<T>) {
 			ensure_root(origin)?;
 			<MinimumBond<T>>::put(value);
@@ -1372,7 +1291,7 @@ decl_module! {
 		}
 
 		/// Set the validators who cannot be slashed (if any).
-		#[weight = T::WeightInfo::set_invulnerables()]
+		#[weight = T::WeightInfo::set_invulnerables(validators.len() as u32)]
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
@@ -1382,7 +1301,7 @@ decl_module! {
 		}
 
 		/// Force a current staker to become completely unstaked, immediately.
-		#[weight = T::WeightInfo::force_unstake()]
+		#[weight = T::WeightInfo::force_unstake(1_u32)]
 		fn force_unstake(origin, stash: T::AccountId) {
 			ensure_root(origin)?;
 			// remove the lock.
@@ -1408,7 +1327,7 @@ decl_module! {
 		/// # <weight>
 		/// - One storage write.
 		/// # </weight>
-		#[weight = T::WeightInfo::cancel_deferred_slash()]
+		#[weight = T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
 		fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
 			ensure_root(origin)?;
 

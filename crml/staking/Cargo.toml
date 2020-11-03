@@ -19,6 +19,7 @@ frame-support = { default-features = false, git = "https://github.com/plugblockc
 frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
 
 [dev-dependencies]
 hex = "0.4"
@@ -46,4 +47,5 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-session/std",
+	"pallet-staking/std"
 ]
