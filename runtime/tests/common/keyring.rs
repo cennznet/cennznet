@@ -72,7 +72,7 @@ pub fn signed_extra(
 		frame_system::CheckSpecVersion::new(),
 		frame_system::CheckTxVersion::new(),
 		frame_system::CheckGenesis::new(),
-		frame_system::CheckEra::from(Era::mortal(0, 0)),
+		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
 		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, fee_exchange),

@@ -70,7 +70,7 @@ impl<C: Currency<AccountId>> StakerRewardPayment for MockRewarder<C> {
 		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) {
 		let total_payout = Self::calculate_next_reward_payout();
-		let points = Staking::current_era_reward();
+		let points = Staking::current_era_points();
 		for (v, p) in Staking::current_elected().iter().zip(points.individual.into_iter()) {
 			if p.is_zero() {
 				continue;

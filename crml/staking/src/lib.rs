@@ -396,6 +396,11 @@ impl EraPoints {
 			self.individual[index as usize] += points; // Addition is less than total
 		}
 	}
+	/// Get a list of individual points
+	#[cfg(any(feature = "std", test))]
+	pub fn individual_points(&self) -> Vec<Points> {
+		self.individual.clone()
+	}
 }
 
 /// Indicates the initial status of a staker (used by genesis config only).
@@ -805,7 +810,7 @@ decl_storage! {
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
 
 		/// Rewards for the current era. Using indices of current elected set.
-		CurrentEraPointsEarned get(fn current_era_reward): EraPoints;
+		CurrentEraPointsEarned get(fn current_era_points): EraPoints;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -1007,7 +1012,13 @@ decl_module! {
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
 			<Bonded<T>>::insert(&stash, &controller);
-			<Payee<T>>::insert(&stash, payee);
+
+			// controller destination is just a custom account after all
+			if let RewardDestination::Controller = payee {
+				<Payee<T>>::insert(&stash, RewardDestination::Account(controller.clone()));
+			} else {
+				<Payee<T>>::insert(&stash, payee);
+			}
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
@@ -1497,8 +1508,8 @@ impl<T: Trait> Module<T> {
 						// `*nominator_exposure.who` is stash already
 						RewardDestination::Stash => {}
 						RewardDestination::Account(account) => nominator_exposure.who = account,
-						// TODO: this path requires two storage reads :/
 						RewardDestination::Controller => {
+							// this path shall become redundant since `fn bond` will replace controller destination with account
 							// Query controller account ID,, if it's missing the stash will be paid by default.
 							if let Some(controller) = Self::bonded(&nominator_exposure.who) {
 								nominator_exposure.who = controller;

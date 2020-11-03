@@ -309,9 +309,9 @@ impl prml_generic_asset::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MICROS;
+	pub const TransactionByteFee: Balance = 100 * MICROS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
-	// weight:cpay/0.0015%
+	// weight:cpay/0.005%
 	// optimising for a GA transfer fee of ~1.0000 CPAY
 	pub const WeightToCpayFactor: Perbill = Perbill::from_parts(1_500);
 	// `1/50_000` comes from  halving substrate's: `1/100,000` config.

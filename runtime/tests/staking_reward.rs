@@ -42,7 +42,7 @@ use sp_staking::{
 };
 mod common;
 
-use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
+use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
@@ -205,7 +205,6 @@ fn staking_genesis_config_works() {
 #[test]
 fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
-	let mut total_transfer_fee: Balance = 0;
 
 	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
 	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
@@ -223,40 +222,35 @@ fn current_era_transaction_rewards_storage_update_works() {
 				function: runtime_call_2.clone(),
 			});
 
-			Executive::initialize_block(&header());
-
-			println!("{:?}", System::block_hash(0));
-			println!("{:?}", System::block_hash(1));
-			start_era(1);
+			// Start the first era
+			advance_session();
+			assert_eq!(Staking::current_era(), 1);
 
 			// Start with 0 transaction rewards
 			assert!(Rewards::transaction_fee_pot().is_zero());
 
 			// Apply first extrinsic and check transaction rewards
-			println!("{:?}", System::block_hash(0));
-			println!("{:?}", System::block_hash(1));
-			frame_system::Module::<Runtime>::set_parent_hash([70u8; 32].into());
 			let r = Executive::apply_extrinsic(xt_1.clone());
-			println!("{:?}", r);
-			total_transfer_fee += extrinsic_fee_for(&xt_1);
-			assert_eq!(Rewards::transaction_fee_pot(), total_transfer_fee);
+			assert!(r.is_ok());
+			let mut era1_tx_fee = extrinsic_fee_for(&xt_1);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
-			println!("{:?}", r2);
-			total_transfer_fee += extrinsic_fee_for(&xt_2);
-			assert_eq!(Rewards::transaction_fee_pot(), total_transfer_fee);
+			assert!(r2.is_ok());
+			era1_tx_fee += extrinsic_fee_for(&xt_2);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
 			// Advancing sessions shouldn't change transaction rewards storage
 			advance_session();
-			assert_eq!(Rewards::transaction_fee_pot(), total_transfer_fee);
 			advance_session();
-			assert_eq!(Rewards::transaction_fee_pot(), total_transfer_fee);
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
-			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
+			// At the start of the next era, transaction rewards should be cleared (and paid out)
 			start_era(2);
+			assert_eq!(Staking::current_era(), 2);
 			advance_session();
-			assert_eq!(Staking::current_era(), 3);
 			assert!(Rewards::transaction_fee_pot().is_zero());
 		});
 }
@@ -331,9 +325,8 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 }
 
 #[test]
-#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in.
-fn authorship_reward_of_last_block_in_an_era() {
+fn authorship_points_of_last_block_in_an_era() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -365,10 +358,10 @@ fn authorship_reward_of_last_block_in_an_era() {
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block = RewardCurrency::free_balance(&author_stash_id);
-
 			// Let's go through the first stage of executing the block
+			assert!(Staking::current_era_points().individual_points()[author_index as usize].is_zero());
 			Executive::initialize_block(&header);
+			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
@@ -377,15 +370,14 @@ fn authorship_reward_of_last_block_in_an_era() {
 			assert_eq!(Staking::current_elected().len(), validators.len());
 
 			// There should be a reward calculated for the author
-			assert!(RewardCurrency::free_balance(&author_stash_id) > author_stash_balance_before_adding_block);
+			assert!(!Staking::current_era_points().individual_points()[author_index as usize].is_zero());
 		});
 }
 
 #[test]
-#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
-fn authorship_reward_of_a_chilled_validator() {
+fn authorship_points_of_a_chilled_validator() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -427,10 +419,10 @@ fn authorship_reward_of_a_chilled_validator() {
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block = RewardCurrency::free_balance(&author_stash_id);
-
 			// Let's go through the first stage of executing the block
+			assert!(Staking::current_era_points().individual_points()[author_index as usize].is_zero());
 			Executive::initialize_block(&header);
+			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
@@ -439,7 +431,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert_eq!(Staking::current_elected().len(), validators.len() - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(RewardCurrency::free_balance(&author_stash_id) > author_stash_balance_before_adding_block);
+			assert!(!Staking::current_era_points().individual_points()[author_index as usize].is_zero());
 		});
 }
 
