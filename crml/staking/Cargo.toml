@@ -48,4 +48,3 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 ]
-runtime-benchmarks = []

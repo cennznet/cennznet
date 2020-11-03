@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! Attestation benchmarking.
+//! Cennzx benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 
@@ -24,6 +24,9 @@ use frame_system::RawOrigin;
 
 use crate::Module as Cennzx;
 
+const TRADE_ASSET_A_ID: u32 = 2;
+const TRADE_ASSET_B_ID: u32 = 3;
+
 benchmarks! {
 	_{ }
 
@@ -32,8 +35,8 @@ benchmarks! {
 		let buyer: T::AccountId = account("buyer", 0, 0);
 
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
-		let asset_a: T::AssetId = 2u32.into();
-		let asset_b: T::AssetId = 3u32.into();
+		let asset_a: T::AssetId = TRADE_ASSET_A_ID.into();
+		let asset_b: T::AssetId = TRADE_ASSET_B_ID.into();
 
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 1000u32.into());
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
@@ -53,8 +56,8 @@ benchmarks! {
 		let seller: T::AccountId = account("seller", 0, 0);
 
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
-		let asset_a: T::AssetId = 2u32.into();
-		let asset_b: T::AssetId = 3u32.into();
+		let asset_a: T::AssetId = TRADE_ASSET_A_ID.into();
+		let asset_b: T::AssetId = TRADE_ASSET_B_ID.into();
 
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 1000u32.into());
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
@@ -73,7 +76,7 @@ benchmarks! {
 		let investor: T::AccountId = whitelisted_caller();
 
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
-		let trade_asset_id: T::AssetId = 2u32.into();
+		let trade_asset_id: T::AssetId = TRADE_ASSET_A_ID.into();
 
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 200u32.into());
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(trade_asset_id), 100u32.into());
@@ -94,7 +97,7 @@ benchmarks! {
 		let investor: T::AccountId = whitelisted_caller();
 
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
-		let trade_asset_id: T::AssetId = 2u32.into();
+		let trade_asset_id: T::AssetId = TRADE_ASSET_A_ID.into();
 
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 200u32.into());
 		let _ = T::MultiCurrency::deposit_creating(&investor, Some(trade_asset_id), 100u32.into());

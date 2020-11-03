@@ -21,4 +21,3 @@ std = [
 	"sp-std/std",
 	"frame-support/std",
 ]
-runtime-benchmarks = []
