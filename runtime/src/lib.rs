@@ -499,7 +499,7 @@ impl crml_cennzx::Trait for Runtime {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type WeightInfo = ();
+	type WeightInfo = weights::crml_cennzx::WeightInfo;
 }
 
 impl prml_attestation::Trait for Runtime {
@@ -865,9 +865,6 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-			use frame_system_benchmarking::Module as SystemBench;
-
-			impl frame_system_benchmarking::Trait for Runtime {}
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
@@ -887,13 +884,7 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			add_benchmark!(params, batches, crml_sylo, SyloDevice);
-			add_benchmark!(params, batches, crml_sylo, SyloGroups);
-			add_benchmark!(params, batches, crml_sylo, SyloE2EE);
-			add_benchmark!(params, batches, crml_sylo, SyloInbox);
-			add_benchmark!(params, batches, crml_sylo, SyloPayment);
-			add_benchmark!(params, batches, crml_sylo, SyloResponse);
-			add_benchmark!(params, batches, crml_sylo, SyloVault);
+			add_benchmark!(params, batches, crml_cennzx, Cennzx);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

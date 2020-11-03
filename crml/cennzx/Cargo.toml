@@ -6,11 +6,12 @@ edition = "2018"
 
 [dependencies]
 codec = { version = "1.3.5", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-primitive-types = { version = "0.6.1", default-features = false }
+primitive-types = { version = "0.7.2", default-features = false }
 serde = { version = "1.0.101", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false, optional = true }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
@@ -37,4 +38,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking"
 ]

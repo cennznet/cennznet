@@ -149,7 +149,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
-			code: WASM_BINARY.to_vec(),
+			code: WASM_BINARY.expect("wasm binary not available").to_vec(),
 			changes_trie_config: Default::default(),
 		}),
 		pallet_session: Some(SessionConfig {

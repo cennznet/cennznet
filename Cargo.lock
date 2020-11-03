@@ -570,7 +570,6 @@ name = "cennznet"
 version = "1.1.0"
 dependencies = [
  "cennznet-cli",
- "sc-cli",
 ]
 
 [[package]]
@@ -971,10 +970,11 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "primitive-types 0.6.2",
+ "primitive-types",
  "prml-generic-asset",
  "prml-support",
  "serde",
@@ -1469,18 +1469,6 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "parking_lot 0.9.0",
-]
-
-[[package]]
-name = "fixed-hash"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3367952ceb191f4ab95dd5685dc163ac539e36202f9fcfd0cb22f9f9c542fefc"
-dependencies = [
- "byteorder 1.3.4",
- "rand 0.7.3",
- "rustc-hex",
- "static_assertions",
 ]
 
 [[package]]
@@ -4075,7 +4063,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-util-mem-derive",
  "parking_lot 0.10.2",
- "primitive-types 0.7.2",
+ "primitive-types",
  "smallvec 1.4.2",
  "winapi 0.3.9",
 ]
@@ -4355,22 +4343,11 @@ checksum = "237a5ed80e274dbc66f86bd59c1e25edc039660be53194b5fe0a482e0f2612ea"
 
 [[package]]
 name = "primitive-types"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4336f4f5d5524fa60bcbd6fe626f9223d8142a50e7053e979acdf0da41ab975"
-dependencies = [
- "fixed-hash 0.5.2",
- "impl-codec",
- "uint",
-]
-
-[[package]]
-name = "primitive-types"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c55c21c64d0eaa4d7ed885d959ef2d62d9e488c27c0e02d9aa5ce6c877b7d5f8"
 dependencies = [
- "fixed-hash 0.6.1",
+ "fixed-hash",
  "impl-codec",
  "impl-serde",
  "uint",
@@ -6663,7 +6640,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "parking_lot 0.10.2",
- "primitive-types 0.7.2",
+ "primitive-types",
  "rand 0.7.3",
  "regex",
  "schnorrkel",
@@ -6864,7 +6841,7 @@ version = "2.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?branch=spike/2.0#0ddfe7967f089c6b23ac02525cfdc06f33cf02ca"
 dependencies = [
  "parity-scale-codec",
- "primitive-types 0.7.2",
+ "primitive-types",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
  "sp-std",

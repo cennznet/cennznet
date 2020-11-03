@@ -134,13 +134,12 @@ std = [
 	"crml-transaction-payment/std",
 ]
 runtime-benchmarks = [
-	"sp-runtime/runtime-benchmarks",
 	"frame-benchmarking",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking",
 	"hex-literal",
+	"frame-system-benchmarking",
+	"sp-runtime/runtime-benchmarks",
+	"crml-cennzx/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"crml-sylo/runtime-benchmarks",
 ]
 test-doughnut = []

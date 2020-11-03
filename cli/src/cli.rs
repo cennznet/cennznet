@@ -1,3 +1,4 @@
+pub use sc_cli::Result;
 use sc_cli::RunCmd;
 use structopt::StructOpt;
 
