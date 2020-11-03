@@ -20,67 +20,67 @@ futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
-sc-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-chain-spec = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-core = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-executor = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-keystore = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-inherents = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-transaction-pool = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-authority-discovery = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
-sp-consensus-babe = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-epochs = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-network = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-finality-grandpa = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-client-api = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-runtime = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-authority-discovery = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-cli = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-core = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-executor = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-keystore = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-inherents = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-transaction-pool = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-transaction-pool = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
+sp-consensus-babe = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-grandpa = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-client-api = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-runtime = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.0.0"
-pallet-transaction-payment-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-api = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc-api = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-blockchain = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-block-builder = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-basic-authorship = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-substrate-frame-rpc-system = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+pallet-transaction-payment-rpc = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-api = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc-api = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-blockchain = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-block-builder = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-basic-authorship = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-frame-rpc-system = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-benchmarking-cli = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking-cli = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
-prml-generic-asset-rpc = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-prml-generic-asset = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset-rpc = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.5", features = ["derive"] }
-sp-finality-tracker = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-keyring = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-timestamp = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service-test = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-system = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-tracker = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { branch = "spike/2.0", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-build-script-utils = { branch = "2.0.0", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 [features]
 default = []

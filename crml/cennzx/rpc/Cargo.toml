@@ -13,13 +13,13 @@ jsonrpc-core-client = "15.0.0"
 jsonrpc-derive = "15.0.0"
 serde = { version = "1.0.102", features = ["derive"] }
 
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "spike/2.0", default-features = false }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0", default-features = false }
 
 crml-cennzx-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
