@@ -18,7 +18,6 @@
 //! It also provides a simple treasury account suited for CENNZnet.
 //!
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
-#![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::Exposure;
 use frame_support::traits::OnUnbalanced;
@@ -28,15 +27,14 @@ use frame_support::{
 	weights::DispatchClass,
 };
 use frame_system::{self as system, ensure_root};
-use sp_arithmetic::{FixedI128, FixedPointNumber, FixedPointOperand};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
-	ModuleId, Perbill,
+	FixedI128, FixedPointNumber, FixedPointOperand, ModuleId, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 mod types;
-pub(crate) use types::*;
+pub use types::*;
 
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -127,23 +125,25 @@ where
 			return;
 		}
 
-		let mut total_payout = Self::inflation_rate().saturating_mul_acc_int(fee_payout);
+		let total_payout = Self::inflation_rate().saturating_mul_acc_int(fee_payout);
 
 		// Deduct development fund take %
 		let development_fund_payout = Self::development_fund_take() * total_payout;
-		let _ = T::CurrencyToReward::deposit_into_existing(
-			&T::TreasuryModuleId::get().into_account(),
-			development_fund_payout,
-		);
-		total_payout = total_payout.saturating_sub(development_fund_payout);
-
-		// Payout reward to validators and their nominators
-		let total_payout_share = total_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
 
 		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
 		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
 		// This ensures only one storage update to total issuance will happen when dropped.
-		let mut total_payout_imbalance = <PositiveImbalanceOf<T>>::zero();
+		let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(
+			&T::TreasuryModuleId::get().into_account(),
+			development_fund_payout,
+			// `deposit_into_existing` is infallible but be defensive
+		)
+		.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero());
+
+		let validator_payout = total_payout.saturating_sub(development_fund_payout);
+
+		// Payout reward to validators and their nominators
+		let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
 
 		validator_commission_stake_map
 			.iter()
@@ -156,16 +156,19 @@ where
 
 		// Any unallocated reward amount can go to the development fund
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), remainder);
+		total_payout_imbalance.subsume(
+			T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
+				.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero()),
+		);
 
 		Self::deposit_event(RawEvent::RewardPayout(total_payout_imbalance.peek(), remainder));
 	}
 
 	/// Calculate the total reward payout as of right now
-	fn calculate_next_reward_payout() -> FixedI128 {
+	fn calculate_next_reward_payout() -> Self::Balance {
 		// Accumulated tx fee * inflation parameter
 		let fee_payout = TransactionFeePot::<T>::get();
-		FixedI128::saturating_from_integer(Self::inflation_rate().saturating_mul_acc_int(fee_payout))
+		Self::inflation_rate().saturating_mul_acc_int(fee_payout)
 	}
 }
 
@@ -393,13 +396,13 @@ mod tests {
 				Rewards::note_fee_payout(*payout);
 			}
 
-			assert_eq!(Rewards::transaction_fee_pot_history(), historical_payouts,);
+			assert_eq!(Rewards::transaction_fee_pot_history(), historical_payouts);
 
 			let new_payouts = vec![1_111_u64, 2_222, 3_333_u64];
 			for latest_payout in new_payouts.iter() {
 				// oldest payouts are replaced by the newest
 				Rewards::note_fee_payout(*latest_payout);
-				assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(latest_payout),);
+				assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(latest_payout));
 			}
 
 			assert_eq!(
@@ -416,7 +419,7 @@ mod tests {
 			let issued = 1_000;
 			let imbalance = RewardCurrency::issue(issued);
 			Rewards::on_unbalanced(imbalance);
-			assert_eq!(Rewards::transaction_fee_pot(), issued,);
+			assert_eq!(Rewards::transaction_fee_pot(), issued);
 		});
 	}
 
@@ -425,7 +428,7 @@ mod tests {
 		// only root
 		// value is set
 		ExtBuilder::default().build().execute_with(|| {
-			assert_noop!(Rewards::set_inflation_rate(Origin::signed(1), 1, 1_000), BadOrigin,);
+			assert_noop!(Rewards::set_inflation_rate(Origin::signed(1), 1, 1_000), BadOrigin);
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 1_000));
 			assert_eq!(Rewards::inflation_rate(), FixedI128::saturating_from_rational(1, 1_000))
 		});
@@ -469,7 +472,7 @@ mod tests {
 		// only root
 		// value is set
 		ExtBuilder::default().build().execute_with(|| {
-			assert_err!(Rewards::set_development_fund_take(Origin::signed(1), 80), BadOrigin,);
+			assert_err!(Rewards::set_development_fund_take(Origin::signed(1), 80), BadOrigin);
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 80));
 			assert_eq!(Rewards::development_fund_take(), Perbill::from_percent(80))
 		});
@@ -478,7 +481,7 @@ mod tests {
 	#[test]
 	fn set_development_fund_take_saturates() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(Rewards::set_development_fund_take(Origin::root(), u32::max_value()),);
+			assert_ok!(Rewards::set_development_fund_take(Origin::root(), u32::max_value()));
 			assert_eq!(Rewards::development_fund_take(), Perbill::from_percent(100))
 		});
 	}
@@ -493,10 +496,7 @@ mod tests {
 
 			let development_fund = RewardCurrency::free_balance(&TreasuryModuleId::get().into_account());
 			let take = Rewards::development_fund_take();
-			assert_eq!(
-				FixedI128::saturating_from_integer(development_fund),
-				(total_payout * take.into()),
-			);
+			assert_eq!(development_fund, take * total_payout,);
 		});
 	}
 
@@ -511,11 +511,9 @@ mod tests {
 			let total_payout = Rewards::calculate_next_reward_payout();
 			assert_eq!(
 				total_payout,
-				FixedI128::saturating_from_integer(
-					Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
-				)
+				Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
 			);
-			assert_eq!(total_payout, FixedI128::saturating_from_integer(1_100_000));
+			assert_eq!(total_payout, 1_100_000);
 		});
 	}
 
@@ -529,11 +527,9 @@ mod tests {
 			let total_payout = Rewards::calculate_next_reward_payout();
 			assert_eq!(
 				total_payout,
-				FixedI128::saturating_from_integer(
-					Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
-				)
+				Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
 			);
-			assert_eq!(total_payout, FixedI128::saturating_from_integer(900_000));
+			assert_eq!(total_payout, 900_000);
 		});
 	}
 
@@ -554,20 +550,26 @@ mod tests {
 	fn make_reward_payout_handles_total_issuance() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = RewardCurrency::deposit_creating(&1, 1_234);
+			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
 
 			let tx_fee_reward = 1_000_000;
 			Rewards::note_transaction_fees(tx_fee_reward);
 			let total_payout = Rewards::calculate_next_reward_payout();
 			let pre_reward_issuance = RewardCurrency::total_issuance();
 
-			let mock_commission_stake_map =
+			let validator_stake_map1 =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			Rewards::make_reward_payout(&[mock_commission_stake_map.as_tuple()]);
+			let validator_stake_map2 =
+				MockCommissionStakeInfo::new((10, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			let validator_stake_map3 =
+				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			Rewards::make_reward_payout(&[
+				validator_stake_map1.as_tuple(),
+				validator_stake_map2.as_tuple(),
+				validator_stake_map3.as_tuple(),
+			]);
 
-			assert_eq!(
-				RewardCurrency::total_issuance(),
-				pre_reward_issuance + total_payout.saturating_mul_int(1_u64), // a handy conversion from `FixedI128` into an integer type `1: N`
-			);
+			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
 	}
 
@@ -581,10 +583,7 @@ mod tests {
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let total_payout1 = Rewards::calculate_next_reward_payout();
 			Rewards::make_reward_payout(&[mock_commission_stake_map.as_tuple()]);
-			assert_eq!(
-				RewardCurrency::total_issuance(),
-				total_payout1.saturating_mul_int(1_u64),
-			);
+			assert_eq!(RewardCurrency::total_issuance(), total_payout1,);
 
 			// after reward payout, the next payout should be `0`
 			assert!(Rewards::transaction_fee_pot().is_zero());
@@ -597,10 +596,7 @@ mod tests {
 
 			let total_payout2 = Rewards::calculate_next_reward_payout();
 			Rewards::make_reward_payout(&[mock_commission_stake_map.as_tuple()]);
-			assert_eq!(
-				RewardCurrency::total_issuance(),
-				(total_payout1 + total_payout2).saturating_mul_int(1_u64),
-			);
+			assert_eq!(RewardCurrency::total_issuance(), total_payout1 + total_payout2,);
 
 			// after reward payout, the next payout should be `0`
 			assert!(Rewards::transaction_fee_pot().is_zero());

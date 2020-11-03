@@ -210,7 +210,7 @@ fn rewards_should_work() {
 
 		<Payee<Test>>::insert(&2, RewardDestination::Stash);
 		assert_eq!(Staking::payee(2), RewardDestination::Stash);
-		assert_eq!(Staking::payee(11), RewardDestination::Controller);
+		assert_eq!(Staking::payee(11), RewardDestination::Account(10));
 
 		let mut block = 3; // Block 3 => Session 1 => Era 0
 		System::set_block_number(block);
@@ -226,7 +226,7 @@ fn rewards_should_work() {
 		<Module<Test>>::reward_by_ids(vec![(1001, 10_000)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout = current_total_payout_for_duration(9 * 5 * 1000);
+		let total_payout = current_total_payout::<Balances>();
 		assert!(total_payout > 10); // Test is meaningful if reward something
 
 		// No reward yet
@@ -267,8 +267,8 @@ fn multi_era_reward_should_work() {
 		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
 
 		// Compute now as other parameter won't change
-		let total_payout_0 = current_total_payout_for_duration(3000);
-		assert!(total_payout_0 > 10); // Test is meaningfull if reward something
+		let total_payout_0 = current_total_payout::<Balances>();
+		assert!(total_payout_0 > 10); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_session(0);
@@ -281,8 +281,8 @@ fn multi_era_reward_should_work() {
 
 		start_session(4);
 
-		let total_payout_1 = current_total_payout_for_duration(3000);
-		assert!(total_payout_1 > 10); // Test is meaningfull if reward something
+		let total_payout_1 = current_total_payout::<Balances>();
+		assert!(total_payout_1 > 10); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 101)]);
 
 		// new era is triggered here.
@@ -432,169 +432,6 @@ fn no_candidate_emergency_condition() {
 }
 
 #[test]
-fn nominating_and_rewards_should_work() {
-	// PHRAGMEN OUTPUT: running this test with the reference impl gives:
-	//
-	// Sequential Phragmén gives
-	// 10  is elected with stake  2200.0 and score  0.0003333333333333333
-	// 20  is elected with stake  1800.0 and score  0.0005555555555555556
-
-	// 10  has load  0.0003333333333333333 and supported
-	// 10  with stake  1000.0
-	// 20  has load  0.0005555555555555556 and supported
-	// 20  with stake  1000.0
-	// 30  has load  0 and supported
-	// 30  with stake  0
-	// 40  has load  0 and supported
-	// 40  with stake  0
-	// 2  has load  0.0005555555555555556 and supported
-	// 10  with stake  600.0 20  with stake  400.0 30  with stake  0.0
-	// 4  has load  0.0005555555555555556 and supported
-	// 10  with stake  600.0 20  with stake  400.0 40  with stake  0.0
-
-	// Sequential Phragmén with post processing gives
-	// 10  is elected with stake  2000.0 and score  0.0003333333333333333
-	// 20  is elected with stake  2000.0 and score  0.0005555555555555556
-
-	// 10  has load  0.0003333333333333333 and supported
-	// 10  with stake  1000.0
-	// 20  has load  0.0005555555555555556 and supported
-	// 20  with stake  1000.0
-	// 30  has load  0 and supported
-	// 30  with stake  0
-	// 40  has load  0 and supported
-	// 40  with stake  0
-	// 2  has load  0.0005555555555555556 and supported
-	// 10  with stake  400.0 20  with stake  600.0 30  with stake  0
-	// 4  has load  0.0005555555555555556 and supported
-	// 10  with stake  600.0 20  with stake  400.0 40  with stake  0.0
-	ExtBuilder::default()
-		.nominate(false)
-		.validator_pool(true)
-		.build()
-		.execute_with(|| {
-			// initial validators -- everyone is actually even.
-			assert_eq_uvec!(validator_controllers(), vec![40, 30]);
-
-			// Set payee to controller
-			assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
-			assert_ok!(Staking::set_payee(Origin::signed(20), RewardDestination::Controller));
-			assert_ok!(Staking::set_payee(Origin::signed(30), RewardDestination::Controller));
-			assert_ok!(Staking::set_payee(Origin::signed(40), RewardDestination::Controller));
-
-			// give the man some money
-			let initial_balance = 1000;
-			for i in [1, 2, 3, 4, 5, 10, 11, 20, 21].iter() {
-				let _ = Balances::make_free_balance_be(i, initial_balance);
-			}
-
-			// bond two account pairs and state interest in nomination.
-			// 2 will nominate for 10, 20, 30
-			assert_ok!(Staking::bond(Origin::signed(1), 2, 1000, RewardDestination::Controller));
-			assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 21, 31]));
-			// 4 will nominate for 10, 20, 40
-			assert_ok!(Staking::bond(Origin::signed(3), 4, 1000, RewardDestination::Controller));
-			assert_ok!(Staking::nominate(Origin::signed(4), vec![11, 21, 41]));
-
-			// the total reward for era 0
-			let total_payout_0 = current_total_payout_for_duration(3000);
-			assert!(total_payout_0 > 100); // Test is meaningfull if reward something
-			<Module<Test>>::reward_by_ids(vec![(41, 1)]);
-			<Module<Test>>::reward_by_ids(vec![(31, 1)]);
-			<Module<Test>>::reward_by_ids(vec![(21, 10)]); // must be no-op
-			<Module<Test>>::reward_by_ids(vec![(11, 10)]); // must be no-op
-
-			start_era(1);
-
-			// 10 and 20 have more votes, they will be chosen by phragmen.
-			assert_eq_uvec!(validator_controllers(), vec![20, 10]);
-
-			// OLD validators must have already received some rewards.
-			assert_eq!(Balances::total_balance(&40), 1 + total_payout_0 / 2);
-			assert_eq!(Balances::total_balance(&30), 1 + total_payout_0 / 2);
-
-			// ------ check the staked value of all parties.
-
-			// total expo of 10, with 1200 coming from nominators (externals), according to phragmen.
-			assert_eq!(Staking::stakers(11).own, 1000);
-			assert_eq!(Staking::stakers(11).total, 1000 + 800);
-			// 2 and 4 supported 10, each with stake 600, according to phragmen.
-			assert_eq!(
-				Staking::stakers(11)
-					.others
-					.iter()
-					.map(|e| e.value)
-					.collect::<Vec<BalanceOf<Test>>>(),
-				vec![400, 400]
-			);
-			assert_eq!(
-				Staking::stakers(11).others.iter().map(|e| e.who).collect::<Vec<u64>>(),
-				vec![3, 1]
-			);
-			// total expo of 20, with 500 coming from nominators (externals), according to phragmen.
-			assert_eq!(Staking::stakers(21).own, 1000);
-			assert_eq_error_rate!(Staking::stakers(21).total, 1000 + 1200, 2);
-			// 2 and 4 supported 20, each with stake 250, according to phragmen.
-			assert_eq!(
-				Staking::stakers(21)
-					.others
-					.iter()
-					.map(|e| e.value)
-					.collect::<Vec<BalanceOf<Test>>>(),
-				vec![600, 600]
-			);
-			assert_eq!(
-				Staking::stakers(21).others.iter().map(|e| e.who).collect::<Vec<u64>>(),
-				vec![3, 1]
-			);
-
-			// They are not chosen anymore
-			assert_eq!(Staking::stakers(31).total, 0);
-			assert_eq!(Staking::stakers(41).total, 0);
-
-			// the total reward for era 1
-			let total_payout_1 = current_total_payout_for_duration(3000);
-			assert!(total_payout_1 > 100); // Test is meaningfull if reward something
-			<Module<Test>>::reward_by_ids(vec![(41, 10)]); // must be no-op
-			<Module<Test>>::reward_by_ids(vec![(31, 10)]); // must be no-op
-			<Module<Test>>::reward_by_ids(vec![(21, 2)]);
-			<Module<Test>>::reward_by_ids(vec![(11, 1)]);
-
-			start_era(2);
-
-			// nothing else will happen, era ends and rewards are paid again,
-			// it is expected that nominators will also be paid. See below
-
-			let payout_for_10 = total_payout_1 / 3;
-			let payout_for_20 = 2 * total_payout_1 / 3;
-			// Nominator 2: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 20]'s reward. ==> 2/9 + 3/11
-			assert_eq_error_rate!(
-				Balances::total_balance(&2),
-				initial_balance + (2 * payout_for_10 / 9 + 3 * payout_for_20 / 11),
-				1,
-			);
-			// Nominator 4: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 20]'s reward. ==> 2/9 + 3/11
-			assert_eq_error_rate!(
-				Balances::total_balance(&4),
-				initial_balance + (2 * payout_for_10 / 9 + 3 * payout_for_20 / 11),
-				1,
-			);
-
-			// Validator 10: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
-			assert_eq_error_rate!(Balances::total_balance(&10), initial_balance + 5 * payout_for_10 / 9, 1,);
-			// Validator 20: got 1200 / 2200 external stake => 12/22 =? 6/11 => Validator's share = 5/11
-			assert_eq_error_rate!(
-				Balances::total_balance(&20),
-				initial_balance + 5 * payout_for_20 / 11,
-				1,
-			);
-
-			check_exposure_all();
-			check_nominator_all();
-		});
-}
-
-#[test]
 fn nominators_also_get_slashed() {
 	// A nominator should be slashed if the validator they nominated is slashed
 	// Here is the breakdown of roles:
@@ -623,8 +460,8 @@ fn nominators_also_get_slashed() {
 		));
 		assert_ok!(Staking::nominate(Origin::signed(2), vec![20, 10]));
 
-		let total_payout = current_total_payout_for_duration(3000);
-		assert!(total_payout > 100); // Test is meaningfull if reward something
+		let total_payout = current_total_payout::<Balances>();
+		assert!(total_payout > 100); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		// new era, pay rewards,
@@ -894,8 +731,8 @@ fn reward_destination_works() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout_for_duration(3000);
-		assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+		let total_payout_0 = current_total_payout::<Balances>();
+		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
@@ -909,8 +746,8 @@ fn reward_destination_works() {
 		<Payee<Test>>::insert(&11, RewardDestination::Stash);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_1 = current_total_payout_for_duration(3000);
-		assert!(total_payout_1 > 100); // Test is meaningfull if reward something
+		let total_payout_1 = current_total_payout::<Balances>();
+		assert!(total_payout_1 > 100); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(2);
@@ -929,8 +766,8 @@ fn reward_destination_works() {
 		assert_eq!(Balances::free_balance(10), 1);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_2 = current_total_payout_for_duration(3000);
-		assert!(total_payout_2 > 100); // Test is meaningfull if reward something
+		let total_payout_2 = current_total_payout::<Balances>();
+		assert!(total_payout_2 > 100); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(3);
@@ -941,6 +778,30 @@ fn reward_destination_works() {
 		assert_eq!(Balances::free_balance(10), 1 + total_payout_2);
 		// Check that amount in staked account is NOT increased.
 		assert_eq!(Balances::free_balance(11), recorded_stash_balance);
+	});
+}
+
+#[test]
+fn reward_destination_controller_is_replaced_with_account() {
+	ExtBuilder::default().minimum_bond(5).build().execute_with(|| {
+		let stash = 100_u64;
+		let controller = 101_u64;
+
+		// bond with controller as payee
+		assert_ok!(Staking::bond(
+			Origin::signed(stash),
+			controller,
+			Staking::minimum_bond(),
+			RewardDestination::Controller
+		));
+		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
+
+		// explicit set controller as payee
+		assert_ok!(Staking::set_payee(
+			Origin::signed(controller),
+			RewardDestination::Controller
+		));
+		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
 	});
 }
 
@@ -978,8 +839,8 @@ fn validator_payment_prefs_work() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout_for_duration(3000);
-		assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+		let total_payout_0 = current_total_payout::<Balances>();
+		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
@@ -1539,8 +1400,8 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			);
 
 			// Compute total payout now for whole duration as other parameter won't change
-			let total_payout_0 = current_total_payout_for_duration(3000);
-			assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+			let total_payout_0 = current_total_payout::<Balances>();
+			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 			<Module<Test>>::reward_by_ids(vec![(21, 1)]);
 
@@ -1857,8 +1718,8 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
-			let total_payout_0 = current_total_payout_for_duration(3000);
-			assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+			let total_payout_0 = current_total_payout::<Balances>();
+			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			reward_all_elected();
 			start_era(1);
 
@@ -1872,8 +1733,8 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			// no rewards paid to 2. This was initial election.
 			assert_eq!(Balances::free_balance(2), init_balance_2);
 
-			let total_payout_1 = current_total_payout_for_duration(3000);
-			assert!(total_payout_1 > 100); // Test is meaningfull if reward something
+			let total_payout_1 = current_total_payout::<Balances>();
+			assert!(total_payout_1 > 100); // Test is meaningful if reward something
 			reward_all_elected();
 			start_era(2);
 
@@ -1996,7 +1857,7 @@ fn reward_validator_slashing_validator_doesnt_overflow() {
 		);
 
 		// Check reward
-		let _ = Staking::reward_validator(&11, reward_slash);
+		let _ = Balances::deposit_into_existing(&11, stake);
 		assert_eq!(Balances::total_balance(&11), stake * 2);
 
 		// Set staker
@@ -3373,7 +3234,7 @@ fn payout_to_any_account_works() {
 		mock::start_era(1);
 		Staking::reward_by_ids(vec![(11, 1)]);
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout_for_duration(3 * 1000);
+		let total_payout_0 = current_total_payout::<Balances>();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		mock::start_era(2);
 

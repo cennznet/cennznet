@@ -76,7 +76,6 @@ cennznet-primitives = { path = "../primitives", default-features = false }
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false}
-crml-staking-reward-curve = { path = "../crml/staking/reward-curve", default-features = false}
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 
@@ -109,6 +108,7 @@ std = [
 	"prml-attestation/std",
 	"prml-generic-asset/std",
 	"prml-generic-asset-rpc-runtime-api/std",
+	"prml-support/std",
 	"serde",
 	"sp-api/std",
 	"sp-authority-discovery/std",

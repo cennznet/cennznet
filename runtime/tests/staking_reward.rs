@@ -16,26 +16,25 @@
 //! Staking reward tests
 
 use cennznet_cli::chain_spec::AuthorityKeys;
-use cennznet_primitives::types::{AccountId, Balance, DigestItem, Header};
+use cennznet_primitives::types::{Balance, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, GenericAsset, Runtime, Session, SessionsPerEra,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session, SessionsPerEra,
 	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
-use crml_staking::{EraIndex, RewardDestination, StakingLedger};
+use crml_staking::{EraIndex, RewardDestination, StakerRewardPayment, StakingLedger};
 use frame_support::{
 	assert_ok,
 	storage::StorageValue,
-	traits::{OnInitialize, UnfilteredDispatchable},
+	traits::{Currency, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use pallet_im_online::UnresponsivenessOffence;
-use prml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
-	Perbill,
+	FixedPointNumber, Perbill,
 };
 use sp_staking::{
 	offence::{Offence, OffenceDetails, OnOffenceHandler},
@@ -43,14 +42,14 @@ use sp_staking::{
 };
 mod common;
 
-use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
+use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
-/// Get a list of stash accounts only from `authority_keys`
-fn stashes_of(authority_keys: &[AuthorityKeys]) -> Vec<AccountId> {
-	authority_keys.iter().map(|x| x.0.clone()).collect()
-}
+/// Alias for the runtime configured staking reward currency
+type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
+/// Alias for the runtime configured staking currency
+type StakeCurrency = <Runtime as crml_staking::Trait>::Currency;
 
 /// Get a block header and set the author of that block in a way that is recognisable by BABE.
 /// The author will be specified by its index in the Session::validators() list. So the author
@@ -139,12 +138,6 @@ fn start_era(era_index: EraIndex) {
 	assert_eq!(Staking::current_era(), era_index);
 }
 
-/// Issue validator rewards with constant points = `1`
-fn reward_validators(validators: Vec<AccountId>) {
-	let validators_points = validators.iter().map(|v| (v.clone(), 1_u32));
-	Staking::reward_by_ids(validators_points);
-}
-
 #[test]
 fn start_session_works() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -177,62 +170,6 @@ fn start_era_works() {
 	});
 }
 
-// Test to show that every extrinsic applied will add transfer fee to
-// CurrentEraFeeRewards (until it's paid out at the end of an era)
-#[test]
-#[ignore]
-fn current_era_transaction_rewards_storage_update_works() {
-	let initial_balance = 10_000 * DOLLARS;
-	let mut total_transfer_fee: Balance = 0;
-
-	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
-
-	ExtBuilder::default()
-		.initial_balance(initial_balance)
-		.build()
-		.execute_with(|| {
-			let xt_1 = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
-				function: runtime_call_1.clone(),
-			});
-			let xt_2 = sign(CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0, None))),
-				function: runtime_call_2.clone(),
-			});
-
-			Executive::initialize_block(&header());
-			start_era(1);
-			advance_session(); // advance a session to trigger the beginning of era 2
-			assert_eq!(Staking::current_era(), 2);
-
-			// Start with 0 transaction rewards
-			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
-
-			// Apply first extrinsic and check transaction rewards
-			assert!(Executive::apply_extrinsic(xt_1.clone()).is_ok());
-			total_transfer_fee += extrinsic_fee_for(&xt_1);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// Apply second extrinsic and check transaction rewards
-			assert!(Executive::apply_extrinsic(xt_2.clone()).is_ok());
-			total_transfer_fee += extrinsic_fee_for(&xt_2);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// Advancing sessions shouldn't change transaction rewards storage
-			advance_session();
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-			advance_session();
-			assert_eq!(Staking::current_era_transaction_fee_reward(), total_transfer_fee);
-
-			// At the start of the next era (13th session), transaction rewards should be cleared (and paid out)
-			start_era(2);
-			advance_session();
-			assert_eq!(Staking::current_era(), 3);
-			assert_eq!(Staking::current_era_transaction_fee_reward(), 0);
-		});
-}
-
 #[test]
 fn staking_genesis_config_works() {
 	let validators = make_authority_keys(6);
@@ -250,10 +187,7 @@ fn staking_genesis_config_works() {
 				// Check that RewardDestination is Stash (default)
 				assert_eq!(Staking::payee(&stash), RewardDestination::Stash);
 				// Check validator free balance
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
+				assert_eq!(RewardCurrency::free_balance(&stash), balance_amount);
 				// Check how much is at stake
 				assert_eq!(
 					Staking::ledger(controller),
@@ -269,116 +203,66 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
-#[ignore]
-fn staking_inflation_and_reward_should_work() {
-	let balance_amount = 100_000_000 * DOLLARS;
-	let total_issuance = balance_amount * 12; // 6 pre-configured + 6 stash accounts
-	let validators = make_authority_keys(6);
-	let staked_amount = balance_amount / validators.len() as Balance;
+fn current_era_transaction_rewards_storage_update_works() {
+	let initial_balance = 10_000 * DOLLARS;
+
+	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
-		.initial_authorities(validators.as_slice())
-		.initial_balance(balance_amount)
-		.stash(staked_amount)
+		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			// Total issuance remains unchanged at era 0.
-			start_session(0);
-			assert_eq!(Staking::current_era(), 0);
-			assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-			assert_eq!(GenericAsset::total_issuance(CENTRAPAY_ASSET_ID), total_issuance);
-			// Add points to each validator which use to allocate staking reward in the next new era
-			reward_validators(stashes_of(&validators));
+			let xt_1 = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None))),
+				function: runtime_call_1.clone(),
+			});
+			let xt_2 = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, None))),
+				function: runtime_call_2.clone(),
+			});
 
-			// Total issuance for CPAY is inflated at the start of era 1, and that for CENNZ is unchanged.
-			start_session(1);
+			// Start the first era
+			advance_session();
 			assert_eq!(Staking::current_era(), 1);
-			reward_validators(stashes_of(&validators));
 
-			// Compute total payout and inflation for new era
-			let (total_payout, inflation_era_1) = Staking::current_total_payout(total_issuance);
-			assert_eq!(total_payout, 27_900);
-			assert_eq!(inflation_era_1, 74_400);
+			// Start with 0 transaction rewards
+			assert!(Rewards::transaction_fee_pot().is_zero());
 
-			// Compute staking reward for each validator
-			let validator_len = validators.len() as Balance;
-			let per_staking_reward = total_payout / validator_len;
+			// Apply first extrinsic and check transaction rewards
+			let r = Executive::apply_extrinsic(xt_1.clone());
+			assert!(r.is_ok());
+			let mut era1_tx_fee = extrinsic_fee_for(&xt_1);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
-			// validators should receive staking reward after new era
-			for stash in stashes_of(&validators) {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_staking_reward
-				);
-			}
+			// Apply second extrinsic and check transaction rewards
+			let r2 = Executive::apply_extrinsic(xt_2.clone());
+			assert!(r2.is_ok());
+			era1_tx_fee += extrinsic_fee_for(&xt_2);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
-			let sessions_era_1 = vec![2, 3, 4, 5, 6];
-			for session in sessions_era_1 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 1);
-				// Total issuance for CENNZ is unchanged
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				// Total issuance for CPAY remain the same within the same era
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1
-				);
+			// Advancing sessions shouldn't change transaction rewards storage
+			advance_session();
+			advance_session();
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
-				// The balance of stash accounts remain the same within the same era
-				for stash in stashes_of(&validators) {
-					assert_eq!(
-						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-						balance_amount + per_staking_reward
-					);
-				}
-			}
-
-			// Total issuance for CPAY is inflated at the start of era 2, and that for CENNZ is unchanged.
-			start_session(7);
+			// At the start of the next era, transaction rewards should be cleared (and paid out)
+			start_era(2);
 			assert_eq!(Staking::current_era(), 2);
-
-			let (total_payout, inflation_era_2) = Staking::current_total_payout(total_issuance + inflation_era_1);
-			assert_eq!(total_payout, 71_100);
-			assert_eq!(inflation_era_2, 189_600);
-
-			// validators should receive staking reward after new era
-			let per_staking_reward = total_payout / validator_len + per_staking_reward;
-			for (stash, _controller, _, _, _, _) in &validators {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_staking_reward
-				);
-			}
-
-			let sessions_era_2 = vec![8, 9, 10, 11, 12];
-			for session in sessions_era_2 {
-				start_session(session);
-				assert_eq!(Staking::current_era(), 2);
-				// Total issuance for CENNZ is unchanged
-				assert_eq!(GenericAsset::total_issuance(CENNZ_ASSET_ID), total_issuance);
-				// Total issuance for CPAY remain the same within the same era
-				assert_eq!(
-					GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-					total_issuance + inflation_era_1 + inflation_era_2
-				);
-
-				// The balance of stash accounts remain the same within the same era
-				for (stash, _controller, _, _, _, _) in &validators {
-					assert_eq!(
-						<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-						balance_amount + per_staking_reward
-					);
-				}
-			}
+			advance_session();
+			assert!(Rewards::transaction_fee_pot().is_zero());
 		});
 }
 
 #[test]
-#[ignore]
-fn staking_validators_should_receive_equal_transaction_fee_reward() {
+fn elected_validators_receive_equal_transaction_fee_reward() {
+	// Make some txs
+	// Start a new era to payout last eras validators
+	// Check payouts happen as expected and total issuance is maintained
 	let validators = make_authority_keys(6);
-	let balance_amount = 100_000_000 * DOLLARS;
-	let staked_amount = balance_amount / validators.len() as Balance;
+	let initial_balance = 100_000_000 * DOLLARS;
+	let staked_amount = initial_balance / validators.len() as Balance;
 	let transfer_amount = 50;
 	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
 		CENTRAPAY_ASSET_ID,
@@ -388,70 +272,61 @@ fn staking_validators_should_receive_equal_transaction_fee_reward() {
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
-		.initial_balance(balance_amount)
+		.initial_balance(initial_balance)
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
+			let initial_issuance = RewardCurrency::total_issuance();
+
 			let xt = sign(CheckedExtrinsic {
 				signed: Some((alice(), signed_extra(0, 0, None))),
 				function: runtime_call,
 			});
 
-			let fee = extrinsic_fee_for(&xt);
-			let per_fee_reward = fee / validators.len() as Balance;
-
-			start_era(1);
-			let validator_len = validators.len() as Balance;
-			reward_validators(stashes_of(&validators));
-
+			let tx_fee = extrinsic_fee_for(&xt);
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
 
-			// Check if the transfer is successful
-			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount - transfer_amount - fee
-			);
-			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
-				balance_amount + transfer_amount
-			);
+			let issuance_after_fees_burned = RewardCurrency::total_issuance();
+			assert_eq!(issuance_after_fees_burned, initial_issuance - tx_fee);
+
+			// reward is fees * inflation
+			let total_payout = Rewards::calculate_next_reward_payout();
+			assert_eq!(total_payout, Rewards::inflation_rate().saturating_mul_acc_int(tx_fee));
+
+			// treasury should be empty until rewarded
+			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
+
+			// Submit a tx, rotate era, check rewards are paid
+			start_era(1);
 
 			// Check if stash account balances are not yet changed
+			let per_fee_reward: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
+				* total_payout / validators.len() as Balance;
 			for (stash, _controller, _, _, _, _) in &validators {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount
-				);
+				assert_eq!(RewardCurrency::free_balance(&stash), initial_balance + per_fee_reward);
 			}
 
-			let total_issuance = GenericAsset::total_issuance(CENTRAPAY_ASSET_ID);
-			start_era(2);
-			let issued_fee_reward = per_fee_reward * validator_len; // Don't use "fee" itself directly
-			let (staking_payout, max_payout) = Staking::current_total_payout(total_issuance + issued_fee_reward);
-			let per_staking_reward = staking_payout / validator_len;
-
-			// Check total issuance of Spending Asset updated after new era
+			// treasury gets it's cut
+			let treasury_cut = Rewards::development_fund_take() * total_payout;
+			let validator_cut = per_fee_reward * validators.len() as Balance;
+			let remainder = total_payout - treasury_cut - validator_cut;
 			assert_eq!(
-				GenericAsset::total_issuance(CENTRAPAY_ASSET_ID),
-				total_issuance + max_payout + issued_fee_reward,
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				treasury_cut + remainder
 			);
 
-			// Check if validator balance changed correctly
-			for (stash, _controller, _, _, _, _) in validators {
-				// Check tx fee reward went to the stash account of validator
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&stash, Some(CENTRAPAY_ASSET_ID)),
-					balance_amount + per_fee_reward + per_staking_reward
-				);
-			}
+			// Check total issuance of spending asset updated after new era
+			assert_eq!(
+				RewardCurrency::total_issuance(),
+				issuance_after_fees_burned + total_payout
+			);
 		});
 }
 
 #[test]
-#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in.
-fn authorship_reward_of_last_block_in_an_era() {
+fn authorship_points_of_last_block_in_an_era() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -476,18 +351,18 @@ fn authorship_reward_of_last_block_in_an_era() {
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
 			let header = set_author(header_of_last_block, author_index.clone());
 
-			let author_stash_id = Session::validators()[(author_index as usize)].clone();
-
 			// The previous session should come to its end
 			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id);
-
 			// Let's go through the first stage of executing the block
+			assert!(Staking::current_era_points()
+				.individual_points()
+				.get(author_index as usize)
+				.is_none());
 			Executive::initialize_block(&header);
+			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
@@ -496,18 +371,14 @@ fn authorship_reward_of_last_block_in_an_era() {
 			assert_eq!(Staking::current_elected().len(), validators.len());
 
 			// There should be a reward calculated for the author
-			assert!(
-				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id)
-					> author_stash_balance_before_adding_block
-			);
+			assert!(!Staking::current_era_points().individual_points()[author_index as usize] > 0);
 		});
 }
 
 #[test]
-#[ignore]
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
-fn authorship_reward_of_a_chilled_validator() {
+fn authorship_points_of_a_chilled_validator() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -549,11 +420,13 @@ fn authorship_reward_of_a_chilled_validator() {
 
 			send_heartbeats();
 
-			let author_stash_balance_before_adding_block =
-				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id);
-
 			// Let's go through the first stage of executing the block
+			assert!(Staking::current_era_points()
+				.individual_points()
+				.get(author_index as usize)
+				.is_none());
 			Executive::initialize_block(&header);
+			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
 			assert_eq!(Staking::current_era(), 1);
@@ -562,10 +435,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			assert_eq!(Staking::current_elected().len(), validators.len() - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(
-				GenericAsset::free_balance(SPENDING_ASSET_ID, &author_stash_id)
-					> author_stash_balance_before_adding_block
-			);
+			assert!(Staking::current_era_points().individual_points()[author_index as usize] > 0);
 		});
 }
 
@@ -580,7 +450,7 @@ fn slashed_cennz_goes_to_treasury() {
 		.build()
 		.execute_with(|| {
 			// Initially treasury has no CENNZ
-			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
+			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 
 			let validator_set_count = validators.len() as u32;
 			let offenders_count = validator_set_count; // All validators are offenders
@@ -597,13 +467,13 @@ fn slashed_cennz_goes_to_treasury() {
 
 			// Treasury should receive all offenders stake
 			assert_eq!(
-				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
+				StakeCurrency::free_balance(&Treasury::account_id()),
 				total_slashed_cennz,
 			);
 			// All validators stashes are slashed entirely
 			validators.iter().for_each(|validator_keys| {
 				assert_eq!(
-					GenericAsset::free_balance(CENNZ_ASSET_ID, &validator_keys.0),
+					StakeCurrency::free_balance(&validator_keys.0),
 					initial_balance - per_offender_slash
 				)
 			});
@@ -621,7 +491,7 @@ fn slashed_cennz_goes_to_reporter() {
 		.build()
 		.execute_with(|| {
 			// Initially treasury has no CENNZ
-			assert!(GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()).is_zero());
+			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 			let offender = &validators[0].0;
 			let reporter = bob();
 
@@ -643,21 +513,15 @@ fn slashed_cennz_goes_to_reporter() {
 
 			// offender CENNZ funds are slashed
 			let total_slash = slash_fraction * initial_balance;
-			assert_eq!(
-				GenericAsset::free_balance(CENNZ_ASSET_ID, &offender),
-				initial_balance - total_slash
-			);
+			assert_eq!(StakeCurrency::free_balance(&offender), initial_balance - total_slash);
 			// reporter fee calculation doesn't have a nice API
 			// so we reproduce it here from variables, this is the calculation for the first slash of a slashing span.
 			let reporter_fee = (Staking::slash_reward_fraction().saturating_mul(crml_staking::REWARD_F1)) * total_slash;
 			// reporter is paid a CENNZ reporter's fee
-			assert_eq!(
-				GenericAsset::free_balance(CENNZ_ASSET_ID, &reporter),
-				initial_balance + reporter_fee
-			);
+			assert_eq!(StakeCurrency::free_balance(&reporter), initial_balance + reporter_fee);
 			// Treasury should receive remainder of slash after the CENNZ reporter's fee
 			assert_eq!(
-				GenericAsset::free_balance(CENNZ_ASSET_ID, &Treasury::account_id()),
+				StakeCurrency::free_balance(&Treasury::account_id()),
 				total_slash - reporter_fee
 			);
 		});

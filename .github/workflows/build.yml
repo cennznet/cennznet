@@ -1,4 +1,4 @@
-name: Build
+name: CENNZnet CI
 
 on:
   pull_request:
@@ -9,12 +9,12 @@ on:
     - develop
 
 jobs:
-  build:
+  ci:
     runs-on: [self-hosted, linux]
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
-    - name: Check Out
+    - name: Check out
       uses: actions/checkout@v2
     - name: Install toolchain
       uses: actions-rs/toolchain@v1

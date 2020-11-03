@@ -16,8 +16,9 @@
 
 //! Test utilities
 
+use crate::rewards::StakerRewardPayment;
 use crate::{
-	inflation, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
+	EraIndex, Exposure, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
 };
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
@@ -29,7 +30,7 @@ use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, UintAuthorityId};
-use sp_runtime::traits::{BlakeTwo256, Convert, IdentityLookup, OpaqueKeys, SaturatedConversion};
+use sp_runtime::traits::{BlakeTwo256, Convert, IdentityLookup, OpaqueKeys, SaturatedConversion, Saturating, Zero};
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -55,6 +56,64 @@ impl Convert<u128, u64> for CurrencyToVoteHandler {
 	fn convert(x: u128) -> u64 {
 		x.saturated_into()
 	}
+}
+
+pub struct MockRewarder<C: Currency<AccountId>>(std::marker::PhantomData<C>);
+impl<C: Currency<AccountId>> StakerRewardPayment for MockRewarder<C> {
+	type AccountId = AccountId;
+	type Balance = C::Balance;
+
+	/// Distribute rewards to each validator and their nominators
+	/// Total reward is split equally among elected validators
+	/// Rewards are further distributed to nominators pro-rata their contributed stake.
+	fn make_reward_payout(
+		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+	) {
+		let total_payout = Self::calculate_next_reward_payout();
+		let points = Staking::current_era_points();
+		for (v, p) in Staking::current_elected().iter().zip(points.individual.into_iter()) {
+			if p.is_zero() {
+				continue;
+			}
+			let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;
+			let off_the_table = (Staking::validators(v).commission * reward).min(reward);
+			let reward = reward.saturating_sub(off_the_table);
+			let validator_cut = if reward.is_zero() {
+				Zero::zero()
+			} else {
+				let exposure = Staking::stakers(v);
+				let total = exposure.total.max(1);
+				for i in &exposure.others {
+					let per_u64 = Perbill::from_rational_approximation(i.value, total);
+					make_payout::<C>(&i.who, per_u64 * reward.into());
+				}
+				let per_u64 = Perbill::from_rational_approximation(exposure.own, total);
+				per_u64 * reward
+			};
+			make_payout::<C>(v, (validator_cut + off_the_table).into());
+		}
+	}
+
+	// Use the pallet staking NPOS curve to determine rewards for tests.
+	// Most of the tests here are tightly coupled with this polkadot based reward model.
+	// On CENNZnet the staking module is not responsible for reward calculations.
+	// For now, we keep this behaviour to support the existing unit test suite.
+	fn calculate_next_reward_payout() -> Self::Balance {
+		current_total_payout::<C>().saturated_into()
+	}
+}
+
+/// Actually make a payment to a staker. This uses the currency's reward function
+/// to pay the right payee for the given staker account.
+fn make_payout<C: Currency<AccountId>>(stash: &AccountId, amount: C::Balance) {
+	let dest = Staking::payee(stash);
+	match dest {
+		RewardDestination::Controller => {
+			Staking::bonded(stash).and_then(|controller| C::deposit_into_existing(&controller, amount).ok())
+		}
+		RewardDestination::Stash => C::deposit_into_existing(stash, amount).ok(),
+		RewardDestination::Account(dest_account) => Some(C::deposit_creating(&dest_account, amount)),
+	};
 }
 
 thread_local! {
@@ -227,38 +286,24 @@ impl pallet_timestamp::Trait for Test {
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
-crml_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
+
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 impl Trait for Test {
 	type Currency = pallet_balances::Module<Self>;
-	type RewardCurrency = pallet_balances::Module<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type RewardRemainder = ();
 	type Event = MetaEvent;
 	type Slash = ();
-	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type RewardCurve = RewardCurve;
 	type WeightInfo = ();
+	type Rewarder = MockRewarder<pallet_balances::Module<Self>>;
 }
-
 pub struct ExtBuilder {
 	existential_deposit: u64,
 	validator_pool: bool,
@@ -555,12 +600,29 @@ pub fn start_era(era_index: EraIndex) {
 	assert_eq!(Staking::current_era(), era_index);
 }
 
-pub fn current_total_payout_for_duration(duration: u64) -> u64 {
-	inflation::compute_total_payout(
-		<Test as Trait>::RewardCurve::get(),
+pallet_staking_reward_curve::build! {
+	const I_NPOS: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+
+// Use pallet staking NPOS curve to determine rewards in our mocks
+// most of the tests here are tightly coupled with this reward system.
+// staking module is not responsible for reward calculation in CENNZnet.
+// Here it is useful to assert a reward happened or not rather than
+// asserting it's accuracy, however, some unit tests are still coupled to assert accuracy.
+pub fn current_total_payout<C: Currency<AccountId>>() -> u64 {
+	pallet_staking::inflation::compute_total_payout(
+		&I_NPOS,
 		<Module<Test>>::slot_stake() * 2,
-		Balances::total_issuance(),
-		duration,
+		C::total_issuance().saturated_into().saturated_into(), // terrible way to get a `u64`
+		// hack: all tests want the price for duration = `3000` so we just hard code it
+		3_000,
 	)
 	.0
 }

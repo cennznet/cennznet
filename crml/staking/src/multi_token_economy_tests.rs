@@ -21,7 +21,6 @@
 use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
-	curve::PiecewiseLinear,
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
 	Perbill,
@@ -29,8 +28,11 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use std::collections::HashSet;
 
-use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
-use crate::{inflation, EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
+use crate::mock::{
+	current_total_payout, Author11, CurrencyToVoteHandler, ExistentialDeposit, MockRewarder, SlashDeferDuration,
+	TestSessionHandler,
+};
+use crate::{EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
 use std::cell::RefCell;
 
 const STAKING_ASSET_ID: AssetId = 100;
@@ -152,35 +154,21 @@ impl pallet_timestamp::Trait for Test {
 	type WeightInfo = ();
 }
 
-crml_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 impl Trait for Test {
 	type Currency = prml_generic_asset::StakingAssetCurrency<Self>;
-	type RewardCurrency = prml_generic_asset::SpendingAssetCurrency<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type RewardRemainder = ();
 	type Event = ();
 	type Slash = ();
-	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type RewardCurve = RewardCurve;
+	type Rewarder = MockRewarder<prml_generic_asset::SpendingAssetCurrency<Self>>;
 	type WeightInfo = ();
 }
 
@@ -274,16 +262,6 @@ pub fn start_era(era_index: EraIndex) {
 	assert_eq!(Staking::current_era(), era_index);
 }
 
-pub fn current_total_payout_for_duration(duration: u64) -> u64 {
-	inflation::compute_total_payout(
-		<Test as Trait>::RewardCurve::get(),
-		<Module<Test>>::slot_stake() * 2,
-		GenericAsset::total_issuance(&STAKING_ASSET_ID),
-		duration,
-	)
-	.0
-}
-
 #[test]
 fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 	// Rewards go to the correct destination as determined in Payee
@@ -306,8 +284,8 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout = current_total_payout_for_duration(3000);
-		assert!(total_payout > 1); // Test is meaningfull if reward something
+		let total_payout = current_total_payout::<prml_generic_asset::SpendingAssetCurrency<Test>>();
+		assert!(total_payout > 1); // Test is meaningful if reward something
 		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
