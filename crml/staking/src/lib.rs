@@ -1297,7 +1297,12 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
-			<Payee<T>>::insert(stash, payee);
+			// controller is a type of `RewardDestination::Account`
+			if let RewardDestination::Controller = payee {
+				<Payee<T>>::insert(stash, RewardDestination::Account(controller));
+			} else {
+				<Payee<T>>::insert(stash, payee);
+			}
 		}
 
 		/// (Re-)set the controller of a stash.

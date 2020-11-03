@@ -210,7 +210,7 @@ fn rewards_should_work() {
 
 		<Payee<Test>>::insert(&2, RewardDestination::Stash);
 		assert_eq!(Staking::payee(2), RewardDestination::Stash);
-		assert_eq!(Staking::payee(11), RewardDestination::Controller);
+		assert_eq!(Staking::payee(11), RewardDestination::Account(10));
 
 		let mut block = 3; // Block 3 => Session 1 => Era 0
 		System::set_block_number(block);
@@ -787,14 +787,21 @@ fn reward_destination_controller_is_replaced_with_account() {
 		let stash = 100_u64;
 		let controller = 101_u64;
 
+		// bond with controller as payee
 		assert_ok!(Staking::bond(
 			Origin::signed(stash),
 			controller,
 			Staking::minimum_bond(),
 			RewardDestination::Controller
 		));
+		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
 
-		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller),);
+		// explicit set controller as payee
+		assert_ok!(Staking::set_payee(
+			Origin::signed(controller),
+			RewardDestination::Controller
+		));
+		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
 	});
 }
 
