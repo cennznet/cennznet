@@ -351,15 +351,16 @@ fn authorship_points_of_last_block_in_an_era() {
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
 			let header = set_author(header_of_last_block, author_index.clone());
 
-			let author_stash_id = Session::validators()[(author_index as usize)].clone();
-
 			// The previous session should come to its end
 			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
 
 			send_heartbeats();
 
 			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points().individual_points()[author_index as usize].is_zero());
+			assert!(Staking::current_era_points()
+				.individual_points()
+				.get(author_index as usize)
+				.is_none());
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -370,7 +371,7 @@ fn authorship_points_of_last_block_in_an_era() {
 			assert_eq!(Staking::current_elected().len(), validators.len());
 
 			// There should be a reward calculated for the author
-			assert!(!Staking::current_era_points().individual_points()[author_index as usize].is_zero());
+			assert!(!Staking::current_era_points().individual_points()[author_index as usize] > 0);
 		});
 }
 
@@ -420,7 +421,10 @@ fn authorship_points_of_a_chilled_validator() {
 			send_heartbeats();
 
 			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points().individual_points()[author_index as usize].is_zero());
+			assert!(Staking::current_era_points()
+				.individual_points()
+				.get(author_index as usize)
+				.is_none());
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -431,7 +435,7 @@ fn authorship_points_of_a_chilled_validator() {
 			assert_eq!(Staking::current_elected().len(), validators.len() - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(!Staking::current_era_points().individual_points()[author_index as usize].is_zero());
+			assert!(Staking::current_era_points().individual_points()[author_index as usize] > 0);
 		});
 }
 

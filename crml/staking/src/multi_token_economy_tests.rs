@@ -21,7 +21,6 @@
 use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
-	curve::PiecewiseLinear,
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
 	Perbill,
@@ -261,17 +260,6 @@ pub fn start_session(session_index: SessionIndex) {
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
 	assert_eq!(Staking::current_era(), era_index);
-}
-
-pallet_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
 }
 
 #[test]
