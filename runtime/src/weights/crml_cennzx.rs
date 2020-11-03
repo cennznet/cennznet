@@ -23,18 +23,28 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl crml_cennzx::WeightInfo for WeightInfo {
 	fn buy_asset() -> Weight {
-		1_000_000
+		(297_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn sell_asset() -> Weight {
-		1_000_000
+		(290_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn add_liquidity() -> Weight {
-		1_000_000
+		(207_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn remove_liquidity() -> Weight {
-		1_000_000
+		(214_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn set_fee_rate() -> Weight {
-		1_000_000
+		(14_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 }
