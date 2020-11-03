@@ -17,7 +17,7 @@
 
 use crate::Exposure;
 use codec::HasCompact;
-use sp_arithmetic::{FixedI128, Perbill};
+use sp_runtime::Perbill;
 
 /// Something which can perform reward payment to staked validators
 pub trait StakerRewardPayment {
@@ -33,5 +33,5 @@ pub trait StakerRewardPayment {
 	);
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `make_reward_payout` would distribute this total value among stakers.
-	fn calculate_next_reward_payout() -> FixedI128;
+	fn calculate_next_reward_payout() -> Self::Balance;
 }
