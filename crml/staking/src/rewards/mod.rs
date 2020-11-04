@@ -69,7 +69,7 @@ decl_event!(
 decl_storage! {
 	trait Store for Module<T: Trait> as Rewards {
 		/// Inflation rate % to apply on reward payouts, it may be negative
-		pub InflationRate get(fn inflation_rate): FixedI128 = FixedI128::saturating_from_integer(1);
+		pub InflationRate get(fn inflation_rate): FixedI128 = FixedI128::saturating_from_rational(5, 100); // 5%
 		/// Development fund % take for reward payouts, parts-per-billion
 		pub DevelopmentFundTake get(fn development_fund_take) config(): Perbill;
 		/// Accumulated transaction fees for reward payout
