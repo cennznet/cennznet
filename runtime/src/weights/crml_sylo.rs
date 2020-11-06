@@ -39,12 +39,6 @@ impl crml_sylo::WeightInfo for WeightInfo {
 	fn delete_values() -> Weight {
 		0 as Weight
 	}
-	fn set_payment_account() -> Weight {
-		0 as Weight
-	}
-	fn revoke_payment_account_self() -> Weight {
-		0 as Weight
-	}
 	fn remove_response() -> Weight {
 		0 as Weight
 	}

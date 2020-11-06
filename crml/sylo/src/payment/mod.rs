@@ -15,13 +15,22 @@
 
 //! Manage the authorized accounts set for the Sylo fee payment
 
-use super::{Trait as SyloTrait, WeightInfo};
-use frame_support::{decl_module, decl_storage, ensure};
+use frame_support::{decl_module, decl_storage, ensure, weights::Weight};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
 
-pub trait Trait: SyloTrait {}
+mod benchmarking;
+mod default_weights;
+
+pub trait WeightInfo {
+	fn set_payment_account() -> Weight;
+	fn revoke_payment_account_self() -> Weight;
+}
+
+pub trait Trait: frame_system::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 const NOT_SYLO_PAYER: &str = "You are not a Sylo payer!";
 
@@ -73,7 +82,9 @@ mod tests {
 
 	type SyloModule = Module<Test>;
 
-	impl Trait for Test {}
+	impl Trait for Test {
+		type WeightInfo = ();
+	}
 
 	#[test]
 	fn set_payment_account() {
