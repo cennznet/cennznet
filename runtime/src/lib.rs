@@ -487,7 +487,9 @@ impl crml_sylo::Trait for Runtime {
 }
 
 impl crml_sylo::e2ee::Trait for Runtime {}
-impl crml_sylo::payment::Trait for Runtime {}
+impl crml_sylo::payment::Trait for Runtime {
+	type WeightInfo = ();
+}
 impl crml_sylo::device::Trait for Runtime {}
 impl crml_sylo::inbox::Trait for Runtime {}
 impl crml_sylo::response::Trait for Runtime {}
@@ -885,6 +887,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
+			add_benchmark!(params, batches, sylo_payment, SyloPayment);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

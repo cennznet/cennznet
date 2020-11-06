@@ -23,8 +23,6 @@ pub mod payment;
 pub mod response;
 pub mod vault;
 
-mod benchmarking;
-
 #[cfg(test)]
 pub(crate) mod mock;
 
@@ -36,8 +34,6 @@ pub trait WeightInfo {
 	fn withdraw_pkbs() -> Weight;
 	fn add_value() -> Weight;
 	fn delete_values() -> Weight;
-	fn set_payment_account() -> Weight;
-	fn revoke_payment_account_self() -> Weight;
 	fn remove_response() -> Weight;
 	fn upsert_value() -> Weight;
 	fn create_group() -> Weight;
@@ -63,12 +59,6 @@ impl WeightInfo for () {
 		0 as Weight
 	}
 	fn delete_values() -> Weight {
-		0 as Weight
-	}
-	fn set_payment_account() -> Weight {
-		0 as Weight
-	}
-	fn revoke_payment_account_self() -> Weight {
 		0 as Weight
 	}
 	fn remove_response() -> Weight {
