@@ -482,19 +482,25 @@ impl crml_staking_rewards::Trait for Runtime {
 	type TreasuryModuleId = TreasuryModuleId;
 }
 
-impl crml_sylo::Trait for Runtime {
-	type WeightInfo = weights::crml_sylo::WeightInfo;
+impl crml_sylo::e2ee::Trait for Runtime {
+	type WeightInfo = ();
 }
-
-impl crml_sylo::e2ee::Trait for Runtime {}
 impl crml_sylo::payment::Trait for Runtime {
 	type WeightInfo = ();
 }
 impl crml_sylo::device::Trait for Runtime {}
-impl crml_sylo::inbox::Trait for Runtime {}
-impl crml_sylo::response::Trait for Runtime {}
-impl crml_sylo::vault::Trait for Runtime {}
-impl crml_sylo::groups::Trait for Runtime {}
+impl crml_sylo::inbox::Trait for Runtime {
+	type WeightInfo = ();
+}
+impl crml_sylo::response::Trait for Runtime {
+	type WeightInfo = ();
+}
+impl crml_sylo::vault::Trait for Runtime {
+	type WeightInfo = ();
+}
+impl crml_sylo::groups::Trait for Runtime {
+	type WeightInfo = ();
+}
 
 impl crml_cennzx::Trait for Runtime {
 	type AssetId = AssetId;
@@ -888,6 +894,7 @@ impl_runtime_apis! {
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
 			add_benchmark!(params, batches, sylo_payment, SyloPayment);
+			add_benchmark!(params, batches, sylo_response, SyloResponse);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

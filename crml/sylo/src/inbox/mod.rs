@@ -13,9 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::{Trait as SyloTrait, WeightInfo};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
+use frame_support::{
+	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::Weight,
+};
 use frame_system::ensure_signed;
+
+mod default_weights;
 
 const MAX_MESSAGE_LENGTH: usize = 100_000;
 const MAX_DELETE_MESSAGES: usize = 10_000;
@@ -23,7 +26,14 @@ const MAX_DELETE_MESSAGES: usize = 10_000;
 type MessageId = u32;
 type Message = Vec<u8>;
 
-pub trait Trait: SyloTrait {}
+pub trait WeightInfo {
+	fn add_value() -> Weight;
+	fn delete_values() -> Weight;
+}
+
+pub trait Trait: frame_system::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {

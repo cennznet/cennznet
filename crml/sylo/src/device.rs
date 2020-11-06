@@ -13,14 +13,13 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::Trait as SyloTrait;
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 
 const MAX_DEVICES: usize = 1000;
 
 pub type DeviceId = u32;
 
-pub trait Trait: SyloTrait {}
+pub trait Trait: frame_system::Trait {}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {

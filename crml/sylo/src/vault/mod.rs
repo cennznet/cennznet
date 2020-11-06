@@ -12,15 +12,23 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-use super::{Trait as SyloTrait, WeightInfo};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::Weight};
 use frame_system::ensure_signed;
+
+mod default_weights;
 
 pub const MAX_KEYS: usize = 100;
 const MAX_VALUE_LENGTH: usize = 100_000;
 const MAX_DELETE_KEYS: usize = 100;
 
-pub trait Trait: SyloTrait {}
+pub trait WeightInfo {
+	fn upsert_value() -> Weight;
+	fn delete_values() -> Weight;
+}
+
+pub trait Trait: frame_system::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
@@ -101,7 +109,9 @@ mod tests {
 	use crate::mock::{ExtBuilder, Origin, Test};
 	use frame_support::{assert_noop, assert_ok};
 
-	impl Trait for Test {}
+	impl Trait for Test {
+		type WeightInfo = ();
+	}
 
 	type Vault = Module<Test>;
 

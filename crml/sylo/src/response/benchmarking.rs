@@ -12,35 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Sylo payment benchmarking.
+//! Sylo response benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 
+use crate::response::Module as SyloResponse;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-
-use crate::payment::Module as SyloPayment;
-
+use sp_std::boxed::Box;
+use sp_std::{vec, vec::Vec};
 const SEED: u32 = 0;
 
 benchmarks! {
 	_{ }
 
-	set_payment_account {
+	remove_response {
+		let sender: T::AccountId = whitelisted_caller();
 		let recipient: T::AccountId = account("recipient", 0, SEED);
-	}: _(RawOrigin::Root, recipient.clone())
-	verify {
-		assert!(<SyloPayment<T>>::authorised_payers().contains(&recipient));
-	}
+		let request_id: T::Hash = Default::default();
 
-	revoke_payment_account_self {
-		let recipient: T::AccountId = whitelisted_caller();
-		let _ = <SyloPayment<T>>::set_payment_account(RawOrigin::Root.into(), recipient.clone());
-	}: _(RawOrigin::Signed(recipient.clone()))
+		let mut bundles = Vec::<(T::AccountId, u32, Vec<u8>)>::new();
+		bundles.push((recipient, 2, Vec::<u8>::new()));
+
+		let resp_pkb = Response::<T::AccountId>::PreKeyBundles(bundles);
+
+		let _ = <SyloResponse<T>>::set_response(sender.clone(), request_id, resp_pkb);
+	}: _(RawOrigin::Signed(sender.clone()), request_id)
 	verify {
-		assert!(!<SyloPayment<T>>::authorised_payers().contains(&recipient));
+		assert!(<SyloResponse<T>>::response((sender, request_id)) == Response::None);
 	}
 }
 
@@ -51,16 +52,9 @@ mod tests {
 	use frame_support::assert_ok;
 
 	#[test]
-	fn set_payment_account() {
+	fn remove_response() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_set_payment_account::<Test>());
-		});
-	}
-
-	#[test]
-	fn revoke_payment_account_self() {
-		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_revoke_payment_account_self::<Test>());
+			assert_ok!(test_benchmark_remove_response::<Test>());
 		});
 	}
 }

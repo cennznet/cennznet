@@ -13,10 +13,9 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::{Trait as SyloTrait, WeightInfo};
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, StorageMap,
+	decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure, weights::Weight, StorageMap,
 };
 use frame_system::ensure_signed;
 use sp_core::{ed25519, hash::H256};
@@ -29,9 +28,22 @@ use crate::{
 };
 use vault::{VaultKey, VaultValue};
 
+mod default_weights;
 mod tests;
 
-pub trait Trait: SyloTrait + inbox::Trait + device::Trait + vault::Trait {}
+pub trait WeightInfo {
+	fn create_group() -> Weight;
+	fn leave_group() -> Weight;
+	fn update_member() -> Weight;
+	fn upsert_group_meta() -> Weight;
+	fn create_invites() -> Weight;
+	fn accept_invite() -> Weight;
+	fn revoke_invites() -> Weight;
+}
+
+pub trait Trait: inbox::Trait + device::Trait + vault::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 const MAX_INVITES: usize = 15;
 const MAX_MEMBERS: usize = 100;
@@ -132,7 +144,7 @@ decl_module! {
 		/// weight:
 		/// O(1). Note: number of member invitee is capped at 15, so equivalent to O(1).
 		/// Limited number of storage writes.
-		#[weight = T::WeightInfo::create_group()]
+		#[weight = <T as Trait>::WeightInfo::create_group()]
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -184,7 +196,7 @@ decl_module! {
 		/// weight:
 		/// O(m) where m is the number of members in that group
 		/// Limited number of read and maximum of 2 storage writes.
-		#[weight = T::WeightInfo::leave_group()]
+		#[weight = <T as Trait>::WeightInfo::leave_group()]
 		fn leave_group(origin, group_id: T::Hash, group_key: Option<VaultKey>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -217,7 +229,7 @@ decl_module! {
 		/// weight:
 		/// O(m) where m is the number of members in that group
 		/// Limited number of read and 1 write.
-		#[weight = T::WeightInfo::update_member()]
+		#[weight = <T as Trait>::WeightInfo::update_member()]
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
@@ -252,7 +264,7 @@ decl_module! {
 		/// Number of read and writes depending on input data
 		// TODO the following weight calculation should be taken into account
 		//#[weight = FunctionOf(|(_,meta): (&T::Hash, &Meta)|50_000 + (meta.len() as u32)*1_000, DispatchClass::Normal, true)]
-		#[weight = T::WeightInfo::upsert_group_meta()]
+		#[weight = <T as Trait>::WeightInfo::upsert_group_meta()]
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -293,7 +305,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of invitee
 		/// Limited number of read and writes
-		#[weight = T::WeightInfo::create_invites()]
+		#[weight = <T as Trait>::WeightInfo::create_invites()]
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -314,7 +326,7 @@ decl_module! {
 		/// weight:
 		/// O(n + m) where n is the number of groups, and m is the number of members in the group
 		/// Limited number of read and writes to multiple tables
-		#[weight = T::WeightInfo::accept_invite()]
+		#[weight = <T as Trait>::WeightInfo::accept_invite()]
 		fn accept_invite(origin, group_id: T::Hash, payload: AcceptPayload<T::AccountId>, invite_key: H256, inbox_id: u32, signature: ed25519::Signature, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -379,7 +391,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n the number of existing invitation
 		/// Limited number of read and writes
-		#[weight = T::WeightInfo::revoke_invites()]
+		#[weight = <T as Trait>::WeightInfo::revoke_invites()]
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
