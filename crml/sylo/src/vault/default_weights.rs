@@ -13,15 +13,18 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-#![cfg_attr(not(feature = "std"), no_std)]
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 2.0.0
 
-pub mod device;
-pub mod e2ee;
-pub mod groups;
-pub mod inbox;
-pub mod payment;
-pub mod response;
-pub mod vault;
+#![allow(unused_parens)]
+#![allow(unused_imports)]
 
-#[cfg(test)]
-pub(crate) mod mock;
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
+
+impl crate::vault::WeightInfo for () {
+	fn upsert_value() -> Weight {
+		0
+	}
+	fn delete_values() -> Weight {
+		0
+	}
+}

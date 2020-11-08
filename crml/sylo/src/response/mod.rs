@@ -13,12 +13,20 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::{Trait as SyloTrait, WeightInfo};
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, weights::Weight};
 use frame_system::{self, ensure_signed};
 
-pub trait Trait: SyloTrait {}
+mod benchmarking;
+mod default_weights;
+
+pub trait WeightInfo {
+	fn remove_response() -> Weight;
+}
+
+pub trait Trait: frame_system::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]

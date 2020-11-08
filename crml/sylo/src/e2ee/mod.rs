@@ -13,17 +13,26 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::{Trait as SyloTrait, WeightInfo};
 use crate::{
 	device::{self, DeviceId},
 	groups, inbox, response,
 };
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::Weight};
 use frame_system::ensure_signed;
+
+mod default_weights;
 
 const MAX_PKBS: usize = 50;
 
-pub trait Trait: SyloTrait + inbox::Trait + response::Trait + device::Trait + groups::Trait {}
+pub trait WeightInfo {
+	fn register_device() -> Weight;
+	fn replenish_pkbs() -> Weight;
+	fn withdraw_pkbs() -> Weight;
+}
+
+pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {
+	type WeightInfo: WeightInfo;
+}
 
 // Serialized pre key bundle used to establish one to one e2ee
 pub type PreKeyBundle = Vec<u8>;
@@ -43,7 +52,7 @@ decl_module! {
 		/// weight:
 		/// O(g) where g is the number of groups the user is in
 		/// Multiple reads and writes depending on the user states.
-		#[weight = T::WeightInfo::register_device()]
+		#[weight = <T as Trait>::WeightInfo::register_device()]
 		fn register_device(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -64,7 +73,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write.
-		#[weight = T::WeightInfo::replenish_pkbs()]
+		#[weight = <T as Trait>::WeightInfo::replenish_pkbs()]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -80,7 +89,7 @@ decl_module! {
 		/// Number of read and write scaled by size of input
 		// TODO the following weight calculation should be taken into account
 		// #[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
-		#[weight = T::WeightInfo::withdraw_pkbs()]
+		#[weight = <T as Trait>::WeightInfo::withdraw_pkbs()]
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, DeviceId)>) {
 			let sender = ensure_signed(origin)?;
 
@@ -121,14 +130,19 @@ pub(super) mod tests {
 	use frame_support::assert_ok;
 	use sp_core::H256;
 
-	impl SyloTrait for Test {
+	impl Trait for Test {
 		type WeightInfo = ();
 	}
-	impl Trait for Test {}
 	impl device::Trait for Test {}
-	impl inbox::Trait for Test {}
-	impl response::Trait for Test {}
-	impl groups::Trait for Test {}
+	impl inbox::Trait for Test {
+		type WeightInfo = ();
+	}
+	impl response::Trait for Test {
+		type WeightInfo = ();
+	}
+	impl groups::Trait for Test {
+		type WeightInfo = ();
+	}
 	type E2EE = Module<Test>;
 	type Device = device::Module<Test>;
 	type Response = response::Module<Test>;

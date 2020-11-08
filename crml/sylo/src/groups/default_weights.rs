@@ -13,15 +13,33 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-#![cfg_attr(not(feature = "std"), no_std)]
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 2.0.0
 
-pub mod device;
-pub mod e2ee;
-pub mod groups;
-pub mod inbox;
-pub mod payment;
-pub mod response;
-pub mod vault;
+#![allow(unused_parens)]
+#![allow(unused_imports)]
 
-#[cfg(test)]
-pub(crate) mod mock;
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
+
+impl crate::groups::WeightInfo for () {
+	fn create_group() -> Weight {
+		0
+	}
+	fn leave_group() -> Weight {
+		0
+	}
+	fn update_member() -> Weight {
+		0
+	}
+	fn upsert_group_meta() -> Weight {
+		0
+	}
+	fn create_invites() -> Weight {
+		0
+	}
+	fn accept_invite() -> Weight {
+		0
+	}
+	fn revoke_invites() -> Weight {
+		0
+	}
+}
