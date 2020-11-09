@@ -22,9 +22,13 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::inbox::WeightInfo for () {
 	fn add_value() -> Weight {
-		0
+		(30_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn delete_values() -> Weight {
-		0
+		(27_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 }

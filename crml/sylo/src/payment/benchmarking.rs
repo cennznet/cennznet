@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Plug New Zealand Limited
+// Copyright 2019-2020 Centrality Investments Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
