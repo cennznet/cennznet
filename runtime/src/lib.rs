@@ -895,6 +895,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
 			add_benchmark!(params, batches, sylo_payment, SyloPayment);
 			add_benchmark!(params, batches, sylo_response, SyloResponse);
+			add_benchmark!(params, batches, sylo_inbox, SyloInbox);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

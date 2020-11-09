@@ -18,6 +18,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 
+mod benchmarking;
 mod default_weights;
 
 const MAX_MESSAGE_LENGTH: usize = 100_000;
