@@ -21,8 +21,11 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::e2ee::WeightInfo for () {
-	fn register_device() -> Weight {
-		0
+	fn register_device(p: u32) -> Weight {
+		(76_895_000 as Weight)
+			.saturating_add((255_000 as Weight).saturating_mul(p as Weight))
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 	fn replenish_pkbs() -> Weight {
 		0
