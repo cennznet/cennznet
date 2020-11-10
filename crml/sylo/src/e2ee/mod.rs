@@ -20,12 +20,13 @@ use crate::{
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::Weight};
 use frame_system::ensure_signed;
 
+mod benchmarking;
 mod default_weights;
 
 const MAX_PKBS: usize = 50;
 
 pub trait WeightInfo {
-	fn register_device() -> Weight;
+	fn register_device(p: u32) -> Weight;
 	fn replenish_pkbs() -> Weight;
 	fn withdraw_pkbs() -> Weight;
 }
@@ -52,7 +53,7 @@ decl_module! {
 		/// weight:
 		/// O(g) where g is the number of groups the user is in
 		/// Multiple reads and writes depending on the user states.
-		#[weight = <T as Trait>::WeightInfo::register_device()]
+		#[weight = <T as Trait>::WeightInfo::register_device(pkbs.len() as u32)]
 		fn register_device(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
