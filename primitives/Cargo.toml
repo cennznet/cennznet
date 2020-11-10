@@ -7,10 +7,10 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "1.3.5", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
 [features]
 default = ["std"]

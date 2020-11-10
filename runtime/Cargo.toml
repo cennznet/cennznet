@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 cennznet-cli = { path = "../cli", default-features = false }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 wabt = "0.9.1"
 
 [dependencies]
@@ -19,57 +19,57 @@ codec = { package = "parity-scale-codec", version = "1.3.5", default-features = 
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 smallvec = "1.4.1"
 
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0", features = ["historical"] }
-pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-finality-tracker = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes", features = ["historical"] }
+pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
-frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0"}
-sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0"}
-sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes"}
+sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes"}
+sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
-prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
 futures = { version = "0.3.1", features = ["compat"] }
 
 # Used for the node template's RPCs
-frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0" }
+frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes" }
 
 # Used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0", optional = true }
-frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "2.0.0", optional = true }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes", optional = true }
+frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "chore/misc-upstream-fixes", optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
@@ -80,7 +80,7 @@ crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", branch = "2.0.0" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/misc-upstream-fixes" }
 
 [features]
 default = ["std"]
