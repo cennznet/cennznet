@@ -33,6 +33,7 @@ benchmarks! {
 	_{ }
 
 	register_device {
+		let p in 0 .. MAX_PKBS as u32;
 		let sender: T::AccountId = whitelisted_caller();
 		let device_id: DeviceId = 11;
 
@@ -70,10 +71,12 @@ benchmarks! {
 		);
 		<SyloGroups<T>>::insert(&sender, &group_id_1, group_1);
 
-		let pre_key_bundle0 = PreKeyBundle::from(*b"prekeybundle0");
-		let pre_key_bundle1 = PreKeyBundle::from(*b"prekeybundle1");
-		let pre_key_bundles = Vec::<PreKeyBundle>::from([pre_key_bundle0, pre_key_bundle1]);
-
+		let mut pre_key_bundles = Vec::<PreKeyBundle>::new();
+		for i in 0..p {
+			let mut pre_key_bundle = PreKeyBundle::from(*b"prekeybundle");
+			pre_key_bundle.extend_from_slice(&i.to_be_bytes());
+			pre_key_bundles.push(pre_key_bundle);
+		}
 	}: _(RawOrigin::Signed(sender.clone()), device_id, pre_key_bundles)
 	verify {
 		assert!(<SyloDevice<T>>::devices(sender).contains(&device_id));
