@@ -20,6 +20,7 @@ use crate::{
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::Vec, ensure, weights::Weight};
 use frame_system::ensure_signed;
 
+mod benchmarking;
 mod default_weights;
 
 const MAX_PKBS: usize = 50;

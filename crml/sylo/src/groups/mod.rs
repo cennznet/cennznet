@@ -96,6 +96,10 @@ impl<A: Encode + Decode> Member<A> {
 		}
 		false
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn new(user_id: A, roles: Vec<MemberRoles>, meta: Meta) -> Self {
+		Self { user_id, roles, meta }
+	}
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, Debug)]
@@ -108,6 +112,18 @@ where
 	members: Vec<Member<AccountId>>,
 	invites: Vec<PendingInvite<H256>>,
 	meta: Meta,
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<A: Encode + Decode, H: Encode + Decode> Group<A, H> {
+	pub fn new(group_id: H, members: Vec<Member<A>>, invites: Vec<PendingInvite<H256>>, meta: Meta) -> Self {
+		Self {
+			group_id,
+			members,
+			invites,
+			meta,
+		}
+	}
 }
 
 decl_error! {
@@ -484,5 +500,11 @@ impl<T: Trait> Module<T> {
 			devices.push((account_id, device_id));
 			<MemberDevices<T>>::insert(group_id, devices);
 		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn insert(sender: &T::AccountId, group_id: &T::Hash, group: Group<T::AccountId, T::Hash>) {
+		<Groups<T>>::insert(group_id, group);
+		Self::store_membership(sender, group_id.clone());
 	}
 }
