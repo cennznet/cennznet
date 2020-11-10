@@ -27,7 +27,7 @@ const MAX_PKBS: usize = 50;
 
 pub trait WeightInfo {
 	fn register_device(p: u32) -> Weight;
-	fn replenish_pkbs() -> Weight;
+	fn replenish_pkbs(p: u32) -> Weight;
 	fn withdraw_pkbs() -> Weight;
 }
 
@@ -74,7 +74,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write.
-		#[weight = <T as Trait>::WeightInfo::replenish_pkbs()]
+		#[weight = <T as Trait>::WeightInfo::replenish_pkbs(pkbs.len() as u32)]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
