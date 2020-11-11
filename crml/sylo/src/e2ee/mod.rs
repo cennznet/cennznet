@@ -24,11 +24,12 @@ mod benchmarking;
 mod default_weights;
 
 const MAX_PKBS: usize = 50;
+const WITHDRAW_LIST_MAX_LEN: usize = 50;
 
 pub trait WeightInfo {
 	fn register_device(p: u32) -> Weight;
-	fn replenish_pkbs() -> Weight;
-	fn withdraw_pkbs() -> Weight;
+	fn replenish_pkbs(p: u32) -> Weight;
+	fn withdraw_pkbs(p: u32) -> Weight;
 }
 
 pub trait Trait: inbox::Trait + response::Trait + device::Trait + groups::Trait {
@@ -42,6 +43,8 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// Cannot store more than MAX_PKBS
 		MaxPreKeyBundle,
+		/// withdraw list is larger than WITHDRAW_LIST_MAX_LEN elements
+		VeryLargeWithdrawList,
 	}
 }
 
@@ -74,7 +77,7 @@ decl_module! {
 		/// weight:
 		/// O(1)
 		/// 1 write.
-		#[weight = <T as Trait>::WeightInfo::replenish_pkbs()]
+		#[weight = <T as Trait>::WeightInfo::replenish_pkbs(pkbs.len() as u32)]
 		fn replenish_pkbs(origin, device_id: DeviceId, pkbs: Vec<PreKeyBundle>) {
 			let sender = ensure_signed(origin)?;
 
@@ -88,11 +91,11 @@ decl_module! {
 		/// weight:
 		/// O(n * k) where n is the size of input `wanted_pkbs`, and k is the number existing PKBS in the storage
 		/// Number of read and write scaled by size of input
-		// TODO the following weight calculation should be taken into account
-		// #[weight = FunctionOf(|(_,pkbs): (&T::Hash, &Vec<(T::AccountId, DeviceId)>)|(pkbs.len() as u32)*10_000, DispatchClass::Normal, true)]
-		#[weight = <T as Trait>::WeightInfo::withdraw_pkbs()]
+		#[weight = <T as Trait>::WeightInfo::withdraw_pkbs(wanted_pkbs.len() as u32)]
 		fn withdraw_pkbs(origin, request_id: T::Hash, wanted_pkbs: Vec<(T::AccountId, DeviceId)>) {
 			let sender = ensure_signed(origin)?;
+
+			ensure!(wanted_pkbs.len() <= WITHDRAW_LIST_MAX_LEN, Error::<T>::VeryLargeWithdrawList);
 
 			let acquired_pkbs: Vec<(T::AccountId, DeviceId, PreKeyBundle)> = wanted_pkbs
 				.into_iter()
