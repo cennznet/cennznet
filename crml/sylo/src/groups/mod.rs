@@ -28,11 +28,12 @@ use crate::{
 };
 use vault::{VaultKey, VaultValue};
 
+mod benchmarking;
 mod default_weights;
 mod tests;
 
 pub trait WeightInfo {
-	fn create_group() -> Weight;
+	fn create_group(i: usize) -> Weight;
 	fn leave_group() -> Weight;
 	fn update_member() -> Weight;
 	fn upsert_group_meta() -> Weight;
@@ -160,13 +161,13 @@ decl_module! {
 		/// weight:
 		/// O(1). Note: number of member invitee is capped at 15, so equivalent to O(1).
 		/// Limited number of storage writes.
-		#[weight = <T as Trait>::WeightInfo::create_group()]
+		#[weight = <T as Trait>::WeightInfo::create_group(invites.len())]
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::contains_key(&group_id), Error::<T>::GroupExists);
-			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
+			ensure!(invites.len() <= MAX_INVITES, Error::<T>::MaxInvitesReached);
+			ensure!(<vault::Vault<T>>::get(&sender).len() <= vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
