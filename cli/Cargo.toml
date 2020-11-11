@@ -20,67 +20,67 @@ futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
-sc-authority-discovery = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-chain-spec = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-cli = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-core = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-executor = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-keystore = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-inherents = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-transaction-pool = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-transaction-pool = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-authority-discovery = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
-sp-consensus-babe = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-epochs = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-network = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-finality-grandpa = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-client-api = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-runtime = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-authority-discovery = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-cli = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-core = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-executor = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-keystore = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-inherents = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-transaction-pool = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-transaction-pool = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
+sp-consensus-babe = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-grandpa = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-client-api = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-runtime = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.0.0"
-pallet-transaction-payment-rpc = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-api = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc-api = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-blockchain = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-block-builder = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-basic-authorship = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-substrate-frame-rpc-system = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe-rpc = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa-rpc = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+pallet-transaction-payment-rpc = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-api = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc-api = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-blockchain = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-block-builder = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-basic-authorship = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-frame-rpc-system = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-benchmarking-cli = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking-cli = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
-prml-generic-asset-rpc = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-prml-generic-asset = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset-rpc = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "chore/misc-upstream-fixes" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.1" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.5", features = ["derive"] }
-sp-finality-tracker = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-keyring = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-timestamp = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service-test = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-system = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-tracker = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { branch = "chore/misc-upstream-fixes", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-build-script-utils = { rev = "2.0.1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 [features]
 default = []
