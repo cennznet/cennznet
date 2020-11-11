@@ -96,7 +96,7 @@ benchmarks! {
 		let sender: T::AccountId = whitelisted_caller();
 		let device_id: DeviceId = 11;
 		setup_groups::<T>(sender.clone());
-		let pre_key_bundles = create_pre_key_bundles::<T>(0);
+		let pre_key_bundles = create_pre_key_bundles::<T>(0); // Initially empty so replenish_pkbs can extend it fully.
 		let _ = <SyloE2EE<T>>::register_device(RawOrigin::Signed(sender.clone()).into(), device_id, pre_key_bundles);
 		let pre_key_bundles = create_pre_key_bundles::<T>(p);
 	}: _(RawOrigin::Signed(sender.clone()), device_id, pre_key_bundles)
