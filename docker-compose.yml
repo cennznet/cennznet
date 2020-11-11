@@ -1,7 +1,7 @@
 version: '3'
 services:
   node-0:
-    image: cennznet/cennznet:1.2.0-rc1
+    image: cennznet/cennznet:1.2.0-rc2
     volumes:
     - ./data/node-0:/mnt/data
     command:
@@ -13,7 +13,7 @@ services:
       - --unsafe-ws-external
       - --unsafe-rpc-external
       - --rpc-cors=all
-      # bootnode 1 (running 1.2.0-rc1)
+      # bootnode 1 (running 1.2.0-rc2)
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
       # bootnode 2 (running 1.1.1)
       - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
@@ -32,7 +32,7 @@ services:
       - --base-path=/mnt/data
       - --name=bob-${HOSTNAME:-localhost}-1
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
-      # bootnode 1 (running 1.2.0-rc1)
+      # bootnode 1 (running 1.2.0-rc2)
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
       # bootnode 2 (running 1.1.1)
       - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
@@ -49,7 +49,7 @@ services:
       - --base-path=/mnt/data
       - --name=charlie-${HOSTNAME:-localhost}-2
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
-      # bootnode 1 (running 1.2.0-rc1)
+      # bootnode 1 (running 1.2.0-rc2)
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
       # bootnode 2 (running 1.1.1)
       - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
@@ -66,7 +66,7 @@ services:
       - --base-path=/mnt/data
       - --name=dave-${HOSTNAME:-localhost}-3
       - --node-key=0000000000000000000000000000000000000000000000000000000000000004
-      # bootnode 1 (running 1.2.0-rc1)
+      # bootnode 1 (running 1.2.0-rc2)
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
       # bootnode 2 (running 1.1.1)
       - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
@@ -83,12 +83,12 @@ services:
       - --base-path=/mnt/data
       - --name=eve-${HOSTNAME:-localhost}-4
       - --node-key=0000000000000000000000000000000000000000000000000000000000000005
-      # bootnode 2 (running 1.2.0-rc1)
+      # bootnode 2 (running 1.2.0-rc2)
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
     ports:
       - "30338:30333"
   node-5:
-    image: cennznet/cennznet:1.2.0-rc1
+    image: cennznet/cennznet:1.2.0-rc2
     volumes:
     - ./data/node-5:/mnt/data
     command:
