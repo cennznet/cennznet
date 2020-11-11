@@ -2,7 +2,7 @@
   "name": "CENNZnet Nikau",
   "id": "CENNZnet Nikau V1",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/QmbJcRmYwnE1LJBVLt6ikCKut4kbUbcDCmg2PHCjyRyv9o"
+    "/dns4/bootnode-nikau-0.centrality.me/tcp/30333/p2p/12D3KooWA6iSdKNJUpvNPTRzxiLfA2LzPgCTywWP2ZeRnabDaDEa"
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-nikau-v1",
