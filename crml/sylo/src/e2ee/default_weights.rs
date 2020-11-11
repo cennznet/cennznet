@@ -33,7 +33,11 @@ impl crate::e2ee::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn withdraw_pkbs() -> Weight {
-		0
+	fn withdraw_pkbs(p: u32) -> Weight {
+		(41_341_000 as Weight)
+			.saturating_add((45_304_000 as Weight).saturating_mul(p as Weight))
+			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(p as Weight)))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(p as Weight)))
 	}
 }

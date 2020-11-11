@@ -27,8 +27,10 @@ use sp_std::{vec, vec::Vec};
 use crate::device::Module as SyloDevice;
 use crate::e2ee::Module as SyloE2EE;
 use crate::groups::{Group, Member, MemberRoles, Meta, Module as SyloGroups, Text};
+use crate::response::{Module as SyloResponse, Response};
 
 const SEED: u32 = 0;
+
 fn setup_groups<T: Trait>(caller: T::AccountId) {
 	let text_tuple0 = (Text::from(*b"t0m0"), Text::from(*b"t0m1"));
 	let text_tuple1 = (Text::from(*b"t1m0"), Text::from(*b"t1m1"));
@@ -101,6 +103,29 @@ benchmarks! {
 	verify {
 		assert_eq!(<SyloE2EE<T>>::pkbs((sender, device_id)).len(), p as usize);
 	}
+
+	withdraw_pkbs {
+		let p in 0 .. WITHDRAW_LIST_MAX_LEN as u32;
+		let sender: T::AccountId = whitelisted_caller();
+		let request_id = T::Hashing::hash(b"req_0");
+		setup_groups::<T>(sender.clone());
+		let mut user_device_list = Vec::<(T::AccountId, DeviceId)>::new();
+		for i in 0 .. p {
+			let user: T::AccountId = account("user", i, SEED);
+			let device_id: DeviceId = i;
+			let pre_key_bundles = create_pre_key_bundles::<T>(MAX_PKBS as u32);
+			let _ = <SyloE2EE<T>>::register_device(RawOrigin::Signed(user.clone()).into(), device_id, pre_key_bundles);
+			user_device_list.push((user, device_id));
+		}
+	}: _(RawOrigin::Signed(sender.clone()), request_id, user_device_list.clone())
+	verify {
+		if let Response::PreKeyBundles(l) = <SyloResponse<T>>::response((sender, request_id)) {
+			assert_eq!(l.len(), user_device_list.len());
+		}
+		else {
+			assert!(false);
+		}
+	}
 }
 
 #[cfg(test)]
@@ -118,6 +143,13 @@ mod tests {
 
 	#[test]
 	fn replenish_pkbs() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_register_device::<Test>());
+		});
+	}
+
+	#[test]
+	fn withdraw_pkbs() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_register_device::<Test>());
 		});
