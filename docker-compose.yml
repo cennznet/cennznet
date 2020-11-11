@@ -1,0 +1,103 @@
+version: '3'
+services:
+  node-0:
+    image: cennznet/cennznet:1.2.0-rc2
+    volumes:
+    - ./data/node-0:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --validator
+      - --alice
+      - --base-path=/mnt/data
+      - --name=alice-${HOSTNAME:-localhost}-0
+      - --unsafe-ws-external
+      - --unsafe-rpc-external
+      - --rpc-cors=all
+      # bootnode 1 (running 1.2.0-rc2)
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+      # bootnode 2 (running 1.1.1)
+      - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30334:30333"
+  node-1:
+    image: cennznet/cennznet:1.1.1
+    volumes:
+    - ./data/node-1:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --validator
+      - --bob
+      - --base-path=/mnt/data
+      - --name=bob-${HOSTNAME:-localhost}-1
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000002
+      # bootnode 1 (running 1.2.0-rc2)
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+      # bootnode 2 (running 1.1.1)
+      - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
+    ports:
+      - "30335:30333"
+  node-2:
+    image: cennznet/cennznet:1.1.1
+    volumes:
+    - ./data/node-2:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --validator
+      - --charlie
+      - --base-path=/mnt/data
+      - --name=charlie-${HOSTNAME:-localhost}-2
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000003
+      # bootnode 1 (running 1.2.0-rc2)
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+      # bootnode 2 (running 1.1.1)
+      - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
+    ports:
+      - "30336:30333"
+  node-3:
+    image: cennznet/cennznet:1.1.1
+    volumes:
+    - ./data/node-3:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --validator
+      - --dave
+      - --base-path=/mnt/data
+      - --name=dave-${HOSTNAME:-localhost}-3
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000004
+      # bootnode 1 (running 1.2.0-rc2)
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+      # bootnode 2 (running 1.1.1)
+      - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
+    ports:
+      - "30337:30333"
+  node-4:
+    image: cennznet/cennznet:1.1.1
+    volumes:
+    - ./data/node-4:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --validator
+      - --eve
+      - --base-path=/mnt/data
+      - --name=eve-${HOSTNAME:-localhost}-4
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000005
+      # bootnode 2 (running 1.2.0-rc2)
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+    ports:
+      - "30338:30333"
+  node-5:
+    image: cennznet/cennznet:1.2.0-rc2
+    volumes:
+    - ./data/node-5:/mnt/data
+    command:
+      - --chain=/cennznet/genesis/nikau.raw.json
+      - --name=full-${HOSTNAME:-localhost}-5
+      - --base-path=/mnt/data
+      - --node-key=8967bcbae338641d1102ff4465fda281f0bf6e9842702f3a992650d4855f5cd0
+      - --ws-external
+      - --rpc-external
+      - --bootnodes=/dns4/node-4/tcp/30333/p2p/QmV5uaJEMBKh7fVFYHgFnvBwQQPuaL6SNgE45YyHFYjguD
+    ports:
+      - "30339:30333"
