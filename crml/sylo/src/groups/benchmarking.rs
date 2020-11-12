@@ -74,6 +74,23 @@ benchmarks! {
 	verify {
 		assert!(<SyloGroups<T>>::is_group_member(&group_id, &sender));
 	}
+
+	leave_group {
+		let member: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(member.clone()).into(),
+			group_id,
+			create_meta(),
+			create_invite_list::<T>(MAX_INVITES as u32),
+			(key.clone(), value),
+		);
+		assert!(<SyloGroups<T>>::is_group_member(&group_id, &member));
+	}: _(RawOrigin::Signed(member.clone()), group_id, Some(key))
+	verify {
+		assert!(!<SyloGroups<T>>::is_group_member(&group_id, &member));
+	}
 }
 
 #[cfg(test)]
@@ -86,6 +103,13 @@ mod tests {
 	fn create_group() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_create_group::<Test>());
+		});
+	}
+
+	#[test]
+	fn leave_group() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_leave_group::<Test>());
 		});
 	}
 }

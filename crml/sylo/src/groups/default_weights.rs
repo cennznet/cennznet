@@ -30,7 +30,9 @@ impl crate::groups::WeightInfo for () {
 			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
 	}
 	fn leave_group() -> Weight {
-		0
+		(82_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn update_member() -> Weight {
 		0
