@@ -62,6 +62,34 @@ fn setup_devices<T: Trait>(owner: &T::AccountId) {
 	}
 }
 
+fn find_member<T: Trait>(account_id: T::AccountId, group_id: T::Hash) -> Option<Member<T::AccountId>> {
+	<SyloGroups<T>>::group(group_id)
+		.members
+		.iter()
+		.find(|x| x.user_id == account_id)
+		.cloned()
+}
+
+fn setup_group_with_members<T: Trait>(caller: T::AccountId, group_id: T::Hash, num_of_members: u32) {
+	let mut members = <Vec<Member<T::AccountId>>>::new();
+	members.push(Member::<T::AccountId>::new(
+		caller.clone(),
+		Vec::<MemberRoles>::from([MemberRoles::Admin, MemberRoles::Member]),
+		Meta::new(),
+	));
+
+	for i in 1..num_of_members {
+		members.push(Member::<T::AccountId>::new(
+			account("member", i, SEED),
+			Vec::<MemberRoles>::from([MemberRoles::Member]),
+			Meta::new(),
+		));
+	}
+
+	let group = Group::<T::AccountId, T::Hash>::new(group_id, members, Vec::new(), create_meta());
+	<SyloGroups<T>>::insert(&caller, &group_id, group);
+}
+
 benchmarks! {
 	_{ }
 
@@ -91,6 +119,17 @@ benchmarks! {
 	verify {
 		assert!(!<SyloGroups<T>>::is_group_member(&group_id, &member));
 	}
+
+	update_member {
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		setup_group_with_members::<T>(admin.clone(), group_id, MAX_MEMBERS as u32);
+		let meta = create_meta();
+	}: _(RawOrigin::Signed(admin.clone()), group_id, meta.clone())
+	verify {
+		let member = find_member::<T>(admin, group_id).unwrap();
+		assert_eq!(member.meta, meta);
+	}
 }
 
 #[cfg(test)]
@@ -110,6 +149,13 @@ mod tests {
 	fn leave_group() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_leave_group::<Test>());
+		});
+	}
+
+	#[test]
+	fn update_member() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_update_member::<Test>());
 		});
 	}
 }
