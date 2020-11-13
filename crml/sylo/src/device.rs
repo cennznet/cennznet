@@ -15,7 +15,7 @@
 
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, dispatch::Vec, ensure};
 
-pub const MAX_DEVICES: usize = 1000;
+pub const MAX_DEVICES: usize = 100;
 
 pub type DeviceId = u32;
 
@@ -112,11 +112,10 @@ mod tests {
 
 			// add up to MAX_DEVICES many devices for user
 			let new_devices: Vec<_> = (device_id..(device_id + MAX_DEVICES as DeviceId)).collect();
-			assert_eq!(new_devices.len(), 1000); // length assert is here in case MAX_DEVICES changes
 			for new_device in new_devices.clone() {
 				assert_ok!(Device::append_device(&user_id, new_device));
 			}
-			assert_eq!(Device::devices(user_id).len(), 1000);
+			assert_eq!(Device::devices(user_id).len(), MAX_DEVICES);
 
 			// adding more than MAX_DEVICES is not allowed
 			assert_noop!(

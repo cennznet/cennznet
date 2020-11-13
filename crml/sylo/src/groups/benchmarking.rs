@@ -62,6 +62,34 @@ fn setup_devices<T: Trait>(owner: &T::AccountId) {
 	}
 }
 
+fn find_member<T: Trait>(account_id: T::AccountId, group_id: T::Hash) -> Option<Member<T::AccountId>> {
+	<SyloGroups<T>>::group(group_id)
+		.members
+		.iter()
+		.find(|x| x.user_id == account_id)
+		.cloned()
+}
+
+fn setup_group_with_members<T: Trait>(caller: T::AccountId, group_id: T::Hash, num_of_members: u32) {
+	let mut members = <Vec<Member<T::AccountId>>>::new();
+	members.push(Member::<T::AccountId>::new(
+		caller.clone(),
+		Vec::<MemberRoles>::from([MemberRoles::Admin, MemberRoles::Member]),
+		Meta::new(),
+	));
+
+	for i in 1..num_of_members {
+		members.push(Member::<T::AccountId>::new(
+			account("member", i, SEED),
+			Vec::<MemberRoles>::from([MemberRoles::Member]),
+			Meta::new(),
+		));
+	}
+
+	let group = Group::<T::AccountId, T::Hash>::new(group_id, members, Vec::new(), create_meta());
+	<SyloGroups<T>>::insert(&caller, &group_id, group);
+}
+
 benchmarks! {
 	_{ }
 
@@ -73,6 +101,34 @@ benchmarks! {
 	}: _(RawOrigin::Signed(sender.clone()), group_id, create_meta(), create_invite_list::<T>(i), create_group_data())
 	verify {
 		assert!(<SyloGroups<T>>::is_group_member(&group_id, &sender));
+	}
+
+	leave_group {
+		let member: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(member.clone()).into(),
+			group_id,
+			create_meta(),
+			create_invite_list::<T>(MAX_INVITES as u32),
+			(key.clone(), value),
+		);
+		assert!(<SyloGroups<T>>::is_group_member(&group_id, &member));
+	}: _(RawOrigin::Signed(member.clone()), group_id, Some(key))
+	verify {
+		assert!(!<SyloGroups<T>>::is_group_member(&group_id, &member));
+	}
+
+	update_member {
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		setup_group_with_members::<T>(admin.clone(), group_id, MAX_MEMBERS as u32);
+		let meta = create_meta();
+	}: _(RawOrigin::Signed(admin.clone()), group_id, meta.clone())
+	verify {
+		let member = find_member::<T>(admin, group_id).unwrap();
+		assert_eq!(member.meta, meta);
 	}
 }
 
@@ -86,6 +142,20 @@ mod tests {
 	fn create_group() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_create_group::<Test>());
+		});
+	}
+
+	#[test]
+	fn leave_group() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_leave_group::<Test>());
+		});
+	}
+
+	#[test]
+	fn update_member() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_update_member::<Test>());
 		});
 	}
 }
