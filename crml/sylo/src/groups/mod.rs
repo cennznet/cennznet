@@ -37,7 +37,7 @@ pub trait WeightInfo {
 	fn leave_group() -> Weight;
 	fn update_member(m: usize) -> Weight;
 	fn upsert_group_meta(m: usize) -> Weight;
-	fn create_invites() -> Weight;
+	fn create_invites(i: usize) -> Weight;
 	fn accept_invite() -> Weight;
 	fn revoke_invites() -> Weight;
 }
@@ -326,14 +326,14 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of invitee
 		/// Limited number of read and writes
-		#[weight = <T as Trait>::WeightInfo::create_invites()]
+		#[weight = <T as Trait>::WeightInfo::create_invites(invites.len())]
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
 			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
 			ensure!(Self::is_group_admin(&group_id, &sender), Error::<T>::InsufficientPrivileges);
-			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
+			ensure!(invites.len() <= MAX_INVITES, Error::<T>::MaxInvitesReached);
 
 			for invite in invites {
 				let _ = Self::create_invite(&group_id, invite);

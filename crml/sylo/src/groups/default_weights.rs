@@ -42,13 +42,16 @@ impl crate::groups::WeightInfo for () {
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn upsert_group_meta(m: usize) -> Weight {
-		(50_568_000 as Weight)
-			.saturating_add((113_304_000 as Weight).saturating_mul(m as Weight))
+		(187_501_000 as Weight)
+			.saturating_add((110_064_000 as Weight).saturating_mul(m as Weight))
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn create_invites() -> Weight {
-		0
+	fn create_invites(i: usize) -> Weight {
+		(2_713_730_000 as Weight)
+			.saturating_add((5_793_000 as Weight).saturating_mul(i as Weight))
+			.saturating_add(DbWeight::get().reads(31 as Weight))
+			.saturating_add(DbWeight::get().writes(31 as Weight))
 	}
 	fn accept_invite() -> Weight {
 		0

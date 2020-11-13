@@ -166,6 +166,24 @@ benchmarks! {
 		assert!(<SyloGroups<T>>::group(group_id).meta.contains(&updated_kv));
 		assert!(<SyloGroups<T>>::group(group_id).meta.contains(&inserted_kv));
 	}
+
+	create_invites {
+		let i in 0 .. MAX_INVITES as u32;
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(admin.clone()).into(),
+			group_id,
+			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
+			create_invite_list::<T>(0),
+			(key.clone(), value),
+		);
+		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), 0);
+	}: _(RawOrigin::Signed(admin.clone()), group_id, create_invite_list::<T>(MAX_INVITES as u32))
+	verify {
+		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), MAX_INVITES);
+	}
 }
 
 #[cfg(test)]
@@ -198,7 +216,14 @@ mod tests {
 	#[test]
 	fn upsert_group_meta() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_update_member::<Test>());
+			assert_ok!(test_benchmark_upsert_group_meta::<Test>());
+		});
+	}
+
+	#[test]
+	fn upsert_create_invites() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_create_invites::<Test>());
 		});
 	}
 }
