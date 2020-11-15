@@ -33,11 +33,11 @@ mod default_weights;
 mod tests;
 
 pub trait WeightInfo {
-	fn create_group(i: usize) -> Weight;
+	fn create_group(i: usize, m: usize) -> Weight;
 	fn leave_group() -> Weight;
-	fn update_member() -> Weight;
-	fn upsert_group_meta() -> Weight;
-	fn create_invites() -> Weight;
+	fn update_member(m: usize) -> Weight;
+	fn upsert_group_meta(m: usize) -> Weight;
+	fn create_invites(i: usize) -> Weight;
 	fn accept_invite() -> Weight;
 	fn revoke_invites() -> Weight;
 }
@@ -48,6 +48,7 @@ pub trait Trait: inbox::Trait + device::Trait + vault::Trait {
 
 const MAX_INVITES: usize = 15;
 const MAX_MEMBERS: usize = 100;
+const MAX_META_PER_EXTRINSIC: usize = 100;
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
@@ -141,6 +142,8 @@ decl_error! {
 		MaxMembersReached,
 		/// Can not store more than maximum amount of keys for user's vault
 		MaxKeysPerVaultReached,
+		/// Meta in an extrinsic should not be larger than MAX_META_PER_EXTRINSIC.
+		MaxMetaPerExtrinsicReached,
 		/// Group not found
 		GroupNotFound,
 		/// Not a member of group
@@ -161,13 +164,14 @@ decl_module! {
 		/// weight:
 		/// O(1). Note: number of member invitee is capped at 15, so equivalent to O(1).
 		/// Limited number of storage writes.
-		#[weight = <T as Trait>::WeightInfo::create_group(invites.len())]
+		#[weight = <T as Trait>::WeightInfo::create_group(invites.len(), meta.len())]
 		fn create_group(origin, group_id: T::Hash, meta: Meta, invites: Vec<Invite<T::AccountId>>, group_data: (VaultKey, VaultValue)) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(!<Groups<T>>::contains_key(&group_id), Error::<T>::GroupExists);
 			ensure!(invites.len() <= MAX_INVITES, Error::<T>::MaxInvitesReached);
 			ensure!(<vault::Vault<T>>::get(&sender).len() <= vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
+			ensure!(meta.len() <= MAX_META_PER_EXTRINSIC, Error::<T>::MaxMetaPerExtrinsicReached);
 
 			let admin: Member<T::AccountId> = Member {
 				user_id: sender.clone(),
@@ -246,11 +250,12 @@ decl_module! {
 		/// weight:
 		/// O(m) where m is the number of members in that group
 		/// Limited number of read and 1 write.
-		#[weight = <T as Trait>::WeightInfo::update_member()]
+		#[weight = <T as Trait>::WeightInfo::update_member(meta.len())]
 		fn update_member(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
 			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
+			ensure!(meta.len() <= MAX_META_PER_EXTRINSIC, Error::<T>::MaxMetaPerExtrinsicReached);
 
 			let mut group = <Groups<T>>::get(&group_id);
 
@@ -279,14 +284,13 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of metadata key in the input
 		/// Number of read and writes depending on input data
-		// TODO the following weight calculation should be taken into account
-		//#[weight = FunctionOf(|(_,meta): (&T::Hash, &Meta)|50_000 + (meta.len() as u32)*1_000, DispatchClass::Normal, true)]
-		#[weight = <T as Trait>::WeightInfo::upsert_group_meta()]
+		#[weight = <T as Trait>::WeightInfo::upsert_group_meta(meta.len())]
 		fn upsert_group_meta(origin, group_id: T::Hash, meta: Meta) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
 			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
+			ensure!(meta.len() <= MAX_META_PER_EXTRINSIC, Error::<T>::MaxMetaPerExtrinsicReached);
 
 			let mut group = <Groups<T>>::get(&group_id);
 
@@ -322,14 +326,14 @@ decl_module! {
 		/// weight:
 		/// O(n) where n is the number of invitee
 		/// Limited number of read and writes
-		#[weight = <T as Trait>::WeightInfo::create_invites()]
+		#[weight = <T as Trait>::WeightInfo::create_invites(invites.len())]
 		fn create_invites(origin, group_id: T::Hash, invites: Vec<Invite<T::AccountId>>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
 			ensure!(Self::is_group_member(&group_id, &sender), Error::<T>::MemberNotFound);
 			ensure!(Self::is_group_admin(&group_id, &sender), Error::<T>::InsufficientPrivileges);
-			ensure!(invites.len() < MAX_INVITES, Error::<T>::MaxInvitesReached);
+			ensure!(invites.len() <= MAX_INVITES, Error::<T>::MaxInvitesReached);
 
 			for invite in invites {
 				let _ = Self::create_invite(&group_id, invite);

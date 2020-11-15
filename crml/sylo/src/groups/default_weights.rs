@@ -21,29 +21,37 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::groups::WeightInfo for () {
-	fn create_group(i: usize) -> Weight {
-		(45_728_000 as Weight)
-			.saturating_add((59_625_000 as Weight).saturating_mul(i as Weight))
+	fn create_group(i: usize, m: usize) -> Weight {
+		(0 as Weight)
+			.saturating_add((156_781_000 as Weight).saturating_mul(i as Weight))
+			.saturating_add((17_403_000 as Weight).saturating_mul(m as Weight))
 			.saturating_add(DbWeight::get().reads(4 as Weight))
 			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
 			.saturating_add(DbWeight::get().writes(4 as Weight))
 			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
 	}
 	fn leave_group() -> Weight {
-		(82_000_000 as Weight)
+		(262_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(2 as Weight))
 			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
-	fn update_member() -> Weight {
-		(194_000_000 as Weight)
+	fn update_member(m: usize) -> Weight {
+		(379_289_000 as Weight)
+			.saturating_add((2_344_000 as Weight).saturating_mul(m as Weight))
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn upsert_group_meta() -> Weight {
-		0
+	fn upsert_group_meta(m: usize) -> Weight {
+		(187_501_000 as Weight)
+			.saturating_add((110_064_000 as Weight).saturating_mul(m as Weight))
+			.saturating_add(DbWeight::get().reads(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn create_invites() -> Weight {
-		0
+	fn create_invites(i: usize) -> Weight {
+		(2_713_730_000 as Weight)
+			.saturating_add((5_793_000 as Weight).saturating_mul(i as Weight))
+			.saturating_add(DbWeight::get().reads(31 as Weight))
+			.saturating_add(DbWeight::get().writes(31 as Weight))
 	}
 	fn accept_invite() -> Weight {
 		0

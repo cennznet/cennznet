@@ -50,10 +50,14 @@ fn create_group_data() -> (VaultKey, VaultValue) {
 	(key, value)
 }
 
-fn create_meta() -> Meta {
-	let text_tuple0 = (Text::from(*b"t0m0"), Text::from(*b"t0m1"));
-	let text_tuple1 = (Text::from(*b"t1m0"), Text::from(*b"t1m1"));
-	Meta::from([text_tuple0, text_tuple1])
+fn create_meta(n: u32, key_base: &[u8; 4], value_base: &[u8; 4]) -> Meta {
+	let mut meta = Meta::new();
+	for i in 0..n {
+		let key = [*key_base, i.to_be_bytes()].concat();
+		let value = [*value_base, i.to_be_bytes()].concat();
+		meta.push((key, value));
+	}
+	meta
 }
 
 fn setup_devices<T: Trait>(owner: &T::AccountId) {
@@ -86,7 +90,12 @@ fn setup_group_with_members<T: Trait>(caller: T::AccountId, group_id: T::Hash, n
 		));
 	}
 
-	let group = Group::<T::AccountId, T::Hash>::new(group_id, members, Vec::new(), create_meta());
+	let group = Group::<T::AccountId, T::Hash>::new(
+		group_id,
+		members,
+		Vec::new(),
+		create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
+	);
 	<SyloGroups<T>>::insert(&caller, &group_id, group);
 }
 
@@ -95,10 +104,11 @@ benchmarks! {
 
 	create_group {
 		let i in 0 .. MAX_INVITES as u32;
+		let m in 0 .. MAX_META_PER_EXTRINSIC as u32;
 		let sender: T::AccountId = whitelisted_caller();
 		let group_id = T::Hashing::hash(b"group_id");
 		setup_devices::<T>(&sender);
-	}: _(RawOrigin::Signed(sender.clone()), group_id, create_meta(), create_invite_list::<T>(i), create_group_data())
+	}: _(RawOrigin::Signed(sender.clone()), group_id, create_meta(m, b"key_", b"val_"), create_invite_list::<T>(i), create_group_data())
 	verify {
 		assert!(<SyloGroups<T>>::is_group_member(&group_id, &sender));
 	}
@@ -110,7 +120,7 @@ benchmarks! {
 		let _ = <SyloGroups<T>>::create_group(
 			RawOrigin::Signed(member.clone()).into(),
 			group_id,
-			create_meta(),
+			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
 			create_invite_list::<T>(MAX_INVITES as u32),
 			(key.clone(), value),
 		);
@@ -121,14 +131,58 @@ benchmarks! {
 	}
 
 	update_member {
+		let m in 0 .. MAX_META_PER_EXTRINSIC as u32;
 		let admin: T::AccountId = whitelisted_caller();
 		let group_id = T::Hashing::hash(b"group_id");
 		setup_group_with_members::<T>(admin.clone(), group_id, MAX_MEMBERS as u32);
-		let meta = create_meta();
+		let meta = create_meta(m, b"key_", b"val_");
 	}: _(RawOrigin::Signed(admin.clone()), group_id, meta.clone())
 	verify {
 		let member = find_member::<T>(admin, group_id).unwrap();
 		assert_eq!(member.meta, meta);
+	}
+
+	upsert_group_meta {
+		let m in 2 .. MAX_META_PER_EXTRINSIC as u32;
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		setup_group_with_members::<T>(admin.clone(), group_id, MAX_MEMBERS as u32);
+		// Creating a meta batch with the same key as set up in setup_group_with_members
+		// but different values to allow update to happen.
+		let mut meta = create_meta(m/2, b"key_", b"va__");
+		// Creating another meta batch with different keys to allow insertion to happen
+		let meta_batch_2 = create_meta(m/2, b"ke__", b"val_");
+		meta.extend_from_slice(&meta_batch_2);
+	}: _(RawOrigin::Signed(admin.clone()), group_id, meta.clone())
+	verify {
+		let updated_kv = (
+			Text::from([*b"key_", 0u32.to_be_bytes()].concat()),
+			Text::from([*b"va__", 0u32.to_be_bytes()].concat())
+		);
+		let inserted_kv = (
+			Text::from([*b"ke__", 0u32.to_be_bytes()].concat()),
+			Text::from([*b"val_", 0u32.to_be_bytes()].concat())
+		);
+		assert!(<SyloGroups<T>>::group(group_id).meta.contains(&updated_kv));
+		assert!(<SyloGroups<T>>::group(group_id).meta.contains(&inserted_kv));
+	}
+
+	create_invites {
+		let i in 0 .. MAX_INVITES as u32;
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(admin.clone()).into(),
+			group_id,
+			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
+			create_invite_list::<T>(0),
+			(key.clone(), value),
+		);
+		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), 0);
+	}: _(RawOrigin::Signed(admin.clone()), group_id, create_invite_list::<T>(MAX_INVITES as u32))
+	verify {
+		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), MAX_INVITES);
 	}
 }
 
@@ -156,6 +210,20 @@ mod tests {
 	fn update_member() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_update_member::<Test>());
+		});
+	}
+
+	#[test]
+	fn upsert_group_meta() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_upsert_group_meta::<Test>());
+		});
+	}
+
+	#[test]
+	fn upsert_create_invites() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_create_invites::<Test>());
 		});
 	}
 }
