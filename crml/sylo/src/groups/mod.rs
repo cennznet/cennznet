@@ -39,7 +39,7 @@ pub trait WeightInfo {
 	fn upsert_group_meta(m: usize) -> Weight;
 	fn create_invites(i: usize) -> Weight;
 	fn accept_invite() -> Weight;
-	fn revoke_invites() -> Weight;
+	fn revoke_invites(i: usize) -> Weight;
 }
 
 pub trait Trait: inbox::Trait + device::Trait + vault::Trait {
@@ -353,10 +353,10 @@ decl_module! {
 
 			ensure!(<Groups<T>>::contains_key(&group_id), Error::<T>::GroupNotFound);
 			ensure!(!Self::is_group_member(&group_id, &payload.account_id), Error::<T>::MemberExists);
-			ensure!(<vault::Vault<T>>::get(&sender).len() < vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
+			ensure!(<vault::Vault<T>>::get(&sender).len() <= vault::MAX_KEYS, Error::<T>::MaxKeysPerVaultReached);
 
 			let mut group = <Groups<T>>::get(&group_id);
-			ensure!(group.members.len() < MAX_MEMBERS, Error::<T>::MaxMembersReached);
+			ensure!(group.members.len() <= MAX_MEMBERS, Error::<T>::MaxMembersReached);
 			let invite = group.clone().invites
 				.into_iter()
 				.find(|invite| invite.invite_key == invite_key)
@@ -412,7 +412,7 @@ decl_module! {
 		/// weight:
 		/// O(n) where n the number of existing invitation
 		/// Limited number of read and writes
-		#[weight = <T as Trait>::WeightInfo::revoke_invites()]
+		#[weight = <T as Trait>::WeightInfo::revoke_invites(invite_keys.len())]
 		fn revoke_invites(origin, group_id: T::Hash, invite_keys: Vec<H256>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 

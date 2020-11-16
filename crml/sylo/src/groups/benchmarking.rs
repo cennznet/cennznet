@@ -117,14 +117,14 @@ benchmarks! {
 		let member: T::AccountId = whitelisted_caller();
 		let group_id = T::Hashing::hash(b"group_id");
 		let (key, value) = create_group_data();
+		let invite_list = create_invite_list::<T>(MAX_INVITES as u32);
 		let _ = <SyloGroups<T>>::create_group(
 			RawOrigin::Signed(member.clone()).into(),
 			group_id,
 			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
-			create_invite_list::<T>(MAX_INVITES as u32),
+			invite_list.clone(),
 			(key.clone(), value),
 		);
-		assert!(<SyloGroups<T>>::is_group_member(&group_id, &member));
 	}: _(RawOrigin::Signed(member.clone()), group_id, Some(key))
 	verify {
 		assert!(!<SyloGroups<T>>::is_group_member(&group_id, &member));
@@ -184,6 +184,24 @@ benchmarks! {
 	verify {
 		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), MAX_INVITES);
 	}
+
+	revoke_invites {
+		let i in 0 .. MAX_INVITES as u32;
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(admin.clone()).into(),
+			group_id,
+			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
+			create_invite_list::<T>(MAX_INVITES as u32),
+			(key.clone(), value),
+		);
+		let invite_keys: Vec<H256> = create_invite_list::<T>(i).iter().map(|x| x.invite_key).collect();
+	}: _(RawOrigin::Signed(admin.clone()), group_id, invite_keys)
+	verify {
+		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), MAX_INVITES - i as usize);
+	}
 }
 
 #[cfg(test)]
@@ -221,9 +239,16 @@ mod tests {
 	}
 
 	#[test]
-	fn upsert_create_invites() {
+	fn create_invites() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_create_invites::<Test>());
+		});
+	}
+
+	#[test]
+	fn revoke_invites() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_revoke_invites::<Test>());
 		});
 	}
 }
