@@ -54,7 +54,9 @@ impl crate::groups::WeightInfo for () {
 			.saturating_add(DbWeight::get().writes(31 as Weight))
 	}
 	fn accept_invite() -> Weight {
-		0
+		(544_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
 	fn revoke_invites(_i: usize) -> Weight {
 		(435_834_000 as Weight)

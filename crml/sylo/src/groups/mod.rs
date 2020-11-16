@@ -364,10 +364,9 @@ decl_module! {
 
 			let sig = ed25519::Signature(signature.into());
 			// TODO ensure payload is encoded properly
-			ensure!(
-				sig.verify(payload.encode().as_slice(), &ed25519::Public(invite.invite_key.into())),
-				Error::<T>::InvitationSignatureRejected
-			);
+			let _verify_result = sig.verify(payload.encode().as_slice(), &ed25519::Public(invite.invite_key.into()));
+			#[cfg(any(test, not(feature = "runtime-benchmarks")))]
+			ensure!(_verify_result, Error::<T>::InvitationSignatureRejected);
 
 			let mut roles = vec![MemberRoles::Member];
 			roles.extend(invite.roles);

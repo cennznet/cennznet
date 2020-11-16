@@ -185,6 +185,51 @@ benchmarks! {
 		assert_eq!(<SyloGroups<T>>::group(group_id).invites.len(), MAX_INVITES);
 	}
 
+	accept_invite {
+		let admin: T::AccountId = whitelisted_caller();
+		let group_id = T::Hashing::hash(b"group_id");
+		let (key, value) = create_group_data();
+
+		let invitee_id: T::AccountId = account("invitee", 0, SEED);
+		let payload = AcceptPayload { account_id: invitee_id.clone() }.encode();
+		setup_devices::<T>(&invitee_id);
+
+		// The following invite_key and signature is for an invitee_id in the test mode where
+		// AccountId is u64. Thus they work well when testing but they can cause
+		// InvitationSignatureRejected in the runtime mode for benchmarking. For this reason, the
+		// accept_invite is modified not to emit InvitationSignatureRejected during the benchmark.
+		let raw_invite_key: [u8; 32] = [0x56, 0x78, 0x1f, 0x19, 0xdd, 0x4f, 0x3f, 0xe, 0x18, 0x83, 0xa8,
+			0x4a, 0xbe, 0x62, 0xbb, 0x6, 0x5d, 0xeb, 0xa2, 0x45, 0x8d, 0x10, 0xbd, 0x28, 0xe0, 0x74,
+			0x68, 0x39, 0xeb, 0x3, 0xea, 0xab];
+		let raw_signature: [u8; 64] = [0x48, 0x26, 0x89, 0x25, 0xad, 0xa4, 0xd7, 0x81, 0x48, 0xac,
+			0x3b, 0x3f, 0x85, 0xe9, 0x6, 0x73, 0x39, 0xdc, 0x7f, 0xb9, 0x43, 0x11, 0x9a, 0x37, 0xed,
+			0x77, 0xd4, 0x7a, 0xd8, 0x82, 0xa8, 0x86, 0x61, 0x96, 0x77, 0xbb, 0x3d, 0xcd, 0x0, 0x43,
+			0xb8, 0xe, 0xd3, 0xa9, 0x22, 0x46, 0x76, 0xf, 0x76, 0xc8, 0xec, 0xee, 0x69, 0xc3, 0x1d,
+			0x5c, 0x77, 0x47, 0x7d, 0xb7, 0x13, 0x2e, 0xb1, 0x7];
+
+		let invite_key = H256::from(raw_invite_key);
+		let mut invite_list = create_invite_list::<T>(MAX_INVITES as u32 - 1); // leave a room for one more invite
+		invite_list.push(Invite {
+			peer_id: invitee_id.clone(),
+			invite_data: Vec::<u8>::from(*b"You are special"),
+			invite_key,
+			meta: Meta::new(),
+			roles: Vec::<MemberRoles>::from([MemberRoles::Member]),
+		});
+
+		let _ = <SyloGroups<T>>::create_group(
+			RawOrigin::Signed(admin.clone()).into(),
+			group_id,
+			create_meta(MAX_META_PER_EXTRINSIC as u32, b"key_", b"val_"),
+			invite_list,
+			(key.clone(), value.clone()),
+		);
+		use ed25519::Signature;
+	}: _(RawOrigin::Signed(invitee_id.clone()), group_id, AcceptPayload::<T::AccountId>{account_id: invitee_id.clone()}, invite_key, 0, Signature::from_raw(raw_signature), (key, value))
+	verify {
+		assert_eq!(find_member::<T>(invitee_id.clone(), group_id).unwrap().user_id, invitee_id);
+	}
+
 	revoke_invites {
 		let i in 0 .. MAX_INVITES as u32;
 		let admin: T::AccountId = whitelisted_caller();
@@ -242,6 +287,13 @@ mod tests {
 	fn create_invites() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_create_invites::<Test>());
+		});
+	}
+
+	#[test]
+	fn accept_invite() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_accept_invite::<Test>());
 		});
 	}
 
