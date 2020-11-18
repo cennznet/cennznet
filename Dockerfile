@@ -2,8 +2,8 @@ FROM  rustlang/rust:nightly AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 
-ARG RUST_VERSION=1.44.1
-ARG RUST_NIGHTLY=nightly-2020-06-24
+ARG RUST_VERSION=1.47.0
+ARG RUST_NIGHTLY=nightly
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
     rustup uninstall nightly && \
