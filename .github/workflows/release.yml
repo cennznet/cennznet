@@ -1,16 +1,13 @@
-name: CENNZnet Release
+name: Auto Release
 
 on:
   pull_request:
     branches:
        - "test/release-flow"
-  check_suite:
-    types:
-       - completed
 
 jobs:
-  gh-release:
-    runs-on: [self-hosted, linukkx]
+  release-to-github:
+    runs-on: [self-hosted, linux]
     steps:
     - name: Checkout PR
       uses: actions/checkout@v2
@@ -26,12 +23,12 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: "test/release-flow"
-    - name: Make the release branch
-      uses: peterjgrainger/action-create-branch@v2.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        branch: 'test/${{ github.ref }}'
+    # - name: Make the release branch
+    #   uses: peterjgrainger/action-create-branch@v2.0.1
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #   with:
+    #     branch: 'test/${{ github.ref }}'
     - name: Tag the release 🚀
       id: create_release
       uses: actions/create-release@v1
@@ -42,6 +39,10 @@ jobs:
         release_name: Test Release ${{ github.ref }}
         draft: true
         prerelease: true
+    # unfortunately we need to rebuild here so this job context has the wasm blob available
+    - name: Build Runtime Wasm
+      run: cargo build --locked
+    # publish the wasm
     - name: Upload Runtime Wasm Blob
       uses: actions/upload-release-asset@v1
       env:
