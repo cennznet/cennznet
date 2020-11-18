@@ -8,11 +8,12 @@ on:
   # only trigger when branch protections (configured in github settings) are met:
   # - requisite # of approvals
   # - CI build check passes
-  check_suite:
-    types:
-      - completed
+  # check_suite:
+  #   types:
+  #     - completed
 
 jobs:
+  # TODO: add docker image build
   release-to-github:
     runs-on: [self-hosted, linux]
     steps:
@@ -34,17 +35,30 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        branch: 'test/${{ github.ref }}'
+        branch: 'test/${{ github.head_ref }}'
     - name: Tag the release 🚀
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Test Release ${{ github.ref }}
+        tag_name: ${{ github.head_ref }}
+        release_name: Test Release ${{ github.head_ref }}
         draft: true
         prerelease: true
+
+    # build the wasm runtime for publishing
+    - name: Install toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly-2020-09-27
+        components: rustfmt
+        target: wasm32-unknown-unknown
+        default: true
+    - name: Build wasm
+      run: cargo build --locked
+
     - name: Publish the runtime wasm
       uses: actions/upload-release-asset@v1
       env:
