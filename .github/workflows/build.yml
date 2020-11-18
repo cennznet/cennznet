@@ -1,15 +1,16 @@
-name: CENNZnet CI
+name: CI
 
 on:
   pull_request:
     branches:
     - develop
+    - test/release-flow
   push:
     branches:
     - develop
 
 jobs:
-  ci:
+  format-build-test:
     runs-on: [self-hosted, linux]
     env:
       SCCACHE_CACHE_SIZE: "50G"

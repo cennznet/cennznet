@@ -1,0 +1,57 @@
+name: Auto Release
+
+on:
+  pull_request:
+    branches:
+      - "test/release-flow"
+  check_suite:
+    types:
+      - completed
+
+jobs:
+  release-to-github:
+    runs-on: [self-hosted, linux]
+    steps:
+    - name: Checkout PR
+      uses: actions/checkout@v2
+    # approval required via branch protection
+    - name: Automerge
+      uses: "pascalgn/automerge-action@v0.12.0"
+      env:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        MERGE_LABELS: "automerge"
+        MERGE_REMOVE_LABELS: "automerge"
+        MERGE_METHOD: "squash"
+    - name: Check out develop
+      uses: actions/checkout@v2
+      with:
+        ref: "test/release-flow"
+    # - name: Make the release branch
+    #   uses: peterjgrainger/action-create-branch@v2.0.1
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #   with:
+    #     branch: 'test/${{ github.ref }}'
+    - name: Tag the release 🚀
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Test Release ${{ github.ref }}
+        draft: true
+        prerelease: true
+    # unfortunately we need to rebuild here so this job context has the wasm blob available
+    - name: Build Runtime Wasm
+      run: cargo build --locked
+    # publish the wasm
+    - name: Upload Runtime Wasm Blob
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
+        asset_name: cennznet_runtime.compact.wasm
+        asset_content_type: application/wasm
