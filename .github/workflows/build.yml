@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
     - develop
-    - test/release-flow
   push:
     branches:
     - develop
