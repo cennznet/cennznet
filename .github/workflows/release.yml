@@ -2,7 +2,11 @@ name: CENNZnet Release
 
 on:
   pull_request_review:
-    branches: "test/release-flow"
+    types:
+       - submitted
+  check_suite:
+     types:
+       - completed
 
 jobs:
   gh-release:
@@ -10,11 +14,13 @@ jobs:
     - name: Checkout PR
       uses: actions/checkout@v2
     # ci + approval required via branch protection
-    - name: Merge PR
-      uses: ridedott/merge-me-action@v1
-      with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        MERGE_METHOD: SQUASH
+    - name: Automerge
+      uses: "pascalgn/automerge-action@v0.12.0"
+      env:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        MERGE_LABELS: "automerge"
+        MERGE_REMOVE_LABELS: "automerge"
+        MERGE_METHOD: "squash"
     - name: Check out develop
       uses: actions/checkout@v2
       with:
