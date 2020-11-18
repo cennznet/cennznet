@@ -1,11 +1,11 @@
 name: CENNZnet Release
 
 on:
-  pull_request_review:
-    types:
-       - submitted
+  pull_request:
+    branches:
+       - "test/release-flow"
   check_suite:
-     types:
+    types:
        - completed
 
 jobs:
