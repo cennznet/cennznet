@@ -57,7 +57,7 @@ jobs:
         target: wasm32-unknown-unknown
         default: true
     - name: Build wasm
-      run: cargo build --locked
+      run: cargo build
 
     - name: Publish the runtime wasm
       uses: actions/upload-release-asset@v1
