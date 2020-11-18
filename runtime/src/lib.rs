@@ -898,6 +898,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, sylo_inbox, SyloInbox);
 			add_benchmark!(params, batches, sylo_vault, SyloVault);
 			add_benchmark!(params, batches, sylo_e2ee, SyloE2EE);
+			add_benchmark!(params, batches, sylo_groups, SyloGroups);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
