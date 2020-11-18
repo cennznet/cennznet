@@ -545,7 +545,9 @@ impl<T: Trait> Module<T> {
 		let output = fee_rate_plus_one
 			.checked_mul(price_plus_one.into())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		Ok(BalanceOf::<T>::saturated_from(output.saturated_into::<LowPrecisionUnsigned>()))
+		Ok(BalanceOf::<T>::saturated_from(
+			output.saturated_into::<LowPrecisionUnsigned>(),
+		))
 	}
 
 	/// Get the sell price of some asset for another
