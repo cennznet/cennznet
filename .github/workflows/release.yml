@@ -26,21 +26,21 @@ jobs:
       with:
         branch: 'test/${{ github.ref }}'
     - name: Tag the release 🚀
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Test Release ${{ github.ref }}
-          draft: true
-          prerelease: true
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Test Release ${{ github.ref }}
+        draft: true
+        prerelease: true
     - name: Upload Runtime Wasm Blob
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
-          asset_name: cennznet_runtime.compact.wasm
-          asset_content_type: application/wasm
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
+        asset_name: cennznet_runtime.compact.wasm
+        asset_content_type: application/wasm
