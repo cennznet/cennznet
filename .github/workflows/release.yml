@@ -3,7 +3,10 @@ name: Auto Release
 on:
   pull_request:
     branches:
-       - "test/release-flow"
+      - "test/release-flow"
+  check_suite:
+    types:
+      - completed
 
 jobs:
   release-to-github:
