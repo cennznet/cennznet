@@ -10,7 +10,6 @@ on:
 
 jobs:
   gh-release:
-    needs: ci
     runs-on: [self-hosted, linukkx]
     steps:
     - name: Checkout PR
