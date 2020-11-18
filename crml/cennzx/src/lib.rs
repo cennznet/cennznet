@@ -523,9 +523,9 @@ impl<T: Trait> Module<T> {
 		);
 		ensure!(buy_reserve > buy_amount, Error::<T>::InsufficientExchangePoolReserve);
 
-		let buy_amount_hp = HighPrecisionUnsigned::from(buy_amount.saturated_into());
-		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into());
-		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into());
+		let buy_amount_hp = HighPrecisionUnsigned::from(buy_amount.saturated_into::<u128>());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into::<u128>());
+		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into::<u128>());
 		let denominator_hp = buy_reserve_hp - buy_amount_hp;
 		let price_hp = sell_reserve_hp
 			.saturating_mul(buy_amount_hp)
@@ -545,7 +545,9 @@ impl<T: Trait> Module<T> {
 		let output = fee_rate_plus_one
 			.checked_mul(price_plus_one.into())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		Ok(BalanceOf::<T>::saturated_from(output.into()))
+		Ok(BalanceOf::<T>::saturated_from(
+			output.saturated_into::<LowPrecisionUnsigned>(),
+		))
 	}
 
 	/// Get the sell price of some asset for another
@@ -623,11 +625,11 @@ impl<T: Trait> Module<T> {
 		let div_rate: FeeRate<PerMillion> = Self::fee_rate()
 			.checked_add(FeeRate::<PerMillion>::one())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		let sell_amount_scaled = FeeRate::<PerMillion>::from(sell_amount.saturated_into())
+		let sell_amount_scaled = FeeRate::<PerMillion>::from(sell_amount.saturated_into::<LowPrecisionUnsigned>())
 			.checked_div(div_rate)
 			.ok_or::<Error<T>>(Error::<T>::DivideByZero)?;
-		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into());
-		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into());
+		let sell_reserve_hp = HighPrecisionUnsigned::from(sell_reserve.saturated_into::<LowPrecisionUnsigned>());
+		let buy_reserve_hp = HighPrecisionUnsigned::from(buy_reserve.saturated_into::<LowPrecisionUnsigned>());
 		let sell_amount_scaled_hp = HighPrecisionUnsigned::from(sell_amount_scaled);
 		let denominator_hp = sell_amount_scaled_hp + sell_reserve_hp;
 		let price_hp = buy_reserve_hp
