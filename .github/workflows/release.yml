@@ -1,0 +1,46 @@
+name: CENNZnet Release
+
+on:
+  pull_request_review:
+    branches: "test/release-flow"
+
+jobs:
+  gh-release:
+    steps:
+    - name: Checkout PR
+      uses: actions/checkout@v2
+    # ci + approval required via branch protection
+    - name: Merge PR
+      uses: ridedott/merge-me-action@v1
+      with:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MERGE_METHOD: SQUASH
+    - name: Check out develop
+      uses: actions/checkout@v2
+      with:
+        ref: "test/release-flow"
+    - name: Make the release branch
+      uses: peterjgrainger/action-create-branch@v2.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: 'test/${{ github.ref }}'
+    - name: Tag the release 🚀
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Test Release ${{ github.ref }}
+          draft: true
+          prerelease: true
+    - name: Upload Runtime Wasm Blob
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
+          asset_name: cennznet_runtime.compact.wasm
+          asset_content_type: application/wasm
