@@ -620,7 +620,7 @@ pub fn current_total_payout<C: Currency<AccountId>>() -> u64 {
 	pallet_staking::inflation::compute_total_payout(
 		&I_NPOS,
 		<Module<Test>>::slot_stake() * 2,
-		C::total_issuance().saturated_into().saturated_into(), // terrible way to get a `u64`
+		C::total_issuance().saturated_into::<u64>(), // terrible way to get a `u64`
 		// hack: all tests want the price for duration = `3000` so we just hard code it
 		3_000,
 	)
