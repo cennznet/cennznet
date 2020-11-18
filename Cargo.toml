@@ -4,7 +4,7 @@ path = "cli/src/main.rs"
 
 [package]
 name = "cennznet"
-version = "1.2.0-rc3"
+version = "1.2.0-rc2"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
@@ -83,7 +83,6 @@ snow = { opt-level = 3 }
 twox-hash = { opt-level = 3 }
 uint = { opt-level = 3 }
 wasmi = { opt-level = 3 }
-zstd = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
