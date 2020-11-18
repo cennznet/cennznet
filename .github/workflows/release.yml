@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - develop
+  # only trigger when branch protections (configured in github settings) are met:
+  # - requisite # of approvals
+  # - CI build check passes
+  check_suite:
+    types:
+      - completed
+
+jobs:
+  # TODO: add docker image build
+  release-to-github:
+    # only run release if prechecks pass and the branch is 'prerelease/*'
+    if: ${{ startsWith(github.head_ref, 'prerelease/') }}
+    runs-on: [self-hosted, linux]
+    steps:
+    - name: Automerge
+      uses: "pascalgn/automerge-action@v0.12.0"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MERGE_LABELS: ""
+        MERGE_METHOD: squash
+    - name: Check out develop
+      uses: actions/checkout@v2
+      with:
+        ref: develop
+    - name: Find release version
+      run: |
+        echo ::set-env name=TAG_NAME::$(grep version Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+    - name: Make the release branch
+      uses: peterjgrainger/action-create-branch@v2.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: "release/${{ env.TAG_NAME }}"
+    - name: Tag the release 🚀
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        release_name: ${{ env.TAG_NAME }}
+        draft: false
+        # 'rc' is a pre-release
+        prerelease: ${{ contains(env.TAG_NAME, 'rc') }}
+    ### build the wasm runtime for publishing
+    - name: Install toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly-2020-09-27
+        components: rustfmt
+        target: wasm32-unknown-unknown
+        default: true
+    - name: Build wasm (again)
+      run: cargo build
+    ###
+    - name: Publish runtime wasm
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
+        asset_name: cennznet_runtime.compact.wasm
+        asset_content_type: application/wasm
