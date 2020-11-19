@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - develop
+    types:
+      - labeled
   # only trigger merge when branch protections (configured in github settings) are met:
   # - requisite # of approvals
   # - CI build check passes
@@ -15,7 +17,7 @@ jobs:
   # TODO: add docker image build here
   merge-release-branch:
     # only run if prechecks pass and the source branch is named 'prerelease/*'
-    if: ${{ startsWith(github.head_ref, 'prerelease/') }}
+    if: ${{ startsWith(github.head_ref, 'prerelease/') }} && ${{ github.event.label.name == 'automerge' }}
     runs-on: [self-hosted, linux]
     steps:
     - name: Automerge
@@ -23,7 +25,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         MERGE_LABELS: automerge
-        MERGE_REMOVE_LABELS: automerge
         MERGE_METHOD: squash
   release-to-github:
     needs:
