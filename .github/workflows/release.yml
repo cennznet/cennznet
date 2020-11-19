@@ -4,7 +4,9 @@ on:
   pull_request:
     branches:
       - develop
-  # only trigger when branch protections (configured in github settings) are met:
+    types:
+      - labeled
+  # only trigger merge when branch protections (configured in github settings) are met:
   # - requisite # of approvals
   # - CI build check passes
   check_suite:
@@ -12,42 +14,48 @@ on:
       - completed
 
 jobs:
-  # TODO: add docker image build
-  release-to-github:
-    # only run release if prechecks pass and the branch is 'prerelease/*'
-    if: ${{ startsWith(github.head_ref, 'prerelease/') }}
+  # TODO: add docker image build here
+  merge-release-branch:
+    # only run if prechecks pass and the source branch is named 'prerelease/*'
+    if: ${{ startsWith(github.head_ref, 'prerelease/') }} && ${{ github.event.label.name == 'automerge' }}
     runs-on: [self-hosted, linux]
     steps:
     - name: Automerge
       uses: "pascalgn/automerge-action@v0.12.0"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        MERGE_LABELS: ""
+        MERGE_LABELS: automerge
         MERGE_METHOD: squash
+  release-to-github:
+    needs:
+    - merge-release-branch
+    runs-on: [self-hosted, linux]
+    steps:
     - name: Check out develop
       uses: actions/checkout@v2
       with:
         ref: develop
     - name: Find release version
+      id: find_version
       run: |
-        echo ::set-env name=TAG_NAME::$(grep version Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+        echo ::set-output name=tag_name::$(grep version Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
     - name: Make the release branch
       uses: peterjgrainger/action-create-branch@v2.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        branch: "release/${{ env.TAG_NAME }}"
+        branch: "release/${{ steps.find_version.outputs.tag_name }}"
     - name: Tag the release 🚀
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ env.TAG_NAME }}
-        release_name: ${{ env.TAG_NAME }}
+        tag_name: ${{ steps.find_version.outputs.tag_name }}
+        release_name: ${{ steps.find_version.outputs.tag_name }}
         draft: false
         # 'rc' is a pre-release
-        prerelease: ${{ contains(env.TAG_NAME, 'rc') }}
+        prerelease: ${{ contains(steps.find_version.outputs.tag_name, 'rc') }}
     ### build the wasm runtime for publishing
     - name: Install toolchain
       uses: actions-rs/toolchain@v1
