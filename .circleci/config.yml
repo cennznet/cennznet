@@ -107,7 +107,7 @@ commands:
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
               IMAGE_TAG="develop-${CIRCLE_SHA1:0:6}"
             else
-              IMAGE_TAG="${CIRCLE_BRANCH////-}"
+              IMAGE_TAG="${GIT_TAG}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --build-arg RUST_VERSION=$RUST_VERSION --build-arg RUST_NIGHTLY=$RUST_NIGHTLY --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
@@ -152,6 +152,7 @@ jobs:
       BASH_ENV: ~/.cargo/env
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
+      GIT_TAG: pipeline.git.tag
     steps:
       - checkout
       - install-rust
