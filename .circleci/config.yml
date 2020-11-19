@@ -185,7 +185,9 @@ workflows:
       - build-docker-and-publish:
           context: Rust
           filters:
+            tags:
+              only:
+                - /^[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
             branches:
               only:
                 - develop
-                - /^release\/[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
