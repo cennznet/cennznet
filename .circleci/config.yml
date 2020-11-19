@@ -107,7 +107,7 @@ commands:
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
               IMAGE_TAG="develop-${CIRCLE_SHA1:0:6}"
             else
-	      echo "${CIRCLE_TAG}"
+              echo "${CIRCLE_TAG}"
               IMAGE_TAG="${CIRCLE_TAG}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
