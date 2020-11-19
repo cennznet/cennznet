@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - develop
-  # only trigger when branch protections (configured in github settings) are met:
+  # only trigger merge when branch protections (configured in github settings) are met:
   # - requisite # of approvals
   # - CI build check passes
   check_suite:
@@ -12,10 +12,21 @@ on:
       - completed
 
 jobs:
-  # TODO: add docker image build
-  release-to-github:
-    # only run release if prechecks pass and the branch is 'prerelease/*'
+  # TODO: add docker image build here
+  merge-release-branch:
+    # only run if prechecks pass and the source branch is named 'prerelease/*'
     if: ${{ startsWith(github.head_ref, 'prerelease/') }}
+    runs-on: [self-hosted, linux]
+    steps:
+    - name: Automerge
+      uses: "pascalgn/automerge-action@v0.12.0"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MERGE_LABELS: ""
+        MERGE_METHOD: squash
+  release-to-github:
+    needs:
+    - merge-release-branch
     runs-on: [self-hosted, linux]
     steps:
     - name: Automerge
