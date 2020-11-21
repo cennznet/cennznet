@@ -54,6 +54,8 @@ pub trait Trait: frame_system::Trait {
 	type TreasuryModuleId: Get<ModuleId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
+	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
+	type PayoutSplitThreshold: Get<u32>;
 }
 
 decl_event!(
@@ -230,6 +232,21 @@ impl<T: Trait> Module<T> {
 		));
 		(*payouts).to_vec()
 	}
+
+	/// Return the number of reward payouts that need to be processed in the current block.
+	/// The result is dependant on the number of the current era's remained payouts and the number
+	/// of remained blocks before a new era.
+	fn calculate_block_payouts(remained_payouts: u32, remained_blocks: u32) -> u32 {
+		let payout_split_threshold = T::PayoutSplitThreshold::get();
+		if remained_payouts <= payout_split_threshold || remained_blocks == 0 {
+			return remained_payouts;
+		}
+		let min_payouts = remained_payouts / (remained_blocks + 1);
+		if min_payouts < payout_split_threshold {
+			return payout_split_threshold;
+		}
+		min_payouts
+	}
 }
 
 /// This handles the `NegativeImbalance` from burning transaction fees.
@@ -311,12 +328,14 @@ mod tests {
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
+		pub const PayoutSplitThreshold: u32 = 10;
 	}
 	impl Trait for TestRuntime {
 		type Event = ();
 		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
 		type TreasuryModuleId = TreasuryModuleId;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
+		type PayoutSplitThreshold = PayoutSplitThreshold;
 	}
 
 	// Provides configurable mock genesis storage data.
@@ -719,6 +738,58 @@ mod tests {
 			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&reward));
 			// no payout
 			assert!(RewardCurrency::total_issuance().is_zero());
+		});
+	}
+
+	#[test]
+	fn small_reward_payouts() {
+		ExtBuilder::default().build().execute_with(|| {
+			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			assert_eq!(
+				Rewards::calculate_block_payouts(payout_split_threshold - 1, 5),
+				payout_split_threshold - 1
+			);
+		});
+	}
+
+	#[test]
+	fn large_reward_payouts_enough_time() {
+		ExtBuilder::default().build().execute_with(|| {
+			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			assert_eq!(
+				Rewards::calculate_block_payouts(payout_split_threshold, 100),
+				payout_split_threshold
+			);
+			assert_eq!(
+				Rewards::calculate_block_payouts(payout_split_threshold + 1, 100),
+				payout_split_threshold
+			);
+			assert_eq!(
+				Rewards::calculate_block_payouts(2 * payout_split_threshold, 100),
+				payout_split_threshold
+			);
+		});
+	}
+
+	#[test]
+	fn large_reward_payouts_not_enough_time() {
+		ExtBuilder::default().build().execute_with(|| {
+			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			assert_eq!(
+				Rewards::calculate_block_payouts(4 * payout_split_threshold, 1),
+				2 * payout_split_threshold
+			);
+		});
+	}
+
+	#[test]
+	fn large_reward_payouts_no_time() {
+		ExtBuilder::default().build().execute_with(|| {
+			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			assert_eq!(
+				Rewards::calculate_block_payouts(2 * payout_split_threshold, 0),
+				2 * payout_split_threshold
+			);
 		});
 	}
 }
