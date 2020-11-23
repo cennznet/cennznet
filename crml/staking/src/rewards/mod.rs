@@ -172,8 +172,11 @@ where
 		}
 
 		EraRemainedPayouts::<T>::mutate(|p| {
-			let mut total_payout_imbalance = PositiveImbalanceOf::<T>::zero();
-			for _ in 0..quota {
+			let (a, m) = p.pop().unwrap_or_default();
+			let mut total_payout_imbalance =
+				T::CurrencyToReward::deposit_into_existing(&a, m).unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero());
+
+			for _ in 1..quota {
 				if let Some((a, m)) = p.pop() {
 					total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&a, m).ok());
 				}
