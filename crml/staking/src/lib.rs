@@ -632,8 +632,8 @@ pub trait Trait: frame_system::Trait {
 	/// Number of sessions per era.
 	type SessionsPerEra: Get<SessionIndex>;
 
-	/// Number of blocks per a session.
-	type BlocksPerSession: Get<Self::BlockNumber>;
+	/// Number of blocks per normal eras those not forced to end.
+	type BlocksPerEra: Get<Self::BlockNumber>;
 
 	/// Number of eras that staked funds must remain bonded for.
 	type BondingDuration: Get<EraIndex>;
@@ -647,7 +647,11 @@ pub trait Trait: frame_system::Trait {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+	type Rewarder: StakerRewardPayment<
+		AccountId = Self::AccountId,
+		Balance = BalanceOf<Self>,
+		BlockNumber = Self::BlockNumber,
+	>;
 
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
@@ -727,6 +731,9 @@ decl_storage! {
 
 		/// The start of the current era.
 		pub CurrentEraStart get(fn current_era_start): MomentOf<T>;
+
+		/// The starting block number of the next era.
+		pub NextEraBlockNumber get(fn next_era_block_number): T::BlockNumber;
 
 		/// The session index at which the current era started.
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
@@ -1350,6 +1357,7 @@ decl_module! {
 		}
 
 		fn on_initialize(n: T::BlockNumber) -> Weight {
+			T::Rewarder::process_reward_payouts(NextEraBlockNumber::<T>::get().saturating_sub(n));
 			0 // T::MaximumBlockWeight::get()
 		}
 	}
@@ -1474,6 +1482,7 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		NextEraBlockNumber::<T>::put(<frame_system::Module<T>>::block_number() + T::BlocksPerEra::get());
 		let now = T::Time::now();
 		let previous_era_start = <CurrentEraStart<T>>::get();
 		let era_duration = now - previous_era_start;

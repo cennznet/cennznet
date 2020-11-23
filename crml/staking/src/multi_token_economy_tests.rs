@@ -157,7 +157,7 @@ impl pallet_timestamp::Trait for Test {
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
-	pub const BlocksPerSession: BlockNumber = 1;
+	pub const BlocksPerEra: BlockNumber = 3;
 }
 impl Trait for Test {
 	type Currency = prml_generic_asset::StakingAssetCurrency<Self>;
@@ -166,7 +166,7 @@ impl Trait for Test {
 	type Event = ();
 	type Slash = ();
 	type SessionsPerEra = SessionsPerEra;
-	type BlocksPerSession = BlocksPerSession;
+	type BlocksPerEra = BlocksPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
