@@ -601,6 +601,39 @@ mod tests {
 	}
 
 	#[test]
+	fn large_payouts_split() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = RewardCurrency::deposit_creating(&1, 1_234);
+			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
+
+			let tx_fee_reward = 1_000_000;
+			Rewards::note_transaction_fees(tx_fee_reward);
+			let total_payout = Rewards::calculate_next_reward_payout();
+			let pre_reward_issuance = RewardCurrency::total_issuance();
+
+			let validator_stake_map1 =
+				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			let validator_stake_map2 =
+				MockCommissionStakeInfo::new((10, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			let validator_stake_map3 =
+				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			let validator_stake_map4 =
+				MockCommissionStakeInfo::new((30, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			Rewards::enqueue_reward_payouts(&[
+				validator_stake_map1.as_tuple(),
+				validator_stake_map2.as_tuple(),
+				validator_stake_map3.as_tuple(),
+				validator_stake_map4.as_tuple(),
+			]);
+			Rewards::process_reward_payouts(3);
+			assert_eq!(EraRemainedPayouts::<TestRuntime>::get().len(), 2);
+			Rewards::process_reward_payouts(2);
+			assert_eq!(EraRemainedPayouts::<TestRuntime>::get().len(), 0);
+			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
+		});
+	}
+
+	#[test]
 	fn make_reward_payouts_handles_total_issuance() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = RewardCurrency::deposit_creating(&1, 1_234);
