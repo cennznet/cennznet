@@ -632,6 +632,9 @@ pub trait Trait: frame_system::Trait {
 	/// Number of sessions per era.
 	type SessionsPerEra: Get<SessionIndex>;
 
+	/// Number of blocks per a session.
+	type BlocksPerSession: Get<Self::BlockNumber>;
+
 	/// Number of eras that staked funds must remain bonded for.
 	type BondingDuration: Get<EraIndex>;
 
@@ -1345,6 +1348,10 @@ decl_module! {
 
 			<Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
 		}
+
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			0 // T::MaximumBlockWeight::get()
+		}
 	}
 }
 
@@ -1459,7 +1466,7 @@ impl<T: Trait> Module<T> {
 			})
 			.collect::<Vec<(_, _, _)>>();
 
-		T::Rewarder::make_reward_payout(validator_commission_stake_map.as_slice());
+		T::Rewarder::enqueue_reward_payouts(validator_commission_stake_map.as_slice());
 	}
 
 	/// The era has changed - payout rewards and enact the next staking set.

@@ -257,6 +257,7 @@ impl pallet_scheduler::Trait for Runtime {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const BlocksPerSession: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 }
@@ -267,6 +268,7 @@ impl crml_staking::Trait for Runtime {
 	type Event = Event;
 	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type SessionsPerEra = SessionsPerEra;
+	type BlocksPerSession = BlocksPerSession;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type SessionInterface = Self;
@@ -474,7 +476,7 @@ impl pallet_treasury::Trait for Runtime {
 
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
-	pub const PayoutSplitThreshold: u32 = 1000;
+	pub const PayoutSplitThreshold: usize = 1000;
 }
 impl crml_staking_rewards::Trait for Runtime {
 	type CurrencyToReward = SpendingAssetCurrency<Self>;

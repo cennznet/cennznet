@@ -17,7 +17,7 @@
 
 use crate::Exposure;
 use codec::HasCompact;
-use sp_runtime::Perbill;
+use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 
 /// Something which can perform reward payment to staked validators
 pub trait StakerRewardPayment {
@@ -25,13 +25,17 @@ pub trait StakerRewardPayment {
 	type AccountId;
 	/// The system balance type
 	type Balance: HasCompact;
+	/// The block number type used by the runtime.
+	type BlockNumber: AtLeast32BitUnsigned + Copy;
 	/// Make a staking reward payout to validators and nominators.
 	/// `validator_commission_stake_map` is a mapping of a validator payment account, validator commission %, and
 	/// a validator + nominator exposure map.
-	fn make_reward_payout(
+	fn enqueue_reward_payouts(
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	);
+	/// Process the reward payouts considering the maximum number of blocks left over which it can split them.
+	fn process_reward_payouts(remained_blocks: Self::BlockNumber);
 	/// Calculate the value of the next reward payout as of right now.
-	/// i.e calling `make_reward_payout` would distribute this total value among stakers.
+	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;
 }

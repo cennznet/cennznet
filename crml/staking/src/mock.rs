@@ -62,11 +62,11 @@ pub struct MockRewarder<C: Currency<AccountId>>(std::marker::PhantomData<C>);
 impl<C: Currency<AccountId>> StakerRewardPayment for MockRewarder<C> {
 	type AccountId = AccountId;
 	type Balance = C::Balance;
-
+	type BlockNumber = BlockNumber;
 	/// Distribute rewards to each validator and their nominators
 	/// Total reward is split equally among elected validators
 	/// Rewards are further distributed to nominators pro-rata their contributed stake.
-	fn make_reward_payout(
+	fn enqueue_reward_payouts(
 		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) {
 		let total_payout = Self::calculate_next_reward_payout();
@@ -93,6 +93,8 @@ impl<C: Currency<AccountId>> StakerRewardPayment for MockRewarder<C> {
 			make_payout::<C>(v, (validator_cut + off_the_table).into());
 		}
 	}
+
+	fn process_reward_payouts(_remained_blocks: BlockNumber) {}
 
 	// Use the pallet staking NPOS curve to determine rewards for tests.
 	// Most of the tests here are tightly coupled with this polkadot based reward model.
@@ -290,6 +292,7 @@ impl pallet_timestamp::Trait for Test {
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
+	pub const BlocksPerSession: BlockNumber = 1;
 }
 impl Trait for Test {
 	type Currency = pallet_balances::Module<Self>;
@@ -298,6 +301,7 @@ impl Trait for Test {
 	type Event = MetaEvent;
 	type Slash = ();
 	type SessionsPerEra = SessionsPerEra;
+	type BlocksPerSession = BlocksPerSession;
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
