@@ -156,8 +156,8 @@ where
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
 			})
 			.for_each(|(account, payout)| {
-				EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
-				// total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&account, payout).ok());
+				// EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
+				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&account, payout).ok());
 			});
 
 		// Any unallocated reward amount can go to the development fund
