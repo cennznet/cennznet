@@ -179,10 +179,10 @@ where
 				}
 			}
 
-			let remainder = EraRemainedRewardAmount::<T>::get();
+			let remainder = EraRemainedRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
 
 			if quota < remained_payouts {
-				EraRemainedRewardAmount::<T>::put(remainder.saturating_sub(total_payout_imbalance.peek()));
+				EraRemainedRewardAmount::<T>::put(remainder);
 				return;
 			}
 			EraRemainedRewardAmount::<T>::put(BalanceOf::<T>::zero());
