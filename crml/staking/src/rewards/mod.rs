@@ -78,6 +78,8 @@ decl_storage! {
 		pub TransactionFeePot get(fn transaction_fee_pot): BalanceOf<T>;
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
+		/// Remained reward amount in an era
+		pub EraRemainedRewardAmount get(fn era_total_payout): BalanceOf<T>;
 		/// Hold the latest not processed payouts
 		pub EraRemainedPayouts get(fn era_payouts): Vec<(T::AccountId, BalanceOf<T>)>;
 	}
@@ -138,7 +140,7 @@ where
 		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
 		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
 		// This ensures only one storage update to total issuance will happen when dropped.
-		let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(
+		let total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(
 			&T::TreasuryModuleId::get().into_account(),
 			development_fund_payout,
 			// `deposit_into_existing` is infallible but be defensive
@@ -159,31 +161,38 @@ where
 				EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
 			});
 
-		// Any unallocated reward amount can go to the development fund
-		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		total_payout_imbalance.subsume(
-			T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
-				.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero()),
-		);
+		EraRemainedRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
 	}
 
 	fn process_reward_payouts(remained_blocks: Self::BlockNumber) {
-		let quota = Self::calculate_payout_quota(Self::era_payouts().len(), remained_blocks);
+		let remained_payouts = Self::era_payouts().len();
+		let quota = Self::calculate_payout_quota(remained_payouts, remained_blocks);
 		if quota == 0 {
 			return;
 		}
 
 		EraRemainedPayouts::<T>::mutate(|p| {
-			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+			let mut total_payout_imbalance = PositiveImbalanceOf::<T>::zero();
 			for _ in 0..quota {
 				if let Some((a, m)) = p.pop() {
-					total_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&a, m).ok());
-				} else {
-					break;
+					total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&a, m).ok());
 				}
 			}
-			// TODO calculate the remainder for the event
-			Self::deposit_event(RawEvent::RewardPayout(total_imbalance.peek(), Zero::zero()));
+
+			let remainder = EraRemainedRewardAmount::<T>::get();
+
+			if quota < remained_payouts {
+				EraRemainedRewardAmount::<T>::put(remainder.saturating_sub(total_payout_imbalance.peek()));
+				return;
+			}
+			EraRemainedRewardAmount::<T>::put(BalanceOf::<T>::zero());
+
+			// Any unallocated reward amount can go to the development fund
+			total_payout_imbalance.subsume(
+				T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
+					.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero()),
+			);
+			Self::deposit_event(RawEvent::RewardPayout(total_payout_imbalance.peek(), remainder));
 		});
 	}
 
