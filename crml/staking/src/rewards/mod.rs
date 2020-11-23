@@ -156,8 +156,7 @@ where
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
 			})
 			.for_each(|(account, payout)| {
-				// EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
-				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&account, payout).ok());
+				EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
 			});
 
 		// Any unallocated reward amount can go to the development fund
@@ -166,8 +165,6 @@ where
 			T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
 				.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero()),
 		);
-
-		Self::deposit_event(RawEvent::RewardPayout(total_payout_imbalance.peek(), remainder));
 	}
 
 	fn process_reward_payouts(remained_blocks: Self::BlockNumber) {
@@ -185,6 +182,8 @@ where
 					break;
 				}
 			}
+			// TODO calculate the remainder for the event
+			Self::deposit_event(RawEvent::RewardPayout(total_imbalance.peek(), Zero::zero()));
 		});
 	}
 
@@ -681,6 +680,7 @@ mod tests {
 			// Run the payout for real
 			Rewards::note_transaction_fees(reward);
 			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()]);
+			Rewards::process_reward_payouts(0);
 			for (staker, reward) in payouts {
 				assert_eq!(
 					RewardCurrency::free_balance(&staker),
