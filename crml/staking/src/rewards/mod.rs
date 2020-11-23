@@ -601,7 +601,7 @@ mod tests {
 	}
 
 	#[test]
-	fn enqueue_reward_payouts_handles_total_issuance() {
+	fn make_reward_payouts_handles_total_issuance() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = RewardCurrency::deposit_creating(&1, 1_234);
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
@@ -622,7 +622,7 @@ mod tests {
 				validator_stake_map2.as_tuple(),
 				validator_stake_map3.as_tuple(),
 			]);
-
+			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
 	}
@@ -637,6 +637,7 @@ mod tests {
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let total_payout1 = Rewards::calculate_next_reward_payout();
 			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()]);
+			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), total_payout1,);
 
 			// after reward payout, the next payout should be `0`
@@ -650,6 +651,7 @@ mod tests {
 
 			let total_payout2 = Rewards::calculate_next_reward_payout();
 			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()]);
+			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), total_payout1 + total_payout2,);
 
 			// after reward payout, the next payout should be `0`
