@@ -17,6 +17,7 @@
 
 use crate::Exposure;
 use codec::HasCompact;
+use frame_support::weights::Weight;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 
 /// Something which can perform reward payment to staked validators
@@ -33,8 +34,9 @@ pub trait StakerRewardPayment {
 	fn enqueue_reward_payouts(
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	);
-	/// Process the reward payouts considering the maximum number of blocks left over which it can split them.
-	fn process_reward_payouts(remained_blocks: Self::BlockNumber);
+	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
+	/// Return the benchmarked weight of the call.
+	fn process_reward_payouts(remained_blocks: Self::BlockNumber) -> Weight;
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;

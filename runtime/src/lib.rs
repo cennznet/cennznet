@@ -484,6 +484,7 @@ impl crml_staking_rewards::Trait for Runtime {
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type WeightInfo = ();
 }
 
 impl crml_sylo::e2ee::Trait for Runtime {

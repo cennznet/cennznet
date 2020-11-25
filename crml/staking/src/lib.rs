@@ -1357,8 +1357,7 @@ decl_module! {
 		}
 
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			T::Rewarder::process_reward_payouts(NextEraBlockNumber::<T>::get().saturating_sub(n));
-			0 // T::MaximumBlockWeight::get()
+			T::Rewarder::process_reward_payouts(NextEraBlockNumber::<T>::get().saturating_sub(n))
 		}
 	}
 }

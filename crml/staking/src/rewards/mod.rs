@@ -48,7 +48,7 @@ type NegativeImbalanceOf<T> =
 	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
-	fn process_reward_payouts(p: u32) -> Weight;
+	fn process_reward_payouts(p: usize) -> Weight;
 }
 
 pub trait Trait: frame_system::Trait {
@@ -62,6 +62,8 @@ pub trait Trait: frame_system::Trait {
 	type HistoricalPayoutEras: Get<u16>;
 	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
 	type PayoutSplitThreshold: Get<usize>;
+	/// Extrinsic weight info
+	type WeightInfo: WeightInfo;
 }
 
 decl_event!(
@@ -170,12 +172,14 @@ where
 		EraRemainedRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
 	}
 
-	fn process_reward_payouts(remained_blocks: Self::BlockNumber) {
-		let remained_payouts = Self::era_payouts().len();
+	fn process_reward_payouts(remained_blocks: Self::BlockNumber) -> Weight {
+		let remained_payouts = EraRemainedPayouts::<T>::get().len();
 		let quota = Self::calculate_payout_quota(remained_payouts, remained_blocks);
 		if quota == 0 {
-			return;
+			return 0;
 		}
+
+		let weight = T::WeightInfo::process_reward_payouts(quota);
 
 		EraRemainedPayouts::<T>::mutate(|p| {
 			let (a, m) = p.pop().unwrap_or_default();
@@ -190,7 +194,7 @@ where
 
 			let remainder = EraRemainedRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
 
-			if quota < remained_payouts {
+			if p.len() > 0 {
 				EraRemainedRewardAmount::<T>::put(remainder);
 				return;
 			}
@@ -203,6 +207,8 @@ where
 			);
 			Self::deposit_event(RawEvent::RewardPayout(total_payout_imbalance.peek(), remainder));
 		});
+
+		weight
 	}
 
 	/// Calculate the total reward payout as of right now
@@ -377,6 +383,7 @@ mod tests {
 		type TreasuryModuleId = TreasuryModuleId;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type PayoutSplitThreshold = PayoutSplitThreshold;
+		type WeightInfo = ();
 	}
 
 	// Provides configurable mock genesis storage data.

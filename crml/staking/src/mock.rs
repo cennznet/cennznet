@@ -97,7 +97,9 @@ where
 		}
 	}
 
-	fn process_reward_payouts(_remained_blocks: BlockNumber) {}
+	fn process_reward_payouts(_remained_blocks: BlockNumber) -> Weight {
+		0
+	}
 
 	// Use the pallet staking NPOS curve to determine rewards for tests.
 	// Most of the tests here are tightly coupled with this polkadot based reward model.
@@ -304,6 +306,7 @@ impl rewards::Trait for Test {
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type WeightInfo = ();
 }
 
 parameter_types! {
