@@ -21,7 +21,7 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::rewards::WeightInfo for () {
-	fn process_reward_payouts(_p: u32) -> Weight {
+	fn process_reward_payouts(p: u32) -> Weight {
 		(0 as Weight)
 			.saturating_add((35_452_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(DbWeight::get().reads(5 as Weight))
