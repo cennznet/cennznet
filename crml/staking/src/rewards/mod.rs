@@ -24,7 +24,7 @@ use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
-	weights::DispatchClass,
+	weights::{DispatchClass, Weight},
 };
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
@@ -33,6 +33,8 @@ use sp_runtime::{
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
+mod benchmarking;
+mod default_weights;
 mod types;
 pub use types::*;
 
@@ -44,6 +46,10 @@ type PositiveImbalanceOf<T> =
 /// A pending decrease to total issuance of the reward currency
 type NegativeImbalanceOf<T> =
 	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+
+pub trait WeightInfo {
+	fn process_reward_payouts(p: u32) -> Weight;
+}
 
 pub trait Trait: frame_system::Trait {
 	/// The system event type

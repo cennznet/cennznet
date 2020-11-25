@@ -140,6 +140,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"crml-cennzx/runtime-benchmarks",
 	"crml-sylo/runtime-benchmarks",
+	"crml-staking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 ]
