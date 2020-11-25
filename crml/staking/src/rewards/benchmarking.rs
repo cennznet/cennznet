@@ -39,6 +39,12 @@ benchmarks! {
 	verify {
 		assert_eq!(EraRemainedPayouts::<T>::get().len(), 0);
 	}
+
+	process_zero_payouts {
+	}: { Rewards::<T>::process_reward_payouts(0u32.into()) }
+	verify {
+		assert_eq!(EraRemainedPayouts::<T>::get().len(), 0);
+	}
 }
 
 #[cfg(test)]
@@ -51,6 +57,13 @@ mod tests {
 	fn process_reward_payouts() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_process_reward_payouts::<Test>());
+		});
+	}
+
+	#[test]
+	fn process_zero_payouts() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_process_zero_payouts::<Test>());
 		});
 	}
 }

@@ -29,4 +29,7 @@ impl crate::rewards::WeightInfo for () {
 			.saturating_add(DbWeight::get().writes(4 as Weight))
 			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(p as Weight)))
 	}
+	fn process_zero_payouts() -> Weight {
+		(7_000_000 as Weight).saturating_add(DbWeight::get().reads(1 as Weight))
+	}
 }

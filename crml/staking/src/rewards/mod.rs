@@ -49,6 +49,7 @@ type NegativeImbalanceOf<T> =
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: usize) -> Weight;
+	fn process_zero_payouts() -> Weight;
 }
 
 pub trait Trait: frame_system::Trait {
@@ -176,7 +177,7 @@ where
 		let remained_payouts = EraRemainedPayouts::<T>::get().len();
 		let quota = Self::calculate_payout_quota(remained_payouts, remained_blocks);
 		if quota == 0 {
-			return 0;
+			return T::WeightInfo::process_zero_payouts();
 		}
 
 		let weight = T::WeightInfo::process_reward_payouts(quota);
