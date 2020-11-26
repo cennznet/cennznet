@@ -201,7 +201,7 @@ where
 				EraRemainingRewardAmount::<T>::put(remainder);
 				return;
 			}
-			EraRemainingRewardAmount::<T>::put(BalanceOf::<T>::zero());
+			EraRemainingRewardAmount::<T>::kill();
 
 			// Any unallocated reward amount can go to the development fund
 			total_payout_imbalance.subsume(
@@ -282,21 +282,24 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Return the number of reward payouts that need to be processed in the current block.
-	/// The result is dependant on the number of the current era's remaining payouts and the number
+	/// The result is dependent on the number of the current era's remaining payouts and the number
 	/// of remaining blocks before a new era.
 	fn calculate_payout_quota(remaining_payouts: usize, remaining_blocks: T::BlockNumber) -> usize {
-		let payout_split_threshold = T::PayoutSplitThreshold::get();
-		if remaining_payouts <= payout_split_threshold || remaining_blocks == Zero::zero() {
+		if remaining_blocks == Zero::zero() {
 			return remaining_payouts;
 		}
+
+		let payout_split_threshold = T::PayoutSplitThreshold::get();
+
+		if remaining_payouts <= payout_split_threshold {
+			return remaining_payouts;
+		}
+
 		let remaining_payouts =
 			<T::BlockNumber as UniqueSaturatedFrom<usize>>::unique_saturated_from(remaining_payouts);
 		let min_payouts = remaining_payouts / (remaining_blocks + One::one());
 		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<usize>>::unique_saturated_into(min_payouts);
-		if min_payouts < payout_split_threshold {
-			return payout_split_threshold;
-		}
-		min_payouts
+		min_payouts.max(payout_split_threshold)
 	}
 }
 
