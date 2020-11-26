@@ -107,7 +107,8 @@ commands:
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
               IMAGE_TAG="develop-${CIRCLE_SHA1:0:6}"
             else
-              IMAGE_TAG="${CIRCLE_BRANCH////-}"
+              echo "${CIRCLE_TAG}"
+              IMAGE_TAG="${CIRCLE_TAG}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --build-arg RUST_VERSION=$RUST_VERSION --build-arg RUST_NIGHTLY=$RUST_NIGHTLY --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
@@ -185,7 +186,9 @@ workflows:
       - build-docker-and-publish:
           context: Rust
           filters:
+            tags:
+              only:
+                - /^[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
             branches:
               only:
                 - develop
-                - /^release\/[0-9]+[.][0-9]+[.][0-9](-rc.+)?$/
