@@ -174,9 +174,9 @@ where
 	}
 
 	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
-		let remaining_payouts = EraRemainingPayouts::<T>::get().len();
+		let remaining_payouts = EraRemainingPayouts::<T>::decode_len().unwrap_or_else(Zero::zero);
 		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
-		if quota == 0 {
+		if quota.is_zero() {
 			return T::WeightInfo::process_zero_payouts();
 		}
 
