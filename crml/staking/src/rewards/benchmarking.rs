@@ -33,17 +33,17 @@ benchmarks! {
 		let p in 1..T::PayoutSplitThreshold::get() as u32;
 		for i in 0..p {
 			let payout: BalanceOf<T> = 7u32.into();
-			EraRemainedPayouts::<T>::mutate(|p| p.push((account("payee", i, SEED), payout)));
+			EraRemainingPayouts::<T>::mutate(|p| p.push((account("payee", i, SEED), payout)));
 		}
 	}: { Rewards::<T>::process_reward_payouts(0u32.into()) }
 	verify {
-		assert_eq!(EraRemainedPayouts::<T>::get().len(), 0);
+		assert_eq!(EraRemainingPayouts::<T>::get().len(), 0);
 	}
 
 	process_zero_payouts {
 	}: { Rewards::<T>::process_reward_payouts(0u32.into()) }
 	verify {
-		assert_eq!(EraRemainedPayouts::<T>::get().len(), 0);
+		assert_eq!(EraRemainingPayouts::<T>::get().len(), 0);
 	}
 }
 

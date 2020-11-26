@@ -36,7 +36,7 @@ pub trait StakerRewardPayment {
 	);
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
 	/// Return the benchmarked weight of the call.
-	fn process_reward_payouts(remained_blocks: Self::BlockNumber) -> Weight;
+	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight;
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;

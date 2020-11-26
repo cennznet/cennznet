@@ -97,7 +97,7 @@ where
 		}
 	}
 
-	fn process_reward_payouts(_remained_blocks: BlockNumber) -> Weight {
+	fn process_reward_payouts(_: BlockNumber) -> Weight {
 		0
 	}
 

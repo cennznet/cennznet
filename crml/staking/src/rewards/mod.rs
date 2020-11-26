@@ -87,10 +87,10 @@ decl_storage! {
 		pub TransactionFeePot get(fn transaction_fee_pot): BalanceOf<T>;
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
-		/// Remained reward amount in an era
-		pub EraRemainedRewardAmount get(fn era_total_payout): BalanceOf<T>;
+		/// Remaining reward amount in an era
+		pub EraRemainingRewardAmount get(fn era_remaining_reward_amount): BalanceOf<T>;
 		/// Hold the latest not processed payouts
-		pub EraRemainedPayouts get(fn era_payouts): Vec<(T::AccountId, BalanceOf<T>)>;
+		pub EraRemainingPayouts get(fn era_payouts): Vec<(T::AccountId, BalanceOf<T>)>;
 	}
 }
 
@@ -167,22 +167,22 @@ where
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
 			})
 			.for_each(|(account, payout)| {
-				EraRemainedPayouts::<T>::mutate(|p| p.push((account, payout)));
+				EraRemainingPayouts::<T>::mutate(|p| p.push((account, payout)));
 			});
 
-		EraRemainedRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
+		EraRemainingRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
 	}
 
-	fn process_reward_payouts(remained_blocks: Self::BlockNumber) -> Weight {
-		let remained_payouts = EraRemainedPayouts::<T>::get().len();
-		let quota = Self::calculate_payout_quota(remained_payouts, remained_blocks);
+	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
+		let remaining_payouts = EraRemainingPayouts::<T>::get().len();
+		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
 		if quota == 0 {
 			return T::WeightInfo::process_zero_payouts();
 		}
 
 		let weight = T::WeightInfo::process_reward_payouts(quota);
 
-		EraRemainedPayouts::<T>::mutate(|p| {
+		EraRemainingPayouts::<T>::mutate(|p| {
 			let (a, m) = p.pop().unwrap_or_default();
 			let mut total_payout_imbalance =
 				T::CurrencyToReward::deposit_into_existing(&a, m).unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero());
@@ -193,13 +193,13 @@ where
 				}
 			}
 
-			let remainder = EraRemainedRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
+			let remainder = EraRemainingRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
 
 			if p.len() > 0 {
-				EraRemainedRewardAmount::<T>::put(remainder);
+				EraRemainingRewardAmount::<T>::put(remainder);
 				return;
 			}
-			EraRemainedRewardAmount::<T>::put(BalanceOf::<T>::zero());
+			EraRemainingRewardAmount::<T>::put(BalanceOf::<T>::zero());
 
 			// Any unallocated reward amount can go to the development fund
 			total_payout_imbalance.subsume(
@@ -280,15 +280,16 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Return the number of reward payouts that need to be processed in the current block.
-	/// The result is dependant on the number of the current era's remained payouts and the number
-	/// of remained blocks before a new era.
-	fn calculate_payout_quota(remained_payouts: usize, remained_blocks: T::BlockNumber) -> usize {
+	/// The result is dependant on the number of the current era's remaining payouts and the number
+	/// of remaining blocks before a new era.
+	fn calculate_payout_quota(remaining_payouts: usize, remaining_blocks: T::BlockNumber) -> usize {
 		let payout_split_threshold = T::PayoutSplitThreshold::get();
-		if remained_payouts <= payout_split_threshold || remained_blocks == Zero::zero() {
-			return remained_payouts;
+		if remaining_payouts <= payout_split_threshold || remaining_blocks == Zero::zero() {
+			return remaining_payouts;
 		}
-		let remained_payouts = <T::BlockNumber as UniqueSaturatedFrom<usize>>::unique_saturated_from(remained_payouts);
-		let min_payouts = remained_payouts / (remained_blocks + One::one());
+		let remaining_payouts =
+			<T::BlockNumber as UniqueSaturatedFrom<usize>>::unique_saturated_from(remaining_payouts);
+		let min_payouts = remaining_payouts / (remaining_blocks + One::one());
 		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<usize>>::unique_saturated_into(min_payouts);
 		if min_payouts < payout_split_threshold {
 			return payout_split_threshold;
@@ -640,9 +641,9 @@ mod tests {
 				validator_stake_map4.as_tuple(),
 			]);
 			Rewards::process_reward_payouts(3);
-			assert_eq!(EraRemainedPayouts::<TestRuntime>::get().len(), 2);
+			assert_eq!(EraRemainingPayouts::<TestRuntime>::get().len(), 2);
 			Rewards::process_reward_payouts(2);
-			assert_eq!(EraRemainedPayouts::<TestRuntime>::get().len(), 0);
+			assert_eq!(EraRemainingPayouts::<TestRuntime>::get().len(), 0);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
 	}
