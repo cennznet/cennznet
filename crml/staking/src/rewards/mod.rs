@@ -195,7 +195,7 @@ where
 
 			let remainder = EraRemainingRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
 
-			if p.len() > 0 {
+			if !p.is_empty() {
 				EraRemainingRewardAmount::<T>::put(remainder);
 				return;
 			}
