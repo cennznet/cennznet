@@ -297,7 +297,7 @@ impl pallet_timestamp::Trait for Test {
 
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
-	pub const PayoutSplitThreshold: usize = 10;
+	pub const PayoutSplitThreshold: u32 = 10;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
 impl rewards::Trait for Test {

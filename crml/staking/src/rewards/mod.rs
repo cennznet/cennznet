@@ -62,7 +62,7 @@ pub trait Trait: frame_system::Trait {
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
 	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
-	type PayoutSplitThreshold: Get<usize>;
+	type PayoutSplitThreshold: Get<u32>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -176,7 +176,7 @@ where
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
 	/// Return the benchmarked weight of the call.
 	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
-		let remaining_payouts = EraRemainingPayouts::<T>::decode_len().unwrap_or_else(Zero::zero);
+		let remaining_payouts = EraRemainingPayouts::<T>::decode_len().unwrap_or_else(Zero::zero) as u32;
 		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
 		if quota.is_zero() {
 			return T::WeightInfo::process_zero_payouts();
@@ -284,7 +284,7 @@ impl<T: Trait> Module<T> {
 	/// Return the number of reward payouts that need to be processed in the current block.
 	/// The result is dependent on the number of the current era's remaining payouts and the number
 	/// of remaining blocks before a new era.
-	fn calculate_payout_quota(remaining_payouts: usize, remaining_blocks: T::BlockNumber) -> usize {
+	fn calculate_payout_quota(remaining_payouts: u32, remaining_blocks: T::BlockNumber) -> u32 {
 		if remaining_blocks == Zero::zero() {
 			return remaining_payouts;
 		}
@@ -295,10 +295,9 @@ impl<T: Trait> Module<T> {
 			return remaining_payouts;
 		}
 
-		let remaining_payouts =
-			<T::BlockNumber as UniqueSaturatedFrom<usize>>::unique_saturated_from(remaining_payouts);
+		let remaining_payouts = <T::BlockNumber as UniqueSaturatedFrom<u32>>::unique_saturated_from(remaining_payouts);
 		let min_payouts = remaining_payouts / (remaining_blocks + One::one());
-		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<usize>>::unique_saturated_into(min_payouts);
+		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<u32>>::unique_saturated_into(min_payouts);
 		min_payouts.max(payout_split_threshold)
 	}
 }
@@ -382,7 +381,7 @@ mod tests {
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
-		pub const PayoutSplitThreshold: usize = 10;
+		pub const PayoutSplitThreshold: u32 = 10;
 	}
 	impl Trait for TestRuntime {
 		type Event = ();

@@ -30,7 +30,7 @@ benchmarks! {
 	_{ }
 
 	process_reward_payouts {
-		let p in 1..T::PayoutSplitThreshold::get() as u32;
+		let p in 1..T::PayoutSplitThreshold::get();
 		for i in 0..p {
 			let payout: BalanceOf<T> = 7u32.into();
 			EraRemainingPayouts::<T>::mutate(|p| p.push((account("payee", i, SEED), payout)));
