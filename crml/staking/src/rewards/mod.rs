@@ -173,6 +173,8 @@ where
 		EraRemainingRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
 	}
 
+	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
+	/// Return the benchmarked weight of the call.
 	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
 		let remaining_payouts = EraRemainingPayouts::<T>::decode_len().unwrap_or_else(Zero::zero);
 		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
