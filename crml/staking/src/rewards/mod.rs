@@ -48,7 +48,7 @@ type NegativeImbalanceOf<T> =
 	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
-	fn process_reward_payouts(p: usize) -> Weight;
+	fn process_reward_payouts(p: u32) -> Weight;
 	fn process_zero_payouts() -> Weight;
 }
 
@@ -182,7 +182,7 @@ where
 			return T::WeightInfo::process_zero_payouts();
 		}
 
-		let weight = T::WeightInfo::process_reward_payouts(quota);
+		let weight = T::WeightInfo::process_reward_payouts(quota as u32);
 
 		EraRemainingPayouts::<T>::mutate(|p| {
 			let (a, m) = p.pop().unwrap_or_default();
