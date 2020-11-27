@@ -19,7 +19,7 @@
 //!
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
 
-use crate::Exposure;
+use crate::{EraIndex, Exposure};
 use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
@@ -71,9 +71,13 @@ decl_event!(
 	pub enum Event<T>
 	where
 		Balance = BalanceOf<T>,
+		AccountId = <T as frame_system::Trait>::AccountId,
 	{
-		/// A reward payout happened (payout, remainder)
-		RewardPayout(Balance, Balance),
+		/// A reward payout happened (nominator/validator account id, amount, era in which the reward was accrued)
+		RewardPayout(AccountId, Balance, EraIndex),
+		/// All the rewards of the specified era is now processed with the following total and remainder balances
+		/// The remainder (unallocated) reward amount goes to treasury
+		AllRewardsPaidOut(EraIndex, Balance, Balance),
 	}
 );
 
@@ -87,10 +91,10 @@ decl_storage! {
 		pub TransactionFeePot get(fn transaction_fee_pot): BalanceOf<T>;
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
-		/// Remaining reward amount in an era
-		pub EraRemainingRewardAmount get(fn era_remaining_reward_amount): BalanceOf<T>;
-		/// Hold the latest not processed payouts
-		pub EraRemainingPayouts get(fn era_payouts): Vec<(T::AccountId, BalanceOf<T>)>;
+		/// Remaining reward amount of the eras which are not fully processed yet
+		pub RemainingRewardAmounts get(fn remaining_reward_amount): VecDeque<BalanceOf<T>>;
+		/// Hold the latest not processed payouts and the era when each is accrued
+		pub Payouts get(fn payouts): Vec<(T::AccountId, BalanceOf<T>, EraIndex)>;
 	}
 }
 
@@ -131,6 +135,7 @@ where
 	/// Accounts IDs are the ones which should receive payment.
 	fn enqueue_reward_payouts(
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		era: EraIndex,
 	) {
 		// Calculate the accumulated tx fee reward split
 		let fee_payout = TransactionFeePot::<T>::take();
@@ -167,16 +172,18 @@ where
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
 			})
 			.for_each(|(account, payout)| {
-				EraRemainingPayouts::<T>::mutate(|p| p.push((account, payout)));
+				Payouts::<T>::mutate(|p| p.push((account, payout, era)));
 			});
 
-		EraRemainingRewardAmount::<T>::put(total_payout.saturating_sub(total_payout_imbalance.peek()));
+		RemainingRewardAmounts::<T>::mutate(|rra| {
+			rra.push_back(total_payout.saturating_sub(total_payout_imbalance.peek()))
+		});
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
 	/// Return the benchmarked weight of the call.
 	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
-		let remaining_payouts = EraRemainingPayouts::<T>::decode_len().unwrap_or_else(Zero::zero) as u32;
+		let remaining_payouts = Payouts::<T>::decode_len().unwrap_or_else(Zero::zero) as u32;
 		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
 		if quota.is_zero() {
 			return T::WeightInfo::process_zero_payouts();
@@ -184,31 +191,75 @@ where
 
 		let weight = T::WeightInfo::process_reward_payouts(quota as u32);
 
-		EraRemainingPayouts::<T>::mutate(|p| {
-			let (a, m) = p.pop().unwrap_or_default();
-			let mut total_payout_imbalance =
-				T::CurrencyToReward::deposit_into_existing(&a, m).unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero());
+		Payouts::<T>::mutate(|p| {
+			// First payout in the current series. Without separating the first payout,
+			// I couldn't set total_payout_imbalance correctly. It's because simply assigning
+			// PositiveImbalanceOf::<T>::zero() to it, would not set the underlying asset id correctly.
+			let (first_payee, first_amount, first_era) = p.pop().unwrap_or_default();
+			let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(&first_payee, first_amount)
+				.ok()
+				.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
+			Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
+			let mut era_under_process = first_era;
+			let mut era_reward_amount = first_amount;
 
 			for _ in 1..quota {
-				if let Some((a, m)) = p.pop() {
-					total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&a, m).ok());
+				if let Some((payee, amount, era)) = p.pop() {
+					if era > era_under_process {
+						RemainingRewardAmounts::<T>::mutate(|rra| {
+							let remainder = rra
+								.pop_front()
+								.unwrap_or_default()
+								.saturating_sub(total_payout_imbalance.peek());
+							total_payout_imbalance.maybe_subsume(
+								T::CurrencyToReward::deposit_into_existing(
+									&T::TreasuryModuleId::get().into_account(),
+									remainder,
+								)
+								.ok(),
+							);
+							Self::deposit_event(RawEvent::AllRewardsPaidOut(
+								era_under_process,
+								era_reward_amount,
+								remainder,
+							));
+						});
+						era_under_process = era;
+						era_reward_amount = Zero::zero();
+					}
+					total_payout_imbalance
+						.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&payee, amount).ok());
+					Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
+					era_reward_amount += amount;
 				}
 			}
 
-			let remainder = EraRemainingRewardAmount::<T>::get().saturating_sub(total_payout_imbalance.peek());
-
-			if !p.is_empty() {
-				EraRemainingRewardAmount::<T>::put(remainder);
-				return;
+			if p.is_empty() {
+				RemainingRewardAmounts::<T>::mutate(|rra| {
+					let remainder = rra
+						.pop_front()
+						.unwrap_or_default()
+						.saturating_sub(total_payout_imbalance.peek());
+					total_payout_imbalance.maybe_subsume(
+						T::CurrencyToReward::deposit_into_existing(
+							&T::TreasuryModuleId::get().into_account(),
+							remainder,
+						)
+						.ok(),
+					);
+					Self::deposit_event(RawEvent::AllRewardsPaidOut(
+						era_under_process,
+						era_reward_amount,
+						remainder,
+					));
+				});
+			} else {
+				RemainingRewardAmounts::<T>::mutate(|rra| {
+					if let Some(remainder) = rra.front_mut() {
+						*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
+					}
+				});
 			}
-			EraRemainingRewardAmount::<T>::kill();
-
-			// Any unallocated reward amount can go to the development fund
-			total_payout_imbalance.subsume(
-				T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
-					.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero()),
-			);
-			Self::deposit_event(RawEvent::RewardPayout(total_payout_imbalance.peek(), remainder));
 		});
 
 		weight
@@ -565,7 +616,7 @@ mod tests {
 			let mock_commission_stake_map =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let total_payout = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()]);
+			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
 
 			let development_fund = RewardCurrency::free_balance(&TreasuryModuleId::get().into_account());
 			let take = Rewards::development_fund_take();
@@ -638,16 +689,19 @@ mod tests {
 				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let validator_stake_map4 =
 				MockCommissionStakeInfo::new((30, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			Rewards::enqueue_reward_payouts(&[
-				validator_stake_map1.as_tuple(),
-				validator_stake_map2.as_tuple(),
-				validator_stake_map3.as_tuple(),
-				validator_stake_map4.as_tuple(),
-			]);
+			Rewards::enqueue_reward_payouts(
+				&[
+					validator_stake_map1.as_tuple(),
+					validator_stake_map2.as_tuple(),
+					validator_stake_map3.as_tuple(),
+					validator_stake_map4.as_tuple(),
+				],
+				0,
+			);
 			Rewards::process_reward_payouts(3);
-			assert_eq!(EraRemainingPayouts::<TestRuntime>::get().len(), 2);
+			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
 			Rewards::process_reward_payouts(2);
-			assert_eq!(EraRemainingPayouts::<TestRuntime>::get().len(), 0);
+			assert_eq!(Payouts::<TestRuntime>::get().len(), 0);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
 	}
@@ -669,11 +723,14 @@ mod tests {
 				MockCommissionStakeInfo::new((10, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let validator_stake_map3 =
 				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			Rewards::enqueue_reward_payouts(&[
-				validator_stake_map1.as_tuple(),
-				validator_stake_map2.as_tuple(),
-				validator_stake_map3.as_tuple(),
-			]);
+			Rewards::enqueue_reward_payouts(
+				&[
+					validator_stake_map1.as_tuple(),
+					validator_stake_map2.as_tuple(),
+					validator_stake_map3.as_tuple(),
+				],
+				0,
+			);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
@@ -688,7 +745,7 @@ mod tests {
 			let mock_commission_stake_map =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let total_payout1 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()]);
+			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), total_payout1,);
 
@@ -702,7 +759,7 @@ mod tests {
 			Rewards::note_transaction_fees(round2_reward);
 
 			let total_payout2 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()]);
+			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), total_payout1 + total_payout2,);
 
@@ -745,7 +802,7 @@ mod tests {
 
 			// Run the payout for real
 			Rewards::note_transaction_fees(reward);
-			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()]);
+			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()], 0);
 			Rewards::process_reward_payouts(0);
 			for (staker, reward) in payouts {
 				assert_eq!(
@@ -821,7 +878,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let reward = 1_000;
 			Rewards::note_transaction_fees(reward);
-			Rewards::enqueue_reward_payouts(Default::default());
+			Rewards::enqueue_reward_payouts(Default::default(), 0);
 
 			assert!(Rewards::transaction_fee_pot().is_zero());
 			assert!(Rewards::calculate_next_reward_payout().is_zero());

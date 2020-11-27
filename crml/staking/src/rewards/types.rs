@@ -15,7 +15,7 @@
 
 //! Staking reward types
 
-use crate::Exposure;
+use crate::{EraIndex, Exposure};
 use codec::HasCompact;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
@@ -33,6 +33,7 @@ pub trait StakerRewardPayment {
 	/// a validator + nominator exposure map.
 	fn enqueue_reward_payouts(
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		era: EraIndex,
 	);
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
 	/// Return the benchmarked weight of the call.

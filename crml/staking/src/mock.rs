@@ -71,6 +71,7 @@ where
 	/// Rewards are further distributed to nominators pro-rata their contributed stake.
 	fn enqueue_reward_payouts(
 		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		_era: EraIndex,
 	) {
 		let total_payout = Self::calculate_next_reward_payout();
 		let points = Staking::current_era_points();
