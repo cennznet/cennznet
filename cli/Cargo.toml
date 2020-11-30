@@ -38,7 +38,7 @@ sc-client-api = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockcha
 sp-runtime = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
-jsonrpc-core = "15.0.0"
+jsonrpc-core = "14.0.3"
 pallet-transaction-payment-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-api = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
