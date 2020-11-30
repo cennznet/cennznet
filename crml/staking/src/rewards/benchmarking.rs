@@ -33,7 +33,7 @@ benchmarks! {
 		let p in 1..T::PayoutSplitThreshold::get();
 		for i in 0..p {
 			let payout: BalanceOf<T> = 7u32.into();
-			Payouts::<T>::mutate(|p| p.push((account("payee", i, SEED), payout, 0)));
+			Payouts::<T>::mutate(|p| p.push_back((account("payee", i, SEED), payout, 0)));
 		}
 	}: { Rewards::<T>::process_reward_payouts(0u32.into()) }
 	verify {
