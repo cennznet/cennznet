@@ -107,7 +107,8 @@ commands:
             if [ "${CIRCLE_BRANCH}" == "develop" ]; then
               IMAGE_TAG="develop-${CIRCLE_SHA1:0:6}"
             else
-              IMAGE_TAG="${GIT_TAG}"
+              echo "${CIRCLE_TAG}"
+              IMAGE_TAG="${CIRCLE_TAG}"
             fi
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
             docker build --build-arg RUST_VERSION=$RUST_VERSION --build-arg RUST_NIGHTLY=$RUST_NIGHTLY --pull -t $IMAGE_NAME:$IMAGE_TAG -f ./Dockerfile .
@@ -174,8 +175,6 @@ jobs:
   build-docker-and-publish:
     machine:
       image: ubuntu-1604:201903-01
-    environment:
-      GIT_TAG: pipeline.git.tag
     steps:
       - checkout
       - docker-build-and-publish
