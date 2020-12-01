@@ -153,6 +153,7 @@ jobs:
       BASH_ENV: ~/.cargo/env
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 10G
+      GIT_TAG: pipeline.git.tag
     steps:
       - checkout
       - install-rust
