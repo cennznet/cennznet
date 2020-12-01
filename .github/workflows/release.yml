@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - "release/*"
     types:
       - labeled
   # only trigger merge when branch protections (configured in github settings) are met:
