@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - "release/*"
     types:
       - labeled
   # only trigger merge when branch protections (configured in github settings) are met:
@@ -27,6 +28,7 @@ jobs:
         MERGE_LABELS: automerge
         MERGE_METHOD: squash
   release-to-github:
+    if: ${{ startsWith(github.head_ref, 'prerelease/') }} && ${{ github.event.label.name == 'automerge' }}
     needs:
     - merge-release-branch
     runs-on: [self-hosted, linux]
@@ -34,7 +36,7 @@ jobs:
     - name: Check out develop
       uses: actions/checkout@v2
       with:
-        ref: develop
+        ref: release/1.2.0
     - name: Find release version
       id: find_version
       run: |
