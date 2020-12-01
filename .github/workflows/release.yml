@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - "prerelease/*"
   pull_request:
     branches:
       - develop
