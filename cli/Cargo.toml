@@ -1,6 +1,6 @@
 [package]
 name = "cennznet-cli"
-version = "1.2.0-hotfix.1"
+version = "1.2.0-hotfix.2"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "CENNZnet node implementation in Rust."
 build = "build.rs"
@@ -15,67 +15,67 @@ futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
-sc-authority-discovery = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-chain-spec = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-cli = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-core = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-executor = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-keystore = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-inherents = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-transaction-pool = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-transaction-pool = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-authority-discovery = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
-sp-consensus-babe = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-epochs = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-network = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-finality-grandpa = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-client-api = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-runtime = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-authority-discovery = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-cli = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-core = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-executor = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-keystore = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-inherents = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-transaction-pool = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-transaction-pool = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
+sp-consensus-babe = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-grandpa = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-client-api = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-runtime = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "14.0.3"
-pallet-transaction-payment-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-api = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc-api = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-blockchain = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-block-builder = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-basic-authorship = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-substrate-frame-rpc-system = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+pallet-transaction-payment-rpc = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-api = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc-api = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-blockchain = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-block-builder = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-basic-authorship = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-frame-rpc-system = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-benchmarking-cli = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking-cli = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
-prml-generic-asset-rpc = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-prml-generic-asset = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset-rpc = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "hotfix-2.0.2-1" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "a0c86c119" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.5", features = ["derive"] }
-sp-finality-tracker = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-keyring = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-timestamp = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service-test = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-system = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-tracker = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { rev = "hotfix-2.0.2-1", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-build-script-utils = { rev = "a0c86c119", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 [features]
 default = []

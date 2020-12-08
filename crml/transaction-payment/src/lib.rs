@@ -193,7 +193,7 @@ where
 		let s = S::get();
 		let v = V::get();
 
-		let target_weight = (s * normal_max_weight) as u128;
+		let target_weight = (s * normal_max_weight as u64) as u128;
 		let block_weight = normal_block_weight as u128;
 
 		// determines if the first_term is positive
@@ -310,7 +310,7 @@ decl_module! {
 			let min_value = T::FeeMultiplierUpdate::min();
 			let mut target =
 				T::FeeMultiplierUpdate::target() *
-				(T::AvailableBlockRatio::get() * T::MaximumBlockWeight::get());
+				(T::AvailableBlockRatio::get() * T::MaximumBlockWeight::get() as u64);
 
 			// add 1 percent;
 			let addition = target / 100;
@@ -321,7 +321,7 @@ decl_module! {
 			target += addition;
 
 			sp_io::TestExternalities::new_empty().execute_with(|| {
-				<frame_system::Module<T>>::set_block_limits(target, 0);
+				<frame_system::Module<T>>::set_block_limits(target as u32, 0);
 				let next = T::FeeMultiplierUpdate::convert(min_value);
 				assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
 					block saturation is more than target by 1% and multiplier is minimal then \
@@ -600,7 +600,7 @@ where
 	fn get_priority(len: usize, info: &DispatchInfoOf<T::Call>, final_fee: BalanceOf<T>) -> TransactionPriority {
 		let weight_saturation = T::MaximumBlockWeight::get() / info.weight.max(1);
 		let len_saturation = T::MaximumBlockLength::get() as u64 / (len as u64).max(1);
-		let coefficient: BalanceOf<T> = weight_saturation.min(len_saturation).saturated_into::<BalanceOf<T>>();
+		let coefficient: BalanceOf<T> = weight_saturation.min(len_saturation as u32).saturated_into::<BalanceOf<T>>();
 		final_fee
 			.saturating_mul(coefficient)
 			.saturated_into::<TransactionPriority>()

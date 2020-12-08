@@ -1875,8 +1875,8 @@ where
 			});
 
 			if let Some(mut unapplied) = unapplied {
-				let nominators_len = unapplied.others.len() as u64;
-				let reporters_len = details.reporters.len() as u64;
+				let nominators_len = unapplied.others.len() as u32;
+				let reporters_len = details.reporters.len() as u32;
 
 				{
 					let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
