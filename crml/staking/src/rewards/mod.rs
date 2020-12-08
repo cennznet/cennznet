@@ -92,7 +92,7 @@ decl_storage! {
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
 		/// Remaining reward amount of the eras which are not fully processed yet
-		pub RemainingRewardAmounts get(fn remaining_reward_amount): VecDeque<BalanceOf<T>>;
+		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
 	}
@@ -175,9 +175,7 @@ where
 				Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
 			});
 
-		RemainingRewardAmounts::<T>::mutate(|rra| {
-			rra.push_back(total_payout.saturating_sub(total_payout_imbalance.peek()))
-		});
+		QueuedEraRewards::<T>::mutate(|rra| rra.push_back(total_payout.saturating_sub(total_payout_imbalance.peek())));
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
@@ -205,7 +203,7 @@ where
 
 			let clear_up = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
 				let mut remainder = Zero::zero();
-				RemainingRewardAmounts::<T>::mutate(|rra| {
+				QueuedEraRewards::<T>::mutate(|rra| {
 					remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
 					imbalance.maybe_subsume(
 						T::CurrencyToReward::deposit_into_existing(
@@ -245,7 +243,7 @@ where
 					remainder,
 				));
 			} else {
-				RemainingRewardAmounts::<T>::mutate(|rra| {
+				QueuedEraRewards::<T>::mutate(|rra| {
 					if let Some(remainder) = rra.front_mut() {
 						*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
 					}
@@ -327,7 +325,7 @@ impl<T: Trait> Module<T> {
 	/// The result is dependent on the number of the current era's remaining payouts and the number
 	/// of remaining blocks before a new era.
 	fn calculate_payout_quota(remaining_payouts: u32, remaining_blocks: T::BlockNumber) -> u32 {
-		if remaining_blocks == Zero::zero() {
+		if remaining_blocks.is_zero() {
 			return remaining_payouts;
 		}
 
@@ -725,17 +723,16 @@ mod tests {
 			let tx_fee_reward = 1_000_000;
 
 			let validators_number = 4;
-			let mut validators_stake_info = vec![];
-			for i in 0..validators_number {
-				validators_stake_info.push(
+			let validators_stake_info: Vec<(AccountId, Perbill, Exposure<AccountId, Balance>)> = (0..validators_number)
+				.map(|i| {
 					MockCommissionStakeInfo::new(
 						((i + 1) * 10, 1_000),
 						vec![(2, 2_000), (3, 3_000)],
 						Perbill::from_percent(10),
 					)
-					.as_tuple(),
-				);
-			}
+					.as_tuple()
+				})
+				.collect();
 
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);

@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Staking module benchmarking.
+//! Staking module benchmarking. Use a command such as the following to execute the benchmarks:
+//! ./target/release/cennznet benchmark --chain dev --execution=wasm --wasm-execution=compiled \
+//! --pallet crml_staking_rewards --extrinsic "*" --steps 50 --repeat 20 --output
+//! The output would be a file called crml_staking_rewards.rs.
 
 #![cfg(feature = "runtime-benchmarks")]
 
