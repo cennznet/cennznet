@@ -189,67 +189,63 @@ where
 
 		let weight = T::WeightInfo::process_reward_payouts(quota as u32);
 
-		Payouts::<T>::mutate(|p| {
-			// First payout in the current series. Without separating the first payout,
-			// I couldn't set total_payout_imbalance correctly. It's because simply assigning
-			// PositiveImbalanceOf::<T>::zero() to it, would not set the underlying asset id correctly.
-			let (first_payee, first_amount, first_era) = p.pop_front().unwrap_or_default();
-			let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(&first_payee, first_amount)
-				.ok()
-				.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
-			Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
-			let mut era_under_process = first_era;
-			let mut era_reward_amount = first_amount;
+		let mut payouts = Payouts::<T>::get();
 
-			let clear_up = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
-				let mut remainder = Zero::zero();
-				QueuedEraRewards::<T>::mutate(|rra| {
-					remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
-					imbalance.maybe_subsume(
-						T::CurrencyToReward::deposit_into_existing(
-							&T::TreasuryModuleId::get().into_account(),
-							remainder,
-						)
+		// First payout in the current series, gives the right context for processing the rest.
+		let (first_payee, first_amount, first_era) = payouts.pop_front().unwrap_or_default();
+		let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(&first_payee, first_amount)
+			.ok()
+			.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
+		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
+		let mut era_under_process = first_era;
+		let mut era_reward_amount = first_amount;
+
+		let clear_up = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
+			let mut remainder = Zero::zero();
+			QueuedEraRewards::<T>::mutate(|rra| {
+				remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
+				imbalance.maybe_subsume(
+					T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
 						.ok(),
-					);
-				});
-				remainder
-			};
+				);
+			});
+			remainder
+		};
 
-			for _ in 1..quota {
-				if let Some((payee, amount, era)) = p.pop_front() {
-					if era > era_under_process {
-						let remainder = clear_up(&mut total_payout_imbalance);
-						Self::deposit_event(RawEvent::AllRewardsPaidOut(
-							era_under_process,
-							era_reward_amount,
-							remainder,
-						));
-						era_under_process = era;
-						era_reward_amount = Zero::zero();
-					}
-					total_payout_imbalance
-						.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&payee, amount).ok());
-					Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
-					era_reward_amount += amount;
+		for _ in 1..quota {
+			if let Some((payee, amount, era)) = payouts.pop_front() {
+				if era > era_under_process {
+					let remainder = clear_up(&mut total_payout_imbalance);
+					Self::deposit_event(RawEvent::AllRewardsPaidOut(
+						era_under_process,
+						era_reward_amount,
+						remainder,
+					));
+					era_under_process = era;
+					era_reward_amount = Zero::zero();
 				}
+				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&payee, amount).ok());
+				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
+				era_reward_amount += amount;
 			}
+		}
 
-			if p.is_empty() {
-				let remainder = clear_up(&mut total_payout_imbalance);
-				Self::deposit_event(RawEvent::AllRewardsPaidOut(
-					era_under_process,
-					era_reward_amount,
-					remainder,
-				));
-			} else {
-				QueuedEraRewards::<T>::mutate(|rra| {
-					if let Some(remainder) = rra.front_mut() {
-						*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
-					}
-				});
-			}
-		});
+		if payouts.is_empty() {
+			let remainder = clear_up(&mut total_payout_imbalance);
+			Self::deposit_event(RawEvent::AllRewardsPaidOut(
+				era_under_process,
+				era_reward_amount,
+				remainder,
+			));
+		} else {
+			QueuedEraRewards::<T>::mutate(|rra| {
+				if let Some(remainder) = rra.front_mut() {
+					*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
+				}
+			});
+		}
+
+		Payouts::<T>::put(payouts);
 
 		weight
 	}
