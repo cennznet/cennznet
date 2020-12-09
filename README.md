@@ -1,5 +1,5 @@
 # CENNZnet Node
-[![license: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](LICENSE) [![CircleCI](https://circleci.com/gh/cennznet/cennznet.svg?style=shield)](https://circleci.com/gh/cennznet/cennznet) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
+[![license: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](LICENSE) ![ci status badge](https://github.com/cennznet/cennznet/workflows/CI/badge.svg) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
 CENNZnet node based on [Plug](https://github.com/plugblockchain/plug-blockchain)
 
@@ -18,7 +18,10 @@ Now you can proceed to the terminal with the following command:
 # Start a local validator on a development chain
 $ docker run \
     -p 9933:9933 -p 9944:9944 \
-    cennznet/cennznet:1.1.0 --dev --unsafe-ws-external --unsafe-rpc-external
+    cennznet/cennznet:1.2.1 \
+    --dev \
+    --unsafe-ws-external \
+    --unsafe-rpc-external \
 ```
 
 ### Using the source code
