@@ -75,9 +75,8 @@ decl_event!(
 	{
 		/// A reward payout happened (nominator/validator account id, amount, era in which the reward was accrued)
 		RewardPayout(AccountId, Balance, EraIndex),
-		/// All the rewards of the specified era is now processed with the following total and remainder balances
-		/// The remainder (unallocated) reward amount goes to treasury
-		AllRewardsPaidOut(EraIndex, Balance, Balance),
+		/// All the rewards of the specified era is now processed with an unallocated `remainder` that went to treasury
+		AllRewardsPaidOut(EraIndex, Balance),
 	}
 );
 
@@ -196,7 +195,6 @@ where
 			.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
 		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
 		let mut era_under_process = first_era;
-		let mut era_reward_amount = first_amount;
 
 		let handle_remainder = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
 			let mut remainder = Zero::zero();
@@ -214,27 +212,17 @@ where
 			if let Some((payee, amount, era)) = payouts.pop_front() {
 				if era > era_under_process {
 					let remainder = handle_remainder(&mut total_payout_imbalance);
-					Self::deposit_event(RawEvent::AllRewardsPaidOut(
-						era_under_process,
-						era_reward_amount,
-						remainder,
-					));
+					Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
 					era_under_process = era;
-					era_reward_amount = Zero::zero();
 				}
 				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&payee, amount).ok());
 				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
-				era_reward_amount += amount;
 			}
 		}
 
 		if payouts.is_empty() {
 			let remainder = handle_remainder(&mut total_payout_imbalance);
-			Self::deposit_event(RawEvent::AllRewardsPaidOut(
-				era_under_process,
-				era_reward_amount,
-				remainder,
-			));
+			Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
 		} else {
 			QueuedEraRewards::<T>::mutate(|rra| {
 				if let Some(remainder) = rra.front_mut() {
@@ -747,7 +735,7 @@ mod tests {
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 4);
 
 			let events = TestSystem::events();
-			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 315000, 0));
+			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0));
 			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 1);
 			assert!(events.iter().any(|record| record.event == expected_event));
 
@@ -758,7 +746,7 @@ mod tests {
 			assert_eq!(events.len() as u64, validators_number * 6 + 2);
 			assert_eq!(
 				events.last().unwrap().event,
-				TestEvent::rewards(RawEvent::AllRewardsPaidOut(2, 562500, 0))
+				TestEvent::rewards(RawEvent::AllRewardsPaidOut(2, 0))
 			)
 		});
 	}
