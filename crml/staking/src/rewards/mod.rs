@@ -198,7 +198,7 @@ where
 		let mut era_under_process = first_era;
 		let mut era_reward_amount = first_amount;
 
-		let clear_up = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
+		let handle_remainder = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
 			let mut remainder = Zero::zero();
 			QueuedEraRewards::<T>::mutate(|rra| {
 				remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
@@ -213,7 +213,7 @@ where
 		for _ in 1..quota {
 			if let Some((payee, amount, era)) = payouts.pop_front() {
 				if era > era_under_process {
-					let remainder = clear_up(&mut total_payout_imbalance);
+					let remainder = handle_remainder(&mut total_payout_imbalance);
 					Self::deposit_event(RawEvent::AllRewardsPaidOut(
 						era_under_process,
 						era_reward_amount,
@@ -229,7 +229,7 @@ where
 		}
 
 		if payouts.is_empty() {
-			let remainder = clear_up(&mut total_payout_imbalance);
+			let remainder = handle_remainder(&mut total_payout_imbalance);
 			Self::deposit_event(RawEvent::AllRewardsPaidOut(
 				era_under_process,
 				era_reward_amount,
