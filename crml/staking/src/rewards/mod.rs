@@ -154,12 +154,10 @@ where
 		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
 		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
 		// This ensures only one storage update to total issuance will happen when dropped.
-		let total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(
+		let _ = T::CurrencyToReward::deposit_into_existing(
 			&T::TreasuryModuleId::get().into_account(),
 			development_fund_payout,
-			// `deposit_into_existing` is infallible but be defensive
-		)
-		.unwrap_or_else(|_| PositiveImbalanceOf::<T>::zero());
+		);
 
 		let validator_payout = total_payout.saturating_sub(development_fund_payout);
 
@@ -175,7 +173,7 @@ where
 				Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
 			});
 
-		QueuedEraRewards::<T>::mutate(|rra| rra.push_back(total_payout.saturating_sub(total_payout_imbalance.peek())));
+		QueuedEraRewards::<T>::mutate(|q| q.push_back(validator_payout));
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
@@ -611,12 +609,18 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let mock_commission_stake_map =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
+			let tx_fee_reward = 1_000_000;
+			Rewards::note_transaction_fees(tx_fee_reward);
 			let total_payout = Rewards::calculate_next_reward_payout();
 			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
 
 			let development_fund = RewardCurrency::free_balance(&TreasuryModuleId::get().into_account());
 			let take = Rewards::development_fund_take();
 			assert_eq!(development_fund, take * total_payout,);
+			assert_eq!(
+				Rewards::queued_era_rewards()[0],
+				total_payout.saturating_sub(development_fund)
+			);
 		});
 	}
 
