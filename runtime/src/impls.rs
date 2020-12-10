@@ -29,6 +29,23 @@ use smallvec::smallvec;
 use sp_runtime::{traits::Convert, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
 
+// TODO uncomment the following code after enable cennznet staking module
+// use crate::NegativeImbalance
+// pub struct SplitToAllValidators;
+//
+// /// This handles the ```NegativeImbalance``` created for transaction fee.
+// /// The reward is split evenly and distributed to all of the current elected validators.
+// /// The remainder from the division are burned.
+// impl OnUnbalanced<NegativeImbalance> for SplitToAllValidators {
+// 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
+// 		let amount = imbalance.peek();
+//
+// 		if !amount.is_zero() {
+// 			crml_staking::Module::<Runtime>::add_to_current_era_transaction_fee_reward(amount);
+// 		}
+// 	}
+// }
+
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
 pub struct CurrencyToVoteHandler;
