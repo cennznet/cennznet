@@ -339,10 +339,6 @@ pub fn new_full_base(
 	};
 
 	if enable_grandpa {
-		azalea_v36_grandpa_hotfix(
-			&client,
-			&mut grandpa_link.persistent_data,
-		);
 		// start the full GRANDPA voter
 		// NOTE: non-authorities could run the GRANDPA observer protocol, but at
 		// this point the full voter should provide better guarantees of block
