@@ -404,8 +404,8 @@ pub fn azalea_v36_chain_hotfix(config: &Configuration) {
 
 // Timewarp back to v36 runtime after failing upgrade at `0x5a267f7bf55f95839fb739d3f9895b74e9f36df1bcda2ac6aa3688316e8e28ef`
 pub fn azalea_v36_grandpa_hotfix(
-	client: &service::TFullClient<Block, RuntimeApi, Executor>,
-	persistent_data: &mut grandpa::PersistentData<Block>,
+	client: &FullClient,
+	persistent_data: &mut sc_finality_grandpa::PersistentData<Block>,
 ) {
 	let authority_set = &persistent_data.authority_set;
 
