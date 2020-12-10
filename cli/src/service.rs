@@ -254,7 +254,7 @@ pub fn new_full_base(
 		system_rpc_tx,
 	})?;
 
-	let (block_import, grandpa_link, babe_link) = import_setup;
+	let (block_import, mut grandpa_link, babe_link) = import_setup;
 
 	(with_startup_data)(&block_import, &babe_link);
 
@@ -339,6 +339,10 @@ pub fn new_full_base(
 	};
 
 	if enable_grandpa {
+		azalea_v36_grandpa_hotfix(
+			&client,
+			&mut grandpa_link.persistent_data,
+		);
 		// start the full GRANDPA voter
 		// NOTE: non-authorities could run the GRANDPA observer protocol, but at
 		// this point the full voter should provide better guarantees of block
@@ -388,10 +392,10 @@ pub fn azalea_v36_chain_hotfix(config: &Configuration) {
 
 	let (mut client, _, _, _) = sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config).unwrap();
 
-	let fork_block = 4155072;
+	let fork_block = 4155075;
 	let fork_hash = sp_core::H256::from_str(
-		"0x5a267f7bf55f95839fb739d3f9895b74e9f36df1bcda2ac6aa3688316e8e28ef",
-	).unwrap();
+		"7908e9754dad4afa076b6850e44930c69c712707be7068ea045adc0d012b6278",
+	).expect("it parses hex");
 
 	let best_number = client.info().best_number;
 	let target_hash = client.hash(fork_block).unwrap();
