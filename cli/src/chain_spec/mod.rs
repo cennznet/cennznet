@@ -42,9 +42,6 @@ pub use cennznet_runtime::GenesisConfig;
 pub mod dev;
 pub mod nikau;
 
-/// Specialized `ChainSpec`.
-pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
-
 type AccountPublic = <Signature as Verify>::Signer;
 
 /// A type contains authority keys

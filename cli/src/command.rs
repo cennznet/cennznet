@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::chain_spec::{self, CENNZnetChainSpec};
+use crate::chain_spec::{self, ChainSpec as CENNZnetChainSpec};
 use crate::cli::{Cli, Subcommand};
 use crate::service;
 use cennznet_runtime::Block;
-use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_cli::{Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
@@ -56,7 +56,7 @@ impl SubstrateCli for Cli {
 		})
 	}
 
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+	fn native_runtime_version(_: &Box<dyn sc_service::ChainSpec>) -> &'static RuntimeVersion {
 		&cennznet_runtime::VERSION
 	}
 }
