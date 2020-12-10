@@ -140,6 +140,14 @@ pub fn run() -> sc_cli::Result<()> {
 			}
 		}
 		None => {
+			let runner_once = cli.create_runner(&cli.run)?;
+
+			// AZALEA HOTFIX: revert blocks
+			let _ = runner_once.sync_run(|ref config| {
+				service::azalea_v36_chain_hotfix(config);
+				Ok(())
+			});
+
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| match config.role {
 				Role::Light => service::new_light(config),

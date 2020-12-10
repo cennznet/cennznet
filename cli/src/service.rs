@@ -381,6 +381,53 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	new_full_base(config, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
 }
 
+// Timewarp back to v36 runtime after failing upgrade at `0x5a267f7bf55f95839fb739d3f9895b74e9f36df1bcda2ac6aa3688316e8e28ef`
+pub fn azalea_v36_chain_hotfix(config: &Configuration) {
+	use std::str::FromStr;
+	use sp_blockchain::HeaderBackend;
+
+	let (mut client, _, _, _) = sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config).unwrap();
+
+	let fork_block = 4155072;
+	let fork_hash = sp_core::H256::from_str(
+		"0x5a267f7bf55f95839fb739d3f9895b74e9f36df1bcda2ac6aa3688316e8e28ef",
+	).unwrap();
+
+	let best_number = client.info().best_number;
+	let target_hash = client.hash(fork_block).unwrap();
+
+	if target_hash == Some(fork_hash) {
+		let diff = best_number.saturating_sub(fork_block - 1);
+		client.unsafe_revert(diff, true).unwrap();
+	}
+}
+
+// Timewarp back to v36 runtime after failing upgrade at `0x5a267f7bf55f95839fb739d3f9895b74e9f36df1bcda2ac6aa3688316e8e28ef`
+pub fn azalea_v36_grandpa_hotfix(
+	client: &service::TFullClient<Block, RuntimeApi, Executor>,
+	persistent_data: &mut grandpa::PersistentData<Block>,
+) {
+	let authority_set = &persistent_data.authority_set;
+
+	let finalized = {
+		use sp_blockchain::HeaderBackend;
+		let info = client.info();
+		(info.finalized_hash, info.finalized_number)
+	};
+
+	// 6 blocks before the upgrade
+	let canon_finalized_height = 4155065;
+	if authority_set.set_id() == 6067 && finalized.1 == canon_finalized_height {
+		let set_state = sc_finality_grandpa::environment::VoterSetState::<Block>::live(
+			authority_set.set_id(),
+			&authority_set.inner().read(),
+			finalized,
+		);
+
+		persistent_data.set_state = set_state.into();
+	}
+}
+
 pub fn new_light_base(
 	config: Configuration,
 ) -> Result<
