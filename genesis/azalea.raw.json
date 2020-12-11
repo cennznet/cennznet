@@ -2,7 +2,8 @@
   "name": "CENNZnet Azalea",
   "id": "CENNZnet Azalea V1",
   "badBlocks": [
-    "0x835be1c8e17f2c2224eb806af5cb49f24f8732f9c3b071b46fbb51e09254bb38"
+    "0x835be1c8e17f2c2224eb806af5cb49f24f8732f9c3b071b46fbb51e09254bb38",
+    "0xd457560eb3e68237c0e9d46a3715d6748c86d61f9919eea9dbae2d9626326514"
   ],
   "bootNodes": [
     "/dns4/bootnode-0.cennznet.cloud/tcp/30333/p2p/12D3KooWGvfVZMbUrp8kmc9DQkMbBwL32ybFVLhPeibaiwg6hDZf",
