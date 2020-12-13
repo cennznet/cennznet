@@ -248,8 +248,8 @@ pub(crate) mod tests {
 	}
 
 	/// Local testnet config (single validator - Alice)
-	pub fn integration_test_config_with_single_authority() -> ChainSpec {
-		ChainSpec::from_genesis(
+	pub fn integration_test_config_with_single_authority() -> CENNZnetChainSpec {
+		CENNZnetChainSpec::from_genesis(
 			"Integration Test",
 			"test",
 			ChainType::Development,
@@ -263,8 +263,8 @@ pub(crate) mod tests {
 	}
 
 	/// Local testnet config (multivalidator Alice + Bob)
-	pub fn integration_test_config_with_two_authorities() -> ChainSpec {
-		ChainSpec::from_genesis(
+	pub fn integration_test_config_with_two_authorities() -> CENNZnetChainSpec {
+		CENNZnetChainSpec::from_genesis(
 			"Integration Test",
 			"test",
 			ChainType::Development,
