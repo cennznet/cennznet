@@ -38,12 +38,8 @@ use sp_runtime::{
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
 
-// pub mod azalea;
 pub mod dev;
 pub mod nikau;
-
-/// Specialized `ChainSpec`.
-pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -87,7 +83,7 @@ pub struct Extensions {
 }
 
 /// Specialised `ChainSpec`.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+pub type CENNZnetChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
