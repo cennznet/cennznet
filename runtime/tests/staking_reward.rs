@@ -300,6 +300,10 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 			// Submit a tx, rotate era, check rewards are paid
 			start_era(1);
 
+			// Jump to the next block where the rewards would be paid
+			let current_block_number = System::block_number();
+			Staking::on_initialize(current_block_number + 1);
+
 			// Check if stash account balances are not yet changed
 			let per_fee_reward: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
 				* total_payout / validators.len() as Balance;

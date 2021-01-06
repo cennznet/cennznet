@@ -256,7 +256,8 @@ impl pallet_scheduler::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
+	pub const BlocksPerEra: BlockNumber = EPOCH_DURATION_IN_BLOCKS * SESSIONS_PER_ERA;
 	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 }
@@ -267,6 +268,7 @@ impl crml_staking::Trait for Runtime {
 	type Event = Event;
 	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type SessionsPerEra = SessionsPerEra;
+	type BlocksPerEra = BlocksPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type SessionInterface = Self;
@@ -474,12 +476,15 @@ impl pallet_treasury::Trait for Runtime {
 
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
+	pub const PayoutSplitThreshold: u32 = 1000;
 }
 impl crml_staking_rewards::Trait for Runtime {
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
+	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type WeightInfo = ();
 }
 
 impl crml_sylo::e2ee::Trait for Runtime {
@@ -899,6 +904,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, sylo_vault, SyloVault);
 			add_benchmark!(params, batches, sylo_e2ee, SyloE2EE);
 			add_benchmark!(params, batches, sylo_groups, SyloGroups);
+			add_benchmark!(params, batches, crml_staking_rewards, Rewards);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

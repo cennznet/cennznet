@@ -17,6 +17,7 @@ sp-staking = { default-features = false, git = "https://github.com/plugblockchai
 sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
 frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
 frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3", default-features = false, optional = true }
 pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
 pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
 pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.3" }
@@ -48,3 +49,5 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std"
 ]
+
+runtime-benchmarks = ["frame-benchmarking"]

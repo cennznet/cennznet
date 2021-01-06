@@ -632,6 +632,9 @@ pub trait Trait: frame_system::Trait {
 	/// Number of sessions per era.
 	type SessionsPerEra: Get<SessionIndex>;
 
+	/// Number of blocks per normal eras those not forced to end.
+	type BlocksPerEra: Get<Self::BlockNumber>;
+
 	/// Number of eras that staked funds must remain bonded for.
 	type BondingDuration: Get<EraIndex>;
 
@@ -644,7 +647,11 @@ pub trait Trait: frame_system::Trait {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+	type Rewarder: StakerRewardPayment<
+		AccountId = Self::AccountId,
+		Balance = BalanceOf<Self>,
+		BlockNumber = Self::BlockNumber,
+	>;
 
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
@@ -724,6 +731,9 @@ decl_storage! {
 
 		/// The start of the current era.
 		pub CurrentEraStart get(fn current_era_start): MomentOf<T>;
+
+		/// The starting block number of the next era.
+		pub NextEraBlockNumber get(fn next_era_block_number): T::BlockNumber;
 
 		/// The session index at which the current era started.
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
@@ -1345,6 +1355,10 @@ decl_module! {
 
 			<Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
 		}
+
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			T::Rewarder::process_reward_payouts(NextEraBlockNumber::<T>::get().saturating_sub(n))
+		}
 	}
 }
 
@@ -1420,7 +1434,7 @@ impl<T: Trait> Module<T> {
 	/// Payout elected validators.
 	/// Builds a map of staker exposure and their preferred payment accounts.
 	/// A `StakerRewardPayment` impl will calculate the requisite payments.
-	fn era_reward_payout(elected_validator_stashes: Vec<T::AccountId>) {
+	fn era_reward_payout(elected_validator_stashes: Vec<T::AccountId>, era: EraIndex) {
 		let validator_commission_stake_map = elected_validator_stashes
 			.iter()
 			.map(|validator_stash| {
@@ -1459,7 +1473,7 @@ impl<T: Trait> Module<T> {
 			})
 			.collect::<Vec<(_, _, _)>>();
 
-		T::Rewarder::make_reward_payout(validator_commission_stake_map.as_slice());
+		T::Rewarder::enqueue_reward_payouts(validator_commission_stake_map.as_slice(), era);
 	}
 
 	/// The era has changed - payout rewards and enact the next staking set.
@@ -1467,13 +1481,14 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		NextEraBlockNumber::<T>::put(<frame_system::Module<T>>::block_number() + T::BlocksPerEra::get());
 		let now = T::Time::now();
 		let previous_era_start = <CurrentEraStart<T>>::get();
 		let era_duration = now - previous_era_start;
 
 		// Trigger era reward payout, only if some work was done this era (i.e era duration > 0)
 		if !era_duration.is_zero() {
-			Self::era_reward_payout(Self::current_elected());
+			Self::era_reward_payout(Self::current_elected(), Self::current_era());
 		}
 
 		<CurrentEraStart<T>>::mutate(|v| *v = now);
