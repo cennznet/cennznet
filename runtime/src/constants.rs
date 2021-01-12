@@ -84,5 +84,5 @@ pub mod time {
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
 
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 144;
 }
