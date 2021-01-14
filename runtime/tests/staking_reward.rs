@@ -18,7 +18,7 @@
 use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{Balance, DigestItem, Header};
 use cennznet_runtime::{
-	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
+	constants::{asset::*, currency::*},
 	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session, SessionsPerEra,
 	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
@@ -90,84 +90,35 @@ fn send_heartbeats() {
 }
 
 /// Prior to rotating to a new session, we should make sure the authority heartbeats are sent to the
-/// ImOnline module, time is set accordingly and the babe's current slot is adjusted
-fn pre_rotate_session() {
-	send_heartbeats();
+/// ImOnline module, if \a heartbeat is enabled (true). We should also set the time accordingly
+/// and adjust the babe's current slot.
+fn pre_rotate_session(heartbeat: bool) {
+	if heartbeat {
+		send_heartbeats();
+	}
 	Timestamp::set_timestamp(Timestamp::now() + 1000);
 	pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
 }
 
-fn rotate_to_session(index: SessionIndex) {
+fn rotate_to_session(index: SessionIndex, heartbeat: bool) {
 	assert!(Session::current_index() <= index);
 	Session::on_initialize(System::block_number());
 
 	let rotations = index - Session::current_index();
 	for _i in 0..rotations {
-		pre_rotate_session();
+		pre_rotate_session(heartbeat);
 		Session::rotate_session();
 	}
 }
 
-fn start_session(session_index: SessionIndex) {
-	// If we run the function for the first time, block_number is 1, which won't
-	// trigger Babe::should_end_session() so we have to run one extra loop. But
-	// successive calls don't need to run one extra loop. See Babe::should_epoch_change()
-	let up_to_session_index = if Session::current_index().is_zero() {
-		session_index + 1
-	} else {
-		session_index
-	};
-	for i in Session::current_index()..up_to_session_index {
-		// TODO Untie the block number from the session index as they are independent concepts.
-		System::set_block_number((i + 1).into());
-		pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-		Timestamp::set_timestamp((System::block_number() * MILLISECS_PER_BLOCK as u32).into());
-		Session::on_initialize(System::block_number()); // this ends session
-	}
-	assert_eq!(Session::current_index(), session_index);
-}
-
+// Use in the tests where sending authority heartbeats is not required
 fn advance_session() {
-	let current_index = Session::current_index();
-	start_session(current_index + 1);
+	rotate_to_session(Session::current_index() + 1, false);
 }
 
-// Starts all sessions up to `era_index` (eg, start_era(2) will start 14 sessions)
+// Use in the tests where sending authority heartbeats is not required
 fn start_era(era_index: EraIndex) {
-	start_session((era_index * SessionsPerEra::get()).into());
-	assert_eq!(Staking::current_era(), era_index);
-}
-
-#[test]
-fn start_session_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		start_session(1);
-		start_session(3);
-		start_session(5);
-	});
-}
-
-#[test]
-fn advance_session_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		let session_index = 12;
-		start_session(session_index);
-		advance_session();
-		advance_session();
-		advance_session();
-		assert_eq!(Session::current_index(), 15);
-	});
-}
-
-#[test]
-fn start_era_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(Staking::current_era(), 0);
-		start_era(1);
-		assert_eq!(Staking::current_era(), 1);
-		start_era(10);
-		assert_eq!(Staking::current_era(), 10);
-	});
+	rotate_to_session(era_index * SessionsPerEra::get(), false);
 }
 
 #[test]
@@ -341,7 +292,7 @@ fn authorship_points_of_last_block_in_an_era() {
 		.build()
 		.execute_with(|| {
 			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index);
+			rotate_to_session(final_session_of_era_index, true);
 
 			// The final session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
@@ -393,7 +344,7 @@ fn authorship_points_of_a_chilled_validator() {
 		.build()
 		.execute_with(|| {
 			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index);
+			rotate_to_session(final_session_of_era_index, true);
 
 			// The last session falls in the era 0
 			assert_eq!(Staking::current_era(), 0);
