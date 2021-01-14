@@ -395,7 +395,6 @@ fn authorship_points_of_a_chilled_validator() {
 }
 
 #[test]
-#[ignore]
 fn slashed_cennz_goes_to_treasury() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
@@ -437,7 +436,6 @@ fn slashed_cennz_goes_to_treasury() {
 }
 
 #[test]
-#[ignore]
 fn slashed_cennz_goes_to_reporter() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(1);
 	let initial_balance = 1_000 * DOLLARS;
