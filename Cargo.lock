@@ -726,6 +726,7 @@ version = "1.2.2"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
+ "cennznet-runtime",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
  "crml-staking",
