@@ -28,8 +28,8 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
-	traits::{AccountIdConversion, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
-	FixedI128, FixedPointNumber, FixedPointOperand, ModuleId, Perbill,
+	traits::{AccountIdConversion, CheckedDiv, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
+	FixedPointNumber, FixedPointOperand, FixedU128, ModuleId, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -63,6 +63,8 @@ pub trait Trait: frame_system::Trait {
 	type HistoricalPayoutEras: Get<u16>;
 	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
 	type PayoutSplitThreshold: Get<u32>;
+	/// The number of staking eras in a fiscal era.
+	type FiscalDuration: Get<u32>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -82,8 +84,8 @@ decl_event!(
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Rewards {
-		/// Inflation rate % to apply on reward payouts, it may be negative
-		pub InflationRate get(fn inflation_rate): FixedI128 = FixedI128::saturating_from_integer(1);
+		/// Inflation rate % to apply on reward payouts
+		pub BaseInflationRate get(fn inflation_rate): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
 		pub DevelopmentFundTake get(fn development_fund_take) config(): Perbill;
 		/// Accumulated transaction fees for reward payout
@@ -94,6 +96,12 @@ decl_storage! {
 		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
+		/// Targeted inflation is the amount of new reward tokens that will be minted over a fiscal
+		/// era in order to achieve the inflation rate. We calculate the targeted inflation based on
+		/// T::CurrencyToReward::totalIssuance() at the beginning of a fiscal era.
+		TargetedInflation get(fn targeted_inflation): BalanceOf<T>;
+		/// The staking era index that specifies the start of the current fiscal era.
+		FiscalEraStart get(fn fiscal_era_start): EraIndex;
 	}
 }
 
@@ -103,13 +111,14 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// Set the per payout inflation rate (`numerator` / `denominator`) (it may be negative)
+		/// Please be advised that a newly set inflation rate would only affect the next fiscal year.
 		#[weight = (10_000, DispatchClass::Operational)]
-		pub fn set_inflation_rate(origin, numerator: i64, denominator: i64) {
+		pub fn set_inflation_rate(origin, numerator: u64, denominator: u64) {
 			ensure_root(origin)?;
 			if denominator.is_zero() {
 				return Err("denominator cannot be zero".into());
 			}
-			InflationRate::put(FixedI128::saturating_from_rational(numerator, denominator));
+			BaseInflationRate::put(FixedU128::saturating_from_rational(numerator, denominator));
 		}
 
 		/// Set the development fund take %, capped at 100%.
@@ -141,11 +150,17 @@ where
 		// track historic era fee amounts
 		Self::note_fee_payout(fee_payout);
 
-		if fee_payout.is_zero() || validator_commission_stake_map.len().is_zero() {
+		if era.saturating_sub(Self::fiscal_era_start()) >= T::FiscalDuration::get() {
+			Self::new_fiscal_era(era);
+		}
+		let era_mined_tokens = Self::targeted_inflation()
+			.checked_div(&T::FiscalDuration::get().into())
+			.unwrap_or_else(Zero::zero);
+		let total_payout = fee_payout.saturating_add(era_mined_tokens);
+
+		if total_payout.is_zero() || validator_commission_stake_map.len().is_zero() {
 			return;
 		}
-
-		let total_payout = Self::inflation_rate().saturating_mul_acc_int(fee_payout);
 
 		// Deduct development fund take %
 		let development_fund_payout = Self::development_fund_take() * total_payout;
@@ -322,6 +337,15 @@ impl<T: Trait> Module<T> {
 		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<u32>>::unique_saturated_into(min_payouts);
 		min_payouts.max(payout_split_threshold)
 	}
+
+	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
+	fn new_fiscal_era(era: EraIndex) {
+		FiscalEraStart::put(era);
+		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
+		let targeted_inflation =
+			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
+		<TargetedInflation<T>>::put(targeted_inflation);
+	}
 }
 
 /// This handles the `NegativeImbalance` from burning transaction fees.
@@ -414,6 +438,7 @@ mod tests {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
 		pub const PayoutSplitThreshold: u32 = 10;
+		pub const FiscalDuration: u32 = 5;
 	}
 	impl Trait for TestRuntime {
 		type Event = TestEvent;
@@ -421,6 +446,7 @@ mod tests {
 		type TreasuryModuleId = TreasuryModuleId;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type PayoutSplitThreshold = PayoutSplitThreshold;
+		type FiscalDuration = FiscalDuration;
 		type WeightInfo = ();
 	}
 
@@ -536,20 +562,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_noop!(Rewards::set_inflation_rate(Origin::signed(1), 1, 1_000), BadOrigin);
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 1_000));
-			assert_eq!(Rewards::inflation_rate(), FixedI128::saturating_from_rational(1, 1_000))
-		});
-	}
-
-	#[test]
-	fn set_inflation_rate_deflationary() {
-		// only root
-		// value is set negative
-		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), -1, 1_000));
-			assert_eq!(
-				Rewards::inflation_rate(),
-				FixedI128::saturating_from_rational(-1, 1_000)
-			)
+			assert_eq!(Rewards::inflation_rate(), FixedU128::saturating_from_rational(1, 1_000))
 		});
 	}
 
@@ -562,14 +575,15 @@ mod tests {
 			);
 			assert_ok!(Rewards::set_inflation_rate(
 				Origin::root(),
-				i64::max_value(),
-				i64::max_value()
+				u64::max_value(),
+				u64::max_value()
 			));
 			assert_ok!(Rewards::set_inflation_rate(
 				Origin::root(),
-				i64::min_value(),
-				i64::min_value()
+				u64::min_value(),
+				u64::max_value()
 			));
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, u64::max_value()));
 		});
 	}
 
@@ -626,35 +640,6 @@ mod tests {
 				Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
 			);
 			assert_eq!(total_payout, 1_100_000);
-		});
-	}
-
-	#[test]
-	fn simple_reward_payout_deflation() {
-		ExtBuilder::default().build().execute_with(|| {
-			let tx_fee_reward = 1_000_000;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), -1, 10));
-
-			let total_payout = Rewards::calculate_next_reward_payout();
-			assert_eq!(
-				total_payout,
-				Rewards::inflation_rate().saturating_mul_acc_int(Rewards::transaction_fee_pot())
-			);
-			assert_eq!(total_payout, 900_000);
-		});
-	}
-
-	#[test]
-	fn simple_reward_payout_max_deflation() {
-		ExtBuilder::default().build().execute_with(|| {
-			// 200% deflation
-			let tx_fee_reward = 1_000_000;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), -2, 1));
-
-			let total_payout = Rewards::calculate_next_reward_payout();
-			assert!(total_payout.is_zero());
 		});
 	}
 
