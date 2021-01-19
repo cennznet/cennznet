@@ -145,21 +145,18 @@ where
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 		era: EraIndex,
 	) {
-		// track historic era fee amounts
-		Self::note_fee_payout(TransactionFeePot::<T>::get());
-
-		if era.saturating_sub(Self::fiscal_era_start()) >= T::FiscalDuration::get() {
-			Self::new_fiscal_era(era);
+		if era.saturating_sub(Self::fiscal_era_start()) % T::FiscalDuration::get() == 0 {
+			Self::new_fiscal_era();
 		}
 
 		let total_payout = Self::calculate_next_reward_payout();
 
-		// The observed fee will be processed, so we can here take it off the pot
-		let _ = TransactionFeePot::<T>::take();
-
 		if total_payout.is_zero() || validator_commission_stake_map.len().is_zero() {
 			return;
 		}
+
+		// track historic era fee amounts
+		Self::note_fee_payout(TransactionFeePot::<T>::take());
 
 		// Deduct development fund take %
 		let development_fund_payout = Self::development_fund_take() * total_payout;
@@ -340,8 +337,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
-	fn new_fiscal_era(era: EraIndex) {
-		FiscalEraStart::put(era);
+	fn new_fiscal_era() {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
 		let targeted_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
@@ -478,7 +474,10 @@ mod tests {
 			}
 			.assimilate_storage(&mut storage);
 
-			storage.into()
+			let mut ext = sp_io::TestExternalities::from(storage);
+			ext.execute_with(|| Rewards::new_fiscal_era());
+
+			ext
 		}
 	}
 
@@ -652,7 +651,6 @@ mod tests {
 			let tx_fee_reward = 10;
 			Rewards::note_transaction_fees(tx_fee_reward);
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 100));
-			Rewards::new_fiscal_era(0);
 			let total_payout = Rewards::calculate_next_reward_payout();
 			assert_eq!(total_payout, 12);
 		});
@@ -661,7 +659,6 @@ mod tests {
 	#[test]
 	fn large_payouts_split() {
 		ExtBuilder::default().build().execute_with(|| {
-			let _ = RewardCurrency::deposit_creating(&1, 1_234);
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
 
 			let tx_fee_reward = 1_000_000;
@@ -723,19 +720,19 @@ mod tests {
 				.collect();
 
 			Rewards::note_transaction_fees(tx_fee_reward);
-			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
+			Rewards::enqueue_reward_payouts(&validators_stake_info, 0);
 
 			Rewards::process_reward_payouts(3);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
 
 			Rewards::note_transaction_fees(tx_fee_reward);
-			Rewards::enqueue_reward_payouts(&validators_stake_info, 2);
+			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
 
 			Rewards::process_reward_payouts(3);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 4);
 
 			let events = TestSystem::events();
-			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0));
+			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(0, 2));
 			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 1);
 			assert!(events.iter().any(|record| record.event == expected_event));
 
@@ -746,7 +743,7 @@ mod tests {
 			assert_eq!(events.len() as u64, validators_number * 6 + 2);
 			assert_eq!(
 				events.last().unwrap().event,
-				TestEvent::rewards(RawEvent::AllRewardsPaidOut(2, 0))
+				TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0))
 			)
 		});
 	}
@@ -774,7 +771,7 @@ mod tests {
 					validator_stake_map2.as_tuple(),
 					validator_stake_map3.as_tuple(),
 				],
-				0,
+				1,
 			);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
@@ -791,13 +788,12 @@ mod tests {
 			let mock_commission_stake_map =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
 			let total_payout1 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
+			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 1);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(RewardCurrency::total_issuance(), total_payout1 + initial_total_issuance,);
 
 			// after reward payout, the next payout should be `0`
 			assert!(Rewards::transaction_fee_pot().is_zero());
-			assert!(Rewards::calculate_next_reward_payout().is_zero());
 			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&round1_reward));
 
 			// Next payout
@@ -805,7 +801,7 @@ mod tests {
 			Rewards::note_transaction_fees(round2_reward);
 
 			let total_payout2 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
+			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 2);
 			Rewards::process_reward_payouts(3);
 			assert_eq!(
 				RewardCurrency::total_issuance(),
@@ -814,7 +810,6 @@ mod tests {
 
 			// after reward payout, the next payout should be `0`
 			assert!(Rewards::transaction_fee_pot().is_zero());
-			assert!(Rewards::calculate_next_reward_payout().is_zero());
 			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&round2_reward));
 		});
 	}
@@ -826,7 +821,6 @@ mod tests {
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 2_000)], Perbill::from_percent(10));
 
 			let _ = Rewards::set_inflation_rate(Origin::signed(1), 1, 10);
-			Rewards::new_fiscal_era(0);
 			Rewards::note_transaction_fees(1_000_000);
 			let total_payout = Rewards::calculate_next_reward_payout();
 			let development_fund_payout = Rewards::development_fund_take() * total_payout;
@@ -855,7 +849,7 @@ mod tests {
 			);
 
 			// Run the payout for real
-			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()], 0);
+			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()], 1);
 			Rewards::process_reward_payouts(0);
 			for (staker, r) in payouts {
 				assert_eq!(RewardCurrency::free_balance(&staker), r);
@@ -931,9 +925,8 @@ mod tests {
 			let total_issuance = RewardCurrency::total_issuance();
 			Rewards::enqueue_reward_payouts(Default::default(), 0);
 
-			assert!(Rewards::transaction_fee_pot().is_zero());
-			assert!(Rewards::calculate_next_reward_payout().is_zero());
-			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&reward));
+			assert_eq!(Rewards::calculate_next_reward_payout(), 1002);
+			assert_eq!(Rewards::transaction_fee_pot_history().front(), None);
 			// no payout, expect the total issuance to be as before
 			assert_eq!(RewardCurrency::total_issuance(), total_issuance);
 		});
