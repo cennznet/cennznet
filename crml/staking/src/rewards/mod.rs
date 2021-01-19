@@ -102,6 +102,8 @@ decl_storage! {
 		TargetInflation get(fn target_inflation): BalanceOf<T>;
 		/// The staking era index that specifies the start of the current fiscal era.
 		FiscalEraStart get(fn fiscal_era_start): EraIndex;
+		/// When true the next staking era will become the start of a new fiscal era.
+		ForceFiscalEra get(fn force_fiscal_era): bool = false;
 	}
 }
 
@@ -129,6 +131,13 @@ decl_module! {
 				Perbill::from_percent(new_take_percent) // `from_percent` will saturate at `100`
 			);
 		}
+
+		/// Force a new fiscal era to start as soon as the next staking era.
+		#[weight = (10_000, DispatchClass::Operational)]
+		pub fn force_new_fiscal_era(origin) {
+			ensure_root(origin)?;
+			ForceFiscalEra::put(true);
+		}
 	}
 }
 
@@ -145,6 +154,11 @@ where
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 		era: EraIndex,
 	) {
+		if ForceFiscalEra::get() {
+			ForceFiscalEra::put(false);
+			FiscalEraStart::put(era);
+		}
+
 		if era.saturating_sub(Self::fiscal_era_start()) % T::FiscalEraLength::get() == 0 {
 			Self::new_fiscal_era();
 		}
