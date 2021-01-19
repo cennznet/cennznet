@@ -99,7 +99,7 @@ decl_storage! {
 		/// Targeted inflation is the amount of new reward tokens that will be minted over a fiscal
 		/// era in order to achieve the inflation rate. We calculate the targeted inflation based on
 		/// T::CurrencyToReward::totalIssuance() at the beginning of a fiscal era.
-		TargetedInflation get(fn targeted_inflation): BalanceOf<T>;
+		TargetInflation get(fn target_inflation): BalanceOf<T>;
 		/// The staking era index that specifies the start of the current fiscal era.
 		FiscalEraStart get(fn fiscal_era_start): EraIndex;
 	}
@@ -251,7 +251,7 @@ where
 	/// Calculate the total reward payout as of right now
 	fn calculate_next_reward_payout() -> Self::Balance {
 		let fee_payout = TransactionFeePot::<T>::get();
-		let era_mined_tokens = Self::targeted_inflation()
+		let era_mined_tokens = Self::target_inflation()
 			.checked_div(&T::FiscalDuration::get().into())
 			.unwrap_or_else(Zero::zero);
 		fee_payout.saturating_add(era_mined_tokens)
@@ -340,9 +340,9 @@ impl<T: Trait> Module<T> {
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
 	fn new_fiscal_era() {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
-		let targeted_inflation =
+		let target_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
-		<TargetedInflation<T>>::put(targeted_inflation);
+		<TargetInflation<T>>::put(target_inflation);
 	}
 }
 
