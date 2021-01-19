@@ -64,7 +64,7 @@ pub trait Trait: frame_system::Trait {
 	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
 	type PayoutSplitThreshold: Get<u32>;
 	/// The number of staking eras in a fiscal era.
-	type FiscalDuration: Get<u32>;
+	type FiscalEraLength: Get<u32>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -145,7 +145,7 @@ where
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 		era: EraIndex,
 	) {
-		if era.saturating_sub(Self::fiscal_era_start()) % T::FiscalDuration::get() == 0 {
+		if era.saturating_sub(Self::fiscal_era_start()) % T::FiscalEraLength::get() == 0 {
 			Self::new_fiscal_era();
 		}
 
@@ -252,7 +252,7 @@ where
 	fn calculate_next_reward_payout() -> Self::Balance {
 		let fee_payout = TransactionFeePot::<T>::get();
 		let era_mined_tokens = Self::target_inflation()
-			.checked_div(&T::FiscalDuration::get().into())
+			.checked_div(&T::FiscalEraLength::get().into())
 			.unwrap_or_else(Zero::zero);
 		fee_payout.saturating_add(era_mined_tokens)
 	}
@@ -436,7 +436,7 @@ mod tests {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
 		pub const PayoutSplitThreshold: u32 = 10;
-		pub const FiscalDuration: u32 = 5;
+		pub const FiscalEraLength: u32 = 5;
 	}
 	impl Trait for TestRuntime {
 		type Event = TestEvent;
@@ -444,7 +444,7 @@ mod tests {
 		type TreasuryModuleId = TreasuryModuleId;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type PayoutSplitThreshold = PayoutSplitThreshold;
-		type FiscalDuration = FiscalDuration;
+		type FiscalEraLength = FiscalEraLength;
 		type WeightInfo = ();
 	}
 
