@@ -155,11 +155,12 @@ where
 			return;
 		}
 
+		let fee_payout = TransactionFeePot::<T>::take();
 		// track historic era fee amounts
-		Self::note_fee_payout(TransactionFeePot::<T>::take());
+		Self::note_fee_payout(fee_payout);
 
 		// Deduct development fund take %
-		let development_fund_payout = Self::development_fund_take() * total_payout;
+		let development_fund_payout = Self::development_fund_take() * fee_payout;
 
 		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
 		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
