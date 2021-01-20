@@ -40,6 +40,7 @@ pub use cennznet_runtime::GenesisConfig;
 
 pub mod dev;
 pub mod nikau;
+pub mod rata;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -181,9 +182,12 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		prml_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
-			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CENTRAPAY_ASSET_ID, root_key)],
-			initial_balance: 10u128.pow(18 + 9), // 1 billion token with 18 decimals
-			endowed_accounts: endowed_accounts,
+			permissions: vec![
+				(CENNZ_ASSET_ID, root_key.clone()),
+				(CENTRAPAY_ASSET_ID, root_key.clone()),
+			],
+			initial_balance: 1_000_000 * DOLLARS, // 1,000,000.0000 (4dp asset)
+			endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
