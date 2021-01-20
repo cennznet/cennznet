@@ -79,6 +79,7 @@ decl_event!(
 		RewardPayout(AccountId, Balance, EraIndex),
 		/// All the rewards of the specified era is now processed with an unallocated `remainder` that went to treasury
 		AllRewardsPaidOut(EraIndex, Balance),
+		/// A fiscal era has begun with the parameter (target_inflation_per_staking_era)
 		NewFiscalEra(Balance),
 	}
 );
@@ -100,7 +101,7 @@ decl_storage! {
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::totalIssuance() at the beginning of a fiscal era.
-		TargetInflationPerStakingEra get(fn target_inflation): BalanceOf<T>;
+		TargetInflationPerStakingEra get(fn target_inflation_per_staking_era): BalanceOf<T>;
 		/// The staking era index that specifies the start of the current fiscal era.
 		FiscalEraStart get(fn fiscal_era_start): EraIndex;
 		/// When true the next staking era will become the start of a new fiscal era.
@@ -265,7 +266,7 @@ where
 
 	/// Calculate the total reward payout as of right now
 	fn calculate_next_reward_payout() -> Self::Balance {
-		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation())
+		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation_per_staking_era())
 	}
 }
 
@@ -353,11 +354,11 @@ impl<T: Trait> Module<T> {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
 		let target_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
-		<TargetInflationPerStakingEra<T>>::put(
-			target_inflation
-				.checked_div(&T::FiscalEraLength::get().into())
-				.unwrap_or_else(Zero::zero),
-		);
+		let target_inflation_per_staking_era = target_inflation
+			.checked_div(&T::FiscalEraLength::get().into())
+			.unwrap_or_else(Zero::zero);
+		<TargetInflationPerStakingEra<T>>::put(target_inflation_per_staking_era);
+		Self::deposit_event(RawEvent::NewFiscalEra(target_inflation_per_staking_era));
 	}
 }
 
@@ -749,14 +750,14 @@ mod tests {
 
 			let events = TestSystem::events();
 			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(0, 2));
-			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 1);
+			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 2);
 			assert!(events.iter().any(|record| record.event == expected_event));
 
 			Rewards::process_reward_payouts(2);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 0);
 
 			let events = TestSystem::events();
-			assert_eq!(events.len() as u64, validators_number * 6 + 2);
+			assert_eq!(events.len() as u64, validators_number * 6 + 3);
 			assert_eq!(
 				events.last().unwrap().event,
 				TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0))
