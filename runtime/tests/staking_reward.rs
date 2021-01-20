@@ -156,12 +156,16 @@ fn staking_genesis_config_works() {
 #[test]
 fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
+	let validators = make_authority_keys(6);
+	let staked_amount = initial_balance / validators.len() as Balance;
 
 	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
 	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
 		.initial_balance(initial_balance)
+		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
 			let xt_1 = sign(CheckedExtrinsic {
