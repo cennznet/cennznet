@@ -807,15 +807,13 @@ decl_storage! {
 					T::Currency::free_balance(&stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
-				assert!(
-					<Module<T>>::bond(
-						T::Origin::from(Some(stash.clone()).into()),
-						controller.clone(),
-						balance,
-						RewardDestination::Account(stash.clone()),
-					).is_ok()
+				let _ = <Module<T>>::bond(
+					T::Origin::from(Some(stash.clone()).into()),
+					controller.clone(),
+					balance,
+					RewardDestination::Stash,
 				);
-				let has_role = match status {
+				let _ = match status {
 					StakerStatus::Validator => {
 						<Module<T>>::validate(
 							T::Origin::from(Some(controller.clone()).into()),
@@ -830,7 +828,6 @@ decl_storage! {
 					},
 					_ => Ok(()),
 				};
-				assert!(has_role.is_ok());
 			}
 		});
 	}
@@ -919,11 +916,10 @@ decl_module! {
 		/// the `origin` falls below minimum bond and is removed lazily in `withdraw_unbonded`.
 		/// # </weight>
 		#[weight = T::WeightInfo::bond()]
-		fn bond(
-			origin,
+		fn bond(origin,
 			controller: T::AccountId,
 			#[compact] value: BalanceOf<T>,
-			payee: RewardDestination<T::AccountId>,
+			payee: RewardDestination<T::AccountId>
 		) {
 			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
 
@@ -1749,7 +1745,7 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		if new_index == 0 {
+		if new_index.is_zero() {
 			return Self::initial_session();
 		}
 		Self::new_session(new_index - 1)
