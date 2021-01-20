@@ -51,6 +51,7 @@ impl SubstrateCli for Cli {
 		Ok(match id {
 			"dev" => Box::new(chain_spec::dev::config()),
 			"nikau" => Box::new(chain_spec::nikau::config()),
+			"rata" => Box::new(chain_spec::rata::config()),
 			path => Box::new(CENNZnetChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
 	}
