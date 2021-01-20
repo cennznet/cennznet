@@ -623,7 +623,7 @@ mod tests {
 	}
 
 	#[test]
-	fn emit_new_fiscal_era_event() {
+	fn emits_new_fiscal_era_event() {
 		ExtBuilder::default().build().execute_with(|| {
 			TestSystem::initialize(
 				&1,
@@ -641,6 +641,45 @@ mod tests {
 				events.last().unwrap().event,
 				TestEvent::rewards(RawEvent::NewFiscalEra(60))
 			);
+		});
+	}
+
+	#[test]
+	fn fiscal_era_length() {
+		ExtBuilder::default().build().execute_with(|| {
+			TestSystem::initialize(
+				&1,
+				&[0u8; 32].into(),
+				&[0u8; 32].into(),
+				&Default::default(),
+				InitKind::Full,
+			);
+
+			// There should an event for a new fiscal era on era 0
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
+			Rewards::enqueue_reward_payouts(Default::default(), 0);
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
+			let events = TestSystem::events();
+			assert!(events.iter().any(|record| record.event == expected_event));
+			TestSystem::reset_events();
+
+			// Not ant fiscal era event is expected for the following eras
+			Rewards::enqueue_reward_payouts(Default::default(), 1);
+			Rewards::enqueue_reward_payouts(Default::default(), 2);
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
+			Rewards::enqueue_reward_payouts(Default::default(), 3);
+			Rewards::enqueue_reward_payouts(Default::default(), 4);
+			let events = TestSystem::events();
+			assert!(!events.iter().any(|record| match record.event {
+				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+				_ => false,
+			}));
+
+			// The newly set inflation rate is going to take effect with a new fiscal era
+			Rewards::enqueue_reward_payouts(Default::default(), 5);
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(22));
+			let events = TestSystem::events();
+			assert!(events.iter().any(|record| record.event == expected_event));
 		});
 	}
 
