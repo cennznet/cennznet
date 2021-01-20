@@ -666,7 +666,11 @@ mod tests {
 			// Not ant fiscal era event is expected for the following eras
 			Rewards::enqueue_reward_payouts(Default::default(), 1);
 			Rewards::enqueue_reward_payouts(Default::default(), 2);
+
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
+			// Test target inflation doesn't change immediately
+			assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
+
 			Rewards::enqueue_reward_payouts(Default::default(), 3);
 			Rewards::enqueue_reward_payouts(Default::default(), 4);
 			let events = TestSystem::events();
@@ -680,6 +684,7 @@ mod tests {
 			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(22));
 			let events = TestSystem::events();
 			assert!(events.iter().any(|record| record.event == expected_event));
+			assert_eq!(Rewards::target_inflation_per_staking_era(), 22);
 		});
 	}
 
