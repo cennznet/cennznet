@@ -1745,7 +1745,7 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		if new_index == 0 {
+		if new_index.is_zero() {
 			return Self::initial_session();
 		}
 		Self::new_session(new_index - 1)
