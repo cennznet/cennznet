@@ -79,6 +79,7 @@ decl_event!(
 		RewardPayout(AccountId, Balance, EraIndex),
 		/// All the rewards of the specified era is now processed with an unallocated `remainder` that went to treasury
 		AllRewardsPaidOut(EraIndex, Balance),
+		NewFiscalEra(Balance),
 	}
 );
 
@@ -96,10 +97,10 @@ decl_storage! {
 		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
-		/// Targeted inflation is the amount of new reward tokens that will be minted over a fiscal
-		/// era in order to achieve the inflation rate. We calculate the targeted inflation based on
+		/// The amount of new reward tokens that will be minted on every staking era in order to
+		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::totalIssuance() at the beginning of a fiscal era.
-		TargetInflation get(fn target_inflation): BalanceOf<T>;
+		TargetInflationPerStakingEra get(fn target_inflation): BalanceOf<T>;
 		/// The staking era index that specifies the start of the current fiscal era.
 		FiscalEraStart get(fn fiscal_era_start): EraIndex;
 		/// When true the next staking era will become the start of a new fiscal era.
@@ -264,11 +265,7 @@ where
 
 	/// Calculate the total reward payout as of right now
 	fn calculate_next_reward_payout() -> Self::Balance {
-		let fee_payout = TransactionFeePot::<T>::get();
-		let era_mined_tokens = Self::target_inflation()
-			.checked_div(&T::FiscalEraLength::get().into())
-			.unwrap_or_else(Zero::zero);
-		fee_payout.saturating_add(era_mined_tokens)
+		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation())
 	}
 }
 
@@ -356,7 +353,11 @@ impl<T: Trait> Module<T> {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
 		let target_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
-		<TargetInflation<T>>::put(target_inflation);
+		<TargetInflationPerStakingEra<T>>::put(
+			target_inflation
+				.checked_div(&T::FiscalEraLength::get().into())
+				.unwrap_or_else(Zero::zero),
+		);
 	}
 }
 
