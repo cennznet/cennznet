@@ -100,7 +100,7 @@ decl_storage! {
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
-		/// T::CurrencyToReward::totalIssuance() at the beginning of a fiscal era.
+		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
 		TargetInflationPerStakingEra get(fn target_inflation_per_staking_era): BalanceOf<T>;
 		/// The staking era index that specifies the start of the current fiscal era.
 		FiscalEraStart get(fn fiscal_era_start): EraIndex;
@@ -645,7 +645,7 @@ mod tests {
 	}
 
 	#[test]
-	fn fiscal_era_length() {
+	fn fiscal_era_should_naturally_take_fiscal_era_length_eras() {
 		ExtBuilder::default().build().execute_with(|| {
 			TestSystem::initialize(
 				&1,
