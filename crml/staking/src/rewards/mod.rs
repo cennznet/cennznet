@@ -623,6 +623,28 @@ mod tests {
 	}
 
 	#[test]
+	fn emit_new_fiscal_era_event() {
+		ExtBuilder::default().build().execute_with(|| {
+			TestSystem::initialize(
+				&1,
+				&[0u8; 32].into(),
+				&[0u8; 32].into(),
+				&Default::default(),
+				InitKind::Full,
+			);
+
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 3, 10));
+			Rewards::new_fiscal_era();
+
+			let events = TestSystem::events();
+			assert_eq!(
+				events.last().unwrap().event,
+				TestEvent::rewards(RawEvent::NewFiscalEra(60))
+			);
+		});
+	}
+
+	#[test]
 	fn set_development_fund_take() {
 		// only root
 		// value is set
