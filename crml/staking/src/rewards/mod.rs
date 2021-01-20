@@ -655,7 +655,7 @@ mod tests {
 				InitKind::Full,
 			);
 
-			// There should an event for a new fiscal era on era 0
+			// There should be an event for a new fiscal era on era 0
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
 			Rewards::enqueue_reward_payouts(Default::default(), 0);
 			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
@@ -663,7 +663,7 @@ mod tests {
 			assert!(events.iter().any(|record| record.event == expected_event));
 			TestSystem::reset_events();
 
-			// Not ant fiscal era event is expected for the following eras
+			// Not any fiscal era event is expected for the following eras
 			Rewards::enqueue_reward_payouts(Default::default(), 1);
 			Rewards::enqueue_reward_payouts(Default::default(), 2);
 
