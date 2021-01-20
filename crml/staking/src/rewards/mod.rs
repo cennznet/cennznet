@@ -689,6 +689,50 @@ mod tests {
 	}
 
 	#[test]
+	fn force_new_fiscal_era() {
+		ExtBuilder::default().build().execute_with(|| {
+			TestSystem::initialize(
+				&1,
+				&[0u8; 32].into(),
+				&[0u8; 32].into(),
+				&Default::default(),
+				InitKind::Full,
+			);
+
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
+			// Still expect the default inflation rate
+			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
+
+			assert_ok!(Rewards::force_new_fiscal_era(Origin::root()));
+			// Even after "force" the inflation rate is not going to change if a new staking era has not begun
+			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
+
+			Rewards::enqueue_reward_payouts(Default::default(), 2);
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
+			let events = TestSystem::events();
+			assert!(events.iter().any(|record| record.event == expected_event));
+			assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
+			TestSystem::reset_events();
+
+			// "Force" should have been toggled back off automatically
+			Rewards::enqueue_reward_payouts(Default::default(), 3);
+			Rewards::enqueue_reward_payouts(Default::default(), 4);
+			Rewards::enqueue_reward_payouts(Default::default(), 5);
+			Rewards::enqueue_reward_payouts(Default::default(), 6);
+			let events = TestSystem::events();
+			assert!(!events.iter().any(|record| match record.event {
+				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+				_ => false,
+			}));
+
+			Rewards::enqueue_reward_payouts(Default::default(), 7);
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
+			let events = TestSystem::events();
+			assert!(events.iter().any(|record| record.event == expected_event));
+		});
+	}
+
+	#[test]
 	fn set_development_fund_take() {
 		// only root
 		// value is set
