@@ -646,14 +646,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "1.2.3"
+version = "1.2.2"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "1.2.3"
+version = "1.2.2"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
