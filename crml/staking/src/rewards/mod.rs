@@ -102,8 +102,10 @@ decl_storage! {
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
 		TargetInflationPerStakingEra get(fn target_inflation_per_staking_era): BalanceOf<T>;
-		/// The staking era index that specifies the start of the current fiscal era.
-		FiscalEraStart get(fn fiscal_era_start): EraIndex;
+		/// The staking era index that specifies the start of a fiscal era based on which
+		/// we can calculate the start of other fiscal eras. This is either 0 or forced by SUDO to
+		/// another value. Have a look at force_new_fiscal_era for more info.
+		FiscalEraEpoch get(fn fiscal_era_epoch): EraIndex;
 		/// When true the next staking era will become the start of a new fiscal era.
 		ForceFiscalEra get(fn force_fiscal_era): bool = false;
 	}
@@ -158,10 +160,10 @@ where
 	) {
 		if ForceFiscalEra::get() {
 			ForceFiscalEra::put(false);
-			FiscalEraStart::put(era);
+			FiscalEraEpoch::put(era);
 		}
 
-		if era.saturating_sub(Self::fiscal_era_start()) % T::FiscalEraLength::get() == 0 {
+		if era.saturating_sub(Self::fiscal_era_epoch()) % T::FiscalEraLength::get() == 0 {
 			Self::new_fiscal_era();
 		}
 
@@ -492,7 +494,16 @@ mod tests {
 			.assimilate_storage(&mut storage);
 
 			let mut ext = sp_io::TestExternalities::from(storage);
-			ext.execute_with(|| Rewards::new_fiscal_era());
+			ext.execute_with(|| {
+				TestSystem::initialize(
+					&1,
+					&[0u8; 32].into(),
+					&[0u8; 32].into(),
+					&Default::default(),
+					InitKind::Full,
+				);
+				Rewards::new_fiscal_era();
+			});
 
 			ext
 		}
@@ -625,14 +636,6 @@ mod tests {
 	#[test]
 	fn emits_new_fiscal_era_event() {
 		ExtBuilder::default().build().execute_with(|| {
-			TestSystem::initialize(
-				&1,
-				&[0u8; 32].into(),
-				&[0u8; 32].into(),
-				&Default::default(),
-				InitKind::Full,
-			);
-
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 3, 10));
 			Rewards::new_fiscal_era();
 
@@ -647,14 +650,6 @@ mod tests {
 	#[test]
 	fn fiscal_era_should_naturally_take_fiscal_era_length_eras() {
 		ExtBuilder::default().build().execute_with(|| {
-			TestSystem::initialize(
-				&1,
-				&[0u8; 32].into(),
-				&[0u8; 32].into(),
-				&Default::default(),
-				InitKind::Full,
-			);
-
 			// There should be an event for a new fiscal era on era 0
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
 			Rewards::enqueue_reward_payouts(Default::default(), 0);
@@ -691,14 +686,6 @@ mod tests {
 	#[test]
 	fn force_new_fiscal_era() {
 		ExtBuilder::default().build().execute_with(|| {
-			TestSystem::initialize(
-				&1,
-				&[0u8; 32].into(),
-				&[0u8; 32].into(),
-				&Default::default(),
-				InitKind::Full,
-			);
-
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
 			// Still expect the default inflation rate
 			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
@@ -822,13 +809,6 @@ mod tests {
 	fn emit_all_rewards_paid_out_event() {
 		ExtBuilder::default().build().execute_with(|| {
 			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
-			TestSystem::initialize(
-				&1,
-				&[0u8; 32].into(),
-				&[0u8; 32].into(),
-				&Default::default(),
-				InitKind::Full,
-			);
 
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
 
@@ -860,14 +840,14 @@ mod tests {
 
 			let events = TestSystem::events();
 			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(0, 2));
-			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 2);
+			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 3);
 			assert!(events.iter().any(|record| record.event == expected_event));
 
 			Rewards::process_reward_payouts(2);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 0);
 
 			let events = TestSystem::events();
-			assert_eq!(events.len() as u64, validators_number * 6 + 3);
+			assert_eq!(events.len() as u64, validators_number * 6 + 4);
 			assert_eq!(
 				events.last().unwrap().event,
 				TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0))
