@@ -299,6 +299,7 @@ impl pallet_timestamp::Trait for Test {
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
 	pub const PayoutSplitThreshold: u32 = 10;
+	pub const FiscalEraLength: u32 = 5;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
 impl rewards::Trait for Test {
@@ -307,6 +308,7 @@ impl rewards::Trait for Test {
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type FiscalEraLength = FiscalEraLength;
 	type WeightInfo = ();
 }
 

@@ -34,7 +34,7 @@ use pallet_im_online::UnresponsivenessOffence;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
-	FixedPointNumber, Perbill,
+	Perbill,
 };
 use sp_staking::{
 	offence::{Offence, OffenceDetails, OnOffenceHandler},
@@ -156,12 +156,16 @@ fn staking_genesis_config_works() {
 #[test]
 fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
+	let validators = make_authority_keys(6);
+	let staked_amount = initial_balance / validators.len() as Balance;
 
 	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
 	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
 		.initial_balance(initial_balance)
+		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
 			let xt_1 = sign(CheckedExtrinsic {
@@ -227,6 +231,11 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
+			start_era(1);
+			// Start the first block of era 1
+			let header = header_for_block_number((System::block_number() + 1).into());
+			Executive::initialize_block(&header);
+
 			let initial_issuance = RewardCurrency::total_issuance();
 
 			let xt = sign(CheckedExtrinsic {
@@ -243,32 +252,48 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 
 			// reward is fees * inflation
 			let total_payout = Rewards::calculate_next_reward_payout();
-			assert_eq!(total_payout, Rewards::inflation_rate().saturating_mul_acc_int(tx_fee));
 
-			// treasury should be empty until rewarded
-			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
+			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era() + tx_fee);
 
-			// Submit a tx, rotate era, check rewards are paid
-			start_era(1);
+			// treasury would be almost empty as there hasn't been a transaction fee yet.
+			// However the distribution of the mined token of the previous era leaves a few
+			// tokens unbalanced which go to treasury.
+			let treasury_balance_era_1 = RewardCurrency::free_balance(&Treasury::account_id());
+			assert_eq!(treasury_balance_era_1, 3);
 
-			// Jump to the next block where the rewards would be paid
-			let current_block_number = System::block_number();
-			Staking::on_initialize(current_block_number + 1);
+			// In era 1, the rewards are just earned through the inflation as there was no transactions
+			let per_validator_reward_era_1 = Rewards::target_inflation_per_staking_era() / validators.len() as Balance;
+			for (stash, _, _, _, _, _) in &validators {
+				assert_eq!(
+					RewardCurrency::free_balance(stash),
+					initial_balance + per_validator_reward_era_1
+				)
+			}
+
+			start_era(2);
+			// Start the first block of era 2
+			let header = header_for_block_number((System::block_number() + 1).into());
+			Executive::initialize_block(&header);
 
 			// Check if stash account balances are not yet changed
-			let per_fee_reward: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
-				* total_payout / validators.len() as Balance;
+			let per_validator_reward_era_2: Balance = ((Perbill::one()
+				.saturating_sub(Rewards::development_fund_take()))
+				* tx_fee + Rewards::target_inflation_per_staking_era())
+				/ validators.len() as Balance;
 			for (stash, _controller, _, _, _, _) in &validators {
-				assert_eq!(RewardCurrency::free_balance(&stash), initial_balance + per_fee_reward);
+				assert_eq!(
+					RewardCurrency::free_balance(&stash),
+					initial_balance + per_validator_reward_era_1 + per_validator_reward_era_2
+				);
 			}
 
 			// treasury gets it's cut
-			let treasury_cut = Rewards::development_fund_take() * total_payout;
-			let validator_cut = per_fee_reward * validators.len() as Balance;
+			let treasury_cut = Rewards::development_fund_take() * tx_fee;
+			let validator_cut = per_validator_reward_era_2 * validators.len() as Balance;
 			let remainder = total_payout - treasury_cut - validator_cut;
 			assert_eq!(
 				RewardCurrency::free_balance(&Treasury::account_id()),
-				treasury_cut + remainder
+				treasury_cut + remainder + treasury_balance_era_1
 			);
 
 			// Check total issuance of spending asset updated after new era

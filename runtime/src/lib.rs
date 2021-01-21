@@ -477,6 +477,7 @@ impl pallet_treasury::Trait for Runtime {
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
 	pub const PayoutSplitThreshold: u32 = 1000;
+	pub const FiscalEraLength: u32 = 365;
 }
 impl crml_staking_rewards::Trait for Runtime {
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
@@ -484,6 +485,7 @@ impl crml_staking_rewards::Trait for Runtime {
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type FiscalEraLength = FiscalEraLength;
 	type WeightInfo = ();
 }
 
