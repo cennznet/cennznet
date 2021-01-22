@@ -21,7 +21,7 @@ FROM debian:stretch-slim
 LABEL maintainer="support@centrality.ai"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates openssl && \
+    apt-get install -y ca-certificates openssl curl && \
     mkdir -p /root/.local/share/cennznet && \
     ln -s /root/.local/share/cennznet /data
 
