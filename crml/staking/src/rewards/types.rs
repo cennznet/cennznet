@@ -16,9 +16,10 @@
 //! Staking reward types
 
 use crate::{EraIndex, Exposure};
-use codec::HasCompact;
+use codec::{Decode, Encode, HasCompact};
 use frame_support::weights::Weight;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
+use sp_std::collections::btree_map::BTreeMap;
 
 /// Something which can perform reward payment to staked validators
 pub trait StakerRewardPayment {
@@ -41,4 +42,18 @@ pub trait StakerRewardPayment {
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;
+}
+
+/// Counter for the number of "reward" points earned by a given validator.
+pub type RewardPoint = u32;
+
+/// Reward points of an era. Used to split era total payout between validators.
+///
+/// This points will be used to reward validators and their respective nominators.
+#[derive(PartialEq, Encode, Decode, Default)]
+pub struct EraRewardPoints<AccountId: Ord> {
+	/// Total number of points. Equals the sum of reward points for each validator.
+	pub total: RewardPoint,
+	/// The reward points earned by a given validator.
+	pub individual: BTreeMap<AccountId, RewardPoint>,
 }

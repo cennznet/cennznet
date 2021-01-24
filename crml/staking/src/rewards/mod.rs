@@ -108,6 +108,8 @@ decl_storage! {
 		FiscalEraEpoch get(fn fiscal_era_epoch): EraIndex;
 		/// When true the next staking era will become the start of a new fiscal era.
 		ForceFiscalEra get(fn force_fiscal_era): bool = false;
+		/// Authorship rewards for the current active era.
+		CurrentEraRewardPoints get(fn current_era_points): EraRewardPoints<T::AccountId>;
 	}
 }
 
@@ -142,6 +144,22 @@ decl_module! {
 			ensure_root(origin)?;
 			ForceFiscalEra::put(true);
 		}
+	}
+}
+
+/// Add reward points to block authors:
+/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
+/// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
+/// * 1 point to the producer of each referenced uncle block.
+impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
+where
+	T: Trait + pallet_authorship::Trait,
+{
+	fn note_author(author: T::AccountId) {
+		Self::reward_by_ids(vec![(author, 20)])
+	}
+	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
+		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
 	}
 }
 
@@ -188,21 +206,39 @@ where
 			development_fund_payout,
 		);
 
-		let validator_payout = total_payout.saturating_sub(development_fund_payout);
-
-		// Payout reward to validators and their nominators
-		let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
+		let era_payout = total_payout.saturating_sub(development_fund_payout);
+		let era_reward_points = <CurrentEraRewardPoints<T>>::take();
+		let total_reward_points = era_reward_points.total;
 
 		validator_commission_stake_map
 			.iter()
 			.flat_map(|(validator, validator_commission, stake_map)| {
-				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
+				let validator_reward_points = era_reward_points
+					.individual
+					.get(validator)
+					.map(|points| *points)
+					.unwrap_or_else(|| Zero::zero());
+
+				// Nothing to do if they have no reward points.
+				if validator_reward_points.is_zero() {
+					return vec![];
+				}
+
+				// This is the fraction of the total reward that the validator and the
+				// nominators will get.
+				let validator_total_reward_part =
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points);
+
+				// This is how much validator + nominators are entitled to.
+				let validator_total_payout = validator_total_reward_part * era_payout;
+
+				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
 			})
 			.for_each(|(account, payout)| {
 				Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
 			});
 
-		QueuedEraRewards::<T>::mutate(|q| q.push_back(validator_payout));
+		QueuedEraRewards::<T>::mutate(|q| q.push_back(era_payout));
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
@@ -361,6 +397,26 @@ impl<T: Trait> Module<T> {
 			.unwrap_or_else(Zero::zero);
 		<TargetInflationPerStakingEra<T>>::put(target_inflation_per_staking_era);
 		Self::deposit_event(RawEvent::NewFiscalEra(target_inflation_per_staking_era));
+	}
+
+	/// Add reward points to validators using their stash account ID.
+	///
+	/// Validators are keyed by stash account ID and must be in the current elected set.
+	///
+	/// For each element in the iterator the given number of points in u32 is added to the
+	/// validator, thus duplicates are handled.
+	///
+	/// At the end of the era each the total payout will be distributed among validator
+	/// relatively to their points.
+	///
+	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
+	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+		<CurrentEraRewardPoints<T>>::mutate(|era_rewards| {
+			for (validator, points) in validators_points.into_iter() {
+				*era_rewards.individual.entry(validator).or_default() += points;
+				era_rewards.total += points;
+			}
+		});
 	}
 }
 
@@ -1089,5 +1145,46 @@ mod tests {
 				2 * payout_split_threshold
 			);
 		});
+	}
+
+	#[test]
+	fn reward_from_authorship_event_handler_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			use pallet_authorship::EventHandler;
+
+			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+
+			<Module<Test>>::note_author(11);
+			<Module<Test>>::note_uncle(21, 1);
+			// An uncle author that is not currently elected doesn't get rewards,
+			// but the block producer does get reward for referencing it.
+			<Module<Test>>::note_uncle(31, 1);
+			// Rewarding the same two times works.
+			<Module<Test>>::note_uncle(11, 1);
+
+			// Not mandatory but must be coherent with rewards
+			assert_eq!(<CurrentElected<Test>>::get(), vec![21, 11]);
+
+			// 21 is rewarded as an uncle producer
+			// 11 is rewarded as a block producer and uncle referencer and uncle producer
+			assert_eq!(CurrentEraPointsEarned::get().individual, vec![1, 20 + 2 * 3 + 1]);
+			assert_eq!(CurrentEraPointsEarned::get().total, 28);
+		})
+	}
+
+	#[test]
+	fn add_reward_points_fns_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let validators = <Module<Test>>::current_elected();
+			// Not mandatory but must be coherent with rewards
+			assert_eq!(validators, vec![21, 11]);
+
+			<Module<Test>>::reward_by_indices(vec![(0, 1), (1, 1), (2, 1), (1, 1)]);
+
+			<Module<Test>>::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
+
+			assert_eq!(CurrentEraPointsEarned::get().individual, vec![2, 4]);
+			assert_eq!(CurrentEraPointsEarned::get().total, 6);
+		})
 	}
 }

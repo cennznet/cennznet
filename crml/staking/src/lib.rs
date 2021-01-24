@@ -135,28 +135,6 @@
 //!
 //! ## Usage
 //!
-//! ### Example: Rewarding a validator by id.
-//!
-//! ```
-//! use frame_support::{decl_module, dispatch};
-//! use frame_system::{self as system, ensure_signed};
-//! use crml_staking::{self as staking};
-//!
-//! pub trait Trait: staking::Trait {}
-//!
-//! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//! 		#[weight = 0]
-//! 		pub fn reward_myself(origin) -> dispatch::DispatchResult {
-//! 			let reported = ensure_signed(origin)?;
-//! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//! 			Ok(())
-//! 		}
-//! 	}
-//! }
-//! # fn main() { }
-//! ```
-//!
 //! ## Implementation Details
 //!
 //! ### Slot Stake
@@ -290,37 +268,6 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
-
-/// Counter for the number of "reward" points earned by a given validator.
-pub type Points = u32;
-
-/// Reward points of an era. Used to split era total payout between validators.
-#[derive(Encode, Decode, Default)]
-pub struct EraPoints {
-	/// Total number of points. Equals the sum of reward points for each validator.
-	total: Points,
-	/// The reward points earned by a given validator. The index of this vec corresponds to the
-	/// index into the current validator set.
-	individual: Vec<Points>,
-}
-
-impl EraPoints {
-	/// Add the reward to the validator at the given index. Index must be valid
-	/// (i.e. `index < current_elected.len()`).
-	fn add_points_to_index(&mut self, index: u32, points: Points) {
-		if let Some(new_total) = self.total.checked_add(points) {
-			self.total = new_total;
-			let new_size = (index as usize + 1).max(self.individual.len());
-			self.individual.resize(new_size, 0);
-			self.individual[index as usize] += points; // Addition is less than total
-		}
-	}
-	/// Get a list of individual points
-	#[cfg(any(feature = "std", test))]
-	pub fn individual_points(&self) -> Vec<Points> {
-		self.individual.clone()
-	}
-}
 
 /// Indicates the initial status of a staker (used by genesis config only).
 #[derive(RuntimeDebug)]
@@ -737,9 +684,6 @@ decl_storage! {
 
 		/// The session index at which the current era started.
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
-
-		/// Rewards for the current era. Using indices of current elected set.
-		CurrentEraPointsEarned get(fn current_era_points): EraPoints;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -1695,45 +1639,6 @@ impl<T: Trait> Module<T> {
 		slashing::clear_stash_metadata::<T>(stash);
 	}
 
-	/// Add reward points to validators using their stash account ID.
-	///
-	/// Validators are keyed by stash account ID and must be in the current elected set.
-	///
-	/// For each element in the iterator the given number of points in u32 is added to the
-	/// validator, thus duplicates are handled.
-	///
-	/// At the end of the era each the total payout will be distributed among validator
-	/// relatively to their points.
-	///
-	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	/// If you need to reward lots of validator consider using `reward_by_indices`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-		CurrentEraPointsEarned::mutate(|rewards| {
-			let current_elected = <Module<T>>::current_elected();
-			for (validator, points) in validators_points.into_iter() {
-				if let Some(index) = current_elected.iter().position(|elected| *elected == validator) {
-					rewards.add_points_to_index(index as u32, points);
-				}
-			}
-		});
-	}
-
-	/// Add reward points to validators using their validator index.
-	///
-	/// For each element in the iterator the given number of points in u32 is added to the
-	/// validator, thus duplicates are handled.
-	pub fn reward_by_indices(validators_points: impl IntoIterator<Item = (u32, u32)>) {
-		let current_elected_len = <Module<T>>::current_elected().len() as u32;
-
-		CurrentEraPointsEarned::mutate(|rewards| {
-			for (validator_index, points) in validators_points.into_iter() {
-				if validator_index < current_elected_len {
-					rewards.add_points_to_index(validator_index, points);
-				}
-			}
-		});
-	}
-
 	/// Ensures that at the end of the current session there will be a new era.
 	fn ensure_new_era() {
 		match ForceEra::get() {
@@ -1777,19 +1682,6 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 impl<T: Trait> OnNewAccount<T::AccountId> for Module<T> {
 	fn on_new_account(stash: &T::AccountId) {
 		Self::kill_stash(stash);
-	}
-}
-
-/// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
-/// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
-/// * 1 point to the producer of each referenced uncle block.
-impl<T: Trait + pallet_authorship::Trait> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T> {
-	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)]);
-	}
-	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
 	}
 }
 
