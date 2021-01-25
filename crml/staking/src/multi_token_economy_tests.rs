@@ -306,8 +306,6 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		assert!(total_payout > 1); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
-		start_era(1);
-		Session::on_initialize(System::block_number() + 1);
 		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Stash (default)
