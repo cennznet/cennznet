@@ -434,6 +434,7 @@ mod tests {
 	use crate::{rewards, IndividualExposure};
 	use frame_support::{assert_err, assert_noop, assert_ok, impl_outer_event, impl_outer_origin, parameter_types};
 	use frame_system::{InitKind, Module as System};
+	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
@@ -888,13 +889,20 @@ mod tests {
 					.as_tuple()
 				})
 				.collect();
+			let note_author_to_all = || {
+				for i in 0..validators_number {
+					Rewards::note_author((i + 1) * 10);
+				}
+			};
 
+			note_author_to_all();
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 0);
 
 			Rewards::process_reward_payouts(3);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
 
+			note_author_to_all();
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
 
