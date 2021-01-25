@@ -186,8 +186,9 @@ where
 		}
 
 		let total_payout = Self::calculate_next_reward_payout();
+		let num_of_validators = validator_commission_stake_map.len();
 
-		if total_payout.is_zero() || validator_commission_stake_map.len().is_zero() {
+		if total_payout.is_zero() || num_of_validators.is_zero() {
 			return;
 		}
 
@@ -219,18 +220,19 @@ where
 					.map(|points| *points)
 					.unwrap_or_else(|| Zero::zero());
 
-				// Nothing to do if they have no reward points.
-				if validator_reward_points.is_zero() {
+				// This is how much validator + nominators are entitled to.
+				let validator_total_payout = if total_reward_points.is_zero() {
+					// When no authorship points are recorded, divide the payout equally
+					//let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
+					era_payout / (num_of_validators as u32).into()
+				} else {
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * era_payout
+				};
+
+				// Nothing to do if they have no payouts.
+				if validator_total_payout.is_zero() {
 					return vec![];
 				}
-
-				// This is the fraction of the total reward that the validator and the
-				// nominators will get.
-				let validator_total_reward_part =
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points);
-
-				// This is how much validator + nominators are entitled to.
-				let validator_total_payout = validator_total_reward_part * era_payout;
 
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
 			})
