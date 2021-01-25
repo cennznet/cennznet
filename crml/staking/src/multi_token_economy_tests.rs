@@ -161,7 +161,7 @@ parameter_types! {
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
 impl RewardsTrait for Test {
-	type CurrencyToReward = prml_generic_asset::StakingAssetCurrency<Self>;
+	type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
 	type Event = ();
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
@@ -264,21 +264,18 @@ impl ExtBuilder {
 	}
 }
 
-pub fn start_session(session_index: SessionIndex) {
-	// Compensate for session delay
-	let session_index = session_index + 1;
-	for i in Session::current_index()..session_index {
-		System::set_block_number((i + 1).into());
-		Timestamp::set_timestamp(System::block_number() * 1000);
-		Session::on_initialize(System::block_number());
-	}
+fn rotate_to_session(index: SessionIndex) {
+	assert!(Session::current_index() <= index);
 
-	assert_eq!(Session::current_index(), session_index);
+	let rotations = index - Session::current_index();
+	for _i in 0..rotations {
+		Timestamp::set_timestamp(Timestamp::now() + 1000);
+		Session::rotate_session();
+	}
 }
 
-pub fn start_era(era_index: EraIndex) {
-	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), era_index);
+fn start_era(era_index: EraIndex) {
+	rotate_to_session(era_index * SessionsPerEra::get());
 }
 
 #[test]
@@ -302,12 +299,16 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 			})
 		);
 
+		start_era(1);
+
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout = Rewards::calculate_next_reward_payout();
 		assert!(total_payout > 1); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
+		Session::on_initialize(System::block_number() + 1);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Stash (default)
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
