@@ -1176,8 +1176,8 @@ mod tests {
 				.values()
 				.cloned()
 				.collect();
-			assert_eq!(reward_points, vec![1, 20 + 2 * 3 + 1]);
-			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 28);
+			assert_eq!(reward_points, vec![20 + 2 * 3 + 1, 1, 1]);
+			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 29);
 		})
 	}
 
