@@ -506,6 +506,13 @@ mod tests {
 		type WeightInfo = ();
 	}
 
+	impl pallet_authorship::Trait for TestRuntime {
+		type FindAuthor = crate::mock::Author11;
+		type UncleGenerations = crate::mock::UncleGenerations;
+		type FilterUncle = ();
+		type EventHandler = Module<Self>;
+	}
+
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
@@ -1152,39 +1159,40 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			use pallet_authorship::EventHandler;
 
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
 
-			<Module<Test>>::note_author(11);
-			<Module<Test>>::note_uncle(21, 1);
+			<Module<TestRuntime>>::note_author(11);
+			<Module<TestRuntime>>::note_uncle(21, 1);
 			// An uncle author that is not currently elected doesn't get rewards,
 			// but the block producer does get reward for referencing it.
-			<Module<Test>>::note_uncle(31, 1);
+			<Module<TestRuntime>>::note_uncle(31, 1);
 			// Rewarding the same two times works.
-			<Module<Test>>::note_uncle(11, 1);
-
-			// Not mandatory but must be coherent with rewards
-			assert_eq!(<CurrentElected<Test>>::get(), vec![21, 11]);
+			<Module<TestRuntime>>::note_uncle(11, 1);
 
 			// 21 is rewarded as an uncle producer
 			// 11 is rewarded as a block producer and uncle referencer and uncle producer
-			assert_eq!(CurrentEraPointsEarned::get().individual, vec![1, 20 + 2 * 3 + 1]);
-			assert_eq!(CurrentEraPointsEarned::get().total, 28);
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+				.individual
+				.values()
+				.cloned()
+				.collect();
+			assert_eq!(reward_points, vec![1, 20 + 2 * 3 + 1]);
+			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 28);
 		})
 	}
 
 	#[test]
 	fn add_reward_points_fns_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let validators = <Module<Test>>::current_elected();
-			// Not mandatory but must be coherent with rewards
-			assert_eq!(validators, vec![21, 11]);
+			<Module<TestRuntime>>::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
 
-			<Module<Test>>::reward_by_indices(vec![(0, 1), (1, 1), (2, 1), (1, 1)]);
-
-			<Module<Test>>::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
-
-			assert_eq!(CurrentEraPointsEarned::get().individual, vec![2, 4]);
-			assert_eq!(CurrentEraPointsEarned::get().total, 6);
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+				.individual
+				.values()
+				.cloned()
+				.collect();
+			assert_eq!(reward_points, vec![1, 1, 2]);
+			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 3);
 		})
 	}
 }
