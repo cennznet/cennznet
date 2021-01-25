@@ -539,26 +539,22 @@ pub(crate) fn bond_nominator(stash: AccountId, ctrl: AccountId, val: Balance, ta
 	assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
 }
 
-pub fn advance_session() {
-	let current_index = Session::current_index();
-	start_session(current_index + 1);
-}
+pub fn start_session(index: SessionIndex) {
+	assert!(Session::current_index() <= index);
 
-pub fn start_session(session_index: SessionIndex) {
-	// Compensate for session delay
-	let session_index = session_index + 1;
-	for i in Session::current_index()..session_index {
-		System::set_block_number((i + 1).into());
-		Timestamp::set_timestamp(System::block_number() * 1000);
-		Session::on_initialize(System::block_number());
+	let rotations = index - Session::current_index();
+	for _i in 0..rotations {
+		Timestamp::set_timestamp(Timestamp::now() + 1000);
+		Session::rotate_session();
 	}
-
-	assert_eq!(Session::current_index(), session_index);
 }
 
 pub fn start_era(era_index: EraIndex) {
-	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), era_index);
+	start_session(era_index * SessionsPerEra::get());
+}
+
+pub fn advance_session() {
+	start_session(Session::current_index() + 1);
 }
 
 pallet_staking_reward_curve::build! {
