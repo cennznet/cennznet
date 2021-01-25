@@ -17,7 +17,7 @@
 //! Tests for the module.
 
 use super::*;
-use crate::{rewards::Module as Rewards, Store};
+use crate::Store;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, OnInitialize, ReservableCurrency},
@@ -218,15 +218,15 @@ fn rewards_should_work() {
 		Session::on_initialize(System::block_number());
 		assert_eq!(Staking::current_era(), 0);
 		assert_eq!(Session::current_index(), 1);
-		<Rewards<Test>>::reward_by_ids(vec![(11, 50)]);
-		<Rewards<Test>>::reward_by_ids(vec![(11, 50)]);
+		Rewards::reward_by_ids(vec![(11, 50)]);
+		Rewards::reward_by_ids(vec![(11, 50)]);
 		// This is the second validator of the current elected set.
-		<Rewards<Test>>::reward_by_ids(vec![(21, 50)]);
+		Rewards::reward_by_ids(vec![(21, 50)]);
 		// This must be no-op as it is not an elected validator.
-		<Rewards<Test>>::reward_by_ids(vec![(1001, 10_000)]);
+		Rewards::reward_by_ids(vec![(1001, 10_000)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout = current_total_payout::<Balances>();
+		let total_payout: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout > 10); // Test is meaningful if reward something
 
 		// No reward yet
@@ -267,9 +267,9 @@ fn multi_era_reward_should_work() {
 		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
 
 		// Compute now as other parameter won't change
-		let total_payout_0 = current_total_payout::<Balances>();
+		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 10); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_session(0);
 		start_session(1);
@@ -281,9 +281,9 @@ fn multi_era_reward_should_work() {
 
 		start_session(4);
 
-		let total_payout_1 = current_total_payout::<Balances>();
+		let total_payout_1: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_1 > 10); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 101)]);
+		Rewards::reward_by_ids(vec![(11, 101)]);
 
 		// new era is triggered here.
 		start_session(5);
@@ -460,9 +460,9 @@ fn nominators_also_get_slashed() {
 		));
 		assert_ok!(Staking::nominate(Origin::signed(2), vec![20, 10]));
 
-		let total_payout = current_total_payout::<Balances>();
+		let total_payout: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout > 100); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		// new era, pay rewards,
 		start_era(1);
@@ -731,9 +731,9 @@ fn reward_destination_works() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout::<Balances>();
+		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
 
@@ -746,9 +746,9 @@ fn reward_destination_works() {
 		<Payee<Test>>::insert(&11, RewardDestination::Stash);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_1 = current_total_payout::<Balances>();
+		let total_payout_1: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_1 > 100); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(2);
 
@@ -766,9 +766,9 @@ fn reward_destination_works() {
 		assert_eq!(Balances::free_balance(10), 1);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_2 = current_total_payout::<Balances>();
+		let total_payout_2: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_2 > 100); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(3);
 
@@ -839,9 +839,9 @@ fn validator_payment_prefs_work() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout::<Balances>();
+		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
 
@@ -1400,10 +1400,10 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			);
 
 			// Compute total payout now for whole duration as other parameter won't change
-			let total_payout_0 = current_total_payout::<Balances>();
+			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
-			<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
-			<Rewards<Test>>::reward_by_ids(vec![(21, 1)]);
+			Rewards::reward_by_ids(vec![(11, 1)]);
+			Rewards::reward_by_ids(vec![(21, 1)]);
 
 			// New era --> rewards are paid to stash account --> stakes are not change
 			start_era(1);
@@ -1718,7 +1718,7 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
-			let total_payout_0 = current_total_payout::<Balances>();
+			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			reward_all_elected();
 			start_era(1);
@@ -1733,7 +1733,7 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			// no rewards paid to 2. This was initial election.
 			assert_eq!(Balances::free_balance(2), init_balance_2);
 
-			let total_payout_1 = current_total_payout::<Balances>();
+			let total_payout_1: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_1 > 100); // Test is meaningful if reward something
 			reward_all_elected();
 			start_era(2);
@@ -3191,9 +3191,9 @@ fn payout_to_any_account_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 
 		mock::start_era(1);
-		<Rewards<Test>>::reward_by_ids(vec![(11, 1)]);
+		Rewards::reward_by_ids(vec![(11, 1)]);
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_0 = current_total_payout::<Balances>();
+		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		mock::start_era(2);
 

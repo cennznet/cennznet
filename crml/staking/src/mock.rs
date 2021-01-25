@@ -16,8 +16,10 @@
 
 //! Test utilities
 
-use crate::rewards::{self, Module as Rewards};
-use crate::{EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs};
+use crate::{
+	rewards::{self, Module as RewardsModule, Trait as RewardsTrait},
+	EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
+};
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
 	traits::{Currency, FindAuthor, Get, OnInitialize},
@@ -215,7 +217,7 @@ impl pallet_authorship::Trait for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = Rewards<Test>;
+	type EventHandler = Rewards;
 }
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
@@ -233,7 +235,7 @@ parameter_types! {
 	pub const FiscalEraLength: u32 = 5;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-impl rewards::Trait for Test {
+impl RewardsTrait for Test {
 	type CurrencyToReward = pallet_balances::Module<Self>;
 	type Event = MetaEvent;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
@@ -260,7 +262,7 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type WeightInfo = ();
-	type Rewarder = Rewards<Self>;
+	type Rewarder = Rewards;
 }
 pub struct ExtBuilder {
 	existential_deposit: u64,
@@ -456,6 +458,7 @@ pub type Balances = pallet_balances::Module<Test>;
 pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Staking = Module<Test>;
+pub type Rewards = RewardsModule<Test>;
 
 pub fn check_exposure_all() {
 	Staking::current_elected()
@@ -569,29 +572,13 @@ pallet_staking_reward_curve::build! {
 	);
 }
 
-// Use pallet staking NPOS curve to determine rewards in our mocks
-// most of the tests here are tightly coupled with this reward system.
-// staking module is not responsible for reward calculation in CENNZnet.
-// Here it is useful to assert a reward happened or not rather than
-// asserting it's accuracy, however, some unit tests are still coupled to assert accuracy.
-pub fn current_total_payout<C: Currency<AccountId>>() -> u64 {
-	pallet_staking::inflation::compute_total_payout(
-		&I_NPOS,
-		<Module<Test>>::slot_stake() * 2,
-		C::total_issuance().saturated_into::<u64>(), // terrible way to get a `u64`
-		// hack: all tests want the price for duration = `3000` so we just hard code it
-		3_000,
-	)
-	.0
-}
-
 pub fn reward_all_elected() {
 	let rewards = <Module<Test>>::current_elected()
 		.iter()
 		.map(|v| (*v, 1))
 		.collect::<Vec<_>>();
 
-	<Rewards<Test>>::reward_by_ids(rewards)
+	Rewards::reward_by_ids(rewards)
 }
 
 pub fn validator_controllers() -> Vec<AccountId> {
