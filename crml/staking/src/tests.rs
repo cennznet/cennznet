@@ -839,11 +839,13 @@ fn validator_payment_prefs_work() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
+		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// whats left to be shared is the sum of 3 rounds minus the validator's cut.
 		let shared_cut = total_payout_0 / 2;
