@@ -17,10 +17,12 @@
 
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
+// Counts enum variants at compile time
+use variant_count::VariantCount;
 
 /// Type Id of an NFTField
 /// TODO: can't encode `u8`s
-type NFTFieldTypeId = u8;
+pub type NFTFieldTypeId = u8;
 /// Some descriptive tag about an NFT field
 type NFTFieldTag = [u8; 32];
 
@@ -28,7 +30,7 @@ type NFTFieldTag = [u8; 32];
 pub type NFTSchema = Vec<NFTFieldTypeId>;
 
 /// The supported data types for an NFT
-#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+#[derive(Decode, Encode, Debug, Copy, Clone, PartialEq, VariantCount)]
 pub enum NFTField {
 	I32(i32),
 	U8(u8),
@@ -41,7 +43,7 @@ pub enum NFTField {
 
 impl NFTField {
 	/// Return the type ID of this field
-	pub fn type_id(&self) -> NFTFieldTypeId {
+	pub const fn type_id(&self) -> NFTFieldTypeId {
 		match self {
 			NFTField::I32(_) => 0,
 			NFTField::U8(_) => 1,
@@ -52,17 +54,25 @@ impl NFTField {
 			NFTField::Bytes32(_) => 6,
 		}
 	}
-	/// Return a new NFTField with a default value for the given type id
-	pub fn default_from_type_id(type_id: NFTFieldTypeId) -> Self {
-		match type_id {
-			0 => NFTField::I32(0),
-			1 => NFTField::U8(0),
-			2 => NFTField::U16(0),
-			3 => NFTField::U32(0),
-			4 => NFTField::U64(0),
-			5 => NFTField::U128(0),
-			6 => NFTField::Bytes32([0_u8; 32]),
-			_ => panic!("impossible"),
+	/// Return a new `NFTField` with the default value for the given type id.
+	/// It will fail if `type_id` is invalid
+	pub const fn default_from_type_id(type_id: NFTFieldTypeId) -> Result<NFTField, ()> {
+		if !Self::is_valid_type_id(type_id) {
+			return Err(());
 		}
+		match type_id {
+			0 => Ok(NFTField::I32(0)),
+			1 => Ok(NFTField::U8(0)),
+			2 => Ok(NFTField::U16(0)),
+			3 => Ok(NFTField::U32(0)),
+			4 => Ok(NFTField::U64(0)),
+			5 => Ok(NFTField::U128(0)),
+			6 => Ok(NFTField::Bytes32([0_u8; 32])),
+			_ => Err(()),
+		}
+	}
+	/// Return whether the given `type_id` is valid to describe an `NFTField`
+	pub const fn is_valid_type_id(type_id: NFTFieldTypeId) -> bool {
+		type_id < (Self::VARIANT_COUNT as u8)
 	}
 }

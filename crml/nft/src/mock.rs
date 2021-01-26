@@ -13,18 +13,24 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-#![cfg(test)]
-
-use frame_support::{impl_outer_origin, parameter_types};
+use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
 use sp_core::H256;
-
-// The testing primitives are very useful for avoiding having to work with signatures
-// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
+
+mod nft {
+	pub use crate::Event;
+}
+
+impl_outer_event! {
+	pub enum Event for Test {
+		frame_system<T>,
+		nft<T>,
+	}
+}
 
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
@@ -50,7 +56,7 @@ impl frame_system::Trait for Test {
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type DbWeight = ();
@@ -71,16 +77,26 @@ impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}
 }
 
-// This function basically just builds a genesis storage key/value store according to
-// our desired mockup.
 #[derive(Default)]
-pub struct ExtBuilder {}
+pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		frame_system::GenesisConfig::default()
+		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
 			.build_storage::<Test>()
 			.unwrap()
-			.into()
+			.into();
+
+		ext.execute_with(|| {
+			frame_system::Module::<Test>::initialize(
+				&1,
+				&[0u8; 32].into(),
+				&[0u8; 32].into(),
+				&Default::default(),
+				frame_system::InitKind::Full,
+			);
+		});
+
+		ext
 	}
 }

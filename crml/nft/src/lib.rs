@@ -16,7 +16,10 @@
 
 //! # NFT Module
 //!
-//! Provides the basic creation and management of dynamic NFTs
+//! Provides the basic creation and management of dynamic NFTs (created at runtime).
+//!
+//! Intended to be used "as is" by dapps and provide basic NFT feature set for smart contracts
+//! to extend.
 
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
 use frame_system::{ensure_signed, WeightInfo};
@@ -26,6 +29,8 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+#[cfg(test)]
+mod mock;
 mod types;
 use types::{NFTField, NFTSchema};
 
@@ -58,12 +63,16 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
-		/// Too many fields in the provided schema or data
-		MaxSchemaFields,
 		/// Max tokens issued
 		MaxTokensIssued,
+		/// Too many fields in the provided schema or data
+		SchemaMaxFields,
 		/// Provided fields do not match the class schema
 		SchemaMismatch,
+		/// The provided fields or schema cannot be empty
+		SchemaEmpty,
+		/// The schema contains an invalid type
+		SchemaInvalid,
 		/// origin does not have permission for the operation
 		NoPermission,
 		/// The NFT class does not exist
@@ -84,7 +93,7 @@ decl_storage! {
 		/// Map from (class, token) to it's owner
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) T::ClassId, hasher(twox_64_concat) T::TokenId => T::AccountId;
 		/// Map from (class, account) to it's owned tokens of that class
-		pub AccountTokensByClass get(fn account_tokens): double_map hasher(twox_64_concat) T::ClassId, hasher(blake2_128_concat) T::AccountId => Vec<T::TokenId>;
+		pub AccountTokensByClass get(fn account_tokens_by_class): double_map hasher(twox_64_concat) T::ClassId, hasher(blake2_128_concat) T::AccountId => Vec<T::TokenId>;
 		/// The next available NFT class Id
 		pub NextClassId get(fn next_class_id): T::ClassId;
 		/// The next available token Id for an NFT class
@@ -95,6 +104,7 @@ decl_storage! {
 }
 
 /// The maximum number of fields in an NFT class schema
+// TODO: use onchain modifiable value
 const MAX_SCHEMA_FIELDS: u32 = 16;
 
 decl_module! {
@@ -104,16 +114,23 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// Create a new NFT class
+		/// The caller will be come the class' owner
 		#[weight = 0]
 		fn create_class(origin, schema: NFTSchema) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			// TODO: require a CENNZ deposit or governance vote to create i.e. to prevent spam.
 			let class_id = Self::next_class_id();
 
-			if schema.len() as u32 > MAX_SCHEMA_FIELDS {
-				return Err(Error::<T>::MaxSchemaFields)?
+			if schema.is_empty() {
+				return Err(Error::<T>::SchemaEmpty)?
+			} else if schema.len() as u32 > MAX_SCHEMA_FIELDS {
+				return Err(Error::<T>::SchemaMaxFields)?
 			}
-			// TODO: disallow empty schema
+
+			// Check the provided field types are valid
+			if !schema.iter().any(|type_id| NFTField::is_valid_type_id(*type_id)) {
+				return Err(Error::<T>::SchemaInvalid)?
+			}
 
 			// Store schema and owner
 			<ClassSchema<T>>::insert(class_id, schema);
@@ -122,13 +139,14 @@ decl_module! {
 			let new_class_id = class_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
 			<NextClassId<T>>::put(new_class_id);
 
-			Self::deposit_event(RawEvent::CreateClass(class_id.clone(), origin));
+			Self::deposit_event(RawEvent::CreateClass(class_id, origin));
 
 			Ok(())
 		}
 
 		/// Issue a new NFT
-		/// `fields` - initial values according to the NFT class/schema, any missing fields will assigned the defaults
+		/// `fields` - initial values according to the NFT class/schema, omitted fields will be assigned defaults
+		/// Caller must be the class owner
 		#[weight = 0]
 		fn create_token(origin, class_id: T::ClassId, owner: T::AccountId, fields: Vec<Option<NFTField>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -147,15 +165,19 @@ decl_module! {
 			let next_token_id = token_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
 			Self::token_issuance(class_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
 
-			// quick data sanity check
+			// Quick `fields` sanity checks
+			if fields.is_empty() {
+				return Err(Error::<T>::SchemaEmpty)?
+			}
+			if fields.len() as u32 > MAX_SCHEMA_FIELDS {
+				return Err(Error::<T>::SchemaMaxFields)?
+			}
 			let schema: NFTSchema = Self::class_schema(class_id);
-			if fields.len() as u32 > MAX_SCHEMA_FIELDS || fields.len() > schema.len() {
-				return Err(Error::<T>::MaxSchemaFields)?
-			} else if fields.len() < schema.len() {
+			if fields.len() != schema.len() {
 				return Err(Error::<T>::SchemaMismatch)?
 			}
 
-			// Build the NFT + schema validation
+			// Build the NFT + schema type level validation
 			let token: Vec<NFTField> = schema.iter().zip(fields.iter()).map(|(schema_field_type, maybe_provided_field)| {
 				if let Some(provided_field) = maybe_provided_field {
 					// caller provided a field, check it's the right type
@@ -166,12 +188,11 @@ decl_module! {
 					}
 				} else {
 					// caller did not provide a field, use the default
-					Ok(NFTField::default_from_type_id(*schema_field_type))
+					NFTField::default_from_type_id(*schema_field_type).map_err(|_| Error::<T>::SchemaInvalid)
 				}
 			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
 
 			// TODO: Add unique ID hash as first field
-			// token.push_front(T::Hasher::hash((class_id.encode(), token_id.encode())));
 
 			// Create the token, update ownership, and bookkeeping
 			<Tokens<T>>::insert(class_id, token_id, token);
@@ -180,13 +201,14 @@ decl_module! {
 			<TokenOwner<T>>::insert(class_id, token_id, owner.clone());
 			<AccountTokensByClass<T>>::append(class_id, owner.clone(), token_id);
 
-			Self::deposit_event(RawEvent::CreateToken(class_id.clone(), token_id.clone(), owner));
+			Self::deposit_event(RawEvent::CreateToken(class_id, token_id, owner));
 
 			Ok(())
 		}
 
 		/// Update an existing NFT
 		/// `new_fields` - new values according to the NFT class/schema, omitted fields will retain their current values.
+		/// Caller must be the class owner
 		#[weight = 0]
 		fn update_token(origin, class_id: T::ClassId, token_id: T::TokenId, new_fields: Vec<Option<NFTField>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -204,11 +226,15 @@ decl_module! {
 				return Err(Error::<T>::NoToken)?
 			}
 
-			// quick data sanity check
+			// Quick `new_fields` sanity checks
+			if new_fields.is_empty() {
+				return Err(Error::<T>::SchemaEmpty)?
+			}
+			if new_fields.len() as u32 > MAX_SCHEMA_FIELDS {
+				return Err(Error::<T>::SchemaMaxFields)?
+			}
 			let schema: NFTSchema = Self::class_schema(class_id);
-			if new_fields.len() as u32 > MAX_SCHEMA_FIELDS || new_fields.len() > schema.len() {
-				return Err(Error::<T>::MaxSchemaFields)?
-			} else if new_fields.len() < schema.len() {
+			if new_fields.len() != schema.len() {
 				return Err(Error::<T>::SchemaMismatch)?
 			}
 
@@ -229,12 +255,13 @@ decl_module! {
 			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
 
 			<Tokens<T>>::insert(class_id, token_id, token);
-			Self::deposit_event(RawEvent::Update(class_id.clone(), token_id.clone()));
+			Self::deposit_event(RawEvent::Update(class_id, token_id));
 
 			Ok(())
 		}
 
 		/// Transfer ownership of an NFT
+		/// Caller must be the token owner
 		#[weight = 0]
 		fn transfer(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
@@ -258,7 +285,9 @@ decl_module! {
 				tokens.retain(|t| t != &token_id)
 			});
 			<TokenOwner<T>>::insert(class_id, token_id, new_owner.clone());
-			<AccountTokensByClass<T>>::append(class_id, new_owner, token_id);
+			<AccountTokensByClass<T>>::append(class_id, new_owner.clone(), token_id);
+
+			Self::deposit_event(RawEvent::Transfer(class_id, token_id, new_owner));
 		}
 	}
 }
@@ -266,29 +295,381 @@ decl_module! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{ExtBuilder, Origin, Test};
-	use frame_support::assert_ok;
-	use frame_system::RawOrigin;
-	use sp_runtime::DispatchError::Other;
+	use crate::mock::{Event, ExtBuilder, Test};
+	use crate::types::*;
+	use frame_support::{assert_noop, assert_ok};
 
 	type Nft = Module<Test>;
+	type System = frame_system::Module<Test>;
+	type AccountId = u64;
+	type ClassId = u32;
+	type TokenId = u32;
 
 	impl Trait for Test {
-		type Event = ();
-		type ClassId = u32;
-		type TokenId = u32;
+		type Event = Event;
+		type ClassId = ClassId;
+		type TokenId = TokenId;
 		type WeightInfo = ();
 	}
 
-	#[test]
-	fn create_class() {}
+	// Check the test system contains an event record `event`
+	fn has_event(event: RawEvent<ClassId, TokenId, AccountId>) -> bool {
+		System::events()
+			.iter()
+			.find(|e| e.event == Event::nft(event.clone()))
+			.is_some()
+	}
+
+	// Create an NFT class with schema
+	// Returns the created `class_id`
+	fn setup_class(owner: AccountId, schema: NFTSchema) -> ClassId {
+		let class_id = Nft::next_class_id();
+		assert_ok!(Nft::create_class(Some(owner).into(), schema.clone()));
+		class_id
+	}
 
 	#[test]
-	fn create_token() {}
+	fn create_class() {
+		ExtBuilder::default().build().execute_with(|| {
+			let class_id = Nft::next_class_id();
+			assert_eq!(Nft::next_class_id(), 0);
+			let owner = 1_u64;
+			let schema = vec![
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::Bytes32(Default::default()).type_id(),
+			];
+
+			assert_ok!(Nft::create_class(Some(owner).into(), schema.clone()));
+			assert!(has_event(RawEvent::CreateClass(class_id, owner)));
+
+			assert_eq!(Nft::next_class_id(), class_id.checked_add(One::one()).unwrap());
+			assert_eq!(Nft::class_owner(class_id), owner);
+			assert_eq!(Nft::class_schema(class_id), schema);
+		});
+	}
 
 	#[test]
-	fn update_token() {}
+	fn create_class_invalid_schema() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_noop!(
+				Nft::create_class(Some(1_u64).into(), vec![]),
+				Error::<Test>::SchemaEmpty
+			);
+
+			let too_many_fields = [0_u8; (MAX_SCHEMA_FIELDS + 1_u32) as usize];
+			assert_noop!(
+				Nft::create_class(Some(1_u64).into(), too_many_fields.to_owned().to_vec()),
+				Error::<Test>::SchemaMaxFields
+			);
+
+			let invalid_nft_field_type: NFTFieldTypeId = 200;
+			assert_noop!(
+				Nft::create_class(Some(1_u64).into(), vec![invalid_nft_field_type]),
+				Error::<Test>::SchemaInvalid
+			);
+		});
+	}
 
 	#[test]
-	fn transfer() {}
+	fn create_token() {
+		ExtBuilder::default().build().execute_with(|| {
+			let schema = vec![
+				NFTField::I32(Default::default()).type_id(),
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::Bytes32(Default::default()).type_id(),
+			];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+
+			let token_owner = 2_u64;
+			let token_id = 0;
+			assert_eq!(Nft::next_token_id(class_id), token_id);
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(-33)), None, Some(NFTField::Bytes32([1_u8; 32]))]
+			));
+			assert!(has_event(RawEvent::CreateToken(
+				class_id,
+				token_id,
+				token_owner.clone()
+			)));
+
+			let token = Nft::tokens(class_id, token_id);
+			assert_eq!(
+				token,
+				vec![
+					NFTField::I32(-33),
+					NFTField::U8(Default::default()),
+					NFTField::Bytes32([1_u8; 32])
+				],
+			);
+
+			assert_eq!(Nft::token_owner(class_id, token_id), token_owner);
+			assert_eq!(Nft::account_tokens_by_class(class_id, token_owner), vec![token_id]);
+			assert_eq!(Nft::next_token_id(class_id), token_id.checked_add(One::one()).unwrap());
+			assert_eq!(Nft::token_issuance(class_id), 1);
+		});
+	}
+
+	#[test]
+	fn create_multiple_tokens() {
+		ExtBuilder::default().build().execute_with(|| {
+			let schema = vec![
+				NFTField::I32(Default::default()).type_id(),
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::Bytes32(Default::default()).type_id(),
+			];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(-33)), None, Some(NFTField::Bytes32([1_u8; 32]))]
+			));
+
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(33)), None, Some(NFTField::Bytes32([2_u8; 32]))]
+			));
+			assert!(has_event(RawEvent::CreateToken(class_id, 1, token_owner.clone())));
+
+			assert_eq!(Nft::token_owner(class_id, 1), token_owner);
+			assert_eq!(Nft::account_tokens_by_class(class_id, token_owner), vec![0, 1]);
+			assert_eq!(Nft::next_token_id(class_id), 2);
+			assert_eq!(Nft::token_issuance(class_id), 2);
+		});
+	}
+
+	#[test]
+	fn create_token_fails_prechecks() {
+		ExtBuilder::default().build().execute_with(|| {
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+
+			assert_noop!(
+				Nft::create_token(Some(2_u64).into(), class_id, class_owner, vec![None]),
+				Error::<Test>::NoPermission
+			);
+
+			assert_noop!(
+				Nft::create_token(Some(class_owner).into(), class_id + 1, class_owner, vec![None]),
+				Error::<Test>::NoClass
+			);
+
+			assert_noop!(
+				Nft::create_token(Some(class_owner).into(), class_id, class_owner, vec![]),
+				Error::<Test>::SchemaEmpty
+			);
+
+			// additional field vs. schema
+			assert_noop!(
+				Nft::create_token(Some(class_owner).into(), class_id, class_owner, vec![None, None]),
+				Error::<Test>::SchemaMismatch
+			);
+
+			// different field type vs. schema
+			assert_noop!(
+				Nft::create_token(
+					Some(class_owner).into(),
+					class_id,
+					class_owner,
+					vec![Some(NFTField::U32(404))]
+				),
+				Error::<Test>::SchemaMismatch
+			);
+
+			let too_many_fields: [Option<NFTField>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
+			assert_noop!(
+				Nft::create_token(
+					Some(class_owner).into(),
+					class_id,
+					class_owner,
+					too_many_fields.to_owned().to_vec()
+				),
+				Error::<Test>::SchemaMaxFields
+			);
+		});
+	}
+
+	#[test]
+	fn update_token() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup token class + one token
+			let schema = vec![
+				NFTField::I32(Default::default()).type_id(),
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::Bytes32(Default::default()).type_id(),
+			];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+			let initial_values = vec![
+				Some(NFTField::I32(-33)),
+				Some(NFTField::U8(12)),
+				Some(NFTField::Bytes32([1_u8; 32])),
+			];
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				initial_values.clone(),
+			));
+
+			// test
+			assert_ok!(Nft::update_token(
+				Some(class_owner).into(),
+				class_id,
+				token_id,
+				// only change the bytes32 value
+				vec![None, None, Some(NFTField::Bytes32([2_u8; 32]))]
+			));
+			assert!(has_event(RawEvent::Update(class_id, token_id)));
+
+			assert_eq!(
+				Nft::tokens(class_id, token_id),
+				// original values retained, bytes32 updated
+				vec![
+					initial_values[0].unwrap(),
+					initial_values[1].unwrap(),
+					NFTField::Bytes32([2_u8; 32]),
+				],
+			);
+		});
+	}
+
+	#[test]
+	fn update_token_fails_prechecks() {
+		ExtBuilder::default().build().execute_with(|| {
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![None],
+			));
+
+			assert_noop!(
+				Nft::update_token(Some(2_u64).into(), class_id, token_id, vec![None]),
+				Error::<Test>::NoPermission
+			);
+
+			assert_noop!(
+				Nft::update_token(Some(class_owner).into(), class_id + 1, token_id, vec![None]),
+				Error::<Test>::NoClass
+			);
+
+			assert_noop!(
+				Nft::update_token(Some(class_owner).into(), class_id, token_id, vec![]),
+				Error::<Test>::SchemaEmpty
+			);
+
+			// additional field vs. schema
+			assert_noop!(
+				Nft::update_token(Some(class_owner).into(), class_id, token_id, vec![None, None]),
+				Error::<Test>::SchemaMismatch
+			);
+
+			// different field type vs. schema
+			assert_noop!(
+				Nft::update_token(
+					Some(class_owner).into(),
+					class_id,
+					token_id,
+					vec![Some(NFTField::U32(404))]
+				),
+				Error::<Test>::SchemaMismatch
+			);
+
+			let too_many_fields: [Option<NFTField>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
+			assert_noop!(
+				Nft::update_token(
+					Some(class_owner).into(),
+					class_id,
+					token_id,
+					too_many_fields.to_owned().to_vec()
+				),
+				Error::<Test>::SchemaMaxFields
+			);
+		});
+	}
+
+	#[test]
+	fn transfer() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup token class + one token
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(500))],
+			));
+
+			// test
+			let new_owner = 3_u64;
+			assert_ok!(Nft::transfer(Some(token_owner).into(), class_id, token_id, new_owner,));
+			assert!(has_event(RawEvent::Transfer(class_id, token_id, new_owner)));
+
+			assert_eq!(Nft::token_owner(class_id, token_id), new_owner);
+			assert!(Nft::account_tokens_by_class(class_id, token_owner).is_empty());
+			assert_eq!(Nft::account_tokens_by_class(class_id, new_owner), vec![token_id]);
+		});
+	}
+
+	#[test]
+	fn transfer_fails_prechecks() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup token class + one token
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+
+			// no class yet
+			assert_noop!(
+				Nft::transfer(Some(class_owner).into(), 0, 1, class_owner),
+				Error::<Test>::NoClass,
+			);
+
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+
+			// no token yet
+			assert_noop!(
+				Nft::transfer(Some(token_owner).into(), class_id, token_id, token_owner),
+				Error::<Test>::NoToken,
+			);
+
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(500))],
+			));
+
+			// test
+			let not_the_owner = 3_u64;
+			assert_noop!(
+				Nft::transfer(Some(not_the_owner).into(), class_id, token_id, not_the_owner),
+				Error::<Test>::NoPermission,
+			);
+		});
+	}
 }
