@@ -97,7 +97,7 @@ decl_storage! {
 		/// Remaining reward amount of the eras which are not fully processed yet
 		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Where the reward payment should be made. Keyed by stash.
-		pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => T::AccountId;
+		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
