@@ -44,6 +44,19 @@ pub trait StakerRewardPayment {
 	fn calculate_next_reward_payout() -> Self::Balance;
 }
 
+pub trait HandlePayee {
+	/// The system account ID type
+	type AccountId;
+
+	/// (Re-)set the payment target for a stash account.
+	/// If payee is not different from stash, do no operations.
+	fn set_payee(stash: &Self::AccountId, payee: &Self::AccountId);
+	/// Remove the corresponding stash-payee from the look up. Do no operations if stash not found.
+	fn remove_payee(stash: &Self::AccountId);
+	/// Return the reward destination for the given stash account.
+	fn payee(stash: &Self::AccountId) -> Self::AccountId;
+}
+
 /// Counter for the number of "reward" points earned by a given validator.
 pub type RewardPoint = u32;
 

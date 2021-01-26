@@ -233,7 +233,7 @@ mod multi_token_economy_tests;
 mod tests;
 
 pub mod rewards;
-pub use rewards::StakerRewardPayment;
+pub use rewards::{HandlePayee, StakerRewardPayment};
 
 mod slashing;
 pub use slashing::REWARD_F1;
@@ -594,11 +594,8 @@ pub trait Trait: frame_system::Trait {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<
-		AccountId = Self::AccountId,
-		Balance = BalanceOf<Self>,
-		BlockNumber = Self::BlockNumber,
-	>;
+	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>, BlockNumber = Self::BlockNumber>
+		+ HandlePayee<AccountId = Self::AccountId>;
 
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
@@ -648,9 +645,6 @@ decl_storage! {
 		pub Ledger get(fn ledger):
 			map hasher(twox_64_concat) T::AccountId
 			=> Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
-
-		/// Where the reward payment should be made. Keyed by stash.
-		pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination<T::AccountId>;
 
 		/// The map from (wannabe) validator stash key to the preferences of that validator.
 		pub Validators get(fn validators):
@@ -886,12 +880,12 @@ decl_module! {
 			// you actually validate/nominate and remove once you unbond __everything__.
 			<Bonded<T>>::insert(&stash, &controller);
 
-			// controller destination is just a custom account after all
-			if let RewardDestination::Controller = payee {
-				<Payee<T>>::insert(&stash, RewardDestination::Account(controller.clone()));
-			} else {
-				<Payee<T>>::insert(&stash, payee);
-			}
+			let id = match payee {
+				RewardDestination::Stash => stash.clone(),
+				RewardDestination::Controller => controller.clone(),
+				RewardDestination::Account(account) => account,
+			};
+			T::Rewarder::set_payee(&stash, &id);
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
@@ -1170,12 +1164,12 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
-			// controller is a type of `RewardDestination::Account`
-			if let RewardDestination::Controller = payee {
-				<Payee<T>>::insert(stash, RewardDestination::Account(controller));
-			} else {
-				<Payee<T>>::insert(stash, payee);
-			}
+			let id = match payee {
+				RewardDestination::Stash => stash.clone(),
+				RewardDestination::Controller => controller,
+				RewardDestination::Account(account) => account,
+			};
+			T::Rewarder::set_payee(stash, &id);
 		}
 
 		/// (Re-)set the controller of a stash.
@@ -1382,37 +1376,10 @@ impl<T: Trait> Module<T> {
 		let validator_commission_stake_map = elected_validator_stashes
 			.iter()
 			.map(|validator_stash| {
-				// Get a version of `Exposure` which maps to preferred payment account _instead of_ stash
-				let mut aggregate_stake = Self::stakers(validator_stash);
-				// get nominator payee accounts
-				aggregate_stake.others.iter_mut().for_each(|nominator_exposure| {
-					match Self::payee(&nominator_exposure.who) {
-						// `*nominator_exposure.who` is stash already
-						RewardDestination::Stash => {}
-						RewardDestination::Account(account) => nominator_exposure.who = account,
-						RewardDestination::Controller => {
-							// this path shall become redundant since `fn bond` will replace controller destination with account
-							// Query controller account ID,, if it's missing the stash will be paid by default.
-							if let Some(controller) = Self::bonded(&nominator_exposure.who) {
-								nominator_exposure.who = controller;
-							}
-						}
-					}
-				});
-				// get validator payee account
-				let validator_payee = match Self::payee(validator_stash) {
-					RewardDestination::Stash => validator_stash.clone(),
-					RewardDestination::Account(account) => account,
-					RewardDestination::Controller => {
-						// default to stash if missing
-						Self::bonded(validator_stash).unwrap_or_else(|| validator_stash.clone())
-					}
-				};
-				// (validator payment account, validator commission %, and aggregate stake info by payment account)
 				(
-					validator_payee,
+					validator_stash.clone(),
 					Self::validators(validator_stash).commission,
-					aggregate_stake,
+					Self::stakers(validator_stash),
 				)
 			})
 			.collect::<Vec<(_, _, _)>>();
@@ -1632,7 +1599,7 @@ impl<T: Trait> Module<T> {
 		if let Some(controller) = <Bonded<T>>::take(stash) {
 			<Ledger<T>>::remove(&controller);
 		}
-		<Payee<T>>::remove(stash);
+		T::Rewarder::remove_payee(stash);
 		<Validators<T>>::remove(stash);
 		<Nominators<T>>::remove(stash);
 
@@ -1645,6 +1612,20 @@ impl<T: Trait> Module<T> {
 			Forcing::ForceAlways | Forcing::ForceNew => (),
 			_ => ForceEra::put(Forcing::ForceNew),
 		}
+	}
+
+	#[cfg(test)]
+	fn payee(stash: &T::AccountId) -> RewardDestination<T::AccountId> {
+		let payee = T::Rewarder::payee(stash);
+		if payee == *stash {
+			return RewardDestination::Stash;
+		}
+		if let Some(controller) = Bonded::<T>::get(stash) {
+			if payee == controller {
+				return RewardDestination::Controller;
+			}
+		}
+		RewardDestination::Account(payee)
 	}
 }
 

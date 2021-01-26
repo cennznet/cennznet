@@ -96,6 +96,8 @@ decl_storage! {
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
 		/// Remaining reward amount of the eras which are not fully processed yet
 		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
+		/// Where the reward payment should be made. Keyed by stash.
+		pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => T::AccountId;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
@@ -310,6 +312,32 @@ where
 	}
 }
 
+impl<T: Trait> HandlePayee for Module<T> {
+	type AccountId = T::AccountId;
+
+	/// (Re-)set the payment target for a stash account.
+	/// If payee is not different from stash, do no operations.
+	fn set_payee(stash: &Self::AccountId, payee: &Self::AccountId) {
+		if *stash != *payee {
+			Payee::<T>::insert(stash, payee);
+		}
+	}
+
+	/// Remove the corresponding stash-payee from the look up. Do no operations if stash not found.
+	fn remove_payee(stash: &Self::AccountId) {
+		Payee::<T>::remove(stash);
+	}
+
+	/// Return the reward destination for the given stash account.
+	fn payee(stash: &T::AccountId) -> Self::AccountId {
+		if Payee::<T>::contains_key(stash) {
+			Payee::<T>::get(stash)
+		} else {
+			stash.clone()
+		}
+	}
+}
+
 impl<T: Trait> Module<T> {
 	/// Add the given `fee` amount to the next reward payout
 	pub fn note_transaction_fees(amount: BalanceOf<T>) {
@@ -353,7 +381,7 @@ impl<T: Trait> Module<T> {
 		for nominator_stake in &validator_stake.others {
 			let contribution_ratio =
 				Perbill::from_rational_approximation(nominator_stake.value, aggregate_validator_stake);
-			payouts.push((nominator_stake.who.clone(), contribution_ratio * nominators_cut));
+			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
@@ -363,7 +391,7 @@ impl<T: Trait> Module<T> {
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
-			validator.clone(),
+			Self::payee(validator),
 			(validator_contribution_ratio * nominators_cut) + validator_cut,
 		));
 		(*payouts).to_vec()

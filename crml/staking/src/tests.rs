@@ -208,9 +208,8 @@ fn rewards_should_work() {
 			},
 		);
 
-		<Payee<Test>>::insert(&2, RewardDestination::Stash);
-		assert_eq!(Staking::payee(2), RewardDestination::Stash);
-		assert_eq!(Staking::payee(11), RewardDestination::Account(10));
+		assert_eq!(Staking::payee(&2), RewardDestination::Stash);
+		assert_eq!(Staking::payee(&11), RewardDestination::Account(10));
 
 		let mut block = 3; // Block 3 => Session 1 => Era 0
 		System::set_block_number(block);
@@ -735,9 +734,6 @@ fn reward_destination_works() {
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
 
-		//Change RewardDestination to Stash
-		<Payee<Test>>::insert(&11, RewardDestination::Stash);
-
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_1: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_1 > 100); // Test is meaningful if reward something
@@ -753,7 +749,7 @@ fn reward_destination_works() {
 		let recorded_stash_balance = 1000 + total_payout_0 + total_payout_1;
 
 		// Change RewardDestination to Controller
-		<Payee<Test>>::insert(&11, RewardDestination::Controller);
+		<<Test as Trait>::Rewarder as HandlePayee>::set_payee(&11, &10);
 
 		// Check controller balance
 		assert_eq!(Balances::free_balance(10), 1);
@@ -787,14 +783,14 @@ fn reward_destination_controller_is_replaced_with_account() {
 			Staking::minimum_bond(),
 			RewardDestination::Controller
 		));
-		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
+		assert_eq!(Staking::payee(&stash), RewardDestination::Account(controller));
 
 		// explicit set controller as payee
 		assert_ok!(Staking::set_payee(
 			Origin::signed(controller),
 			RewardDestination::Controller
 		));
-		assert_eq!(Staking::payee(stash), RewardDestination::Account(controller));
+		assert_eq!(Staking::payee(&stash), RewardDestination::Account(controller));
 	});
 }
 
@@ -823,7 +819,6 @@ fn validator_payment_prefs_work() {
 				others: vec![IndividualExposure { who: 2, value: 500 }],
 			},
 		);
-		<Payee<Test>>::insert(&2, RewardDestination::Stash);
 		<Validators<Test>>::insert(
 			&11,
 			ValidatorPrefs {
@@ -1439,7 +1434,7 @@ fn on_free_balance_zero_stash_removes_validator() {
 		assert!(<Ledger<Test>>::contains_key(&10));
 		assert!(<Bonded<Test>>::contains_key(&11));
 		assert!(<Validators<Test>>::contains_key(&11));
-		assert!(<Payee<Test>>::contains_key(&11));
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 
 		// Reduce free_balance of controller to 0
 		let _ = Balances::slash(&10, u64::max_value());
@@ -1453,7 +1448,7 @@ fn on_free_balance_zero_stash_removes_validator() {
 		assert!(<Ledger<Test>>::contains_key(&10));
 		assert!(<Bonded<Test>>::contains_key(&11));
 		assert!(<Validators<Test>>::contains_key(&11));
-		assert!(<Payee<Test>>::contains_key(&11));
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 
 		// Reduce free_balance of stash to 0
 		let _ = Balances::slash(&11, u64::max_value());
@@ -1468,7 +1463,6 @@ fn on_free_balance_zero_stash_removes_validator() {
 		assert!(!<Bonded<Test>>::contains_key(&11));
 		assert!(!<Validators<Test>>::contains_key(&11));
 		assert!(!<Nominators<Test>>::contains_key(&11));
-		assert!(!<Payee<Test>>::contains_key(&11));
 	});
 }
 
@@ -1493,7 +1487,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
 		assert!(<Ledger<Test>>::contains_key(&10));
 		assert!(<Bonded<Test>>::contains_key(&11));
 		assert!(<Nominators<Test>>::contains_key(&11));
-		assert!(<Payee<Test>>::contains_key(&11));
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 
 		// Reduce free_balance of controller to 0
 		let _ = Balances::slash(&10, u64::max_value());
@@ -1509,7 +1503,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
 		assert!(<Ledger<Test>>::contains_key(&10));
 		assert!(<Bonded<Test>>::contains_key(&11));
 		assert!(<Nominators<Test>>::contains_key(&11));
-		assert!(<Payee<Test>>::contains_key(&11));
+		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
 
 		// Reduce free_balance of stash to 0
 		let _ = Balances::slash(&11, u64::max_value());
@@ -1524,7 +1518,6 @@ fn on_free_balance_zero_stash_removes_nominator() {
 		assert!(!<Bonded<Test>>::contains_key(&11));
 		assert!(!<Validators<Test>>::contains_key(&11));
 		assert!(!<Nominators<Test>>::contains_key(&11));
-		assert!(!<Payee<Test>>::contains_key(&11));
 	});
 }
 
