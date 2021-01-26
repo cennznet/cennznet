@@ -18,7 +18,6 @@
 //!
 //! Provides the basic creation and management of dynamic NFTs
 
-use codec::Encode;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
 use frame_system::{ensure_signed, WeightInfo};
 use sp_runtime::{
@@ -42,7 +41,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_event!(
-	pub enum Event<T> where ClassId = T::ClassId, <T as frame_system::Trait>::AccountId {
+	pub enum Event<T> where ClassId = <T as Trait>::ClassId, TokenId = <T as Trait>::TokenId, <T as frame_system::Trait>::AccountId {
 		/// A new NFT class was created, (class Id, owner)
 		CreateClass(ClassId, AccountId),
 		/// A new NFT was created, (class Id, token Id owner)
@@ -114,15 +113,16 @@ decl_module! {
 			if schema.len() as u32 > MAX_SCHEMA_FIELDS {
 				return Err(Error::<T>::MaxSchemaFields)?
 			}
+			// TODO: disallow empty schema
 
 			// Store schema and owner
 			<ClassSchema<T>>::insert(class_id, schema);
-			<ClassOwner<T>>::insert(class_id, origin);
+			<ClassOwner<T>>::insert(class_id, origin.clone());
 
 			let new_class_id = class_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
 			<NextClassId<T>>::put(new_class_id);
 
-			Self::deposit_event(RawEvent::CreateClass(class_id.clone(), origin.clone()));
+			Self::deposit_event(RawEvent::CreateClass(class_id.clone(), origin));
 
 			Ok(())
 		}
@@ -178,9 +178,9 @@ decl_module! {
 			<NextTokenId<T>>::insert(class_id, next_token_id);
 			<TokenIssuance<T>>::mutate(class_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(class_id, token_id, owner.clone());
-			<AccountTokensByClass<T>>::append(class_id, owner, token_id);
+			<AccountTokensByClass<T>>::append(class_id, owner.clone(), token_id);
 
-			Self::deposit_event(RawEvent::CreateToken(class_id.clone(), token_id.clone(), owner.clone()));
+			Self::deposit_event(RawEvent::CreateToken(class_id.clone(), token_id.clone(), owner));
 
 			Ok(())
 		}
@@ -224,7 +224,7 @@ decl_module! {
 					}
 				} else {
 					// caller did not provide a new value, retain the existing value
-					Ok(current_value)
+					Ok(current_value.clone())
 				}
 			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
 
@@ -239,8 +239,7 @@ decl_module! {
 		fn transfer(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
 
-			let class_owner = Self::class_owner(class_id);
-			if !<ClassOwner<T>::contains_key(class_id) {
+			if !<ClassOwner<T>>::contains_key(class_id) {
 				return Err(Error::<T>::NoClass)?
 			}
 
@@ -261,11 +260,35 @@ decl_module! {
 			<TokenOwner<T>>::insert(class_id, token_id, new_owner.clone());
 			<AccountTokensByClass<T>>::append(class_id, new_owner, token_id);
 		}
-
-		/// Destroy an NFT 🔥
-		// #[weight = ()]
-		// fn burn(origin, class_id: ClassId, token_id: TokenId) -> Result {
-		// 	Ok(())
-		// }
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::{ExtBuilder, Origin, Test};
+	use frame_support::assert_ok;
+	use frame_system::RawOrigin;
+	use sp_runtime::DispatchError::Other;
+
+	type Nft = Module<Test>;
+
+	impl Trait for Test {
+		type Event = ();
+		type ClassId = u32;
+		type TokenId = u32;
+		type WeightInfo = ();
+	}
+
+	#[test]
+	fn create_class() {}
+
+	#[test]
+	fn create_token() {}
+
+	#[test]
+	fn update_token() {}
+
+	#[test]
+	fn transfer() {}
 }
