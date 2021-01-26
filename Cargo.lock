@@ -730,6 +730,7 @@ dependencies = [
  "cennznet-runtime",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-nft",
  "crml-staking",
  "crml-sylo",
  "crml-transaction-payment",
@@ -1107,6 +1108,21 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-arithmetic",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-nft"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

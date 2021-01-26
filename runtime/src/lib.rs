@@ -202,6 +202,13 @@ impl frame_system::Trait for Runtime {
 	type SystemWeightInfo = ();
 }
 
+impl crml_nft::Trait for Runtime {
+	type Event = Event;
+	type ClassId = u32;
+	type TokenId = u32;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const UncleGenerations: BlockNumber = 5;
 }
@@ -623,6 +630,7 @@ construct_runtime!(
 		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 29,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 30,
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 31,
 	}
 );
 

@@ -79,6 +79,7 @@ hex-literal = { version = "0.3.1", optional = true }
 cennznet-primitives = { path = "../primitives", default-features = false }
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
+crml-nft = { path = "../crml/nft", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false}
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
@@ -133,6 +134,7 @@ std = [
 	"cennznet-primitives/std",
 	"crml-cennzx/std",
 	"crml-cennzx-rpc-runtime-api/std",
+	"crml-nft/std",
 	"crml-staking/std",
 	"crml-sylo/std",
 	"crml-transaction-payment/std",
