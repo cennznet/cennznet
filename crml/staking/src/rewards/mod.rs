@@ -418,7 +418,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
-	fn new_fiscal_era() {
+	pub fn new_fiscal_era() {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
 		let target_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));

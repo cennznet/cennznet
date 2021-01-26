@@ -183,7 +183,6 @@ fn rewards_should_work() {
 		// Init some balances
 		let _ = Balances::make_free_balance_be(&2, 500);
 
-		let delay = 1000;
 		let init_balance_2 = Balances::total_balance(&2);
 		let init_balance_10 = Balances::total_balance(&10);
 		let init_balance_11 = Balances::total_balance(&11);
@@ -209,20 +208,18 @@ fn rewards_should_work() {
 		);
 
 		assert_eq!(Staking::payee(&2), RewardDestination::Stash);
-		assert_eq!(Staking::payee(&11), RewardDestination::Account(10));
+		assert_eq!(Staking::payee(&11), RewardDestination::Controller);
 
-		let mut block = 3; // Block 3 => Session 1 => Era 0
-		System::set_block_number(block);
-		Timestamp::set_timestamp(block * 5000); // on time.
-		Session::on_initialize(System::block_number());
+		Rewards::new_fiscal_era();
+		start_session(1);
+
 		assert_eq!(Staking::current_era(), 0);
 		assert_eq!(Session::current_index(), 1);
+
 		Rewards::reward_by_ids(vec![(11, 50)]);
 		Rewards::reward_by_ids(vec![(11, 50)]);
 		// This is the second validator of the current elected set.
 		Rewards::reward_by_ids(vec![(21, 50)]);
-		// This must be no-op as it is not an elected validator.
-		Rewards::reward_by_ids(vec![(1001, 10_000)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout: Balance = Rewards::calculate_next_reward_payout();
@@ -233,19 +230,8 @@ fn rewards_should_work() {
 		assert_eq!(Balances::total_balance(&10), init_balance_10);
 		assert_eq!(Balances::total_balance(&11), init_balance_11);
 
-		block = 6; // Block 6 => Session 2 => Era 0
-		System::set_block_number(block);
-		Timestamp::set_timestamp(block * 5000 + delay); // a little late.
-		Session::on_initialize(System::block_number());
-		assert_eq!(Staking::current_era(), 0);
-		assert_eq!(Session::current_index(), 2);
-
-		block = 9; // Block 9 => Session 3 => Era 1
-		System::set_block_number(block);
-		Timestamp::set_timestamp(block * 5000); // back to being on time. no delays
-		Session::on_initialize(System::block_number());
-		assert_eq!(Staking::current_era(), 1);
-		assert_eq!(Session::current_index(), 3);
+		start_era(1);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// 11 validator has 2/3 of the total rewards and half half for it and its nominator
 		assert_eq_error_rate!(Balances::total_balance(&2), init_balance_2 + total_payout / 3, 1);
@@ -266,6 +252,7 @@ fn multi_era_reward_should_work() {
 		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
 
 		// Compute now as other parameter won't change
+		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 10); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -275,17 +262,21 @@ fn multi_era_reward_should_work() {
 		start_session(2);
 		start_session(3);
 
+		Staking::on_initialize(System::block_number() + 1);
+
 		assert_eq!(Staking::current_era(), 1);
 		assert_eq!(Balances::total_balance(&10), init_balance_10 + total_payout_0);
 
-		start_session(4);
+		start_session(5);
 
 		let total_payout_1: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_1 > 10); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 101)]);
 
 		// new era is triggered here.
-		start_session(5);
+		start_session(6);
+
+		Staking::on_initialize(System::block_number() + 1);
 
 		// pay time
 		assert_eq!(
@@ -459,12 +450,15 @@ fn nominators_also_get_slashed() {
 		));
 		assert_ok!(Staking::nominate(Origin::signed(2), vec![20, 10]));
 
+		Rewards::new_fiscal_era();
 		let total_payout: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		// new era, pay rewards,
 		start_era(1);
+
+		Staking::on_initialize(System::block_number() + 1);
 
 		// Nominator stash didn't collect any.
 		assert_eq!(Balances::total_balance(&2), initial_balance);
@@ -723,11 +717,13 @@ fn reward_destination_works() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
+		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(1);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Stash (default)
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
@@ -740,6 +736,7 @@ fn reward_destination_works() {
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(2);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Stash
 		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
@@ -760,6 +757,7 @@ fn reward_destination_works() {
 		Rewards::reward_by_ids(vec![(11, 1)]);
 
 		start_era(3);
+		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Controller
 		assert_eq!(Staking::payee(&11), RewardDestination::Controller);
@@ -783,14 +781,14 @@ fn reward_destination_controller_is_replaced_with_account() {
 			Staking::minimum_bond(),
 			RewardDestination::Controller
 		));
-		assert_eq!(Staking::payee(&stash), RewardDestination::Account(controller));
+		assert_eq!(Staking::payee(&stash), RewardDestination::Controller);
 
 		// explicit set controller as payee
 		assert_ok!(Staking::set_payee(
 			Origin::signed(controller),
 			RewardDestination::Controller
 		));
-		assert_eq!(Staking::payee(&stash), RewardDestination::Account(controller));
+		assert_eq!(Staking::payee(&stash), RewardDestination::Controller);
 	});
 }
 
@@ -970,7 +968,6 @@ fn bond_extra_and_withdraw_unbonded_works() {
 		);
 
 		// trigger next era.
-		Timestamp::set_timestamp(10);
 		start_era(2);
 		assert_eq!(Staking::current_era(), 2);
 
@@ -1390,6 +1387,7 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			);
 
 			// Compute total payout now for whole duration as other parameter won't change
+			Rewards::new_fiscal_era();
 			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			Rewards::reward_by_ids(vec![(11, 1)]);
@@ -1397,6 +1395,7 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 
 			// New era --> rewards are paid to stash account --> stakes are not change
 			start_era(1);
+			Staking::on_initialize(System::block_number() + 1);
 
 			// -- balances not change
 			assert_eq!(Staking::stakers(&11).total, 1000);
@@ -1551,19 +1550,19 @@ fn switching_roles() {
 		assert_ok!(Staking::validate(Origin::signed(6), ValidatorPrefs::default()));
 
 		// new block
-		start_session(1);
-
-		// no change
-		assert_eq_uvec!(validator_controllers(), vec![20, 10]);
-
-		// new block
 		start_session(2);
 
 		// no change
 		assert_eq_uvec!(validator_controllers(), vec![20, 10]);
 
-		// new block --> ne era --> new validators
+		// new block
 		start_session(3);
+
+		// no change
+		assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+		// new block --> ne era --> new validators
+		start_session(4);
 
 		// with current nominators 10 and 5 have the most stake
 		assert_eq_uvec!(validator_controllers(), vec![6, 10]);
@@ -1577,14 +1576,14 @@ fn switching_roles() {
 		// 2 : 2000 self vote + 250 vote.
 		// Winners: 20 and 2
 
-		start_session(4);
-		assert_eq_uvec!(validator_controllers(), vec![6, 10]);
-
 		start_session(5);
 		assert_eq_uvec!(validator_controllers(), vec![6, 10]);
 
-		// ne era
 		start_session(6);
+		assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+
+		// ne era
+		start_session(7);
 		assert_eq_uvec!(validator_controllers(), vec![2, 20]);
 
 		check_exposure_all();
@@ -1618,6 +1617,7 @@ fn wrong_vote_is_null() {
 
 			// new block
 			start_era(1);
+			advance_session();
 
 			assert_eq_uvec!(validator_controllers(), vec![20, 10]);
 		});
@@ -1706,10 +1706,14 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
+			Rewards::new_fiscal_era();
 			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			reward_all_elected();
+
 			start_era(1);
+			Staking::on_initialize(System::block_number() + 1);
+			advance_session();
 
 			// 2 is elected.
 			// and fucks up the slot stake.
@@ -1725,6 +1729,7 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			assert!(total_payout_1 > 100); // Test is meaningful if reward something
 			reward_all_elected();
 			start_era(2);
+			Staking::on_initialize(System::block_number() + 1);
 
 			assert_eq_uvec!(validator_controllers(), vec![20, 10, 2]);
 			assert_eq!(Staking::slot_stake(), 1);
@@ -1773,6 +1778,7 @@ fn phragmen_should_not_overflow_validators() {
 		bond_nominator(9, 8, u64::max_value() / 2, vec![3, 5]);
 
 		start_era(1);
+		advance_session();
 
 		assert_eq_uvec!(validator_controllers(), vec![4, 2]);
 
@@ -1796,6 +1802,7 @@ fn phragmen_should_not_overflow_nominators() {
 		bond_nominator(9, 8, u64::max_value(), vec![3, 5]);
 
 		start_era(1);
+		advance_session();
 
 		assert_eq_uvec!(validator_controllers(), vec![4, 2]);
 
@@ -1815,6 +1822,7 @@ fn phragmen_should_not_overflow_ultimate() {
 		bond_nominator(9, 8, u64::max_value(), vec![3, 5]);
 
 		start_era(1);
+		advance_session();
 
 		assert_eq_uvec!(validator_controllers(), vec![4, 2]);
 
@@ -3173,10 +3181,10 @@ fn payout_to_any_account_works() {
 		bond_nominator(1234, 1337, 100, vec![11]);
 
 		// Update payout location
-		assert_ok!(Staking::set_payee(Origin::signed(1337), RewardDestination::Account(42)));
+		assert_ok!(Staking::set_payee(Origin::signed(1337), RewardDestination::Account(41)));
 
 		// Reward Destination account doesn't exist
-		assert_eq!(Balances::free_balance(42), 0);
+		let init_balance = Balances::free_balance(41);
 
 		mock::start_era(1);
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -3185,8 +3193,10 @@ fn payout_to_any_account_works() {
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		mock::start_era(2);
 
+		Staking::on_initialize(System::block_number() + 1);
+
 		// Payment is successful
-		assert!(Balances::free_balance(42) > 0);
+		assert!(Balances::free_balance(41) > init_balance);
 	})
 }
 
