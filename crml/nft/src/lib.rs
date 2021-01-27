@@ -50,8 +50,8 @@ decl_event!(
 		Transfer(ClassId, TokenId, AccountId),
 		/// An NFT was sold (class Id, token Id, new owner)
 		SellToken(ClassId, TokenId, AccountId),
-		/// An NFT was bought (class Id, token Id, new owner)
-		BuyToken(ClassId, TokenId, AccountId),
+		/// An NFT was bought (class Id, token Id)
+		BuyToken(ClassId, TokenId),
 		/// An NFT's data was updated
 		Update(ClassId, TokenId),
 	}
@@ -241,13 +241,6 @@ decl_module! {
 			Ok(())
 		}
 
-				
-		/// Get price of token
-		#[weight = 0]
-		fn get_token_price(origin, class_id: T::ClassId, token_id: T::TokenId) {
-
-		}
-
 		/// Transfer ownership of an NFT
 		#[weight = 0]
 		fn transfer(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
@@ -280,16 +273,21 @@ decl_module! {
 		#[weight = 0]
 		fn sell_token(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
 			// Get the price
+			let token: Vec<NFTField> = Self::tokens(class_id, token_id);
+			// if let NFTField::U128(price) = token[0] 
+			{
+				// Check if the new owner has enough money
+				
+				// Transfer money
 
-			// Check if the new owner has enough money
 
+				// Transfer ownership of NFT
+				Self::transfer(origin.clone(), class_id.clone(), token_id.clone(), new_owner.clone()).unwrap();
+				
+				Self::deposit_event(RawEvent::SellToken(class_id.clone(), token_id.clone(), new_owner.clone()));
+			}
+			
 
-			// Transfer ownership of NFT
-			Self::transfer(origin.clone(), class_id.clone(), token_id.clone(), new_owner.clone()).unwrap();
-
-			// Transfer money
-
-			Self::deposit_event(RawEvent::SellToken(class_id.clone(), token_id.clone(), new_owner.clone()));
 		}
 
 		// Buy a token
@@ -312,9 +310,9 @@ decl_module! {
 				tokens.retain(|t| t != &token_id)
 			});
 			<TokenOwner<T>>::insert(class_id, token_id, new_owner.clone());
-			<AccountTokensByClass<T>>::append(class_id, new_owner.clone(), token_id);
+			<AccountTokensByClass<T>>::append(class_id, new_owner, token_id);
 
-			Self::deposit_event(RawEvent::BuyToken(class_id.clone(), token_id.clone(), new_owner.clone()));
+			Self::deposit_event(RawEvent::BuyToken(class_id.clone(), token_id.clone()));
 		}
 	}
 }
