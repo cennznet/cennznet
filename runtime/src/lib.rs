@@ -206,6 +206,7 @@ impl crml_nft::Trait for Runtime {
 	type Event = Event;
 	type ClassId = u32;
 	type TokenId = u32;
+	type OrderId = u32;
 	type WeightInfo = ();
 }
 

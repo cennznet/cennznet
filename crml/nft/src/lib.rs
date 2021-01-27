@@ -37,6 +37,8 @@ pub trait Trait: frame_system::Trait {
 	type ClassId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + One + Into<u64>;
 	/// Type for identifying tokens
 	type TokenId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + One + Into<u64>;
+	/// Type for identifying orders
+	type OrderId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + One + Into<u64>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
 }
@@ -79,8 +81,9 @@ decl_error! {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
-pub struct BuySellOrder<ClassId> {
+pub struct BuySellOrder<ClassId, AccountId> {
 	class: ClassId,
+	owner: AccountId,
 	num_tokens: u32,
 	price: u32,
 	is_buy_order: bool
@@ -104,9 +107,11 @@ decl_storage! {
 		pub NextClassId get(fn next_class_id): T::ClassId;
 		/// The next available token Id for an NFT class
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) T::ClassId => T::TokenId;
+		/// The next available order Id
+		pub NextOrderId get(fn next_order_id): T::OrderId;
 		/// The total amount of an NFT class in existence
 		pub TokenIssuance get(fn token_issuance): map hasher(twox_64_concat) T::ClassId => T::TokenId;
-		pub BuySellOrders get(fn buy_sell_orders): map hasher(twox_64_concat) T::AccountId => Vec<BuySellOrder<T::ClassId>>;
+		pub BuySellOrders get(fn buy_sell_orders): map hasher(twox_64_concat) T::OrderId => Vec<BuySellOrder<T::ClassId, T::AccountId>>;
 	}
 }
 
@@ -328,21 +333,39 @@ decl_module! {
 		// Place a buying order
 		#[weight = 0]
 		fn place_buying_order(origin, class_id: T::ClassId, num_tokens: u32, order_price: u32) {
-			let owner = ensure_signed(origin)?;
+			let order_id = Self::next_order_id();
+			let new_order_id = order_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
+			<NextOrderId<T>>::put(new_order_id);
+
+			let owner_id = ensure_signed(origin)?;
 			let order  = BuySellOrder {
 				class: class_id,
+				owner: owner_id,
 				num_tokens: num_tokens,
 				price: order_price,
 				is_buy_order: true
 			};
 			
-			<BuySellOrders<T>>::append(owner, order);
+			<BuySellOrders<T>>::append(order_id, order);
 		}
 
 		// Place a selling order
 		#[weight = 0]
-		fn place_selling_order(origin, class_id: T::ClassId, num_tokens: u32, price: u32) {
-	
+		fn place_selling_order(origin, class_id: T::ClassId, num_tokens: u32, order_price: u32) {
+			let order_id = Self::next_order_id();
+			let new_order_id = order_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
+			<NextOrderId<T>>::put(new_order_id);
+
+			let owner_id = ensure_signed(origin)?;
+			let order  = BuySellOrder {
+				class: class_id,
+				owner: owner_id,
+				num_tokens: num_tokens,
+				price: order_price,
+				is_buy_order: false
+			};
+			
+			<BuySellOrders<T>>::append(order_id, order);
 		}
 	}
 }
