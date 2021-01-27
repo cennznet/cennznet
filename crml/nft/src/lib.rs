@@ -89,6 +89,8 @@ decl_storage! {
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) T::ClassId, hasher(twox_64_concat) T::TokenId => T::AccountId;
 		/// Map from (class, account) to it's owned tokens of that class
 		pub AccountTokensByClass get(fn account_tokens): double_map hasher(twox_64_concat) T::ClassId, hasher(blake2_128_concat) T::AccountId => Vec<T::TokenId>;
+		/// Map from class to it's owned tokens of that class
+		pub TokensByClass get(fn class_tokens): map hasher(twox_64_concat) T::ClassId =>  Vec<T::TokenId>;
 		/// The next available NFT class Id
 		pub NextClassId get(fn next_class_id): T::ClassId;
 		/// The next available token Id for an NFT class
@@ -183,6 +185,7 @@ decl_module! {
 			<TokenIssuance<T>>::mutate(class_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(class_id, token_id, owner.clone());
 			<AccountTokensByClass<T>>::append(class_id, owner.clone(), token_id);
+			<TokensByClass<T>>::append(class_id, token_id);
 
 			Self::deposit_event(RawEvent::CreateToken(class_id.clone(), token_id.clone(), owner));
 
@@ -238,6 +241,13 @@ decl_module! {
 			Ok(())
 		}
 
+				
+		/// Get price of token
+		#[weight = 0]
+		fn get_token_price(origin, class_id: T::ClassId, token_id: T::TokenId) {
+
+		}
+
 		/// Transfer ownership of an NFT
 		#[weight = 0]
 		fn transfer(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
@@ -269,7 +279,15 @@ decl_module! {
 		/// Sell an NFT
 		#[weight = 0]
 		fn sell_token(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
+			// Get the price
+
+			// Check if the new owner has enough money
+
+
+			// Transfer ownership of NFT
 			Self::transfer(origin.clone(), class_id.clone(), token_id.clone(), new_owner.clone()).unwrap();
+
+			// Transfer money
 
 			Self::deposit_event(RawEvent::SellToken(class_id.clone(), token_id.clone(), new_owner.clone()));
 		}
