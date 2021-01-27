@@ -48,6 +48,10 @@ decl_event!(
 		CreateToken(ClassId, TokenId, AccountId),
 		/// An NFT was transferred (class Id, token Id, new owner)
 		Transfer(ClassId, TokenId, AccountId),
+		/// An NFT was sold (class Id, token Id, new owner)
+		SellToken(ClassId, TokenId, AccountId),
+		/// An NFT was bought (class Id, token Id, new owner)
+		BuyToken(ClassId, TokenId, AccountId),
 		/// An NFT's data was updated
 		Update(ClassId, TokenId),
 	}
@@ -260,6 +264,40 @@ decl_module! {
 			<TokenOwner<T>>::insert(class_id, token_id, new_owner.clone());
 			<AccountTokensByClass<T>>::append(class_id, new_owner, token_id);
 		}
+
+
+		/// Sell an NFT
+		#[weight = 0]
+		fn sell_token(origin, class_id: T::ClassId, token_id: T::TokenId, new_owner: T::AccountId) {
+			Self::transfer(origin.clone(), class_id.clone(), token_id.clone(), new_owner.clone()).unwrap();
+
+			Self::deposit_event(RawEvent::SellToken(class_id.clone(), token_id.clone(), new_owner.clone()));
+		}
+
+		// Buy a token
+		#[weight = 0]
+		fn buy_token(origin, class_id: T::ClassId, token_id: T::TokenId) {
+			let new_owner = ensure_signed(origin)?;
+
+			if !<ClassOwner<T>>::contains_key(class_id) {
+				return Err(Error::<T>::NoClass)?
+			}
+
+			if !<Tokens<T>>::contains_key(class_id, token_id) {
+				return Err(Error::<T>::NoToken)?
+			}
+
+			let current_owner = Self::token_owner(class_id, token_id);
+
+			// Update token ownership
+			<AccountTokensByClass<T>>::mutate(class_id, current_owner, |tokens| {
+				tokens.retain(|t| t != &token_id)
+			});
+			<TokenOwner<T>>::insert(class_id, token_id, new_owner.clone());
+			<AccountTokensByClass<T>>::append(class_id, new_owner.clone(), token_id);
+
+			Self::deposit_event(RawEvent::BuyToken(class_id.clone(), token_id.clone(), new_owner.clone()));
+		}
 	}
 }
 
@@ -291,4 +329,10 @@ mod tests {
 
 	#[test]
 	fn transfer() {}
+
+	#[test]
+	fn buy_token() {}
+
+	#[test]
+	fn sell_token() {}
 }
