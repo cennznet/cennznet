@@ -44,7 +44,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_event!(
-	pub enum Event<T> where ClassId = <T as Trait>::ClassId, TokenId = <T as Trait>::TokenId, <T as frame_system::Trait>::AccountId {
+	pub enum Event<T> where ClassId = <T as Trait>::ClassId, TokenId = <T as Trait>::TokenId, OrderId = <T as Trait>::OrderId, <T as frame_system::Trait>::AccountId {
 		/// A new NFT class was created, (class Id, owner)
 		CreateClass(ClassId, AccountId),
 		/// A new NFT was created, (class Id, token Id owner)
@@ -55,6 +55,8 @@ decl_event!(
 		SellToken(ClassId, TokenId, AccountId),
 		/// An NFT was bought (class Id, token Id)
 		BuyToken(ClassId, TokenId),
+		/// An order was placed
+		OrderPlaced(OrderId),
 		/// An NFT's data was updated
 		Update(ClassId, TokenId),
 	}
@@ -112,6 +114,7 @@ decl_storage! {
 		/// The total amount of an NFT class in existence
 		pub TokenIssuance get(fn token_issuance): map hasher(twox_64_concat) T::ClassId => T::TokenId;
 		pub BuySellOrders get(fn buy_sell_orders): map hasher(twox_64_concat) T::OrderId => Vec<BuySellOrder<T::ClassId, T::AccountId>>;
+		pub OrderIds get(fn get_order_ids): Vec<T::OrderId>;
 	}
 }
 
@@ -347,6 +350,9 @@ decl_module! {
 			};
 			
 			<BuySellOrders<T>>::append(order_id, order);
+			<OrderIds<T>>::append(order_id);
+
+			Self::deposit_event(RawEvent::OrderPlaced(order_id.clone()));
 		}
 
 		// Place a selling order
@@ -366,6 +372,9 @@ decl_module! {
 			};
 			
 			<BuySellOrders<T>>::append(order_id, order);
+			<OrderIds<T>>::append(order_id);
+
+			Self::deposit_event(RawEvent::OrderPlaced(order_id.clone()));
 		}
 	}
 }
