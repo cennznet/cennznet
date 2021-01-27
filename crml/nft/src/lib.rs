@@ -28,6 +28,7 @@ use sp_std::prelude::*;
 
 mod types;
 use types::{NFTField, NFTSchema};
+use codec::{Decode, Encode};
 
 pub trait Trait: frame_system::Trait {
 	/// The system event type
@@ -77,6 +78,14 @@ decl_error! {
 	}
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+pub struct BuySellOrder<ClassId> {
+	class: ClassId,
+	num_tokens: u32,
+	price: u32,
+	is_buy_order: bool
+}
+
 decl_storage! {
 	trait Store for Module<T: Trait> as Nft {
 		/// Map from class to owner address
@@ -97,6 +106,7 @@ decl_storage! {
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) T::ClassId => T::TokenId;
 		/// The total amount of an NFT class in existence
 		pub TokenIssuance get(fn token_issuance): map hasher(twox_64_concat) T::ClassId => T::TokenId;
+		pub BuySellOrders get(fn buy_sell_orders): map hasher(twox_64_concat) T::AccountId => Vec<BuySellOrder<T::ClassId>>;
 	}
 }
 
@@ -313,6 +323,26 @@ decl_module! {
 			<AccountTokensByClass<T>>::append(class_id, new_owner, token_id);
 
 			Self::deposit_event(RawEvent::BuyToken(class_id.clone(), token_id.clone()));
+		}
+
+		// Place a buying order
+		#[weight = 0]
+		fn place_buying_order(origin, class_id: T::ClassId, num_tokens: u32, order_price: u32) {
+			let owner = ensure_signed(origin)?;
+			let order  = BuySellOrder {
+				class: class_id,
+				num_tokens: num_tokens,
+				price: order_price,
+				is_buy_order: true
+			};
+			
+			<BuySellOrders<T>>::append(owner, order);
+		}
+
+		// Place a selling order
+		#[weight = 0]
+		fn place_selling_order(origin, class_id: T::ClassId, num_tokens: u32, price: u32) {
+	
 		}
 	}
 }
