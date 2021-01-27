@@ -55,6 +55,8 @@ decl_event!(
 		Transfer(ClassId, TokenId, AccountId),
 		/// An NFT's data was updated
 		Update(ClassId, TokenId),
+		/// An NFT was burned
+		Burn(ClassId, TokenId),
 	}
 );
 
@@ -100,6 +102,8 @@ decl_storage! {
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) T::ClassId => T::TokenId;
 		/// The total amount of an NFT class in existence
 		pub TokenIssuance get(fn token_issuance): map hasher(twox_64_concat) T::ClassId => T::TokenId;
+		/// The total amount of an NFT class burned
+		pub TokensBurnt get(fn tokens_burnt): map hasher(twox_64_concat) T::ClassId => T::TokenId;
 	}
 }
 
@@ -288,6 +292,40 @@ decl_module! {
 			<AccountTokensByClass<T>>::append(class_id, new_owner.clone(), token_id);
 
 			Self::deposit_event(RawEvent::Transfer(class_id, token_id, new_owner));
+		}
+
+		/// Burn an NFT 🔥
+		/// Caller must be the token owner
+		#[weight = 0]
+		fn burn(origin, class_id: T::ClassId, token_id: T::TokenId) {
+			let origin = ensure_signed(origin)?;
+
+			if !<ClassOwner<T>>::contains_key(class_id) {
+				return Err(Error::<T>::NoClass)?
+			}
+
+			if !<Tokens<T>>::contains_key(class_id, token_id) {
+				return Err(Error::<T>::NoToken)?
+			}
+
+			let current_owner = Self::token_owner(class_id, token_id);
+			if origin != current_owner {
+				// restricted to token owner
+				return Err(Error::<T>::NoPermission)?
+			}
+
+			// Update token ownership
+			<AccountTokensByClass<T>>::mutate(class_id, current_owner, |tokens| {
+				tokens.retain(|t| t != &token_id)
+			});
+			<TokenOwner<T>>::take(class_id, token_id);
+			<Tokens<T>>::take(class_id, token_id);
+
+			// Will not overflow, cannot exceed the amount issued qed.
+			let tokens_burnt = Self::tokens_burnt(class_id).checked_add(&One::one()).unwrap();
+			<TokensBurnt<T>>::insert(class_id, tokens_burnt);
+
+			Self::deposit_event(RawEvent::Burn(class_id, token_id));
 		}
 	}
 }
@@ -664,10 +702,66 @@ mod tests {
 				vec![Some(NFTField::I32(500))],
 			));
 
-			// test
 			let not_the_owner = 3_u64;
 			assert_noop!(
 				Nft::transfer(Some(not_the_owner).into(), class_id, token_id, not_the_owner),
+				Error::<Test>::NoPermission,
+			);
+		});
+	}
+
+	#[test]
+	fn burn() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup token class + one token
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(500))],
+			));
+
+			// test
+			assert_ok!(Nft::burn(Some(token_owner).into(), class_id, token_id));
+			assert!(has_event(RawEvent::Burn(class_id, token_id)));
+
+			assert!(!<Tokens<Test>>::contains_key(class_id, token_id));
+			assert!(!<TokenOwner<Test>>::contains_key(class_id, token_id));
+			assert!(Nft::account_tokens_by_class(class_id, token_owner).is_empty());
+			assert_eq!(Nft::tokens_burnt(class_id), 1);
+		});
+	}
+
+	#[test]
+	fn burn_fails_prechecks() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup token class + one token
+			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let class_owner = 1_u64;
+			assert_noop!(Nft::burn(Some(class_owner).into(), 0, 0), Error::<Test>::NoClass,);
+
+			let class_id = setup_class(class_owner, schema);
+			let token_owner = 2_u64;
+			let token_id = Nft::next_token_id(class_id);
+			assert_noop!(
+				Nft::burn(Some(token_owner).into(), class_id, token_id),
+				Error::<Test>::NoToken,
+			);
+
+			assert_ok!(Nft::create_token(
+				Some(class_owner).into(),
+				class_id,
+				token_owner,
+				vec![Some(NFTField::I32(500))],
+			));
+
+			assert_noop!(
+				Nft::burn(Some(3_u64).into(), class_id, token_id),
 				Error::<Test>::NoPermission,
 			);
 		});
