@@ -327,9 +327,10 @@ fn authorship_points_of_last_block_in_an_era() {
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
+			let author_address = &Staking::current_elected()[author_index];
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
 
 			// The previous session should come to its end
 			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
@@ -337,10 +338,7 @@ fn authorship_points_of_last_block_in_an_era() {
 			send_heartbeats();
 
 			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points()
-				.individual_points()
-				.get(author_index as usize)
-				.is_none());
+			assert!(Rewards::current_era_points().individual.get(author_address).is_none());
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -351,7 +349,7 @@ fn authorship_points_of_last_block_in_an_era() {
 			assert_eq!(Staking::current_elected().len(), validators.len());
 
 			// There should be a reward calculated for the author
-			assert!(!Staking::current_era_points().individual_points()[author_index as usize] > 0);
+			assert!(!Rewards::current_era_points().individual[author_address] > 0);
 		});
 }
 
@@ -379,9 +377,10 @@ fn authorship_points_of_a_chilled_validator() {
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
+			let author_address = &Staking::current_elected()[author_index];
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
 
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
@@ -401,10 +400,7 @@ fn authorship_points_of_a_chilled_validator() {
 			send_heartbeats();
 
 			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points()
-				.individual_points()
-				.get(author_index as usize)
-				.is_none());
+			assert!(Rewards::current_era_points().individual.get(author_address).is_none());
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -415,7 +411,7 @@ fn authorship_points_of_a_chilled_validator() {
 			assert_eq!(Staking::current_elected().len(), validators.len() - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(Staking::current_era_points().individual_points()[author_index as usize] > 0);
+			assert!(Rewards::current_era_points().individual[author_address] > 0);
 		});
 }
 

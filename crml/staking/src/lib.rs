@@ -1614,8 +1614,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	#[cfg(test)]
-	fn payee(stash: &T::AccountId) -> RewardDestination<T::AccountId> {
+	pub fn payee(stash: &T::AccountId) -> RewardDestination<T::AccountId> {
 		let payee = T::Rewarder::payee(stash);
 		if payee == *stash {
 			return RewardDestination::Stash;
