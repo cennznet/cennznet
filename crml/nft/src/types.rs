@@ -21,7 +21,6 @@ use sp_std::prelude::*;
 use variant_count::VariantCount;
 
 /// Type Id of an NFTField
-/// TODO: can't encode `u8`s
 pub type NFTFieldTypeId = u8;
 /// Some descriptive tag about an NFT field
 type NFTFieldTag = [u8; 32];
@@ -74,5 +73,18 @@ impl NFTField {
 	/// Return whether the given `type_id` is valid to describe an `NFTField`
 	pub const fn is_valid_type_id(type_id: NFTFieldTypeId) -> bool {
 		type_id < (Self::VARIANT_COUNT as u8)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::NFTField;
+
+	#[test]
+	fn valid_type_id_range() {
+		// every value < `VARIANT_COUNT` is valid by definition
+		assert!((0..NFTField::VARIANT_COUNT as u8).all(|id| NFTField::is_valid_type_id(id)));
+		// every value >= `VARIANT_COUNT` is invalid by definition
+		assert!((NFTField::VARIANT_COUNT as u8..u8::max_value()).all(|id| !NFTField::is_valid_type_id(id)));
 	}
 }
