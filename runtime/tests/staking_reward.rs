@@ -218,12 +218,6 @@ fn elected_validators_receive_transaction_fee_according_to_authorship_points() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 100_000_000 * DOLLARS;
 	let staked_amount = initial_balance / validators.len() as Balance;
-	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
-		CENTRAPAY_ASSET_ID,
-		bob(),
-		transfer_amount,
-	));
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -232,32 +226,20 @@ fn elected_validators_receive_transaction_fee_according_to_authorship_points() {
 		.build()
 		.execute_with(|| {
 			start_era(1);
-			// Start the first block of era 1
-			let header = header_for_block_number((System::block_number() + 1).into());
+
+			let author_index = 0;
+			let author_stash_id = Session::validators()[(author_index as usize)].clone();
+			let initial_reward_issuance = RewardCurrency::total_issuance();
+
+			// No fee is collected yet, the reward is only mined.
+			let total_payout = Rewards::calculate_next_reward_payout();
+			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era());
+
+			let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
 			Executive::initialize_block(&header);
 
-			let initial_issuance = RewardCurrency::total_issuance();
-
-			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
-				function: runtime_call,
-			});
-
-			let tx_fee = extrinsic_fee_for(&xt);
-			let r = Executive::apply_extrinsic(xt);
-			assert!(r.is_ok());
-
-			let issuance_after_fees_burned = RewardCurrency::total_issuance();
-			assert_eq!(issuance_after_fees_burned, initial_issuance - tx_fee);
-
-			// reward is fees * inflation
-			let total_payout = Rewards::calculate_next_reward_payout();
-
-			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era() + tx_fee);
-
-			// treasury would be almost empty as there hasn't been a transaction fee yet.
-			// However the distribution of the mined token of the previous era leaves a few
-			// tokens unbalanced which go to treasury.
+			// treasury would be almost empty as there hasn't been any transaction fees.
 			let treasury_balance_era_1 = RewardCurrency::free_balance(&Treasury::account_id());
 			assert_eq!(treasury_balance_era_1, 3);
 
@@ -271,18 +253,16 @@ fn elected_validators_receive_transaction_fee_according_to_authorship_points() {
 			}
 
 			start_era(2);
-			// Start the first block of era 2
-			let header = header_for_block_number((System::block_number() + 1).into());
-			Executive::initialize_block(&header);
+			Executive::initialize_block(&header_for_block_number((System::block_number() + 1).into()));
 
-			// Check if stash account balances are not yet changed
-			let alice_reward_era_2: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
-				* tx_fee + Rewards::target_inflation_per_staking_era();
+			// The whole reward of the era goes to the author
+			let author_reward = Rewards::target_inflation_per_staking_era();
+
 			for (stash, _controller, _, _, _, _) in &validators {
-				if stash == &alice() {
+				if stash == &author_stash_id {
 					assert_eq!(
 						RewardCurrency::free_balance(&stash),
-						initial_balance + per_validator_reward_era_1 + alice_reward_era_2
+						initial_balance + per_validator_reward_era_1 + author_reward
 					);
 				} else {
 					assert_eq!(
@@ -292,19 +272,10 @@ fn elected_validators_receive_transaction_fee_according_to_authorship_points() {
 				}
 			}
 
-			// treasury gets it's cut
-			let treasury_cut = Rewards::development_fund_take() * tx_fee;
-			let validator_cut = alice_reward_era_2;
-			let remainder = total_payout - treasury_cut - validator_cut;
-			assert_eq!(
-				RewardCurrency::free_balance(&Treasury::account_id()),
-				treasury_cut + remainder + treasury_balance_era_1
-			);
-
 			// Check total issuance of spending asset updated after new era
 			assert_eq!(
 				RewardCurrency::total_issuance(),
-				issuance_after_fees_burned + total_payout
+				initial_reward_issuance + Rewards::target_inflation_per_staking_era() * 2
 			);
 		});
 }
