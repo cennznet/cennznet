@@ -32,15 +32,16 @@ pub use crml_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 
 /// Staking custom RPC methods
 #[rpc]
-pub trait StakingApi<BlockHash, AccountId, Balance> {
+pub trait StakingApi<BlockHash, AccountId> {
 	/// Return the currently accrued reward for the specified payee (validator or nominator)
 	///
 	/// The actual reward to the payee at the end of the current era would be higher or equal the
 	/// result of this method.
 	///
-	/// Returns error if the payee is not in the list of the stakers  
+	/// Returns error if the payee is not in the list of the stakers
+	// TODO: we should return Result<Balance>, however we need to update Plug to bring in the latest sp-rpc package before that
 	#[rpc(name = "staking_accruedPayout")]
-	fn accrued_payout(&self, payee: AccountId, at: Option<BlockHash>) -> Result<Balance>;
+	fn accrued_payout(&self, payee: AccountId, at: Option<BlockHash>) -> Result<u64>;
 }
 
 /// A struct that implements [`StakingApi`].
@@ -76,15 +77,14 @@ impl From<Error> for i64 {
 	}
 }
 
-impl<C, Block, Balance, AccountId> StakingApi<<Block as BlockT>::Hash, AccountId, Balance> for Staking<C, Block>
+impl<C, Block, AccountId> StakingApi<<Block as BlockT>::Hash, AccountId> for Staking<C, Block>
 where
 	Block: BlockT,
 	C: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: StakingRuntimeApi<Block, AccountId, Balance>,
+	C::Api: StakingRuntimeApi<Block, AccountId>,
 	AccountId: Codec,
-	Balance: Codec,
 {
-	fn accrued_payout(&self, payee: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
+	fn accrued_payout(&self, payee: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
 		let api = self.client.runtime_api();
 
 		if at.is_some() {

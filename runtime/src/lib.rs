@@ -874,9 +874,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId, Balance> for Runtime {
-		fn accrued_payout(payee: &AccountId) -> Balance {
-			Staking::accrued_payout(payee)
+	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
+		fn accrued_payout(payee: &AccountId) -> u64 {
+			Staking::accrued_payout(payee) as u64
 		}
 	}
 

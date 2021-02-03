@@ -22,10 +22,9 @@
 use codec::Codec;
 
 sp_api::decl_runtime_apis! {
-	pub trait StakingApi<AccountId, Balance> where
+	pub trait StakingApi<AccountId> where
 		AccountId: Codec,
-		Balance: Codec,
 	{
-		fn accrued_payout(payee: &AccountId) -> Balance;
+		fn accrued_payout(payee: &AccountId) -> u64;
 	}
 }

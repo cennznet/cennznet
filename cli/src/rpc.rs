@@ -109,7 +109,7 @@ where
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
-	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId, Balance>,
+	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
 	P: TransactionPool + 'static,
