@@ -310,6 +310,15 @@ where
 	fn calculate_next_reward_payout() -> Self::Balance {
 		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation_per_staking_era())
 	}
+
+	/// Calculate the next reward payout (as of accrued right now) for the given payee.
+	fn payee_next_reward_payout(
+		_payee: &Self::AccountId,
+		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		_era: EraIndex,
+	) -> Self::Balance {
+		Zero::zero()
+	}
 }
 
 impl<T: Trait> HandlePayee for Module<T> {

@@ -1162,7 +1162,6 @@ dependencies = [
 name = "crml-staking-rpc-runtime-api"
 version = "1.0.0"
 dependencies = [
- "crml-staking",
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",

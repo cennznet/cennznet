@@ -17,17 +17,16 @@
 
 //! RPC interface for the staking module.
 
-use codec::{Codec, Decode};
+use codec::Codec;
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_rpc::number::NumberOrHex;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
-use std::{convert::TryFrom, sync::Arc};
+use std::sync::Arc;
 
 pub use crml_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 
@@ -40,8 +39,8 @@ pub trait StakingApi<BlockHash, AccountId, Balance> {
 	/// result of this method.
 	///
 	/// Returns error if the payee is not in the list of the stakers  
-	#[rpc(name = "staking_nextPayout")]
-	fn next_payout(&self, payee: AccountId, at: Option<BlockHash>) -> Result<Balance>;
+	#[rpc(name = "staking_accruedPayout")]
+	fn accrued_payout(&self, payee: AccountId, at: Option<BlockHash>) -> Result<Balance>;
 }
 
 /// A struct that implements [`StakingApi`].
@@ -83,22 +82,24 @@ where
 	C: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: StakingRuntimeApi<Block, AccountId, Balance>,
 	AccountId: Codec,
-	Balance: Codec + TryFrom<NumberOrHex>,
+	Balance: Codec,
 {
-	fn next_payout(&self, payee: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
+	fn accrued_payout(&self, payee: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
 		let api = self.client.runtime_api();
 
 		if at.is_some() {
-			RpcError {
+			return Err(RpcError {
 				code: ErrorCode::ServerError(Error::UnsupportedError.into()),
 				message: "Unsupported query when block hash is given.".into(),
 				data: None,
-			}
+			});
 		}
 
-		api.next_payout(&at, payee).map_err(|e| RpcError {
+		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+		api.accrued_payout(&at, &payee).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query next payout.".into(),
+			message: "Unable to accrued payout.".into(),
 			data: Some(format!("{:?}", e).into()),
 		})
 	}

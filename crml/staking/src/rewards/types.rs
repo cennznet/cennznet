@@ -42,6 +42,12 @@ pub trait StakerRewardPayment {
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;
+	/// Calculate the next reward payout (as of accrued right now) for the given payee.
+	fn payee_next_reward_payout(
+		payee: &Self::AccountId,
+		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		era: EraIndex,
+	) -> Self::Balance;
 }
 
 pub trait HandlePayee {
@@ -69,11 +75,4 @@ pub struct EraRewardPoints<AccountId: Ord> {
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
 	pub individual: BTreeMap<AccountId, RewardPoint>,
-}
-
-/// Error returned by next_payout
-#[derive(PartialEq, Eq, Encode, Decode, RuntimeDebug)]
-pub enum NextPayoutError {
-	/// No such payee in the list of those who would get rewards in this era
-	PayeeNotFound,
 }

@@ -20,13 +20,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use crml_staking::rewards::NextPayoutError;
 
 sp_api::decl_runtime_apis! {
 	pub trait StakingApi<AccountId, Balance> where
 		AccountId: Codec,
 		Balance: Codec,
 	{
-		fn next_payout(payee: AccountId) -> Result<Balance, NextPayoutError>;
+		fn accrued_payout(payee: &AccountId) -> Balance;
 	}
 }
