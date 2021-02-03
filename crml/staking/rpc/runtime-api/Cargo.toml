@@ -1,0 +1,27 @@
+[package]
+name = "crml-staking-rpc-runtime-api"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+description = "Runtime API definition required by Staking RPC extensions."
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
+sp-api = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.4" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.4" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.4" }
+crml-staking = { default-features = false, path = "../.." }
+
+[features]
+default = ["std"]
+std = [
+	"sp-api/std",
+	"codec/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"crml-staking/std",
+]

@@ -70,3 +70,10 @@ pub struct EraRewardPoints<AccountId: Ord> {
 	/// The reward points earned by a given validator.
 	pub individual: BTreeMap<AccountId, RewardPoint>,
 }
+
+/// Error returned by next_payout
+#[derive(PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+pub enum NextPayoutError {
+	/// No such payee in the list of those who would get rewards in this era
+	PayeeNotFound,
+}
