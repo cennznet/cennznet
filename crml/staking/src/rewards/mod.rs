@@ -1286,4 +1286,73 @@ mod tests {
 			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 4);
 		})
 	}
+
+	#[test]
+	fn calculate_accrued_reward() {
+		ExtBuilder::default().build().execute_with(|| {
+			let stake_map_1 = MockCommissionStakeInfo::new((1, 1_000), vec![(4, 1_000)], Perbill::from_percent(10));
+			let stake_map_2 =
+				MockCommissionStakeInfo::new((2, 2_000), vec![(4, 1_000), (5, 1_000)], Perbill::from_percent(5));
+			let stake_map_3 =
+				MockCommissionStakeInfo::new((3, 3_000), vec![(5, 1_000), (6, 2_000)], Perbill::from_percent(2));
+
+			<Module<TestRuntime>>::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
+
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 20));
+			Rewards::new_fiscal_era();
+
+			let fee_payout = 1_000_000;
+			Rewards::note_transaction_fees(fee_payout);
+
+			let total_payout = Rewards::calculate_next_reward_payout();
+
+			let stakers_cut = total_payout.saturating_sub(Rewards::development_fund_take() * fee_payout);
+
+			// According to the authorship reward points
+			let staked_on_1_reward_share = Perbill::from_percent(30) * stakers_cut;
+			let staked_on_2_reward_share = Perbill::from_percent(50) * stakers_cut;
+			let staked_on_3_reward_share = Perbill::from_percent(20) * stakers_cut;
+
+			// According to the commissions
+			let nominated_1_reward_share = Perbill::from_percent(90) * staked_on_1_reward_share;
+			let nominated_2_reward_share = Perbill::from_percent(95) * staked_on_2_reward_share;
+			let nominated_3_reward_share = Perbill::from_percent(98) * staked_on_3_reward_share;
+
+			// According to the stakes
+			let reward_to_4 = nominated_1_reward_share / 2 + nominated_2_reward_share / 4;
+			let reward_to_5 = nominated_2_reward_share / 4 + nominated_3_reward_share / 6;
+			let reward_to_6 = nominated_3_reward_share / 3 + 1; // + 1 is needed due to the integer calculation inaccuracy
+
+			assert_eq!(
+				Rewards::payee_next_reward_payout(
+					&4,
+					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
+				),
+				reward_to_4
+			);
+			assert_eq!(
+				Rewards::payee_next_reward_payout(
+					&5,
+					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
+				),
+				reward_to_5
+			);
+			assert_eq!(
+				Rewards::payee_next_reward_payout(
+					&6,
+					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
+				),
+				reward_to_6
+			);
+
+			let reward_to_1 = staked_on_1_reward_share - nominated_1_reward_share / 2 - 1; // - 1 is needed due to the integer calculation inaccuracy
+			assert_eq!(
+				Rewards::payee_next_reward_payout(
+					&1,
+					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
+				),
+				reward_to_1
+			);
+		});
+	}
 }
