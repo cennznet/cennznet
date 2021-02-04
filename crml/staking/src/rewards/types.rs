@@ -46,7 +46,6 @@ pub trait StakerRewardPayment {
 	fn payee_next_reward_payout(
 		payee: &Self::AccountId,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
-		era: EraIndex,
 	) -> Self::Balance;
 }
 

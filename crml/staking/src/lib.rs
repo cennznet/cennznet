@@ -1335,7 +1335,7 @@ impl<T: Trait> Module<T> {
 			})
 			.collect::<Vec<(_, _, _)>>();
 
-		T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice(), Self::current_era())
+		T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice())
 	}
 
 	/// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].

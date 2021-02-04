@@ -187,62 +187,18 @@ where
 			Self::new_fiscal_era();
 		}
 
-		let total_payout = Self::calculate_next_reward_payout();
-		let num_of_validators = validator_commission_stake_map.len();
-
-		if total_payout.is_zero() || num_of_validators.is_zero() {
-			return;
-		}
-
-		let fee_payout = TransactionFeePot::<T>::take();
-		// track historic era fee amounts
-		Self::note_fee_payout(fee_payout);
-
-		// Deduct development fund take %
-		let development_fund_payout = Self::development_fund_take() * fee_payout;
-
-		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
-		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
-		// This ensures only one storage update to total issuance will happen when dropped.
-		let _ = T::CurrencyToReward::deposit_into_existing(
-			&T::TreasuryModuleId::get().into_account(),
-			development_fund_payout,
+		let stakers_cut = Self::on_all_payouts(
+			validator_commission_stake_map,
+			|_, _| false,
+			|account, payout| {
+				Payouts::<T>::mutate(|p| p.push_back((account.clone(), payout, era)));
+			},
 		);
 
-		let era_payout = total_payout.saturating_sub(development_fund_payout);
-		let era_reward_points = <CurrentEraRewardPoints<T>>::take();
-		let total_reward_points = era_reward_points.total;
+		// track historic era fee amounts
+		Self::note_fee_payout(TransactionFeePot::<T>::take());
 
-		validator_commission_stake_map
-			.iter()
-			.flat_map(|(validator, validator_commission, stake_map)| {
-				let validator_reward_points = era_reward_points
-					.individual
-					.get(validator)
-					.map(|points| *points)
-					.unwrap_or_else(|| Zero::zero());
-
-				// This is how much validator + nominators are entitled to.
-				let validator_total_payout = if total_reward_points.is_zero() {
-					// When no authorship points are recorded, divide the payout equally
-					//let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
-					era_payout / (num_of_validators as u32).into()
-				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * era_payout
-				};
-
-				// Nothing to do if they have no payouts.
-				if validator_total_payout.is_zero() {
-					return vec![];
-				}
-
-				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
-			})
-			.for_each(|(account, payout)| {
-				Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
-			});
-
-		QueuedEraRewards::<T>::mutate(|q| q.push_back(era_payout));
+		QueuedEraRewards::<T>::mutate(|q| q.push_back(stakers_cut));
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
@@ -313,11 +269,22 @@ where
 
 	/// Calculate the next reward payout (as of accrued right now) for the given payee.
 	fn payee_next_reward_payout(
-		_payee: &Self::AccountId,
-		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
-		_era: EraIndex,
+		payee: &Self::AccountId,
+		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
-		Zero::zero()
+		let mut payee_cut: Self::Balance = Zero::zero();
+
+		let _ = Self::on_all_payouts(
+			validator_commission_stake_map,
+			|validator, exposure| payee != validator && !exposure.others.iter().any(|x| &x.who == payee),
+			|account, payout| {
+				if account == payee {
+					payee_cut = payee_cut.saturating_add(payout);
+				}
+			},
+		);
+
+		payee_cut
 	}
 }
 
@@ -344,6 +311,70 @@ impl<T: Trait> HandlePayee for Module<T> {
 		} else {
 			stash.clone()
 		}
+	}
+}
+
+impl<T: Trait> Module<T>
+where
+	BalanceOf<T>: FixedPointOperand,
+{
+	/// Calculate all payouts of the current era as of right now. Then filter out those not relevant
+	/// validator-exposure sets by calling the "filter" function and execute the on_each_payout
+	/// function for each of non filtered payouts.
+	/// Return the total rewards calculated for the stakers at the time of this call.
+	fn on_all_payouts<F, A>(
+		validator_commission_stake_map: &[(T::AccountId, Perbill, Exposure<T::AccountId, BalanceOf<T>>)],
+		filter: F,
+		mut on_each_payout: A,
+	) -> BalanceOf<T>
+	where
+		F: Fn(&T::AccountId, &Exposure<T::AccountId, BalanceOf<T>>) -> bool,
+		A: FnMut(&T::AccountId, BalanceOf<T>),
+	{
+		let total_payout = <Self as StakerRewardPayment>::calculate_next_reward_payout();
+		let num_of_validators = validator_commission_stake_map.len();
+
+		if total_payout.is_zero() || num_of_validators.is_zero() {
+			return Zero::zero();
+		}
+
+		let stakers_cut = total_payout.saturating_sub(Self::development_fund_take() * TransactionFeePot::<T>::get());
+		let era_reward_points = <CurrentEraRewardPoints<T>>::get();
+		let total_reward_points = era_reward_points.total;
+
+		validator_commission_stake_map
+			.iter()
+			.flat_map(|(validator, validator_commission, stake_map)| {
+				// Nothing to do if this entry should be filtered out
+				if filter(validator, stake_map) {
+					return vec![];
+				}
+
+				let validator_reward_points = era_reward_points
+					.individual
+					.get(validator)
+					.map(|points| *points)
+					.unwrap_or_else(|| Zero::zero());
+
+				// This is how much every validator is entitled to get, including its nominators shares
+				let validator_total_payout = if total_reward_points.is_zero() {
+					// When no authorship points are recorded, divide the payout equally
+					stakers_cut / (num_of_validators as u32).into()
+				} else {
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+				};
+
+				if validator_total_payout.is_zero() {
+					return vec![];
+				}
+
+				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
+			})
+			.for_each(|(account, payout)| {
+				on_each_payout(&account, payout);
+			});
+
+		stakers_cut
 	}
 }
 
