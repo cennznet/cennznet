@@ -1630,6 +1630,11 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
+	/// Return the reward destination for a given stash id.
+	///
+	/// This is mostly a helper function for test purposes. There is a simpler interface,
+	/// HandlePayee, implemented by the rewards module which is suggested to look at first before
+	/// using this one in your code.   
 	pub fn payee(stash: &T::AccountId) -> RewardDestination<T::AccountId> {
 		let payee = T::Rewarder::payee(stash);
 		if payee == *stash {
