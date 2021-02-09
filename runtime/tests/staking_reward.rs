@@ -23,7 +23,7 @@ use cennznet_runtime::{
 	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
-use crml_staking::{EraIndex, RewardDestination, StakerRewardPayment, StakingLedger};
+use crml_staking::{EraIndex, HandlePayee, StakerRewardPayment, StakingLedger};
 use frame_support::{
 	assert_ok,
 	storage::StorageValue,
@@ -136,7 +136,7 @@ fn staking_genesis_config_works() {
 				// Check validator is included in current elected accounts
 				assert!(Staking::current_elected().contains(&stash));
 				// Check that RewardDestination is Stash (default)
-				assert_eq!(Staking::payee(&stash), RewardDestination::Stash);
+				assert_eq!(Rewards::payee(&stash), stash);
 				// Check validator free balance
 				assert_eq!(RewardCurrency::free_balance(&stash), balance_amount);
 				// Check how much is at stake
