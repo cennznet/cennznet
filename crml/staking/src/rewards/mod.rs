@@ -188,9 +188,9 @@ where
 		}
 
 		let total_payout = Self::calculate_next_reward_payout();
-		let num_of_validators = validator_commission_stake_map.len();
+		let validator_count = validator_commission_stake_map.len();
 
-		if total_payout.is_zero() || num_of_validators.is_zero() {
+		if total_payout.is_zero() || validator_count.is_zero() {
 			return;
 		}
 
@@ -225,8 +225,7 @@ where
 				// This is how much validator + nominators are entitled to.
 				let validator_total_payout = if total_reward_points.is_zero() {
 					// When no authorship points are recorded, divide the payout equally
-					//let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
-					era_payout / (num_of_validators as u32).into()
+					era_payout / (validator_count as u32).into()
 				} else {
 					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * era_payout
 				};
@@ -328,7 +327,7 @@ impl<T: Trait> HandlePayee for Module<T> {
 		Payee::<T>::remove(stash);
 	}
 
-	/// Return the reward destination for the given stash account.
+	/// Return the reward account for the given stash account.
 	fn payee(stash: &T::AccountId) -> Self::AccountId {
 		if Payee::<T>::contains_key(stash) {
 			Payee::<T>::get(stash)
@@ -920,8 +919,8 @@ mod tests {
 				})
 				.collect();
 			let note_author_to_all = || {
-				for i in 0..validators_number {
-					Rewards::note_author((i + 1) * 10);
+				for i in 1..=validators_number {
+					Rewards::note_author(i * 10);
 				}
 			};
 
@@ -1199,13 +1198,13 @@ mod tests {
 
 			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
 
-			<Module<TestRuntime>>::note_author(11);
-			<Module<TestRuntime>>::note_uncle(21, 1);
+			Rewards::note_author(11);
+			Rewards::note_uncle(21, 1);
 			// An uncle author that is not currently elected doesn't get rewards,
 			// but the block producer does get reward for referencing it.
-			<Module<TestRuntime>>::note_uncle(31, 1);
+			Rewards::note_uncle(31, 1);
 			// Rewarding the same two times works.
-			<Module<TestRuntime>>::note_uncle(11, 1);
+			Rewards::note_uncle(11, 1);
 
 			// 21 is rewarded as an uncle producer
 			// 11 is rewarded as a block producer and uncle referencer and uncle producer
@@ -1222,7 +1221,7 @@ mod tests {
 	#[test]
 	fn add_reward_points_fns_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			<Module<TestRuntime>>::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
+			Rewards::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
 
 			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
 				.individual
