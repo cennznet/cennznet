@@ -210,7 +210,6 @@ fn rewards_should_work() {
 		assert_eq!(Staking::payee(&2), RewardDestination::Stash);
 		assert_eq!(Staking::payee(&11), RewardDestination::Controller);
 
-		Rewards::new_fiscal_era();
 		start_session(1);
 
 		assert_eq!(Staking::current_era(), 0);
@@ -252,7 +251,6 @@ fn multi_era_reward_should_work() {
 		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
 
 		// Compute now as other parameter won't change
-		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 10); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -450,7 +448,6 @@ fn nominators_also_get_slashed() {
 		));
 		assert_ok!(Staking::nominate(Origin::signed(2), vec![20, 10]));
 
-		Rewards::new_fiscal_era();
 		let total_payout: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -717,7 +714,6 @@ fn reward_destination_works() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -806,15 +802,18 @@ fn validator_payment_prefs_work() {
 		// check the balance of a validator's stash accounts.
 		assert_eq!(Balances::total_balance(&11), stash_initial_balance);
 		// and the nominator (to-be)
-		let _ = Balances::make_free_balance_be(&2, 500);
+		let nominator_balance = Balances::total_balance(&2);
 
 		// add a dummy nominator.
 		<Stakers<Test>>::insert(
 			&11,
 			Exposure {
-				own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
-				total: 1000,
-				others: vec![IndividualExposure { who: 2, value: 500 }],
+				own: nominator_balance, // equal division indicates that the reward will be equally divided among validator and nominator.
+				total: 2 * nominator_balance,
+				others: vec![IndividualExposure {
+					who: 2,
+					value: nominator_balance,
+				}],
 			},
 		);
 		<Validators<Test>>::insert(
@@ -825,7 +824,6 @@ fn validator_payment_prefs_work() {
 		);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		Rewards::new_fiscal_era();
 		let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 		assert!(total_payout_0 > 100); // Test is meaningful if reward something
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -833,17 +831,18 @@ fn validator_payment_prefs_work() {
 		start_era(1);
 		Staking::on_initialize(System::block_number() + 1);
 
+		let commission = total_payout_0 / 2;
 		// whats left to be shared is the sum of 3 rounds minus the validator's cut.
-		let shared_cut = total_payout_0 / 2;
+		let shared_cut = total_payout_0 - commission;
 		// Validator's payee is Staked account, 11, reward will be paid here.
 		assert_eq!(
 			Balances::total_balance(&11),
-			stash_initial_balance + shared_cut / 2 + shared_cut
+			stash_initial_balance + commission + shared_cut / 2
 		);
 		// Controller account will not get any reward.
 		assert_eq!(Balances::total_balance(&10), 1);
 		// Rest of the reward will be shared and paid to the nominator in stake.
-		assert_eq!(Balances::total_balance(&2), 500 + shared_cut / 2);
+		assert_eq!(Balances::total_balance(&2), nominator_balance + shared_cut / 2);
 
 		check_exposure_all();
 		check_nominator_all();
@@ -1359,10 +1358,6 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			assert_eq!(Staking::stakers(&11).total, 1000);
 			assert_eq!(Staking::stakers(&21).total, 2000);
 
-			// Give the man some money.
-			let _ = Balances::make_free_balance_be(&10, 1000);
-			let _ = Balances::make_free_balance_be(&20, 1000);
-
 			// We confirm initialized slot_stake is this value
 			assert_eq!(Staking::slot_stake(), Staking::stakers(&11).total);
 
@@ -1387,7 +1382,6 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 			);
 
 			// Compute total payout now for whole duration as other parameter won't change
-			Rewards::new_fiscal_era();
 			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			Rewards::reward_by_ids(vec![(11, 1)]);
@@ -1706,7 +1700,6 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
 			));
 			assert_ok!(Staking::validate(Origin::signed(2), ValidatorPrefs::default()));
 
-			Rewards::new_fiscal_era();
 			let total_payout_0: Balance = Rewards::calculate_next_reward_payout();
 			assert!(total_payout_0 > 100); // Test is meaningful if reward something
 			reward_all_elected();
