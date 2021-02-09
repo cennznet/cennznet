@@ -67,7 +67,7 @@ pub type RewardPoint = u32;
 
 /// Reward points of an era. Used to split era total payout between validators.
 ///
-/// This points will be used to reward validators and their respective nominators.
+/// These points will be used to reward validators and their respective nominators.
 #[derive(PartialEq, Encode, Decode, Default)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
