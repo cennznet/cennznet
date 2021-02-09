@@ -447,6 +447,7 @@ impl ExtBuilder {
 		// `staking::on_initialize`
 		ext.execute_with(|| {
 			Timestamp::set_timestamp(INIT_TIMESTAMP);
+			Rewards::new_fiscal_era();
 		});
 
 		ext
