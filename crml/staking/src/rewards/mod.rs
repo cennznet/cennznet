@@ -646,6 +646,20 @@ mod tests {
 	}
 
 	#[test]
+	fn set_and_change_payee_correctly() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Return the same id, if a separate payee is not set
+			assert_eq!(Rewards::payee(&7), 7);
+
+			Rewards::set_payee(&10, &10);
+			assert_eq!(Rewards::payee(&10), 10);
+
+			Rewards::set_payee(&10, &11);
+			assert_eq!(Rewards::payee(&10), 11);
+		});
+	}
+
+	#[test]
 	fn note_transaction_fees() {
 		ExtBuilder::default().build().execute_with(|| {
 			// successive transaction fees are added to the pot
