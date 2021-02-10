@@ -30,8 +30,8 @@ use std::collections::HashSet;
 
 use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
 use crate::{
-	rewards::{Module as RewardsModule, StakerRewardPayment, Trait as RewardsTrait},
-	EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait,
+	rewards::{HandlePayee, Module as RewardsModule, StakerRewardPayment, Trait as RewardsTrait},
+	EraIndex, GenesisConfig, Module, StakerStatus, StakingLedger, Trait,
 };
 use std::cell::RefCell;
 
@@ -309,7 +309,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		Staking::on_initialize(System::block_number() + 1);
 
 		// Check that RewardDestination is Stash (default)
-		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
+		assert_eq!(Rewards::payee(&11), 11);
 		// Check that reward went to the stash account of validator
 		assert_eq!(
 			GenericAsset::free_balance(REWARD_ASSET_ID, &11),

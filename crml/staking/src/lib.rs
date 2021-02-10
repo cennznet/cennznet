@@ -1629,20 +1629,6 @@ impl<T: Trait> Module<T> {
 			_ => ForceEra::put(Forcing::ForceNew),
 		}
 	}
-
-	#[cfg(test)]
-	pub fn payee(stash: &T::AccountId) -> RewardDestination<T::AccountId> {
-		let payee = T::Rewarder::payee(stash);
-		if payee == *stash {
-			return RewardDestination::Stash;
-		}
-		if let Some(controller) = Bonded::<T>::get(stash) {
-			if payee == controller {
-				return RewardDestination::Controller;
-			}
-		}
-		RewardDestination::Account(payee)
-	}
 }
 
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {

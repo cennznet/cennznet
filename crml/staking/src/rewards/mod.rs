@@ -1262,8 +1262,6 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			use pallet_authorship::EventHandler;
-
 			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
 
 			Rewards::note_author(11);
