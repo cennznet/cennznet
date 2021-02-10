@@ -228,9 +228,7 @@ where
 
 		// First payout in the current series, gives the right context for processing the rest.
 		let (first_payee, first_amount, first_era) = payouts.pop_front().unwrap_or_default();
-		let mut total_payout_imbalance = T::CurrencyToReward::deposit_creating(&first_payee, first_amount)
-			.ok()
-			.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
+		let mut total_payout_imbalance = T::CurrencyToReward::deposit_creating(&first_payee, first_amount);
 		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
 		let mut era_under_process = first_era;
 
@@ -253,7 +251,7 @@ where
 					Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
 					era_under_process = era;
 				}
-				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_creating(&payee, amount).ok());
+				total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&payee, amount));
 				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
 			}
 		}
