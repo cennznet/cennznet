@@ -96,6 +96,8 @@ decl_storage! {
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
 		/// Remaining reward amount of the eras which are not fully processed yet
 		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
+		/// Where the reward payment should be made. Keyed by stash.
+		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
 		/// Hold the latest not processed payouts and the era when each is accrued
 		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
@@ -108,6 +110,8 @@ decl_storage! {
 		FiscalEraEpoch get(fn fiscal_era_epoch): EraIndex;
 		/// When true the next staking era will become the start of a new fiscal era.
 		ForceFiscalEra get(fn force_fiscal_era): bool = false;
+		/// Authorship rewards for the current active era.
+		CurrentEraRewardPoints get(fn current_era_points): EraRewardPoints<T::AccountId>;
 	}
 }
 
@@ -145,6 +149,22 @@ decl_module! {
 	}
 }
 
+/// Add reward points to block authors:
+/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
+/// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
+/// * 1 point to the producer of each referenced uncle block.
+impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
+where
+	T: Trait + pallet_authorship::Trait,
+{
+	fn note_author(author: T::AccountId) {
+		Self::reward_by_ids(vec![(author, 20)])
+	}
+	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
+		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
+	}
+}
+
 impl<T: Trait> StakerRewardPayment for Module<T>
 where
 	BalanceOf<T>: FixedPointOperand,
@@ -168,8 +188,9 @@ where
 		}
 
 		let total_payout = Self::calculate_next_reward_payout();
+		let validator_count = validator_commission_stake_map.len();
 
-		if total_payout.is_zero() || validator_commission_stake_map.len().is_zero() {
+		if total_payout.is_zero() || validator_count.is_zero() {
 			return;
 		}
 
@@ -188,21 +209,39 @@ where
 			development_fund_payout,
 		);
 
-		let validator_payout = total_payout.saturating_sub(development_fund_payout);
-
-		// Payout reward to validators and their nominators
-		let total_payout_share = validator_payout / BalanceOf::<T>::from(validator_commission_stake_map.len() as u32);
+		let era_payout = total_payout.saturating_sub(development_fund_payout);
+		let era_reward_points = <CurrentEraRewardPoints<T>>::take();
+		let total_reward_points = era_reward_points.total;
 
 		validator_commission_stake_map
 			.iter()
 			.flat_map(|(validator, validator_commission, stake_map)| {
-				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, total_payout_share)
+				let validator_reward_points = era_reward_points
+					.individual
+					.get(validator)
+					.map(|points| *points)
+					.unwrap_or_else(|| Zero::zero());
+
+				// This is how much validator + nominators are entitled to.
+				let validator_total_payout = if total_reward_points.is_zero() {
+					// When no authorship points are recorded, divide the payout equally
+					era_payout / (validator_count as u32).into()
+				} else {
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * era_payout
+				};
+
+				// Nothing to do if they have no payouts.
+				if validator_total_payout.is_zero() {
+					return vec![];
+				}
+
+				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
 			})
 			.for_each(|(account, payout)| {
 				Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
 			});
 
-		QueuedEraRewards::<T>::mutate(|q| q.push_back(validator_payout));
+		QueuedEraRewards::<T>::mutate(|q| q.push_back(era_payout));
 	}
 
 	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
@@ -220,9 +259,7 @@ where
 
 		// First payout in the current series, gives the right context for processing the rest.
 		let (first_payee, first_amount, first_era) = payouts.pop_front().unwrap_or_default();
-		let mut total_payout_imbalance = T::CurrencyToReward::deposit_into_existing(&first_payee, first_amount)
-			.ok()
-			.unwrap_or_else(PositiveImbalanceOf::<T>::zero);
+		let mut total_payout_imbalance = T::CurrencyToReward::deposit_creating(&first_payee, first_amount);
 		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
 		let mut era_under_process = first_era;
 
@@ -245,7 +282,7 @@ where
 					Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
 					era_under_process = era;
 				}
-				total_payout_imbalance.maybe_subsume(T::CurrencyToReward::deposit_into_existing(&payee, amount).ok());
+				total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&payee, amount));
 				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
 			}
 		}
@@ -269,6 +306,32 @@ where
 	/// Calculate the total reward payout as of right now
 	fn calculate_next_reward_payout() -> Self::Balance {
 		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation_per_staking_era())
+	}
+}
+
+impl<T: Trait> HandlePayee for Module<T> {
+	type AccountId = T::AccountId;
+
+	/// (Re-)set the payment target for a stash account.
+	/// If payee is not different from stash, do no operations.
+	fn set_payee(stash: &Self::AccountId, payee: &Self::AccountId) {
+		if *stash != *payee {
+			Payee::<T>::insert(stash, payee);
+		}
+	}
+
+	/// Remove the corresponding stash-payee from the look up. Do no operations if stash not found.
+	fn remove_payee(stash: &Self::AccountId) {
+		Payee::<T>::remove(stash);
+	}
+
+	/// Return the reward account for the given stash account.
+	fn payee(stash: &T::AccountId) -> Self::AccountId {
+		if Payee::<T>::contains_key(stash) {
+			Payee::<T>::get(stash)
+		} else {
+			stash.clone()
+		}
 	}
 }
 
@@ -315,7 +378,7 @@ impl<T: Trait> Module<T> {
 		for nominator_stake in &validator_stake.others {
 			let contribution_ratio =
 				Perbill::from_rational_approximation(nominator_stake.value, aggregate_validator_stake);
-			payouts.push((nominator_stake.who.clone(), contribution_ratio * nominators_cut));
+			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
@@ -325,7 +388,7 @@ impl<T: Trait> Module<T> {
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
-			validator.clone(),
+			Self::payee(validator),
 			(validator_contribution_ratio * nominators_cut) + validator_cut,
 		));
 		(*payouts).to_vec()
@@ -352,7 +415,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
-	fn new_fiscal_era() {
+	pub fn new_fiscal_era() {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
 		let target_inflation =
 			<BalanceOf<T>>::unique_saturated_from(Self::inflation_rate().saturating_mul_int(total_issuance));
@@ -361,6 +424,26 @@ impl<T: Trait> Module<T> {
 			.unwrap_or_else(Zero::zero);
 		<TargetInflationPerStakingEra<T>>::put(target_inflation_per_staking_era);
 		Self::deposit_event(RawEvent::NewFiscalEra(target_inflation_per_staking_era));
+	}
+
+	/// Add reward points to validators using their stash account ID.
+	///
+	/// Validators are keyed by stash account ID and must be in the current elected set.
+	///
+	/// For each element in the iterator the given number of points in u32 is added to the
+	/// validator, thus duplicates are handled.
+	///
+	/// At the end of the era each the total payout will be distributed among validator
+	/// relatively to their points.
+	///
+	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
+	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+		<CurrentEraRewardPoints<T>>::mutate(|era_rewards| {
+			for (validator, points) in validators_points.into_iter() {
+				*era_rewards.individual.entry(validator).or_default() += points;
+				era_rewards.total += points;
+			}
+		});
 	}
 }
 
@@ -378,6 +461,7 @@ mod tests {
 	use crate::{rewards, IndividualExposure};
 	use frame_support::{assert_err, assert_noop, assert_ok, impl_outer_event, impl_outer_origin, parameter_types};
 	use frame_system::{InitKind, Module as System};
+	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
@@ -448,6 +532,13 @@ mod tests {
 		type Balance = Balance;
 		type Event = TestEvent;
 		type WeightInfo = ();
+	}
+
+	impl pallet_authorship::Trait for TestRuntime {
+		type FindAuthor = crate::mock::Author11;
+		type UncleGenerations = crate::mock::UncleGenerations;
+		type FilterUncle = ();
+		type EventHandler = Module<Self>;
 	}
 
 	parameter_types! {
@@ -550,6 +641,20 @@ mod tests {
 		fn as_tuple(&self) -> (AccountId, Perbill, Exposure<AccountId, Balance>) {
 			(self.validator_stash, self.commission, self.exposures.clone())
 		}
+	}
+
+	#[test]
+	fn set_and_change_payee_correctly() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Return the same id, if a separate payee is not set
+			assert_eq!(Rewards::payee(&7), 7);
+
+			Rewards::set_payee(&10, &10);
+			assert_eq!(Rewards::payee(&10), 10);
+
+			Rewards::set_payee(&10, &11);
+			assert_eq!(Rewards::payee(&10), 11);
+		});
 	}
 
 	#[test]
@@ -825,13 +930,20 @@ mod tests {
 					.as_tuple()
 				})
 				.collect();
+			let note_author_to_all = || {
+				for i in 1..=validators_number {
+					Rewards::note_author(i * 10);
+				}
+			};
 
+			note_author_to_all();
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 0);
 
 			Rewards::process_reward_payouts(3);
 			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
 
+			note_author_to_all();
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
 
@@ -1089,5 +1201,71 @@ mod tests {
 				2 * payout_split_threshold
 			);
 		});
+	}
+
+	#[test]
+	fn reward_from_authorship_event_handler_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+
+			Rewards::note_author(11);
+			Rewards::note_uncle(21, 1);
+			// An uncle author that is not currently elected doesn't get rewards,
+			// but the block producer does get reward for referencing it.
+			Rewards::note_uncle(31, 1);
+			// Rewarding the same two times works.
+			Rewards::note_uncle(11, 1);
+
+			// 21 is rewarded as an uncle producer
+			// 11 is rewarded as a block producer and uncle referencer and uncle producer
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+				.individual
+				.values()
+				.cloned()
+				.collect();
+			assert_eq!(reward_points, vec![20 + 2 * 3 + 1, 1, 1]);
+			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 29);
+		})
+	}
+
+	#[test]
+	fn reward_is_split_according_to_points() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+
+			let fee = 628;
+			Rewards::note_transaction_fees(fee);
+
+			// 42 points to 11, 21 points to 21
+			Rewards::note_author(11);
+			Rewards::note_author(11);
+			Rewards::note_author(21);
+			Rewards::note_uncle(21, 1); // 2 points to the actual author here 11, 1 point to 21
+
+			let stake_map_11 = MockCommissionStakeInfo::new((11, 1_000), vec![], Perbill::from_percent(10));
+			let stake_map_21 = MockCommissionStakeInfo::new((21, 1_000), vec![], Perbill::from_percent(10));
+
+			let authors_payout = Rewards::calculate_next_reward_payout() - Rewards::development_fund_take() * fee;
+
+			Rewards::enqueue_reward_payouts(&[stake_map_11.as_tuple(), stake_map_21.as_tuple()], 0);
+
+			assert_eq!(Rewards::payouts()[0], (11, authors_payout * 42 / 63, 0));
+			assert_eq!(Rewards::payouts()[1], (21, authors_payout * 21 / 63, 0));
+		})
+	}
+
+	#[test]
+	fn add_reward_points_fns_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			Rewards::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
+
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+				.individual
+				.values()
+				.cloned()
+				.collect();
+			assert_eq!(reward_points, vec![2, 1, 1]);
+			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 4);
+		})
 	}
 }

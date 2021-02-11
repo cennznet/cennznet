@@ -23,7 +23,7 @@ use cennznet_runtime::{
 	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
-use crml_staking::{EraIndex, RewardDestination, StakerRewardPayment, StakingLedger};
+use crml_staking::{EraIndex, HandlePayee, StakerRewardPayment, StakingLedger};
 use frame_support::{
 	assert_ok,
 	storage::StorageValue,
@@ -136,7 +136,7 @@ fn staking_genesis_config_works() {
 				// Check validator is included in current elected accounts
 				assert!(Staking::current_elected().contains(&stash));
 				// Check that RewardDestination is Stash (default)
-				assert_eq!(Staking::payee(&stash), RewardDestination::Stash);
+				assert_eq!(Rewards::payee(&stash), stash);
 				// Check validator free balance
 				assert_eq!(RewardCurrency::free_balance(&stash), balance_amount);
 				// Check how much is at stake
@@ -211,7 +211,7 @@ fn current_era_transaction_rewards_storage_update_works() {
 }
 
 #[test]
-fn elected_validators_receive_equal_transaction_fee_reward() {
+fn elected_validators_receive_transaction_fee_reward() {
 	// Make some txs
 	// Start a new era to payout last eras validators
 	// Check payouts happen as expected and total issuance is maintained
@@ -232,9 +232,16 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 		.build()
 		.execute_with(|| {
 			start_era(1);
-			// Start the first block of era 1
-			let header = header_for_block_number((System::block_number() + 1).into());
-			Executive::initialize_block(&header);
+
+			let make_validator_0_author_block = || {
+				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
+				let header = set_author(header_of_last_block, 0);
+				Executive::initialize_block(&header);
+			};
+
+			make_validator_0_author_block();
+
+			let validator_0_stash_id = Session::validators()[0].clone();
 
 			let initial_issuance = RewardCurrency::total_issuance();
 
@@ -271,26 +278,29 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 			}
 
 			start_era(2);
-			// Start the first block of era 2
-			let header = header_for_block_number((System::block_number() + 1).into());
-			Executive::initialize_block(&header);
+
+			make_validator_0_author_block();
 
 			// Check if stash account balances are not yet changed
-			let per_validator_reward_era_2: Balance = ((Perbill::one()
-				.saturating_sub(Rewards::development_fund_take()))
-				* tx_fee + Rewards::target_inflation_per_staking_era())
-				/ validators.len() as Balance;
+			let validator_0_reward_era_2: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
+				* tx_fee + Rewards::target_inflation_per_staking_era();
 			for (stash, _controller, _, _, _, _) in &validators {
-				assert_eq!(
-					RewardCurrency::free_balance(&stash),
-					initial_balance + per_validator_reward_era_1 + per_validator_reward_era_2
-				);
+				if stash == &validator_0_stash_id {
+					assert_eq!(
+						RewardCurrency::free_balance(&stash),
+						initial_balance + per_validator_reward_era_1 + validator_0_reward_era_2
+					);
+				} else {
+					assert_eq!(
+						RewardCurrency::free_balance(&stash),
+						initial_balance + per_validator_reward_era_1
+					);
+				}
 			}
 
 			// treasury gets it's cut
 			let treasury_cut = Rewards::development_fund_take() * tx_fee;
-			let validator_cut = per_validator_reward_era_2 * validators.len() as Balance;
-			let remainder = total_payout - treasury_cut - validator_cut;
+			let remainder = total_payout - treasury_cut - validator_0_reward_era_2;
 			assert_eq!(
 				RewardCurrency::free_balance(&Treasury::account_id()),
 				treasury_cut + remainder + treasury_balance_era_1
@@ -305,8 +315,77 @@ fn elected_validators_receive_equal_transaction_fee_reward() {
 }
 
 #[test]
+fn elected_validators_receive_rewards_according_to_authorship_points() {
+	// Start a new era to payout last eras validators
+	// Check payouts happen as expected and total issuance is maintained
+	let validators = make_authority_keys(6);
+	let initial_balance = 100_000_000 * DOLLARS;
+	let staked_amount = initial_balance / validators.len() as Balance;
+
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(staked_amount)
+		.build()
+		.execute_with(|| {
+			start_era(1);
+
+			let author_index = 0;
+			let author_stash_id = Session::validators()[(author_index as usize)].clone();
+			let initial_reward_issuance = RewardCurrency::total_issuance();
+
+			// No fee is collected yet, the reward is only mined.
+			let total_payout = Rewards::calculate_next_reward_payout();
+			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era());
+
+			let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
+			Executive::initialize_block(&header);
+
+			// treasury would be almost empty as there hasn't been any transaction fees.
+			let treasury_balance_era_1 = RewardCurrency::free_balance(&Treasury::account_id());
+			assert_eq!(treasury_balance_era_1, 3);
+
+			// In era 1, the rewards are just earned through the inflation as there was no transactions
+			let per_validator_reward_era_1 = Rewards::target_inflation_per_staking_era() / validators.len() as Balance;
+			for (stash, _, _, _, _, _) in &validators {
+				assert_eq!(
+					RewardCurrency::free_balance(stash),
+					initial_balance + per_validator_reward_era_1
+				)
+			}
+
+			start_era(2);
+			Executive::initialize_block(&header_for_block_number((System::block_number() + 1).into()));
+
+			// The whole reward of the era goes to the author
+			let author_reward = Rewards::target_inflation_per_staking_era();
+
+			for (stash, _controller, _, _, _, _) in &validators {
+				if stash == &author_stash_id {
+					assert_eq!(
+						RewardCurrency::free_balance(&stash),
+						initial_balance + per_validator_reward_era_1 + author_reward
+					);
+				} else {
+					assert_eq!(
+						RewardCurrency::free_balance(&stash),
+						initial_balance + per_validator_reward_era_1
+					);
+				}
+			}
+
+			// Check total issuance of spending asset updated after new era
+			assert_eq!(
+				RewardCurrency::total_issuance(),
+				initial_reward_issuance + Rewards::target_inflation_per_staking_era() * 2
+			);
+		});
+}
+
+#[test]
 /// This tests if authorship reward of the last block in an era is factored in.
-fn authorship_points_of_last_block_in_an_era() {
+fn authorship_reward_of_last_block_in_an_era() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -327,20 +406,18 @@ fn authorship_points_of_last_block_in_an_era() {
 
 			// Make a block header whose author is specified as below
 			let author_index = 0; // index 0 of validators
+			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
 
 			// The previous session should come to its end
 			pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
 
 			send_heartbeats();
 
-			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points()
-				.individual_points()
-				.get(author_index as usize)
-				.is_none());
+			let author_reward_balance_before_adding_block = RewardCurrency::free_balance(&author_stash_id);
+
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -350,15 +427,16 @@ fn authorship_points_of_last_block_in_an_era() {
 			// No offences should happened. Thus the number of validators shouldn't have changed
 			assert_eq!(Staking::current_elected().len(), validators.len());
 
-			// There should be a reward calculated for the author
-			assert!(!Staking::current_era_points().individual_points()[author_index as usize] > 0);
+			// There should be a reward given to the author at the very next block
+			Executive::initialize_block(&header_for_block_number((System::block_number() + 1).into()));
+			assert!(RewardCurrency::free_balance(&author_stash_id) > author_reward_balance_before_adding_block);
 		});
 }
 
 #[test]
 /// This tests if authorship reward of the last block in an era is factored in, even when the author
 /// is chilled and thus not going to be an authority in the next era.
-fn authorship_points_of_a_chilled_validator() {
+fn authorship_reward_of_a_chilled_validator() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 
@@ -381,7 +459,7 @@ fn authorship_points_of_a_chilled_validator() {
 			let author_index = 0; // index 0 of validators
 			let first_block_of_era_1 = System::block_number() + 1;
 			let header_of_last_block = header_for_block_number(first_block_of_era_1.into());
-			let header = set_author(header_of_last_block, author_index.clone());
+			let header = set_author(header_of_last_block, author_index.clone() as u32);
 
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
@@ -400,11 +478,8 @@ fn authorship_points_of_a_chilled_validator() {
 
 			send_heartbeats();
 
-			// Let's go through the first stage of executing the block
-			assert!(Staking::current_era_points()
-				.individual_points()
-				.get(author_index as usize)
-				.is_none());
+			let author_reward_balance_before_adding_block = RewardCurrency::free_balance(&author_stash_id);
+
 			Executive::initialize_block(&header);
 			advance_session();
 
@@ -415,7 +490,8 @@ fn authorship_points_of_a_chilled_validator() {
 			assert_eq!(Staking::current_elected().len(), validators.len() - 1);
 
 			// There should be a reward calculated for the author even though the author is chilled
-			assert!(Staking::current_era_points().individual_points()[author_index as usize] > 0);
+			Executive::initialize_block(&header_for_block_number((System::block_number() + 1).into()));
+			assert!(RewardCurrency::free_balance(&author_stash_id) > author_reward_balance_before_adding_block);
 		});
 }
 

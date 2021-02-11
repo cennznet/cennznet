@@ -23,16 +23,16 @@ use sp_core::H256;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
-	Perbill,
+	ModuleId, Perbill,
 };
 use sp_staking::SessionIndex;
 use std::collections::HashSet;
 
-use crate::mock::{
-	current_total_payout, Author11, CurrencyToVoteHandler, ExistentialDeposit, MockRewarder, SlashDeferDuration,
-	TestSessionHandler,
+use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
+use crate::{
+	rewards::{HandlePayee, Module as RewardsModule, StakerRewardPayment, Trait as RewardsTrait},
+	EraIndex, GenesisConfig, Module, StakerStatus, StakingLedger, Trait,
 };
-use crate::{EraIndex, GenesisConfig, Module, RewardDestination, StakerStatus, StakingLedger, Trait};
 use std::cell::RefCell;
 
 const STAKING_ASSET_ID: AssetId = 100;
@@ -141,7 +141,7 @@ impl pallet_authorship::Trait for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = Module<Test>;
+	type EventHandler = Rewards;
 }
 
 parameter_types! {
@@ -151,6 +151,22 @@ impl pallet_timestamp::Trait for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub const HistoricalPayoutEras: u16 = 7;
+	pub const PayoutSplitThreshold: u32 = 10;
+	pub const FiscalEraLength: u32 = 5;
+	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+}
+impl RewardsTrait for Test {
+	type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
+	type Event = ();
+	type HistoricalPayoutEras = HistoricalPayoutEras;
+	type TreasuryModuleId = TreasuryModuleId;
+	type PayoutSplitThreshold = PayoutSplitThreshold;
+	type FiscalEraLength = FiscalEraLength;
 	type WeightInfo = ();
 }
 
@@ -170,7 +186,7 @@ impl Trait for Test {
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type Rewarder = MockRewarder<prml_generic_asset::SpendingAssetCurrency<Self>>;
+	type Rewarder = Rewards;
 	type WeightInfo = ();
 }
 
@@ -179,6 +195,7 @@ type GenericAsset = prml_generic_asset::Module<Test>;
 type Session = pallet_session::Module<Test>;
 type Timestamp = pallet_timestamp::Module<Test>;
 type Staking = Module<Test>;
+type Rewards = RewardsModule<Test>;
 
 pub struct ExtBuilder {
 	validator_count: u32,
@@ -247,21 +264,18 @@ impl ExtBuilder {
 	}
 }
 
-pub fn start_session(session_index: SessionIndex) {
-	// Compensate for session delay
-	let session_index = session_index + 1;
-	for i in Session::current_index()..session_index {
-		System::set_block_number((i + 1).into());
-		Timestamp::set_timestamp(System::block_number() * 1000);
-		Session::on_initialize(System::block_number());
-	}
+fn rotate_to_session(index: SessionIndex) {
+	assert!(Session::current_index() <= index);
 
-	assert_eq!(Session::current_index(), session_index);
+	let rotations = index - Session::current_index();
+	for _i in 0..rotations {
+		Timestamp::set_timestamp(Timestamp::now() + 1000);
+		Session::rotate_session();
+	}
 }
 
-pub fn start_era(era_index: EraIndex) {
-	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), era_index);
+fn start_era(era_index: EraIndex) {
+	rotate_to_session(era_index * SessionsPerEra::get());
 }
 
 #[test]
@@ -285,15 +299,17 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 			})
 		);
 
-		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout = current_total_payout::<prml_generic_asset::SpendingAssetCurrency<Test>>();
-		assert!(total_payout > 1); // Test is meaningful if reward something
-		<Module<Test>>::reward_by_ids(vec![(11, 1)]);
-
 		start_era(1);
 
+		// Compute total payout now for whole duration as other parameter won't change
+		let total_payout = Rewards::calculate_next_reward_payout();
+		assert!(total_payout > 1); // Test is meaningful if reward something
+		Rewards::reward_by_ids(vec![(11, 1)]);
+
+		Staking::on_initialize(System::block_number() + 1);
+
 		// Check that RewardDestination is Stash (default)
-		assert_eq!(Staking::payee(&11), RewardDestination::Stash);
+		assert_eq!(Rewards::payee(&11), 11);
 		// Check that reward went to the stash account of validator
 		assert_eq!(
 			GenericAsset::free_balance(REWARD_ASSET_ID, &11),

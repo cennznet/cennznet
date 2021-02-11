@@ -135,28 +135,6 @@
 //!
 //! ## Usage
 //!
-//! ### Example: Rewarding a validator by id.
-//!
-//! ```
-//! use frame_support::{decl_module, dispatch};
-//! use frame_system::{self as system, ensure_signed};
-//! use crml_staking::{self as staking};
-//!
-//! pub trait Trait: staking::Trait {}
-//!
-//! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//! 		#[weight = 0]
-//! 		pub fn reward_myself(origin) -> dispatch::DispatchResult {
-//! 			let reported = ensure_signed(origin)?;
-//! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//! 			Ok(())
-//! 		}
-//! 	}
-//! }
-//! # fn main() { }
-//! ```
-//!
 //! ## Implementation Details
 //!
 //! ### Slot Stake
@@ -255,7 +233,7 @@ mod multi_token_economy_tests;
 mod tests;
 
 pub mod rewards;
-pub use rewards::StakerRewardPayment;
+pub use rewards::{HandlePayee, StakerRewardPayment};
 
 mod slashing;
 pub use slashing::REWARD_F1;
@@ -290,37 +268,6 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
-
-/// Counter for the number of "reward" points earned by a given validator.
-pub type Points = u32;
-
-/// Reward points of an era. Used to split era total payout between validators.
-#[derive(Encode, Decode, Default)]
-pub struct EraPoints {
-	/// Total number of points. Equals the sum of reward points for each validator.
-	total: Points,
-	/// The reward points earned by a given validator. The index of this vec corresponds to the
-	/// index into the current validator set.
-	individual: Vec<Points>,
-}
-
-impl EraPoints {
-	/// Add the reward to the validator at the given index. Index must be valid
-	/// (i.e. `index < current_elected.len()`).
-	fn add_points_to_index(&mut self, index: u32, points: Points) {
-		if let Some(new_total) = self.total.checked_add(points) {
-			self.total = new_total;
-			let new_size = (index as usize + 1).max(self.individual.len());
-			self.individual.resize(new_size, 0);
-			self.individual[index as usize] += points; // Addition is less than total
-		}
-	}
-	/// Get a list of individual points
-	#[cfg(any(feature = "std", test))]
-	pub fn individual_points(&self) -> Vec<Points> {
-		self.individual.clone()
-	}
-}
 
 /// Indicates the initial status of a staker (used by genesis config only).
 #[derive(RuntimeDebug)]
@@ -647,11 +594,8 @@ pub trait Trait: frame_system::Trait {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<
-		AccountId = Self::AccountId,
-		Balance = BalanceOf<Self>,
-		BlockNumber = Self::BlockNumber,
-	>;
+	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>, BlockNumber = Self::BlockNumber>
+		+ HandlePayee<AccountId = Self::AccountId>;
 
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
@@ -702,9 +646,6 @@ decl_storage! {
 			map hasher(twox_64_concat) T::AccountId
 			=> Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
 
-		/// Where the reward payment should be made. Keyed by stash.
-		pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination<T::AccountId>;
-
 		/// The map from (wannabe) validator stash key to the preferences of that validator.
 		pub Validators get(fn validators):
 			map hasher(twox_64_concat) T::AccountId => ValidatorPrefs;
@@ -737,9 +678,6 @@ decl_storage! {
 
 		/// The session index at which the current era started.
 		pub CurrentEraStartSessionIndex get(fn current_era_start_session_index): SessionIndex;
-
-		/// Rewards for the current era. Using indices of current elected set.
-		CurrentEraPointsEarned get(fn current_era_points): EraPoints;
 
 		/// The amount of balance actively at stake for each validator slot, currently.
 		///
@@ -942,12 +880,12 @@ decl_module! {
 			// you actually validate/nominate and remove once you unbond __everything__.
 			<Bonded<T>>::insert(&stash, &controller);
 
-			// controller destination is just a custom account after all
-			if let RewardDestination::Controller = payee {
-				<Payee<T>>::insert(&stash, RewardDestination::Account(controller.clone()));
-			} else {
-				<Payee<T>>::insert(&stash, payee);
-			}
+			let id = match payee {
+				RewardDestination::Stash => stash.clone(),
+				RewardDestination::Controller => controller.clone(),
+				RewardDestination::Account(account) => account,
+			};
+			T::Rewarder::set_payee(&stash, &id);
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
@@ -1226,12 +1164,12 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
-			// controller is a type of `RewardDestination::Account`
-			if let RewardDestination::Controller = payee {
-				<Payee<T>>::insert(stash, RewardDestination::Account(controller));
-			} else {
-				<Payee<T>>::insert(stash, payee);
-			}
+			let id = match payee {
+				RewardDestination::Stash => stash.clone(),
+				RewardDestination::Controller => controller,
+				RewardDestination::Account(account) => account,
+			};
+			T::Rewarder::set_payee(stash, &id);
 		}
 
 		/// (Re-)set the controller of a stash.
@@ -1438,37 +1376,10 @@ impl<T: Trait> Module<T> {
 		let validator_commission_stake_map = elected_validator_stashes
 			.iter()
 			.map(|validator_stash| {
-				// Get a version of `Exposure` which maps to preferred payment account _instead of_ stash
-				let mut aggregate_stake = Self::stakers(validator_stash);
-				// get nominator payee accounts
-				aggregate_stake.others.iter_mut().for_each(|nominator_exposure| {
-					match Self::payee(&nominator_exposure.who) {
-						// `*nominator_exposure.who` is stash already
-						RewardDestination::Stash => {}
-						RewardDestination::Account(account) => nominator_exposure.who = account,
-						RewardDestination::Controller => {
-							// this path shall become redundant since `fn bond` will replace controller destination with account
-							// Query controller account ID,, if it's missing the stash will be paid by default.
-							if let Some(controller) = Self::bonded(&nominator_exposure.who) {
-								nominator_exposure.who = controller;
-							}
-						}
-					}
-				});
-				// get validator payee account
-				let validator_payee = match Self::payee(validator_stash) {
-					RewardDestination::Stash => validator_stash.clone(),
-					RewardDestination::Account(account) => account,
-					RewardDestination::Controller => {
-						// default to stash if missing
-						Self::bonded(validator_stash).unwrap_or_else(|| validator_stash.clone())
-					}
-				};
-				// (validator payment account, validator commission %, and aggregate stake info by payment account)
 				(
-					validator_payee,
+					validator_stash.clone(),
 					Self::validators(validator_stash).commission,
-					aggregate_stake,
+					Self::stakers(validator_stash),
 				)
 			})
 			.collect::<Vec<(_, _, _)>>();
@@ -1688,50 +1599,11 @@ impl<T: Trait> Module<T> {
 		if let Some(controller) = <Bonded<T>>::take(stash) {
 			<Ledger<T>>::remove(&controller);
 		}
-		<Payee<T>>::remove(stash);
+		T::Rewarder::remove_payee(stash);
 		<Validators<T>>::remove(stash);
 		<Nominators<T>>::remove(stash);
 
 		slashing::clear_stash_metadata::<T>(stash);
-	}
-
-	/// Add reward points to validators using their stash account ID.
-	///
-	/// Validators are keyed by stash account ID and must be in the current elected set.
-	///
-	/// For each element in the iterator the given number of points in u32 is added to the
-	/// validator, thus duplicates are handled.
-	///
-	/// At the end of the era each the total payout will be distributed among validator
-	/// relatively to their points.
-	///
-	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	/// If you need to reward lots of validator consider using `reward_by_indices`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-		CurrentEraPointsEarned::mutate(|rewards| {
-			let current_elected = <Module<T>>::current_elected();
-			for (validator, points) in validators_points.into_iter() {
-				if let Some(index) = current_elected.iter().position(|elected| *elected == validator) {
-					rewards.add_points_to_index(index as u32, points);
-				}
-			}
-		});
-	}
-
-	/// Add reward points to validators using their validator index.
-	///
-	/// For each element in the iterator the given number of points in u32 is added to the
-	/// validator, thus duplicates are handled.
-	pub fn reward_by_indices(validators_points: impl IntoIterator<Item = (u32, u32)>) {
-		let current_elected_len = <Module<T>>::current_elected().len() as u32;
-
-		CurrentEraPointsEarned::mutate(|rewards| {
-			for (validator_index, points) in validators_points.into_iter() {
-				if validator_index < current_elected_len {
-					rewards.add_points_to_index(validator_index, points);
-				}
-			}
-		});
 	}
 
 	/// Ensures that at the end of the current session there will be a new era.
@@ -1777,19 +1649,6 @@ impl<T: Trait> SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>
 impl<T: Trait> OnNewAccount<T::AccountId> for Module<T> {
 	fn on_new_account(stash: &T::AccountId) {
 		Self::kill_stash(stash);
-	}
-}
-
-/// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
-/// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
-/// * 1 point to the producer of each referenced uncle block.
-impl<T: Trait + pallet_authorship::Trait> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T> {
-	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)]);
-	}
-	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
 	}
 }
 

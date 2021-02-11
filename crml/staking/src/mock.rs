@@ -16,13 +16,13 @@
 
 //! Test utilities
 
-use crate::rewards::{self, StakerRewardPayment};
 use crate::{
-	EraIndex, Exposure, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
+	rewards::{self, Module as RewardsModule, Trait as RewardsTrait},
+	EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
 };
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get, OnInitialize},
+	traits::{Currency, FindAuthor, Get},
 	weights::Weight,
 	IterableStorageMap, StorageValue,
 };
@@ -30,8 +30,8 @@ use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, UintAuthorityId};
-use sp_runtime::traits::{BlakeTwo256, Convert, IdentityLookup, OpaqueKeys, SaturatedConversion, Saturating, Zero};
-use sp_runtime::{FixedPointOperand, KeyTypeId, ModuleId, Perbill};
+use sp_runtime::traits::{BlakeTwo256, Convert, IdentityLookup, OpaqueKeys, SaturatedConversion};
+use sp_runtime::{KeyTypeId, ModuleId, Perbill};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
@@ -40,7 +40,6 @@ use std::{cell::RefCell, collections::HashSet};
 
 const INIT_TIMESTAMP: u64 = 30_000;
 
-/// The AccountId alias in this test module.
 pub type AccountId = u64;
 pub type BlockNumber = u64;
 pub type Balance = u64;
@@ -56,72 +55,6 @@ impl Convert<u128, u64> for CurrencyToVoteHandler {
 	fn convert(x: u128) -> u64 {
 		x.saturated_into()
 	}
-}
-
-pub struct MockRewarder<C: Currency<AccountId>>(std::marker::PhantomData<C>);
-impl<C: Currency<AccountId>> StakerRewardPayment for MockRewarder<C>
-where
-	C::Balance: FixedPointOperand,
-{
-	type AccountId = AccountId;
-	type Balance = C::Balance;
-	type BlockNumber = BlockNumber;
-	/// Distribute rewards to each validator and their nominators
-	/// Total reward is split equally among elected validators
-	/// Rewards are further distributed to nominators pro-rata their contributed stake.
-	fn enqueue_reward_payouts(
-		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
-		_era: EraIndex,
-	) {
-		let total_payout = Self::calculate_next_reward_payout();
-		let points = Staking::current_era_points();
-		for (v, p) in Staking::current_elected().iter().zip(points.individual.into_iter()) {
-			if p.is_zero() {
-				continue;
-			}
-			let reward = Perbill::from_rational_approximation(p, points.total) * total_payout;
-			let off_the_table = (Staking::validators(v).commission * reward).min(reward);
-			let reward = reward.saturating_sub(off_the_table);
-			let validator_cut = if reward.is_zero() {
-				Zero::zero()
-			} else {
-				let exposure = Staking::stakers(v);
-				let total = exposure.total.max(1);
-				for i in &exposure.others {
-					let per_u64 = Perbill::from_rational_approximation(i.value, total);
-					make_payout::<C>(&i.who, per_u64 * reward.into());
-				}
-				let per_u64 = Perbill::from_rational_approximation(exposure.own, total);
-				per_u64 * reward
-			};
-			make_payout::<C>(v, (validator_cut + off_the_table).into());
-		}
-	}
-
-	fn process_reward_payouts(_: BlockNumber) -> Weight {
-		0
-	}
-
-	// Use the pallet staking NPOS curve to determine rewards for tests.
-	// Most of the tests here are tightly coupled with this polkadot based reward model.
-	// On CENNZnet the staking module is not responsible for reward calculations.
-	// For now, we keep this behaviour to support the existing unit test suite.
-	fn calculate_next_reward_payout() -> Self::Balance {
-		current_total_payout::<C>().saturated_into()
-	}
-}
-
-/// Actually make a payment to a staker. This uses the currency's reward function
-/// to pay the right payee for the given staker account.
-fn make_payout<C: Currency<AccountId>>(stash: &AccountId, amount: C::Balance) {
-	let dest = Staking::payee(stash);
-	match dest {
-		RewardDestination::Controller => {
-			Staking::bonded(stash).and_then(|controller| C::deposit_into_existing(&controller, amount).ok())
-		}
-		RewardDestination::Stash => C::deposit_into_existing(stash, amount).ok(),
-		RewardDestination::Account(dest_account) => Some(C::deposit_creating(&dest_account, amount)),
-	};
 }
 
 thread_local! {
@@ -284,7 +217,7 @@ impl pallet_authorship::Trait for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = Module<Test>;
+	type EventHandler = Rewards;
 }
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
@@ -302,7 +235,7 @@ parameter_types! {
 	pub const FiscalEraLength: u32 = 5;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-impl rewards::Trait for Test {
+impl RewardsTrait for Test {
 	type CurrencyToReward = pallet_balances::Module<Self>;
 	type Event = MetaEvent;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
@@ -329,7 +262,7 @@ impl Trait for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type WeightInfo = ();
-	type Rewarder = MockRewarder<pallet_balances::Module<Self>>;
+	type Rewarder = Rewards;
 }
 pub struct ExtBuilder {
 	existential_deposit: u64,
@@ -514,6 +447,7 @@ impl ExtBuilder {
 		// `staking::on_initialize`
 		ext.execute_with(|| {
 			Timestamp::set_timestamp(INIT_TIMESTAMP);
+			Rewards::new_fiscal_era();
 		});
 
 		ext
@@ -525,6 +459,7 @@ pub type Balances = pallet_balances::Module<Test>;
 pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Staking = Module<Test>;
+pub type Rewards = RewardsModule<Test>;
 
 pub fn check_exposure_all() {
 	Staking::current_elected()
@@ -605,26 +540,22 @@ pub(crate) fn bond_nominator(stash: AccountId, ctrl: AccountId, val: Balance, ta
 	assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
 }
 
-pub fn advance_session() {
-	let current_index = Session::current_index();
-	start_session(current_index + 1);
-}
+pub fn start_session(index: SessionIndex) {
+	assert!(Session::current_index() <= index);
 
-pub fn start_session(session_index: SessionIndex) {
-	// Compensate for session delay
-	let session_index = session_index + 1;
-	for i in Session::current_index()..session_index {
-		System::set_block_number((i + 1).into());
-		Timestamp::set_timestamp(System::block_number() * 1000);
-		Session::on_initialize(System::block_number());
+	let rotations = index - Session::current_index();
+	for _i in 0..rotations {
+		Timestamp::set_timestamp(Timestamp::now() + 1000);
+		Session::rotate_session();
 	}
-
-	assert_eq!(Session::current_index(), session_index);
 }
 
 pub fn start_era(era_index: EraIndex) {
-	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), era_index);
+	start_session(era_index * SessionsPerEra::get());
+}
+
+pub fn advance_session() {
+	start_session(Session::current_index() + 1);
 }
 
 pallet_staking_reward_curve::build! {
@@ -638,29 +569,13 @@ pallet_staking_reward_curve::build! {
 	);
 }
 
-// Use pallet staking NPOS curve to determine rewards in our mocks
-// most of the tests here are tightly coupled with this reward system.
-// staking module is not responsible for reward calculation in CENNZnet.
-// Here it is useful to assert a reward happened or not rather than
-// asserting it's accuracy, however, some unit tests are still coupled to assert accuracy.
-pub fn current_total_payout<C: Currency<AccountId>>() -> u64 {
-	pallet_staking::inflation::compute_total_payout(
-		&I_NPOS,
-		<Module<Test>>::slot_stake() * 2,
-		C::total_issuance().saturated_into::<u64>(), // terrible way to get a `u64`
-		// hack: all tests want the price for duration = `3000` so we just hard code it
-		3_000,
-	)
-	.0
-}
-
 pub fn reward_all_elected() {
 	let rewards = <Module<Test>>::current_elected()
 		.iter()
 		.map(|v| (*v, 1))
 		.collect::<Vec<_>>();
 
-	<Module<Test>>::reward_by_ids(rewards)
+	Rewards::reward_by_ids(rewards)
 }
 
 pub fn validator_controllers() -> Vec<AccountId> {
