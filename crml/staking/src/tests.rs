@@ -3198,36 +3198,6 @@ fn payout_to_any_account_works() {
 }
 
 #[test]
-fn bonding_can_be_blocked() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Block bonding should be disabled by default
-		assert!(!BlockBonding::get());
-
-		BlockBonding::put(true);
-		assert_noop!(
-			Staking::bond(Origin::signed(11), 10, 43, RewardDestination::Controller),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::bond_extra(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::unbond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::rebond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::withdraw_unbonded(Origin::signed(11)),
-			Error::<Test>::BondingNotEnabled
-		);
-	});
-}
-
-#[test]
 fn migration_to_v2_works() {
 	use super::*;
 	use frame_support::{traits::OnRuntimeUpgrade, Hashable};

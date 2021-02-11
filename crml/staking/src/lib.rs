@@ -874,8 +874,6 @@ decl_error! {
 		NotSortedAndUnique,
 		/// Cannot nominate the same account multiple times
 		DuplicateNominee,
-		// TODO remove the following error when https://github.com/cennznet/cennznet/issues/297
-		BondingNotEnabled,
 	}
 }
 
@@ -928,8 +926,6 @@ decl_module! {
 			#[compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>
 		) {
-			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
-
 			let stash = ensure_signed(origin)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
@@ -978,8 +974,6 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::bond_extra()]
 		fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
-			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
-
 			let stash = ensure_signed(origin)?;
 
 			let controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1020,8 +1014,6 @@ decl_module! {
 		/// </weight>
 		#[weight = T::WeightInfo::unbond()]
 		fn unbond(origin, #[compact] value: BalanceOf<T>) {
-			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
-
 			let controller = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1061,8 +1053,6 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
 		fn rebond(origin, #[compact] value: BalanceOf<T>) {
-			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
-
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(
@@ -1115,8 +1105,6 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::withdraw_unbonded_kill(1_u32)]
 		fn withdraw_unbonded(origin) {
-			ensure!(!Self::block_bonding(), Error::<T>::BondingNotEnabled);
-
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let ledger = ledger.consolidate_unlocked(Self::current_era());
