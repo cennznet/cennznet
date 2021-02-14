@@ -3167,6 +3167,7 @@ fn nominate_with_empty_or_duplicate_candidates_fails() {
 fn payout_to_any_account_works() {
 	ExtBuilder::default().has_stakers(false).build().execute_with(|| {
 		let balance = 1000;
+		let reward_account_id = 42;
 		// Create a validator:
 		bond_validator(11, 10, balance); // Default(64)
 
@@ -3174,10 +3175,13 @@ fn payout_to_any_account_works() {
 		bond_nominator(1234, 1337, 100, vec![11]);
 
 		// Update payout location
-		assert_ok!(Staking::set_payee(Origin::signed(1337), RewardDestination::Account(41)));
+		assert_ok!(Staking::set_payee(
+			Origin::signed(1337),
+			RewardDestination::Account(reward_account_id)
+		));
 
 		// Reward Destination account doesn't exist
-		let init_balance = Balances::free_balance(41);
+		let init_balance = Balances::free_balance(reward_account_id);
 
 		mock::start_era(1);
 		Rewards::reward_by_ids(vec![(11, 1)]);
@@ -3189,7 +3193,7 @@ fn payout_to_any_account_works() {
 		Staking::on_initialize(System::block_number() + 1);
 
 		// Payment is successful
-		assert!(Balances::free_balance(41) > init_balance);
+		assert!(Balances::free_balance(reward_account_id) > init_balance);
 	})
 }
 

@@ -1365,4 +1365,30 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn reward_is_split_according_to_points() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+
+			let fee = 628;
+			Rewards::note_transaction_fees(fee);
+
+			// 42 points to 11, 21 points to 21
+			Rewards::note_author(11);
+			Rewards::note_author(11);
+			Rewards::note_author(21);
+			Rewards::note_uncle(21, 1); // 2 points to the actual author here 11, 1 point to 21
+
+			let stake_map_11 = MockCommissionStakeInfo::new((11, 1_000), vec![], Perbill::from_percent(10));
+			let stake_map_21 = MockCommissionStakeInfo::new((21, 1_000), vec![], Perbill::from_percent(10));
+
+			let authors_payout = Rewards::calculate_next_reward_payout() - Rewards::development_fund_take() * fee;
+
+			Rewards::enqueue_reward_payouts(&[stake_map_11.as_tuple(), stake_map_21.as_tuple()], 0);
+
+			assert_eq!(Rewards::payouts()[0], (11, authors_payout * 42 / 63, 0));
+			assert_eq!(Rewards::payouts()[1], (21, authors_payout * 21 / 63, 0));
+		})
+	}
 }
