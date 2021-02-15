@@ -745,10 +745,6 @@ decl_storage! {
 		/// The earliest era for which we have a pending, unapplied slash.
 		EarliestUnappliedSlash: Option<EraIndex>;
 
-		// TODO remove the following variable when https://github.com/cennznet/cennznet/issues/297
-		/// Used to toggle the bonding functionality off/on
-		BlockBonding get(fn block_bonding) config(): bool;
-
 		/// True if network has been upgraded to this version.
 		/// Storage version of the pallet.
 		///
