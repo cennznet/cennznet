@@ -333,6 +333,16 @@ where
 	/// function for each of non filtered payouts.
 	/// Return the total rewards calculated for the stakers at the time of this call paired with the
 	/// reward the development cut.
+	/// # Example: calculate and store payouts only for validators with less than 10% commission
+	///
+	/// ```ignore
+	/// let filter = |_validator, exposure| exposure.commission > Perbill::from_percent(10);
+	/// let store_payout = |account, payout| {
+	/// 	Payouts::<T>::mutate(|p| p.push_back((account.clone(), payout, era)));
+	/// };
+	/// let (stakers_cut, development_cut) = Self::on_all_payouts(validator_commission_stake_map,
+	///												 							filter, store_payout);
+	/// ```
 	fn on_all_payouts<F, A>(
 		validator_commission_stake_map: &[(T::AccountId, Perbill, Exposure<T::AccountId, BalanceOf<T>>)],
 		filter: F,
