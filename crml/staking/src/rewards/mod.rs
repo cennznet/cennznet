@@ -199,7 +199,7 @@ where
 			},
 		);
 
-		// Consume the reward points what are used in the previous stage
+		// Reset the reward points storage for the next era
 		<CurrentEraRewardPoints<T>>::kill();
 
 		// track historic era fee amounts
