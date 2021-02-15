@@ -600,8 +600,14 @@ construct_runtime!(
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
 		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
-		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 22,
-		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 23,
+		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
+		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
+		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
+		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
+		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
+		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
+		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
+		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 	}
 );
 
