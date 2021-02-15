@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,9 +19,5 @@ pub mod device;
 pub mod e2ee;
 pub mod groups;
 pub mod inbox;
-pub mod payment;
 pub mod response;
 pub mod vault;
-
-#[cfg(test)]
-pub(crate) mod mock;
