@@ -808,15 +808,6 @@ mod tests {
 		}
 	}
 
-	pub struct MockFeePayer;
-	impl FeePayer for MockFeePayer {
-		type Call = Call;
-		type AccountId = u64;
-		fn fee_payer(_call: &Self::Call) -> Option<Self::AccountId> {
-			None
-		}
-	}
-
 	/// Implement a fake BuyFeeAsset for tests
 	pub struct MockBuyFeeAsset;
 	impl BuyFeeAsset for MockBuyFeeAsset {
@@ -857,7 +848,6 @@ mod tests {
 		type WeightToFee = WeightToFee;
 		type FeeMultiplierUpdate = ();
 		type BuyFeeAsset = MockBuyFeeAsset;
-		type FeePayer = MockFeePayer;
 	}
 
 	type Balances = pallet_balances::Module<Runtime>;
