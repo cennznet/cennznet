@@ -3226,3 +3226,45 @@ fn bonding_can_be_blocked() {
 		);
 	});
 }
+
+#[test]
+fn migration_to_v2_works() {
+	use super::*;
+	use frame_support::{traits::OnRuntimeUpgrade, Hashable};
+
+	ExtBuilder::default().build().execute_with(|| {
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&0u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Stash,
+		);
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&1u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Controller,
+		);
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&2u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Account(5),
+		);
+
+		StorageVersion::put(0);
+		bond_validator(1, 4, 10);
+
+		assert_eq!(StorageVersion::get(), Releases::V0 as u32);
+
+		Staking::on_runtime_upgrade();
+
+		assert_eq!(StorageVersion::get(), Releases::V1 as u32);
+
+		assert_eq!(Rewards::payee(&0u64), 0);
+		assert_eq!(Rewards::payee(&1u64), 4);
+		assert_eq!(Rewards::payee(&2u64), 5);
+
+		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
+	});
+}
