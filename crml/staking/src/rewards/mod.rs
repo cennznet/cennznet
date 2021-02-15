@@ -204,9 +204,6 @@ where
 		// track historic era fee amounts
 		Self::note_fee_payout(TransactionFeePot::<T>::take());
 
-		// implementation note: imbalances have the side affect of updating storage when `drop`ped.
-		// we use `subsume` to absorb all small imbalances (from individual payouts) into one big imbalance (from all payouts).
-		// This ensures only one storage update to total issuance will happen when dropped.
 		let _ = T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), development_cut);
 
 		QueuedEraRewards::<T>::mutate(|q| q.push_back(stakers_cut));
