@@ -258,8 +258,10 @@ impl pallet_scheduler::Trait for Runtime {
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
 	pub const BlocksPerEra: BlockNumber = EPOCH_DURATION_IN_BLOCKS * SESSIONS_PER_ERA;
-	pub const BondingDuration: crml_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: crml_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	// 28 eras/days for bond to be withdraw
+	pub const BondingDuration: crml_staking::EraIndex = 28;
+	// 27 eras/days for a slash to be deferrable
+	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
 }
 impl crml_staking::Trait for Runtime {
 	type Currency = StakingAssetCurrency<Self>;

@@ -3198,31 +3198,52 @@ fn payout_to_any_account_works() {
 }
 
 #[test]
-fn bonding_can_be_blocked() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Block bonding should be disabled by default
-		assert!(!BlockBonding::get());
+fn migration_to_v2_works() {
+	use super::*;
+	use frame_support::{traits::OnRuntimeUpgrade, Hashable};
 
-		BlockBonding::put(true);
-		assert_noop!(
-			Staking::bond(Origin::signed(11), 10, 43, RewardDestination::Controller),
-			Error::<Test>::BondingNotEnabled
+	ExtBuilder::default().build().execute_with(|| {
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&0u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Stash,
 		);
-		assert_noop!(
-			Staking::bond_extra(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&1u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Controller,
 		);
-		assert_noop!(
-			Staking::unbond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
+		frame_support::migration::put_storage_value(
+			b"Staking",
+			b"Payee",
+			&2u64.twox_64_concat(),
+			RewardDestination::<AccountId>::Account(5),
 		);
-		assert_noop!(
-			Staking::rebond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::withdraw_unbonded(Origin::signed(11)),
-			Error::<Test>::BondingNotEnabled
-		);
+		frame_support::migration::put_storage_value(b"Staking", b"BlockBonding", b"", true);
+
+		StorageVersion::put(0);
+		bond_validator(1, 4, 10);
+
+		assert_eq!(StorageVersion::get(), Releases::V0 as u32);
+
+		Staking::on_runtime_upgrade();
+
+		assert_eq!(StorageVersion::get(), Releases::V1 as u32);
+
+		assert_eq!(Rewards::payee(&0u64), 0);
+		assert_eq!(Rewards::payee(&1u64), 4);
+		assert_eq!(Rewards::payee(&2u64), 5);
+
+		assert!(!frame_support::migration::have_storage_value(b"Staking", b"Payee", b"",));
+
+		assert!(!frame_support::migration::have_storage_value(
+			b"Staking",
+			b"BlockBonding",
+			b"",
+		));
+
+		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
 	});
 }
