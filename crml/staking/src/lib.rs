@@ -626,7 +626,9 @@ impl Default for Forcing {
 // This should match directly with the semantic versions of the Rust crate.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 enum Releases {
+	/// Staking module storage version pre runtime v38
 	V0 = 0,
+	/// Staking module storage version post runtime v37
 	V1 = 1,
 }
 
