@@ -3198,36 +3198,6 @@ fn payout_to_any_account_works() {
 }
 
 #[test]
-fn bonding_can_be_blocked() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Block bonding should be disabled by default
-		assert!(!BlockBonding::get());
-
-		BlockBonding::put(true);
-		assert_noop!(
-			Staking::bond(Origin::signed(11), 10, 43, RewardDestination::Controller),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::bond_extra(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::unbond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::rebond(Origin::signed(11), 43),
-			Error::<Test>::BondingNotEnabled
-		);
-		assert_noop!(
-			Staking::withdraw_unbonded(Origin::signed(11)),
-			Error::<Test>::BondingNotEnabled
-		);
-	});
-}
-
-#[test]
 fn migration_to_v2_works() {
 	use super::*;
 	use frame_support::{traits::OnRuntimeUpgrade, Hashable};
@@ -3251,6 +3221,7 @@ fn migration_to_v2_works() {
 			&2u64.twox_64_concat(),
 			RewardDestination::<AccountId>::Account(5),
 		);
+		frame_support::migration::put_storage_value(b"Staking", b"BlockBonding", b"", true);
 
 		StorageVersion::put(0);
 		bond_validator(1, 4, 10);
@@ -3264,6 +3235,14 @@ fn migration_to_v2_works() {
 		assert_eq!(Rewards::payee(&0u64), 0);
 		assert_eq!(Rewards::payee(&1u64), 4);
 		assert_eq!(Rewards::payee(&2u64), 5);
+
+		assert!(!frame_support::migration::have_storage_value(b"Staking", b"Payee", b"",));
+
+		assert!(!frame_support::migration::have_storage_value(
+			b"Staking",
+			b"BlockBonding",
+			b"",
+		));
 
 		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
 	});
