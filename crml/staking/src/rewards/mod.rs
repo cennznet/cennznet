@@ -191,13 +191,12 @@ where
 			return;
 		}
 
-		let (stakers_cut, development_cut) = Self::on_all_payouts(
-			validator_commission_stake_map,
-			|_, _| false,
-			|account, payout| {
-				Payouts::<T>::mutate(|p| p.push_back((account.clone(), payout, era)));
-			},
-		);
+		let (stakers_cut, development_cut, payouts) =
+			Self::calculate_payouts_filtered(validator_commission_stake_map, |_, _| false);
+
+		payouts.into_iter().for_each(|(account, payout)| {
+			Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
+		});
 
 		// Reset the reward points storage for the next era
 		<CurrentEraRewardPoints<T>>::kill();
@@ -284,15 +283,15 @@ where
 	) -> Self::Balance {
 		let mut payee_cut: Self::Balance = Zero::zero();
 
-		let _ = Self::on_all_payouts(
-			validator_commission_stake_map,
-			|validator, exposure| payee != validator && !exposure.others.iter().any(|x| &x.who == payee),
-			|account, payout| {
-				if account == payee {
-					payee_cut = payee_cut.saturating_add(payout);
-				}
-			},
-		);
+		let (_, _, payouts) =
+			Self::calculate_payouts_filtered(validator_commission_stake_map, |validator, exposure| {
+				payee != validator && !exposure.others.iter().any(|x| &x.who == payee)
+			});
+		payouts.into_iter().for_each(|(account, payout)| {
+			if &account == payee {
+				payee_cut = payee_cut.saturating_add(payout);
+			}
+		});
 
 		payee_cut
 	}
@@ -329,33 +328,28 @@ where
 	BalanceOf<T>: FixedPointOperand,
 {
 	/// Calculate all payouts of the current era as of right now. Then filter out those not relevant
-	/// validator-exposure sets by calling the "filter" function and execute the on_each_payout
-	/// function for each of non filtered payouts.
+	/// validator-exposure sets by calling the "filter" function.
 	/// Return the total rewards calculated for the stakers at the time of this call paired with the
-	/// reward the development cut.
+	/// the development cut and the list of calculated payouts.
 	/// # Example: calculate and store payouts only for validators with less than 10% commission
 	///
 	/// ```ignore
 	/// let filter = |_validator, exposure| exposure.commission > Perbill::from_percent(10);
-	/// let store_payout = |account, payout| {
-	/// 	Payouts::<T>::mutate(|p| p.push_back((account.clone(), payout, era)));
-	/// };
-	/// let (stakers_cut, development_cut) = Self::on_all_payouts(validator_commission_stake_map,
-	///												 							filter, store_payout);
+	/// let (stakers_cut, development_cut, payouts) = Self::calculate_payouts_filtered(
+	/// 														validator_commission_stake_map,
+	///												 			filter);
 	/// ```
-	fn on_all_payouts<F, A>(
+	fn calculate_payouts_filtered<F>(
 		validator_commission_stake_map: &[(T::AccountId, Perbill, Exposure<T::AccountId, BalanceOf<T>>)],
 		filter: F,
-		mut on_each_payout: A,
-	) -> (BalanceOf<T>, BalanceOf<T>)
+	) -> (BalanceOf<T>, BalanceOf<T>, Vec<(T::AccountId, BalanceOf<T>)>)
 	where
 		F: Fn(&T::AccountId, &Exposure<T::AccountId, BalanceOf<T>>) -> bool,
-		A: FnMut(&T::AccountId, BalanceOf<T>),
 	{
 		let total_payout = <Self as StakerRewardPayment>::calculate_next_reward_payout();
 
 		if total_payout.is_zero() {
-			return (Zero::zero(), Zero::zero());
+			return (Zero::zero(), Zero::zero(), vec![]);
 		}
 
 		let development_cut = Self::development_fund_take() * TransactionFeePot::<T>::get();
@@ -363,7 +357,7 @@ where
 		let era_reward_points = <CurrentEraRewardPoints<T>>::get();
 		let total_reward_points = era_reward_points.total;
 
-		validator_commission_stake_map
+		let payouts = validator_commission_stake_map
 			.iter()
 			.flat_map(|(validator, validator_commission, stake_map)| {
 				// Nothing to do if this entry should be filtered out
@@ -391,11 +385,9 @@ where
 
 				Self::calculate_npos_payouts(&validator, *validator_commission, stake_map, validator_total_payout)
 			})
-			.for_each(|(account, payout)| {
-				on_each_payout(&account, payout);
-			});
+			.collect();
 
-		(stakers_cut, development_cut)
+		(stakers_cut, development_cut, payouts)
 	}
 }
 
