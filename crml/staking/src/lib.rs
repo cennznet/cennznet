@@ -621,6 +621,23 @@ impl Default for Forcing {
 	}
 }
 
+// A value placed in storage that represents the current version of the Staking storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+enum Releases {
+	/// Staking module storage version pre runtime v38
+	V0 = 0,
+	/// Staking module storage version post runtime v37
+	V1 = 1,
+}
+
+impl Default for Releases {
+	fn default() -> Self {
+		Releases::V1
+	}
+}
+
 decl_storage! {
 	trait Store for Module<T: Trait> as Staking {
 		/// Minimum amount to bond.
@@ -732,8 +749,11 @@ decl_storage! {
 		/// Used to toggle the bonding functionality off/on
 		BlockBonding get(fn block_bonding) config(): bool;
 
-		/// The version of storage for upgrade.
-		StorageVersion: u32;
+		/// True if network has been upgraded to this version.
+		/// Storage version of the pallet.
+		///
+		/// This is set to v1 for new networks.
+		StorageVersion build(|_: &GenesisConfig<T>| Releases::V1 as u32): u32;
 	}
 	add_extra_genesis {
 		config(stakers):
@@ -769,6 +789,46 @@ decl_storage! {
 			}
 		});
 	}
+}
+
+fn migrate_payees_to_rewards_module<T: Trait>() -> frame_support::weights::Weight {
+	#[allow(dead_code)]
+	mod inner {
+		use codec::{Decode, Encode};
+		use sp_std::vec::Vec;
+		#[derive(Encode, Decode, Default)]
+		pub struct OldEraPoints {
+			total: u32,
+			individual: Vec<u32>,
+		}
+
+		pub struct Module<T>(sp_std::marker::PhantomData<T>);
+		frame_support::decl_storage! {
+			trait Store for Module<T: super::Trait> as Staking {
+				pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => super::RewardDestination<T::AccountId>;
+				pub CurrentEraPointsEarned get(fn current_era_points): OldEraPoints;
+			}
+		}
+	}
+
+	<inner::Payee<T>>::drain().for_each(|(stash, payee)| {
+		let payee_id = match payee {
+			RewardDestination::Stash => stash.clone(),
+			RewardDestination::Controller => {
+				if let Some(c) = <Bonded<T>>::get(stash.clone()) {
+					c
+				} else {
+					stash.clone()
+				}
+			}
+			RewardDestination::Account(a) => a.clone(),
+		};
+		T::Rewarder::set_payee(&stash, &payee_id);
+	});
+
+	inner::CurrentEraPointsEarned::kill();
+
+	T::MaximumExtrinsicWeight::get()
 }
 
 decl_event!(
@@ -830,6 +890,15 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			if StorageVersion::get() == Releases::V0 as u32 {
+				StorageVersion::put(Releases::V1 as u32);
+				migrate_payees_to_rewards_module::<T>()
+			} else {
+				0
+			}
+		}
 
 		fn on_finalize() {
 			// Set the start of the first era.
