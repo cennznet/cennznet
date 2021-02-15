@@ -3221,6 +3221,7 @@ fn migration_to_v2_works() {
 			&2u64.twox_64_concat(),
 			RewardDestination::<AccountId>::Account(5),
 		);
+		frame_support::migration::put_storage_value(b"Staking", b"BlockBonding", b"", true);
 
 		StorageVersion::put(0);
 		bond_validator(1, 4, 10);
@@ -3234,6 +3235,14 @@ fn migration_to_v2_works() {
 		assert_eq!(Rewards::payee(&0u64), 0);
 		assert_eq!(Rewards::payee(&1u64), 4);
 		assert_eq!(Rewards::payee(&2u64), 5);
+
+		assert!(!frame_support::migration::have_storage_value(b"Staking", b"Payee", b"",));
+
+		assert!(!frame_support::migration::have_storage_value(
+			b"Staking",
+			b"BlockBonding",
+			b"",
+		));
 
 		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
 	});

@@ -801,6 +801,7 @@ fn migrate_payees_to_rewards_module<T: Trait>() -> frame_support::weights::Weigh
 		pub struct Module<T>(sp_std::marker::PhantomData<T>);
 		frame_support::decl_storage! {
 			trait Store for Module<T: super::Trait> as Staking {
+				pub BlockBonding get(fn block_bonding): bool;
 				pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => super::RewardDestination<T::AccountId>;
 				pub CurrentEraPointsEarned get(fn current_era_points): OldEraPoints;
 			}
@@ -823,6 +824,7 @@ fn migrate_payees_to_rewards_module<T: Trait>() -> frame_support::weights::Weigh
 	});
 
 	inner::CurrentEraPointsEarned::kill();
+	inner::BlockBonding::kill();
 
 	T::MaximumExtrinsicWeight::get()
 }
