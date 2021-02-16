@@ -876,6 +876,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
+		fn accrued_payout(payee: &AccountId) -> u64 {
+			Staking::accrued_payout(payee) as u64
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn dispatch_benchmark(

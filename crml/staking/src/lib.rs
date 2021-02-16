@@ -1377,6 +1377,22 @@ impl<T: Trait> Module<T> {
 			.unwrap_or_default()
 	}
 
+	/// Calculate the next accrued payout for a stash id (a payee) without affecting the storage.
+	pub fn accrued_payout(stash: &T::AccountId) -> BalanceOf<T> {
+		let validator_commission_stake_map = Self::current_elected()
+			.iter()
+			.map(|validator_stash| {
+				(
+					validator_stash.clone(),
+					Self::validators(validator_stash).commission,
+					Self::stakers(validator_stash),
+				)
+			})
+			.collect::<Vec<(_, _, _)>>();
+
+		T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice())
+	}
+
 	/// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].
 	fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
 		<T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(Self::active_balance_of(stash))
