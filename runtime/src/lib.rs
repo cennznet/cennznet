@@ -80,7 +80,6 @@ pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
 pub use crml_sylo::inbox as sylo_inbox;
-pub use crml_sylo::payment as sylo_payment;
 pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -92,7 +91,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeePayerResolver, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{CurrencyToVoteHandler, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -332,7 +331,6 @@ impl crml_transaction_payment::Trait for Runtime {
 	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 	type BuyFeeAsset = Cennzx;
-	type FeePayer = FeePayerResolver;
 }
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -491,25 +489,12 @@ impl crml_staking_rewards::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl crml_sylo::e2ee::Trait for Runtime {
-	type WeightInfo = ();
-}
-impl crml_sylo::payment::Trait for Runtime {
-	type WeightInfo = ();
-}
+impl crml_sylo::e2ee::Trait for Runtime {}
 impl crml_sylo::device::Trait for Runtime {}
-impl crml_sylo::inbox::Trait for Runtime {
-	type WeightInfo = ();
-}
-impl crml_sylo::response::Trait for Runtime {
-	type WeightInfo = ();
-}
-impl crml_sylo::vault::Trait for Runtime {
-	type WeightInfo = ();
-}
-impl crml_sylo::groups::Trait for Runtime {
-	type WeightInfo = ();
-}
+impl crml_sylo::inbox::Trait for Runtime {}
+impl crml_sylo::response::Trait for Runtime {}
+impl crml_sylo::vault::Trait for Runtime {}
+impl crml_sylo::groups::Trait for Runtime {}
 
 impl crml_cennzx::Trait for Runtime {
 	type AssetId = AssetId;
@@ -615,16 +600,14 @@ construct_runtime!(
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
 		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
-		// TODO: these should all be in one module
 		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
 		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
 		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
 		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
 		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		SyloPayment: sylo_payment::{Module, Call, Storage} = 28,
-		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 29,
-		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 30,
+		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
+		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 	}
 );
 
@@ -908,12 +891,6 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
-			add_benchmark!(params, batches, sylo_payment, SyloPayment);
-			add_benchmark!(params, batches, sylo_response, SyloResponse);
-			add_benchmark!(params, batches, sylo_inbox, SyloInbox);
-			add_benchmark!(params, batches, sylo_vault, SyloVault);
-			add_benchmark!(params, batches, sylo_e2ee, SyloE2EE);
-			add_benchmark!(params, batches, sylo_groups, SyloGroups);
 			add_benchmark!(params, batches, crml_staking_rewards, Rewards);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
