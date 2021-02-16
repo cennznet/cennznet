@@ -67,21 +67,6 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trai
 type NegativeImbalanceOf<T> =
 	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
-/// This is an interface that can return the account id of a fee payer for a specific call.
-/// If there is no such an individual for a call, it returns None which means the submitter of
-/// the extrinsic is going to pay the fee.
-pub trait FeePayer {
-	/// The runtime call type
-	type Call;
-
-	/// The user account identifier type for the runtime.
-	type AccountId;
-
-	/// Return the account id of the fee payer for `call`. Return None if the fee payer
-	/// is the same as the submitter of the call
-	fn fee_payer(call: &Self::Call) -> Option<Self::AccountId>;
-}
-
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
 /// be called on `on_finalize` of a block, prior to potentially cleaning the weight data from the
@@ -263,9 +248,6 @@ pub trait Trait: frame_system::Trait {
 		Balance = BalanceOf<Self>,
 		FeeExchange = FeeExchange<Self::AssetId, BalanceOf<Self>>,
 	>;
-
-	/// A fee payer, if specified for a call, is an account that can be different from the submitter of an extrinsic.
-	type FeePayer: FeePayer<Call = Self::Call, AccountId = Self::AccountId>;
 }
 
 decl_storage! {
@@ -640,12 +622,11 @@ where
 	fn validate(
 		&self,
 		who: &Self::AccountId,
-		call: &Self::Call,
+		_call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> TransactionValidity {
-		let payer = T::FeePayer::fee_payer(call).unwrap_or(who.clone());
-		let (fee, _) = self.withdraw_fee(&payer, info, len)?;
+		let (fee, _) = self.withdraw_fee(who, info, len)?;
 		Ok(ValidTransaction {
 			priority: Self::get_priority(len, info, fee),
 			..Default::default()
@@ -655,13 +636,12 @@ where
 	fn pre_dispatch(
 		self,
 		who: &Self::AccountId,
-		call: &Self::Call,
+		_call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let payer = T::FeePayer::fee_payer(call).unwrap_or(who.clone());
-		let (fee, imbalance) = self.withdraw_fee(&payer, info, len)?;
-		Ok((self.tip, payer.clone(), imbalance, fee))
+		let (fee, imbalance) = self.withdraw_fee(who, info, len)?;
+		Ok((self.tip, who.clone(), imbalance, fee))
 	}
 
 	fn post_dispatch(
@@ -828,15 +808,6 @@ mod tests {
 		}
 	}
 
-	pub struct MockFeePayer;
-	impl FeePayer for MockFeePayer {
-		type Call = Call;
-		type AccountId = u64;
-		fn fee_payer(_call: &Self::Call) -> Option<Self::AccountId> {
-			None
-		}
-	}
-
 	/// Implement a fake BuyFeeAsset for tests
 	pub struct MockBuyFeeAsset;
 	impl BuyFeeAsset for MockBuyFeeAsset {
@@ -877,7 +848,6 @@ mod tests {
 		type WeightToFee = WeightToFee;
 		type FeeMultiplierUpdate = ();
 		type BuyFeeAsset = MockBuyFeeAsset;
-		type FeePayer = MockFeePayer;
 	}
 
 	type Balances = pallet_balances::Module<Runtime>;
