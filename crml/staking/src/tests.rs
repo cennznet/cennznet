@@ -3244,6 +3244,6 @@ fn migration_to_v2_works() {
 			b"",
 		));
 
-		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
+		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 8);
 	});
 }
