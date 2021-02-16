@@ -69,3 +69,17 @@ $ ./target/release/cennznet --dev
 ## Contributing
 
 All PRs are welcome! Please follow our contributing guidelines [here](docs/CONTRIBUTING.md).
+
+## Community
+
+Join our official CENNZnet Discord server 🤗
+
+* Get CENNZnet technical support 🛠
+* Meet startups and DApp developers 👯‍♂️
+* Learn more about CENNZnet and blockchain 🙌
+* Get updates on CENNZnet bounties and grants 💰
+* Hear about the latest hackathons, meetups and more 👩‍💻
+
+Join the Discord server by clicking on the badge below!
+
+[![Support Server](https://img.shields.io/discord/801219591636254770.svg?label=Discord&logo=Discord&colorB=7289da&style=for-the-badge)](https://discord.gg/AnB3tRtkJ4)
