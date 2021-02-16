@@ -1284,7 +1284,10 @@ mod tests {
 	#[test]
 	fn add_reward_points_fns_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			Rewards::reward_by_ids(vec![(21, 1), (11, 1), (31, 1), (11, 1)]);
+			let alice: AccountId = 11;
+			let bob: AccountId = 21;
+			let charlie: AccountId = 31;
+			Rewards::reward_by_ids(vec![(bob, 1), (alice, 1), (charlie, 1), (alice, 1)]);
 
 			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
 				.individual
