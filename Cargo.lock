@@ -1172,7 +1172,6 @@ dependencies = [
 name = "crml-sylo"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",

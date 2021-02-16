@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Call, Runtime, Treasury};
+use crate::{Runtime, Treasury};
 use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -66,29 +66,6 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 			negative: false,
 			degree: 1,
 		})
-	}
-}
-
-/// The type that implements FeePayer for the cennznet-runtime Call(s)
-pub struct FeePayerResolver;
-impl crml_transaction_payment::FeePayer for FeePayerResolver {
-	type Call = Call;
-	type AccountId = <Runtime as frame_system::Trait>::AccountId;
-	fn fee_payer(call: &Self::Call) -> Option<<Runtime as frame_system::Trait>::AccountId> {
-		let is_sylo = match call {
-			Call::SyloGroups(_) => true,
-			Call::SyloE2EE(_) => true,
-			Call::SyloDevice(_) => true,
-			Call::SyloInbox(_) => true,
-			Call::SyloResponse(_) => true,
-			Call::SyloVault(_) => true,
-			_ => false,
-		};
-		if is_sylo {
-			crml_sylo::payment::Module::<Runtime>::payment_account()
-		} else {
-			None
-		}
 	}
 }
 
