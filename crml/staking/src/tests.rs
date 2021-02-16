@@ -3200,9 +3200,12 @@ fn payout_to_any_account_works() {
 #[test]
 fn migration_to_v2_works() {
 	use super::*;
+	use crate::rewards::Payee;
 	use frame_support::{traits::OnRuntimeUpgrade, Hashable};
 
 	ExtBuilder::default().build().execute_with(|| {
+		let payees_initial_count = Payee::<Test>::iter().count();
+
 		frame_support::migration::put_storage_value(
 			b"Staking",
 			b"Payee",
@@ -3244,6 +3247,6 @@ fn migration_to_v2_works() {
 			b"",
 		));
 
-		assert_eq!(crate::rewards::Payee::<Test>::iter().count(), 2);
+		assert_eq!(Payee::<Test>::iter().count(), payees_initial_count + 3);
 	});
 }

@@ -300,9 +300,7 @@ impl<T: Trait> HandlePayee for Module<T> {
 	/// (Re-)set the payment target for a stash account.
 	/// If payee is not different from stash, do no operations.
 	fn set_payee(stash: &Self::AccountId, payee: &Self::AccountId) {
-		if *stash != *payee {
-			Payee::<T>::insert(stash, payee);
-		}
+		Payee::<T>::insert(stash, payee);
 	}
 
 	/// Remove the corresponding stash-payee from the look up. Do no operations if stash not found.
@@ -707,6 +705,10 @@ mod tests {
 
 			Rewards::set_payee(&10, &11);
 			assert_eq!(Rewards::payee(&10), 11);
+
+			// Setting the payee address back to the stash
+			Rewards::set_payee(&10, &10);
+			assert_eq!(Rewards::payee(&10), 10);
 		});
 	}
 
