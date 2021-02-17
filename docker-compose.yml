@@ -80,10 +80,11 @@ services:
     - ./data/node-5:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
-      - --name=full-${HOSTNAME:-localhost}-5
+      - --validator
+      - --rata
       - --base-path=/mnt/data
-      - --node-key=8967bcbae338641d1102ff4465fda281f0bf6e9842702f3a992650d4855f5cd0
-      - --ws-external
-      - --rpc-external
+      - --name=rata-${HOSTNAME:-localhost}-5
+      - --node-key=0000000000000000000000000000000000000000000000000000000000000006
+      - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
     ports:
       - "30339:30333"
