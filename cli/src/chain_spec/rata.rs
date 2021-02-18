@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! CENNZNet Nikau V1 test net genesis config
+//! CENNZNet Rata V1 test net genesis config
 use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, CENNZnetChainSpec, NetworkKeys};
 use sc_service::ChainType;
 use sp_core::sr25519;
@@ -50,7 +50,7 @@ fn network_keys() -> NetworkKeys {
 	}
 }
 
-/// Returns ChainSpec for the Nikau test net
+/// Returns ChainSpec for the Rata test net
 pub fn config() -> CENNZnetChainSpec {
 	CENNZnetChainSpec::from_genesis(
 		"CENNZnet Rata",                   // name
