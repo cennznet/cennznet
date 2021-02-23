@@ -273,19 +273,20 @@ where
 		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation_per_staking_era())
 	}
 
-	/// Calculate the next reward payout (accrued as of right now) for the given payee.
+	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
 	fn payee_next_reward_payout(
-		payee: &Self::AccountId,
+		stash: &Self::AccountId,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
 		let mut payee_cut: Self::Balance = Zero::zero();
 
 		let (_, _, payouts) =
 			Self::calculate_payouts_filtered(validator_commission_stake_map, |validator, exposure| {
-				payee != validator && !exposure.others.iter().any(|x| &x.who == payee)
+				stash != validator && !exposure.others.iter().any(|x| &x.who == stash)
 			});
+		let payee = Self::payee(stash);
 		payouts.into_iter().for_each(|(account, payout)| {
-			if &account == payee {
+			if account == payee {
 				payee_cut = payee_cut.saturating_add(payout);
 			}
 		});
@@ -1366,6 +1367,27 @@ mod tests {
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_1
+			);
+		});
+	}
+
+	#[test]
+	fn accrued_reward_when_payee_is_not_stash() {
+		ExtBuilder::default().build().execute_with(|| {
+			Rewards::set_payee(&4, &5);
+			assert_eq!(Rewards::payee(&4), 5);
+
+			Rewards::note_transaction_fees(1000);
+			<Module<TestRuntime>>::reward_by_ids(vec![(1, 20)]);
+
+			assert!(
+				Rewards::payee_next_reward_payout(
+					&4,
+					&[
+						MockCommissionStakeInfo::new((1, 1_000), vec![(4, 1_000)], Perbill::from_percent(10))
+							.as_tuple()
+					]
+				) > 0
 			);
 		});
 	}
