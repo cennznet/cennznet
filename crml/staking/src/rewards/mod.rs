@@ -284,8 +284,9 @@ where
 			Self::calculate_payouts_filtered(validator_commission_stake_map, |validator, exposure| {
 				stash != validator && !exposure.others.iter().any(|x| &x.who == stash)
 			});
+		let payee = Self::payee(stash);
 		payouts.into_iter().for_each(|(account, payout)| {
-			if account == Self::payee(stash) {
+			if account == payee {
 				payee_cut = payee_cut.saturating_add(payout);
 			}
 		});
