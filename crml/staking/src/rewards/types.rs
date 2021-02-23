@@ -42,9 +42,9 @@ pub trait StakerRewardPayment {
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
 	fn calculate_next_reward_payout() -> Self::Balance;
-	/// Calculate the next reward payout (accrued as of right now) for the given payee.
+	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
 	fn payee_next_reward_payout(
-		payee: &Self::AccountId,
+		stash: &Self::AccountId,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance;
 }
