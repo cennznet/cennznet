@@ -85,7 +85,7 @@ pub mod time {
 	pub const DAYS: BlockNumber = HOURS * 24;
 
 	#[cfg(not(feature = "integration_config"))]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 144;
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 1;
 	#[cfg(feature = "integration_config")]
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
 }

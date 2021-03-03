@@ -335,8 +335,8 @@ where
 		BalanceOf<T>: Send + Sync,
 		T::Call: Dispatchable<Info = DispatchInfo>,
 	{
-		// NOTE: we can actually make it understand `ChargeTransactionPayment`, but would be some
-		// hassle for sure. We have to make it aware of the index of `ChargeTransactionPayment` in
+		// NOTE: we can actually make it understand `PaymentOptions`, but would be some
+		// hassle for sure. We have to make it aware of the index of `PaymentOptions` in
 		// `Extra`. Alternatively, we could actually execute the tx's per-dispatch and record the
 		// balance of the sender before and after the pipeline.. but this is way too much hassle for
 		// a very very little potential gain in the future.
@@ -511,13 +511,13 @@ where
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct ChargeTransactionPayment<T: Trait + Send + Sync> {
+pub struct PaymentOptions<T: Trait + Send + Sync> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
 	fee_exchange: Option<FeeExchange<T::AssetId, BalanceOf<T>>>,
 }
 
-impl<T: Trait + Send + Sync> ChargeTransactionPayment<T>
+impl<T: Trait + Send + Sync> PaymentOptions<T>
 where
 	T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + FixedPointOperand,
@@ -589,10 +589,10 @@ where
 	}
 }
 
-impl<T: Trait + Send + Sync> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
+impl<T: Trait + Send + Sync> sp_std::fmt::Debug for PaymentOptions<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "ChargeTransactionPayment<{:?}, {:?}>", self.tip, self.fee_exchange)
+		write!(f, "PaymentOptions<{:?}, {:?}>", self.tip, self.fee_exchange)
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -600,12 +600,12 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for ChargeTransactionPayment<T> 
 	}
 }
 
-impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
+impl<T: Trait + Send + Sync> SignedExtension for PaymentOptions<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
 	T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	const IDENTIFIER: &'static str = "PaymentOptions";
 	type AccountId = T::AccountId;
 	type Call = T::Call;
 	type AdditionalSigned = ();
@@ -961,12 +961,12 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				let pre = ChargeTransactionPayment::<Runtime>::from(0, None)
+				let pre = PaymentOptions::<Runtime>::from(0, None)
 					.pre_dispatch(&1, CALL, &info_from_weight(5), len)
 					.unwrap();
 				assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&info_from_weight(5),
 					&default_post_info(),
@@ -976,12 +976,12 @@ mod tests {
 				.is_ok());
 				assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-				let pre = ChargeTransactionPayment::<Runtime>::from(5, None)
+				let pre = PaymentOptions::<Runtime>::from(5, None)
 					.pre_dispatch(&2, CALL, &info_from_weight(100), len)
 					.unwrap();
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&info_from_weight(100),
 					&post_info_from_weight(50),
@@ -1003,13 +1003,13 @@ mod tests {
 				let len = 10;
 				NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
 
-				let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */, None)
+				let pre = PaymentOptions::<Runtime>::from(5 /* tipped */, None)
 					.pre_dispatch(&2, CALL, &info_from_weight(100), len)
 					.unwrap();
 				// 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
 
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&info_from_weight(100),
 					&post_info_from_weight(50),
@@ -1030,7 +1030,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				// maximum weight possible
-				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+				assert!(PaymentOptions::<Runtime>::from(0, None)
 					.pre_dispatch(&1, CALL, &info_from_weight(Weight::max_value()), 10)
 					.is_ok());
 				// fee will be proportional to what is the actual maximum weight in the runtime.
@@ -1059,7 +1059,7 @@ mod tests {
 					class: DispatchClass::Operational,
 					pays_fee: Pays::No,
 				};
-				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+				assert!(PaymentOptions::<Runtime>::from(0, None)
 					.validate(&1, CALL, &operational_transaction, len)
 					.is_ok());
 
@@ -1069,7 +1069,7 @@ mod tests {
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				};
-				assert!(ChargeTransactionPayment::<Runtime>::from(0, None)
+				assert!(PaymentOptions::<Runtime>::from(0, None)
 					.validate(&1, CALL, &free_transaction, len)
 					.is_err());
 			});
@@ -1086,7 +1086,7 @@ mod tests {
 				NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
 				let len = 10;
 
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, None) // tipped
+				assert!(PaymentOptions::<Runtime>::from(10, None) // tipped
 					.pre_dispatch(&1, CALL, &info_from_weight(3), len)
 					.is_ok());
 				assert_eq!(
@@ -1265,7 +1265,7 @@ mod tests {
 				// So events are emitted
 				System::set_block_number(10);
 				let len = 10;
-				let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */, None)
+				let pre = PaymentOptions::<Runtime>::from(5 /* tipped */, None)
 					.pre_dispatch(&2, CALL, &info_from_weight(100), len)
 					.unwrap();
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
@@ -1274,7 +1274,7 @@ mod tests {
 				assert!(Balances::transfer(Some(2).into(), 3, Balances::free_balance(2)).is_ok());
 				assert_eq!(Balances::free_balance(2), 0);
 
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&info_from_weight(100),
 					&post_info_from_weight(50),
@@ -1302,12 +1302,12 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len = 10;
-				let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */, None)
+				let pre = PaymentOptions::<Runtime>::from(5 /* tipped */, None)
 					.pre_dispatch(&2, CALL, &info_from_weight(100), len)
 					.unwrap();
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&info_from_weight(100),
 					&post_info_from_weight(101),
@@ -1335,11 +1335,11 @@ mod tests {
 					class: DispatchClass::Normal,
 				};
 				let user = 69;
-				let pre = ChargeTransactionPayment::<Runtime>::from(0, None)
+				let pre = PaymentOptions::<Runtime>::from(0, None)
 					.pre_dispatch(&user, CALL, &dispatch_info, len)
 					.unwrap();
 				assert_eq!(Balances::total_balance(&user), 0);
-				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
+				assert!(PaymentOptions::<Runtime>::post_dispatch(
 					pre,
 					&dispatch_info,
 					&default_post_info(),
@@ -1368,11 +1368,11 @@ mod tests {
 
 				NextFeeMultiplier::put(Multiplier::saturating_from_rational(5, 4));
 
-				let pre = ChargeTransactionPayment::<Runtime>::from(tip, None)
+				let pre = PaymentOptions::<Runtime>::from(tip, None)
 					.pre_dispatch(&2, CALL, &info, len)
 					.unwrap();
 
-				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+				PaymentOptions::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
 				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
@@ -1398,11 +1398,11 @@ mod tests {
 
 				NextFeeMultiplier::put(Multiplier::saturating_from_rational(5, 4));
 
-				let pre = ChargeTransactionPayment::<Runtime>::from(tip, None)
+				let pre = PaymentOptions::<Runtime>::from(tip, None)
 					.pre_dispatch(&2, CALL, &info, len)
 					.unwrap();
 
-				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+				PaymentOptions::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
 				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
@@ -1422,7 +1422,7 @@ mod tests {
 			.execute_with(|| {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 100_000);
-				assert!(ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+				assert!(PaymentOptions::<Runtime>::from(10, Some(fee_exchange))
 					.pre_dispatch(&1, CALL, &info_from_weight(3), len)
 					.is_ok());
 			})
@@ -1438,7 +1438,7 @@ mod tests {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(INVALID_ASSET_TO_BUY_FEE, 100_000);
 				assert_eq!(
-					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					PaymentOptions::<Runtime>::from(10, Some(fee_exchange))
 						.pre_dispatch(&1, CALL, &info_from_weight(3), len)
 						.err()
 						.unwrap(),
@@ -1457,7 +1457,7 @@ mod tests {
 				let len = 10;
 				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 0);
 				assert_eq!(
-					ChargeTransactionPayment::<Runtime>::from(10, Some(fee_exchange))
+					PaymentOptions::<Runtime>::from(10, Some(fee_exchange))
 						.pre_dispatch(&1, CALL, &info_from_weight(3), len)
 						.err()
 						.unwrap(),

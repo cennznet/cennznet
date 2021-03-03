@@ -689,7 +689,7 @@ mod tests {
 				let check_era = frame_system::CheckEra::from(Era::Immortal);
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
-				let payment = crml_transaction_payment::ChargeTransactionPayment::from(0, None);
+				let payment = crml_transaction_payment::PaymentOptions::from(0, None);
 				let extra = (
 					check_spec_version,
 					check_tx_version,

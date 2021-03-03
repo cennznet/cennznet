@@ -75,7 +75,7 @@ pub fn signed_extra(
 		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
-		crml_transaction_payment::ChargeTransactionPayment::from(extra_fee, fee_exchange),
+		crml_transaction_payment::PaymentOptions::from(extra_fee, fee_exchange),
 	)
 }
 

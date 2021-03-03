@@ -540,7 +540,7 @@ where
 			frame_system::CheckEra::<Runtime>::from(era),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			crml_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip, None),
+			crml_transaction_payment::PaymentOptions::<Runtime>::from(tip, None),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -627,7 +627,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	crml_transaction_payment::ChargeTransactionPayment<Runtime>,
+	crml_transaction_payment::PaymentOptions<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -860,8 +860,8 @@ impl_runtime_apis! {
 	}
 
 	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
-		fn accrued_payout(payee: &AccountId) -> u64 {
-			Staking::accrued_payout(payee) as u64
+		fn accrued_payout(stash: &AccountId) -> u64 {
+			Staking::accrued_payout(stash) as u64
 		}
 	}
 
