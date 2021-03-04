@@ -1,6 +1,6 @@
 [package]
 name = "crml-sylo"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 

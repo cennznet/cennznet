@@ -1101,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -1155,7 +1155,7 @@ dependencies = [
 
 [[package]]
 name = "crml-staking"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -1210,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "crml-sylo"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
