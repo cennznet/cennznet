@@ -309,7 +309,7 @@ mod tests {
 				}
 				fm = next;
 				iterations += 1;
-				let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::calc(&tx_weight);
+				let fee = <Runtime as crml_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);
 				println!(
 					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} weis, \

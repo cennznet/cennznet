@@ -323,7 +323,7 @@ parameter_types! {
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 50_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 500_000_000u128);
 }
-impl crml_transaction_payment::Trait for Runtime {
+impl crml_transaction_payment::Config for Runtime {
 	type AssetId = AssetId;
 	type Currency = SpendingAssetCurrency<Self>;
 	type OnTransactionPayment = Rewards;
