@@ -42,19 +42,19 @@ pub use types::*;
 type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// A pending increase to total issuance of the reward currency
 type PositiveImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
+	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 /// A pending decrease to total issuance of the reward currency
 type NegativeImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: u32) -> Weight;
 	fn process_zero_payouts() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Config {
 	/// The system event type
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// The reward currency system (total issuance, account balance, etc.) for payouts.
 	type CurrencyToReward: Currency<Self::AccountId>;
 	/// The treasury account for payouts
@@ -73,7 +73,7 @@ decl_event!(
 	pub enum Event<T>
 	where
 		Balance = BalanceOf<T>,
-		AccountId = <T as frame_system::Trait>::AccountId,
+		AccountId = <T as frame_system::Config>::AccountId,
 	{
 		/// A reward payout happened (nominator/validator account id, amount, era in which the reward was accrued)
 		RewardPayout(AccountId, Balance, EraIndex),
@@ -551,7 +551,7 @@ mod tests {
 		pub const MaximumBlockLength: u32 = 2 * 1024;
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
-	impl frame_system::Trait for TestRuntime {
+	impl frame_system::Config for TestRuntime {
 		type BaseCallFilter = ();
 		type Origin = Origin;
 		type Index = u64;

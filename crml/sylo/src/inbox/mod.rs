@@ -18,7 +18,7 @@ use frame_support::{decl_module, decl_storage, dispatch::Vec};
 type MessageId = u32;
 type Message = Vec<u8>;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: frame_system::Config {}
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}

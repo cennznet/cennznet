@@ -14,7 +14,7 @@
 */
 use frame_support::{decl_module, decl_storage, dispatch::Vec};
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: frame_system::Config {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;

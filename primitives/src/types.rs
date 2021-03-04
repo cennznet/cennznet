@@ -69,7 +69,6 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
-	#[codec(compact)]
 	V1(FeeExchangeV1<AssetId, Balance>),
 }
 

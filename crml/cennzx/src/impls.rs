@@ -15,7 +15,7 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{BalanceOf, Module, Trait};
+use crate::{Module, Trait};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use frame_support::dispatch::DispatchError;
 use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
@@ -60,8 +60,8 @@ where
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
 	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
-	type FeeExchange = FeeExchange<T::AssetId, BalanceOf<T>>;
+	type Balance = T::Balance;
+	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;
 
 	/// Use CENNZX to seamlessly buy fee asset
 	fn buy_fee_asset(

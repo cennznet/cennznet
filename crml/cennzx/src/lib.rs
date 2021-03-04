@@ -18,6 +18,7 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::FullCodec;
 use core::convert::TryFrom;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, traits::ExistenceRequirement, transactional,
@@ -26,9 +27,10 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Member, One, Saturating, Zero},
+	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member, One, Saturating, Zero},
 	DispatchError, DispatchResult, SaturatedConversion,
 };
+use sp_std::fmt::Debug;
 use sp_std::prelude::*;
 
 // import `mock` first so its macros are defined in `impl` and `tests`.
@@ -68,16 +70,18 @@ pub struct LiquidityPrice<Balance> {
 	pub asset: Balance,
 }
 
-/// Alias for the multi-currency provided balance type
-type BalanceOf<T> = <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance;
-
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Config {
+	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating + FullCodec;
 	/// The system event type
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// Type for identifying assets
 	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + Into<u64>;
 	/// Something which can provide multi currency asset management
-	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = Self::AssetId>;
+	type MultiCurrency: MultiCurrencyAccounting<
+		AccountId = Self::AccountId,
+		CurrencyId = Self::AssetId,
+		Balance = Self::Balance,
+	>;
 	/// Something which can generate addresses for exchange pools
 	type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
 	/// Provides the public call to weight mapping
@@ -136,8 +140,8 @@ decl_module! {
 			recipient: Option<T::AccountId>,
 			#[compact] asset_to_sell: T::AssetId,
 			#[compact] asset_to_buy: T::AssetId,
-			#[compact] buy_amount: BalanceOf<T>,
-			#[compact] maximum_sell: BalanceOf<T>
+			#[compact] buy_amount: T::Balance,
+			#[compact] maximum_sell: T::Balance
 		) -> DispatchResult {
 			let trader = ensure_signed(origin)?;
 			let _ = Self::execute_buy(
@@ -165,8 +169,8 @@ decl_module! {
 			recipient: Option<T::AccountId>,
 			#[compact] asset_to_sell: T::AssetId,
 			#[compact] asset_to_buy: T::AssetId,
-			#[compact] sell_amount: BalanceOf<T>,
-			#[compact] minimum_buy: BalanceOf<T>
+			#[compact] sell_amount: T::Balance,
+			#[compact] minimum_buy: T::Balance
 		) -> DispatchResult {
 			let trader = ensure_signed(origin)?;
 			let _ = Self::execute_sell(
@@ -196,9 +200,9 @@ decl_module! {
 		pub fn add_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
-			#[compact] min_liquidity: BalanceOf<T>,
-			#[compact] max_asset_amount: BalanceOf<T>,
-			#[compact] core_amount: BalanceOf<T>
+			#[compact] min_liquidity: T::Balance,
+			#[compact] max_asset_amount: T::Balance,
+			#[compact] core_amount: T::Balance
 		) {
 			let from_account = ensure_signed(origin)?;
 			let core_asset_id = Self::core_asset_id();
@@ -255,9 +259,9 @@ decl_module! {
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
-			#[compact] liquidity_to_withdraw: BalanceOf<T>,
-			#[compact] min_asset_withdraw: BalanceOf<T>,
-			#[compact] min_core_withdraw: BalanceOf<T>
+			#[compact] liquidity_to_withdraw: T::Balance,
+			#[compact] min_asset_withdraw: T::Balance,
+			#[compact] min_core_withdraw: T::Balance
 		) -> DispatchResult {
 			let from_account = ensure_signed(origin)?;
 
@@ -304,9 +308,9 @@ decl_module! {
 
 decl_event! {
 	pub enum Event<T> where
-		AccountId = <T as frame_system::Trait>::AccountId,
+		AccountId = <T as frame_system::Config>::AccountId,
 		AssetId = <T as Trait>::AssetId,
-		Balance = BalanceOf<T>,
+		Balance = <T as Trait>::Balance,
 	{
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
@@ -320,17 +324,18 @@ decl_event! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Cennzx {
+	trait Store for Module<T: Trait> as Cennzx
+	{
 		/// Asset Id of the core liquidity asset
 		pub CoreAssetId get(fn core_asset_id) config(): T::AssetId;
 		/// Default trading fee rate
 		pub DefaultFeeRate get(fn fee_rate) config(): FeeRate<PerMillion>;
 		/// Total liquidity holdings of all investors in an exchange.
 		/// ie/ total_liquidity(exchange) == sum(liquidity_balance(exchange, user)) at all times
-		pub TotalLiquidity get(fn total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => BalanceOf<T>;
+		pub TotalLiquidity get(fn total_liquidity): map hasher(twox_64_concat) ExchangeKey<T> => T::Balance;
 		/// Liquidity holdings of a user in an exchange pool.
 		/// Key: `(core_asset_id, trade_asset_id), account_id`
-		pub LiquidityBalance get(fn liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
+		pub LiquidityBalance get(fn liquidity_balance): double_map hasher(twox_64_concat) ExchangeKey<T>, hasher(blake2_128_concat) T::AccountId => T::Balance;
 	}
 }
 
@@ -341,7 +346,7 @@ impl<T: Trait> Module<T> {
 	//
 
 	/// Mint liquidity holdings for a user in a specified exchange
-	fn mint_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, increase: BalanceOf<T>) {
+	fn mint_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, increase: T::Balance) {
 		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
 		let new_balance = balance.saturating_add(increase);
 		<LiquidityBalance<T>>::insert(exchange_key, who, new_balance);
@@ -349,7 +354,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Burn liquidity holdings from a user in a specified exchange
-	fn burn_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, decrease: BalanceOf<T>) {
+	fn burn_liquidity(exchange_key: &ExchangeKey<T>, who: &T::AccountId, decrease: T::Balance) {
 		let balance = <LiquidityBalance<T>>::get(exchange_key, who);
 		let decrease = decrease.min(balance);
 		let new_balance = balance - decrease;
@@ -365,7 +370,7 @@ impl<T: Trait> Module<T> {
 	///
 	/// Note: if the exchange does not exist, the cost in `asset` is 1, because the investor
 	///       determines the exchange rate
-	pub fn liquidity_price(asset_id: T::AssetId, liquidity_to_buy: BalanceOf<T>) -> LiquidityPrice<BalanceOf<T>> {
+	pub fn liquidity_price(asset_id: T::AssetId, liquidity_to_buy: T::Balance) -> LiquidityPrice<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
@@ -394,7 +399,7 @@ impl<T: Trait> Module<T> {
 	///   * the total liquidity in an account for a given asset ID
 	///   * the total withdrawable core asset
 	///   * the total withdrawable trade asset
-	pub fn account_liquidity_value(who: &T::AccountId, asset_id: T::AssetId) -> LiquidityValue<BalanceOf<T>> {
+	pub fn account_liquidity_value(who: &T::AccountId, asset_id: T::AssetId) -> LiquidityValue<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let account_liquidity = <LiquidityBalance<T>>::get(&exchange_key, who);
@@ -410,7 +415,7 @@ impl<T: Trait> Module<T> {
 	///   * the withdrawable liquidity for the given `asset_id`
 	///   * the core asset exchangable for the `liquidity_to_withdraw`
 	///   * the trade asset exchangable for the `liquidity_to_withdraw`
-	fn liquidity_value(asset_id: T::AssetId, liquidity_to_withdraw: BalanceOf<T>) -> LiquidityValue<BalanceOf<T>> {
+	fn liquidity_value(asset_id: T::AssetId, liquidity_to_withdraw: T::Balance) -> LiquidityValue<T::Balance> {
 		let core_asset_id = Self::core_asset_id();
 		let exchange_key = (core_asset_id, asset_id);
 		let total_liquidity = <TotalLiquidity<T>>::get(&exchange_key);
@@ -424,11 +429,11 @@ impl<T: Trait> Module<T> {
 	///
 	/// Simple helper function to calculate the value of liquidity
 	fn calculate_liquidity_value(
-		asset_reserve: BalanceOf<T>,
-		core_reserve: BalanceOf<T>,
-		liquidity_to_withdraw: BalanceOf<T>,
-		total_liquidity: BalanceOf<T>,
-	) -> LiquidityValue<BalanceOf<T>> {
+		asset_reserve: T::Balance,
+		core_reserve: T::Balance,
+		liquidity_to_withdraw: T::Balance,
+		total_liquidity: T::Balance,
+	) -> LiquidityValue<T::Balance> {
 		if total_liquidity.is_zero() {
 			LiquidityValue {
 				liquidity: Zero::zero(),
@@ -458,9 +463,9 @@ impl<T: Trait> Module<T> {
 	/// `asset_to_pay` is the asset to use for payment (the final price will be given in this asset)
 	pub fn get_buy_price(
 		asset_to_buy: T::AssetId,
-		amount_to_buy: BalanceOf<T>,
+		amount_to_buy: T::Balance,
 		asset_to_pay: T::AssetId,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<T::Balance, DispatchError> {
 		ensure!(asset_to_buy != asset_to_pay, Error::<T>::AssetCannotSwapForItself);
 
 		// Find the cost of `amount_to_buy` of `asset_to_buy` in terms of core asset
@@ -487,8 +492,8 @@ impl<T: Trait> Module<T> {
 	/// Returns the amount of trade assets needed to buy `buy_amount` core assets.
 	pub fn get_asset_to_core_buy_price(
 		asset_id: T::AssetId,
-		buy_amount: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		buy_amount: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -500,8 +505,8 @@ impl<T: Trait> Module<T> {
 	/// Returns the amount of core asset needed to purchase `buy_amount` of trade asset.
 	pub fn get_core_to_asset_buy_price(
 		asset_id: T::AssetId,
-		buy_amount: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		buy_amount: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(buy_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -513,10 +518,10 @@ impl<T: Trait> Module<T> {
 	/// `buy_reserve` - How much of the asset to buy is in the exchange
 	/// Returns the amount of sellable asset is required
 	fn calculate_buy_price(
-		buy_amount: BalanceOf<T>,
-		sell_reserve: BalanceOf<T>,
-		buy_reserve: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		buy_amount: T::Balance,
+		sell_reserve: T::Balance,
+		buy_reserve: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
@@ -545,7 +550,7 @@ impl<T: Trait> Module<T> {
 		let output = fee_rate_plus_one
 			.checked_mul(price_plus_one.into())
 			.ok_or::<Error<T>>(Error::<T>::Overflow)?;
-		Ok(BalanceOf::<T>::saturated_from(
+		Ok(T::Balance::saturated_from(
 			output.saturated_into::<LowPrecisionUnsigned>(),
 		))
 	}
@@ -557,9 +562,9 @@ impl<T: Trait> Module<T> {
 	/// `asset_to_payout` is the asset to be paid out in exchange for the sale of `asset_to_sell` (the final sale value is given in this asset)
 	pub fn get_sell_price(
 		asset_to_sell: T::AssetId,
-		amount_to_sell: BalanceOf<T>,
+		amount_to_sell: T::Balance,
 		asset_to_payout: T::AssetId,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<T::Balance, DispatchError> {
 		ensure!(asset_to_sell != asset_to_payout, Error::<T>::AssetCannotSwapForItself);
 
 		// Find the value of `amount_to_sell` of `asset_to_sell` in terms of core asset
@@ -586,8 +591,8 @@ impl<T: Trait> Module<T> {
 	/// Returns amount of core that can be bought with input assets.
 	pub fn get_asset_to_core_sell_price(
 		asset_id: T::AssetId,
-		sell_amount: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		sell_amount: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -600,8 +605,8 @@ impl<T: Trait> Module<T> {
 	/// `sell_amount` - Amount of input core to sell
 	pub fn get_core_to_asset_sell_price(
 		asset_id: T::AssetId,
-		sell_amount: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		sell_amount: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(sell_amount > Zero::zero(), Error::<T>::CannotTradeZero);
 
 		let (core_reserve, asset_reserve) = Self::get_exchange_reserves(asset_id);
@@ -613,10 +618,10 @@ impl<T: Trait> Module<T> {
 	/// `buy_reserve` - How much of the asset to buy is in the exchange
 	/// Returns the amount of buyable asset that would be received
 	fn calculate_sell_price(
-		sell_amount: BalanceOf<T>,
-		sell_reserve: BalanceOf<T>,
-		buy_reserve: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		sell_amount: T::Balance,
+		sell_reserve: T::Balance,
+		buy_reserve: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		ensure!(
 			!sell_reserve.is_zero() && !buy_reserve.is_zero(),
 			Error::<T>::EmptyExchangePool
@@ -641,14 +646,14 @@ impl<T: Trait> Module<T> {
 		ensure!(price_lp_result.is_ok(), Error::<T>::Overflow);
 		let price_lp = price_lp_result.unwrap();
 
-		let price: BalanceOf<T> = price_lp.saturated_into();
+		let price: T::Balance = price_lp.saturated_into();
 		ensure!(buy_reserve > price, Error::<T>::InsufficientExchangePoolReserve);
 		Ok(price)
 	}
 
 	/// A helper for pricing functions
 	/// Fetches the reserves from an exchange for a particular `asset_id`
-	fn get_exchange_reserves(asset_id: T::AssetId) -> (BalanceOf<T>, BalanceOf<T>) {
+	fn get_exchange_reserves(asset_id: T::AssetId) -> (T::Balance, T::Balance) {
 		let exchange_address = T::ExchangeAddressFor::exchange_address_for(asset_id);
 
 		let core_reserve = T::MultiCurrency::free_balance(&exchange_address, Some(Self::core_asset_id()));
@@ -673,9 +678,9 @@ impl<T: Trait> Module<T> {
 		recipient: &T::AccountId,
 		asset_to_sell: T::AssetId,
 		asset_to_buy: T::AssetId,
-		amount_to_buy: BalanceOf<T>,
-		maximum_sell: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		amount_to_buy: T::Balance,
+		maximum_sell: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the sell amount meets the maximum requirement
 		let amount_to_sell = Self::get_buy_price(asset_to_buy, amount_to_buy, asset_to_sell)?;
 		ensure!(amount_to_sell <= maximum_sell, Error::<T>::MaximumSellRequirementNotMet);
@@ -719,9 +724,9 @@ impl<T: Trait> Module<T> {
 		recipient: &T::AccountId,
 		asset_to_sell: T::AssetId,
 		asset_to_buy: T::AssetId,
-		amount_to_sell: BalanceOf<T>,
-		minimum_buy: BalanceOf<T>,
-	) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+		amount_to_sell: T::Balance,
+		minimum_buy: T::Balance,
+	) -> sp_std::result::Result<T::Balance, DispatchError> {
 		// Check the trader has enough balance
 		ensure!(
 			T::MultiCurrency::free_balance(trader, Some(asset_to_sell),) >= amount_to_sell,
@@ -760,8 +765,8 @@ impl<T: Trait> Module<T> {
 		recipient: &T::AccountId,
 		asset_to_sell: T::AssetId,
 		asset_to_buy: T::AssetId,
-		amount_to_sell: BalanceOf<T>,
-		amount_to_buy: BalanceOf<T>,
+		amount_to_sell: T::Balance,
+		amount_to_buy: T::Balance,
 	) -> DispatchResult {
 		let core_asset_id = Self::core_asset_id();
 

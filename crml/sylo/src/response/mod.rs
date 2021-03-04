@@ -16,7 +16,7 @@
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, dispatch::Vec};
 
-pub trait Trait: frame_system::Trait {}
+pub trait Trait: frame_system::Config {}
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
