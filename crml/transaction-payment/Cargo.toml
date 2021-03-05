@@ -15,7 +15,7 @@ frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev 
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1", default-features = false }
 sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1", default-features = false }
-smallvec = "1.4.1"
+smallvec = "1.6.1"
 sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1", default-features = false }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1", default-features = false }
 
