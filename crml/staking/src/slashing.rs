@@ -49,7 +49,8 @@
 //! Based on research at https://research.web3.foundation/en/latest/polkadot/slashing/npos/
 
 use super::{
-	BalanceOf, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store, Trait, UnappliedSlash,
+	BalanceOf, Config, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store,
+	UnappliedSlash,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -199,7 +200,7 @@ impl<Balance> SpanRecord<Balance> {
 
 /// Parameters for performing a slash.
 #[derive(Clone)]
-pub(crate) struct SlashParams<'a, T: 'a + Trait> {
+pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// The stash account being slashed.
 	pub(crate) stash: &'a T::AccountId,
 	/// The proportion of the slash.
@@ -223,7 +224,7 @@ pub(crate) struct SlashParams<'a, T: 'a + Trait> {
 ///
 /// The pending slash record returned does not have initialized reporters. Those have
 /// to be set at a higher level, if any.
-pub(crate) fn compute_slash<T: Trait>(params: SlashParams<T>) -> Option<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
+pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
 	let SlashParams {
 		stash,
 		slash,
@@ -307,7 +308,7 @@ pub(crate) fn compute_slash<T: Trait>(params: SlashParams<T>) -> Option<Unapplie
 
 // doesn't apply any slash, but kicks out the validator if the misbehavior is from
 // the most recent slashing span.
-fn kick_out_if_recent<T: Trait>(params: SlashParams<T>) {
+fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 	// these are not updated by era-span or end-span.
 	let mut reward_payout = Zero::zero();
 	let mut val_slashed = Zero::zero();
@@ -334,7 +335,7 @@ fn kick_out_if_recent<T: Trait>(params: SlashParams<T>) {
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
 ///
 /// Returns the amount of reward to pay out.
-fn slash_nominators<T: Trait>(
+fn slash_nominators<T: Config>(
 	params: SlashParams<T>,
 	prior_slash_p: Perbill,
 	nominators_slashed: &mut Vec<(T::AccountId, BalanceOf<T>)>,
@@ -405,7 +406,7 @@ fn slash_nominators<T: Trait>(
 // dropping this struct applies any necessary slashes, which can lead to free balance
 // being 0, and the account being garbage-collected -- a dead account should get no new
 // metadata.
-struct InspectingSpans<'a, T: Trait + 'a> {
+struct InspectingSpans<'a, T: Config + 'a> {
 	dirty: bool,
 	window_start: EraIndex,
 	stash: &'a T::AccountId,
@@ -417,7 +418,7 @@ struct InspectingSpans<'a, T: Trait + 'a> {
 }
 
 // fetches the slashing spans record for a stash account, initializing it if necessary.
-fn fetch_spans<'a, T: Trait + 'a>(
+fn fetch_spans<'a, T: Config + 'a>(
 	stash: &'a T::AccountId,
 	window_start: EraIndex,
 	paid_out: &'a mut BalanceOf<T>,
@@ -442,7 +443,7 @@ fn fetch_spans<'a, T: Trait + 'a>(
 	}
 }
 
-impl<'a, T: 'a + Trait> InspectingSpans<'a, T> {
+impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 	fn span_index(&self) -> SpanIndex {
 		self.spans.span_index
 	}
@@ -508,7 +509,7 @@ impl<'a, T: 'a + Trait> InspectingSpans<'a, T> {
 	}
 }
 
-impl<'a, T: 'a + Trait> Drop for InspectingSpans<'a, T> {
+impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 	fn drop(&mut self) {
 		// only update on disk if we slashed this account.
 		if !self.dirty {
@@ -526,13 +527,13 @@ impl<'a, T: 'a + Trait> Drop for InspectingSpans<'a, T> {
 }
 
 /// Clear slashing metadata for an obsolete era.
-pub(crate) fn clear_era_metadata<T: Trait>(obsolete_era: EraIndex) {
+pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
 	<Module<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era);
 	<Module<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era);
 }
 
 /// Clear slashing metadata for a dead account.
-pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) {
+pub(crate) fn clear_stash_metadata<T: Config>(stash: &T::AccountId) {
 	let spans = match <Module<T> as Store>::SlashingSpans::take(stash) {
 		None => return,
 		Some(s) => s,
@@ -551,7 +552,7 @@ pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) {
 // apply the slash to a stash account, deducting any missing funds from the reward
 // payout, saturating at 0. this is mildly unfair but also an edge-case that
 // can only occur when overlapping locked funds have been slashed.
-fn do_slash<T: Trait>(
+fn do_slash<T: Config>(
 	stash: &T::AccountId,
 	value: BalanceOf<T>,
 	reward_payout: &mut BalanceOf<T>,
@@ -586,7 +587,7 @@ fn do_slash<T: Trait>(
 }
 
 /// Apply a previously-unapplied slash.
-pub(crate) fn apply_slash<T: Trait>(unapplied_slash: UnappliedSlash<T::AccountId, BalanceOf<T>>) {
+pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T::AccountId, BalanceOf<T>>) {
 	let mut slashed_imbalance = T::Currency::issue(Zero::zero()); // returns a negative imbalance with asset ID
 	let mut reward_payout = unapplied_slash.payout;
 
@@ -605,7 +606,7 @@ pub(crate) fn apply_slash<T: Trait>(unapplied_slash: UnappliedSlash<T::AccountId
 }
 
 /// Apply a reward payout to some reporters, paying the rewards out of the slashed imbalance.
-fn pay_reporters<T: Trait>(
+fn pay_reporters<T: Config>(
 	reward_payout: BalanceOf<T>,
 	slashed_imbalance: NegativeImbalanceOf<T>,
 	reporters: &[T::AccountId],

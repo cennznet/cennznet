@@ -39,7 +39,7 @@ mod types;
 pub use types::*;
 
 /// A balance amount in the reward currency
-type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
 /// A pending increase to total issuance of the reward currency
 type PositiveImbalanceOf<T> =
 	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
@@ -155,7 +155,7 @@ decl_module! {
 /// * 1 point to the producer of each referenced uncle block.
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
 where
-	T: Trait + pallet_authorship::Trait,
+	T: Trait + pallet_authorship::Config,
 {
 	fn note_author(author: T::AccountId) {
 		Self::reward_by_ids(vec![(author, 20)])
