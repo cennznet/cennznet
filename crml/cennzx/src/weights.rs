@@ -20,8 +20,15 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
-pub struct WeightInfo;
-impl crml_cennzx::WeightInfo for WeightInfo {
+pub trait WeightInfo {
+	fn buy_asset() -> Weight;
+	fn sell_asset() -> Weight;
+	fn add_liquidity() -> Weight;
+	fn remove_liquidity() -> Weight;
+	fn set_fee_rate() -> Weight;
+}
+
+impl WeightInfo for () {
 	fn buy_asset() -> Weight {
 		(297_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(9 as Weight))

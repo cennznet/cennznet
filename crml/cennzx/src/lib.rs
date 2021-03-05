@@ -21,8 +21,8 @@
 use codec::FullCodec;
 use core::convert::TryFrom;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, traits::ExistenceRequirement, transactional,
-	weights::Weight, Parameter, StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure, traits::ExistenceRequirement, transactional, Parameter,
+	StorageDoubleMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use prml_support::MultiCurrencyAccounting;
@@ -37,13 +37,14 @@ use sp_std::prelude::*;
 #[macro_use]
 mod mock;
 mod benchmarking;
-mod default_weights;
 mod impls;
 mod tests;
 mod types;
+mod weights;
 
 pub use impls::{ExchangeAddressFor, ExchangeAddressGenerator};
 pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion, PerThousand};
+use weights::WeightInfo;
 
 // (core_asset_id, asset_id)
 pub type ExchangeKey<T> = (<T as Trait>::AssetId, <T as Trait>::AssetId);
@@ -86,14 +87,6 @@ pub trait Trait: frame_system::Config {
 	type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
-}
-
-pub trait WeightInfo {
-	fn buy_asset() -> Weight;
-	fn sell_asset() -> Weight;
-	fn add_liquidity() -> Weight;
-	fn remove_liquidity() -> Weight;
-	fn set_fee_rate() -> Weight;
 }
 
 decl_error! {
