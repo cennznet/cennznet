@@ -805,10 +805,13 @@ impl Default for Forcing {
 // This should match directly with the semantic versions of the Rust crate.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 enum Releases {
-	/// Staking module storage version pre runtime v38
+	/// storage version pre-runtime v38
 	V0 = 0,
-	/// Staking module storage version post runtime v37
+	/// storage version runtime v38
 	V1 = 1,
+	/// storage version runtime v39
+	V2 = 2,
+
 }
 
 impl Default for Releases {
@@ -983,8 +986,8 @@ decl_storage! {
 		/// True if network has been upgraded to this version.
 		/// Storage version of the pallet.
 		///
-		/// This is set to v1 for new networks.
-		StorageVersion build(|_: &GenesisConfig<T>| Releases::V1 as u32): u32;
+		/// This is set to v2 for new networks.
+		StorageVersion build(|_: &GenesisConfig<T>| Releases::V2 as u32): u32;
 	}
 	add_extra_genesis {
 		config(stakers):
