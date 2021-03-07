@@ -23,6 +23,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use sp_std::prelude::*;
 use codec::Encode;
 
 use pallet_authority_discovery;
@@ -48,7 +49,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber,
 };
-use sp_std::prelude::*;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -256,29 +257,40 @@ impl pallet_scheduler::Trait for Runtime {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
-	pub const BlocksPerEra: BlockNumber = EPOCH_DURATION_IN_BLOCKS * SESSIONS_PER_ERA;
 	// 28 eras/days for bond to be withdraw
 	pub const BondingDuration: crml_staking::EraIndex = 28;
 	// 27 eras/days for a slash to be deferrable
 	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
+	pub const MaxNominatorRewardedPerValidator: u32 = 128;
+	// Allow election solution computation during the entire last session (~10 minutes)
+	// TODO: adjust when session duration increases
+	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 2;
+	pub const MaxIterations: u32 = 10;
+	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
 }
 impl crml_staking::Trait for Runtime {
+	type BondingDuration = BondingDuration;
+	type Call = Call;
 	type Currency = StakingAssetCurrency<Self>;
-	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
 	type Event = Event;
-	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
-	type SessionsPerEra = SessionsPerEra;
-	type BlocksPerEra = BlocksPerEra;
-	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = SlashDeferDuration;
+	type NextNewSession = Session;
+	type ElectionLookahead = ElectionLookahead;
+	type MaxIterations = MaxIterations;
+	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type MinSolutionScoreBump = MinSolutionScoreBump;
 	type SessionInterface = Self;
+	type SessionsPerEra = SessionsPerEra;
+	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
+	type SlashDeferDuration = SlashDeferDuration;
 	type Rewarder = Rewards;
+	type UnixTime = Timestamp;
+	type UnsignedPriority = StakingUnsignedPriority;
 	type WeightInfo = ();
 }
 
 parameter_types! {
-	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Trait for Runtime {
 	type Event = Event;
@@ -367,6 +379,18 @@ impl pallet_utility::Trait for Runtime {
 
 impl pallet_authority_discovery::Trait for Runtime {}
 
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime where
+	Call: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = Call;
+}
+
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -379,16 +403,6 @@ impl pallet_im_online::Trait for Runtime {
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE.into();
-	pub ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY.into();
-}
-impl pallet_finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = ();
-	type WindowSize = WindowSize;
-	type ReportLatency = ReportLatency;
 }
 
 parameter_types! {
@@ -553,19 +567,6 @@ where
 	}
 }
 
-impl frame_system::offchain::SigningTypes for Runtime {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	Call: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = Call;
-}
-
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -579,10 +580,9 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
 		GenericAsset: prml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
 		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>} = 6,
+		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
 		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
-		FinalityTracker: pallet_finality_tracker::{Module, Call, Storage, Inherent} = 9,
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 10,
 		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
 		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,

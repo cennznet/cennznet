@@ -223,7 +223,6 @@
 
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(array_into_iter)]
 
 #[cfg(test)]
 mod mock;
@@ -248,7 +247,7 @@ use frame_support::{
 	},
 	traits::{
 		Currency, EstimateNextNewSession, Get, LockIdentifier, LockableCurrency,
-		OnUnbalanced, Time, UnixTime, WithdrawReasons
+		OnUnbalanced, UnixTime, WithdrawReasons
 	},
 	weights::{Weight, constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS}},
 	IterableStorageMap,
@@ -711,9 +710,6 @@ pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
 	/// is not used.
 	type UnixTime: UnixTime;
 
-	/// Time used for computing era duration.
-	type Time: Time;
-
 	/// The overarching call type.
 	type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
 
@@ -735,9 +731,6 @@ pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
 
 	/// Something that can estimate the next session change, accurately or as a best effort guess.
 	type NextNewSession: EstimateNextNewSession<Self::BlockNumber>;
-
-	/// Number of blocks per normal eras those not forced to end.
-	type BlocksPerEra: Get<Self::BlockNumber>;
 
 	/// Number of eras that staked funds must remain bonded for.
 	type BondingDuration: Get<EraIndex>;

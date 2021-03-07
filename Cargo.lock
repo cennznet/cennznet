@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "crml-staking"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -1130,13 +1130,14 @@ dependencies = [
  "parity-scale-codec",
  "prml-generic-asset",
  "serde",
+ "sp-application-crypto",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "static_assertions",
  "substrate-test-utils",
 ]
 
