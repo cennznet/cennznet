@@ -23,8 +23,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use sp_std::prelude::*;
 use codec::Encode;
+use sp_std::prelude::*;
 
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -60,7 +60,7 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{KeyOwnerProofSystem, Randomness},
+	traits::{KeyOwnerProofSystem, Randomness, U128CurrencyToVote},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, TransactionPriority, Weight,
@@ -92,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -267,18 +267,23 @@ parameter_types! {
 	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 2;
 	pub const MaxIterations: u32 = 10;
 	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+	pub OffchainSolutionWeightLimit: Weight =
+		MaximumExtrinsicWeight::get()
+			.saturating_sub(BlockExecutionWeight::get())
+			.saturating_sub(ExtrinsicBaseWeight::get());
 }
 impl crml_staking::Trait for Runtime {
 	type BondingDuration = BondingDuration;
 	type Call = Call;
 	type Currency = StakingAssetCurrency<Self>;
-	type CurrencyToVote = CurrencyToVoteHandler;
+	type CurrencyToVote = U128CurrencyToVote;
 	type Event = Event;
-	type NextNewSession = Session;
 	type ElectionLookahead = ElectionLookahead;
 	type MaxIterations = MaxIterations;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type MinSolutionScoreBump = MinSolutionScoreBump;
+	type NextNewSession = Session;
+	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type SessionInterface = Self;
 	type SessionsPerEra = SessionsPerEra;
 	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
@@ -384,7 +389,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
 	type Signature = Signature;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime where
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
 	Call: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;

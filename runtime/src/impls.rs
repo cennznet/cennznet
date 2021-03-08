@@ -26,30 +26,8 @@ use frame_support::{
 use prml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use smallvec::smallvec;
-use sp_runtime::{traits::Convert, Perbill};
+use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
-
-/// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
-/// calculation.
-pub struct CurrencyToVoteHandler;
-
-impl CurrencyToVoteHandler {
-	fn factor() -> Balance {
-		(<StakingAssetCurrency<Runtime>>::total_issuance() / u64::max_value() as Balance).max(1)
-	}
-}
-
-impl Convert<Balance, u64> for CurrencyToVoteHandler {
-	fn convert(x: Balance) -> u64 {
-		(x / Self::factor()) as u64
-	}
-}
-
-impl Convert<u128, Balance> for CurrencyToVoteHandler {
-	fn convert(x: u128) -> Balance {
-		x * Self::factor()
-	}
-}
 
 /// Provides a simple weight to fee conversion function for
 /// use with the CENNZnet 4dp spending asset, CPAY.
