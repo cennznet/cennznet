@@ -219,7 +219,9 @@ impl frame_system::Config for Runtime {
 	/// The data to be stored in an account.
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
+	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
+	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
+	type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
