@@ -125,6 +125,15 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 
+type NegativeImbalance = <prml_generic_asset::SpendingAssetCurrency<Runtime> as Currency<AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance> for DealWithFees {
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+		Rewards::note_transaction_fees(fees_then_tips.peek());
+	}
+}
+
 // Configure modules to include in the runtime.
 
 const AVERAGE_ON_INITIALIZE_WEIGHT: Perbill = Perbill::from_percent(10);
@@ -325,8 +334,7 @@ parameter_types! {
 }
 impl crml_transaction_payment::Config for Runtime {
 	type AssetId = AssetId;
-	type Currency = SpendingAssetCurrency<Self>;
-	type OnTransactionPayment = Rewards;
+	type OnChargeTransaction = crml_transaction_payment::CurrencyAdapter<GenericAsset, DealWithFees>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
@@ -802,12 +810,15 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
-		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
-		) -> RuntimeDispatchInfo<Balance> {
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+		Block,
+		Balance,
+	> for Runtime {
+		fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
+		}
+		fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> crml_transaction_payment::FeeDetails<Balance> {
+			TransactionPayment::query_fee_details(uxt, len)
 		}
 	}
 

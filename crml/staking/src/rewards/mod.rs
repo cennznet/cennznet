@@ -20,7 +20,6 @@
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
 
 use crate::{EraIndex, Exposure};
-use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
@@ -39,13 +38,10 @@ mod types;
 pub use types::*;
 
 /// A balance amount in the reward currency
-type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Config>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
 /// A pending increase to total issuance of the reward currency
 type PositiveImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
-/// A pending decrease to total issuance of the reward currency
-type NegativeImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+	<<T as Config>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: u32) -> Weight;
@@ -496,14 +492,6 @@ impl<T: Config> Module<T> {
 				era_rewards.total += points;
 			}
 		});
-	}
-}
-
-/// This handles the `NegativeImbalance` from burning transaction fees.
-/// The amount is noted by the rewards module for later distribution.
-impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
-	fn on_unbalanced(imbalance: NegativeImbalanceOf<T>) {
-		Self::note_transaction_fees(imbalance.peek());
 	}
 }
 
