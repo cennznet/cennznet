@@ -15,7 +15,7 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{Module, Trait};
+use crate::{Config, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use frame_support::dispatch::DispatchError;
 use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
@@ -34,9 +34,9 @@ pub trait ExchangeAddressFor {
 }
 
 /// A CENNZX exchange address generator implementation
-pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
+pub struct ExchangeAddressGenerator<T: Config>(PhantomData<T>);
 
-impl<T: Trait> ExchangeAddressFor for ExchangeAddressGenerator<T>
+impl<T: Config> ExchangeAddressFor for ExchangeAddressGenerator<T>
 where
 	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 	T::AssetId: Into<u64>,
@@ -58,7 +58,7 @@ where
 	}
 }
 
-impl<T: Trait> BuyFeeAsset for Module<T> {
+impl<T: Config> BuyFeeAsset for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = T::Balance;
 	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;

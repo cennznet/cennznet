@@ -742,7 +742,7 @@ fn reward_destination_works() {
 		let recorded_stash_balance = 1000 + total_payout_0 + total_payout_1;
 
 		// Change RewardDestination to Controller
-		<<Test as Trait>::Rewarder as HandlePayee>::set_payee(&11, &10);
+		<<Test as Config>::Rewarder as HandlePayee>::set_payee(&11, &10);
 
 		// Check controller balance
 		assert_eq!(Balances::free_balance(10), 1);

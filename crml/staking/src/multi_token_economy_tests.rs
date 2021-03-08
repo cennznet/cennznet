@@ -30,8 +30,8 @@ use std::collections::HashSet;
 
 use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
 use crate::{
-	rewards::{HandlePayee, Module as RewardsModule, StakerRewardPayment, Trait as RewardsTrait},
-	EraIndex, GenesisConfig, Module, StakerStatus, StakingLedger, Trait,
+	rewards::{Config as RewardsTrait, HandlePayee, Module as RewardsModule, StakerRewardPayment},
+	Config, EraIndex, GenesisConfig, Module, StakerStatus, StakingLedger,
 };
 use std::cell::RefCell;
 
@@ -97,7 +97,7 @@ parameter_types! {
 	pub const CreationFee: Balance = 0;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type Event = ();
@@ -107,7 +107,7 @@ impl pallet_balances::Trait for Test {
 	type WeightInfo = ();
 }
 
-impl prml_generic_asset::Trait for Test {
+impl prml_generic_asset::Config for Test {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = ();
@@ -120,7 +120,7 @@ parameter_types! {
 	pub const UncleGenerations: u64 = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
-impl pallet_session::Trait for Test {
+impl pallet_session::Config for Test {
 	type SessionManager = Staking;
 	type Keys = UintAuthorityId;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -132,12 +132,12 @@ impl pallet_session::Trait for Test {
 	type NextSessionRotation = ();
 	type WeightInfo = ();
 }
-impl pallet_session::historical::Trait for Test {
+impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
 
-impl pallet_authorship::Trait for Test {
+impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
@@ -147,7 +147,7 @@ impl pallet_authorship::Trait for Test {
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
 }
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
@@ -175,7 +175,7 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const BlocksPerEra: BlockNumber = 3;
 }
-impl Trait for Test {
+impl Config for Test {
 	type Currency = prml_generic_asset::StakingAssetCurrency<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;

@@ -52,7 +52,7 @@ pub trait WeightInfo {
 	fn process_zero_payouts() -> Weight;
 }
 
-pub trait Trait: frame_system::Config {
+pub trait Config: frame_system::Config {
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// The reward currency system (total issuance, account balance, etc.) for payouts.
@@ -85,7 +85,7 @@ decl_event!(
 );
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Rewards {
+	trait Store for Module<T: Config> as Rewards {
 		/// Inflation rate % to apply on reward payouts
 		pub BaseInflationRate get(fn inflation_rate): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
@@ -116,7 +116,7 @@ decl_storage! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
 		fn deposit_event() = default;
 
@@ -155,7 +155,7 @@ decl_module! {
 /// * 1 point to the producer of each referenced uncle block.
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
 where
-	T: Trait + pallet_authorship::Config,
+	T: Config + pallet_authorship::Config,
 {
 	fn note_author(author: T::AccountId) {
 		Self::reward_by_ids(vec![(author, 20)])
@@ -165,7 +165,7 @@ where
 	}
 }
 
-impl<T: Trait> StakerRewardPayment for Module<T>
+impl<T: Config> StakerRewardPayment for Module<T>
 where
 	BalanceOf<T>: FixedPointOperand,
 {
@@ -295,7 +295,7 @@ where
 	}
 }
 
-impl<T: Trait> HandlePayee for Module<T> {
+impl<T: Config> HandlePayee for Module<T> {
 	type AccountId = T::AccountId;
 
 	/// (Re-)set the payment target for a stash account.
@@ -319,7 +319,7 @@ impl<T: Trait> HandlePayee for Module<T> {
 	}
 }
 
-impl<T: Trait> Module<T>
+impl<T: Config> Module<T>
 where
 	BalanceOf<T>: FixedPointOperand,
 {
@@ -387,7 +387,7 @@ where
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Add the given `fee` amount to the next reward payout
 	pub fn note_transaction_fees(amount: BalanceOf<T>) {
 		TransactionFeePot::<T>::mutate(|acc| *acc = acc.saturating_add(amount));
@@ -579,14 +579,14 @@ mod tests {
 		type SystemWeightInfo = ();
 	}
 
-	impl prml_generic_asset::Trait for TestRuntime {
+	impl prml_generic_asset::Config for TestRuntime {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = TestEvent;
 		type WeightInfo = ();
 	}
 
-	impl pallet_authorship::Trait for TestRuntime {
+	impl pallet_authorship::Config for TestRuntime {
 		type FindAuthor = crate::mock::Author11;
 		type UncleGenerations = crate::mock::UncleGenerations;
 		type FilterUncle = ();
@@ -599,7 +599,7 @@ mod tests {
 		pub const PayoutSplitThreshold: u32 = 10;
 		pub const FiscalEraLength: u32 = 5;
 	}
-	impl Trait for TestRuntime {
+	impl Config for TestRuntime {
 		type Event = TestEvent;
 		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
 		type TreasuryModuleId = TreasuryModuleId;
@@ -655,7 +655,7 @@ mod tests {
 	/// Alias for the mocked module under test
 	type Rewards = Module<TestRuntime>;
 	/// Alias for the reward currency in the module under test
-	type RewardCurrency = <TestRuntime as Trait>::CurrencyToReward;
+	type RewardCurrency = <TestRuntime as Config>::CurrencyToReward;
 	/// Alias for the mocked system module
 	type TestSystem = System<TestRuntime>;
 	/// Helper for creating the info required for validator reward payout
@@ -730,7 +730,7 @@ mod tests {
 	fn note_fee_payout_retains_n_latest() {
 		// note multiple fee payouts, it should keep only the latest n in state.
 		ExtBuilder::default().build().execute_with(|| {
-			let historical_payouts = [1_000_u64; <TestRuntime as Trait>::HistoricalPayoutEras::get() as usize];
+			let historical_payouts = [1_000_u64; <TestRuntime as Config>::HistoricalPayoutEras::get() as usize];
 			for payout in &historical_payouts {
 				Rewards::note_fee_payout(*payout);
 			}
@@ -969,7 +969,7 @@ mod tests {
 	#[test]
 	fn emit_all_rewards_paid_out_event() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
 
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
 
@@ -1210,7 +1210,7 @@ mod tests {
 	#[test]
 	fn small_reward_payouts() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(payout_split_threshold - 1, 5),
 				payout_split_threshold - 1
@@ -1221,7 +1221,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_enough_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(payout_split_threshold, 100),
 				payout_split_threshold
@@ -1240,7 +1240,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_not_enough_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(4 * payout_split_threshold, 1),
 				2 * payout_split_threshold
@@ -1251,7 +1251,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_no_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Trait>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(2 * payout_split_threshold, 0),
 				2 * payout_split_threshold

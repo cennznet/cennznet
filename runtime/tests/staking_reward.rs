@@ -47,9 +47,9 @@ use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
 /// Alias for the runtime configured staking reward currency
-type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
+type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToReward;
 /// Alias for the runtime configured staking currency
-type StakeCurrency = <Runtime as crml_staking::Trait>::Currency;
+type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
 
 /// Get a block header and set the author of that block in a way that is recognisable by BABE.
 /// The author will be specified by its index in the Session::validators() list. So the author

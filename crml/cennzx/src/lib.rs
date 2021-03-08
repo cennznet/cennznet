@@ -47,7 +47,7 @@ pub use types::{FeeRate, HighPrecisionUnsigned, LowPrecisionUnsigned, PerMillion
 use weights::WeightInfo;
 
 // (core_asset_id, asset_id)
-pub type ExchangeKey<T> = (<T as Trait>::AssetId, <T as Trait>::AssetId);
+pub type ExchangeKey<T> = (<T as Config>::AssetId, <T as Config>::AssetId);
 
 /// Represents the value of an amount of liquidity in an exchange
 /// Liquidity is always traded for a combination of `core_asset` and `trade_asset`
@@ -71,7 +71,7 @@ pub struct LiquidityPrice<Balance> {
 	pub asset: Balance,
 }
 
-pub trait Trait: frame_system::Config {
+pub trait Config: frame_system::Config {
 	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating + FullCodec;
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -90,7 +90,7 @@ pub trait Trait: frame_system::Config {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		EmptyExchangePool,
 		InsufficientExchangePoolReserve,
 		InsufficientBalance,
@@ -114,7 +114,7 @@ decl_error! {
 
 decl_module! {
 
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -302,8 +302,8 @@ decl_module! {
 decl_event! {
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Config>::AccountId,
-		AssetId = <T as Trait>::AssetId,
-		Balance = <T as Trait>::Balance,
+		AssetId = <T as Config>::AssetId,
+		Balance = <T as Config>::Balance,
 	{
 		/// Provider, core asset amount, trade asset id, trade asset amount
 		AddLiquidity(AccountId, Balance, AssetId, Balance),
@@ -317,7 +317,7 @@ decl_event! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Cennzx
+	trait Store for Module<T: Config> as Cennzx
 	{
 		/// Asset Id of the core liquidity asset
 		pub CoreAssetId get(fn core_asset_id) config(): T::AssetId;
@@ -333,7 +333,7 @@ decl_storage! {
 }
 
 // The main implementation block for the module.
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	//
 	// Liquidity
 	//

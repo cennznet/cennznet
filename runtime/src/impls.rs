@@ -70,8 +70,8 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 }
 
 /// Provides a membership set with only the configured sudo user
-pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
-impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
+pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
+impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
 		t == (&pallet_sudo::Module::<T>::key())
 	}
@@ -82,7 +82,7 @@ impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
 		1
 	}
 }
-impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
+impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
 	fn min_len() -> usize {
 		1
 	}
@@ -93,8 +93,8 @@ impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
 
 /// Provides an impl for the `SimpleAssetSystem` trait
 /// Used to integrate GA with CENNZX
-pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
-impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
+pub struct SimpleAssetShim<T: prml_generic_asset::Config>(PhantomData<T>);
+impl<T: prml_generic_asset::Config> SimpleAssetSystem for SimpleAssetShim<T> {
 	type AccountId = T::AccountId;
 	type AssetId = T::AssetId;
 	type Balance = T::Balance;

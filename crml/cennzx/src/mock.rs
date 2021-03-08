@@ -28,7 +28,7 @@ pub const FEE_ASSET_ID: AssetId = 10;
 use crate::{
 	impls::ExchangeAddressGenerator,
 	types::{FeeRate, PerMillion, PerThousand},
-	GenesisConfig, Module, Trait,
+	Config, GenesisConfig, Module,
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
@@ -92,14 +92,14 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 }
 
-impl prml_generic_asset::Trait for Test {
+impl prml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
 	type WeightInfo = ();
 }
 
-impl Trait for Test {
+impl Config for Test {
 	type Event = Event;
 	type AssetId = AssetId;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;

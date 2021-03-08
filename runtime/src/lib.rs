@@ -204,7 +204,7 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const UncleGenerations: BlockNumber = 5;
 }
-impl pallet_authorship::Trait for Runtime {
+impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
@@ -215,7 +215,7 @@ parameter_types! {
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 }
-impl pallet_babe::Trait for Runtime {
+impl pallet_babe::Config for Runtime {
 	type EpochDuration = EpochDuration;
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -228,7 +228,7 @@ impl pallet_babe::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_grandpa::Trait for Runtime {
+impl pallet_grandpa::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type KeyOwnerProofSystem = ();
@@ -243,7 +243,7 @@ parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
-impl pallet_scheduler::Trait for Runtime {
+impl pallet_scheduler::Config for Runtime {
 	type Event = Event;
 	type Origin = Origin;
 	type PalletsOrigin = OriginCaller;
@@ -262,7 +262,7 @@ parameter_types! {
 	// 27 eras/days for a slash to be deferrable
 	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
 }
-impl crml_staking::Trait for Runtime {
+impl crml_staking::Config for Runtime {
 	type Currency = StakingAssetCurrency<Self>;
 	type Time = Timestamp;
 	type CurrencyToVote = CurrencyToVoteHandler;
@@ -280,7 +280,7 @@ impl crml_staking::Trait for Runtime {
 parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
 }
-impl pallet_session::Trait for Runtime {
+impl pallet_session::Config for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = crml_staking::StashOf<Self>;
@@ -296,7 +296,7 @@ impl pallet_session::Trait for Runtime {
 parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
-impl pallet_timestamp::Trait for Runtime {
+impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Babe;
@@ -304,7 +304,7 @@ impl pallet_timestamp::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl prml_generic_asset::Trait for Runtime {
+impl prml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
@@ -344,7 +344,7 @@ parameter_types! {
 	pub const DepositFactor: Balance = deposit(0, 32);
 	pub const MaxSignatories: u16 = 100;
 }
-impl pallet_multisig::Trait for Runtime {
+impl pallet_multisig::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type Currency = SpendingAssetCurrency<Self>;
@@ -354,25 +354,25 @@ impl pallet_multisig::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_sudo::Trait for Runtime {
+impl pallet_sudo::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
 }
 
-impl pallet_utility::Trait for Runtime {
+impl pallet_utility::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type WeightInfo = ();
 }
 
-impl pallet_authority_discovery::Trait for Runtime {}
+impl pallet_authority_discovery::Config for Runtime {}
 
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
-impl pallet_im_online::Trait for Runtime {
+impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type Event = Event;
 	type SessionDuration = SessionDuration;
@@ -394,14 +394,14 @@ impl pallet_finality_tracker::Trait for Runtime {
 parameter_types! {
 	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 }
-impl pallet_offences::Trait for Runtime {
+impl pallet_offences::Config for Runtime {
 	type Event = Event;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
 	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
-impl pallet_session::historical::Trait for Runtime {
+impl pallet_session::historical::Config for Runtime {
 	type FullIdentification = crml_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crml_staking::ExposureOf<Self>;
 }
@@ -415,7 +415,7 @@ parameter_types! {
 	pub const MaxAdditionalFields: u32 = 100;
 	pub const MaxRegistrars: u32 = 20;
 }
-impl pallet_identity::Trait for Runtime {
+impl pallet_identity::Config for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
 	type BasicDeposit = BasicDeposit;
@@ -447,7 +447,7 @@ parameter_types! {
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
-impl pallet_treasury::Trait for Runtime {
+impl pallet_treasury::Config for Runtime {
 	type ModuleId = TreasuryModuleId;
 	type Currency = SpendingAssetCurrency<Self>;
 	// root only is sufficient for launch phase
@@ -479,7 +479,7 @@ parameter_types! {
 	pub const PayoutSplitThreshold: u32 = 1000;
 	pub const FiscalEraLength: u32 = 365;
 }
-impl crml_staking_rewards::Trait for Runtime {
+impl crml_staking_rewards::Config for Runtime {
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
@@ -489,14 +489,14 @@ impl crml_staking_rewards::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl crml_sylo::e2ee::Trait for Runtime {}
-impl crml_sylo::device::Trait for Runtime {}
-impl crml_sylo::inbox::Trait for Runtime {}
-impl crml_sylo::response::Trait for Runtime {}
-impl crml_sylo::vault::Trait for Runtime {}
-impl crml_sylo::groups::Trait for Runtime {}
+impl crml_sylo::e2ee::Config for Runtime {}
+impl crml_sylo::device::Config for Runtime {}
+impl crml_sylo::inbox::Config for Runtime {}
+impl crml_sylo::response::Config for Runtime {}
+impl crml_sylo::vault::Config for Runtime {}
+impl crml_sylo::groups::Config for Runtime {}
 
-impl crml_cennzx::Trait for Runtime {
+impl crml_cennzx::Config for Runtime {
 	type AssetId = AssetId;
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
@@ -504,7 +504,7 @@ impl crml_cennzx::Trait for Runtime {
 	type WeightInfo = weights::crml_cennzx::WeightInfo;
 }
 
-impl prml_attestation::Trait for Runtime {
+impl prml_attestation::Config for Runtime {
 	type Event = Event;
 	type WeightInfo = ();
 }

@@ -17,8 +17,8 @@
 //! Test utilities
 
 use crate::{
-	rewards::{self, Module as RewardsModule, Trait as RewardsTrait},
-	EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait, ValidatorPrefs,
+	rewards::{self, Config as RewardsTrait, Module as RewardsModule},
+	Config, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, ValidatorPrefs,
 };
 use frame_support::{
 	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
@@ -180,7 +180,7 @@ parameter_types! {
 	pub const CreationFee: u64 = 0;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type Event = MetaEvent;
@@ -196,7 +196,7 @@ parameter_types! {
 	pub const UncleGenerations: u64 = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
-impl pallet_session::Trait for Test {
+impl pallet_session::Config for Test {
 	type Event = MetaEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
@@ -209,11 +209,11 @@ impl pallet_session::Trait for Test {
 	type WeightInfo = ();
 }
 
-impl pallet_session::historical::Trait for Test {
+impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
-impl pallet_authorship::Trait for Test {
+impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
@@ -222,7 +222,7 @@ impl pallet_authorship::Trait for Test {
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
 }
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
@@ -250,7 +250,7 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const BlocksPerEra: BlockNumber = 3;
 }
-impl Trait for Test {
+impl Config for Test {
 	type Currency = pallet_balances::Module<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
