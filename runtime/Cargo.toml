@@ -42,6 +42,7 @@ pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", de
 frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
+frame-try-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1", optional = true }
 
 sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1"}
@@ -92,6 +93,7 @@ std = [
 	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-try-runtime/std",
 	"pallet-authorship/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
@@ -136,6 +138,34 @@ std = [
 	"crml-staking-rpc-runtime-api/std",
 	"crml-sylo/std",
 	"crml-transaction-payment/std",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-try-runtime",
+	"frame-system/try-runtime",
+	"pallet-authority-discovery/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-bounties/try-runtime",
+	"pallet-grandpa/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-randomness-collective-flip/try-runtime",
+	"pallet-session/try-runtime",
+	"crml-staking/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-tips/try-runtime",
+	"crml-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-utility/try-runtime",
+	"cennznet-primitives/try-runtime",
+	"crml-cennzx/try-runtime",
+	"crml-staking/try-runtime",
+	"crml-sylo/try-runtime",
+	"crml-transaction-payment/try-runtime",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

@@ -49,5 +49,5 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std"
 ]
-
 runtime-benchmarks = ["frame-benchmarking"]
+try-runtime = ["frame-support/try-runtime"]
