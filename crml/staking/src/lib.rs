@@ -147,21 +147,6 @@
 //!
 //! ### Reward Calculation
 //!
-//! Validators and nominators are rewarded at the end of each era. The total reward of an era is
-//! calculated using the era duration and the staking rate (the total amount of tokens staked by
-//! nominators and validators, divided by the total token supply). It aims to incentivise toward a
-//! defined staking rate. The full specification can be found
-//! [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model).
-//!
-//! Total reward is split among validators and their nominators depending on the number of points
-//! they received during the era. Points are added to a validator using
-//! [`reward_by_ids`](./enum.Call.html#variant.reward_by_ids) or
-//! [`reward_by_indices`](./enum.Call.html#variant.reward_by_indices).
-//!
-//! [`Module`](./struct.Module.html) implements
-//! [`pallet_authorship::EventHandler`](../pallet_authorship/trait.EventHandler.html) to add reward points
-//! to block producer and block producer of referenced uncles.
-//!
 //! The validator and its nominator split their reward as following:
 //!
 //! The validator can declare an amount, named
@@ -231,6 +216,7 @@ mod multi_token_economy_tests;
 #[cfg(test)]
 mod tests;
 
+mod migration;
 mod offchain_election;
 pub mod rewards;
 pub use rewards::{HandlePayee, StakerRewardPayment};
@@ -815,7 +801,17 @@ enum Releases {
 
 impl Default for Releases {
 	fn default() -> Self {
-		Releases::V1
+		Releases::V2
+	}
+}
+
+impl From<u32> for Releases {
+	fn from(val: u32) -> Self {
+		match val {
+			0 => Releases::V0,
+			1 => Releases::V1,
+			2 | _ => Releases::V2,
+		}
 	}
 }
 
@@ -831,7 +827,7 @@ decl_storage! {
 		/// Must be more than the number of eras delayed by session otherwise. I.e. active era must
 		/// always be in history. I.e. `active_era > current_era - history_depth` must be
 		/// guaranteed.
-		HistoryDepth get(fn history_depth) config(): u32 = 84;
+		HistoryDepth get(fn history_depth) config(): u32 = 32;
 
 		/// The ideal number of staking participants.
 		pub ValidatorCount get(fn validator_count) config(): u32;
@@ -920,10 +916,6 @@ decl_storage! {
 		///
 		/// The rest of the slashed value is handled by the `Slash`.
 		pub SlashRewardFraction get(fn slash_reward_fraction) config(): Perbill;
-
-		/// The amount of currency given to reporters of a slash event which was
-		/// canceled by extraordinary circumstances (e.g. governance).
-		pub CanceledSlashPayout get(fn canceled_payout) config(): BalanceOf<T>;
 
 		/// All unapplied slashes that are queued for later.
 		pub UnappliedSlashes:
@@ -1158,6 +1150,20 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> Weight {
+			match StorageVersion::get().into() {
+				// upgraded!
+				Releases::V2 => Zero::zero(),
+				// needs upgrade
+				Releases::V1 => {
+					migration::upgrade_v1_to_v2::<T>();
+					T::MaximumBlockWeight::get()
+				},
+				// won't occur, no live networks on this version...
+				Releases::V0 => Zero::zero(),
+			}
+		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0;
@@ -1822,7 +1828,7 @@ decl_module! {
 		///     - Reads: Current Era, History Depth
 		///     - Writes: History Depth
 		///     - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
-		///     - Writes Each: ErasValidatorReward, ErasRewardPoints, ErasTotalStake, ErasStartSessionIndex
+		///     - Writes Each: ErasValidatorReward, ErasTotalStake, ErasStartSessionIndex
 		/// # </weight>
 		#[weight = T::WeightInfo::set_history_depth(*_era_items_deleted)]
 		fn set_history_depth(origin,
@@ -2519,7 +2525,6 @@ impl<T: Trait> Module<T> {
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
 		// Note: active_era_start can be None if end era is called during genesis config.
 		if let Some(active_era_start) = active_era.start {
-
 			// TODO: trigger era payout
 
 			// let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
