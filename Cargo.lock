@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "1.3.1"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
@@ -777,11 +777,14 @@ dependencies = [
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "futures 0.3.13",
  "hex-literal",
+ "log",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-bounties",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -792,6 +795,7 @@ dependencies = [
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
+ "pallet-tips",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "pallet-utility",
@@ -818,6 +822,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "static_assertions",
  "substrate-wasm-builder",
  "wabt",
 ]
@@ -1230,6 +1235,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "serde",
  "smallvec 1.6.1",
@@ -1960,6 +1966,18 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#e
 dependencies = [
  "parity-scale-codec",
  "sp-api",
+]
+
+[[package]]
+name = "frame-try-runtime"
+version = "0.9.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4024,6 +4042,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-bounties"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "3.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
@@ -4224,6 +4256,20 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-tips"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
