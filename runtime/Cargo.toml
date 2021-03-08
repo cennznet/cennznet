@@ -33,6 +33,8 @@ pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", d
 pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
+pallet-bounties = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
+pallet-tips = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1", features = ["historical"] }
 pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
@@ -109,6 +111,8 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-treasury/std",
+	"pallet-tips/std",
+	"pallet-bounties/std",
 	"pallet-utility/std",
 	"prml-attestation/std",
 	"prml-generic-asset/std",
