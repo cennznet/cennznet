@@ -28,9 +28,13 @@ hex = "0.4"
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
 pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
+parking_lot = "0.10.2"
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
+sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
+sp-tracing = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
 substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
+rand_chacha = { version = "0.2" }
 
 [features]
 migrate = []

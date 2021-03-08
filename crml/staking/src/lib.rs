@@ -210,16 +210,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
-mod mock;
+mod inflation;
 #[cfg(test)]
-mod multi_token_economy_tests;
+mod mock;
 #[cfg(test)]
 mod tests;
 
 mod migration;
 mod offchain_election;
 pub mod rewards;
-pub use rewards::{HandlePayee, StakerRewardPayment};
+pub use rewards::{HandlePayee, StakeInfoProvider, StakerRewardPayment, ValidatorStakeInfo};
 
 mod slashing;
 pub use slashing::REWARD_F1;
@@ -723,7 +723,7 @@ pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>, BlockNumber = Self::BlockNumber>
+	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>>
 		+ HandlePayee<AccountId = Self::AccountId>;
 
 	/// The number of blocks before the end of the era from which election submissions are allowed.
@@ -1205,8 +1205,6 @@ decl_module! {
 			add_weight(3, 0, 0);
 			// Additional read from `on_finalize`
 			add_weight(1, 0, 0);
-
-			// TODO: trigger reward payouts
 
 			consumed_weight
 		}
@@ -1828,7 +1826,7 @@ decl_module! {
 		///     - Reads: Current Era, History Depth
 		///     - Writes: History Depth
 		///     - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
-		///     - Writes Each: ErasValidatorReward, ErasTotalStake, ErasStartSessionIndex
+		///     - Writes Each: ErasTotalStake, ErasStartSessionIndex
 		/// # </weight>
 		#[weight = T::WeightInfo::set_history_depth(*_era_items_deleted)]
 		fn set_history_depth(origin,
@@ -2057,20 +2055,18 @@ impl<T: Trait> Module<T> {
 
 	/// Calculate the next accrued payout for a stash id (a payee) without affecting the storage.
 	pub fn accrued_payout(stash: &T::AccountId) -> BalanceOf<T> {
-		// TODO: fix payout
-		Zero::zero()
-		// let validator_commission_stake_map = Self::current_elected()
-		// 	.iter()
-		// 	.map(|validator_stash| {
-		// 		(
-		// 			validator_stash.clone(),
-		// 			Self::validators(validator_stash).commission,
-		// 			Self::stakers(validator_stash),
-		// 		)
-		// 	})
-		// 	.collect::<Vec<(_, _, _)>>();
+		let era = Self::current_era().unwrap_or(0);
+		let validator_commission_stake_map = ErasValidatorPrefs::<T>::iter_prefix(&era)
+			.map(|(validator_stash, prefs)| {
+				(
+					validator_stash.clone(),
+					prefs.commission,
+					Self::eras_stakers_clipped(era, validator_stash),
+				)
+			})
+			.collect::<Vec<(_, _, _)>>();
 
-		// T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice())
+		T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice())
 	}
 
 	/// Update the ledger for a controller.
@@ -2459,6 +2455,9 @@ impl<T: Trait> Module<T> {
 	/// Start a session potentially starting an era.
 	fn start_session(start_session: SessionIndex) {
 		let next_active_era = Self::active_era().map(|e| e.index + 1).unwrap_or(0);
+		// This is only `Some` when current era has already progressed to the next era, while the
+		// active era is one behind (i.e. in the *last session of the active era*, or *first session
+		// of the new current era*, depending on how you look at it).
 		if let Some(next_active_era_start_session_index) = Self::eras_start_session_index(next_active_era) {
 			if next_active_era_start_session_index == start_session {
 				Self::start_era(start_session);
@@ -2525,18 +2524,10 @@ impl<T: Trait> Module<T> {
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
 		// Note: active_era_start can be None if end era is called during genesis config.
 		if let Some(active_era_start) = active_era.start {
-			// TODO: trigger era payout
-
-			// let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-			// let era_duration = now_as_millis_u64 - active_era_start;
-
-			// let (validator_payout, max_payout) = inflation::compute_total_payout(
-			// 	&T::RewardCurve::get(),
-			// 	Self::eras_total_stake(&active_era.index),
-			// 	T::Currenty::total_issuance(),
-			// 	// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			// 	era_duration.saturated_into::<u64>(),
-			// );
+			let validators = ErasValidatorPrefs::<T>::iter_prefix(active_era_start as u32)
+				.map(|(stash, _prefs)| stash)
+				.collect::<Vec<T::AccountId>>();
+			T::Rewarder::schedule_reward_payouts(validators.as_slice(), active_era.index);
 		}
 	}
 
@@ -2683,7 +2674,7 @@ impl<T: Trait> Module<T> {
 	fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		slashing::clear_stash_metadata::<T>(stash);
+		slashing::clear_stash_metadata::<T>(stash)?;
 
 		<Bonded<T>>::remove(stash);
 		<Ledger<T>>::remove(&controller);
@@ -2745,12 +2736,30 @@ impl<T: Trait> Module<T> {
 /// some session can lag in between the newest session planned and the latest session started.
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		frame_support::debug::native::trace!(
+			target: LOG_TARGET,
+			"[{}] planning new_session({})",
+			<frame_system::Module<T>>::block_number(),
+			new_index
+		);
 		Self::new_session(new_index)
 	}
 	fn start_session(start_index: SessionIndex) {
+		frame_support::debug::native::trace!(
+			target: LOG_TARGET,
+			"[{}] starting start_session({})",
+			<frame_system::Module<T>>::block_number(),
+			start_index
+		);
 		Self::start_session(start_index)
 	}
 	fn end_session(end_index: SessionIndex) {
+		frame_support::debug::native::trace!(
+			target: LOG_TARGET,
+			"[{}] ending end_session({})",
+			<frame_system::Module<T>>::block_number(),
+			end_index
+		);
 		Self::end_session(end_index)
 	}
 }
@@ -3058,4 +3067,16 @@ fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransac
 		_ => 0,
 	};
 	InvalidTransaction::Custom(error_number)
+}
+
+impl<T: Trait> StakeInfoProvider for Module<T> {
+	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
+	/// Return validator staking info at `era`
+	fn stake_info_for(validator_stash: &Self::AccountId, era: EraIndex) -> ValidatorStakeInfo<Self::AccountId, Self::Balance> {
+		ValidatorStakeInfo {
+			exposures: Self::eras_stakers_clipped(era, validator_stash),
+			commission: Self::eras_validator_prefs(era, validator_stash).commission,
+		}
+	}
 }

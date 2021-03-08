@@ -29,7 +29,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedDiv, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
-	FixedPointNumber, FixedPointOperand, FixedU128, ModuleId, Perbill,
+	FixedPointNumber, FixedU128, ModuleId, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -40,9 +40,6 @@ pub use types::*;
 
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
-/// A pending increase to total issuance of the reward currency
-type PositiveImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
 /// A pending decrease to total issuance of the reward currency
 type NegativeImbalanceOf<T> =
 	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
@@ -61,10 +58,12 @@ pub trait Trait: frame_system::Trait {
 	type TreasuryModuleId: Get<ModuleId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
-	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
-	type PayoutSplitThreshold: Get<u32>;
+	/// The gap between subsequent payouts (in number of blocks)
+	type BlockPayoutInterval: Get<Self::BlockNumber>;
 	/// The number of staking eras in a fiscal era.
 	type FiscalEraLength: Get<u32>;
+	/// Provides staking information on validator accounts
+	type StakeInfoProvider: StakeInfoProvider<AccountId=Self::AccountId, Balance=BalanceOf<Self>>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -75,10 +74,10 @@ decl_event!(
 		Balance = BalanceOf<T>,
 		AccountId = <T as frame_system::Trait>::AccountId,
 	{
-		/// A reward payout happened (nominator/validator account id, amount, era in which the reward was accrued)
-		RewardPayout(AccountId, Balance, EraIndex),
-		/// All the rewards of the specified era is now processed with an unallocated `remainder` that went to treasury
-		AllRewardsPaidOut(EraIndex, Balance),
+		/// Staker payout (nominator/validator account id, amount), era can be inferred from the current block
+		EraStakerPayout(AccountId, Balance),
+		/// Era payout for treasury with amount, era can be inferred from current block
+		EraTreasuryPayout(Balance),
 		/// A fiscal era has begun with the parameter (target_inflation_per_staking_era)
 		NewFiscalEra(Balance),
 	}
@@ -94,12 +93,13 @@ decl_storage! {
 		pub TransactionFeePot get(fn transaction_fee_pot): BalanceOf<T>;
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
-		/// Remaining reward amount of the eras which are not fully processed yet
-		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Where the reward payment should be made. Keyed by stash.
+		// TODO: migrate to blake2 user can control the key
 		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
-		/// Hold the latest not processed payouts and the era when each is accrued
-		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
+		/// Reward payouts to be performed asap, keyed by validator stash to amount
+		pub ScheduledPayouts: map hasher(twox_64_concat) T::AccountId => BalanceOf<T>;
+		/// The era for `ScheduledPayouts`
+		pub ScheduledPayoutsEra get(fn payout_era): EraIndex;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
@@ -146,6 +146,24 @@ decl_module! {
 			ensure_root(origin)?;
 			ForceFiscalEra::put(true);
 		}
+
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			// check if any payouts should be distributed
+			if (now % T::BlockPayoutInterval::get()).is_zero() {
+				// Take the next scheduled payout if any
+				if let Some((validator_stash, total_payout)) = ScheduledPayouts::<T>::drain().take(1).next() {
+					let era = ScheduledPayoutsEra::get();
+					let stake_info = T::StakeInfoProvider::stake_info_for(&validator_stash, era);
+
+					Self::process_reward_payout(&validator_stash, stake_info.commission, &stake_info.exposures, total_payout);
+
+					// scales on the number of nominators
+					return T::WeightInfo::process_reward_payouts(stake_info.exposures.others.len() as u32)
+				}
+			}
+
+			Zero::zero()
+		}
 	}
 }
 
@@ -165,107 +183,52 @@ where
 	}
 }
 
-impl<T: Trait> StakerRewardPayment for Module<T>
-where
-	BalanceOf<T>: FixedPointOperand,
-{
+impl<T: Trait> StakerRewardPayment for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
-	type BlockNumber = T::BlockNumber;
-	/// Perform a reward payout given a mapping of validators and their nominators stake.
-	/// Accounts IDs are the ones which should receive payment.
-	fn enqueue_reward_payouts(
-		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+
+	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
+	fn schedule_reward_payouts(
+		validators: &[T::AccountId],
 		era: EraIndex,
 	) {
+		// TODO: Bunch of 'on era end' handling, move into a more explicit hook method
+
+		// If enough staking eras have passed (or forced), a new fiscal era should be enacted
 		if ForceFiscalEra::get() {
 			ForceFiscalEra::put(false);
 			FiscalEraEpoch::put(era);
 		}
-
 		if era.saturating_sub(Self::fiscal_era_epoch()) % T::FiscalEraLength::get() == 0 {
 			Self::new_fiscal_era();
 		}
 
-		if validator_commission_stake_map.len().is_zero() {
+		let (tx_fee_pot, era_reward_points) = Self::reset_era_reward_storage();
+
+		// track historic era fee amounts
+		Self::note_fee_payout(tx_fee_pot);
+
+		let total_payout = <Self as StakerRewardPayment>::calculate_next_reward_payout();
+		if total_payout.is_zero() {
 			return;
 		}
 
-		let (stakers_cut, development_cut, payouts) =
-			Self::calculate_payouts_filtered(validator_commission_stake_map, |_, _| false);
-
-		payouts.into_iter().for_each(|(account, payout)| {
-			Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
-		});
-
-		// Reset the reward points storage for the next era
-		<CurrentEraRewardPoints<T>>::kill();
-
-		// track historic era fee amounts
-		Self::note_fee_payout(TransactionFeePot::<T>::take());
-
+		// Deduct taxes from network spending
+		let development_cut = Self::development_fund_take() * tx_fee_pot;
 		let _ = T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), development_cut);
+		Self::deposit_event(RawEvent::EraTreasuryPayout(development_cut));
 
-		QueuedEraRewards::<T>::mutate(|q| q.push_back(stakers_cut));
-	}
+		// Calculate the necessary total payout for each validator and it's stakers
+		let per_validator_rewards = Self::calculate_per_validator_rewards(
+			total_payout - development_cut,
+			validators,
+			era_reward_points,
+		);
 
-	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
-	/// Return the benchmarked weight of the call.
-	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
-		let remaining_payouts = Payouts::<T>::get().len() as u32;
-		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
-		if quota.is_zero() {
-			return T::WeightInfo::process_zero_payouts();
+		ScheduledPayoutsEra::put(era);
+		for (stash, amount) in per_validator_rewards {
+			ScheduledPayouts::<T>::insert(stash, amount);
 		}
-
-		let weight = T::WeightInfo::process_reward_payouts(quota as u32);
-
-		let mut payouts = Payouts::<T>::get();
-
-		// First payout in the current series, gives the right context for processing the rest.
-		let (first_payee, first_amount, first_era) = payouts.pop_front().unwrap_or_default();
-		let mut total_payout_imbalance = T::CurrencyToReward::deposit_creating(&first_payee, first_amount);
-		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
-		let mut era_under_process = first_era;
-
-		let handle_remainder = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
-			let mut remainder = Zero::zero();
-			QueuedEraRewards::<T>::mutate(|rra| {
-				remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
-				imbalance.maybe_subsume(
-					T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
-						.ok(),
-				);
-			});
-			remainder
-		};
-
-		for _ in 1..quota {
-			if let Some((payee, amount, era)) = payouts.pop_front() {
-				if era > era_under_process {
-					let remainder = handle_remainder(&mut total_payout_imbalance);
-					Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
-					era_under_process = era;
-				}
-				total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&payee, amount));
-				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
-			}
-		}
-
-		if payouts.is_empty() {
-			let remainder = handle_remainder(&mut total_payout_imbalance);
-			Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
-		} else {
-			QueuedEraRewards::<T>::mutate(|rra| {
-				if let Some(remainder) = rra.front_mut() {
-					*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
-				}
-			});
-		}
-
-		Payouts::<T>::put(payouts);
-
-		weight
 	}
 
 	/// Calculate the total reward payout as of right now
@@ -319,10 +282,64 @@ impl<T: Trait> HandlePayee for Module<T> {
 	}
 }
 
-impl<T: Trait> Module<T>
-where
-	BalanceOf<T>: FixedPointOperand,
-{
+impl<T: Trait> Module<T> {
+	/// Reset reward storage values for the next era
+	/// Returning the stored values
+	fn reset_era_reward_storage() -> (BalanceOf<T>, EraRewardPoints<T::AccountId>) {
+		(
+			TransactionFeePot::<T>::take(),
+			CurrentEraRewardPoints::<T>::take(),
+		)
+	}
+
+	/// Process the reward payout for the given validator stash
+	/// Return the benchmarked weight of the call.
+	/// Requires `O(nominators)` writes + `O(nominators)` reads
+	fn process_reward_payout(
+		validator_stash: &T::AccountId,
+		validator_commission: Perbill,
+		exposures: &Exposure<T::AccountId, BalanceOf<T>>,
+		total_payout: BalanceOf<T>
+	) {
+		// get commission
+		// get exposure
+		let mut total_payout_imbalance = T::CurrencyToReward::burn(Zero::zero());
+		for (payee, amount) in Self::calculate_npos_payouts(validator_stash, validator_commission, exposures, total_payout) {
+			total_payout_imbalance.subsume(
+				T::CurrencyToReward::deposit_creating(&Self::payee(&payee), amount)
+			)
+		}
+		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
+		T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder).ok();
+	}
+
+	/// Given a list of validator stashes, calculate the value of stake reward for
+	/// each based on their block contribution ratio
+	/// `stakers_cut` the initial reward amount to divy up between validators
+	fn calculate_per_validator_rewards(
+		stakers_cut: BalanceOf<T>,
+		validators: &[T::AccountId],
+		era_reward_points: EraRewardPoints<T::AccountId>,
+	) -> Vec<(&T::AccountId, BalanceOf<T>)> {
+		let total_reward_points = era_reward_points.total;
+
+		validators.iter().map(|validator| {
+			let validator_reward_points = era_reward_points
+				.individual
+				.get(validator)
+				.map(|points| *points)
+				.unwrap_or_else(|| Zero::zero());
+			// This is how much every validator is entitled to get, including its nominators shares
+			let payout = if total_reward_points.is_zero() {
+				// When no authorship points are recorded, divide the payout equally
+				stakers_cut / (validators.len() as u32).into()
+			} else {
+				Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+			};
+			(validator, payout)
+		}).collect()
+	}
+
 	/// Calculate all payouts of the current era as of right now. Then filter out those not relevant
 	/// validator-exposure sets by calling the "filter" function.
 	/// Return the total rewards calculated for the stakers at the time of this call paired with the
@@ -444,26 +461,6 @@ impl<T: Trait> Module<T> {
 			(validator_contribution_ratio * nominators_cut) + validator_cut,
 		));
 		(*payouts).to_vec()
-	}
-
-	/// Return the number of reward payouts that need to be processed in the current block.
-	/// The result is dependent on the number of the current era's remaining payouts and the number
-	/// of remaining blocks before a new era.
-	fn calculate_payout_quota(remaining_payouts: u32, remaining_blocks: T::BlockNumber) -> u32 {
-		if remaining_blocks.is_zero() {
-			return remaining_payouts;
-		}
-
-		let payout_split_threshold = T::PayoutSplitThreshold::get();
-
-		if remaining_payouts <= payout_split_threshold {
-			return remaining_payouts;
-		}
-
-		let remaining_payouts = <T::BlockNumber as UniqueSaturatedFrom<u32>>::unique_saturated_from(remaining_payouts);
-		let min_payouts = remaining_payouts / (remaining_blocks + One::one());
-		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<u32>>::unique_saturated_into(min_payouts);
-		min_payouts.max(payout_split_threshold)
 	}
 
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.

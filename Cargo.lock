@@ -1127,7 +1127,9 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
+ "parking_lot 0.10.2",
  "prml-generic-asset",
+ "rand_chacha 0.2.2",
  "serde",
  "sp-application-crypto",
  "sp-core",
@@ -1136,6 +1138,8 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "sp-storage",
+ "sp-tracing",
  "static_assertions",
  "substrate-test-utils",
 ]
