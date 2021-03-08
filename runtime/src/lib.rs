@@ -53,6 +53,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use static_assertions::const_assert;
 
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;

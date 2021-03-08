@@ -23,6 +23,7 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 smallvec = "1.6.1"
+static_assertions = "1.1.0"
 
 pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
