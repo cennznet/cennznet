@@ -3073,7 +3073,10 @@ impl<T: Trait> StakeInfoProvider for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 	/// Return validator staking info at `era`
-	fn stake_info_for(validator_stash: &Self::AccountId, era: EraIndex) -> ValidatorStakeInfo<Self::AccountId, Self::Balance> {
+	fn stake_info_for(
+		validator_stash: &Self::AccountId,
+		era: EraIndex,
+	) -> ValidatorStakeInfo<Self::AccountId, Self::Balance> {
 		ValidatorStakeInfo {
 			exposures: Self::eras_stakers_clipped(era, validator_stash),
 			commission: Self::eras_validator_prefs(era, validator_stash).commission,

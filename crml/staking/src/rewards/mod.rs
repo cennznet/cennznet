@@ -63,7 +63,7 @@ pub trait Trait: frame_system::Trait {
 	/// The number of staking eras in a fiscal era.
 	type FiscalEraLength: Get<u32>;
 	/// Provides staking information on validator accounts
-	type StakeInfoProvider: StakeInfoProvider<AccountId=Self::AccountId, Balance=BalanceOf<Self>>;
+	type StakeInfoProvider: StakeInfoProvider<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -188,10 +188,7 @@ impl<T: Trait> StakerRewardPayment for Module<T> {
 	type Balance = BalanceOf<T>;
 
 	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
-	fn schedule_reward_payouts(
-		validators: &[T::AccountId],
-		era: EraIndex,
-	) {
+	fn schedule_reward_payouts(validators: &[T::AccountId], era: EraIndex) {
 		// TODO: Bunch of 'on era end' handling, move into a more explicit hook method
 
 		// If enough staking eras have passed (or forced), a new fiscal era should be enacted
@@ -219,11 +216,8 @@ impl<T: Trait> StakerRewardPayment for Module<T> {
 		Self::deposit_event(RawEvent::EraTreasuryPayout(development_cut));
 
 		// Calculate the necessary total payout for each validator and it's stakers
-		let per_validator_rewards = Self::calculate_per_validator_rewards(
-			total_payout - development_cut,
-			validators,
-			era_reward_points,
-		);
+		let per_validator_rewards =
+			Self::calculate_per_validator_rewards(total_payout - development_cut, validators, era_reward_points);
 
 		ScheduledPayoutsEra::put(era);
 		for (stash, amount) in per_validator_rewards {
@@ -286,10 +280,7 @@ impl<T: Trait> Module<T> {
 	/// Reset reward storage values for the next era
 	/// Returning the stored values
 	fn reset_era_reward_storage() -> (BalanceOf<T>, EraRewardPoints<T::AccountId>) {
-		(
-			TransactionFeePot::<T>::take(),
-			CurrentEraRewardPoints::<T>::take(),
-		)
+		(TransactionFeePot::<T>::take(), CurrentEraRewardPoints::<T>::take())
 	}
 
 	/// Process the reward payout for the given validator stash
@@ -299,15 +290,16 @@ impl<T: Trait> Module<T> {
 		validator_stash: &T::AccountId,
 		validator_commission: Perbill,
 		exposures: &Exposure<T::AccountId, BalanceOf<T>>,
-		total_payout: BalanceOf<T>
+		total_payout: BalanceOf<T>,
 	) {
 		// get commission
 		// get exposure
 		let mut total_payout_imbalance = T::CurrencyToReward::burn(Zero::zero());
-		for (payee, amount) in Self::calculate_npos_payouts(validator_stash, validator_commission, exposures, total_payout) {
-			total_payout_imbalance.subsume(
-				T::CurrencyToReward::deposit_creating(&Self::payee(&payee), amount)
-			)
+		for (stash, amount) in
+			Self::calculate_npos_payouts(validator_stash, validator_commission, exposures, total_payout)
+		{
+			total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&Self::payee(&stash), amount));
+			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
 		T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder).ok();
@@ -323,21 +315,24 @@ impl<T: Trait> Module<T> {
 	) -> Vec<(&T::AccountId, BalanceOf<T>)> {
 		let total_reward_points = era_reward_points.total;
 
-		validators.iter().map(|validator| {
-			let validator_reward_points = era_reward_points
-				.individual
-				.get(validator)
-				.map(|points| *points)
-				.unwrap_or_else(|| Zero::zero());
-			// This is how much every validator is entitled to get, including its nominators shares
-			let payout = if total_reward_points.is_zero() {
-				// When no authorship points are recorded, divide the payout equally
-				stakers_cut / (validators.len() as u32).into()
-			} else {
-				Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
-			};
-			(validator, payout)
-		}).collect()
+		validators
+			.iter()
+			.map(|validator| {
+				let validator_reward_points = era_reward_points
+					.individual
+					.get(validator)
+					.map(|points| *points)
+					.unwrap_or_else(|| Zero::zero());
+				// This is how much every validator is entitled to get, including its nominators shares
+				let payout = if total_reward_points.is_zero() {
+					// When no authorship points are recorded, divide the payout equally
+					stakers_cut / (validators.len() as u32).into()
+				} else {
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+				};
+				(validator, payout)
+			})
+			.collect()
 	}
 
 	/// Calculate all payouts of the current era as of right now. Then filter out those not relevant

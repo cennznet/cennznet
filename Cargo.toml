@@ -88,6 +88,9 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [features]
+quick = [
+	"cennznet-cli/quick"
+]
 runtime-benchmarks = [
 	"cennznet-cli/runtime-benchmarks"
 ]

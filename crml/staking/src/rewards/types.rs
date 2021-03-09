@@ -32,7 +32,10 @@ pub trait StakeInfoProvider {
 	/// The system balance type
 	type Balance: HasCompact;
 	/// Return the commission and exposure information for the given validator stash at `era`
-	fn stake_info_for(_validator_stash: &Self::AccountId, _era: EraIndex) -> ValidatorStakeInfo<Self::AccountId, Self::Balance>;
+	fn stake_info_for(
+		_validator_stash: &Self::AccountId,
+		_era: EraIndex,
+	) -> ValidatorStakeInfo<Self::AccountId, Self::Balance>;
 }
 
 /// Something which can perform reward payment to staked validators

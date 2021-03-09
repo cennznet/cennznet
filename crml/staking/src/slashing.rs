@@ -49,8 +49,7 @@
 //! Based on research at https://research.web3.foundation/en/latest/polkadot/slashing/npos/
 
 use super::{
-	BalanceOf, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill,
-	SessionInterface, Store, Trait, UnappliedSlash,
+	BalanceOf, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store, Trait, UnappliedSlash,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -534,9 +533,7 @@ pub(crate) fn clear_era_metadata<T: Trait>(obsolete_era: EraIndex) {
 }
 
 /// Clear slashing metadata for a dead account.
-pub(crate) fn clear_stash_metadata<T: Trait>(
-	stash: &T::AccountId,
-) -> DispatchResult {
+pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) -> DispatchResult {
 	let spans = match <Module<T> as Store>::SlashingSpans::get(stash) {
 		None => return Ok(()),
 		Some(s) => s,
