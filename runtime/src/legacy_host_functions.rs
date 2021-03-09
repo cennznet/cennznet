@@ -36,7 +36,7 @@ pub trait Storage {
 
 	/// Remove all child storage values.
 	fn child_storage_kill(&mut self, storage_key: &[u8], _child_definition: &[u8], _child_type: u32) {
-		sp_io::default_child_storage::storage_kill(storage_key)
+		sp_io::default_child_storage::storage_kill(storage_key, None);
 	}
 
 	/// Check a child storage key.
