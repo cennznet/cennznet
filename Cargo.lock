@@ -697,13 +697,13 @@ dependencies = [
  "crml-cennzx-rpc",
  "crml-staking-rpc",
  "crml-transaction-payment",
+ "crml-transaction-payment-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
  "futures 0.3.13",
  "jsonrpc-core",
  "pallet-im-online",
- "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "prml-generic-asset",
  "prml-generic-asset-rpc",
@@ -771,6 +771,7 @@ dependencies = [
  "crml-staking-rpc-runtime-api",
  "crml-sylo",
  "crml-transaction-payment",
+ "crml-transaction-payment-rpc-runtime-api",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -796,7 +797,6 @@ dependencies = [
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-tips",
- "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
@@ -1243,6 +1243,33 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "crml-transaction-payment-rpc"
+version = "2.0.0"
+dependencies = [
+ "crml-transaction-payment-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "crml-transaction-payment-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "crml-transaction-payment",
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -4269,51 +4296,6 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-std",
-]
-
-[[package]]
-name = "pallet-transaction-payment"
-version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "smallvec 1.6.1",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-transaction-payment-rpc"
-version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
-]
-
-[[package]]
-name = "pallet-transaction-payment-rpc-runtime-api"
-version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
-dependencies = [
- "frame-support",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "sp-api",
- "sp-runtime",
 ]
 
 [[package]]

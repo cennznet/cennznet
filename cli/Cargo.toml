@@ -39,7 +39,6 @@ sp-runtime = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.0.0"
-pallet-transaction-payment-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-rpc-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -73,6 +72,7 @@ sp-timestamp = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/pl
 sc-service-test = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 frame-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
+crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 tempfile = "3.1.0"
 
 [build-dependencies]

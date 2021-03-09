@@ -73,7 +73,6 @@ futures = { version = "0.3.1", features = ["compat"] }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1" }
 
 # Used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc1", optional = true }
@@ -87,6 +86,7 @@ crml-staking = { path = "../crml/staking", default-features = false}
 crml-staking-rpc-runtime-api = { path = "../crml/staking/rpc/runtime-api", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
+crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1" }
@@ -111,7 +111,7 @@ std = [
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
-	"pallet-transaction-payment-rpc-runtime-api/std",
+	"crml-transaction-payment-rpc-runtime-api/std",
 	"pallet-treasury/std",
 	"pallet-tips/std",
 	"pallet-bounties/std",
