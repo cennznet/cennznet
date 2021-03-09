@@ -367,7 +367,7 @@ parameter_types! {
 }
 impl crml_transaction_payment::Config for Runtime {
 	type AssetId = AssetId;
-	type OnChargeTransaction = crml_transaction_payment::CurrencyAdapter<GenericAsset, DealWithFees>;
+	type OnChargeTransaction = crml_transaction_payment::CurrencyAdapter<SpendingAssetCurrency<Runtime>, DealWithFees>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = WeightToCpayFee<WeightToCpayFactor>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;

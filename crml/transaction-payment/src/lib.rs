@@ -76,7 +76,6 @@ use sp_std::prelude::*;
 mod payment;
 mod types;
 
-pub use pallet_transaction_payment::CurrencyAdapter;
 pub use payment::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub mod constants;
