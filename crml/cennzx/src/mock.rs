@@ -100,6 +100,7 @@ impl prml_generic_asset::Config for Test {
 }
 
 impl Config for Test {
+	type Balance = Balance;
 	type Event = Event;
 	type AssetId = AssetId;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;

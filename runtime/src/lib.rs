@@ -404,15 +404,17 @@ impl pallet_authority_discovery::Config for Runtime {}
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	/// We prioritize im-online heartbeats over election solution submission.
 	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type Event = Event;
+	type ValidatorSet = Historical;
 	type SessionDuration = SessionDuration;
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type WeightInfo = ();
+	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -535,6 +537,7 @@ impl crml_sylo::vault::Config for Runtime {}
 impl crml_sylo::groups::Config for Runtime {}
 
 impl crml_cennzx::Config for Runtime {
+	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
