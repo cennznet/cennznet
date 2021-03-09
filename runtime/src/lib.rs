@@ -55,7 +55,7 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{Currency, KeyOwnerProofSystem, OnUnbalanced, Randomness},
+	traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
@@ -139,7 +139,12 @@ type NegativeImbalance = <prml_generic_asset::SpendingAssetCurrency<Runtime> as 
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-		Rewards::note_transaction_fees(fees_then_tips.peek());
+		if let Some(fees) = fees_then_tips.next() {
+			Rewards::note_transaction_fees(fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				Rewards::note_transaction_fees(tips.peek());
+			}
+		}
 	}
 }
 
