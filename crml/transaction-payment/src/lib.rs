@@ -719,6 +719,7 @@ mod tests {
 	};
 	use frame_system as system;
 	use pallet_balances::Call as BalancesCall;
+	use smallvec::smallvec;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Header, TestXt},
@@ -1046,7 +1047,7 @@ mod tests {
 				// fee will be proportional to what is the actual maximum weight in the runtime.
 				assert_eq!(
 					Balances::free_balance(&1),
-					(10000 - <Runtime as frame_system::Config>::MaximumBlockWeight::get()) as u64
+					(10000 - <Runtime as frame_system::Config>::BlockWeights::get().max_block) as u64
 				);
 			});
 	}
@@ -1295,12 +1296,12 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 0);
 				// Transfer Event
 				assert!(System::events().iter().any(|event| {
-					event.event == Event::pallet_balances(pallet_balances::RawEvent::Transfer(2, 3, 80))
+					event.event == Event::pallet_balances(pallet_balances::Event::<Runtime>::Transfer(2, 3, 80))
 				}));
 				// Killed Event
 				assert!(System::events()
 					.iter()
-					.any(|event| { event.event == Event::system(system::RawEvent::KilledAccount(2)) }));
+					.any(|event| { event.event == Event::system(frame_system::Event::<Runtime>::KilledAccount(2)) }));
 			});
 	}
 

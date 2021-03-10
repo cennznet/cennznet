@@ -17,12 +17,12 @@
 
 //! Types for transaction-payment RPC.
 
-use sp_std::prelude::*;
-use frame_support::weights::{Weight, DispatchClass};
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
+use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};
+use sp_std::prelude::*;
 
 /// The base fee and adjusted weight and length fees constitute the _inclusion fee_.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -78,7 +78,11 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
 	/// final_fee = inclusion_fee + tip;
 	/// ```
 	pub fn final_fee(&self) -> Balance {
-		self.inclusion_fee.as_ref().map(|i| i.inclusion_fee()).unwrap_or_else(|| Zero::zero()).saturating_add(self.tip)
+		self.inclusion_fee
+			.as_ref()
+			.map(|i| i.inclusion_fee())
+			.unwrap_or_else(|| Zero::zero())
+			.saturating_add(self.tip)
 	}
 }
 
@@ -103,7 +107,7 @@ pub struct RuntimeDispatchInfo<Balance> {
 
 #[cfg(feature = "std")]
 mod serde_balance {
-	use serde::{Deserialize, Serializer, Deserializer};
+	use serde::{Deserialize, Deserializer, Serializer};
 
 	pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
 		serializer.serialize_str(&t.to_string())
@@ -111,7 +115,8 @@ mod serde_balance {
 
 	pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
 		let s = String::deserialize(deserializer)?;
-		s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+		s.parse::<T>()
+			.map_err(|_| serde::de::Error::custom("Parse from string failed"))
 	}
 }
 
@@ -130,7 +135,10 @@ mod tests {
 		let json_str = r#"{"weight":5,"class":"normal","partialFee":"1000000"}"#;
 
 		assert_eq!(serde_json::to_string(&info).unwrap(), json_str);
-		assert_eq!(serde_json::from_str::<RuntimeDispatchInfo<u64>>(json_str).unwrap(), info);
+		assert_eq!(
+			serde_json::from_str::<RuntimeDispatchInfo<u64>>(json_str).unwrap(),
+			info
+		);
 
 		// should not panic
 		serde_json::to_value(&info).unwrap();
@@ -147,7 +155,10 @@ mod tests {
 		let json_str = r#"{"weight":5,"class":"normal","partialFee":"340282366920938463463374607431768211455"}"#;
 
 		assert_eq!(serde_json::to_string(&info).unwrap(), json_str);
-		assert_eq!(serde_json::from_str::<RuntimeDispatchInfo<u128>>(json_str).unwrap(), info);
+		assert_eq!(
+			serde_json::from_str::<RuntimeDispatchInfo<u128>>(json_str).unwrap(),
+			info
+		);
 
 		// should not panic
 		serde_json::to_value(&info).unwrap();
