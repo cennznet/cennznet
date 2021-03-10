@@ -20,7 +20,6 @@ sc-chain-spec = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/p
 sc-cli = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
 sp-core = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-executor = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-service = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
 sp-inherents = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-transaction-pool = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -44,6 +43,7 @@ sp-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blo
 sc-rpc-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-blockchain = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-block-builder = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-utils = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-basic-authorship = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 substrate-frame-rpc-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
