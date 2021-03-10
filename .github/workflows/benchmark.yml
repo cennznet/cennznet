@@ -10,6 +10,7 @@ jobs:
       - run: |
           echo "test manual trigger"
 
+
   # format-build-test:
   #   runs-on: [self-hosted, linux]
   #   env:
