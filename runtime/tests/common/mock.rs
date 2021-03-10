@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus}
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
-use sp_runtime::Perbill;
+use sp_runtime::{
+	FixedU128, FixedPointNumber, Perbill,
+};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
@@ -135,6 +137,7 @@ impl ExtBuilder {
 
 		crml_staking::rewards::GenesisConfig {
 			development_fund_take: Perbill::from_percent(10),
+			inflation_rate: FixedU128::saturating_from_rational(8, 10),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

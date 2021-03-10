@@ -143,7 +143,11 @@ mod tests {
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
 	use frame_support::weights::{Weight, WeightToFeePolynomial};
-	use sp_runtime::{assert_eq_error_rate, FixedPointNumber};
+	use sp_runtime::{
+		assert_eq_error_rate,
+		traits::Convert,
+		FixedPointNumber,
+	};
 
 	fn max() -> Weight {
 		AvailableBlockRatio::get() * MaximumBlockWeight::get()
