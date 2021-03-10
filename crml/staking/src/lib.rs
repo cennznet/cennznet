@@ -2486,6 +2486,7 @@ impl<T: Trait> Module<T> {
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
 	fn start_era(start_session: SessionIndex) {
+		frame_support::runtime_print!("start era: session: {:?}", start_session);
 		let active_era = ActiveEra::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			*active_era = Some(ActiveEraInfo {
@@ -2535,6 +2536,7 @@ impl<T: Trait> Module<T> {
 
 	/// Plan a new era. Return the potential new staking set.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		frame_support::runtime_print!("new era: session: {:?}", start_session_index);
 		// Increment or set current era.
 		let current_era = CurrentEra::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));

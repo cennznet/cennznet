@@ -147,7 +147,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 	pub const MaxLocks: u32 = 1024;
 	pub const SessionsPerEra: SessionIndex = 3;
-	pub const ExistentialDeposit: Balance = 0;
+	pub const ExistentialDeposit: Balance = 1;
 	pub const SlashDeferDuration: EraIndex = 0;
 	pub const ElectionLookahead: BlockNumber = 0;
 	pub const Period: BlockNumber = 5;

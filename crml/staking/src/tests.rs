@@ -30,6 +30,15 @@ use sp_staking::offence::OffenceDetails;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
+fn active_era_advances() {
+	ExtBuilder::default().build_and_execute(|| {
+		start_active_era(1);
+		start_active_era(2);
+		start_active_era(3);
+	})
+}
+
+#[test]
 fn force_unstake_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Account 11 is stashed and locked, and account 10 is the controller

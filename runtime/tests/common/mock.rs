@@ -17,9 +17,14 @@
 
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
-use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
+use cennznet_runtime::{
+	constants::asset::*,
+	GenericAsset, Runtime, Session, Staking, StakerStatus,
+	System, Timestamp,
+};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
+use frame_support::traits::OnInitialize;
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::{
 	FixedU128, FixedPointNumber, Perbill,
@@ -37,6 +42,8 @@ pub struct ExtBuilder {
 	stash: Balance,
 	// The initial authority set
 	initial_authorities: Vec<AuthorityKeys>,
+	/// Whether to start the first session
+	initialize_first_session: bool,
 }
 
 impl Default for ExtBuilder {
@@ -45,6 +52,7 @@ impl Default for ExtBuilder {
 			initial_balance: 0,
 			stash: 0,
 			initial_authorities: Default::default(),
+			initialize_first_session: true,
 		}
 	}
 }
@@ -148,6 +156,18 @@ impl ExtBuilder {
 			// This allows signed extrinsics to validate.
 			frame_system::Module::<Runtime>::set_parent_hash(GENESIS_HASH.into());
 		});
+
+		if self.initialize_first_session {
+			// We consider all test to start after timestamp is initialized This must be ensured by
+			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
+			// session length is 1, then it is already triggered.
+			ext.execute_with(|| {
+				System::set_block_number(1);
+				Session::on_initialize(1);
+				Staking::on_initialize(1);
+				Timestamp::set_timestamp(30_000);
+			});
+		}
 
 		ext
 	}

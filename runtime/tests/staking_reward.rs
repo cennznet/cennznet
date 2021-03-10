@@ -16,9 +16,9 @@
 //! Staking reward tests
 
 use cennznet_cli::chain_spec::AuthorityKeys;
-use cennznet_primitives::types::{Balance, DigestItem, Header};
+use cennznet_primitives::types::{Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
-	constants::{asset::*, currency::*},
+	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
 	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session, SessionsPerEra,
 	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
@@ -27,13 +27,13 @@ use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
 	assert_ok,
 	storage::StorageValue,
-	traits::{Currency, OnInitialize, UnfilteredDispatchable},
+	traits::{Currency, Get, OnFinalize, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use pallet_im_online::UnresponsivenessOffence;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
-	traits::{Header as HeaderT, Saturating, Zero},
+	traits::{Header as HeaderT, One, Saturating, Zero},
 	Perbill,
 };
 use sp_staking::{
@@ -50,6 +50,70 @@ use common::mock::ExtBuilder;
 type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
 /// Alias for the runtime configured staking currency
 type StakeCurrency = <Runtime as crml_staking::Trait>::Currency;
+
+/// Progress to the given block, triggering session and era changes as we progress.
+///
+/// This will finalize the previous block, initialize up to the given block, essentially simulating
+/// a block import/propose process where we first initialize the block, then execute some stuff (not
+/// in the function), and then finalize the block.
+pub(crate) fn run_to_block(n: BlockNumber) {
+	println!("run to block: {:?}", n);
+	println!("spe: {:?}", SessionsPerEra::get());
+	println!("ed: {:?}", EpochDuration::get());
+
+	Staking::on_finalize(System::block_number());
+	for b in (System::block_number() + 1)..=n {
+		System::set_block_number(b);
+		Session::on_initialize(b);
+		Staking::on_initialize(b);
+		// Session asks babe if it can rotate
+		// if babe says yes, session  rotates then tells babe to rotate
+		Timestamp::set_timestamp(30_000 + b as u64 * MILLISECS_PER_BLOCK);
+		// force babe slot increment (normally set by system digest)
+		pallet_babe::CurrentSlot::put(n as u64);
+		if b != n {
+			Staking::on_finalize(System::block_number());
+		}
+
+		println!("block: {:?}", System::block_number());
+		// Seems start session isn't trigger, start era...
+		println!("current: {:?}", Staking::current_era());
+		println!("active: {:?}", Staking::active_era());
+	}
+}
+
+/// Convenient getter for current era aka (scheduled active after session delay)
+pub(crate) fn current_era() -> EraIndex {
+	Staking::current_era().expect("current era is set")
+}
+
+/// Convenient getter for active era 
+pub(crate) fn active_era() -> EraIndex {
+	Staking::active_era().expect("active era is set").index
+}
+
+/// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
+pub(crate) fn start_session(session_index: SessionIndex) {
+	run_to_block(session_index * EpochDuration::get() as u32);
+	// session must have progressed properly.
+	assert_eq!(
+		Session::current_index(),
+		session_index,
+		"current session index = {}, expected = {}",
+		Session::current_index(),
+		session_index,
+	);
+}
+
+/// Progress until the given era.
+pub(crate) fn start_active_era(era_index: EraIndex) {
+	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
+	println!("current era = {:?}, expected = {:?}", active_era(), era_index);
+	assert_eq!(active_era(), era_index);
+	// One way or another, current_era must have changed before the active era, so they must match
+	// at this point.
+	assert_eq!(current_era(), active_era());
+}
 
 /// Get a block header and set the author of that block in a way that is recognisable by BABE.
 /// The author will be specified by its index in the Session::validators() list. So the author
@@ -116,11 +180,6 @@ fn advance_session() {
 	rotate_to_session(Session::current_index() + 1, false);
 }
 
-// Use in the tests where sending authority heartbeats is not required
-fn start_era(era_index: EraIndex) {
-	rotate_to_session(era_index * SessionsPerEra::get(), false);
-}
-
 #[test]
 fn staking_genesis_config_works() {
 	let validators = make_authority_keys(6);
@@ -179,7 +238,7 @@ fn current_era_transaction_rewards_storage_update_works() {
 
 			// Start the first era
 			advance_session();
-			assert_eq!(Staking::active_era().expect("an era is active").index, 1);
+			assert_eq!(active_era(), 1);
 
 			// Start with 0 transaction rewards
 			assert!(Rewards::transaction_fee_pot().is_zero());
@@ -199,12 +258,12 @@ fn current_era_transaction_rewards_storage_update_works() {
 			// Advancing sessions shouldn't change transaction rewards storage
 			advance_session();
 			advance_session();
-			assert_eq!(Staking::active_era().expect("era is active").index, 1);
+			assert_eq!(active_era(), 1);
 			assert_eq!(Rewards::transaction_fee_pot(), era1_tx_fee);
 
 			// At the start of the next era, transaction rewards should be cleared (and paid out)
-			start_era(2);
-			assert_eq!(Staking::active_era().expect("era is active").index, 2);
+			start_active_era(2);
+			assert_eq!(active_era(), 2);
 			advance_session();
 			assert!(Rewards::transaction_fee_pot().is_zero());
 		});
@@ -231,7 +290,8 @@ fn elected_validators_receive_transaction_fee_reward() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-			start_era(1);
+
+			start_active_era(1);
 
 			let make_validator_0_author_block = || {
 				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
@@ -277,7 +337,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 				)
 			}
 
-			start_era(2);
+			start_active_era(2);
 
 			make_validator_0_author_block();
 
@@ -328,7 +388,8 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-			start_era(1);
+
+			start_active_era(1);
 
 			let author_index = 0;
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
@@ -355,7 +416,7 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 				)
 			}
 
-			start_era(2);
+			start_active_era(2);
 			Executive::initialize_block(&header_for_block_number((System::block_number() + 1).into()));
 
 			// The whole reward of the era goes to the author
@@ -399,7 +460,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 			rotate_to_session(final_session_of_era_index, true);
 
 			// The final session falls in the era 0
-			assert_eq!(Staking::active_era().expect("era is active").index, 0);
+			assert_eq!(active_era(), 0);
 
 			// Make sure we have the correct number of validators elected
 			assert_eq!(Session::validators().len(), validators.len());
@@ -422,7 +483,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
-			assert_eq!(Staking::active_era().expect("era is active").index, 1);
+			assert_eq!(active_era(), 1);
 
 			// No offences should happened. Thus the number of validators shouldn't have changed
 			assert_eq!(Session::validators().len(), validators.len());
@@ -450,7 +511,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			rotate_to_session(final_session_of_era_index, true);
 
 			// The last session falls in the era 0
-			assert_eq!(Staking::active_era().expect("era is active").index, 0);
+			assert_eq!(active_era(), 0);
 
 			// make sure we have the correct number of validators elected
 			assert_eq!(Session::validators().len(), validators.len());
@@ -464,10 +525,9 @@ fn authorship_reward_of_a_chilled_validator() {
 			let author_stash_id = Session::validators()[(author_index as usize)].clone();
 
 			// Report an offence for the author of the block that is going to be initialised
-			let active_era = Staking::active_era().expect("era is active").index;
 			assert_ok!(Staking::on_offence(
 				&[sp_staking::offence::OffenceDetails {
-					offender: (author_stash_id.clone(), Staking::eras_stakers(active_era, &author_stash_id)),
+					offender: (author_stash_id.clone(), Staking::eras_stakers(active_era(), &author_stash_id)),
 					reporters: vec![],
 				}],
 				&[Perbill::from_percent(0)],
@@ -485,7 +545,7 @@ fn authorship_reward_of_a_chilled_validator() {
 			advance_session();
 
 			// initializing the last block should have advanced the session and thus changed the era
-			assert_eq!(Staking::active_era().expect("era is active").index, 1);
+			assert_eq!(active_era(), 1);
 
 			// If the offended validator is chilled, in the new era, there should be one less elected validators than before
 			assert_eq!(Session::validators().len(), validators.len() - 1);
@@ -506,6 +566,9 @@ fn slashed_cennz_goes_to_treasury() {
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
+
+			start_active_era(1);
+
 			// Initially treasury has no CENNZ
 			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 
@@ -520,7 +583,7 @@ fn slashed_cennz_goes_to_treasury() {
 			// Fast-forward eras, 'i'm online' heartbeats are not submitted during this process which will
 			// result in automatic slash reports being generated by the protocol against all staked validators.
 			// Once `SlashDeferDuration` + 1 eras have passed the offence from era(0) will be applied.
-			start_era(SlashDeferDuration::get() + 1);
+			start_active_era(SlashDeferDuration::get());
 
 			// Treasury should receive all offenders stake
 			assert_eq!(
@@ -547,17 +610,18 @@ fn slashed_cennz_goes_to_reporter() {
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
+
+			start_active_era(1);
+
 			// Initially treasury has no CENNZ
 			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 			let offender = &validators[0].0;
 			let reporter = bob();
 
-			let active_era = Staking::active_era().expect("era is active").index;
-
 			// Make a slash-able offence report on validator[0]
 			let offence = OffenceDetails {
 				// validators[0].0 is the stash account of the first validator
-				offender: (offender.clone(), Staking::eras_stakers(active_era, &offender)),
+				offender: (offender.clone(), Staking::eras_stakers(active_era(), &offender)),
 				reporters: vec![reporter.clone()],
 			};
 
@@ -565,11 +629,11 @@ fn slashed_cennz_goes_to_reporter() {
 			assert_ok!(Staking::on_offence(
 				&[offence],
 				&[slash_fraction],
-				Staking::eras_start_session_index(active_era).expect("session index exists"),
+				Staking::eras_start_session_index(active_era()).expect("session index exists"),
 			));
 
 			// Fast-forward eras so that the slash is applied
-			start_era(SlashDeferDuration::get() + 1);
+			start_active_era(SlashDeferDuration::get() + 1);
 
 			// offender CENNZ funds are slashed
 			let total_slash = slash_fraction * initial_balance;
