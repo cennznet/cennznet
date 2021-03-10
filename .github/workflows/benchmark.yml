@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  print:
+    runs-on: [self-hosted, benchmark]
+    steps:
+      - run: |
+          echo "test manual trigger"
+
+  # format-build-test:
+  #   runs-on: [self-hosted, linux]
+  #   env:
+  #     SCCACHE_CACHE_SIZE: "50G"
+  #   steps:
+  #   - name: Cancel previous runs
+  #     uses: styfle/cancel-workflow-action@0.6.0
+  #     with:
+  #       access_token: ${{ github.token }}
+  #   - name: Check out
+  #     uses: actions/checkout@v2
+  #   - name: Install toolchain
+  #     uses: actions-rs/toolchain@v1
+  #     with:
+  #       profile: minimal
+  #       toolchain: nightly-2020-11-18
+  #       components: rustfmt
+  #       target: wasm32-unknown-unknown
+  #       default: true
+  #   - name: Format
+  #     run: cargo fmt --all -- --check
+  #   - name: Build
+  #     run: cargo build --locked
+  #   - name: Test
+  #     run: cargo test --all
