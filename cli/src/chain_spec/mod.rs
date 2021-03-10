@@ -162,7 +162,6 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				.collect::<Vec<_>>(),
 		}),
 		crml_staking: Some(StakingConfig {
-			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities

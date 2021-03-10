@@ -858,7 +858,7 @@ decl_storage! {
 			map hasher(twox_64_concat) T::AccountId => Option<Nominations<T::AccountId>>;
 
 		/// The current era index.
-		pub CurrentEra get(fn current_era) config(): Option<EraIndex>;
+		pub CurrentEra get(fn current_era): Option<EraIndex>;
 
 		/// The active era information, it holds index and start.
 		///
@@ -1218,12 +1218,12 @@ decl_module! {
 			if Self::era_election_status().is_open_at(now) {
 				let offchain_status = set_check_offchain_execution_status::<T>(now);
 				if let Err(why) = offchain_status {
-					log!(debug, "skipping offchain worker in open election window due to [{}]", why);
+					log!(warn, "💸 skipping offchain worker in open election window due to [{}]", why);
 				} else {
 					if let Err(e) = compute_offchain_election::<T>() {
 						log!(error, "💸 Error in election offchain worker: {:?}", e);
 					} else {
-						log!(debug, "Executed offchain worker thread without errors.");
+						log!(debug, "💸 Executed offchain worker thread without errors.");
 					}
 				}
 			}
@@ -1250,6 +1250,25 @@ decl_module! {
 					T::SlashDeferDuration::get(),
 					T::BondingDuration::get(),
 				)
+			);
+
+			use sp_runtime::UpperOf;
+			// see the documentation of `Assignment::try_normalize`. Now we can ensure that this
+			// will always return `Ok`.
+			// 1. Maximum sum of Vec<ChainAccuracy> must fit into `UpperOf<ChainAccuracy>`.
+			assert!(
+				<usize as TryInto<UpperOf<ChainAccuracy>>>::try_into(MAX_NOMINATIONS)
+				.unwrap()
+				.checked_mul(<ChainAccuracy>::one().deconstruct().try_into().unwrap())
+				.is_some()
+			);
+
+			// 2. Maximum sum of Vec<OffchainAccuracy> must fit into `UpperOf<OffchainAccuracy>`.
+			assert!(
+				<usize as TryInto<UpperOf<OffchainAccuracy>>>::try_into(MAX_NOMINATIONS)
+				.unwrap()
+				.checked_mul(<OffchainAccuracy>::one().deconstruct().try_into().unwrap())
+				.is_some()
 			);
 		}
 
@@ -2088,7 +2107,6 @@ impl<T: Trait> Module<T> {
 	fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		if let Some(current_era) = Self::current_era() {
 			// Initial era has been set.
-
 			let current_era_start_session_index = Self::eras_start_session_index(current_era).unwrap_or_else(|| {
 				frame_support::print("Error: start_session_index must be set for current_era");
 				0
@@ -2117,6 +2135,7 @@ impl<T: Trait> Module<T> {
 			Self::new_era(session_index)
 		} else {
 			// Set initial era
+			log!(debug, "💸 schedule genesis era, starting at session index: {:?}", session_index);
 			Self::new_era(session_index)
 		}
 	}
@@ -2465,7 +2484,7 @@ impl<T: Trait> Module<T> {
 			} else if next_active_era_start_session_index < start_session {
 				// This arm should never happen, but better handle it than to stall the
 				// staking pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
+				log!(warn, "💸 a session appears to have been skipped");
 				Self::start_era(start_session);
 			}
 		}
@@ -2486,7 +2505,6 @@ impl<T: Trait> Module<T> {
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
 	fn start_era(start_session: SessionIndex) {
-		frame_support::runtime_print!("start era: session: {:?}", start_session);
 		let active_era = ActiveEra::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			*active_era = Some(ActiveEraInfo {
@@ -2536,7 +2554,6 @@ impl<T: Trait> Module<T> {
 
 	/// Plan a new era. Return the potential new staking set.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		frame_support::runtime_print!("new era: session: {:?}", start_session_index);
 		// Increment or set current era.
 		let current_era = CurrentEra::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
@@ -2998,8 +3015,8 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ }
 				_ => {
 					log!(
-						debug,
-						"rejecting unsigned transaction because it is not local/in-block."
+						warn,
+						"💸 rejecting unsigned transaction because it is not local/in-block."
 					);
 					return InvalidTransaction::Call.into();
 				}
@@ -3009,13 +3026,13 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 				let invalid = to_invalid(error_with_post_info);
 				log!(
 					debug,
-					"validate unsigned pre dispatch checks failed due to error #{:?}.",
+					"💸 validate unsigned pre dispatch checks failed due to error #{:?}.",
 					invalid,
 				);
 				return invalid.into();
 			}
 
-			log!(debug, "validateUnsigned succeeded for a solution at era {}.", era);
+			log!(debug, "💸 validateUnsigned succeeded for a solution at era {}.", era);
 
 			ValidTransaction::with_tag_prefix("StakingOffchain")
 				// The higher the score[0], the better a solution is.

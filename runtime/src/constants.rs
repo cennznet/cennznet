@@ -75,7 +75,6 @@ pub mod time {
 	#[cfg(not(feature = "integration_config"))]
 	pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;
 	#[cfg(feature = "integration_config")]
-	// shorter value for testing
 	pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * MINUTES;
 
 	pub const EPOCH_DURATION_IN_SLOTS: u64 = {
@@ -92,6 +91,5 @@ pub mod time {
 	#[cfg(not(feature = "integration_config"))]
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 144;
 	#[cfg(feature = "integration_config")]
-	// shorter value for testing
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 2;
 }
