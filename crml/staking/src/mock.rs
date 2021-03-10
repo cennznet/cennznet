@@ -17,6 +17,7 @@
 
 //! Test utilities
 
+use crate::rewards::{HandlePayee, NextRewardParts, RewardCalculation};
 use crate::*;
 use frame_support::{
 	assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
@@ -30,9 +31,8 @@ use sp_npos_elections::{
 	build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
 };
 use sp_runtime::{
-	curve::PiecewiseLinear,
 	testing::{Header, TestXt, UintAuthorityId},
-	traits::{IdentityLookup, Zero},
+	traits::{IdentityLookup, One, Zero},
 };
 use sp_staking::offence::{OffenceDetails, OnOffenceHandler};
 use std::{
@@ -51,11 +51,12 @@ pub(crate) type Balance = u128;
 
 thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
-	static SESSION_PER_ERA: RefCell<SessionIndex> = RefCell::new(3);
+	static SESSIONS_PER_ERA: RefCell<SessionIndex> = RefCell::new(3);
 	static EXISTENTIAL_DEPOSIT: RefCell<Balance> = RefCell::new(0);
 	static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
 	static ELECTION_LOOKAHEAD: RefCell<BlockNumber> = RefCell::new(0);
 	static PERIOD: RefCell<BlockNumber> = RefCell::new(1);
+	static OFFSET: RefCell<BlockNumber> = RefCell::new(0);
 	static MAX_ITERATIONS: RefCell<u32> = RefCell::new(0);
 }
 
@@ -220,7 +221,7 @@ impl pallet_authorship::Trait for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
-	type EventHandler = Module<Test>;
+	type EventHandler = ();
 }
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
@@ -231,19 +232,9 @@ impl pallet_timestamp::Trait for Test {
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
-pallet_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
+
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
@@ -264,7 +255,7 @@ impl Trait for Test {
 	type SlashDeferDuration = SlashDeferDuration;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type Rewarder = Rewarder;
+	type Rewarder = NoopRewarder<Self>;
 	type NextNewSession = Session;
 	type ElectionLookahead = ElectionLookahead;
 	type Call = Call;
@@ -290,6 +281,7 @@ pub struct ExtBuilder {
 	validator_pool: bool,
 	nominate: bool,
 	validator_count: u32,
+	minimum_bond: Balance,
 	minimum_validator_count: u32,
 	fair: bool,
 	num_validators: Option<u32>,
@@ -304,6 +296,7 @@ impl Default for ExtBuilder {
 			validator_pool: false,
 			nominate: true,
 			validator_count: 2,
+			minimum_bond: One::one(),
 			minimum_validator_count: 0,
 			fair: true,
 			num_validators: None,
@@ -329,6 +322,10 @@ impl ExtBuilder {
 	}
 	pub fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
+		self
+	}
+	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
+		self.minimum_bond = minimum_bond;
 		self
 	}
 	pub fn minimum_validator_count(mut self, count: u32) -> Self {
@@ -442,6 +439,7 @@ impl ExtBuilder {
 		let _ = GenesisConfig::<Test> {
 			stakers: stakers,
 			validator_count: self.validator_count,
+			minimum_bond: self.minimum_bond,
 			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
 			slash_reward_fraction: Perbill::from_percent(10),
@@ -666,28 +664,6 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
-pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-	let reward = inflation::compute_total_payout(
-		<Test as Trait>::RewardCurve::get(),
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
-		duration,
-	)
-	.0;
-	assert!(reward > 0);
-	reward
-}
-
-pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-	inflation::compute_total_payout(
-		<Test as Trait>::RewardCurve::get(),
-		0,
-		Balances::total_issuance(),
-		duration,
-	)
-	.1
-}
-
 /// Time it takes to finish a session.
 ///
 /// Note, if you see `time_per_session() - BLOCK_TIME`, it is fine. This is because we set the
@@ -702,19 +678,6 @@ pub(crate) fn time_per_session() -> u64 {
 /// timestamp after on_initialize, so the timestamp is always one block old.
 pub(crate) fn time_per_era() -> u64 {
 	time_per_session() * SessionsPerEra::get() as u64
-}
-
-/// Time that will be calculated for the reward per era.
-pub(crate) fn reward_time_per_era() -> u64 {
-	time_per_era() - BLOCK_TIME
-}
-
-pub(crate) fn reward_all_elected() {
-	let rewards = <Test as Trait>::SessionInterface::validators()
-		.into_iter()
-		.map(|v| (v, 1));
-
-	<Module<Test>>::reward_by_ids(rewards)
 }
 
 pub(crate) fn validator_controllers() -> Vec<AccountId> {
@@ -963,21 +926,6 @@ pub(crate) fn prepare_submission_with(
 	(compact, winners, score)
 }
 
-/// Make all validator and nominator request their payment
-pub(crate) fn make_all_reward_payment(era: EraIndex) {
-	let validators_with_reward = ErasRewardPoints::<Test>::get(era)
-		.individual
-		.keys()
-		.cloned()
-		.collect::<Vec<_>>();
-
-	// reward validators
-	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
-		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		assert_ok!(Staking::payout_stakers(Origin::signed(1337), ledger.stash, era));
-	}
-}
-
 #[macro_export]
 macro_rules! assert_session_era {
 	($session:expr, $era:expr) => {
@@ -1014,4 +962,37 @@ pub(crate) fn staking_events() -> Vec<Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+/// A rewarder which does nothing
+pub struct NoopRewarder<T: Trait>(sp_std::marker::PhantomData<T>);
+
+impl<T: Trait> RewardCalculation for NoopRewarder<T> {
+	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
+	fn calculate_total_reward() -> NextRewardParts<Self::Balance> {
+		NextRewardParts {
+			transaction_fees: Zero::zero(),
+			inflation: Zero::zero(),
+		}
+	}
+	fn calculate_individual_reward(
+		stash: &Self::AccountId,
+		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+	) -> Self::Balance {
+		Zero::zero()
+	}
+}
+
+impl<T: Trait> HandlePayee for NoopRewarder<T> {
+	type AccountId = T::AccountId;
+	fn set_payee(_stash: &Self::AccountId, _payee: &Self::AccountId) {}
+	fn remove_payee(_stash: &Self::AccountId) {}
+	fn payee(stash: &Self::AccountId) -> Self::AccountId {
+		stash.clone()
+	}
+}
+
+impl<T: Trait> OnEndEra for NoopRewarder<T> {
+	type AccountId = T::AccountId;
 }

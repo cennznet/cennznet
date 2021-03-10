@@ -88,8 +88,8 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [features]
-quick = [
-	"cennznet-cli/quick"
+quick_staking = [
+	"cennznet-cli/quick_staking"
 ]
 runtime-benchmarks = [
 	"cennznet-cli/runtime-benchmarks"

@@ -92,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{RootMemberOnly, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -500,13 +500,13 @@ parameter_types! {
 	pub const BlockPayoutInterval: u32 = 3;
 }
 impl crml_staking_rewards::Trait for Runtime {
+	type BlockPayoutInterval = BlockPayoutInterval;
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
-	type HistoricalPayoutEras = HistoricalPayoutEras;
-	type TreasuryModuleId = TreasuryModuleId;
-	type BlockPayoutInterval = BlockPayoutInterval;
-	type StakeInfoProvider = Staking;
 	type FiscalEraLength = FiscalEraLength;
+	type HistoricalPayoutEras = HistoricalPayoutEras;
+	type ScheduledPayoutRunner = ScheduledPayoutRunner<Self>;
+	type TreasuryModuleId = TreasuryModuleId;
 	type WeightInfo = ();
 }
 

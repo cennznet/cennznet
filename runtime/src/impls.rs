@@ -16,18 +16,44 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Runtime, Treasury};
-use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
+use crate::{Rewards, Runtime, Staking, Treasury};
+use cennznet_primitives::{
+	traits::SimpleAssetSystem,
+	types::{AccountId, Balance},
+};
+use crml_staking::rewards::RunScheduledPayout;
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
-	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use prml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use smallvec::smallvec;
 use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
+
+/// Runs scheduled payouts for the rewards module.
+// It feeds staking module exposure data into rewards calculation/execution function.
+pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>);
+
+impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
+	type AccountId = AccountId;
+	type Balance = Balance;
+
+	/// Feed exposure info from staking to run reward calculations
+	fn run_payout(validator_stash: &Self::AccountId, total_payout: Self::Balance) -> Weight {
+		use crml_staking::rewards::WeightInfo;
+
+		let era = Staking::current_era().unwrap_or(0);
+		let exposures = Staking::eras_stakers_clipped(era.saturating_sub(1), validator_stash);
+		let commission = Staking::eras_validator_prefs(era.saturating_sub(1), validator_stash).commission;
+
+		Rewards::process_reward_payout(&validator_stash, commission, &exposures, total_payout);
+
+		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
+	}
+}
 
 /// Provides a simple weight to fee conversion function for
 /// use with the CENNZnet 4dp spending asset, CPAY.

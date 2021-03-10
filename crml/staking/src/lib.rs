@@ -219,7 +219,7 @@ mod tests;
 mod migration;
 mod offchain_election;
 pub mod rewards;
-pub use rewards::{HandlePayee, StakeInfoProvider, StakerRewardPayment, ValidatorStakeInfo};
+pub use rewards::{HandlePayee, OnEndEra, RewardCalculation};
 
 mod slashing;
 pub use slashing::REWARD_F1;
@@ -723,8 +723,9 @@ pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
 	type SessionInterface: self::SessionInterface<Self::AccountId>;
 
 	/// Handles payout for validator rewards
-	type Rewarder: StakerRewardPayment<AccountId = Self::AccountId, Balance = BalanceOf<Self>>
-		+ HandlePayee<AccountId = Self::AccountId>;
+	type Rewarder: HandlePayee<AccountId = Self::AccountId>
+		+ OnEndEra<AccountId = Self::AccountId>
+		+ RewardCalculation<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 
 	/// The number of blocks before the end of the era from which election submissions are allowed.
 	///
@@ -2066,7 +2067,7 @@ impl<T: Trait> Module<T> {
 			})
 			.collect::<Vec<(_, _, _)>>();
 
-		T::Rewarder::payee_next_reward_payout(stash, validator_commission_stake_map.as_slice())
+		T::Rewarder::calculate_individual_reward(stash, validator_commission_stake_map.as_slice())
 	}
 
 	/// Update the ledger for a controller.
@@ -2527,7 +2528,8 @@ impl<T: Trait> Module<T> {
 			let validators = ErasValidatorPrefs::<T>::iter_prefix(active_era_start as u32)
 				.map(|(stash, _prefs)| stash)
 				.collect::<Vec<T::AccountId>>();
-			T::Rewarder::schedule_reward_payouts(validators.as_slice(), active_era.index);
+
+			T::Rewarder::on_end_era(validators.as_slice(), active_era.index);
 		}
 	}
 
@@ -3067,19 +3069,4 @@ fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransac
 		_ => 0,
 	};
 	InvalidTransaction::Custom(error_number)
-}
-
-impl<T: Trait> StakeInfoProvider for Module<T> {
-	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
-	/// Return validator staking info at `era`
-	fn stake_info_for(
-		validator_stash: &Self::AccountId,
-		era: EraIndex,
-	) -> ValidatorStakeInfo<Self::AccountId, Self::Balance> {
-		ValidatorStakeInfo {
-			exposures: Self::eras_stakers_clipped(era, validator_stash),
-			commission: Self::eras_validator_prefs(era, validator_stash).commission,
-		}
-	}
 }

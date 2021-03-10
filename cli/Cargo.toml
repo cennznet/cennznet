@@ -82,7 +82,7 @@ substrate-build-script-utils = { rev = "2.0.5", git = "https://github.com/plugbl
 [features]
 default = []
 # Uses integration test config for quicker staking eras + epochs
-quick = [
+quick_staking = [
 	"cennznet-runtime/integration_config"
 ]
 runtime-benchmarks = [

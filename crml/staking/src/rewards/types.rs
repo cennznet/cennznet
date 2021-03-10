@@ -17,41 +17,54 @@
 
 use crate::{EraIndex, Exposure};
 use codec::{Decode, Encode, HasCompact};
-use sp_runtime::Perbill;
+use frame_support::weights::Weight;
+use sp_runtime::{traits::Saturating, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
 
-/// Validator stake info required for reward calculation
-pub struct ValidatorStakeInfo<AccountId, Balance: HasCompact> {
-	pub commission: Perbill,
-	pub exposures: Exposure<AccountId, Balance>,
+/// Something that can run payouts
+/// We need some information from staking module and rewards module to execute a payout lazily
+pub trait RunScheduledPayout {
+	type AccountId;
+	type Balance;
+	/// Execute a staking payout
+	fn run_payout(validator_stash: &Self::AccountId, _total_payout: Self::Balance) -> Weight;
 }
 
-pub trait StakeInfoProvider {
+/// A type which can be notified of a staking era end
+pub trait OnEndEra {
+	type AccountId;
+	/// Receives the stash addresses of the validator set and the `era_index` which is finishing
+	fn on_end_era(_validator_stashes: &[Self::AccountId], _era_index: EraIndex) {}
+}
+
+/// Detailed parts of a total reward
+pub struct NextRewardParts<Balance: Clone + HasCompact + Saturating> {
+	/// How much of this reward is due to base inflation
+	pub inflation: Balance,
+	/// How much of this reward is due to transaction fees
+	pub transaction_fees: Balance,
+}
+
+impl<Balance: Clone + HasCompact + Saturating> NextRewardParts<Balance> {
+	/// Calculate the total reward from its parts
+	pub fn total(self) -> Balance {
+		self.transaction_fees.saturating_add(self.inflation)
+	}
+}
+
+/// Something which can perform reward calculation
+pub trait RewardCalculation {
 	/// The system account ID type
 	type AccountId;
 	/// The system balance type
-	type Balance: HasCompact;
-	/// Return the commission and exposure information for the given validator stash at `era`
-	fn stake_info_for(
-		_validator_stash: &Self::AccountId,
-		_era: EraIndex,
-	) -> ValidatorStakeInfo<Self::AccountId, Self::Balance>;
-}
+	type Balance: Clone + HasCompact + Saturating;
 
-/// Something which can perform reward payment to staked validators
-pub trait StakerRewardPayment {
-	/// The system account ID type
-	type AccountId;
-	/// The system balance type
-	type Balance: HasCompact;
-
-	/// Schedule a reward payout for the given validators at the given era
-	fn schedule_reward_payouts(validators: &[Self::AccountId], era: EraIndex);
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
-	fn calculate_next_reward_payout() -> Self::Balance;
+	fn calculate_total_reward() -> NextRewardParts<Self::Balance>;
 	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
-	fn payee_next_reward_payout(
+	/// Requires commission rates and exposures for the relevant validator set
+	fn calculate_individual_reward(
 		stash: &Self::AccountId,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance;
@@ -76,7 +89,7 @@ pub type RewardPoint = u32;
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// These points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, Default)]
+#[derive(PartialEq, Clone, Encode, Decode, Default)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
