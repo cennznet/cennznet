@@ -34,7 +34,7 @@ pub trait RunScheduledPayout {
 pub trait OnEndEra {
 	type AccountId;
 	/// Receives the stash addresses of the validator set and the `era_index` which is finishing
-	fn on_end_era(_validator_stashes: &[Self::AccountId], _era_index: EraIndex) {}
+	fn on_end_era(_validator_stashes: &[Self::AccountId], _era_index: EraIndex, _is_forced: bool) {}
 }
 
 /// Detailed parts of a total reward

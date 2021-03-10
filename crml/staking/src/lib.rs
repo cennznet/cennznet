@@ -2529,7 +2529,7 @@ impl<T: Trait> Module<T> {
 				.map(|(stash, _prefs)| stash)
 				.collect::<Vec<T::AccountId>>();
 
-			T::Rewarder::on_end_era(validators.as_slice(), active_era.index);
+			T::Rewarder::on_end_era(validators.as_slice(), active_era.index, Self::will_era_be_forced());
 		}
 	}
 

@@ -177,7 +177,13 @@ impl<T: Trait> OnEndEra for Module<T> {
 	/// A staking era has ended
 	/// Check if we have a new fiscal era starting
 	/// Schedule a staking reward payout
-	fn on_end_era(era_validator_stashes: &[T::AccountId], era_index: EraIndex) {
+	fn on_end_era(era_validator_stashes: &[T::AccountId], era_index: EraIndex, is_forced: bool) {
+		// if it's a forced era, don't pay a reward. more than likely something unusual happened
+		// only the nominators + validators who are removed from the next era will miss out on rewards
+		if is_forced {
+			return;
+		}
+
 		// Check if fiscal era should renew
 		if ForceFiscalEra::get() {
 			FiscalEraEpoch::put(era_index);
@@ -837,7 +843,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			// There should be an event for a new fiscal era on era 0 (due to ext builder setup)
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
-			Rewards::on_end_era(&vec![], 0);
+			Rewards::on_end_era(&vec![], 0, false);
 
 			let era_1_inflation_target = 14;
 			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
@@ -845,8 +851,8 @@ mod tests {
 			TestSystem::reset_events();
 
 			// No fiscal era events are expected for the following eras
-			Rewards::on_end_era(&vec![], 1);
-			Rewards::on_end_era(&vec![], 2);
+			Rewards::on_end_era(&vec![], 1, false);
+			Rewards::on_end_era(&vec![], 2, false);
 			assert!(!TestSystem::events().iter().any(|record| match record.event {
 				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
@@ -856,9 +862,9 @@ mod tests {
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_1_inflation_target);
 
-			Rewards::on_end_era(&vec![], 3);
-			Rewards::on_end_era(&vec![], 4);
-			Rewards::on_end_era(&vec![], 5);
+			Rewards::on_end_era(&vec![], 3, false);
+			Rewards::on_end_era(&vec![], 4, false);
+			Rewards::on_end_era(&vec![], 5, false);
 
 			let era_2_inflation_target = 22;
 			// The newly set inflation rate is going to take effect with a new fiscal era
@@ -886,7 +892,7 @@ mod tests {
 				assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
 
 				// Trigger era end, new fiscal era should be enacted
-				Rewards::on_end_era(&vec![], 0);
+				Rewards::on_end_era(&vec![], 0, false);
 
 				let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
 				let events = TestSystem::events();
@@ -1330,7 +1336,7 @@ mod tests {
 				remainder = remainder.saturating_sub(amount);
 			}
 
-			/// remainder to treasury
+			// remainder to treasury
 			assert!(remainder > 0);
 			assert_eq!(
 				<TestRuntime as Trait>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
@@ -1348,11 +1354,11 @@ mod tests {
 	#[test]
 	fn on_end_era() {
 		ExtBuilder::default().build().execute_with(|| {
-			Rewards::note_fee_payout(1_000);
+			Rewards::note_transaction_fees(1_000);
 			let validators = [11, 22, 33];
 			let next_reward = Rewards::calculate_total_reward();
 
-			Rewards::on_end_era(&validators, 0);
+			Rewards::on_end_era(&validators, 0, false);
 
 			let development_cut = DevelopmentFundTake::get() * next_reward.transaction_fees;
 			let stakers_cut = next_reward.total() - development_cut;
@@ -1374,6 +1380,34 @@ mod tests {
 			// Storage reset for next era
 			assert!(!TransactionFeePot::<TestRuntime>::exists());
 			assert!(!CurrentEraRewardPoints::<TestRuntime>::exists());
+		})
+	}
+
+	#[test]
+	fn on_end_era_forced() {
+		ExtBuilder::default().build().execute_with(|| {
+			Rewards::note_transaction_fees(1_000);
+			let validators = [11, 22, 33];
+
+			// Forced era: do nothing
+			Rewards::on_end_era(&validators, 0, true);
+			let next_reward = Rewards::calculate_total_reward();
+			assert_eq!(next_reward.transaction_fees, 1_000);
+			assert!(ScheduledPayouts::<TestRuntime>::iter().count().is_zero());
+
+			// Normal era: payouts scheduled
+			Rewards::note_transaction_fees(2_000);
+			let next_reward = Rewards::calculate_total_reward();
+			let development_cut = DevelopmentFundTake::get() * next_reward.transaction_fees;
+			let stakers_cut = next_reward.total() - development_cut;
+			Rewards::on_end_era(&validators, 0, false);
+
+			assert!(TransactionFeePot::<TestRuntime>::get().is_zero());
+			assert_eq!(ScheduledPayouts::<TestRuntime>::iter().count(), validators.len());
+			assert!(TestSystem::events()
+				.iter()
+				.find(|e| e.event == TestEvent::rewards(RawEvent::EraPayout(development_cut, stakers_cut)))
+				.is_some());
 		})
 	}
 }
