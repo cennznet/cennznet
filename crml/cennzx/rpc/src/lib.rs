@@ -106,13 +106,11 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxResult::Success(price) => {
-				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
-					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
-					message: "Price too large.".into(),
-					data: Some(format!("{:?}", e).into()),
-				})
-			}
+			CennzxResult::Success(price) => TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::PriceOverflow.into()),
+				message: "Price too large.".into(),
+				data: Some(format!("{:?}", e).into()),
+			}),
 			CennzxResult::Error => Err(RpcError {
 				code: ErrorCode::ServerError(Error::CannotExchange.into()),
 				message: "Cannot exchange for requested amount.".into(),
@@ -134,13 +132,11 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 		match result {
-			CennzxResult::Success(price) => {
-				TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
-					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
-					message: "Price too large.".into(),
-					data: Some(format!("{:?}", e).into()),
-				})
-			}
+			CennzxResult::Success(price) => TryInto::<u64>::try_into(price.saturated_into::<u128>()).map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::PriceOverflow.into()),
+				message: "Price too large.".into(),
+				data: Some(format!("{:?}", e).into()),
+			}),
 			CennzxResult::Error => Err(RpcError {
 				code: ErrorCode::ServerError(Error::CannotExchange.into()),
 				message: "Cannot exchange by requested amount.".into(),
