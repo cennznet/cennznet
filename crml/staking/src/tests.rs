@@ -2177,7 +2177,7 @@ fn invulnerables_can_be_set() {
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::MetaEvent::staking(RawEvent::SetInvulnerables(vec![11])),
+				event: mock::Event::crml_staking(RawEvent::SetInvulnerables(vec![11])),
 				topics: vec![],
 			}]
 		);
@@ -2865,7 +2865,7 @@ fn set_minimum_bond_works() {
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: mock::MetaEvent::staking(RawEvent::SetMinimumBond(537)),
+				event: mock::Event::crml_staking(RawEvent::SetMinimumBond(537)),
 				topics: vec![],
 			}]
 		);

@@ -16,16 +16,14 @@
 
 //! Test utilities
 
-use crate::{
-	rewards::{self, Config as RewardsTrait, Module as RewardsModule},
-	Config, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, ValidatorPrefs,
-};
+use crate as crml_staking;
+use crate::{rewards, Config, EraIndex, Module, Nominators, RewardDestination, StakerStatus, ValidatorPrefs};
 use frame_support::{
-	assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get},
-	weights::Weight,
+	assert_ok, parameter_types,
+	traits::{Currency, FindAuthor},
 	IterableStorageMap, StorageValue,
 };
+use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
@@ -59,8 +57,6 @@ impl Convert<u128, u64> for CurrencyToVoteHandler {
 
 thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
-	static EXISTENTIAL_DEPOSIT: RefCell<u64> = RefCell::new(0);
-	static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
 }
 
 pub struct TestSessionHandler;
@@ -91,41 +87,25 @@ pub fn is_disabled(controller: AccountId) -> bool {
 	SESSION.with(|d| d.borrow().1.contains(&stash))
 }
 
-pub struct ExistentialDeposit;
-impl Get<u64> for ExistentialDeposit {
-	fn get() -> u64 {
-		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		Authorship: pallet_authorship::{Module, Call, Storage},
+		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+		Historical: pallet_session_historical::{Module},
+		Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
 	}
-}
-
-pub struct SlashDeferDuration;
-impl Get<EraIndex> for SlashDeferDuration {
-	fn get() -> EraIndex {
-		SLASH_DEFER_DURATION.with(|v| *v.borrow())
-	}
-}
-
-impl_outer_origin! {
-	pub enum Origin for Test where system = frame_system {}
-}
-
-mod staking {
-	// Re-export needed for `impl_outer_event!`.
-	pub use super::super::*;
-}
-use frame_system as system;
-use pallet_balances as balances;
-use pallet_session as session;
-
-impl_outer_event! {
-	pub enum MetaEvent for Test {
-		system<T>,
-		balances<T>,
-		session,
-		staking<T>,
-		rewards<T>,
-	}
-}
+);
 
 /// Author of block is always 11
 pub struct Author11;
@@ -138,55 +118,44 @@ impl FindAuthor<u64> for Author11 {
 	}
 }
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Test;
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
-
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
-	type BlockNumber = BlockNumber;
+	type Call = Call;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = MetaEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type PalletInfo = ();
-	type AccountData = pallet_balances::AccountData<Balance>;
+	type PalletInfo = PalletInfo;
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = ();
 }
 
 parameter_types! {
-	pub const CreationFee: u64 = 0;
+	pub const ExistentialDeposit: u64 = 1;
 }
-
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type Balance = Balance;
-	type Event = MetaEvent;
+	type Balance = u64;
+	type Event = Event;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type MaxLocks = ();
 	type WeightInfo = ();
 }
 
@@ -197,7 +166,7 @@ parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Config for Test {
-	type Event = MetaEvent;
+	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -213,12 +182,14 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
+
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
 	type EventHandler = Rewards;
 }
+
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
 }
@@ -235,9 +206,9 @@ parameter_types! {
 	pub const FiscalEraLength: u32 = 5;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-impl RewardsTrait for Test {
+impl rewards::Config for Test {
 	type CurrencyToReward = pallet_balances::Module<Self>;
-	type Event = MetaEvent;
+	type Event = Event;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
@@ -249,12 +220,13 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const BlocksPerEra: BlockNumber = 3;
+	pub const SlashDeferDuration: EraIndex = 0;
 }
 impl Config for Test {
 	type Currency = pallet_balances::Module<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type Event = MetaEvent;
+	type Event = Event;
 	type Slash = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BlocksPerEra = BlocksPerEra;
@@ -264,6 +236,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type Rewarder = Rewards;
 }
+
 pub struct ExtBuilder {
 	existential_deposit: u64,
 	validator_pool: bool,
@@ -341,15 +314,11 @@ impl ExtBuilder {
 		self.has_stakers = has;
 		self
 	}
-	pub fn set_associated_consts(&self) {
-		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = self.slash_defer_duration);
-	}
 	// Simplified version of `build` taking constant parameters only
 	// no account, balance, or staking setup is performed.
 	pub fn simple(self) -> sp_io::TestExternalities {
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		let _ = GenesisConfig::<Test> {
+		let _ = crate::GenesisConfig::<Test> {
 			current_era: 0,
 			stakers: vec![],
 			validator_count: self.validator_count,
@@ -364,7 +333,6 @@ impl ExtBuilder {
 		sp_io::TestExternalities::from(storage)
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		self.set_associated_consts();
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let balance_factor = if self.existential_deposit > 1 { 256 } else { 1 };
 
@@ -420,7 +388,7 @@ impl ExtBuilder {
 				),
 			];
 		}
-		let _ = GenesisConfig::<Test> {
+		let _ = crate::GenesisConfig::<Test> {
 			current_era: 0,
 			stakers: stakers,
 			validator_count: self.validator_count,
@@ -453,13 +421,6 @@ impl ExtBuilder {
 		ext
 	}
 }
-
-pub type System = frame_system::Module<Test>;
-pub type Balances = pallet_balances::Module<Test>;
-pub type Session = pallet_session::Module<Test>;
-pub type Timestamp = pallet_timestamp::Module<Test>;
-pub type Staking = Module<Test>;
-pub type Rewards = RewardsModule<Test>;
 
 pub fn check_exposure_all() {
 	Staking::current_elected()

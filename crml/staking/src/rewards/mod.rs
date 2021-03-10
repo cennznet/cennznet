@@ -497,16 +497,17 @@ impl<T: Config> Module<T> {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{
+		Config, CurrentEraRewardPoints, Exposure, HandlePayee, Payouts, RawEvent, RewardPoint, StakerRewardPayment,
+	};
 	use crate::{rewards, IndividualExposure};
-	use frame_support::{assert_err, assert_noop, assert_ok, impl_outer_event, impl_outer_origin, parameter_types};
-	use frame_system::{InitKind, Module as System};
+	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
-		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-		ModuleId,
+		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
+		FixedPointNumber, FixedU128, ModuleId, Perbill,
 	};
 
 	/// The account Id type in this test runtime
@@ -516,69 +517,62 @@ mod tests {
 	/// The balance type in this test runtime
 	type Balance = u64;
 
-	/// The test runtime struct
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct TestRuntime;
+	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+	type Block = frame_system::mocking::MockBlock<Test>;
 
-	impl_outer_origin! {
-		pub enum Origin for TestRuntime {}
-	}
-
-	use prml_generic_asset as generic;
-	impl_outer_event! {
-		pub enum TestEvent for TestRuntime {
-			system<T>,
-			generic<T>,
-			rewards<T>,
+	frame_support::construct_runtime!(
+		pub enum Test where
+			Block = Block,
+			NodeBlock = Block,
+			UncheckedExtrinsic = UncheckedExtrinsic,
+		{
+			System: frame_system::{Module, Call, Config, Storage, Event<T>},
+			GenericAsset: prml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Module, Call, Storage},
+			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
 		}
-	}
+	);
 
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: u32 = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
-	impl frame_system::Config for TestRuntime {
+	impl frame_system::Config for Test {
 		type BaseCallFilter = ();
+		type BlockWeights = ();
+		type BlockLength = ();
+		type DbWeight = ();
 		type Origin = Origin;
 		type Index = u64;
-		type Call = ();
+		type Call = Call;
 		type BlockNumber = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = AccountId;
+		type AccountId = u64;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
-		type Event = TestEvent;
+		type Event = Event;
 		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type DbWeight = ();
-		type BlockExecutionWeight = ();
-		type ExtrinsicBaseWeight = ();
-		type MaximumExtrinsicWeight = MaximumBlockWeight;
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type MaximumBlockLength = MaximumBlockLength;
 		type Version = ();
-		type PalletInfo = ();
+		type PalletInfo = PalletInfo;
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
+		type SS58Prefix = ();
 	}
 
-	impl prml_generic_asset::Config for TestRuntime {
+	impl prml_generic_asset::Config for Test {
 		type AssetId = AssetId;
 		type Balance = Balance;
-		type Event = TestEvent;
+		type Event = Event;
 		type WeightInfo = ();
 	}
 
-	impl pallet_authorship::Config for TestRuntime {
+	impl pallet_authorship::Config for Test {
 		type FindAuthor = crate::mock::Author11;
 		type UncleGenerations = crate::mock::UncleGenerations;
 		type FilterUncle = ();
-		type EventHandler = Module<Self>;
+		type EventHandler = Rewards;
 	}
 
 	parameter_types! {
@@ -587,8 +581,8 @@ mod tests {
 		pub const PayoutSplitThreshold: u32 = 10;
 		pub const FiscalEraLength: u32 = 5;
 	}
-	impl Config for TestRuntime {
-		type Event = TestEvent;
+	impl Config for Test {
+		type Event = Event;
 		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
 		type TreasuryModuleId = TreasuryModuleId;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
@@ -603,16 +597,14 @@ mod tests {
 
 	impl ExtBuilder {
 		pub fn build(self) -> sp_io::TestExternalities {
-			let mut storage = frame_system::GenesisConfig::default()
-				.build_storage::<TestRuntime>()
-				.unwrap();
+			let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-			let _ = GenesisConfig {
+			let _ = super::GenesisConfig {
 				development_fund_take: Perbill::from_percent(10),
 			}
 			.assimilate_storage(&mut storage);
 
-			let _ = prml_generic_asset::GenesisConfig::<TestRuntime> {
+			let _ = prml_generic_asset::GenesisConfig::<Test> {
 				endowed_accounts: vec![10, 11],
 				initial_balance: 500,
 				staking_asset_id: 16000,
@@ -626,13 +618,7 @@ mod tests {
 
 			let mut ext = sp_io::TestExternalities::from(storage);
 			ext.execute_with(|| {
-				TestSystem::initialize(
-					&1,
-					&[0u8; 32].into(),
-					&[0u8; 32].into(),
-					&Default::default(),
-					InitKind::Full,
-				);
+				System::initialize(&1, &[0u8; 32].into(), &Default::default(), Default::default());
 				Rewards::new_fiscal_era();
 			});
 
@@ -640,12 +626,8 @@ mod tests {
 		}
 	}
 
-	/// Alias for the mocked module under test
-	type Rewards = Module<TestRuntime>;
 	/// Alias for the reward currency in the module under test
-	type RewardCurrency = <TestRuntime as Config>::CurrencyToReward;
-	/// Alias for the mocked system module
-	type TestSystem = System<TestRuntime>;
+	type RewardCurrency = <Test as Config>::CurrencyToReward;
 	/// Helper for creating the info required for validator reward payout
 	struct MockCommissionStakeInfo {
 		validator_stash: AccountId,
@@ -718,7 +700,7 @@ mod tests {
 	fn note_fee_payout_retains_n_latest() {
 		// note multiple fee payouts, it should keep only the latest n in state.
 		ExtBuilder::default().build().execute_with(|| {
-			let historical_payouts = [1_000_u64; <TestRuntime as Config>::HistoricalPayoutEras::get() as usize];
+			let historical_payouts = [1_000_u64; <Test as Config>::HistoricalPayoutEras::get() as usize];
 			for payout in &historical_payouts {
 				Rewards::note_fee_payout(*payout);
 			}
@@ -737,16 +719,6 @@ mod tests {
 				// new_payouts     historical_payouts[3..]
 				[3333, 2222, 1111, 1000, 1000, 1000, 1000]
 			);
-		});
-	}
-
-	#[test]
-	fn on_unbalanced_handler_notes_fees() {
-		ExtBuilder::default().build().execute_with(|| {
-			let issued = 1_000;
-			let imbalance = RewardCurrency::issue(issued);
-			Rewards::on_unbalanced(imbalance);
-			assert_eq!(Rewards::transaction_fee_pot(), issued);
 		});
 	}
 
@@ -788,11 +760,8 @@ mod tests {
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 3, 10));
 			Rewards::new_fiscal_era();
 
-			let events = TestSystem::events();
-			assert_eq!(
-				events.last().unwrap().event,
-				TestEvent::rewards(RawEvent::NewFiscalEra(60))
-			);
+			let events = System::events();
+			assert_eq!(events.last().unwrap().event, Event::rewards(RawEvent::NewFiscalEra(60)));
 		});
 	}
 
@@ -802,10 +771,10 @@ mod tests {
 			// There should be an event for a new fiscal era on era 0
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
 			Rewards::enqueue_reward_payouts(Default::default(), 0);
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
-			let events = TestSystem::events();
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+			let events = System::events();
 			assert!(events.iter().any(|record| record.event == expected_event));
-			TestSystem::reset_events();
+			System::reset_events();
 
 			// Not any fiscal era event is expected for the following eras
 			Rewards::enqueue_reward_payouts(Default::default(), 1);
@@ -817,16 +786,16 @@ mod tests {
 
 			Rewards::enqueue_reward_payouts(Default::default(), 3);
 			Rewards::enqueue_reward_payouts(Default::default(), 4);
-			let events = TestSystem::events();
+			let events = System::events();
 			assert!(!events.iter().any(|record| match record.event {
-				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
 			// The newly set inflation rate is going to take effect with a new fiscal era
 			Rewards::enqueue_reward_payouts(Default::default(), 5);
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(22));
-			let events = TestSystem::events();
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(22));
+			let events = System::events();
 			assert!(events.iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), 22);
 		});
@@ -844,26 +813,26 @@ mod tests {
 			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
 
 			Rewards::enqueue_reward_payouts(Default::default(), 2);
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
-			let events = TestSystem::events();
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+			let events = System::events();
 			assert!(events.iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
-			TestSystem::reset_events();
+			System::reset_events();
 
 			// "Force" should have been toggled back off automatically
 			Rewards::enqueue_reward_payouts(Default::default(), 3);
 			Rewards::enqueue_reward_payouts(Default::default(), 4);
 			Rewards::enqueue_reward_payouts(Default::default(), 5);
 			Rewards::enqueue_reward_payouts(Default::default(), 6);
-			let events = TestSystem::events();
+			let events = System::events();
 			assert!(!events.iter().any(|record| match record.event {
-				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
 			Rewards::enqueue_reward_payouts(Default::default(), 7);
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
-			let events = TestSystem::events();
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+			let events = System::events();
 			assert!(events.iter().any(|record| record.event == expected_event));
 		});
 	}
@@ -947,9 +916,9 @@ mod tests {
 				0,
 			);
 			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
+			assert_eq!(Payouts::<Test>::get().len(), 2);
 			Rewards::process_reward_payouts(2);
-			assert_eq!(Payouts::<TestRuntime>::get().len(), 0);
+			assert_eq!(Payouts::<Test>::get().len(), 0);
 			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
 		});
 	}
@@ -957,7 +926,7 @@ mod tests {
 	#[test]
 	fn emit_all_rewards_paid_out_event() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
 
 			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
 
@@ -985,28 +954,28 @@ mod tests {
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 0);
 
 			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<TestRuntime>::get().len(), 2);
+			assert_eq!(Payouts::<Test>::get().len(), 2);
 
 			note_author_to_all();
 			Rewards::note_transaction_fees(tx_fee_reward);
 			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
 
 			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<TestRuntime>::get().len(), 4);
+			assert_eq!(Payouts::<Test>::get().len(), 4);
 
-			let events = TestSystem::events();
-			let expected_event = TestEvent::rewards(RawEvent::AllRewardsPaidOut(0, 2));
+			let events = System::events();
+			let expected_event = Event::rewards(RawEvent::AllRewardsPaidOut(0, 2));
 			assert_eq!(events.len() as u32, 2 * payout_split_threshold + 3);
 			assert!(events.iter().any(|record| record.event == expected_event));
 
 			Rewards::process_reward_payouts(2);
-			assert_eq!(Payouts::<TestRuntime>::get().len(), 0);
+			assert_eq!(Payouts::<Test>::get().len(), 0);
 
-			let events = TestSystem::events();
+			let events = System::events();
 			assert_eq!(events.len() as u64, validators_number * 6 + 4);
 			assert_eq!(
 				events.last().unwrap().event,
-				TestEvent::rewards(RawEvent::AllRewardsPaidOut(1, 0))
+				Event::rewards(RawEvent::AllRewardsPaidOut(1, 0))
 			)
 		});
 	}
@@ -1198,7 +1167,7 @@ mod tests {
 	#[test]
 	fn small_reward_payouts() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(payout_split_threshold - 1, 5),
 				payout_split_threshold - 1
@@ -1209,7 +1178,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_enough_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(payout_split_threshold, 100),
 				payout_split_threshold
@@ -1228,7 +1197,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_not_enough_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(4 * payout_split_threshold, 1),
 				2 * payout_split_threshold
@@ -1239,7 +1208,7 @@ mod tests {
 	#[test]
 	fn large_reward_payouts_no_time() {
 		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <TestRuntime as Config>::PayoutSplitThreshold::get();
+			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
 			assert_eq!(
 				Rewards::calculate_payout_quota(2 * payout_split_threshold, 0),
 				2 * payout_split_threshold
@@ -1250,7 +1219,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);
@@ -1262,13 +1231,13 @@ mod tests {
 
 			// 21 is rewarded as an uncle producer
 			// 11 is rewarded as a block producer and uncle referencer and uncle producer
-			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<Test>>::get()
 				.individual
 				.values()
 				.cloned()
 				.collect();
 			assert_eq!(reward_points, vec![20 + 2 * 3 + 1, 1, 1]);
-			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 29);
+			assert_eq!(<CurrentEraRewardPoints<Test>>::get().total, 29);
 		})
 	}
 
@@ -1280,13 +1249,13 @@ mod tests {
 			let charlie: AccountId = 31;
 			Rewards::reward_by_ids(vec![(bob, 1), (alice, 1), (charlie, 1), (alice, 1)]);
 
-			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<Test>>::get()
 				.individual
 				.values()
 				.cloned()
 				.collect();
 			assert_eq!(reward_points, vec![2, 1, 1]);
-			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 4);
+			assert_eq!(<CurrentEraRewardPoints<Test>>::get().total, 4);
 		})
 	}
 
@@ -1299,7 +1268,7 @@ mod tests {
 			let stake_map_3 =
 				MockCommissionStakeInfo::new((3, 3_000), vec![(5, 1_000), (6, 2_000)], Perbill::from_percent(2));
 
-			<Module<TestRuntime>>::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
+			Rewards::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
 
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 20));
 			Rewards::new_fiscal_era();
@@ -1366,7 +1335,7 @@ mod tests {
 			assert_eq!(Rewards::payee(&4), 5);
 
 			Rewards::note_transaction_fees(1000);
-			<Module<TestRuntime>>::reward_by_ids(vec![(1, 20)]);
+			Rewards::reward_by_ids(vec![(1, 20)]);
 
 			assert!(
 				Rewards::payee_next_reward_payout(
@@ -1383,7 +1352,7 @@ mod tests {
 	#[test]
 	fn reward_is_split_according_to_points() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
 
 			let fee = 628;
 			Rewards::note_transaction_fees(fee);

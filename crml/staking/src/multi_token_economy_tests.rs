@@ -18,20 +18,22 @@
 // Sadly we need to re-mock everything here just to alter the `RewardCurrency`,
 // apart from that this file is simplified copy of `mock.rs`
 
-use frame_support::{impl_outer_origin, parameter_types, traits::OnInitialize};
+use crate as crml_staking;
+use frame_support::{parameter_types, traits::OnInitialize};
+use pallet_session::historical as pallet_session_historical;
 use sp_core::H256;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
-	traits::IdentityLookup,
+	traits::{BlakeTwo256, IdentityLookup},
 	ModuleId, Perbill,
 };
 use sp_staking::SessionIndex;
 use std::collections::HashSet;
 
-use crate::mock::{Author11, CurrencyToVoteHandler, ExistentialDeposit, SlashDeferDuration, TestSessionHandler};
+use crate::mock::{Author11, CurrencyToVoteHandler, TestSessionHandler};
 use crate::{
-	rewards::{Config as RewardsTrait, HandlePayee, Module as RewardsModule, StakerRewardPayment},
-	Config, EraIndex, GenesisConfig, Module, StakerStatus, StakingLedger,
+	rewards::{self, HandlePayee, StakerRewardPayment},
+	Config, EraIndex, StakerStatus, StakingLedger,
 };
 use std::cell::RefCell;
 
@@ -49,68 +51,58 @@ thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
 }
 
-impl_outer_origin! {
-	pub enum Origin for Test {}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Test;
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+		GenericAsset: prml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		Authorship: pallet_authorship::{Module, Call, Storage},
+		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+		Historical: pallet_session_historical::{Module},
+		Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
+	}
+);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: u32 = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
-
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
-	type BlockNumber = BlockNumber;
+	type Call = Call;
+	type BlockNumber = u64;
 	type Hash = H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type PalletInfo = ();
-	type AccountData = pallet_balances::AccountData<Balance>;
+	type PalletInfo = PalletInfo;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-}
-
-parameter_types! {
-	pub const TransferFee: Balance = 0;
-	pub const CreationFee: Balance = 0;
-}
-
-impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type Balance = Balance;
-	type Event = ();
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = System;
-	type WeightInfo = ();
+	type SS58Prefix = ();
 }
 
 impl prml_generic_asset::Config for Test {
 	type Balance = Balance;
 	type AssetId = AssetId;
-	type Event = ();
+	type Event = Event;
 	type WeightInfo = ();
 }
 
@@ -121,17 +113,18 @@ parameter_types! {
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Config for Test {
-	type SessionManager = Staking;
-	type Keys = UintAuthorityId;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionHandler = TestSessionHandler;
-	type Event = ();
+	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
-	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type NextSessionRotation = ();
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionHandler = TestSessionHandler;
+	type Keys = UintAuthorityId;
+	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = ();
 }
+
 impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
@@ -160,9 +153,9 @@ parameter_types! {
 	pub const FiscalEraLength: u32 = 5;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-impl RewardsTrait for Test {
+impl rewards::Config for Test {
 	type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
-	type Event = ();
+	type Event = Event;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type TreasuryModuleId = TreasuryModuleId;
 	type PayoutSplitThreshold = PayoutSplitThreshold;
@@ -174,12 +167,13 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const BlocksPerEra: BlockNumber = 3;
+	pub const SlashDeferDuration: EraIndex = 0;
 }
 impl Config for Test {
 	type Currency = prml_generic_asset::StakingAssetCurrency<Self>;
 	type Time = pallet_timestamp::Module<Self>;
 	type CurrencyToVote = CurrencyToVoteHandler;
-	type Event = ();
+	type Event = Event;
 	type Slash = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BlocksPerEra = BlocksPerEra;
@@ -189,13 +183,6 @@ impl Config for Test {
 	type Rewarder = Rewards;
 	type WeightInfo = ();
 }
-
-type System = frame_system::Module<Test>;
-type GenericAsset = prml_generic_asset::Module<Test>;
-type Session = pallet_session::Module<Test>;
-type Timestamp = pallet_timestamp::Module<Test>;
-type Staking = Module<Test>;
-type Rewards = RewardsModule<Test>;
 
 pub struct ExtBuilder {
 	validator_count: u32,
@@ -236,7 +223,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let _ = GenesisConfig::<Test> {
+		let _ = crml_staking::GenesisConfig::<Test> {
 			minimum_bond: 1,
 			current_era: 0,
 			stakers: vec![
