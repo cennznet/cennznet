@@ -62,6 +62,8 @@ crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
 prml-generic-asset-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 prml-generic-asset = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
+crml-transaction-payment = { path = "../crml/transaction-payment" }
 
 pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1" }
 
@@ -71,8 +73,6 @@ sp-keyring = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug
 sp-timestamp = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-service-test = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 frame-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-crml-transaction-payment = { path = "../crml/transaction-payment" }
-crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 tempfile = "3.1.0"
 
 [build-dependencies]
