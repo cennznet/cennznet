@@ -16,11 +16,12 @@
 
 //! CENNZnet chain configurations.
 
+use cennznet_primitives::types::Block;
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	opaque::Block, opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig, GrandpaConfig,
+	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
