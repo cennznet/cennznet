@@ -2,6 +2,14 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'     
+        required: true
+        default: 'warning'
+      tags:
+        description: 'Test scenario tags'
+        required: false
 
 jobs:
   print:
@@ -9,6 +17,7 @@ jobs:
     steps:
       - run: |
           echo "test manual trigger"
+
 
   # format-build-test:
   #   runs-on: [self-hosted, linux]
