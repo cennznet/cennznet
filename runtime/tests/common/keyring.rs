@@ -17,7 +17,7 @@
 //! Test accounts and signing helpers
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, Index};
-use cennznet_runtime::{opaque::SessionKeys, CheckedExtrinsic, SignedExtra, UncheckedExtrinsic};
+use cennznet_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::generic::Era;

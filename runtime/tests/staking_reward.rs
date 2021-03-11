@@ -59,7 +59,7 @@ fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
 
 	let digest_data = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 		authority_index: author_index,
-		slot_number: Babe::current_slot(),
+		slot: Babe::current_slot(),
 	});
 
 	let digest = header.digest_mut();

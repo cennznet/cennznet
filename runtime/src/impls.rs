@@ -135,14 +135,17 @@ mod tests {
 			currency::{DOLLARS, MICROS, WEI},
 			time::DAYS,
 		},
-		AdjustmentVariable, AvailableBlockRatio, MaximumBlockWeight, MinimumMultiplier, Multiplier, Runtime, System,
+		AdjustmentVariable, MinimumMultiplier, Multiplier, Runtime, RuntimeBlockWeights as BlockWeights, System,
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
-	use frame_support::weights::{Weight, WeightToFeePolynomial};
+	use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
 	use sp_runtime::{assert_eq_error_rate, FixedPointNumber};
 
-	fn max() -> Weight {
-		AvailableBlockRatio::get() * MaximumBlockWeight::get()
+	fn max_normal() -> Weight {
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
+			.unwrap_or_else(|| BlockWeights::get().max_block)
 	}
 
 	fn min_multiplier() -> Multiplier {
@@ -150,7 +153,7 @@ mod tests {
 	}
 
 	fn target() -> Weight {
-		TargetBlockFullness::get() * max()
+		TargetBlockFullness::get() * max_normal()
 	}
 
 	// update based on runtime impl.
@@ -166,7 +169,7 @@ mod tests {
 		let previous_float = previous_float.max(min_multiplier().into_inner() as f64 / accuracy);
 
 		// maximum tx weight
-		let m = max() as f64;
+		let m = max_normal() as f64;
 		// block weight always truncated to max weight
 		let block_weight = (block_weight as f64).min(m);
 		let v: f64 = AdjustmentVariable::get().to_fraction();
@@ -191,7 +194,7 @@ mod tests {
 			.unwrap()
 			.into();
 		t.execute_with(|| {
-			System::set_block_limits(w, 0);
+			System::set_block_consumed_resources(w, 0);
 			assertions()
 		});
 	}
@@ -204,8 +207,8 @@ mod tests {
 			(100, fm.clone()),
 			(1000, fm.clone()),
 			(target(), fm.clone()),
-			(max() / 2, fm.clone()),
-			(max(), fm.clone()),
+			(max_normal() / 2, fm.clone()),
+			(max_normal(), fm.clone()),
 		];
 		test_set.into_iter().for_each(|(w, fm)| {
 			run_with_system_weight(w, || {
@@ -271,7 +274,7 @@ mod tests {
 		// Start with an adjustment multiplier of 1.
 		// if every block in 24 hour period has a maximum weight then the multiplier should have increased
 		// to > ~23% by the end of the period.
-		run_with_system_weight(max(), || {
+		run_with_system_weight(max_normal(), || {
 			let mut fm = Multiplier::one();
 			// `DAYS` is a function of `SECS_PER_BLOCK`
 			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
@@ -290,7 +293,7 @@ mod tests {
 		// `cargo test congested_chain_simulation -- --nocapture` to get some insight.
 
 		// almost full. The entire quota of normal transactions is taken.
-		let block_weight = AvailableBlockRatio::get() * max() - 100;
+		let block_weight = BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap() - 100;
 
 		// Default substrate weight.
 		let tx_weight = frame_support::weights::constants::ExtrinsicBaseWeight::get();
@@ -412,8 +415,8 @@ mod tests {
 			10 * mb,
 			2147483647,
 			4294967295,
-			MaximumBlockWeight::get() / 2,
-			MaximumBlockWeight::get(),
+			BlockWeights::get().max_block / 2,
+			BlockWeights::get().max_block,
 			Weight::max_value() / 2,
 			Weight::max_value(),
 		]
