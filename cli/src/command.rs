@@ -49,6 +49,7 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
+			"" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
 			"dev" => Box::new(chain_spec::dev::config()),
 			"nikau" => Box::new(chain_spec::nikau::config()),
 			"rata" => Box::new(chain_spec::rata::config()),
@@ -141,9 +142,12 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
-			runner.run_node_until_exit(|config| match config.role {
-				Role::Light => service::new_light(config),
-				_ => service::new_full(config),
+			runner.run_node_until_exit(|config| async move {
+				match config.role {
+					Role::Light => service::new_light(config),
+					_ => service::new_full(config),
+				}
+				.map_err(sc_cli::Error::Service)
 			})
 		}
 	}

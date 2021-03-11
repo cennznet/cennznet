@@ -716,6 +716,7 @@ dependencies = [
  "sc-consensus-babe",
  "sc-consensus-babe-rpc",
  "sc-consensus-epochs",
+ "sc-consensus-slots",
  "sc-executor",
  "sc-finality-grandpa",
  "sc-finality-grandpa-rpc",
@@ -724,6 +725,8 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "sc-service-test",
+ "sc-sync-state-rpc",
+ "sc-telemetry",
  "sc-transaction-pool",
  "serde",
  "sp-api",
@@ -6357,6 +6360,26 @@ dependencies = [
  "parking_lot 0.11.1",
  "sc-client-api",
  "sp-core",
+ "thiserror",
+]
+
+[[package]]
+name = "sc-sync-state-rpc"
+version = "0.9.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc1#ebfb7f707a7ccd066213176d9385cd46830cb680"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-finality-grandpa",
+ "sc-rpc-api",
+ "serde_json",
+ "sp-blockchain",
+ "sp-runtime",
  "thiserror",
 ]
 

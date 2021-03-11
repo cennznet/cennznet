@@ -22,6 +22,7 @@
 use std::sync::Arc;
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index};
+use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
@@ -87,6 +88,8 @@ pub struct FullDeps<C, P, SC, B> {
 	pub pool: Arc<P>,
 	/// The SelectChain Strategy
 	pub select_chain: SC,
+	/// A copy of the chain spec.
+	pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
 	/// BABE specific dependencies.
@@ -101,9 +104,13 @@ pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, SC, B>(deps: FullDeps<C, P, SC, B>) -> IoHandler
 where
-	C: ProvideRuntimeApi<Block>,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
-	C: Send + Sync + 'static,
+	C: ProvideRuntimeApi<Block>
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ AuxStore
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -127,6 +134,7 @@ where
 		client,
 		pool,
 		select_chain,
+		chain_spec,
 		deny_unsafe,
 		babe,
 		grandpa,
@@ -153,7 +161,7 @@ where
 	)));
 	io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(BabeRpcHandler::new(
 		client.clone(),
-		shared_epoch_changes,
+		shared_epoch_changes.clone(),
 		keystore,
 		babe_config,
 		select_chain,
@@ -161,12 +169,21 @@ where
 	)));
 	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
 		GrandpaRpcHandler::new(
-			shared_authority_set,
+			shared_authority_set.clone(),
 			voter_worker_send_handle,
 			shared_voter_state,
 			justification_stream,
 			subscription_executor,
 			finality_provider,
+			deny_unsafe,
+		),
+	));
+	io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
+		sc_sync_state_rpc::SyncStateRpcHandler::new(
+			chain_spec,
+			client.clone(),
+			shared_authority_set,
+			shared_epoch_changes,
 			deny_unsafe,
 		),
 	));

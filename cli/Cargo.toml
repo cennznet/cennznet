@@ -46,6 +46,9 @@ sp-block-builder = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchai
 sp-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-utils = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-basic-authorship = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-slots = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-telemetry = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-sync-state-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 substrate-frame-rpc-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus-babe-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-finality-grandpa-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
