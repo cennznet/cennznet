@@ -40,6 +40,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
+		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
@@ -77,6 +78,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
+		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
 			// Alice sets up CENNZ <> CPAY liquidity
