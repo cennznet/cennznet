@@ -118,6 +118,12 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
+		frame_support::BasicExternalities::execute_with_storage(&mut t, || {
+			for k in &initial_authorities {
+				frame_system::Module::<Runtime>::inc_providers(&k.0);
+			}
+		});
+
 		pallet_session::GenesisConfig::<Runtime> {
 			keys: initial_authorities
 				.iter()
