@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -143,7 +143,12 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	const INITIAL_BOND: Balance = 100 * DOLLARS;
 	let initial_authorities = network_keys.initial_authorities;
 	let root_key = network_keys.root_key;
-	let endowed_accounts = network_keys.endowed_accounts;
+	let mut endowed_accounts = network_keys.endowed_accounts;
+	initial_authorities.iter().for_each(|x| {
+		if !endowed_accounts.contains(&x.0) {
+			endowed_accounts.push(x.0.clone())
+		}
+	});
 
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
