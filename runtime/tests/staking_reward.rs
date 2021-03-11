@@ -153,6 +153,8 @@ fn staking_genesis_config_works() {
 		});
 }
 
+// TODO https://github.com/cennznet/cennznet/issues/389
+#[ignore]
 #[test]
 fn current_era_transaction_rewards_storage_update_works() {
 	let initial_balance = 10_000 * DOLLARS;
@@ -210,6 +212,8 @@ fn current_era_transaction_rewards_storage_update_works() {
 		});
 }
 
+// TODO https://github.com/cennznet/cennznet/issues/389
+#[ignore]
 #[test]
 fn elected_validators_receive_transaction_fee_reward() {
 	// Make some txs
@@ -314,6 +318,8 @@ fn elected_validators_receive_transaction_fee_reward() {
 		});
 }
 
+// TODO https://github.com/cennznet/cennznet/issues/389
+#[ignore]
 #[test]
 fn elected_validators_receive_rewards_according_to_authorship_points() {
 	// Start a new era to payout last eras validators

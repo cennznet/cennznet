@@ -237,6 +237,12 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		frame_support::BasicExternalities::execute_with_storage(&mut storage, || {
+			for k in &validators {
+				frame_system::Module::<Test>::inc_providers(&k);
+			}
+		});
+
 		let _ = pallet_session::GenesisConfig::<Test> {
 			keys: validators.iter().map(|x| (*x, *x, UintAuthorityId(*x))).collect(),
 		}
