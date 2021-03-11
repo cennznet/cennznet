@@ -159,35 +159,39 @@ impl ExtBuilder {
 #[test]
 fn runtime_mock_setup_works() {
 	let amount = 100;
-	ExtBuilder::default().initial_balance(amount).build().execute_with(|| {
-		let tests = vec![
-			(alice(), amount),
-			(bob(), amount),
-			(charlie(), amount),
-			(dave(), amount),
-			(eve(), amount),
-			(ferdie(), amount),
-		];
-		let assets = vec![
-			CENNZ_ASSET_ID,
-			CENTRAPAY_ASSET_ID,
-			PLUG_ASSET_ID,
-			SYLO_ASSET_ID,
-			CERTI_ASSET_ID,
-			ARDA_ASSET_ID,
-		];
-		for asset in &assets {
-			for (account, balance) in &tests {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
-					*balance,
-				);
-				assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
+	ExtBuilder::default()
+		.initial_balance(amount)
+		.stash(amount)
+		.build()
+		.execute_with(|| {
+			let tests = vec![
+				(alice(), amount),
+				(bob(), amount),
+				(charlie(), amount),
+				(dave(), amount),
+				(eve(), amount),
+				(ferdie(), amount),
+			];
+			let assets = vec![
+				CENNZ_ASSET_ID,
+				CENTRAPAY_ASSET_ID,
+				PLUG_ASSET_ID,
+				SYLO_ASSET_ID,
+				CERTI_ASSET_ID,
+				ARDA_ASSET_ID,
+			];
+			for asset in &assets {
+				for (account, balance) in &tests {
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
+						*balance,
+					);
+					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
+				}
+				// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+				assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
 			}
-			// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
-			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
-		}
-	});
+		});
 }
 
 pub mod contracts {
