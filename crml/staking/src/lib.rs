@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2017-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -2135,7 +2135,11 @@ impl<T: Trait> Module<T> {
 			Self::new_era(session_index)
 		} else {
 			// Set initial era
-			log!(debug, "💸 schedule genesis era, starting at session index: {:?}", session_index);
+			log!(
+				debug,
+				"💸 schedule genesis era, starting at session index: {:?}",
+				session_index
+			);
 			Self::new_era(session_index)
 		}
 	}
@@ -2542,14 +2546,13 @@ impl<T: Trait> Module<T> {
 
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
-		// Note: active_era_start can be None if end era is called during genesis config.
-		if let Some(active_era_start) = active_era.start {
-			let validators = ErasValidatorPrefs::<T>::iter_prefix(active_era_start as u32)
-				.map(|(stash, _prefs)| stash)
-				.collect::<Vec<T::AccountId>>();
+		// Note: `active_era.start` can be None if end era is called during genesis config.
+		// important if era duration calculations are required.
+		let validators = ErasValidatorPrefs::<T>::iter_prefix(active_era.index)
+			.map(|(stash, _prefs)| stash)
+			.collect::<Vec<T::AccountId>>();
 
-			T::Rewarder::on_end_era(validators.as_slice(), active_era.index, Self::will_era_be_forced());
-		}
+		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, Self::will_era_be_forced());
 	}
 
 	/// Plan a new era. Return the potential new staking set.

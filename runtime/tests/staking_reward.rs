@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,24 +16,25 @@
 //! Staking reward tests
 
 use cennznet_cli::chain_spec::AuthorityKeys;
-use cennznet_primitives::types::{Balance, BlockNumber, DigestItem, Header};
+use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session, SessionsPerEra,
-	SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, BlockPayoutInterval, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session,
+	SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
-use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
+use crml_staking::{EraIndex, HandlePayee, OnEndEra, RewardCalculation, StakingLedger};
 use frame_support::{
 	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OnFinalize, OnInitialize, UnfilteredDispatchable},
+	IterableStorageMap,
 };
 use frame_system::RawOrigin;
 use pallet_im_online::UnresponsivenessOffence;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
 use sp_runtime::{
-	traits::{Header as HeaderT, One, Saturating, Zero},
+	traits::{Header as HeaderT, Saturating, Zero},
 	Perbill,
 };
 use sp_staking::{
@@ -46,6 +47,8 @@ use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
+const BlocksPerEra: u32 = SessionsPerEra::get() * EpochDuration::get() as u32;
+
 /// Alias for the runtime configured staking reward currency
 type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
 /// Alias for the runtime configured staking currency
@@ -57,28 +60,19 @@ type StakeCurrency = <Runtime as crml_staking::Trait>::Currency;
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	println!("run to block: {:?}", n);
-	println!("spe: {:?}", SessionsPerEra::get());
-	println!("ed: {:?}", EpochDuration::get());
-
 	Staking::on_finalize(System::block_number());
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
-		// Session asks babe if it can rotate
-		// if babe says yes, session  rotates then tells babe to rotate
+		Rewards::on_initialize(b);
+		// Session modules asks babe module if it can rotate
 		Timestamp::set_timestamp(30_000 + b as u64 * MILLISECS_PER_BLOCK);
-		// force babe slot increment (normally set by system digest)
+		// force babe slot increment (normally this is set by system digest)
 		pallet_babe::CurrentSlot::put(n as u64);
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
-
-		println!("block: {:?}", System::block_number());
-		// Seems start session isn't trigger, start era...
-		println!("current: {:?}", Staking::current_era());
-		println!("active: {:?}", Staking::active_era());
 	}
 }
 
@@ -87,7 +81,7 @@ pub(crate) fn current_era() -> EraIndex {
 	Staking::current_era().expect("current era is set")
 }
 
-/// Convenient getter for active era 
+/// Convenient getter for active era
 pub(crate) fn active_era() -> EraIndex {
 	Staking::active_era().expect("active era is set").index
 }
@@ -105,14 +99,17 @@ pub(crate) fn start_session(session_index: SessionIndex) {
 	);
 }
 
+/// start the next session
+pub(crate) fn advance_session() {
+	start_session(Session::current_index() + 1)
+}
+
 /// Progress until the given era.
 pub(crate) fn start_active_era(era_index: EraIndex) {
 	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
-	println!("current era = {:?}, expected = {:?}", active_era(), era_index);
 	assert_eq!(active_era(), era_index);
-	// One way or another, current_era must have changed before the active era, so they must match
-	// at this point.
-	assert_eq!(current_era(), active_era());
+	// One way or another, current_era must have changed before the active era
+	assert!(current_era() >= active_era());
 }
 
 /// Get a block header and set the author of that block in a way that is recognisable by BABE.
@@ -153,31 +150,28 @@ fn send_heartbeats() {
 	}
 }
 
-/// Prior to rotating to a new session, we should make sure the authority heartbeats are sent to the
-/// ImOnline module, if \a heartbeat is enabled (true). We should also set the time accordingly
-/// and adjust the babe's current slot.
-fn pre_rotate_session(heartbeat: bool) {
-	if heartbeat {
-		send_heartbeats();
-	}
-	Timestamp::set_timestamp(Timestamp::now() + 1000);
-	pallet_babe::CurrentSlot::put(Babe::current_slot() + EpochDuration::get());
-}
+#[test]
+fn start_active_era_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let blocks_per_era = SessionsPerEra::get() * EpochDuration::get() as u32;
+		start_active_era(1);
+		assert_eq!(System::block_number(), blocks_per_era);
+		assert_eq!(Session::current_index(), SessionsPerEra::get());
+		assert_eq!(Staking::active_era().unwrap().index, 1);
 
-fn rotate_to_session(index: SessionIndex, heartbeat: bool) {
-	assert!(Session::current_index() <= index);
-	Session::on_initialize(System::block_number());
+		// one session extra, should schedule the next era (poorly named 'current era')
+		advance_session();
+		assert_eq!(Staking::current_era().unwrap(), 2);
 
-	let rotations = index - Session::current_index();
-	for _i in 0..rotations {
-		pre_rotate_session(heartbeat);
-		Session::rotate_session();
-	}
-}
+		start_active_era(2);
+		assert_eq!(System::block_number(), blocks_per_era * 2);
+		assert_eq!(Session::current_index(), SessionsPerEra::get() * 2);
+		assert_eq!(Staking::active_era().unwrap().index, 2);
+		assert_eq!(Staking::current_era().unwrap(), 2);
 
-// Use in the tests where sending authority heartbeats is not required
-fn advance_session() {
-	rotate_to_session(Session::current_index() + 1, false);
+		advance_session();
+		assert_eq!(Staking::current_era().unwrap(), 3);
+	})
 }
 
 #[test]
@@ -290,19 +284,14 @@ fn elected_validators_receive_transaction_fee_reward() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-
-			start_active_era(1);
-
 			let make_validator_0_author_block = || {
 				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
 				let header = set_author(header_of_last_block, 0);
 				Executive::initialize_block(&header);
 			};
-
 			make_validator_0_author_block();
 
-			let validator_0_stash_id = Session::validators()[0].clone();
-
+			// reward currency is also fee currency
 			let initial_issuance = RewardCurrency::total_issuance();
 
 			let xt = sign(CheckedExtrinsic {
@@ -317,59 +306,53 @@ fn elected_validators_receive_transaction_fee_reward() {
 			let issuance_after_fees_burned = RewardCurrency::total_issuance();
 			assert_eq!(issuance_after_fees_burned, initial_issuance - tx_fee);
 
-			// reward is fees * inflation
-			let total_payout = Rewards::calculate_total_reward().total();
+			// tx fees are tracked by the Rewards module
+			let reward_parts = Rewards::calculate_total_reward();
+			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.inflation);
+			assert_eq!(tx_fee, reward_parts.transaction_fees);
+			assert_eq!(Rewards::target_inflation_per_staking_era() + tx_fee, reward_parts.total);
 
-			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era() + tx_fee);
+			// This should move to start_active_era(1)
 
-			// treasury would be almost empty as there hasn't been a transaction fee yet.
-			// However the distribution of the mined token of the previous era leaves a few
-			// tokens unbalanced which go to treasury.
-			let treasury_balance_era_1 = RewardCurrency::free_balance(&Treasury::account_id());
-			assert_eq!(treasury_balance_era_1, 3);
+			// treasury has nothing at this point
+			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
 
-			// In era 1, the rewards are just earned through the inflation as there was no transactions
-			let per_validator_reward_era_1 = Rewards::target_inflation_per_staking_era() / validators.len() as Balance;
+			// End era 0, reward payouts are scheduled
+			start_active_era(1);
+			advance_session();
+
+			// treasury is paid its cut of network tx fees
+			assert_eq!(
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				reward_parts.treasury_cut
+			);
+
+			let payouts: Vec<(BlockNumber, (AccountId, Balance))> =
+				crml_staking::rewards::ScheduledPayouts::<Runtime>::iter().collect();
+			assert!(payouts.len() > 0);
+			for (block, (who, amount)) in payouts {
+				println!("{:?} {:?} {:?}", block, who, amount);
+			}
+
+			// Run additional blocks to execute payouts
+			// let payouts_complete_session_index = BlockPayoutInterval::get() as u32 * validators.len() as u32;
+			// start_session(Session::current_index() + payouts_complete_session_index + 1);
+			start_active_era(2);
+			advance_session();
+
+			// Validators get the rest of the reward
+			let per_validator_reward_era_0 = reward_parts.stakers_cut / validators.len() as Balance;
 			for (stash, _, _, _, _, _) in &validators {
 				assert_eq!(
 					RewardCurrency::free_balance(stash),
-					initial_balance + per_validator_reward_era_1
+					initial_balance + per_validator_reward_era_0
 				)
 			}
 
-			start_active_era(2);
-
-			make_validator_0_author_block();
-
-			// Check if stash account balances are not yet changed
-			let validator_0_reward_era_2: Balance = (Perbill::one().saturating_sub(Rewards::development_fund_take()))
-				* tx_fee + Rewards::target_inflation_per_staking_era();
-			for (stash, _controller, _, _, _, _) in &validators {
-				if stash == &validator_0_stash_id {
-					assert_eq!(
-						RewardCurrency::free_balance(&stash),
-						initial_balance + per_validator_reward_era_1 + validator_0_reward_era_2
-					);
-				} else {
-					assert_eq!(
-						RewardCurrency::free_balance(&stash),
-						initial_balance + per_validator_reward_era_1
-					);
-				}
-			}
-
-			// treasury gets it's cut
-			let treasury_cut = Rewards::development_fund_take() * tx_fee;
-			let remainder = total_payout - treasury_cut - validator_0_reward_era_2;
+			// treasury will accrue some remainder from per validator payouts
 			assert_eq!(
 				RewardCurrency::free_balance(&Treasury::account_id()),
-				treasury_cut + remainder + treasury_balance_era_1
-			);
-
-			// Check total issuance of spending asset updated after new era
-			assert_eq!(
-				RewardCurrency::total_issuance(),
-				issuance_after_fees_burned + total_payout
+				reward_parts.treasury_cut
 			);
 		});
 }
@@ -388,7 +371,6 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-
 			start_active_era(1);
 
 			let author_index = 0;
@@ -396,7 +378,7 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 			let initial_reward_issuance = RewardCurrency::total_issuance();
 
 			// No fee is collected yet, the reward is only mined.
-			let total_payout = Rewards::calculate_total_reward().total();
+			let total_payout = Rewards::calculate_total_reward().total;
 			assert_eq!(total_payout, Rewards::target_inflation_per_staking_era());
 
 			let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
@@ -457,8 +439,7 @@ fn authorship_reward_of_last_block_in_an_era() {
 		.build()
 		.execute_with(|| {
 			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index, true);
-
+			start_session(final_session_of_era_index);
 			// The final session falls in the era 0
 			assert_eq!(active_era(), 0);
 
@@ -508,7 +489,7 @@ fn authorship_reward_of_a_chilled_validator() {
 		.build()
 		.execute_with(|| {
 			let final_session_of_era_index = SessionsPerEra::get() - 1;
-			rotate_to_session(final_session_of_era_index, true);
+			start_session(final_session_of_era_index);
 
 			// The last session falls in the era 0
 			assert_eq!(active_era(), 0);
@@ -527,7 +508,10 @@ fn authorship_reward_of_a_chilled_validator() {
 			// Report an offence for the author of the block that is going to be initialised
 			assert_ok!(Staking::on_offence(
 				&[sp_staking::offence::OffenceDetails {
-					offender: (author_stash_id.clone(), Staking::eras_stakers(active_era(), &author_stash_id)),
+					offender: (
+						author_stash_id.clone(),
+						Staking::eras_stakers(active_era(), &author_stash_id)
+					),
 					reporters: vec![],
 				}],
 				&[Perbill::from_percent(0)],
@@ -566,9 +550,6 @@ fn slashed_cennz_goes_to_treasury() {
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
-
-			start_active_era(1);
-
 			// Initially treasury has no CENNZ
 			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 
@@ -583,7 +564,7 @@ fn slashed_cennz_goes_to_treasury() {
 			// Fast-forward eras, 'i'm online' heartbeats are not submitted during this process which will
 			// result in automatic slash reports being generated by the protocol against all staked validators.
 			// Once `SlashDeferDuration` + 1 eras have passed the offence from era(0) will be applied.
-			start_active_era(SlashDeferDuration::get());
+			start_active_era(SlashDeferDuration::get() + 1);
 
 			// Treasury should receive all offenders stake
 			assert_eq!(
@@ -610,9 +591,6 @@ fn slashed_cennz_goes_to_reporter() {
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
-
-			start_active_era(1);
-
 			// Initially treasury has no CENNZ
 			assert!(StakeCurrency::free_balance(&Treasury::account_id()).is_zero());
 			let offender = &validators[0].0;

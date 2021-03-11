@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -33,6 +33,19 @@ use smallvec::smallvec;
 use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
 
+pub(crate) const LOG_TARGET: &'static str = "rewards";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		frame_support::debug::$level!(
+			target: LOG_TARGET,
+			$patter $(, $values)*
+		)
+	};
+}
+
 /// Runs scheduled payouts for the rewards module.
 // It feeds staking module exposure data into rewards calculation/execution function.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>);
@@ -42,14 +55,28 @@ impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunn
 	type Balance = Balance;
 
 	/// Feed exposure info from staking to run reward calculations
-	fn run_payout(validator_stash: &Self::AccountId, total_payout: Self::Balance) -> Weight {
+	/// This is called by Rewards on_initialize at scheduled intervals
+	fn run_payout(validator_stash: &Self::AccountId, amount: Self::Balance, payout_era: EraIndex) -> Weight {
 		use crml_staking::rewards::WeightInfo;
 
-		let era = Staking::current_era().unwrap_or(0);
-		let exposures = Staking::eras_stakers_clipped(era.saturating_sub(1), validator_stash);
-		let commission = Staking::eras_validator_prefs(era.saturating_sub(1), validator_stash).commission;
+		// The max. number of payouts we can perform in an era are given by:
+		// let max_payout_capacity = (SessionsPerEra::get() * EpochDuration::get() / BlockPayoutInterval::get();
+		// debug_assert!(max_payout_capacity >= Staking::maximum_validator_count())
+		// NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
+		// current config has the upper limit of this number at: 5,760 elected validators.
 
-		Rewards::process_reward_payout(&validator_stash, commission, &exposures, total_payout);
+		// payouts for previous era
+		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
+		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
+
+		log!(
+			debug,
+			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
+			validator_stash,
+			amount,
+			payout_era
+		);
+		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount);
 
 		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
 	}
@@ -143,11 +170,7 @@ mod tests {
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
 	use frame_support::weights::{Weight, WeightToFeePolynomial};
-	use sp_runtime::{
-		assert_eq_error_rate,
-		traits::Convert,
-		FixedPointNumber,
-	};
+	use sp_runtime::{assert_eq_error_rate, traits::Convert, FixedPointNumber};
 
 	fn max() -> Weight {
 		AvailableBlockRatio::get() * MaximumBlockWeight::get()

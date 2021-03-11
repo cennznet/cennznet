@@ -17,18 +17,12 @@
 
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
-use cennznet_runtime::{
-	constants::asset::*,
-	GenericAsset, Runtime, Session, Staking, StakerStatus,
-	System, Timestamp,
-};
+use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, Session, StakerStatus, Staking, System, Timestamp};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use frame_support::traits::OnInitialize;
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
-use sp_runtime::{
-	FixedU128, FixedPointNumber, Perbill,
-};
+use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
@@ -114,7 +108,6 @@ impl ExtBuilder {
 
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
-			current_era: 0,
 			validator_count: initial_authorities.len() as u32,
 			minimum_validator_count: min_validator_count,
 			stakers: initial_authorities

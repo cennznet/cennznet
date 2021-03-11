@@ -1,4 +1,4 @@
-/* Copyright 2020 Centrality Investments Limited
+/* Copyright 2020-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,16 +18,20 @@
 use crate::{EraIndex, Exposure};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::weights::Weight;
-use sp_runtime::{traits::Saturating, Perbill};
+use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
 
 /// Something that can run payouts
-/// We need some information from staking module and rewards module to execute a payout lazily
+/// nb: need information from staking module and rewards module to execute a payout after the fact
 pub trait RunScheduledPayout {
 	type AccountId;
 	type Balance;
-	/// Execute a staking payout
-	fn run_payout(validator_stash: &Self::AccountId, _total_payout: Self::Balance) -> Weight;
+	/// Execute a staking payout for stash or amount, earned in era
+	fn run_payout(
+		_validator_stash: &Self::AccountId,
+		_amount: Self::Balance,
+		_era_index: EraIndex,
+	) -> Weight;
 }
 
 /// A type which can be notified of a staking era end
@@ -38,17 +42,37 @@ pub trait OnEndEra {
 }
 
 /// Detailed parts of a total reward
-pub struct NextRewardParts<Balance: Clone + HasCompact + Saturating> {
+#[derive(Debug, PartialEq)]
+pub struct RewardParts<Balance: Copy + HasCompact + AtLeast32BitUnsigned> {
 	/// How much of this reward is due to base inflation
 	pub inflation: Balance,
 	/// How much of this reward is due to transaction fees
 	pub transaction_fees: Balance,
+	/// What fraction of the total reward should go to the treasury
+	pub treasury_rate: Perbill,
+	/// total amount to the treasury
+	pub treasury_cut: Balance,
+	/// total amount to stakers
+	pub stakers_cut: Balance,
+	/// total payout
+	pub total: Balance,
 }
 
-impl<Balance: Clone + HasCompact + Saturating> NextRewardParts<Balance> {
-	/// Calculate the total reward from its parts
-	pub fn total(self) -> Balance {
-		self.transaction_fees.saturating_add(self.inflation)
+impl<Balance: Copy + HasCompact + AtLeast32BitUnsigned> RewardParts<Balance> {
+	/// Create a `RewardParts`
+	pub fn new(inflation: Balance, transaction_fees: Balance, treasury_rate: Perbill) -> Self {
+		let total = transaction_fees.saturating_add(inflation);
+		let treasury_cut = treasury_rate * transaction_fees;
+		let stakers_cut = total.saturating_sub(treasury_cut);
+
+		Self {
+			inflation,
+			transaction_fees,
+			treasury_rate,
+			treasury_cut,
+			stakers_cut,
+			total,
+		}
 	}
 }
 
@@ -57,11 +81,11 @@ pub trait RewardCalculation {
 	/// The system account ID type
 	type AccountId;
 	/// The system balance type
-	type Balance: Clone + HasCompact + Saturating;
+	type Balance: Copy + HasCompact + AtLeast32BitUnsigned;
 
 	/// Calculate the value of the next reward payout as of right now.
-	/// i.e calling `enqueue_reward_payouts` would distribute this total value among stakers.
-	fn calculate_total_reward() -> NextRewardParts<Self::Balance>;
+	/// i.e this amount would be distributed on reward payout
+	fn calculate_total_reward() -> RewardParts<Self::Balance>;
 	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
 	/// Requires commission rates and exposures for the relevant validator set
 	fn calculate_individual_reward(
@@ -95,4 +119,26 @@ pub struct EraRewardPoints<AccountId: Ord> {
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
 	pub individual: BTreeMap<AccountId, RewardPoint>,
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use sp_runtime::traits::Saturating;
+
+	#[test]
+	fn create_reward_parts() {
+		let inflation = 1_000_u32;
+		let fees = 200_u32;
+		let treasury_rate = Perbill::from_percent(30);
+		let reward_parts = RewardParts::new(inflation, fees, treasury_rate);
+		assert_eq!(reward_parts.total, inflation + fees);
+		assert_eq!(reward_parts.transaction_fees, fees,);
+		assert_eq!(reward_parts.inflation, inflation,);
+		assert_eq!(
+			reward_parts.stakers_cut,
+			inflation + (Perbill::one().saturating_sub(treasury_rate)) * fees,
+		);
+		assert_eq!(reward_parts.treasury_cut, treasury_rate * fees,);
+	}
 }

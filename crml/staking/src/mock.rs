@@ -17,7 +17,7 @@
 
 //! Test utilities
 
-use crate::rewards::{HandlePayee, NextRewardParts, RewardCalculation};
+use crate::rewards::{HandlePayee, RewardCalculation, RewardParts};
 use crate::*;
 use frame_support::{
 	assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
@@ -970,11 +970,8 @@ pub struct NoopRewarder<T: Trait>(sp_std::marker::PhantomData<T>);
 impl<T: Trait> RewardCalculation for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
-	fn calculate_total_reward() -> NextRewardParts<Self::Balance> {
-		NextRewardParts {
-			transaction_fees: Zero::zero(),
-			inflation: Zero::zero(),
-		}
+	fn calculate_total_reward() -> RewardParts<Self::Balance> {
+		RewardParts::new(Zero::zero(), Zero::zero(), Perbill::one())
 	}
 	fn calculate_individual_reward(
 		stash: &Self::AccountId,
