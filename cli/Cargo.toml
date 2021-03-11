@@ -52,6 +52,7 @@ sc-sync-state-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockcha
 substrate-frame-rpc-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-consensus-babe-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-finality-grandpa-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }

@@ -509,9 +509,9 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 #[cfg(test)]
 mod tests {
 	use crate::service::{new_full_base, new_light_base, NewFullBase};
-	use cennznet_primitives::types::{DigestItem, Signature};
+	use cennznet_primitives::types::{Block, DigestItem, Signature};
 	use cennznet_runtime::constants::{asset::SPENDING_ASSET_ID, currency::DOLLARS, time::SLOT_DURATION};
-	use cennznet_runtime::{opaque::Block, Address, Call, GenericAssetCall, UncheckedExtrinsic};
+	use cennznet_runtime::{Address, Call, GenericAssetCall, UncheckedExtrinsic};
 	use codec::Encode;
 	use sc_client_api::BlockBackend;
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -629,7 +629,7 @@ mod tests {
 				let babe_pre_digest = loop {
 					inherent_data.replace_data(sp_timestamp::INHERENT_IDENTIFIER, &(slot * SLOT_DURATION));
 					if let Some(babe_pre_digest) = sc_consensus_babe::test_helpers::claim_slot(
-						slot,
+						slot.into(),
 						&parent_header,
 						&*service.client(),
 						keystore.clone(),
@@ -756,7 +756,7 @@ mod tests {
 				))
 			},
 			|config| {
-				let (keep_alive, _, client, network, transaction_pool) = new_light_base(config)?;
+				let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
 				Ok(sc_service_test::TestNetComponents::new(
 					keep_alive,
 					client,

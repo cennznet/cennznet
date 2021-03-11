@@ -303,7 +303,7 @@ pub(crate) mod tests {
 				))
 			},
 			|config| {
-				let (keep_alive, _, client, network, transaction_pool) = new_light_base(config)?;
+				let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
 				Ok(sc_service_test::TestNetComponents::new(
 					keep_alive,
 					client,
