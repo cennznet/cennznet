@@ -510,14 +510,12 @@ mod tests {
 		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer, RecordProof,
 	};
 	use sp_core::{crypto::Pair as CryptoPair, H256};
-	use sp_finality_tracker;
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-	use sp_runtime::traits::IdentifyAccount;
 	use sp_runtime::{
 		generic::{BlockId, Digest, Era, SignedPayload},
-		traits::Verify,
 		traits::{Block as BlockT, Header as HeaderT},
+		traits::{IdentifyAccount, RuntimeAppPublic, Verify},
 	};
 	use sp_timestamp;
 	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool};
@@ -582,7 +580,6 @@ mod tests {
 				let mut inherent_data = inherent_data_providers
 					.create_inherent_data()
 					.expect("Creates inherent data.");
-				inherent_data.replace_data(sp_finality_tracker::INHERENT_IDENTIFIER, &1u64);
 
 				let parent_id = BlockId::number(service.client().chain_info().best_number);
 				let parent_header = service.client().header(&parent_id).unwrap().unwrap();
@@ -594,8 +591,12 @@ mod tests {
 					tree_route: None,
 				}));
 
-				let mut proposer_factory =
-					sc_basic_authorship::ProposerFactory::new(service.client(), service.transaction_pool(), None);
+				let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
+					task_manager.spawn_handle(),
+					service.client(),
+					service.transaction_pool(),
+					None,
+				);
 
 				let epoch_descriptor = babe_link
 					.epoch_changes()
@@ -619,7 +620,7 @@ mod tests {
 						slot_num,
 						&parent_header,
 						&*service.client(),
-						&keystore,
+						keystore,
 						&babe_link,
 					) {
 						break babe_pre_digest;

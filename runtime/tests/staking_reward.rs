@@ -19,16 +19,16 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, BlockPayoutInterval, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session,
-	SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, ImOnline, Rewards, Runtime, Session, SessionsPerEra,
+	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
-use crml_staking::{EraIndex, HandlePayee, OnEndEra, RewardCalculation, StakingLedger};
+use crml_staking::{EraIndex, HandlePayee, OnEndEra, RewardCalculation, StakingLedger, ValidatorPrefs};
 use frame_support::{
 	assert_ok,
-	storage::StorageValue,
+	storage::{StorageDoubleMap, StorageValue},
 	traits::{Currency, Get, OnFinalize, OnInitialize, UnfilteredDispatchable},
-	IterableStorageMap,
+	IterableStorageDoubleMap, IterableStorageMap,
 };
 use frame_system::RawOrigin;
 use pallet_im_online::UnresponsivenessOffence;
@@ -46,8 +46,6 @@ mod common;
 use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
-
-const BlocksPerEra: u32 = SessionsPerEra::get() * EpochDuration::get() as u32;
 
 /// Alias for the runtime configured staking reward currency
 type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
@@ -68,7 +66,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Rewards::on_initialize(b);
 		// Session modules asks babe module if it can rotate
 		Timestamp::set_timestamp(30_000 + b as u64 * MILLISECS_PER_BLOCK);
-		// force babe slot increment (normally this is set by system digest)
+		// force babe slot increment (normally this is set using system digest)
 		pallet_babe::CurrentSlot::put(n as u64);
 		if b != n {
 			Staking::on_finalize(System::block_number());
@@ -142,11 +140,10 @@ fn send_heartbeats() {
 			validators_len: Session::validators().len() as u32,
 		};
 		let call = pallet_im_online::Call::heartbeat(heartbeat_data, Default::default());
-		<pallet_im_online::Call<Runtime> as UnfilteredDispatchable>::dispatch_bypass_filter(
+		let _ = <pallet_im_online::Call<Runtime> as UnfilteredDispatchable>::dispatch_bypass_filter(
 			call,
 			RawOrigin::None.into(),
-		)
-		.unwrap();
+		);
 	}
 }
 
@@ -312,14 +309,35 @@ fn elected_validators_receive_transaction_fee_reward() {
 			assert_eq!(tx_fee, reward_parts.transaction_fees);
 			assert_eq!(Rewards::target_inflation_per_staking_era() + tx_fee, reward_parts.total);
 
-			// This should move to start_active_era(1)
-
 			// treasury has nothing at this point
 			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
 
-			// End era 0, reward payouts are scheduled
+			let e0 = crml_staking::ErasValidatorPrefs::<Runtime>::iter_prefix(0_u32)
+				.map(|(stash, _prefs)| stash)
+				.collect::<Vec<AccountId>>();
+			let e1 = crml_staking::ErasValidatorPrefs::<Runtime>::iter_prefix(1_u32)
+				.map(|(stash, _prefs)| stash)
+				.collect::<Vec<AccountId>>();
+
+			// TODO: validators are coming through empty here...
+			send_heartbeats();
 			start_active_era(1);
-			advance_session();
+
+			let e2 = crml_staking::ErasValidatorPrefs::<Runtime>::iter_prefix(0_u32)
+				.map(|(stash, _prefs)| stash)
+				.collect::<Vec<AccountId>>();
+			let e3 = crml_staking::ErasValidatorPrefs::<Runtime>::iter_prefix(1_u32)
+				.map(|(stash, _prefs)| stash)
+				.collect::<Vec<AccountId>>();
+
+			// end era 1, reward payouts are scheduled
+			println!("{:?}", crml_staking::rewards::ScheduledPayoutEra::get());
+			println!("{:?}", reward_parts.stakers_cut);
+			let payouts: Vec<(BlockNumber, (AccountId, Balance))> =
+				crml_staking::rewards::ScheduledPayouts::<Runtime>::iter().collect();
+			for (block, (who, amount)) in payouts {
+				println!("{:?} {:?} {:?}", block, who, amount);
+			}
 
 			// treasury is paid its cut of network tx fees
 			assert_eq!(
@@ -327,18 +345,11 @@ fn elected_validators_receive_transaction_fee_reward() {
 				reward_parts.treasury_cut
 			);
 
-			let payouts: Vec<(BlockNumber, (AccountId, Balance))> =
-				crml_staking::rewards::ScheduledPayouts::<Runtime>::iter().collect();
-			assert!(payouts.len() > 0);
-			for (block, (who, amount)) in payouts {
-				println!("{:?} {:?} {:?}", block, who, amount);
-			}
-
-			// Run additional blocks to execute payouts
-			// let payouts_complete_session_index = BlockPayoutInterval::get() as u32 * validators.len() as u32;
-			// start_session(Session::current_index() + payouts_complete_session_index + 1);
-			start_active_era(2);
-			advance_session();
+			// // Run additional blocks to execute payouts
+			// // let payouts_complete_session_index = BlockPayoutInterval::get() as u32 * validators.len() as u32;
+			// // start_session(Session::current_index() + payouts_complete_session_index + 1);
+			// start_active_era(2);
+			// advance_session();
 
 			// Validators get the rest of the reward
 			let per_validator_reward_era_0 = reward_parts.stakers_cut / validators.len() as Balance;

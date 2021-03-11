@@ -98,6 +98,61 @@ pub fn is_disabled(controller: AccountId) -> bool {
 	SESSION.with(|d| d.borrow().1.contains(&stash))
 }
 
+pub struct Offset;
+impl Get<BlockNumber> for Offset {
+	fn get() -> BlockNumber {
+		OFFSET.with(|v| *v.borrow())
+	}
+}
+
+pub struct ExistentialDeposit;
+impl Get<Balance> for ExistentialDeposit {
+	fn get() -> Balance {
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
+	}
+}
+
+pub struct SessionsPerEra;
+impl Get<SessionIndex> for SessionsPerEra {
+	fn get() -> SessionIndex {
+		SESSIONS_PER_ERA.with(|v| *v.borrow())
+	}
+}
+
+impl Get<BlockNumber> for SessionsPerEra {
+	fn get() -> BlockNumber {
+		SESSIONS_PER_ERA.with(|v| *v.borrow() as BlockNumber)
+	}
+}
+
+pub struct ElectionLookahead;
+impl Get<BlockNumber> for ElectionLookahead {
+	fn get() -> BlockNumber {
+		ELECTION_LOOKAHEAD.with(|v| *v.borrow())
+	}
+}
+
+pub struct Period;
+impl Get<BlockNumber> for Period {
+	fn get() -> BlockNumber {
+		PERIOD.with(|v| *v.borrow())
+	}
+}
+
+pub struct SlashDeferDuration;
+impl Get<EraIndex> for SlashDeferDuration {
+	fn get() -> EraIndex {
+		SLASH_DEFER_DURATION.with(|v| *v.borrow())
+	}
+}
+
+pub struct MaxIterations;
+impl Get<u32> for MaxIterations {
+	fn get() -> u32 {
+		MAX_ITERATIONS.with(|v| *v.borrow())
+	}
+}
+
 impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}
 }
@@ -146,15 +201,7 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 	pub const MaxLocks: u32 = 1024;
-	pub const SessionsPerEra: SessionIndex = 3;
-	pub const ExistentialDeposit: Balance = 1;
-	pub const SlashDeferDuration: EraIndex = 0;
-	pub const ElectionLookahead: BlockNumber = 0;
-	pub const Period: BlockNumber = 5;
-	pub const Offset: BlockNumber = 0;
-	pub const MaxIterations: u32 = 0;
 }
-
 impl frame_system::Trait for Test {
 	type BaseCallFilter = ();
 	type Origin = Origin;
@@ -278,38 +325,52 @@ where
 pub type Extrinsic = TestXt<Call, ()>;
 
 pub struct ExtBuilder {
+	session_length: BlockNumber,
+	election_lookahead: BlockNumber,
+	session_per_era: SessionIndex,
+	existential_deposit: Balance,
 	validator_pool: bool,
 	nominate: bool,
 	validator_count: u32,
-	minimum_bond: Balance,
 	minimum_validator_count: u32,
+	minimum_bond: Balance,
+	slash_defer_duration: EraIndex,
 	fair: bool,
 	num_validators: Option<u32>,
 	invulnerables: Vec<AccountId>,
 	has_stakers: bool,
+	max_offchain_iterations: u32,
+	offset: BlockNumber,
 	initialize_first_session: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
+			session_length: 1,
+			election_lookahead: 0,
+			session_per_era: 3,
+			existential_deposit: 1,
 			validator_pool: false,
 			nominate: true,
 			validator_count: 2,
-			minimum_bond: One::one(),
 			minimum_validator_count: 0,
+			slash_defer_duration: 0,
+			minimum_bond: One::one(),
 			fair: true,
 			num_validators: None,
 			invulnerables: vec![],
 			has_stakers: true,
+			max_offchain_iterations: 0,
+			offset: 0,
 			initialize_first_session: true,
 		}
 	}
 }
 
 impl ExtBuilder {
-	pub fn existential_deposit(self, existential_deposit: Balance) -> Self {
-		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
+	pub fn existential_deposit(mut self, existential_deposit: Balance) -> Self {
+		self.existential_deposit = existential_deposit;
 		self
 	}
 	pub fn validator_pool(mut self, validator_pool: bool) -> Self {
@@ -324,16 +385,12 @@ impl ExtBuilder {
 		self.validator_count = count;
 		self
 	}
-	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
-		self.minimum_bond = minimum_bond;
-		self
-	}
 	pub fn minimum_validator_count(mut self, count: u32) -> Self {
 		self.minimum_validator_count = count;
 		self
 	}
-	pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
-		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = eras);
+	pub fn slash_defer_duration(mut self, eras: EraIndex) -> Self {
+		self.slash_defer_duration = eras;
 		self
 	}
 	pub fn fair(mut self, is_fair: bool) -> Self {
@@ -348,41 +405,55 @@ impl ExtBuilder {
 		self.invulnerables = invulnerables;
 		self
 	}
-	pub fn session_per_era(self, length: SessionIndex) -> Self {
-		SESSIONS_PER_ERA.with(|v| *v.borrow_mut() = length);
+	pub fn session_per_era(mut self, length: SessionIndex) -> Self {
+		self.session_per_era = length;
 		self
 	}
-	pub fn election_lookahead(self, look: BlockNumber) -> Self {
-		ELECTION_LOOKAHEAD.with(|v| *v.borrow_mut() = look);
+	pub fn election_lookahead(mut self, look: BlockNumber) -> Self {
+		self.election_lookahead = look;
 		self
 	}
-	pub fn period(self, length: BlockNumber) -> Self {
-		PERIOD.with(|v| *v.borrow_mut() = length);
+	pub fn period(mut self, length: BlockNumber) -> Self {
+		self.session_length = length;
 		self
 	}
 	pub fn has_stakers(mut self, has: bool) -> Self {
 		self.has_stakers = has;
 		self
 	}
-	pub fn max_offchain_iterations(self, iterations: u32) -> Self {
-		MAX_ITERATIONS.with(|v| *v.borrow_mut() = iterations);
+	pub fn max_offchain_iterations(mut self, iterations: u32) -> Self {
+		self.max_offchain_iterations = iterations;
 		self
 	}
 	pub fn offchain_election_ext(self) -> Self {
 		self.session_per_era(4).period(5).election_lookahead(3)
 	}
+	pub fn set_associated_constants(&self) {
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = self.slash_defer_duration);
+		SESSIONS_PER_ERA.with(|v| *v.borrow_mut() = self.session_per_era);
+		ELECTION_LOOKAHEAD.with(|v| *v.borrow_mut() = self.election_lookahead);
+		PERIOD.with(|v| *v.borrow_mut() = self.session_length);
+		MAX_ITERATIONS.with(|v| *v.borrow_mut() = self.max_offchain_iterations);
+		OFFSET.with(|v| *v.borrow_mut() = self.offset);
+	}
+	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
+		self.minimum_bond = minimum_bond;
+		self
+	}
 	pub fn initialize_first_session(mut self, init: bool) -> Self {
 		self.initialize_first_session = init;
 		self
 	}
-	pub fn offset(self, offset: BlockNumber) -> Self {
-		OFFSET.with(|v| *v.borrow_mut() = offset);
+	pub fn offset(mut self, offset: BlockNumber) -> Self {
+		self.offset = offset;
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
+		self.set_associated_constants();
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		let balance_factor = if ExistentialDeposit::get() > 1 { 256 } else { 1 };
+		let balance_factor = if self.existential_deposit > 1 { 256 } else { 1 };
 
 		let num_validators = self.num_validators.unwrap_or(self.validator_count);
 		let validators = (0..num_validators)
@@ -437,7 +508,7 @@ impl ExtBuilder {
 			];
 		}
 		let _ = GenesisConfig::<Test> {
-			stakers: stakers,
+			stakers,
 			validator_count: self.validator_count,
 			minimum_bond: self.minimum_bond,
 			minimum_validator_count: self.minimum_validator_count,
@@ -662,22 +733,6 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	// One way or another, current_era must have changed before the active era, so they must match
 	// at this point.
 	assert_eq!(current_era(), active_era());
-}
-
-/// Time it takes to finish a session.
-///
-/// Note, if you see `time_per_session() - BLOCK_TIME`, it is fine. This is because we set the
-/// timestamp after on_initialize, so the timestamp is always one block old.
-pub(crate) fn time_per_session() -> u64 {
-	Period::get() * BLOCK_TIME
-}
-
-/// Time it takes to finish an era.
-///
-/// Note, if you see `time_per_era() - BLOCK_TIME`, it is fine. This is because we set the
-/// timestamp after on_initialize, so the timestamp is always one block old.
-pub(crate) fn time_per_era() -> u64 {
-	time_per_session() * SessionsPerEra::get() as u64
 }
 
 pub(crate) fn validator_controllers() -> Vec<AccountId> {
@@ -974,8 +1029,8 @@ impl<T: Trait> RewardCalculation for NoopRewarder<T> {
 		RewardParts::new(Zero::zero(), Zero::zero(), Perbill::one())
 	}
 	fn calculate_individual_reward(
-		stash: &Self::AccountId,
-		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
+		_stash: &Self::AccountId,
+		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
 		Zero::zero()
 	}

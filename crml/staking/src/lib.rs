@@ -1064,6 +1064,8 @@ decl_error! {
 		InvalidSlashIndex,
 		/// Can not bond with value less than minimum balance.
 		InsufficientBond,
+		/// User does not have enough free balance to bond this amount
+		InsufficientFreeBalance,
 		/// Can not schedule more unlock chunks.
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.
@@ -1366,10 +1368,14 @@ decl_module! {
 
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);
+				ensure!((ledger.active + extra) >= Self::minimum_bond(), Error::<T>::InsufficientBond);
 				ledger.total += extra;
 				ledger.active += extra;
 				Self::deposit_event(RawEvent::Bonded(stash, extra));
 				Self::update_ledger(&controller, &ledger);
+			} else {
+				// use doesn't have enough balance, better to retun some failure
+				return Err(Error::<T>::InsufficientFreeBalance.into())
 			}
 		}
 
@@ -1817,6 +1823,7 @@ decl_module! {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
+			ensure!(ledger.active.saturating_add(value) >= Self::minimum_bond(), Error::<T>::InsufficientBond);
 
 			let ledger = ledger.rebond(value);
 			Self::update_ledger(&controller, &ledger);

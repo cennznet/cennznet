@@ -63,10 +63,7 @@ pub trait Trait: frame_system::Trait {
 	/// The number of staking eras in a fiscal era.
 	type FiscalEraLength: Get<u32>;
 	/// Handles running a scheduled payout
-	type ScheduledPayoutRunner: RunScheduledPayout<
-		AccountId = Self::AccountId,
-		Balance = BalanceOf<Self>,
-	>;
+	type ScheduledPayoutRunner: RunScheduledPayout<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -347,7 +344,7 @@ impl<T: Trait> Module<T> {
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
 	/// each based on their block contribution ratio
-	/// `stakers_cut` the initial reward amount to divy up between validators
+	/// `stakers_cut` the initial reward amount to divvy up between validators
 	fn calculate_per_validator_payouts(
 		stakers_cut: BalanceOf<T>,
 		validators: &[T::AccountId],

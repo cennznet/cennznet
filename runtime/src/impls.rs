@@ -21,7 +21,7 @@ use cennznet_primitives::{
 	traits::SimpleAssetSystem,
 	types::{AccountId, Balance},
 };
-use crml_staking::rewards::RunScheduledPayout;
+use crml_staking::{rewards::RunScheduledPayout, EraIndex};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},

@@ -27,11 +27,7 @@ pub trait RunScheduledPayout {
 	type AccountId;
 	type Balance;
 	/// Execute a staking payout for stash or amount, earned in era
-	fn run_payout(
-		_validator_stash: &Self::AccountId,
-		_amount: Self::Balance,
-		_era_index: EraIndex,
-	) -> Weight;
+	fn run_payout(_validator_stash: &Self::AccountId, _amount: Self::Balance, _era_index: EraIndex) -> Weight;
 }
 
 /// A type which can be notified of a staking era end

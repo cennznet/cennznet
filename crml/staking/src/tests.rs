@@ -25,7 +25,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
-use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
+use sp_runtime::traits::BadOrigin;
 use sp_staking::offence::OffenceDetails;
 use substrate_test_utils::assert_eq_uvec;
 
@@ -1103,109 +1103,114 @@ fn rebond_is_fifo() {
 fn on_free_balance_zero_stash_removes_validator() {
 	// Tests that validator storage items are cleaned up when stash is empty
 	// Tests that storage items are untouched when controller is empty
-	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
-		// Check the balance of the validator account
-		assert_eq!(Balances::free_balance(10), 256);
-		// Check the balance of the stash account
-		assert_eq!(Balances::free_balance(11), 256000);
-		// Check these two accounts are bonded
-		assert_eq!(Staking::bonded(&11), Some(10));
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.minimum_bond(10)
+		.build_and_execute(|| {
+			// Check the balance of the validator account
+			assert_eq!(Balances::free_balance(10), 256);
+			// Check the balance of the stash account
+			assert_eq!(Balances::free_balance(11), 256000);
+			// Check these two accounts are bonded
+			assert_eq!(Staking::bonded(&11), Some(10));
 
-		// Set some storage items which we expect to be cleaned up
-		// Set payee information
-		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Stash));
+			// Set some storage items which we expect to be cleaned up
+			// Set payee information
+			assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Stash));
 
-		// Check storage items that should be cleaned up
-		assert!(<Ledger<Test>>::contains_key(&10));
-		assert!(<Bonded<Test>>::contains_key(&11));
-		assert!(<Validators<Test>>::contains_key(&11));
-		assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			// Check storage items that should be cleaned up
+			assert!(<Ledger<Test>>::contains_key(&10));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Validators<Test>>::contains_key(&11));
+			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
 
-		// Reduce free_balance of controller to 0
-		let _ = Balances::slash(&10, Balance::max_value());
+			// Reduce free_balance of controller to 0
+			let _ = Balances::slash(&10, Balance::max_value());
 
-		// Check the balance of the stash account has not been touched
-		assert_eq!(Balances::free_balance(11), 256000);
-		// Check these two accounts are still bonded
-		assert_eq!(Staking::bonded(&11), Some(10));
+			// Check the balance of the stash account has not been touched
+			assert_eq!(Balances::free_balance(11), 256000);
+			// Check these two accounts are still bonded
+			assert_eq!(Staking::bonded(&11), Some(10));
 
-		// Check storage items have not changed
-		assert!(<Ledger<Test>>::contains_key(&10));
-		assert!(<Bonded<Test>>::contains_key(&11));
-		assert!(<Validators<Test>>::contains_key(&11));
-		assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			// Check storage items have not changed
+			assert!(<Ledger<Test>>::contains_key(&10));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Validators<Test>>::contains_key(&11));
+			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
 
-		// Reduce free_balance of stash to 0
-		let _ = Balances::slash(&11, Balance::max_value());
-		// Check total balance of stash
-		assert_eq!(Balances::total_balance(&11), 0);
+			// Reduce free_balance of stash to 0
+			let _ = Balances::slash(&11, Balance::max_value());
+			// Check total balance of stash
+			assert_eq!(Balances::total_balance(&11), 0);
 
-		// Reap the stash
-		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+			// Reap the stash
+			assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
-		// Check storage items do not exist
-		assert!(!<Ledger<Test>>::contains_key(&10));
-		assert!(!<Bonded<Test>>::contains_key(&11));
-		assert!(!<Validators<Test>>::contains_key(&11));
-		assert!(!<Nominators<Test>>::contains_key(&11));
-		assert_eq!(!<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
-	});
+			// Check storage items do not exist
+			assert!(!<Ledger<Test>>::contains_key(&10));
+			assert!(!<Bonded<Test>>::contains_key(&11));
+			assert!(!<Validators<Test>>::contains_key(&11));
+			assert!(!<Nominators<Test>>::contains_key(&11));
+			// payee is removed (managed by rewards module)
+		});
 }
 
 #[test]
 fn on_free_balance_zero_stash_removes_nominator() {
 	// Tests that nominator storage items are cleaned up when stash is empty
 	// Tests that storage items are untouched when controller is empty
-	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
-		// Make 10 a nominator
-		assert_ok!(Staking::nominate(Origin::signed(10), vec![20]));
-		// Check that account 10 is a nominator
-		assert!(<Nominators<Test>>::contains_key(11));
-		// Check the balance of the nominator account
-		assert_eq!(Balances::free_balance(10), 256);
-		// Check the balance of the stash account
-		assert_eq!(Balances::free_balance(11), 256000);
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.minimum_bond(10)
+		.build_and_execute(|| {
+			// Make 10 a nominator
+			assert_ok!(Staking::nominate(Origin::signed(10), vec![20]));
+			// Check that account 10 is a nominator
+			assert!(<Nominators<Test>>::contains_key(11));
+			// Check the balance of the nominator account
+			assert_eq!(Balances::free_balance(10), 256);
+			// Check the balance of the stash account
+			assert_eq!(Balances::free_balance(11), 256000);
 
-		// Set payee information
-		assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Stash));
+			// Set payee information
+			assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Stash));
 
-		// Check storage items that should be cleaned up
-		assert!(<Ledger<Test>>::contains_key(&10));
-		assert!(<Bonded<Test>>::contains_key(&11));
-		assert!(<Nominators<Test>>::contains_key(&11));
-		assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			// Check storage items that should be cleaned up
+			assert!(<Ledger<Test>>::contains_key(&10));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Nominators<Test>>::contains_key(&11));
+			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
 
-		// Reduce free_balance of controller to 0
-		let _ = Balances::slash(&10, Balance::max_value());
-		// Check total balance of account 10
-		assert_eq!(Balances::total_balance(&10), 0);
+			// Reduce free_balance of controller to 0
+			let _ = Balances::slash(&10, Balance::max_value());
+			// Check total balance of account 10
+			assert_eq!(Balances::total_balance(&10), 0);
 
-		// Check the balance of the stash account has not been touched
-		assert_eq!(Balances::free_balance(11), 256000);
-		// Check these two accounts are still bonded
-		assert_eq!(Staking::bonded(&11), Some(10));
+			// Check the balance of the stash account has not been touched
+			assert_eq!(Balances::free_balance(11), 256000);
+			// Check these two accounts are still bonded
+			assert_eq!(Staking::bonded(&11), Some(10));
 
-		// Check storage items have not changed
-		assert!(<Ledger<Test>>::contains_key(&10));
-		assert!(<Bonded<Test>>::contains_key(&11));
-		assert!(<Nominators<Test>>::contains_key(&11));
-		assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			// Check storage items have not changed
+			assert!(<Ledger<Test>>::contains_key(&10));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Nominators<Test>>::contains_key(&11));
+			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
 
-		// Reduce free_balance of stash to 0
-		let _ = Balances::slash(&11, Balance::max_value());
-		// Check total balance of stash
-		assert_eq!(Balances::total_balance(&11), 0);
+			// Reduce free_balance of stash to 0
+			let _ = Balances::slash(&11, Balance::max_value());
+			// Check total balance of stash
+			assert_eq!(Balances::total_balance(&11), 0);
 
-		// Reap the stash
-		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+			// Reap the stash
+			assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
-		// Check storage items do not exist
-		assert!(!<Ledger<Test>>::contains_key(&10));
-		assert!(!<Bonded<Test>>::contains_key(&11));
-		assert!(!<Validators<Test>>::contains_key(&11));
-		assert!(!<Nominators<Test>>::contains_key(&11));
-		assert_ne!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
-	});
+			// Check storage items do not exist
+			assert!(!<Ledger<Test>>::contains_key(&10));
+			assert!(!<Bonded<Test>>::contains_key(&11));
+			assert!(!<Validators<Test>>::contains_key(&11));
+			// payee is removed (managed by rewards module)
+		});
 }
 
 #[test]
@@ -1291,7 +1296,7 @@ fn bond_with_no_staked_value() {
 	// Particularly when she votes and the candidate is elected.
 	ExtBuilder::default()
 		.validator_count(3)
-		.existential_deposit(5)
+		.minimum_bond(5)
 		.nominate(false)
 		.minimum_validator_count(1)
 		.build()
@@ -1335,7 +1340,7 @@ fn bond_with_no_staked_value() {
 }
 
 #[test]
-fn bond_with_duplicate_vote_should_be_ignored_by_npos_election() {
+fn cannot_nominate_duplicates() {
 	ExtBuilder::default()
 		.validator_count(2)
 		.nominate(false)
@@ -1365,25 +1370,16 @@ fn bond_with_duplicate_vote_should_be_ignored_by_npos_election() {
 			}
 
 			assert_ok!(Staking::bond(Origin::signed(1), 2, 1000, RewardDestination::Controller));
-			assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 11, 11, 21, 31,]));
-
-			assert_ok!(Staking::bond(Origin::signed(3), 4, 1000, RewardDestination::Controller));
-			assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 31]));
-
-			// winners should be 21 and 31. Otherwise this election is taking duplicates into account.
-			let sp_npos_elections::ElectionResult { winners, assignments } =
-				Staking::do_phragmen::<Perbill>(0).unwrap();
-			let winners = sp_npos_elections::to_without_backing(winners);
-
-			assert_eq!(winners, vec![31, 21]);
-			// only distribution to 21 and 31.
-			assert_eq!(assignments.iter().find(|a| a.who == 1).unwrap().distribution.len(), 2);
+			assert_noop!(
+				Staking::nominate(Origin::signed(2), vec![11, 11, 11, 21, 31]),
+				Error::<Test>::DuplicateNominee
+			);
 		});
 }
 
 #[test]
 fn bond_with_duplicate_vote_should_be_ignored_by_npos_election_elected() {
-	// same as above but ensures that even when the duple is being elected, everything is sane.
+	// same as above but ensures that even when the double is being elected, everything is sane.
 	ExtBuilder::default()
 		.validator_count(2)
 		.nominate(false)
@@ -1413,7 +1409,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_npos_election_elected() {
 			}
 
 			assert_ok!(Staking::bond(Origin::signed(1), 2, 1000, RewardDestination::Controller));
-			assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 11, 11, 21, 31,]));
+			assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 21, 31,]));
 
 			assert_ok!(Staking::bond(Origin::signed(3), 4, 1000, RewardDestination::Controller));
 			assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 31]));
@@ -1890,46 +1886,49 @@ fn only_slash_for_max_in_era() {
 #[test]
 fn garbage_collection_after_slashing() {
 	// ensures that `SlashingSpans` and `SpanSlash` of an account is removed after reaping.
-	ExtBuilder::default().existential_deposit(2).build_and_execute(|| {
-		assert_eq!(Balances::free_balance(11), 256_000);
+	ExtBuilder::default()
+		.existential_deposit(2)
+		.minimum_bond(2)
+		.build_and_execute(|| {
+			assert_eq!(Balances::free_balance(11), 256_000);
 
-		on_offence_now(
-			&[OffenceDetails {
-				offender: (11, Staking::eras_stakers(Staking::active_era().unwrap().index, 11)),
-				reporters: vec![],
-			}],
-			&[Perbill::from_percent(10)],
-		);
+			on_offence_now(
+				&[OffenceDetails {
+					offender: (11, Staking::eras_stakers(Staking::active_era().unwrap().index, 11)),
+					reporters: vec![],
+				}],
+				&[Perbill::from_percent(10)],
+			);
 
-		assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
-		assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_some());
-		assert_eq!(
-			<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
-			&25_600
-		);
+			assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
+			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_some());
+			assert_eq!(
+				<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
+				&25_600
+			);
 
-		on_offence_now(
-			&[OffenceDetails {
-				offender: (11, Staking::eras_stakers(Staking::active_era().unwrap().index, 11)),
-				reporters: vec![],
-			}],
-			&[Perbill::from_percent(100)],
-		);
+			on_offence_now(
+				&[OffenceDetails {
+					offender: (11, Staking::eras_stakers(Staking::active_era().unwrap().index, 11)),
+					reporters: vec![],
+				}],
+				&[Perbill::from_percent(100)],
+			);
 
-		// validator and nominator slash in era are garbage-collected by era change,
-		// so we don't test those here.
+			// validator and nominator slash in era are garbage-collected by era change,
+			// so we don't test those here.
 
-		assert_eq!(Balances::free_balance(11), 0);
-		assert_eq!(Balances::total_balance(&11), 0);
+			assert_eq!(Balances::free_balance(11), 0);
+			assert_eq!(Balances::total_balance(&11), 0);
 
-		let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
-		assert_eq!(slashing_spans.iter().count(), 2);
+			let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
+			assert_eq!(slashing_spans.iter().count(), 2);
 
-		assert_ok!(Staking::reap_stash(Origin::none(), 11));
+			assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
-		assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
-		assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
-	})
+			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
+			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
+		})
 }
 
 #[test]
@@ -2365,7 +2364,7 @@ mod offchain_election {
 		let mut voter = 1;
 		bond_nominator(voter, 1000 + voter, 100, vec![11]);
 		voter = 2;
-		bond_nominator(voter, 1000 + voter, 100, vec![11, 11]);
+		bond_nominator(voter, 1000 + voter, 100, vec![11]);
 		voter = 3;
 		bond_nominator(voter, 1000 + voter, 100, vec![21, 41]);
 		voter = 4;
@@ -3773,11 +3772,8 @@ fn session_buffering_no_offset() {
 }
 
 #[test]
-fn cannot_rebond_to_lower_than_ed() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
-		// stash must have more balance than bonded for this to work.
-		assert_eq!(Balances::free_balance(&21), 512_000);
-
+fn cannot_rebond_to_lower_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(10).build_and_execute(|| {
 		// initial stuff.
 		assert_eq!(
 			Staking::ledger(&20).unwrap(),
@@ -3802,16 +3798,13 @@ fn cannot_rebond_to_lower_than_ed() {
 		);
 
 		// now bond a wee bit more
-		assert_noop!(Staking::rebond(Origin::signed(20), 5), Error::<Test>::InsufficientBond,);
+		assert_noop!(Staking::rebond(Origin::signed(20), 5), Error::<Test>::InsufficientBond);
 	})
 }
 
 #[test]
-fn cannot_bond_extra_to_lower_than_ed() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
-		// stash must have more balance than bonded for this to work.
-		assert_eq!(Balances::free_balance(&21), 512_000);
-
+fn cannot_bond_extra_to_lower_than_minimum_bond() {
+	ExtBuilder::default().minimum_bond(10).build_and_execute(|| {
 		// initial stuff.
 		assert_eq!(
 			Staking::ledger(&20).unwrap(),
