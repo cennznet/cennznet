@@ -662,3 +662,50 @@ fn accrued_payout_simple() {
 			);
 		});
 }
+
+#[test]
+fn accrued_payout_nominators() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// era 0 has no reward
+			start_active_era(1);
+
+			// integer IDs for nominators addresses
+			let stash = |n: u32| -> AccountId { AccountId::unchecked_from(H256::from_low_u64_be(n as u64 + 10_000)) };
+
+			// Make some nominations
+			Staking::set_bond(stash(1), 1_000_000);
+			Staking::set_nominations(stash(1), vec![Session::validators()[0].clone()]);
+
+			Staking::set_bond(stash(2), 1_000_000);
+			Staking::set_nominations(stash(2), vec![Session::validators()[0].clone()]);
+			// set payee differently
+			Rewards::set_payee(&stash(2), &stash(9));
+
+			// nominations are active now we should see reward accruing
+			start_active_era(2);
+			let accrued_1 = Staking::accrued_payout(&stash(1));;
+			let accrued_2 = Staking::accrued_payout(&stash(2));
+			assert!(
+				accrued_1 > Zero::zero()
+			);
+			assert!(
+				accrued_2 > Zero::zero()
+			);
+
+			// Payout era 2
+			start_active_era(3);
+			// ensure payout blocks are triggered
+			advance_session();
+
+			assert_eq!(RewardCurrency::free_balance(&stash(1)), accrued_1);
+			assert!(RewardCurrency::free_balance(&stash(2)).is_zero()); // stash(2) not the payee
+			assert_eq!(RewardCurrency::free_balance(&stash(9)), accrued_2); // stash(2) payee
+		});
+}
