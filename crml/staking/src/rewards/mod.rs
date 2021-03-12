@@ -1043,8 +1043,11 @@ mod tests {
 	#[test]
 	fn calculate_npos_payouts_zero_commission() {
 		ExtBuilder::default().build().execute_with(|| {
-			let mock_commission_stake_map =
-				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 2_000)], Perbill::from_percent(Zero::zero()));
+			let mock_commission_stake_map = MockCommissionStakeInfo::new(
+				(1, 1_000),
+				vec![(2, 2_000), (3, 2_000)],
+				Perbill::from_percent(Zero::zero()),
+			);
 			let staker_reward = 1_000_000;
 
 			let payouts = Rewards::calculate_npos_payouts(

@@ -690,14 +690,10 @@ fn accrued_payout_nominators() {
 
 			// nominations are active now we should see reward accruing
 			start_active_era(2);
-			let accrued_1 = Staking::accrued_payout(&stash(1));;
+			let accrued_1 = Staking::accrued_payout(&stash(1));
 			let accrued_2 = Staking::accrued_payout(&stash(2));
-			assert!(
-				accrued_1 > Zero::zero()
-			);
-			assert!(
-				accrued_2 > Zero::zero()
-			);
+			assert!(accrued_1 > Zero::zero());
+			assert!(accrued_2 > Zero::zero());
 
 			// Payout era 2
 			start_active_era(3);
