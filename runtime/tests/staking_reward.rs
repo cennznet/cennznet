@@ -19,19 +19,20 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, Rewards, Runtime, Session, SessionsPerEra,
-	SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator,
+	Rewards, Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
 	assert_ok,
-	storage::StorageValue,
+	storage::{StorageDoubleMap, StorageValue},
 	traits::{Currency, Get, OnFinalize, OnInitialize},
 	IterableStorageMap,
 };
 use pallet_im_online::UnresponsivenessOffence;
 use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
+use sp_core::{H256, crypto::UncheckedFrom};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
 	Perbill,
@@ -232,6 +233,62 @@ fn era_transaction_fees_collected() {
 			start_active_era(1);
 
 			// At the start of the next era, transaction rewards should be cleared
+			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
+		});
+}
+
+#[test]
+fn era_transaction_fees_accrued() {
+	// Check era transaction fees are tracked
+	let initial_balance = 10_000 * DOLLARS;
+	let validators = make_authority_keys(6);
+	let staked_amount = initial_balance / validators.len() as Balance;
+
+	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
+
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(staked_amount)
+		.build()
+		.execute_with(|| {
+			let xt_1 = sign(CheckedExtrinsic {
+				signed: Some((alice(), signed_extra(0, 0, None))),
+				function: runtime_call_1.clone(),
+			});
+			let xt_2 = sign(CheckedExtrinsic {
+				signed: Some((bob(), signed_extra(0, 0, None))),
+				function: runtime_call_2.clone(),
+			});
+
+			// Start with 0 transaction rewards
+			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
+
+			// Apply first extrinsic and check transaction rewards
+			let r = Executive::apply_extrinsic(xt_1.clone());
+			assert!(r.is_ok());
+			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+
+			// Apply second extrinsic and check transaction rewards
+			let r2 = Executive::apply_extrinsic(xt_2.clone());
+			assert!(r2.is_ok());
+			era1_tx_fees += extrinsic_fee_for(&xt_2);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+
+			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
+			start_active_era(1);
+			// rewards have accrued
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+
+			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
+			start_active_era(2);
+			// rewards have accrued
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+
+			start_active_era(3);
+			// rewards paid out on normal era
 			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
 		});
 }
@@ -450,7 +507,9 @@ fn slashed_cennz_goes_to_treasury() {
 			// Once `SlashDeferDuration` + 1 eras have passed the offence from era(0) will be applied.
 			// Fast-forward eras so that the slash is applied
 			// note: the number of validators implicated causes an automatic era increase, throwing off checks in `start_active_era`
-			start_session((SlashDeferDuration::get() * <SessionsPerEra as Get<u32>>::get()).into());
+			start_session((SlashDeferDuration::get() * <SessionsPerEra as Get<u32>>::get() + 1).into());
+			advance_session();
+			advance_session();
 
 			// Treasury should receive all offenders stake
 			assert_eq!(
@@ -540,4 +599,71 @@ fn reward_shceduling() {
 				assert_eq!(amount, per_validator_reward);
 			}
 		})
+}
+
+// #[test]
+// fn max_nominators_rewarded() {
+// 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+// 	let initial_balance = 1_000 * DOLLARS;
+// 	ExtBuilder::default()
+// 		.initial_authorities(validators.as_slice())
+// 		.initial_balance(initial_balance)
+// 		.stash(initial_balance)
+// 		.build()
+// 		.execute_with(|| {
+
+// 			// era 0 has no reward
+// 			start_active_era(1);
+
+// 			// integer IDs for nominators addresses
+// 			let stash =  |n: u32| -> AccountId { 
+// 				AccountId::unchecked_from(H256::from_low_u64_be(n as u64 + 10_000))
+// 			};
+
+// 			for n in 0..MaxNominatorRewardedPerValidator::get() + 1 {
+// 				// fudge the validator exposure to accept some more nominators
+// 				crml_staking::ErasStakers::<Runtime>::mutate(
+// 					active_era(),
+// 					Session::validators()[0].clone(),
+// 					|exposure| { exposure.others.push(crml_staking::IndividualExposure::new(stash(n), 10_000)) }
+// 				);
+// 			}
+
+// 			// era 1 reward payouts should be scheduled
+// 			start_active_era(2);
+// 			// skip blocks to ensure payout
+// 			advance_session();
+// 			advance_session();
+
+// 			// paid
+// 			for n in 0..MaxNominatorRewardedPerValidator::get() {
+// 				println!("{:?} - {:?}", n, RewardCurrency::free_balance(&stash(n)));
+// 				// assert!(RewardCurrency::free_balance(&stash(n)) > Zero::zero());
+// 			}
+
+// 			// unpaid
+// 			for n in MaxNominatorRewardedPerValidator::get()..MaxNominatorRewardedPerValidator::get() + 1 {
+// 				assert!(RewardCurrency::free_balance(&stash(n)).is_zero());
+// 			}
+// 		});
+// 	}
+
+#[test]
+fn accrued_payout_works() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			start_active_era(1);
+			let reward_parts = Rewards::calculate_total_reward();
+			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
+			assert_eq!(
+				per_validator_reward_era_1,
+				Staking::accrued_payout(&Session::validators()[0])
+			);
+		});
 }

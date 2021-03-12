@@ -261,10 +261,11 @@ parameter_types! {
 	pub const BondingDuration: crml_staking::EraIndex = 28;
 	// 27 eras/days for a slash to be deferrable
 	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
+	/// the highest n stakers that will receive rewards only
 	pub const MaxNominatorRewardedPerValidator: u32 = 128;
 	// Allow election solution computation during the entire last session (~10 minutes)
-	// TODO: adjust when session duration increases
-	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 2;
+	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
+	// maximum phragemn iterations
 	pub const MaxIterations: u32 = 10;
 	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
 	pub OffchainSolutionWeightLimit: Weight =
@@ -867,8 +868,8 @@ impl_runtime_apis! {
 	}
 
 	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
-		fn accrued_payout(payee: &AccountId) -> u64 {
-			Staking::accrued_payout(payee) as u64
+		fn accrued_payout(stash: &AccountId) -> u64 {
+			Staking::accrued_payout(stash) as u64
 		}
 	}
 

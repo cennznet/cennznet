@@ -25,6 +25,6 @@ sp_api::decl_runtime_apis! {
 	pub trait StakingApi<AccountId> where
 		AccountId: Codec,
 	{
-		fn accrued_payout(payee: &AccountId) -> u64;
+		fn accrued_payout(stash: &AccountId) -> u64;
 	}
 }

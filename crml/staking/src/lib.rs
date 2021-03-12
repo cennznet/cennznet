@@ -210,8 +210,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
-mod inflation;
-#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
@@ -580,6 +578,15 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// Amount of funds exposed.
 	#[codec(compact)]
 	value: Balance,
+}
+
+impl<AccountId, Balance: HasCompact> IndividualExposure<AccountId, Balance> {
+	pub fn new(who: AccountId, value: Balance) -> Self {
+		Self {
+			who,
+			value,
+		}
+	}
 }
 
 /// A snapshot of the stake backing a single validator in the system.
@@ -2082,13 +2089,13 @@ impl<T: Trait> Module<T> {
 
 	/// Calculate the next accrued payout for a stash id (a payee) without affecting the storage.
 	pub fn accrued_payout(stash: &T::AccountId) -> BalanceOf<T> {
-		let era = Self::current_era().unwrap_or(0);
-		let validator_commission_stake_map = ErasValidatorPrefs::<T>::iter_prefix(&era)
+		let era_index = Self::active_era().map(|e| e.index).unwrap_or(0);
+		let validator_commission_stake_map = ErasValidatorPrefs::<T>::iter_prefix(&era_index)
 			.map(|(validator_stash, prefs)| {
 				(
 					validator_stash.clone(),
 					prefs.commission,
-					Self::eras_stakers_clipped(era, validator_stash),
+					Self::eras_stakers_clipped(era_index, validator_stash),
 				)
 			})
 			.collect::<Vec<(_, _, _)>>();
@@ -2122,8 +2129,7 @@ impl<T: Trait> Module<T> {
 			let era_length = session_index.checked_sub(current_era_start_session_index).unwrap_or(0); // Must never happen.
 
 			match ForceEra::get() {
-				Forcing::ForceNew => ForceEra::kill(),
-				Forcing::ForceAlways => (),
+				Forcing::ForceNew | Forcing::ForceAlways => (),
 				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
 				_ => {
 					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
@@ -2560,6 +2566,11 @@ impl<T: Trait> Module<T> {
 			.collect::<Vec<T::AccountId>>();
 
 		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, Self::will_era_be_forced());
+
+		match ForceEra::get() {
+			Forcing::ForceNew => ForceEra::kill(),
+			_ => (),
+		}
 	}
 
 	/// Plan a new era. Return the potential new staking set.

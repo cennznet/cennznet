@@ -509,17 +509,19 @@ mod tests {
 	use sp_consensus::{
 		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer, RecordProof,
 	};
-	use sp_core::{crypto::Pair as CryptoPair, H256};
+	use sp_core::{crypto::Pair as CryptoPair, H256, Public};
+	use sc_keystore::LocalKeystore;
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 	use sp_runtime::{
 		generic::{BlockId, Digest, Era, SignedPayload},
-		traits::{Block as BlockT, Header as HeaderT},
-		traits::{IdentifyAccount, RuntimeAppPublic, Verify},
+		key_types::BABE,
+		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
+		RuntimeAppPublic,
 	};
 	use sp_timestamp;
 	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool};
-	use std::{any::Any, borrow::Cow, sync::Arc};
+	use std::{sync::Arc, borrow::Cow, any::Any, convert::TryInto};
 
 	type AccountPublic = <Signature as Verify>::Signer;
 
@@ -529,7 +531,7 @@ mod tests {
 	#[ignore]
 	fn test_sync() {
 		let keystore_path = tempfile::tempdir().expect("Creates keystore path");
-		let keystore: SyncCryptoStorePtr = Arc::new(LocalKeystore::open(keystore_path.path(), None));
+		let keystore: SyncCryptoStorePtr = Arc::new(LocalKeystore::open(keystore_path.path(), None).expect("Creates keystore"));
 		let alice: sp_consensus_babe::AuthorityId =
 			SyncCryptoStore::sr25519_generate_new(&*keystore, BABE, Some("//Alice"))
 				.expect("Creates authority pair")
@@ -592,7 +594,7 @@ mod tests {
 				}));
 
 				let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
-					task_manager.spawn_handle(),
+					service.spawn_handle(),
 					service.client(),
 					service.transaction_pool(),
 					None,
@@ -620,7 +622,7 @@ mod tests {
 						slot_num,
 						&parent_header,
 						&*service.client(),
-						keystore,
+						keystore.clone(),
 						&babe_link,
 					) {
 						break babe_pre_digest;
@@ -651,8 +653,15 @@ mod tests {
 				// sign the pre-sealed hash of the block and then
 				// add it to a digest item.
 				let to_sign = pre_hash.encode();
-				let signature = alice.sign(&to_sign[..]);
-				let item = <DigestItem as CompatibleDigestItem>::babe_seal(signature.into());
+				let signature = SyncCryptoStore::sign_with(
+					&*keystore,
+					sp_consensus_babe::AuthorityId::ID,
+					&alice.to_public_crypto_pair(),
+					&to_sign,
+				).unwrap()
+				 .try_into()
+				 .unwrap();
+				let item = <DigestItem as CompatibleDigestItem>::babe_seal(signature);
 				slot_num += 1;
 
 				let mut params = BlockImportParams::new(BlockOrigin::File, new_header);
