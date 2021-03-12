@@ -21,10 +21,10 @@ jobs:
     - name: Check out
       uses: actions/checkout@v2
     - name: Install toolchain
-      uses: actions-rs/toolchain@v1
+      uses: actions-rs/toolchain@v1.0.6
       with:
         profile: minimal
-        toolchain: nightly-2020-11-18
+        toolchain: nightly-2021-03-05
         components: rustfmt
         target: wasm32-unknown-unknown
         default: true
