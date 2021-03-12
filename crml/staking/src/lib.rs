@@ -582,10 +582,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 impl<AccountId, Balance: HasCompact> IndividualExposure<AccountId, Balance> {
 	pub fn new(who: AccountId, value: Balance) -> Self {
-		Self {
-			who,
-			value,
-		}
+		Self { who, value }
 	}
 }
 
@@ -981,6 +978,9 @@ decl_storage! {
 		/// True if the current **planned** session is final. Note that this does not take era
 		/// forcing into account.
 		pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
+
+		/// Same as `will_era_be_forced()` but persists to `end_era`
+		WasEndEraForced get(fn was_end_era_forced): bool = false;
 
 		/// True if network has been upgraded to this version.
 		/// Storage version of the pallet.
@@ -2128,8 +2128,14 @@ impl<T: Trait> Module<T> {
 
 			let era_length = session_index.checked_sub(current_era_start_session_index).unwrap_or(0); // Must never happen.
 
+			// forcing a new era, means forcing an era end for the active era
+			if Self::will_era_be_forced() {
+				WasEndEraForced::put(true)
+			}
+
 			match ForceEra::get() {
-				Forcing::ForceNew | Forcing::ForceAlways => (),
+				Forcing::ForceNew => ForceEra::kill(),
+				Forcing::ForceAlways => (),
 				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
 				_ => {
 					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
@@ -2565,12 +2571,7 @@ impl<T: Trait> Module<T> {
 			.map(|(stash, _prefs)| stash)
 			.collect::<Vec<T::AccountId>>();
 
-		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, Self::will_era_be_forced());
-
-		match ForceEra::get() {
-			Forcing::ForceNew => ForceEra::kill(),
-			_ => (),
-		}
+		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, WasEndEraForced::take());
 	}
 
 	/// Plan a new era. Return the potential new staking set.

@@ -298,6 +298,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn min_change_per_day() {
 		// Start with an adjustment multiplier of 1.
 		// if every block in 24 hour period has a maximum weight then the multiplier should have increased

@@ -505,12 +505,12 @@ mod tests {
 	use sc_client_api::BlockBackend;
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
+	use sc_keystore::LocalKeystore;
 	use sc_service_test::TestNetNode;
 	use sp_consensus::{
 		BlockImport, BlockImportParams, BlockOrigin, Environment, ForkChoiceStrategy, Proposer, RecordProof,
 	};
-	use sp_core::{crypto::Pair as CryptoPair, H256, Public};
-	use sc_keystore::LocalKeystore;
+	use sp_core::{crypto::Pair as CryptoPair, Public, H256};
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 	use sp_runtime::{
@@ -521,7 +521,7 @@ mod tests {
 	};
 	use sp_timestamp;
 	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool};
-	use std::{sync::Arc, borrow::Cow, any::Any, convert::TryInto};
+	use std::{any::Any, borrow::Cow, convert::TryInto, sync::Arc};
 
 	type AccountPublic = <Signature as Verify>::Signer;
 
@@ -531,7 +531,8 @@ mod tests {
 	#[ignore]
 	fn test_sync() {
 		let keystore_path = tempfile::tempdir().expect("Creates keystore path");
-		let keystore: SyncCryptoStorePtr = Arc::new(LocalKeystore::open(keystore_path.path(), None).expect("Creates keystore"));
+		let keystore: SyncCryptoStorePtr =
+			Arc::new(LocalKeystore::open(keystore_path.path(), None).expect("Creates keystore"));
 		let alice: sp_consensus_babe::AuthorityId =
 			SyncCryptoStore::sr25519_generate_new(&*keystore, BABE, Some("//Alice"))
 				.expect("Creates authority pair")
@@ -658,9 +659,10 @@ mod tests {
 					sp_consensus_babe::AuthorityId::ID,
 					&alice.to_public_crypto_pair(),
 					&to_sign,
-				).unwrap()
-				 .try_into()
-				 .unwrap();
+				)
+				.unwrap()
+				.try_into()
+				.unwrap();
 				let item = <DigestItem as CompatibleDigestItem>::babe_seal(signature);
 				slot_num += 1;
 
