@@ -536,6 +536,7 @@ fn forcing_new_era_works() {
 
 		start_session(4);
 		assert_eq!(active_era(), 1);
+		assert!(!Staking::was_end_era_forced());
 
 		start_session(5);
 		assert_eq!(active_era(), 1);
@@ -560,21 +561,26 @@ fn forcing_new_era_works() {
 
 		start_session(10);
 		assert_eq!(active_era(), 2);
+		assert!(Staking::was_end_era_forced());
 
 		start_session(11);
 		assert_eq!(active_era(), 3);
+		assert!(Staking::was_end_era_forced());
 
 		start_session(12);
 		assert_eq!(active_era(), 4);
+		assert!(Staking::was_end_era_forced());
 
 		// just one forceful change
 		ForceEra::put(Forcing::ForceNew);
 		start_session(13);
 		assert_eq!(active_era(), 5);
+		assert!(Staking::was_end_era_forced());
 		assert_eq!(ForceEra::get(), Forcing::NotForcing);
 
 		start_session(14);
 		assert_eq!(active_era(), 6);
+		assert!(!Staking::was_end_era_forced());
 
 		start_session(15);
 		assert_eq!(active_era(), 6);

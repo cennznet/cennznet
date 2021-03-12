@@ -1041,6 +1041,32 @@ mod tests {
 	}
 
 	#[test]
+	fn calculate_npos_payouts_zero_commission() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mock_commission_stake_map =
+				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 2_000)], Perbill::from_percent(Zero::zero()));
+			let staker_reward = 1_000_000;
+
+			let payouts = Rewards::calculate_npos_payouts(
+				&mock_commission_stake_map.validator_stash,
+				mock_commission_stake_map.commission,
+				&mock_commission_stake_map.exposures,
+				staker_reward,
+			);
+
+			// splits according to stake
+			assert_eq!(
+				payouts,
+				vec![
+					(2, staker_reward * 2 / 5),
+					(3, staker_reward * 2 / 5),
+					(1, staker_reward * 1 / 5)
+				]
+			);
+		})
+	}
+
+	#[test]
 	fn calculate_npos_payouts_no_nominators() {
 		ExtBuilder::default().build().execute_with(|| {
 			let validator_id = 1;
