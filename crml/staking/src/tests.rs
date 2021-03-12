@@ -2843,6 +2843,73 @@ mod offchain_election {
 	}
 
 	#[test]
+	fn nominating_and_rewards_should_work() {
+		ExtBuilder::default()
+			.nominate(false)
+			.validator_pool(true)
+			.build()
+			.execute_with(|| {
+				// initial validators -- everyone is actually even.
+				assert_eq_uvec!(validator_controllers(), vec![40, 30]);
+
+				// Set payee to controller
+				assert_ok!(Staking::set_payee(Origin::signed(10), RewardDestination::Controller));
+				assert_ok!(Staking::set_payee(Origin::signed(20), RewardDestination::Controller));
+				assert_ok!(Staking::set_payee(Origin::signed(30), RewardDestination::Controller));
+				assert_ok!(Staking::set_payee(Origin::signed(40), RewardDestination::Controller));
+
+				// give the man some money
+				let initial_balance = 1000;
+				for i in [1, 2, 3, 4, 5, 10, 11, 20, 21].iter() {
+					let _ = Balances::make_free_balance_be(i, initial_balance);
+				}
+
+				// bond two account pairs and state interest in nomination.
+				// 2 will nominate for 10, 20, 30
+				assert_ok!(Staking::bond(Origin::signed(1), 2, 1000, RewardDestination::Controller));
+				assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 21, 31]));
+				// 4 will nominate for 10, 20, 40
+				assert_ok!(Staking::bond(Origin::signed(3), 4, 1000, RewardDestination::Controller));
+				assert_ok!(Staking::nominate(Origin::signed(4), vec![11, 21, 41]));
+
+				mock::start_active_era(1);
+
+				// 10 and 20 have more votes, they will be chosen.
+				assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+				// ------ check the staked value of all parties.
+
+				// 30 and 40 are not chosen anymore
+				assert_eq!(
+					ErasStakers::<Test>::iter_prefix_values(Staking::active_era().unwrap().index).count(),
+					2
+				);
+				assert_eq!(
+					Staking::eras_stakers(Staking::active_era().unwrap().index, 11),
+					Exposure {
+						total: 1000 + 800,
+						own: 1000,
+						others: vec![
+							IndividualExposure { who: 3, value: 400 },
+							IndividualExposure { who: 1, value: 400 },
+						]
+					},
+				);
+				assert_eq!(
+					Staking::eras_stakers(Staking::active_era().unwrap().index, 21),
+					Exposure {
+						total: 1000 + 1200,
+						own: 1000,
+						others: vec![
+							IndividualExposure { who: 3, value: 600 },
+							IndividualExposure { who: 1, value: 600 },
+						]
+					},
+				);
+			});
+	}
+
+	#[test]
 	fn offchain_worker_runs_with_balancing() {
 		// Offchain worker balances based on the number provided by randomness. See the difference
 		// in the priority, which comes from the computed score.

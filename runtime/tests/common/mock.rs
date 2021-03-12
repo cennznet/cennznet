@@ -17,10 +17,9 @@
 
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
 use cennznet_primitives::types::Balance;
-use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, Session, StakerStatus, Staking, System, Timestamp};
+use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use frame_support::traits::OnInitialize;
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
@@ -36,8 +35,8 @@ pub struct ExtBuilder {
 	stash: Balance,
 	// The initial authority set
 	initial_authorities: Vec<AuthorityKeys>,
-	/// Whether to start the first session
-	initialize_first_session: bool,
+	/// Whether to make authorities invulnerable
+	invulnerable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -46,7 +45,7 @@ impl Default for ExtBuilder {
 			initial_balance: 0,
 			stash: 0,
 			initial_authorities: Default::default(),
-			initialize_first_session: true,
+			invulnerable: true,
 		}
 	}
 }
@@ -54,6 +53,11 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
+		self
+	}
+	// set invulnerables off (it's on by default)
+	pub fn invulnerables_off(mut self) -> Self {
+		self.invulnerable = false;
 		self
 	}
 	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
@@ -72,7 +76,7 @@ impl ExtBuilder {
 			self.initial_authorities.clone()
 		};
 		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
-		endowed_accounts.extend(stash_accounts);
+		endowed_accounts.extend(stash_accounts.clone());
 
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
@@ -106,6 +110,8 @@ impl ExtBuilder {
 
 		let min_validator_count = initial_authorities.len().min(3) as u32;
 
+		let invulnerables = if self.invulnerable { stash_accounts } else { vec![] };
+
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
 			validator_count: initial_authorities.len() as u32,
@@ -116,6 +122,7 @@ impl ExtBuilder {
 				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
 				.collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
+			invulnerables,
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -149,18 +156,6 @@ impl ExtBuilder {
 			// This allows signed extrinsics to validate.
 			frame_system::Module::<Runtime>::set_parent_hash(GENESIS_HASH.into());
 		});
-
-		if self.initialize_first_session {
-			// We consider all test to start after timestamp is initialized This must be ensured by
-			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
-			// session length is 1, then it is already triggered.
-			ext.execute_with(|| {
-				System::set_block_number(1);
-				Session::on_initialize(1);
-				Staking::on_initialize(1);
-				Timestamp::set_timestamp(30_000);
-			});
-		}
 
 		ext
 	}
