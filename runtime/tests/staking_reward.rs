@@ -26,7 +26,7 @@ use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
 	assert_ok,
-	storage::{StorageDoubleMap, StorageValue},
+	storage::StorageValue,
 	traits::{Currency, Get, OnFinalize, OnInitialize},
 	IterableStorageMap,
 };
@@ -599,55 +599,52 @@ fn reward_shceduling() {
 		})
 }
 
-// #[test]
-// fn max_nominators_rewarded() {
-// 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
-// 	let initial_balance = 1_000 * DOLLARS;
-// 	ExtBuilder::default()
-// 		.initial_authorities(validators.as_slice())
-// 		.initial_balance(initial_balance)
-// 		.stash(initial_balance)
-// 		.build()
-// 		.execute_with(|| {
+#[test]
+fn max_nominators_rewarded() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// era 0 has no reward
+			start_active_era(1);
 
-// 			// era 0 has no reward
-// 			start_active_era(1);
+			// integer IDs for nominators addresses
+			let stash = |n: u32| -> AccountId { AccountId::unchecked_from(H256::from_low_u64_be(n as u64 + 10_000)) };
 
-// 			// integer IDs for nominators addresses
-// 			let stash =  |n: u32| -> AccountId {
-// 				AccountId::unchecked_from(H256::from_low_u64_be(n as u64 + 10_000))
-// 			};
+			// nominate max nominators for validator 0
+			for n in 1..=MaxNominatorRewardedPerValidator::get() {
+				Staking::set_bond(stash(n), 1_000_000);
+				Staking::set_nominations(stash(n), vec![Session::validators()[0].clone()]);
+			}
 
-// 			for n in 0..MaxNominatorRewardedPerValidator::get() + 1 {
-// 				// fudge the validator exposure to accept some more nominators
-// 				crml_staking::ErasStakers::<Runtime>::mutate(
-// 					active_era(),
-// 					Session::validators()[0].clone(),
-// 					|exposure| { exposure.others.push(crml_staking::IndividualExposure::new(stash(n), 10_000)) }
-// 				);
-// 			}
+			// add one more, with less stake
+			let left_out = MaxNominatorRewardedPerValidator::get() + 1;
+			Staking::set_bond(stash(left_out), 999_999);
+			Staking::set_nominations(stash(left_out), vec![Session::validators()[0].clone()]);
 
-// 			// era 1 reward payouts should be scheduled
-// 			start_active_era(2);
-// 			// skip blocks to ensure payout
-// 			advance_session();
-// 			advance_session();
+			start_active_era(2);
+			// nominations are active now
+			start_active_era(3);
+			// nominations should be paid out
+			// skip blocks to ensure payout
+			advance_session();
 
-// 			// paid
-// 			for n in 0..MaxNominatorRewardedPerValidator::get() {
-// 				println!("{:?} - {:?}", n, RewardCurrency::free_balance(&stash(n)));
-// 				// assert!(RewardCurrency::free_balance(&stash(n)) > Zero::zero());
-// 			}
+			// paid rewards
+			for n in 1..=MaxNominatorRewardedPerValidator::get() {
+				assert!(RewardCurrency::free_balance(&stash(n)) > Zero::zero());
+			}
 
-// 			// unpaid
-// 			for n in MaxNominatorRewardedPerValidator::get()..MaxNominatorRewardedPerValidator::get() + 1 {
-// 				assert!(RewardCurrency::free_balance(&stash(n)).is_zero());
-// 			}
-// 		});
-// 	}
+			// unpaid, missed the cut
+			assert!(RewardCurrency::free_balance(&stash(left_out)).is_zero());
+		});
+}
 
 #[test]
-fn accrued_payout_works() {
+fn accrued_payout_simple() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 	ExtBuilder::default()

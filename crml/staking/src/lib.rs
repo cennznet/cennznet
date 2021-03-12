@@ -2770,6 +2770,31 @@ impl<T: Trait> Module<T> {
 			Forcing::ForceNone | Forcing::NotForcing => false,
 		}
 	}
+
+	#[cfg(feature = "std")]
+	/// set nominations directly for tests
+	pub fn set_nominations(stash: T::AccountId, nominations: Vec<T::AccountId>) {
+		let nominations_ = Nominations {
+			targets: nominations,
+			submitted_in: Self::current_era().unwrap_or(0),
+		};
+		<Nominators<T>>::insert(stash, nominations_);
+	}
+
+	#[cfg(feature = "std")]
+	/// set bond directly for tests
+	pub fn set_bond(stash: T::AccountId, amount: BalanceOf<T>) {
+		<Bonded<T>>::insert(&stash, &stash);
+		Ledger::<T>::insert(
+			stash.clone(),
+			StakingLedger {
+				stash,
+				total: amount,
+				active: amount,
+				unlocking: vec![],
+			},
+		);
+	}
 }
 
 /// In this implementation `new_session(session)` must be called before `end_session(session-1)`
