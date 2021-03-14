@@ -1480,9 +1480,11 @@ fn phragmen_should_not_overflow() {
 #[test]
 fn slashing_validator_does_not_overflow() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Set staker
-		// TODO: get value from removed test lines
-		let stake = 100;
+		let stake = u32::max_value() as u64 * 2;
+		let reward_slash = u32::max_value() as u64 * 2;
+
+		// Assert multiplication overflows in balance arithmetic.
+		assert!(stake.checked_mul(reward_slash).is_none());
 		let _ = Balances::make_free_balance_be(&11, stake);
 		let _ = Balances::make_free_balance_be(&2, stake);
 

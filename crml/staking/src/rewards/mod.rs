@@ -365,8 +365,8 @@ impl<T: Trait> Module<T> {
 				let validator_reward_points = era_reward_points
 					.individual
 					.get(validator)
-					.map(|points| *points)
-					.unwrap_or_else(|| Zero::zero());
+					.copied()
+					.unwrap_or_else(Zero::zero);
 				// This is how much every validator is entitled to get, including its nominators shares
 				let payout = if total_reward_points.is_zero() {
 					// When no authorship points are recorded, divide the payout equally
@@ -421,8 +421,8 @@ impl<T: Trait> Module<T> {
 				let validator_reward_points = era_reward_points
 					.individual
 					.get(validator)
-					.map(|points| *points)
-					.unwrap_or_else(|| Zero::zero());
+					.copied()
+					.unwrap_or_else(Zero::zero);
 
 				// This is how much every validator is entitled to get, including its nominators shares
 				let validator_total_payout = if total_reward_points.is_zero() {

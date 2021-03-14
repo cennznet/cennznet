@@ -40,6 +40,17 @@ use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 
 // CENNZnet native executor instance.
+#[cfg(not(feature = "runtime-benchmarks"))]
+native_executor_instance!(
+	pub Executor,
+	cennznet_runtime::api::dispatch,
+	cennznet_runtime::native_version,
+	(
+		cennznet_runtime::legacy_host_functions::storage::HostFunctions,
+	),
+);
+// CENNZnet native executor instance with benchmarking
+#[cfg(feature = "runtime-benchmarks")]
 native_executor_instance!(
 	pub Executor,
 	cennznet_runtime::api::dispatch,
@@ -49,6 +60,7 @@ native_executor_instance!(
 		frame_benchmarking::benchmarking::HostFunctions,
 	),
 );
+
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;

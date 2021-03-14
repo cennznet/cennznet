@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Rewards, Runtime, Staking, Treasury};
+use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
 use cennznet_primitives::{
 	traits::SimpleAssetSystem,
 	types::{AccountId, Balance},
@@ -33,22 +33,15 @@ use smallvec::smallvec;
 use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
 
-pub(crate) const LOG_TARGET: &'static str = "rewards";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
-			target: LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
-
 /// Runs scheduled payouts for the rewards module.
-// It feeds staking module exposure data into rewards calculation/execution function.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>);
+// The max. number of payouts we can perform in an era are given by:
+// let max_payout_capacity = (SessionsPerEra::get() * EpochDuration::get() / BlockPayoutInterval::get();
+// const_assert!(max_payout_capacity >= Staking::maximum_validator_count())
+// NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
+// current config has the upper limit of this number at: 5,760 elected validators.
+// failure here means a bad config or a new reward scaling solution should be sought if validator count should be > 5_000
+static_assertions::const_assert!(SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get() > 5_000_u32);
 
 impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;
@@ -59,23 +52,18 @@ impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunn
 	fn run_payout(validator_stash: &Self::AccountId, amount: Self::Balance, payout_era: EraIndex) -> Weight {
 		use crml_staking::rewards::WeightInfo;
 
-		// The max. number of payouts we can perform in an era are given by:
-		// let max_payout_capacity = (SessionsPerEra::get() * EpochDuration::get() / BlockPayoutInterval::get();
-		// debug_assert!(max_payout_capacity >= Staking::maximum_validator_count())
-		// NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
-		// current config has the upper limit of this number at: 5,760 elected validators.
-
 		// payouts for previous era
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
-		log!(
-			debug,
+		frame_support::debug::debug!(
+			target: "rewards",
 			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
 			validator_stash,
 			amount,
-			payout_era
+			payout_era,
 		);
+
 		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount);
 
 		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
