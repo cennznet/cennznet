@@ -141,7 +141,9 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 }
-static_assertions::const_assert!(AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct());
+static_assertions::const_assert!(
+	AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct()
+);
 
 impl frame_system::Trait for Runtime {
 	/// The basic call filter to use in dispatchable.

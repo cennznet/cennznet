@@ -41,7 +41,9 @@ pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>
 // NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
 // current config has the upper limit of this number at: 5,760 elected validators.
 // failure here means a bad config or a new reward scaling solution should be sought if validator count should be > 5_000
-static_assertions::const_assert!(SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get() > 5_000_u32);
+static_assertions::const_assert!(
+	SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get() > 5_000_u32
+);
 
 impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;
