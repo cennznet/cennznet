@@ -1,6 +1,0 @@
-target/*
-scripts/*
-data/*
-.circleci/
-.gihtub/
-docs/
