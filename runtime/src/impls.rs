@@ -40,15 +40,18 @@ pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>
 // const_assert!(MAX_PAYOUT_CAPACITY >= Staking::maximum_validator_count())
 // NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
 // config as of v39 has the upper limit of this number at: 5,760 elected validators.
+#[allow(dead_code)]
 const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
+#[allow(dead_code)]
 const MAX_VALIDATORS: u32 = 5_000;
 /// does the current config provide enough capacity to do automatic payouts
 /// failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
-const fn has_payout_capacity(n: u32, d: u32) -> bool {
+#[allow(dead_code)]
+const fn has_payout_capacity() -> bool {
 	MAX_PAYOUT_CAPACITY < MAX_VALIDATORS
 }
 // this macro is very fussy...
-static_assertions::const_assert!(has_payout_capacity(MAX_PAYOUT_CAPACITY, MAX_VALIDATORS));
+static_assertions::const_assert!(has_payout_capacity());
 
 impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;
