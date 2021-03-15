@@ -53,6 +53,7 @@ use super::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
+	dispatch::DispatchResult,
 	traits::{Currency, Imbalance, OnUnbalanced},
 	StorageDoubleMap, StorageMap,
 };
@@ -532,11 +533,13 @@ pub(crate) fn clear_era_metadata<T: Trait>(obsolete_era: EraIndex) {
 }
 
 /// Clear slashing metadata for a dead account.
-pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) {
-	let spans = match <Module<T> as Store>::SlashingSpans::take(stash) {
-		None => return,
+pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) -> DispatchResult {
+	let spans = match <Module<T> as Store>::SlashingSpans::get(stash) {
+		None => return Ok(()),
 		Some(s) => s,
 	};
+
+	<Module<T> as Store>::SlashingSpans::remove(stash);
 
 	// kill slashing-span metadata for account.
 	//
@@ -546,6 +549,8 @@ pub(crate) fn clear_stash_metadata<T: Trait>(stash: &T::AccountId) {
 	for span in spans.iter() {
 		<Module<T> as Store>::SpanSlash::remove(&(stash.clone(), span.index));
 	}
+
+	Ok(())
 }
 
 // apply the slash to a stash account, deducting any missing funds from the reward

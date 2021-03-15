@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::Encode;
+use sp_std::prelude::*;
 
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -48,7 +49,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber,
 };
-use sp_std::prelude::*;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -59,7 +60,7 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{KeyOwnerProofSystem, Randomness},
+	traits::{KeyOwnerProofSystem, Randomness, U128CurrencyToVote},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, TransactionPriority, Weight,
@@ -91,7 +92,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{RootMemberOnly, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -110,7 +111,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 38,
+	spec_version: 39,
 	impl_version: 39,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -140,7 +141,9 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 }
-// const_assert!(AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct());
+static_assertions::const_assert!(
+	AvailableBlockRatio::get().deconstruct() >= AVERAGE_ON_INITIALIZE_WEIGHT.deconstruct()
+);
 
 impl frame_system::Trait for Runtime {
 	/// The basic call filter to use in dispatchable.
@@ -256,24 +259,41 @@ impl pallet_scheduler::Trait for Runtime {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
-	pub const BlocksPerEra: BlockNumber = EPOCH_DURATION_IN_BLOCKS * SESSIONS_PER_ERA;
 	// 28 eras/days for bond to be withdraw
 	pub const BondingDuration: crml_staking::EraIndex = 28;
 	// 27 eras/days for a slash to be deferrable
 	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
+	/// the highest n stakers that will receive rewards only
+	pub const MaxNominatorRewardedPerValidator: u32 = 128;
+	// Allow election solution computation during the entire last session (~10 minutes)
+	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
+	// maximum phragemn iterations
+	pub const MaxIterations: u32 = 10;
+	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+	pub OffchainSolutionWeightLimit: Weight =
+		MaximumExtrinsicWeight::get()
+			.saturating_sub(BlockExecutionWeight::get())
+			.saturating_sub(ExtrinsicBaseWeight::get());
 }
 impl crml_staking::Trait for Runtime {
-	type Currency = StakingAssetCurrency<Self>;
-	type Time = Timestamp;
-	type CurrencyToVote = CurrencyToVoteHandler;
-	type Event = Event;
-	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
-	type SessionsPerEra = SessionsPerEra;
-	type BlocksPerEra = BlocksPerEra;
 	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = SlashDeferDuration;
+	type Call = Call;
+	type Currency = StakingAssetCurrency<Self>;
+	type CurrencyToVote = U128CurrencyToVote;
+	type Event = Event;
+	type ElectionLookahead = ElectionLookahead;
+	type MaxIterations = MaxIterations;
+	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type MinSolutionScoreBump = MinSolutionScoreBump;
+	type NextNewSession = Session;
+	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type SessionInterface = Self;
+	type SessionsPerEra = SessionsPerEra;
+	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
+	type SlashDeferDuration = SlashDeferDuration;
 	type Rewarder = Rewards;
+	type UnixTime = Timestamp;
+	type UnsignedPriority = StakingUnsignedPriority;
 	type WeightInfo = ();
 }
 
@@ -367,6 +387,19 @@ impl pallet_utility::Trait for Runtime {
 
 impl pallet_authority_discovery::Trait for Runtime {}
 
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	Call: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = Call;
+}
+
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -379,16 +412,6 @@ impl pallet_im_online::Trait for Runtime {
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE.into();
-	pub ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY.into();
-}
-impl pallet_finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = ();
-	type WindowSize = WindowSize;
-	type ReportLatency = ReportLatency;
 }
 
 parameter_types! {
@@ -476,16 +499,17 @@ impl pallet_treasury::Trait for Runtime {
 
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
-	pub const PayoutSplitThreshold: u32 = 1000;
 	pub const FiscalEraLength: u32 = 365;
+	pub const BlockPayoutInterval: u32 = 3;
 }
 impl crml_staking_rewards::Trait for Runtime {
+	type BlockPayoutInterval = BlockPayoutInterval;
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
-	type HistoricalPayoutEras = HistoricalPayoutEras;
-	type TreasuryModuleId = TreasuryModuleId;
-	type PayoutSplitThreshold = PayoutSplitThreshold;
 	type FiscalEraLength = FiscalEraLength;
+	type HistoricalPayoutEras = HistoricalPayoutEras;
+	type ScheduledPayoutRunner = ScheduledPayoutRunner<Self>;
+	type TreasuryModuleId = TreasuryModuleId;
 	type WeightInfo = ();
 }
 
@@ -553,19 +577,6 @@ where
 	}
 }
 
-impl frame_system::offchain::SigningTypes for Runtime {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	Call: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = Call;
-}
-
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -579,10 +590,9 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
 		GenericAsset: prml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
 		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>} = 6,
+		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
 		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
-		FinalityTracker: pallet_finality_tracker::{Module, Call, Storage, Inherent} = 9,
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 10,
 		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
 		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,
@@ -860,8 +870,8 @@ impl_runtime_apis! {
 	}
 
 	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
-		fn accrued_payout(payee: &AccountId) -> u64 {
-			Staking::accrued_payout(payee) as u64
+		fn accrued_payout(stash: &AccountId) -> u64 {
+			Staking::accrued_payout(stash) as u64
 		}
 	}
 
