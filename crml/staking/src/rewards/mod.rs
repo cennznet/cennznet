@@ -150,8 +150,8 @@ decl_module! {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			// payouts are scheduled to happen on quantized block intervals such that only blocks where
-			//  `now` % `BlockPayoutInterval` == 0 will every have a payout. see `schedule_reward_payouts`
+			// payouts are scheduled to happen on quantized block intervals such that only blocks where-
+			// `now` % `BlockPayoutInterval` == 0 will ever have a payout. see `schedule_reward_payouts`
 			if (now % T::BlockPayoutInterval::get()).is_zero() {
 				if let Some((validator_stash, amount)) = ScheduledPayouts::<T>::take(now) {
 					return T:: ScheduledPayoutRunner::run_payout(&validator_stash, amount, Self::scheduled_payout_era())
