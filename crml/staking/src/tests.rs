@@ -3656,6 +3656,15 @@ fn set_history_depth_works() {
 		Staking::set_history_depth(Origin::root(), 8, 0).unwrap();
 		assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 4));
 		assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 5));
+		// Invalid history depth must be kept for atleast 2 eras
+		assert_noop!(
+			Staking::set_history_depth(Origin::root(), 0, 0),
+			Error::<Test>::IncorrectHistoryDepth
+		);
+		assert_noop!(
+			Staking::set_history_depth(Origin::root(), 1, 0),
+			Error::<Test>::IncorrectHistoryDepth
+		);
 	});
 }
 

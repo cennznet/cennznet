@@ -993,6 +993,7 @@ decl_storage! {
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
 		build(|config: &GenesisConfig<T>| {
 			assert!(config.minimum_bond > Zero::zero(), "Minimum bond must be greater than zero.");
+			assert!(config.history_depth > 1, "history depth must be greater than 1");
 			for &(ref stash, ref controller, balance, ref status) in &config.stakers {
 				assert!(
 					T::Currency::free_balance(&stash) >= balance,
@@ -1868,6 +1869,9 @@ decl_module! {
 			#[compact] _era_items_deleted: u32,
 		) {
 			ensure_root(origin)?;
+			// exposure history must be tracked for atleast 1 era to allow retroactive payout schemes
+			// to function correctly
+			ensure!(new_history_depth > 1, Error::<T>::IncorrectHistoryDepth);
 			if let Some(current_era) = Self::current_era() {
 				HistoryDepth::mutate(|history_depth| {
 					let last_kept = current_era.checked_sub(*history_depth).unwrap_or(0);

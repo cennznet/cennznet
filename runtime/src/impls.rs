@@ -35,15 +35,16 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>);
-// The max. number of payouts we can perform in an era are given by:
-// let MAX_PAYOUT_CAPACITY = (SessionsPerEra::get() * EpochDuration::get() / BlockPayoutInterval::get();
-// const_assert!(MAX_PAYOUT_CAPACITY >= Staking::maximum_validator_count())
-// NOTE: The # of validators elected should be less than this number or it will cause capacity issues.
-// config as of v39 has the upper limit of this number at: 5,760 elected validators.
+
+/// The max. number of validator payouts per era based on runtime config
 const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
+
+#[cfg(not(feature = "integration_config"))]
 const MAX_VALIDATORS: u32 = 5_000;
-/// does the current config provide enough capacity to do automatic payouts
-/// failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
+#[cfg(feature = "integration_config")]
+const MAX_VALIDATORS: u32 = 7; // low value for integration tests
+
+// failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
 impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
