@@ -1,7 +1,7 @@
 version: '3'
 services:
   node-0:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-0:/mnt/data
     command:
@@ -19,7 +19,7 @@ services:
       - "9944:9944"
       - "30334:30333"
   node-1:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-1:/mnt/data
     command:
@@ -33,7 +33,7 @@ services:
     ports:
       - "30335:30333"
   node-2:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-2:/mnt/data
     command:
@@ -47,7 +47,7 @@ services:
     ports:
       - "30336:30333"
   node-3:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-3:/mnt/data
     command:
@@ -61,7 +61,7 @@ services:
     ports:
       - "30337:30333"
   node-4:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-4:/mnt/data
     command:
@@ -75,7 +75,7 @@ services:
     ports:
       - "30338:30333"
   node-5:
-    image: cennznet/cennznet:1.3.1
+    image: cennznet/cennznet:1.4.0
     volumes:
     - ./data/node-5:/mnt/data
     command:

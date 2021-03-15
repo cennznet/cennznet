@@ -1,0 +1,6 @@
+.circleci/
+.github/
+data/*
+docs/
+scripts/*
+target/*
