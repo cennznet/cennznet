@@ -205,6 +205,18 @@ impl frame_system::Trait for Runtime {
 }
 
 parameter_types! {
+	/// How long listings are open for by default
+	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+}
+impl crml_nft::Trait for Runtime {
+	type Event = Event;
+	type TokenId = u32;
+	type MultiCurrency = GenericAsset;
+	type DefaultListingDuration = DefaultListingDuration;
+	type WeightInfo = ();
+}
+
+parameter_types! {
 	pub const UncleGenerations: BlockNumber = 5;
 }
 impl pallet_authorship::Trait for Runtime {
@@ -618,6 +630,7 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 	}
 );
 
