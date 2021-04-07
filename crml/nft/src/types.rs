@@ -35,11 +35,30 @@ pub type CollectionId = Vec<u8>;
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
 #[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct RoyaltiesPlan<AccountId> {
-	/// Total commission to the collection owner on a secondary sale
-	pub total_commission: Percent,
-	/// Entitlement to other accounts as a % of `total_commission`
-	pub charter: Vec<(AccountId, Percent)>,
+pub struct RoyaltiesSchedule<AccountId> {
+	/// Entitlements on all secondary sales, who and % of the sale price
+	pub entitlements: Vec<(AccountId, Percent)>,
+}
+
+impl<AccountId> RoyaltiesSchedule<AccountId> {
+	/// Validate total royalties are within 100%
+	pub fn validate(&self) -> bool {
+		self.entitlements.is_empty()
+			|| self
+				.entitlements
+				.iter()
+				.map(|(_who, share)| share.deconstruct() as u32)
+				.sum::<u32>() <= 100_u32
+	}
+	/// Calculate the total % entitled for royalties
+	pub fn calculate_total_entitlement(&self) -> Percent {
+		Percent::from_fraction(
+			self.entitlements
+				.iter()
+				.map(|(_who, share)| share.deconstruct() as u32)
+				.sum::<u32>() as f64,
+		)
+	}
 }
 
 /// A type of NFT sale listing
@@ -123,7 +142,8 @@ impl NFTField {
 
 #[cfg(test)]
 mod test {
-	use super::NFTField;
+	use super::{NFTField, RoyaltiesSchedule};
+	use sp_runtime::Percent;
 
 	#[test]
 	fn valid_type_id_range() {
@@ -131,5 +151,39 @@ mod test {
 		assert!((0..NFTField::VARIANT_COUNT as u8).all(|id| NFTField::is_valid_type_id(id)));
 		// every value >= `VARIANT_COUNT` is invalid by definition
 		assert!((NFTField::VARIANT_COUNT as u8..u8::max_value()).all(|id| !NFTField::is_valid_type_id(id)));
+	}
+
+	#[test]
+	fn valid_royalties_plan() {
+		assert!(RoyaltiesSchedule::<u32> {
+			entitlements: vec![(1_u32, Percent::from_fraction(0.1))],
+		}
+		.validate());
+
+		// explicitally specifying zero royalties is odd but fine
+		assert!(RoyaltiesSchedule::<u32> {
+			entitlements: vec![(1_u32, Percent::from_fraction(0.0))],
+		}
+		.validate());
+
+		let plan = RoyaltiesSchedule::<u32> {
+			entitlements: vec![
+				(1_u32, Percent::from_fraction(1.01)), // saturates at 100%
+			],
+		};
+		assert_eq!(plan.entitlements[0].1, Percent::one());
+		assert!(plan.validate());
+	}
+
+	#[test]
+	fn invalid_royalties_plan() {
+		// overcommits > 100% to royalties
+		assert!(!RoyaltiesSchedule::<u32> {
+			entitlements: vec![
+				(1_u32, Percent::from_fraction(0.2)),
+				(2_u32, Percent::from_fraction(0.81)),
+			],
+		}
+		.validate());
 	}
 }

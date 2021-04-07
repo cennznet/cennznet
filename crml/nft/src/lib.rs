@@ -24,7 +24,8 @@
 use cennznet_primitives::types::{AssetId, Balance};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
-	traits::{ExistenceRequirement, Get},
+	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReason},
+	transactional,
 	weights::Weight,
 	Parameter,
 };
@@ -102,6 +103,10 @@ decl_error! {
 		NotForDirectSale,
 		/// Cannot operate on a listed NFT
 		TokenListingProtection,
+		/// Internal error during payment
+		InternalPayment,
+		/// Total royalties would exceed 100% of sale
+		RoyaltiesOvercommitment
 	}
 }
 
@@ -112,9 +117,9 @@ decl_storage! {
 		/// Map from collection to schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
 		/// Map from collection to it's defacto royalty scheme
-		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => RoyaltiesPlan<T::AccountId>;
+		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
-		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesPlan<T::AccountId>>;
+		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from (collection, token) to it's encoded value
 		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTField>;
 		/// The next available token Id for an NFT collection
@@ -163,9 +168,9 @@ decl_module! {
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
 		/// `schema` - for the collection
-		/// `royalties_plan` - defacto royalties plan for secondary sales
+		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = 0]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_plan: RoyaltiesPlan<T::AccountId>) -> DispatchResult {
+		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LEN as usize, Error::<T>::CollectionIdInvalid);
@@ -180,9 +185,12 @@ decl_module! {
 				Error::<T>::SchemaInvalid
 			);
 
-			// Store schema and owner
+			// Create the collection, update ownership, and bookkeeping
+			if let Some(royalties_schedule) = royalties_schedule {
+				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
+				<CollectionRoyalties<T>>::insert(&collection_id, royalties_schedule);
+			}
 			CollectionSchema::insert(&collection_id, schema);
-			<CollectionRoyalties<T>>::insert(&collection_id, royalties_plan);
 			<CollectionOwner<T>>::insert(&collection_id, origin.clone());
 
 			Self::deposit_event(RawEvent::CreateCollection(collection_id, origin));
@@ -193,10 +201,10 @@ decl_module! {
 		/// Issue a new NFT
 		/// `owner` - the token owner
 		/// `fields` - initial values according to the NFT collection/schema, omitted fields will be assigned defaults
-		/// `royalties_plan` - optional royalty plan for secondary sales of this token, defaults to the collection plan
+		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
 		/// Caller must be the collection owner
 		#[weight = 0]
-		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, fields: Vec<Option<NFTField>>, royalties_plan: Option<RoyaltiesPlan<T::AccountId>>) -> DispatchResult {
+		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, fields: Vec<Option<NFTField>>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			// Permission and existence check
@@ -231,10 +239,11 @@ decl_module! {
 			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
 
 			// Create the token, update ownership, and bookkeeping
-			<Tokens<T>>::insert(&collection_id, token_id, token);
-			if let Some(royalties_plan) = royalties_plan {
-				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_plan);
+			if let Some(royalties_schedule) = royalties_schedule {
+				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
+				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule);
 			}
+			<Tokens<T>>::insert(&collection_id, token_id, token);
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
@@ -361,6 +370,7 @@ decl_module! {
 
 		/// Buy an NFT for its listed price, must be listed for sale and called by the receiver
 		#[weight = 0]
+		#[transactional]
 		fn direct_purchase(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForDirectSale);
@@ -368,9 +378,34 @@ decl_module! {
 			if let Some(Listing::DirectSale(listing)) = Self::listings(&collection_id, token_id) {
 				ensure!(origin == listing.buyer, Error::<T>::NoPermission);
 				let current_owner = Self::token_owner(&collection_id, token_id);
-				T::MultiCurrency::transfer(&listing.buyer, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+
+				// if there are no custom royalties, fallback to default if it exists
+				let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(&collection_id, token_id) {
+					royalties_schedule
+				} else {
+					Self::collection_royalties(&collection_id).unwrap_or_else(Default::default)
+				};
+
+				if royalties_schedule.entitlements.is_empty() {
+					// full proceeds to seller/`current_owner`
+					T::MultiCurrency::transfer(&listing.buyer, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+				} else {
+					// withdraw funds from buyer, split between royalty payments and seller
+					let for_royalties = royalties_schedule.calculate_total_entitlement() * listing.fixed_price;
+					let for_seller = listing.fixed_price - for_royalties;
+
+					let mut imbalance = T::MultiCurrency::withdraw(&listing.buyer, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
+					imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+						if entitlement.is_zero() {
+							continue
+						}
+						let amount = entitlement * for_royalties;
+						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), amount)?).map_err(|_| Error::<T>::InternalPayment)?;
+					}
+				}
+
 				// must not fail not that payment has been made
-				// TODO: use `#[transactional]` in next plug update
 				Self::transfer_ownership(&collection_id, token_id, &current_owner, &listing.buyer);
 				Self::remove_direct_listing(&collection_id, token_id);
 				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, listing.buyer, listing.payment_asset, listing.fixed_price));
@@ -452,13 +487,13 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{Event, ExtBuilder, Test};
+	use crate::mock::{AccountId, Event, ExtBuilder, Test};
 	use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnInitialize};
 	use sp_runtime::Percent;
 
 	type Nft = Module<Test>;
+	type GenericAsset = prml_generic_asset::Module<Test>;
 	type System = frame_system::Module<Test>;
-	type AccountId = u64;
 	type TokenId = u32;
 
 	parameter_types! {
@@ -488,9 +523,55 @@ mod tests {
 			Some(owner).into(),
 			collection_id.clone(),
 			schema.clone(),
-			RoyaltiesPlan::default()
+			None,
 		));
 		collection_id
+	}
+
+	/// Setup a token, return collection id, token id, token owner
+	fn setup_token() -> (
+		CollectionId,
+		<Test as Trait>::TokenId,
+		<Test as frame_system::Trait>::AccountId,
+	) {
+		let schema = vec![NFTField::I32(Default::default()).type_id()];
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner, schema);
+		let token_owner = 2_u64;
+		let token_id = Nft::next_token_id(&collection_id);
+		assert_ok!(Nft::create_token(
+			Some(collection_owner).into(),
+			collection_id.clone(),
+			token_owner,
+			vec![Some(NFTField::I32(500))],
+			None,
+		));
+
+		(collection_id, token_id, token_owner)
+	}
+
+	/// Setup a token, return collection id, token id, token owner
+	fn setup_token_with_royalties(
+		token_royalties: RoyaltiesSchedule<AccountId>,
+	) -> (
+		CollectionId,
+		<Test as Trait>::TokenId,
+		<Test as frame_system::Trait>::AccountId,
+	) {
+		let schema = vec![NFTField::I32(Default::default()).type_id()];
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner, schema);
+		let token_owner = 2_u64;
+		let token_id = Nft::next_token_id(&collection_id);
+		assert_ok!(Nft::create_token(
+			Some(collection_owner).into(),
+			collection_id.clone(),
+			token_owner,
+			vec![Some(NFTField::I32(500))],
+			Some(token_royalties),
+		));
+
+		(collection_id, token_id, token_owner)
 	}
 
 	#[test]
@@ -514,7 +595,7 @@ mod tests {
 				Nft::collection_schema(collection_id.clone()).expect("schema should exist"),
 				schema
 			);
-			assert_eq!(Nft::collection_royalties(collection_id), RoyaltiesPlan::default());
+			assert_eq!(Nft::collection_royalties(collection_id), None);
 		});
 	}
 
@@ -523,12 +604,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let collection_id = b"test-collection".to_vec();
 			assert_noop!(
-				Nft::create_collection(
-					Some(1_u64).into(),
-					collection_id.clone(),
-					vec![],
-					RoyaltiesPlan::default()
-				),
+				Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None,),
 				Error::<Test>::SchemaEmpty
 			);
 
@@ -538,19 +614,14 @@ mod tests {
 					Some(1_u64).into(),
 					collection_id.clone(),
 					too_many_fields.to_owned().to_vec(),
-					RoyaltiesPlan::default()
+					None,
 				),
 				Error::<Test>::SchemaMaxFields
 			);
 
 			let invalid_nft_field_type: NFTFieldTypeId = 200;
 			assert_noop!(
-				Nft::create_collection(
-					Some(1_u64).into(),
-					collection_id,
-					vec![invalid_nft_field_type],
-					RoyaltiesPlan::default()
-				),
+				Nft::create_collection(Some(1_u64).into(), collection_id, vec![invalid_nft_field_type], None,),
 				Error::<Test>::SchemaInvalid
 			);
 		});
@@ -562,13 +633,13 @@ mod tests {
 			// too long
 			let bad_collection_id = b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 			assert_noop!(
-				Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], RoyaltiesPlan::default()),
+				Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
 				Error::<Test>::CollectionIdInvalid
 			);
 
 			// empty id
 			assert_noop!(
-				Nft::create_collection(Some(1_u64).into(), vec![], vec![], RoyaltiesPlan::default()),
+				Nft::create_collection(Some(1_u64).into(), vec![], vec![], None),
 				Error::<Test>::CollectionIdInvalid
 			);
 
@@ -576,10 +647,37 @@ mod tests {
 			// kudos: https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
 			let bad_collection_id = vec![0xfe, 0xff];
 			assert_noop!(
-				Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], RoyaltiesPlan::default()),
+				Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
 				Error::<Test>::CollectionIdInvalid
 			);
 		});
+	}
+
+	#[test]
+	fn create_collection_royalties_invalid() {
+		ExtBuilder::default().build().execute_with(|| {
+			let owner = 1_u64;
+			let schema = vec![
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::U8(Default::default()).type_id(),
+				NFTField::Bytes32(Default::default()).type_id(),
+			];
+
+			assert_noop!(
+				Nft::create_collection(
+					Some(owner).into(),
+					b"test-collection".to_vec(),
+					schema.clone(),
+					Some(RoyaltiesSchedule::<AccountId> {
+						entitlements: vec![
+							(3_u64, Percent::from_fraction(1.2)),
+							(4_u64, Percent::from_fraction(3.3))
+						]
+					}),
+				),
+				Error::<Test>::RoyaltiesOvercommitment
+			);
+		})
 	}
 
 	#[test]
@@ -595,9 +693,8 @@ mod tests {
 
 			let token_owner = 2_u64;
 			let token_id = 0;
-			let royalties_plan = RoyaltiesPlan {
-				total_commission: Percent::from_percent(10),
-				charter: vec![],
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: vec![(collection_owner, Percent::from_percent(10))],
 			};
 			assert_eq!(Nft::next_token_id(&collection_id), token_id);
 			assert_ok!(Nft::create_token(
@@ -605,7 +702,7 @@ mod tests {
 				collection_id.clone(),
 				token_owner,
 				vec![Some(NFTField::I32(-33)), None, Some(NFTField::Bytes32([1_u8; 32]))],
-				Some(royalties_plan.clone()),
+				Some(royalties_schedule.clone()),
 			));
 			assert!(has_event(RawEvent::CreateToken(
 				collection_id.clone(),
@@ -626,7 +723,7 @@ mod tests {
 			assert_eq!(Nft::token_owner(&collection_id, token_id), token_owner);
 			assert_eq!(
 				Nft::token_royalties(&collection_id, token_id).expect("royalties plan set"),
-				royalties_plan
+				royalties_schedule
 			);
 			assert_eq!(Nft::collected_tokens(&collection_id, token_owner), vec![token_id]);
 			assert_eq!(
@@ -745,12 +842,28 @@ mod tests {
 			assert_noop!(
 				Nft::create_token(
 					Some(collection_owner).into(),
-					collection_id,
+					collection_id.clone(),
 					collection_owner,
 					too_many_fields.to_owned().to_vec(),
 					None,
 				),
 				Error::<Test>::SchemaMaxFields
+			);
+
+			assert_noop!(
+				Nft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					collection_owner,
+					vec![None],
+					Some(RoyaltiesSchedule::<AccountId> {
+						entitlements: vec![
+							(3_u64, Percent::from_fraction(1.2)),
+							(3_u64, Percent::from_fraction(1.2))
+						]
+					}),
+				),
+				Error::<Test>::RoyaltiesOvercommitment
 			);
 		});
 	}
@@ -1064,28 +1177,6 @@ mod tests {
 		});
 	}
 
-	/// Setup a token, return collection id, token id, token owner
-	fn setup_token() -> (
-		CollectionId,
-		<Test as Trait>::TokenId,
-		<Test as frame_system::Trait>::AccountId,
-	) {
-		let schema = vec![NFTField::I32(Default::default()).type_id()];
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner, schema);
-		let token_owner = 2_u64;
-		let token_id = Nft::next_token_id(&collection_id);
-		assert_ok!(Nft::create_token(
-			Some(collection_owner).into(),
-			collection_id.clone(),
-			token_owner,
-			vec![Some(NFTField::I32(500))],
-			None,
-		));
-
-		(collection_id, token_id, token_owner)
-	}
-
 	#[test]
 	fn direct_sale() {
 		ExtBuilder::default().build().execute_with(|| {
@@ -1220,6 +1311,144 @@ mod tests {
 				collection_id.clone(),
 				token_id
 			));
+			// no royalties, all proceeds to token owner
+			assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price,);
+
+			// listing removed
+			assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+			)
+			.is_empty());
+
+			// ownership changed
+			assert_eq!(<TokenOwner<Test>>::get(&collection_id, token_id), buyer);
+			assert_eq!(<CollectedTokens<Test>>::get(&collection_id, buyer), vec![token_id]);
+		});
+	}
+
+	#[test]
+	fn direct_purchase_with_bespoke_token_royalties() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_owner = 1;
+			let beneficiary_1 = 11;
+			let beneficiary_2 = 12;
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: vec![
+					(collection_owner, Percent::from_fraction(0.125)),
+					(beneficiary_1, Percent::from_fraction(0.05)),
+					(beneficiary_2, Percent::from_fraction(0.03)),
+				],
+			};
+			let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone());
+			let buyer = 5;
+			let payment_asset = 16_000;
+			let sale_price = 1_000;
+
+			assert_ok!(Nft::direct_sale(
+				Some(token_owner).into(),
+				collection_id.clone(),
+				token_id,
+				buyer,
+				payment_asset,
+				sale_price
+			));
+
+			let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
+			assert_ok!(Nft::direct_purchase(
+				Some(buyer).into(),
+				collection_id.clone(),
+				token_id
+			));
+			let presale_issuance = GenericAsset::total_issuance(payment_asset);
+			let for_royalties = royalties_schedule.calculate_total_entitlement() * sale_price;
+			// token owner gets sale price less royalties
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &token_owner),
+				sale_price - for_royalties
+			);
+			// royalties distributed according to `entitlements` map
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &collection_owner),
+				royalties_schedule.entitlements[0].1 * for_royalties
+			);
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &beneficiary_1),
+				royalties_schedule.entitlements[1].1 * for_royalties
+			);
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &beneficiary_2),
+				royalties_schedule.entitlements[2].1 * for_royalties
+			);
+			assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance,);
+
+			// listing removed
+			assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+			)
+			.is_empty());
+
+			// ownership changed
+			assert_eq!(<TokenOwner<Test>>::get(&collection_id, token_id), buyer);
+			assert_eq!(<CollectedTokens<Test>>::get(&collection_id, buyer), vec![token_id]);
+		});
+	}
+
+	#[test]
+	fn direct_purchase_with_collection_royalties() {
+		ExtBuilder::default().build().execute_with(|| {
+			let beneficiary_1 = 11;
+			let beneficiary_2 = 12;
+			let collection_owner = 1;
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: vec![
+					(collection_owner, Percent::from_fraction(0.125)),
+					(beneficiary_1, Percent::from_fraction(0.05)),
+					(beneficiary_2, Percent::from_fraction(0.3)),
+				],
+			};
+			let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone());
+			let buyer = 5;
+			let payment_asset = 16_000;
+			let sale_price = 1_000;
+
+			assert_ok!(Nft::direct_sale(
+				Some(token_owner).into(),
+				collection_id.clone(),
+				token_id,
+				buyer,
+				payment_asset,
+				sale_price
+			));
+
+			let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
+			assert_ok!(Nft::direct_purchase(
+				Some(buyer).into(),
+				collection_id.clone(),
+				token_id
+			));
+			let presale_issuance = GenericAsset::total_issuance(payment_asset);
+			let for_royalties = royalties_schedule.calculate_total_entitlement() * sale_price;
+			// token owner gets sale price less royalties
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &token_owner),
+				sale_price - for_royalties
+			);
+			// royalties distributed according to `entitlements` map
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &collection_owner),
+				royalties_schedule.entitlements[0].1 * for_royalties
+			);
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &beneficiary_1),
+				royalties_schedule.entitlements[1].1 * for_royalties
+			);
+			assert_eq!(
+				GenericAsset::free_balance(payment_asset, &beneficiary_2),
+				royalties_schedule.entitlements[2].1 * for_royalties
+			);
+			assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance,);
 
 			// listing removed
 			assert!(!Listings::<Test>::contains_key(&collection_id, token_id));

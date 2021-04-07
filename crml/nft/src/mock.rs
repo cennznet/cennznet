@@ -13,6 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use cennznet_primitives::types::{AssetId, Balance};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
 use sp_core::H256;
 use sp_runtime::{
@@ -39,6 +40,8 @@ impl_outer_event! {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Test;
 
+pub type AccountId = u64;
+
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub const MaximumBlockWeight: u32 = 1024;
@@ -54,7 +57,7 @@ impl frame_system::Trait for Test {
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = Event;
@@ -76,8 +79,8 @@ impl frame_system::Trait for Test {
 
 impl prml_generic_asset::Trait for Test {
 	type Event = Event;
-	type AssetId = u32;
-	type Balance = u128;
+	type AssetId = AssetId;
+	type Balance = Balance;
 	type WeightInfo = ();
 }
 
