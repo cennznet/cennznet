@@ -51,12 +51,17 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 				.sum::<u32>() <= 100_u32
 	}
 	/// Calculate the total % entitled for royalties
+	/// It will return `0` if the `entitlements` are overcommitted
 	pub fn calculate_total_entitlement(&self) -> Percent {
-		Percent::from_fraction(
+		// if royalties are in a strange state
+		if !self.validate() {
+			return Percent::zero();
+		}
+		Percent::from_parts(
 			self.entitlements
 				.iter()
-				.map(|(_who, share)| share.deconstruct() as u32)
-				.sum::<u32>() as f64,
+				.map(|(_who, share)| share.deconstruct())
+				.sum::<u8>(),
 		)
 	}
 }

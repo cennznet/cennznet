@@ -1498,8 +1498,50 @@ mod tests {
 				Nft::direct_purchase(Some(buyer).into(), collection_id.clone(), token_id),
 				prml_generic_asset::Error::<Test>::InsufficientBalance,
 			);
-
 			// TODO: listed for auction should fail here
 		});
+	}
+
+	#[test]
+	fn direct_purchase_with_overcommitted_royalties() {
+		ExtBuilder::default().build().execute_with(|| {
+			// royalties are > 100% total which could create funds out of nothing
+			// in this case, default to 0 royalties.
+			// royalty schedules should not make it into storage but we protect against it anyway
+			let (collection_id, token_id, token_owner) = setup_token();
+			let bad_schedule = RoyaltiesSchedule {
+				entitlements: vec![
+					(11_u64, Percent::from_fraction(0.125)),
+					(12_u64, Percent::from_fraction(0.9)),
+				],
+			};
+			TokenRoyalties::<Test>::insert(collection_id.clone(), token_id, bad_schedule.clone());
+
+			let buyer = 5;
+			let payment_asset = 16_000;
+			let price = 1_000;
+			assert_ok!(Nft::direct_sale(
+				Some(token_owner).into(),
+				collection_id.clone(),
+				token_id,
+				buyer,
+				payment_asset,
+				price
+			));
+
+			let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
+			let presale_issuance = GenericAsset::total_issuance(payment_asset);
+
+			assert_ok!(Nft::direct_purchase(
+				Some(buyer).into(),
+				collection_id.clone(),
+				token_id
+			));
+
+			assert!(bad_schedule.calculate_total_entitlement().is_zero());
+			assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price);
+			assert!(GenericAsset::free_balance(payment_asset, &buyer).is_zero());
+			assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
+		})
 	}
 }
