@@ -61,7 +61,10 @@ fn setup_token() -> (
 	<Test as Trait>::TokenId,
 	<Test as frame_system::Trait>::AccountId,
 ) {
-	let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+	let schema = vec![(
+		b"test-attribute".to_vec(),
+		NFTAttributeValue::I32(Default::default()).type_id(),
+	)];
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner, schema);
 	let token_owner = 2_u64;
@@ -70,7 +73,7 @@ fn setup_token() -> (
 		Some(collection_owner).into(),
 		collection_id.clone(),
 		token_owner,
-		vec![Some(NFTAttribute::I32(500))],
+		vec![Some(NFTAttributeValue::I32(500))],
 		None,
 	));
 
@@ -85,7 +88,10 @@ fn setup_token_with_royalties(
 	<Test as Trait>::TokenId,
 	<Test as frame_system::Trait>::AccountId,
 ) {
-	let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+	let schema = vec![(
+		b"test-attribute".to_vec(),
+		NFTAttributeValue::I32(Default::default()).type_id(),
+	)];
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner, schema);
 	let token_owner = 2_u64;
@@ -94,7 +100,7 @@ fn setup_token_with_royalties(
 		Some(collection_owner).into(),
 		collection_id.clone(),
 		token_owner,
-		vec![Some(NFTAttribute::I32(500))],
+		vec![Some(NFTAttributeValue::I32(500))],
 		Some(token_royalties),
 	));
 
@@ -106,9 +112,18 @@ fn create_collection() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let schema = vec![
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::Bytes32(Default::default()).type_id(),
+			(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-3".to_vec(),
+				NFTAttributeValue::Bytes32(Default::default()).type_id(),
+			),
 		];
 
 		let collection_id = setup_collection(owner, schema.clone());
@@ -135,7 +150,23 @@ fn create_collection_invalid_schema() {
 			Error::<Test>::SchemaEmpty
 		);
 
-		let too_many_attributes = [0_u8; (MAX_SCHEMA_FIELDS + 1_u32) as usize];
+		// duplciate attribute names in schema
+		assert_noop!(
+			Nft::create_collection(
+				Some(1_u64).into(),
+				collection_id.clone(),
+				vec![
+					(b"duplicate-attribute".to_vec(), 0),
+					(b"duplicate-attribute".to_vec(), 1)
+				],
+				None,
+			),
+			Error::<Test>::SchenmaDuplicateAttribute
+		);
+
+		let too_many_attributes: NFTSchema = (0..=MAX_SCHEMA_FIELDS as usize)
+			.map(|_| (b"test-attribute".to_vec(), 0_u8))
+			.collect();
 		assert_noop!(
 			Nft::create_collection(
 				Some(1_u64).into(),
@@ -148,7 +179,12 @@ fn create_collection_invalid_schema() {
 
 		let invalid_nft_attribute_type: NFTAttributeTypeId = 200;
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), collection_id, vec![invalid_nft_attribute_type], None,),
+			Nft::create_collection(
+				Some(1_u64).into(),
+				collection_id,
+				vec![(b"invalid-attribute".to_vec(), invalid_nft_attribute_type)],
+				None,
+			),
 			Error::<Test>::SchemaInvalid
 		);
 	});
@@ -185,9 +221,18 @@ fn create_collection_royalties_invalid() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let schema = vec![
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::Bytes32(Default::default()).type_id(),
+			(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-3".to_vec(),
+				NFTAttributeValue::Bytes32(Default::default()).type_id(),
+			),
 		];
 
 		assert_noop!(
@@ -211,9 +256,18 @@ fn create_collection_royalties_invalid() {
 fn create_token() {
 	ExtBuilder::default().build().execute_with(|| {
 		let schema = vec![
-			NFTAttribute::I32(Default::default()).type_id(),
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::Bytes32(Default::default()).type_id(),
+			(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-3".to_vec(),
+				NFTAttributeValue::Bytes32(Default::default()).type_id(),
+			),
 		];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
@@ -228,7 +282,11 @@ fn create_token() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(-33)), None, Some(NFTAttribute::Bytes32([1_u8; 32]))],
+			vec![
+				Some(NFTAttributeValue::I32(-33)),
+				None,
+				Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+			],
 			Some(royalties_schedule.clone()),
 		));
 		assert!(has_event(RawEvent::CreateToken(
@@ -241,9 +299,9 @@ fn create_token() {
 		assert_eq!(
 			token,
 			vec![
-				NFTAttribute::I32(-33),
-				NFTAttribute::U8(Default::default()),
-				NFTAttribute::Bytes32([1_u8; 32])
+				NFTAttributeValue::I32(-33),
+				NFTAttributeValue::U8(Default::default()),
+				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 		);
 
@@ -265,9 +323,18 @@ fn create_token() {
 fn create_multiple_tokens() {
 	ExtBuilder::default().build().execute_with(|| {
 		let schema = vec![
-			NFTAttribute::I32(Default::default()).type_id(),
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::Bytes32(Default::default()).type_id(),
+			(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::U8(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-3".to_vec(),
+				NFTAttributeValue::Bytes32(Default::default()).type_id(),
+			),
 		];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
@@ -277,7 +344,11 @@ fn create_multiple_tokens() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(-33)), None, Some(NFTAttribute::Bytes32([1_u8; 32]))],
+			vec![
+				Some(NFTAttributeValue::I32(-33)),
+				None,
+				Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+			],
 			None,
 		));
 
@@ -285,7 +356,11 @@ fn create_multiple_tokens() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(33)), None, Some(NFTAttribute::Bytes32([2_u8; 32]))],
+			vec![
+				Some(NFTAttributeValue::I32(33)),
+				None,
+				Some(NFTAttributeValue::Bytes32([2_u8; 32]))
+			],
 			None,
 		));
 		assert!(has_event(RawEvent::CreateToken(
@@ -304,7 +379,15 @@ fn create_multiple_tokens() {
 #[test]
 fn create_token_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute-1".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		),
+		(
+			b"test-attribute-2".to_vec(),
+			NFTAttributeValue::Url(Default::default()).type_id(),
+		)
+		];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
 
@@ -313,7 +396,7 @@ fn create_token_fails_prechecks() {
 				Some(2_u64).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![None],
+				vec![None, None],
 				None
 			),
 			Error::<Test>::NoPermission
@@ -324,7 +407,7 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				b"this-collection-doesn't-exist".to_vec(),
 				collection_owner,
-				vec![None],
+				vec![None, None],
 				None
 			),
 			Error::<Test>::NoCollection
@@ -347,7 +430,7 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![None, None],
+				vec![None, None, None],
 				None
 			),
 			Error::<Test>::SchemaMismatch
@@ -359,13 +442,14 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![Some(NFTAttribute::U32(404))],
+				vec![Some(NFTAttributeValue::U32(404)), None],
 				None,
 			),
 			Error::<Test>::SchemaMismatch
 		);
 
-		let too_many_attributes: [Option<NFTAttribute>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
+		let too_many_attributes: [Option<NFTAttributeValue>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] =
+			Default::default();
 		assert_noop!(
 			Nft::create_token(
 				Some(collection_owner).into(),
@@ -377,12 +461,13 @@ fn create_token_fails_prechecks() {
 			Error::<Test>::SchemaMaxAttributes
 		);
 
+		// royalties > 100%
 		assert_noop!(
 			Nft::create_token(
 				Some(collection_owner).into(),
-				collection_id,
+				collection_id.clone(),
 				collection_owner,
-				vec![None],
+				vec![None, None],
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Percent::from_fraction(1.2)),
@@ -392,138 +477,20 @@ fn create_token_fails_prechecks() {
 			),
 			Error::<Test>::RoyaltiesOvercommitment
 		);
-	});
-}
 
-#[test]
-fn update_token() {
-	ExtBuilder::default().build().execute_with(|| {
-		// setup token collection + one token
-		let schema = vec![
-			NFTAttribute::I32(Default::default()).type_id(),
-			NFTAttribute::U8(Default::default()).type_id(),
-			NFTAttribute::Bytes32(Default::default()).type_id(),
-		];
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner, schema);
-		let token_owner = 2_u64;
-		let token_id = Nft::next_token_id(&collection_id);
-		let initial_values = vec![
-			Some(NFTAttribute::I32(-33)),
-			Some(NFTAttribute::U8(12)),
-			Some(NFTAttribute::Bytes32([1_u8; 32])),
-		];
-		assert_ok!(Nft::create_token(
-			Some(collection_owner).into(),
-			collection_id.clone(),
-			token_owner,
-			initial_values.clone(),
-			None,
-		));
-
-		// test
-		assert_ok!(Nft::update_token(
-			Some(collection_owner).into(),
-			collection_id.clone(),
-			token_id,
-			// only change the bytes32 value
-			vec![None, None, Some(NFTAttribute::Bytes32([2_u8; 32]))]
-		));
-		assert!(has_event(RawEvent::Update(collection_id.clone(), token_id)));
-
-		assert_eq!(
-			Nft::tokens(collection_id, token_id),
-			// original values retained, bytes32 updated
-			vec![
-				initial_values[0].unwrap(),
-				initial_values[1].unwrap(),
-				NFTAttribute::Bytes32([2_u8; 32]),
-			],
-		);
-	});
-}
-
-#[test]
-fn update_token_fails_prechecks() {
-	ExtBuilder::default().build().execute_with(|| {
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner, schema);
-		let token_owner = 2_u64;
-		let token_id = Nft::next_token_id(&collection_id);
-		assert_ok!(Nft::create_token(
-			Some(collection_owner).into(),
-			collection_id.clone(),
-			token_owner,
-			vec![None],
-			None,
-		));
-
+		// attribute value too long
 		assert_noop!(
-			Nft::update_token(Some(2_u64).into(), collection_id.clone(), token_id, vec![None]),
-			Error::<Test>::NoPermission
-		);
-
-		assert_noop!(
-			Nft::update_token(
+			Nft::create_token(
 				Some(collection_owner).into(),
-				b"no-collection".to_vec(),
-				token_id,
-				vec![None]
+				collection_id,
+				collection_owner,
+				vec![
+					None,
+					Some(NFTAttributeValue::Url([1_u8; MAX_ATTRIBUTE_LENGTH + 1].to_vec()))
+				],
+				None,
 			),
-			Error::<Test>::NoCollection
-		);
-
-		assert_noop!(
-			Nft::update_token(Some(collection_owner).into(), collection_id.clone(), token_id, vec![]),
-			Error::<Test>::SchemaEmpty
-		);
-
-		// additional attribute vs. schema
-		assert_noop!(
-			Nft::update_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_id,
-				vec![None, None]
-			),
-			Error::<Test>::SchemaMismatch
-		);
-
-		// different attribute type vs. schema
-		assert_noop!(
-			Nft::update_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_id,
-				vec![Some(NFTAttribute::U32(404))]
-			),
-			Error::<Test>::SchemaMismatch
-		);
-
-		let too_many_attributes: [Option<NFTAttribute>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
-		assert_noop!(
-			Nft::update_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_id,
-				too_many_attributes.to_owned().to_vec()
-			),
-			Error::<Test>::SchemaMaxAttributes
-		);
-
-		assert_ok!(Nft::direct_sale(
-			Some(token_owner).into(),
-			collection_id.clone(),
-			token_id,
-			5,
-			16_000,
-			1_000
-		));
-		// cannot transfer while listed
-		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), collection_id, token_id, token_owner),
-			Error::<Test>::TokenListingProtection,
+			Error::<Test>::MaxAttributeLength
 		);
 	});
 }
@@ -532,7 +499,10 @@ fn update_token_fails_prechecks() {
 fn transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		// setup token collection + one token
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
 		let token_owner = 2_u64;
@@ -541,7 +511,7 @@ fn transfer() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			None,
 		));
 
@@ -569,7 +539,10 @@ fn transfer() {
 fn transfer_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		// setup token collection + one token
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 
 		// no collection yet
@@ -597,7 +570,7 @@ fn transfer_fails_prechecks() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			None,
 		));
 
@@ -632,7 +605,10 @@ fn transfer_fails_prechecks() {
 fn burn() {
 	ExtBuilder::default().build().execute_with(|| {
 		// setup token collection + one token
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
 		let token_owner = 2_u64;
@@ -641,7 +617,7 @@ fn burn() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			None,
 		));
 
@@ -660,7 +636,10 @@ fn burn() {
 fn burn_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		// setup token collection + one token
-		let schema = vec![NFTAttribute::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 		assert_noop!(
 			Nft::burn(Some(collection_owner).into(), b"no-collection".to_vec(), 0),
@@ -679,7 +658,7 @@ fn burn_fails_prechecks() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttribute::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			None,
 		));
 
