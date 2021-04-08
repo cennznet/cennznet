@@ -675,9 +675,9 @@ fn burn_fails_prechecks() {
 			16_000,
 			1_000
 		));
-		// cannot transfer while listed
+		// cannot burn while listed
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), collection_id, token_id, token_owner),
+			Nft::burn(Some(token_owner).into(), collection_id, token_id),
 			Error::<Test>::TokenListingProtection,
 		);
 	});

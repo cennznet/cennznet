@@ -447,7 +447,7 @@ parameter_types! {
 	pub const FieldDeposit: Balance = deposit(0, 66);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 	pub const MaxSubAccounts: u32 = 100;
-	pub const MaxAdditionalAttributes: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
 	pub const MaxRegistrars: u32 = 20;
 }
 impl pallet_identity::Trait for Runtime {
@@ -457,7 +457,7 @@ impl pallet_identity::Trait for Runtime {
 	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalAttributes = MaxAdditionalAttributes;
+	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type ForceOrigin = EnsureRoot<AccountId>;
