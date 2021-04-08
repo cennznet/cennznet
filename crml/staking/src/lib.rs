@@ -150,15 +150,15 @@
 //! The validator and its nominator split their reward as following:
 //!
 //! The validator can declare an amount, named
-//! [`commission`](./struct.ValidatorPrefs.html#structfield.commission), that does not
+//! [`commission`](./struct.ValidatorPrefs.html#structattribute.commission), that does not
 //! get shared with the nominators at each reward payout through its
 //! [`ValidatorPrefs`](./struct.ValidatorPrefs.html). This value gets deducted from the total reward
 //! that is paid to the validator and its nominators. The remaining portion is split among the
 //! validator and all of the nominators that nominated the validator, proportional to the value
 //! staked behind this validator (_i.e._ dividing the
-//! [`own`](./struct.Exposure.html#structfield.own) or
-//! [`others`](./struct.Exposure.html#structfield.others) by
-//! [`total`](./struct.Exposure.html#structfield.total) in [`Exposure`](./struct.Exposure.html)).
+//! [`own`](./struct.Exposure.html#structattribute.own) or
+//! [`others`](./struct.Exposure.html#structattribute.others) by
+//! [`total`](./struct.Exposure.html#structattribute.total) in [`Exposure`](./struct.Exposure.html)).
 //!
 //! All entities who receive a reward have the option to choose their reward destination
 //! through the [`Payee`](./struct.Payee.html) storage item (see
@@ -888,7 +888,7 @@ decl_storage! {
 		///
 		/// This is similar to [`ErasStakers`] but number of nominators exposed is reduced to the
 		/// `T::MaxNominatorRewardedPerValidator` biggest stakers.
-		/// (Note: the field `total` and `own` of the exposure remains unchanged).
+		/// (Note: the attribute `total` and `own` of the exposure remains unchanged).
 		/// This is used to limit the i/o cost for the nominator payout.
 		///
 		/// This is keyed fist by the era index to allow bulk deletion and then the stash account.

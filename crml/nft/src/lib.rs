@@ -35,7 +35,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, Member, One, Saturating, Zero},
 	DispatchResult,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
 #[cfg(test)]
 mod mock;
@@ -85,14 +85,20 @@ decl_error! {
 		NoAvailableIds,
 		/// Max tokens issued
 		MaxTokensIssued,
-		/// Too many fields in the provided schema or data
-		SchemaMaxFields,
-		/// Provided fields do not match the collection schema
+		/// Too many attributes in the provided schema or data
+		SchemaMaxAttributes,
+		/// Provided attributes do not match the collection schema
 		SchemaMismatch,
-		/// The provided fields or schema cannot be empty
+		/// Provided attribute is not in the collection schema
+		UnknownAttribute,
+		/// The provided attributes or schema cannot be empty
 		SchemaEmpty,
 		/// The schema contains an invalid type
 		SchemaInvalid,
+		/// The schema contains a duplicate attribute name
+		SchenmaDuplicateAttribute,
+		/// Given attirbute value is larger than the max. `MAX_ATTRIBUTE_LENGTH`
+		MaxAttributeLength,
 		/// origin does not have permission for the operation
 		NoPermission,
 		/// The NFT collection does not exist
@@ -114,14 +120,14 @@ decl_storage! {
 	trait Store for Module<T: Trait> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
-		/// Map from collection to schema definition
+		/// Map from collection to its schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
 		/// Map from collection to it's defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
 		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from (collection, token) to it's encoded value
-		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTField>;
+		/// Map from (collection, token) to it's attributes (as defined by schema)
+		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
 		/// The total amount of an NFT collection in existence
@@ -142,10 +148,13 @@ decl_storage! {
 	}
 }
 
-/// The maximum number of fields in an NFT collection schema
+/// The maximum number of attributes in an NFT collection schema
 pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
-pub const MAX_COLLECTION_ID_LEN: u8 = 32;
+pub const MAX_COLLECTION_ID_LENGTH: u8 = 32;
+/// The maximum length of an attribute value (140 = old tweet limit)
+/// Only matters for string/vec allocated types
+pub const MAX_ATTRIBUTE_LENGTH: usize = 140;
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
@@ -173,17 +182,23 @@ decl_module! {
 		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LEN as usize, Error::<T>::CollectionIdInvalid);
+			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
 			ensure!(core::str::from_utf8(&collection_id).is_ok(), Error::<T>::CollectionIdInvalid);
-			ensure!(!CollectionSchema::contains_key(&collection_id), Error::<T>::CollectionIdExists);
+			ensure!(!<CollectionOwner<T>>::contains_key(&collection_id), Error::<T>::CollectionIdExists);
 
 			ensure!(!schema.is_empty(), Error::<T>::SchemaEmpty);
-			ensure!(schema.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxFields);
-			// Check the provided field types are valid
+			ensure!(schema.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxAttributes);
+
+			// Check the provided attribute types are valid
 			ensure!(
-				schema.iter().all(|type_id| NFTField::is_valid_type_id(*type_id)),
+				schema.iter().all(|(_name, type_id)| NFTAttributeValue::is_valid_type_id(*type_id)),
 				Error::<T>::SchemaInvalid
 			);
+
+			// Attribute names must be unique (future proofing for map lookups etc.)
+			let (attribute_names, _): (Vec<NFTAttributeName>, Vec<NFTAttributeTypeId>) = schema.iter().cloned().unzip();
+			let deduped = BTreeSet::from_iter(attribute_names);
+			ensure!(deduped.len() == schema.len(), Error::<T>::SchenmaDuplicateAttribute);
 
 			// Create the collection, update ownership, and bookkeeping
 			if let Some(royalties_schedule) = royalties_schedule {
@@ -200,11 +215,12 @@ decl_module! {
 
 		/// Issue a new NFT
 		/// `owner` - the token owner
-		/// `fields` - initial values according to the NFT collection/schema, omitted fields will be assigned defaults
+		/// `attributes` - initial values according to the NFT collection/schema, omitted attributes will be assigned defaults
 		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
 		/// Caller must be the collection owner
 		#[weight = 0]
-		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, fields: Vec<Option<NFTField>>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		#[transactional]
+		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<Option<NFTAttributeValue>>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			// Permission and existence check
@@ -217,26 +233,27 @@ decl_module! {
 			let next_token_id = token_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
 			Self::token_issuance(&collection_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
 
-			// Quick `fields` sanity checks
-			ensure!(!fields.is_empty(), Error::<T>::SchemaEmpty);
-			ensure!(fields.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxFields);
+			// Quick `attributes` sanity checks
+			ensure!(!attributes.is_empty(), Error::<T>::SchemaEmpty);
+			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
 			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
-			ensure!(fields.len() == schema.len(), Error::<T>::SchemaMismatch);
+			ensure!(attributes.len() == schema.len(), Error::<T>::SchemaMismatch);
 
 			// Build the NFT + schema type level validation
-			let token: Vec<NFTField> = schema.iter().zip(fields.iter()).map(|(schema_field_type, maybe_provided_field)| {
-				if let Some(provided_field) = maybe_provided_field {
-					// caller provided a field, check it's the right type
-					if *schema_field_type == provided_field.type_id() {
-						Ok(*provided_field)
+			let token: Vec<NFTAttributeValue> = schema.iter().zip(attributes.iter()).map(|((_schema_attribute_name, schema_attribute_type), maybe_provided_attribute)| {
+				if let Some(provided_attribute) = maybe_provided_attribute {
+					// caller provided an attribute, check it's the correct type
+					if *schema_attribute_type == provided_attribute.type_id() {
+						ensure!(provided_attribute.len() <= MAX_ATTRIBUTE_LENGTH, Error::<T>::MaxAttributeLength);
+						Ok(provided_attribute.clone())
 					} else {
 						Err(Error::<T>::SchemaMismatch)
 					}
 				} else {
 					// caller did not provide a field, use the default
-					NFTField::default_from_type_id(*schema_field_type).map_err(|_| Error::<T>::SchemaInvalid)
+					NFTAttributeValue::default_from_type_id(*schema_attribute_type).map_err(|_| Error::<T>::SchemaInvalid)
 				}
-			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
+			}).collect::<Result<_, Error<T>>>()?;
 
 			// Create the token, update ownership, and bookkeeping
 			if let Some(royalties_schedule) = royalties_schedule {
@@ -250,48 +267,6 @@ decl_module! {
 			<CollectedTokens<T>>::append(&collection_id, owner.clone(), token_id);
 
 			Self::deposit_event(RawEvent::CreateToken(collection_id, token_id, owner));
-
-			Ok(())
-		}
-
-		/// Update an existing NFT
-		/// `new_fields` - new values according to the NFT collection/schema, omitted fields will retain their current values.
-		/// Caller must be the collection owner
-		#[weight = 0]
-		fn update_token(origin, collection_id: CollectionId, token_id: T::TokenId, new_fields: Vec<Option<NFTField>>) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-
-			// Permission and existence check
-			let collection_owner = Self::collection_owner(&collection_id);
-			ensure!(collection_owner.is_some(), Error::<T>::NoCollection);
-			ensure!(collection_owner.unwrap() == origin, Error::<T>::NoPermission);
-			ensure!(<Tokens<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
-			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
-
-			// Quick `new_fields` sanity checks
-			ensure!(!new_fields.is_empty(), Error::<T>::SchemaEmpty);
-			ensure!(new_fields.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxFields);
-			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
-			ensure!(new_fields.len() == schema.len(), Error::<T>::SchemaMismatch);
-
-			// Rebuild the NFT inserting new values
-			let current_token: Vec<NFTField> = Self::tokens(&collection_id, token_id);
-			let token: Vec<NFTField> = current_token.iter().zip(new_fields.iter()).map(|(current_value, maybe_new_value)| {
-				if let Some(new_value) = maybe_new_value {
-					// existing types are valid
-					if current_value.type_id() == new_value.type_id() {
-						Ok(*new_value)
-					} else {
-						Err(Error::<T>::SchemaMismatch)
-					}
-				} else {
-					// caller did not provide a new value, retain the existing value
-					Ok(*current_value)
-				}
-			}).collect::<Result<Vec<NFTField>, Error<T>>>()?;
-
-			<Tokens<T>>::insert(&collection_id, token_id, token);
-			Self::deposit_event(RawEvent::Update(collection_id, token_id));
 
 			Ok(())
 		}
@@ -534,7 +509,10 @@ mod tests {
 		<Test as Trait>::TokenId,
 		<Test as frame_system::Trait>::AccountId,
 	) {
-		let schema = vec![NFTField::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
 		let token_owner = 2_u64;
@@ -543,7 +521,7 @@ mod tests {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTField::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			None,
 		));
 
@@ -558,7 +536,10 @@ mod tests {
 		<Test as Trait>::TokenId,
 		<Test as frame_system::Trait>::AccountId,
 	) {
-		let schema = vec![NFTField::I32(Default::default()).type_id()];
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
 		let token_owner = 2_u64;
@@ -567,7 +548,7 @@ mod tests {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTField::I32(500))],
+			vec![Some(NFTAttributeValue::I32(500))],
 			Some(token_royalties),
 		));
 
@@ -579,9 +560,18 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let owner = 1_u64;
 			let schema = vec![
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::Bytes32(Default::default()).type_id(),
+				(
+					b"test-attribute-1".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-2".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-3".to_vec(),
+					NFTAttributeValue::Bytes32(Default::default()).type_id(),
+				),
 			];
 
 			let collection_id = setup_collection(owner, schema.clone());
@@ -608,20 +598,41 @@ mod tests {
 				Error::<Test>::SchemaEmpty
 			);
 
-			let too_many_fields = [0_u8; (MAX_SCHEMA_FIELDS + 1_u32) as usize];
+			// duplciate attribute names in schema
 			assert_noop!(
 				Nft::create_collection(
 					Some(1_u64).into(),
 					collection_id.clone(),
-					too_many_fields.to_owned().to_vec(),
+					vec![
+						(b"duplicate-attribute".to_vec(), 0),
+						(b"duplicate-attribute".to_vec(), 1)
+					],
 					None,
 				),
-				Error::<Test>::SchemaMaxFields
+				Error::<Test>::SchenmaDuplicateAttribute
 			);
 
-			let invalid_nft_field_type: NFTFieldTypeId = 200;
+			let too_many_attributes: NFTSchema = (0..=MAX_SCHEMA_FIELDS as usize)
+				.map(|_| (b"test-attribute".to_vec(), 0_u8))
+				.collect();
 			assert_noop!(
-				Nft::create_collection(Some(1_u64).into(), collection_id, vec![invalid_nft_field_type], None,),
+				Nft::create_collection(
+					Some(1_u64).into(),
+					collection_id.clone(),
+					too_many_attributes.to_owned().to_vec(),
+					None,
+				),
+				Error::<Test>::SchemaMaxAttributes
+			);
+
+			let invalid_nft_attribute_type: NFTAttributeTypeId = 200;
+			assert_noop!(
+				Nft::create_collection(
+					Some(1_u64).into(),
+					collection_id,
+					vec![(b"invalid-attribute".to_vec(), invalid_nft_attribute_type)],
+					None,
+				),
 				Error::<Test>::SchemaInvalid
 			);
 		});
@@ -658,9 +669,18 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let owner = 1_u64;
 			let schema = vec![
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::Bytes32(Default::default()).type_id(),
+				(
+					b"test-attribute-1".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-2".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-3".to_vec(),
+					NFTAttributeValue::Bytes32(Default::default()).type_id(),
+				),
 			];
 
 			assert_noop!(
@@ -684,9 +704,18 @@ mod tests {
 	fn create_token() {
 		ExtBuilder::default().build().execute_with(|| {
 			let schema = vec![
-				NFTField::I32(Default::default()).type_id(),
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::Bytes32(Default::default()).type_id(),
+				(
+					b"test-attribute-1".to_vec(),
+					NFTAttributeValue::I32(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-2".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-3".to_vec(),
+					NFTAttributeValue::Bytes32(Default::default()).type_id(),
+				),
 			];
 			let collection_owner = 1_u64;
 			let collection_id = setup_collection(collection_owner, schema);
@@ -701,7 +730,11 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(-33)), None, Some(NFTField::Bytes32([1_u8; 32]))],
+				vec![
+					Some(NFTAttributeValue::I32(-33)),
+					None,
+					Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+				],
 				Some(royalties_schedule.clone()),
 			));
 			assert!(has_event(RawEvent::CreateToken(
@@ -714,9 +747,9 @@ mod tests {
 			assert_eq!(
 				token,
 				vec![
-					NFTField::I32(-33),
-					NFTField::U8(Default::default()),
-					NFTField::Bytes32([1_u8; 32])
+					NFTAttributeValue::I32(-33),
+					NFTAttributeValue::U8(Default::default()),
+					NFTAttributeValue::Bytes32([1_u8; 32])
 				],
 			);
 
@@ -738,9 +771,18 @@ mod tests {
 	fn create_multiple_tokens() {
 		ExtBuilder::default().build().execute_with(|| {
 			let schema = vec![
-				NFTField::I32(Default::default()).type_id(),
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::Bytes32(Default::default()).type_id(),
+				(
+					b"test-attribute-1".to_vec(),
+					NFTAttributeValue::I32(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-2".to_vec(),
+					NFTAttributeValue::U8(Default::default()).type_id(),
+				),
+				(
+					b"test-attribute-3".to_vec(),
+					NFTAttributeValue::Bytes32(Default::default()).type_id(),
+				),
 			];
 			let collection_owner = 1_u64;
 			let collection_id = setup_collection(collection_owner, schema);
@@ -750,7 +792,11 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(-33)), None, Some(NFTField::Bytes32([1_u8; 32]))],
+				vec![
+					Some(NFTAttributeValue::I32(-33)),
+					None,
+					Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+				],
 				None,
 			));
 
@@ -758,7 +804,11 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(33)), None, Some(NFTField::Bytes32([2_u8; 32]))],
+				vec![
+					Some(NFTAttributeValue::I32(33)),
+					None,
+					Some(NFTAttributeValue::Bytes32([2_u8; 32]))
+				],
 				None,
 			));
 			assert!(has_event(RawEvent::CreateToken(
@@ -777,7 +827,15 @@ mod tests {
 	#[test]
 	fn create_token_fails_prechecks() {
 		ExtBuilder::default().build().execute_with(|| {
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let schema = vec![(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::Url(Default::default()).type_id(),
+			)
+			];
 			let collection_owner = 1_u64;
 			let collection_id = setup_collection(collection_owner, schema);
 
@@ -786,7 +844,7 @@ mod tests {
 					Some(2_u64).into(),
 					collection_id.clone(),
 					collection_owner,
-					vec![None],
+					vec![None, None],
 					None
 				),
 				Error::<Test>::NoPermission
@@ -797,7 +855,7 @@ mod tests {
 					Some(collection_owner).into(),
 					b"this-collection-doesn't-exist".to_vec(),
 					collection_owner,
-					vec![None],
+					vec![None, None],
 					None
 				),
 				Error::<Test>::NoCollection
@@ -814,48 +872,50 @@ mod tests {
 				Error::<Test>::SchemaEmpty
 			);
 
-			// additional field vs. schema
+			// additional attribute vs. schema
+			assert_noop!(
+				Nft::create_token(
+					Some(collection_owner).into(),
+					collection_id.clone(),
+					collection_owner,
+					vec![None, None, None],
+					None
+				),
+				Error::<Test>::SchemaMismatch
+			);
+
+			// different attribute type vs. schema
+			assert_noop!(
+				Nft::create_token(
+					Some(collection_owner).into(),
+					collection_id.clone(),
+					collection_owner,
+					vec![Some(NFTAttributeValue::U32(404)), None],
+					None,
+				),
+				Error::<Test>::SchemaMismatch
+			);
+
+			let too_many_attributes: [Option<NFTAttributeValue>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] =
+				Default::default();
+			assert_noop!(
+				Nft::create_token(
+					Some(collection_owner).into(),
+					collection_id.clone(),
+					collection_owner,
+					too_many_attributes.to_owned().to_vec(),
+					None,
+				),
+				Error::<Test>::SchemaMaxAttributes
+			);
+
+			// royalties > 100%
 			assert_noop!(
 				Nft::create_token(
 					Some(collection_owner).into(),
 					collection_id.clone(),
 					collection_owner,
 					vec![None, None],
-					None
-				),
-				Error::<Test>::SchemaMismatch
-			);
-
-			// different field type vs. schema
-			assert_noop!(
-				Nft::create_token(
-					Some(collection_owner).into(),
-					collection_id.clone(),
-					collection_owner,
-					vec![Some(NFTField::U32(404))],
-					None,
-				),
-				Error::<Test>::SchemaMismatch
-			);
-
-			let too_many_fields: [Option<NFTField>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
-			assert_noop!(
-				Nft::create_token(
-					Some(collection_owner).into(),
-					collection_id.clone(),
-					collection_owner,
-					too_many_fields.to_owned().to_vec(),
-					None,
-				),
-				Error::<Test>::SchemaMaxFields
-			);
-
-			assert_noop!(
-				Nft::create_token(
-					Some(collection_owner).into(),
-					collection_id,
-					collection_owner,
-					vec![None],
 					Some(RoyaltiesSchedule::<AccountId> {
 						entitlements: vec![
 							(3_u64, Percent::from_fraction(1.2)),
@@ -865,138 +925,20 @@ mod tests {
 				),
 				Error::<Test>::RoyaltiesOvercommitment
 			);
-		});
-	}
 
-	#[test]
-	fn update_token() {
-		ExtBuilder::default().build().execute_with(|| {
-			// setup token collection + one token
-			let schema = vec![
-				NFTField::I32(Default::default()).type_id(),
-				NFTField::U8(Default::default()).type_id(),
-				NFTField::Bytes32(Default::default()).type_id(),
-			];
-			let collection_owner = 1_u64;
-			let collection_id = setup_collection(collection_owner, schema);
-			let token_owner = 2_u64;
-			let token_id = Nft::next_token_id(&collection_id);
-			let initial_values = vec![
-				Some(NFTField::I32(-33)),
-				Some(NFTField::U8(12)),
-				Some(NFTField::Bytes32([1_u8; 32])),
-			];
-			assert_ok!(Nft::create_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_owner,
-				initial_values.clone(),
-				None,
-			));
-
-			// test
-			assert_ok!(Nft::update_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_id,
-				// only change the bytes32 value
-				vec![None, None, Some(NFTField::Bytes32([2_u8; 32]))]
-			));
-			assert!(has_event(RawEvent::Update(collection_id.clone(), token_id)));
-
-			assert_eq!(
-				Nft::tokens(collection_id, token_id),
-				// original values retained, bytes32 updated
-				vec![
-					initial_values[0].unwrap(),
-					initial_values[1].unwrap(),
-					NFTField::Bytes32([2_u8; 32]),
-				],
-			);
-		});
-	}
-
-	#[test]
-	fn update_token_fails_prechecks() {
-		ExtBuilder::default().build().execute_with(|| {
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
-			let collection_owner = 1_u64;
-			let collection_id = setup_collection(collection_owner, schema);
-			let token_owner = 2_u64;
-			let token_id = Nft::next_token_id(&collection_id);
-			assert_ok!(Nft::create_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				token_owner,
-				vec![None],
-				None,
-			));
-
+			// attribute value too long
 			assert_noop!(
-				Nft::update_token(Some(2_u64).into(), collection_id.clone(), token_id, vec![None]),
-				Error::<Test>::NoPermission
-			);
-
-			assert_noop!(
-				Nft::update_token(
+				Nft::create_token(
 					Some(collection_owner).into(),
-					b"no-collection".to_vec(),
-					token_id,
-					vec![None]
+					collection_id,
+					collection_owner,
+					vec![
+						None,
+						Some(NFTAttributeValue::Url([1_u8; MAX_ATTRIBUTE_LENGTH + 1].to_vec()))
+					],
+					None,
 				),
-				Error::<Test>::NoCollection
-			);
-
-			assert_noop!(
-				Nft::update_token(Some(collection_owner).into(), collection_id.clone(), token_id, vec![]),
-				Error::<Test>::SchemaEmpty
-			);
-
-			// additional field vs. schema
-			assert_noop!(
-				Nft::update_token(
-					Some(collection_owner).into(),
-					collection_id.clone(),
-					token_id,
-					vec![None, None]
-				),
-				Error::<Test>::SchemaMismatch
-			);
-
-			// different field type vs. schema
-			assert_noop!(
-				Nft::update_token(
-					Some(collection_owner).into(),
-					collection_id.clone(),
-					token_id,
-					vec![Some(NFTField::U32(404))]
-				),
-				Error::<Test>::SchemaMismatch
-			);
-
-			let too_many_fields: [Option<NFTField>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
-			assert_noop!(
-				Nft::update_token(
-					Some(collection_owner).into(),
-					collection_id.clone(),
-					token_id,
-					too_many_fields.to_owned().to_vec()
-				),
-				Error::<Test>::SchemaMaxFields
-			);
-
-			assert_ok!(Nft::direct_sale(
-				Some(token_owner).into(),
-				collection_id.clone(),
-				token_id,
-				5,
-				16_000,
-				1_000
-			));
-			// cannot transfer while listed
-			assert_noop!(
-				Nft::transfer(Some(token_owner).into(), collection_id, token_id, token_owner),
-				Error::<Test>::TokenListingProtection,
+				Error::<Test>::MaxAttributeLength
 			);
 		});
 	}
@@ -1005,7 +947,10 @@ mod tests {
 	fn transfer() {
 		ExtBuilder::default().build().execute_with(|| {
 			// setup token collection + one token
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let schema = vec![(
+				b"test-attribute".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			)];
 			let collection_owner = 1_u64;
 			let collection_id = setup_collection(collection_owner, schema);
 			let token_owner = 2_u64;
@@ -1014,7 +959,7 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(500))],
+				vec![Some(NFTAttributeValue::I32(500))],
 				None,
 			));
 
@@ -1042,7 +987,10 @@ mod tests {
 	fn transfer_fails_prechecks() {
 		ExtBuilder::default().build().execute_with(|| {
 			// setup token collection + one token
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let schema = vec![(
+				b"test-attribute".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			)];
 			let collection_owner = 1_u64;
 
 			// no collection yet
@@ -1070,7 +1018,7 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(500))],
+				vec![Some(NFTAttributeValue::I32(500))],
 				None,
 			));
 
@@ -1105,7 +1053,10 @@ mod tests {
 	fn burn() {
 		ExtBuilder::default().build().execute_with(|| {
 			// setup token collection + one token
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let schema = vec![(
+				b"test-attribute".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			)];
 			let collection_owner = 1_u64;
 			let collection_id = setup_collection(collection_owner, schema);
 			let token_owner = 2_u64;
@@ -1114,7 +1065,7 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(500))],
+				vec![Some(NFTAttributeValue::I32(500))],
 				None,
 			));
 
@@ -1133,7 +1084,10 @@ mod tests {
 	fn burn_fails_prechecks() {
 		ExtBuilder::default().build().execute_with(|| {
 			// setup token collection + one token
-			let schema = vec![NFTField::I32(Default::default()).type_id()];
+			let schema = vec![(
+				b"test-attribute".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			)];
 			let collection_owner = 1_u64;
 			assert_noop!(
 				Nft::burn(Some(collection_owner).into(), b"no-collection".to_vec(), 0),
@@ -1152,7 +1106,7 @@ mod tests {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				token_owner,
-				vec![Some(NFTField::I32(500))],
+				vec![Some(NFTAttributeValue::I32(500))],
 				None,
 			));
 
