@@ -192,8 +192,8 @@ pub struct DirectSaleListing<T: Trait> {
 	pub fixed_price: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
-	/// authorised buyer
-	pub buyer: T::AccountId,
+	/// The authorised buyer. If unset, any buyer is authorised
+	pub buyer: Option<T::AccountId>,
 }
 
 #[cfg(test)]

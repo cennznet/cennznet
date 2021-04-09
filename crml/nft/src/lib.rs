@@ -71,7 +71,7 @@ decl_event!(
 		/// An NFT was burned
 		Burn(CollectionId, TokenId),
 		/// A direct sale has been listed (collection, token, authorised buyer, payment asset, fixed price)
-		DirectSaleListed(CollectionId, TokenId, AccountId, AssetId, Balance),
+		DirectSaleListed(CollectionId, TokenId, Option<AccountId>, AssetId, Balance),
 		/// A direct sale has completed (collection, token, new owner, payment asset, fixed price)
 		DirectSaleComplete(CollectionId, TokenId, AccountId, AssetId, Balance),
 	}
@@ -321,11 +321,11 @@ decl_module! {
 		}
 
 		/// Sell an NFT to specific account at a fixed price
-		/// `receiver` the account to receive the NFT
+		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
 		#[weight = 0]
-		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: T::AccountId, payment_asset: AssetId, fixed_price: Balance) {
+		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -354,7 +354,13 @@ decl_module! {
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForDirectSale);
 
 			if let Some(Listing::DirectSale(listing)) = Self::listings(&collection_id, token_id) {
-				ensure!(origin == listing.buyer, Error::<T>::NoPermission);
+
+				match listing.buyer {
+					// if buyer is specified in the listing, then `origin` must be buyer
+					Some(buyer) => ensure!(origin == buyer, Error::<T>::NoPermission),
+					None => (),
+				};
+
 				let current_owner = Self::token_owner(&collection_id, token_id);
 
 				// if there are no custom royalties, fallback to default if it exists
@@ -366,13 +372,13 @@ decl_module! {
 
 				if royalties_schedule.entitlements.is_empty() {
 					// full proceeds to seller/`current_owner`
-					T::MultiCurrency::transfer(&listing.buyer, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+					T::MultiCurrency::transfer(&origin, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
 					let for_royalties = royalties_schedule.calculate_total_entitlement() * listing.fixed_price;
 					let for_seller = listing.fixed_price - for_royalties;
 
-					let mut imbalance = T::MultiCurrency::withdraw(&listing.buyer, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
+					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
 					imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 					for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
 						if entitlement.is_zero() {
@@ -384,9 +390,9 @@ decl_module! {
 				}
 
 				// must not fail not that payment has been made
-				Self::transfer_ownership(&collection_id, token_id, &current_owner, &listing.buyer);
+				Self::transfer_ownership(&collection_id, token_id, &current_owner, &origin);
 				Self::remove_direct_listing(&collection_id, token_id);
-				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, listing.buyer, listing.payment_asset, listing.fixed_price));
+				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
 			} else {
 				return Err(Error::<T>::NotForDirectSale.into());
 			}

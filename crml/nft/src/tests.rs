@@ -379,14 +379,15 @@ fn create_multiple_tokens() {
 #[test]
 fn create_token_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
-		let schema = vec![(
-			b"test-attribute-1".to_vec(),
-			NFTAttributeValue::I32(Default::default()).type_id(),
-		),
-		(
-			b"test-attribute-2".to_vec(),
-			NFTAttributeValue::Url(Default::default()).type_id(),
-		)
+		let schema = vec![
+			(
+				b"test-attribute-1".to_vec(),
+				NFTAttributeValue::I32(Default::default()).type_id(),
+			),
+			(
+				b"test-attribute-2".to_vec(),
+				NFTAttributeValue::Url(Default::default()).type_id(),
+			),
 		];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
@@ -448,8 +449,7 @@ fn create_token_fails_prechecks() {
 			Error::<Test>::SchemaMismatch
 		);
 
-		let too_many_attributes: [Option<NFTAttributeValue>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] =
-			Default::default();
+		let too_many_attributes: [Option<NFTAttributeValue>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
 		assert_noop!(
 			Nft::create_token(
 				Some(collection_owner).into(),
@@ -589,7 +589,7 @@ fn transfer_fails_prechecks() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			5,
+			Some(5),
 			16_000,
 			1_000
 		));
@@ -671,7 +671,7 @@ fn burn_fails_prechecks() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			5,
+			None,
 			16_000,
 			1_000
 		));
@@ -691,7 +691,7 @@ fn direct_sale() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			5,
+			Some(5),
 			16_000,
 			1_000
 		));
@@ -700,7 +700,7 @@ fn direct_sale() {
 			payment_asset: 16_000,
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
-			buyer: 5,
+			buyer: Some(5),
 		});
 
 		let listing = Nft::listings(&collection_id, token_id).expect("token is listed");
@@ -715,7 +715,7 @@ fn direct_sale() {
 		assert!(has_event(RawEvent::DirectSaleListed(
 			collection_id,
 			token_id,
-			5,
+			Some(5),
 			16_000,
 			1_000
 		)));
@@ -732,7 +732,7 @@ fn direct_sale_prechecks() {
 				Some(token_owner + 1).into(),
 				collection_id.clone(),
 				token_id,
-				5,
+				Some(5),
 				16_000,
 				1_000
 			),
@@ -743,7 +743,7 @@ fn direct_sale_prechecks() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			5,
+			Some(5),
 			16_000,
 			1_000
 		));
@@ -752,7 +752,7 @@ fn direct_sale_prechecks() {
 				Some(token_owner).into(),
 				collection_id.clone(),
 				token_id,
-				5,
+				Some(5),
 				16_000,
 				1_000
 			),
@@ -770,7 +770,7 @@ fn direct_sale_closes_on_schedule() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			5,
+			Some(5),
 			16_000,
 			1_000
 		));
@@ -806,7 +806,7 @@ fn direct_purchase() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			buyer,
+			Some(buyer),
 			payment_asset,
 			price
 		));
@@ -855,7 +855,7 @@ fn direct_purchase_with_bespoke_token_royalties() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			buyer,
+			Some(buyer),
 			payment_asset,
 			sale_price
 		));
@@ -923,7 +923,7 @@ fn direct_purchase_with_collection_royalties() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			buyer,
+			Some(buyer),
 			payment_asset,
 			sale_price
 		));
@@ -987,7 +987,7 @@ fn direct_purchase_fails_prechecks() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			buyer,
+			Some(buyer),
 			payment_asset,
 			price
 		));
@@ -1005,6 +1005,46 @@ fn direct_purchase_fails_prechecks() {
 			prml_generic_asset::Error::<Test>::InsufficientBalance,
 		);
 		// TODO: listed for auction should fail here
+	});
+}
+
+#[test]
+fn direct_listing_for_anybody() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		let payment_asset = 16_000;
+		let price = 1_000;
+
+		assert_ok!(Nft::direct_sale(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+			None,
+			payment_asset,
+			price
+		));
+
+		let buyer = 11;
+		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
+		assert_ok!(Nft::direct_purchase(
+			Some(buyer).into(),
+			collection_id.clone(),
+			token_id
+		));
+
+		// paid
+		assert!(GenericAsset::free_balance(payment_asset, &buyer).is_zero());
+
+		// listing removed
+		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
+		assert!(ListingEndSchedule::<Test>::get(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+		)
+		.is_empty());
+
+		// ownership changed
+		assert_eq!(<TokenOwner<Test>>::get(&collection_id, token_id), buyer);
+		assert_eq!(<CollectedTokens<Test>>::get(&collection_id, buyer), vec![token_id]);
 	});
 }
 
@@ -1030,7 +1070,7 @@ fn direct_purchase_with_overcommitted_royalties() {
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
-			buyer,
+			Some(buyer),
 			payment_asset,
 			price
 		));
