@@ -74,6 +74,8 @@ decl_event!(
 		DirectSaleListed(CollectionId, TokenId, Option<AccountId>, AssetId, Balance),
 		/// A direct sale has completed (collection, token, new owner, payment asset, fixed price)
 		DirectSaleComplete(CollectionId, TokenId, AccountId, AssetId, Balance),
+		/// A direct sale has closed without selling
+		DirectSaleClosed(CollectionId, TokenId),
 		/// An auction has opened (collection, token, payment asset, reserve price)
 		AuctionOpen(CollectionId, TokenId, AssetId, Balance),
 		/// An auction has sold (collection, token, payment asset, bid, new owner)
@@ -439,18 +441,34 @@ decl_module! {
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's payment asset)
 		#[weight = 0]
+		#[transactional]
 		fn bid(origin, collection_id: CollectionId, token_id: T::TokenId, amount: Balance) {
 			let origin = ensure_signed(origin)?;
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForAuction);
 
 			if let Some(Listing::Auction(listing)) = Self::listings(&collection_id, token_id) {
 				ensure!(amount > Self::listing_winning_bid(&collection_id, token_id).unwrap_or_else(|| (origin.clone(), listing.reserve_price)).1, Error::<T>::BidTooLow);
-				// check user has the funds to make this bid
-				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
-				// TODO: if there are multiple locks on user asset this could return true inaccuratley
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReason::Reserve.into(), balance.checked_sub(amount)?)?;
 
-				Self::supersede_bid(&collection_id, token_id, (&origin, amount));
+				// check user has the requisite funds to make this bid
+				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
+				if let Some(balance_after_bid) = balance.checked_sub(amount) {
+					// TODO: GA should tidy up this API
+					// - `amount` is unused
+					// - if there are multiple locks on user asset this could return true inaccurately
+					// - it should be `T::MultiCurrency::can_reserve(origin, asset_id, amount)`
+					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReason::Reserve.into(), balance_after_bid)?;
+				} else {
+					return Err(Error::<T>::InternalPayment.into());
+				}
+
+				// release old bid
+				if let Some(old_bid) = ListingWinningBid::<T>::take(&collection_id, token_id) {
+					T::MultiCurrency::unreserve(&old_bid.0, Some(listing.payment_asset), old_bid.1);
+				}
+				// ensure_withdraw should've already guaranteed the success of this
+				T::MultiCurrency::reserve(&origin, Some(listing.payment_asset), amount)?;
+				ListingWinningBid::<T>::insert(&collection_id, token_id, (origin, amount));
+
 				Self::deposit_event(RawEvent::Bid(collection_id, token_id, amount));
 			} else {
 				return Err(Error::<T>::NotForAuction.into());
@@ -460,7 +478,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	/// Transfer ownership of a token. modifies storage, does no verification.
+	/// Transfer ownership of a token. modifies storage, does no verification, infallible.
 	fn transfer_ownership(
 		collection_id: &[u8],
 		token_id: T::TokenId,
@@ -486,44 +504,65 @@ impl<T: Trait> Module<T> {
 	fn close_listings(listings: &[(CollectionId, T::TokenId)]) {
 		for (collection_id, token_id) in listings {
 			match Listings::<T>::take(collection_id, token_id) {
-				Some(Listing::DirectSale(_)) => (), // clean up done already
-				Some(Listing::Auction(listing)) => Self::close_auction(collection_id, *token_id, listing),
+				Some(Listing::DirectSale(_)) => {
+					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id.clone(), *token_id));
+				}
+				Some(Listing::Auction(listing)) => {
+					if let Some((winner, bid)) = ListingWinningBid::<T>::take(collection_id, token_id) {
+						Self::settle_auction(collection_id, *token_id, &listing, &winner, bid);
+						Self::deposit_event(RawEvent::AuctionSold(
+							collection_id.clone(),
+							*token_id,
+							listing.payment_asset,
+							bid,
+							winner,
+						));
+					} else {
+						// no accepted bid
+						Self::deposit_event(RawEvent::AuctionClosed(collection_id.clone(), *token_id));
+					}
+				}
 				_ => (),
 			}
 		}
 	}
-	/// supersede the current highest bid for an open auction
-	/// does no checks, caller should ensure the bid is valid
-	fn supersede_bid(collection_id: &CollectionId, token_id: T::TokenId, new_bid: (&T::AccountId, Balance)) {
-		if let Some(old_bid) = ListingWinningBid::<T>::take(collection_id, token_id) {
-			T::MultiCurrency::unreserve(&old_bid.0, Some(listing.payment_asset), old_bid.1);
-		}
-		T::MultiCurrency::reserve(new_bid.0, Some(listing.payment_asset), new_bid.1);
-		ListingWinningBid::<T>::insert(collection_id, token_id, new_bid);
-	}
-	/// Close an auction listing
+	/// Settle an auction listing
+	/// - transfer funds from buyer to entitled royalty accounts and seller
+	/// - transfer ownership to the winning bidder
 	/// Note: this must be infallible
-	fn close_auction(collection_id: &CollectionId, token_id: T::TokenId, listing: &AuctionListing<T>) {
-		if let Some((winner, bid)) = ListingWinningBid::<T>::take(collection_id, token_id) {
-			// transfer funds from buyer to entitled royalty accounts and seller
-			let for_royalties = royalties_schedule.calculate_total_entitlement() * bid;
-			let for_seller = bid - for_royalties; // will not underflow (0 <= total_entitlement <= bid)
-			let mut remainder = bid; // ensure there's no reserve dust left
-
-			for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
-				if entitlement.is_zero() {
-					continue
-				}
-				let royalty = entitlement * for_royalties;
-				remainder -= royalty;
-				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
-			}
-			let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller + remainder)?;
-			Self::transfer_ownership(&collection_id, token_id, &current_owner, &winner);
-
-			Self::deposit_event(RawEvent::AuctionSold(collection_id, token_id, listing.payment_asset, bid, winner));
+	fn settle_auction(
+		collection_id: &CollectionId,
+		token_id: T::TokenId,
+		listing: &AuctionListing<T>,
+		winner: &T::AccountId,
+		bid: Balance,
+	) {
+		// if there are no custom royalties, fallback to default if it exists
+		let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(&collection_id, token_id) {
+			royalties_schedule
 		} else {
-			Self::deposit_event(RawEvent::AuctionClosed(collection_id, token_id));
+			Self::collection_royalties(&collection_id).unwrap_or_else(Default::default)
+		};
+
+		let for_royalties = royalties_schedule.calculate_total_entitlement() * bid;
+		let for_seller = bid - for_royalties; // will not underflow (0 <= total_entitlement <= bid)
+		let mut remainder = bid; // ensure there's no reserve dust left
+
+		for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+			if entitlement.is_zero() {
+				continue;
+			}
+			let royalty = entitlement * for_royalties;
+			remainder -= royalty;
+			let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty);
 		}
+		let current_owner = Self::token_owner(&collection_id, token_id);
+		let _ = T::MultiCurrency::repatriate_reserved(
+			&winner,
+			Some(listing.payment_asset),
+			&current_owner,
+			for_seller + remainder,
+		);
+		Self::transfer_ownership(&collection_id, token_id, &current_owner, &winner);
 	}
 }

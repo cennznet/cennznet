@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 cennznet-cli = { path = "../cli", default-features = false }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 wabt = "0.9.1"
 # when running tests for the cennznet-runtime use the "integration_config" feature flag.
 # This save us from cases such as 24 hour eras in staking/session tests.
@@ -24,56 +24,56 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 smallvec = "1.4.1"
 static_assertions = "1.1.0"
 
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5", features = ["historical"] }
-pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve", features = ["historical"] }
+pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 
-frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5"}
-sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5"}
-sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve"}
+sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve"}
+sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 
-prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 
 futures = { version = "0.3.1", features = ["compat"] }
 
 # Used for the node template's RPCs
-frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5" }
+frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve" }
 
 # Used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5", optional = true }
-frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.5", optional = true }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve", optional = true }
+frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "feat/multi-currency-reserve", optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
@@ -86,7 +86,7 @@ crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.5" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 
 [features]
 default = ["std"]
