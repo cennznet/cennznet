@@ -74,6 +74,14 @@ decl_event!(
 		DirectSaleListed(CollectionId, TokenId, Option<AccountId>, AssetId, Balance),
 		/// A direct sale has completed (collection, token, new owner, payment asset, fixed price)
 		DirectSaleComplete(CollectionId, TokenId, AccountId, AssetId, Balance),
+		/// An auction has opened (collection, token, payment asset, reserve price)
+		AuctionOpen(CollectionId, TokenId, AssetId, Balance),
+		/// An auction has sold (collection, token, payment asset, bid, new owner)
+		AuctionSold(CollectionId, TokenId, AssetId, Balance, AccountId),
+		/// An auction has closed without selling (collection, token)
+		AuctionClosed(CollectionId, TokenId),
+		/// A new highest bid was placed (collection, token, amount)
+		Bid(CollectionId, TokenId, Balance),
 	}
 );
 
@@ -110,12 +118,16 @@ decl_error! {
 		NoToken,
 		/// The NFT is not listed for a direct sale
 		NotForDirectSale,
+		/// The NFT is not listed for auction sale
+		NotForAuction,
 		/// Cannot operate on a listed NFT
 		TokenListingProtection,
 		/// Internal error during payment
 		InternalPayment,
 		/// Total royalties would exceed 100% of sale
-		RoyaltiesOvercommitment
+		RoyaltiesOvercommitment,
+		/// Auction bid was lower than reserve or current highest bid
+		BidTooLow
 	}
 }
 
@@ -145,7 +157,7 @@ decl_storage! {
 		/// NFT sale/auction listings. keyed by collection id and token id
 		pub Listings get(fn listings): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<Listing<T>>;
 		/// Winning bids on open listings. keyed by collection id and token id
-		pub ListingWinningBid get(fn winning_bid): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<(T::AccountId, Balance)>;
+		pub ListingWinningBid get(fn listing_winning_bid): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<(T::AccountId, Balance)>;
 		/// Map from block numbers to listings scheduled to close
 		pub ListingEndSchedule get(fn listing_end_blocks): map hasher(twox_64_concat) T::BlockNumber => Vec<(CollectionId, T::TokenId)>;
 	}
@@ -400,33 +412,49 @@ decl_module! {
 
 		/// Sell NFT on the open market to the highest bidder
 		/// - `reserve_price` winning bid must be over this threshold
-		/// - `bid_asset` fungible asset Id to receive bids with
-		/// - `duration` length of the auction (in blocks)
+		/// - `payment_asset` fungible asset Id to receive payment with
+		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[weight = 0]
-		fn auction(origin, collection_id: CollectionId, token_id: T::TokenId, bid_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
-			// store auction schedule
-			// lock NFT
-			// map Locks(collection_id, token_id, lock)
-			// log listing id
-			// let origin = ensure_signed(origin)?;
-			// let current_owner = Self::token_owner(collection_id.clone(), token_id);
-			// ensure!(current_owner == origin, Error::<T>::NoPermission);
+		fn auction(origin, collection_id: CollectionId, token_id: T::TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
+			let origin = ensure_signed(origin)?;
+			let current_owner = Self::token_owner(&collection_id, token_id);
+			ensure!(current_owner == origin, Error::<T>::NoPermission);
 
-			// ensure!(!Listings::contains_key(collection_id, token_id), Error::<T>::AlreadyListed);
+			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
+
+			let listing_end_block = duration.unwrap_or_else(|| <frame_system::Module<T>>::block_number().saturating_add(T::DefaultListingDuration::get()));
+			ListingEndSchedule::<T>::mutate(listing_end_block, |schedule| schedule.push((collection_id.clone(), token_id)));
+			let listing = Listing::<T>::Auction(
+				AuctionListing::<T> {
+					payment_asset,
+					reserve_price,
+					close: listing_end_block,
+				}
+			);
+			Listings::insert(&collection_id, token_id, listing);
+
+			Self::deposit_event(RawEvent::AuctionOpen(collection_id, token_id, payment_asset, reserve_price));
 		}
 
 		/// Place a bid on an open auction
-		/// - `listing_id` to bid on
-		/// - `amount` to bid (in the requested asset)
+		/// - `amount` to bid (in the seller's payment asset)
 		#[weight = 0]
 		fn bid(origin, collection_id: CollectionId, token_id: T::TokenId, amount: Balance) {
-			// ensure!(Listings::contains_key(collection_id, token_id), Error::<T>::NotListed);
-			// check highest bid
-			// lock funds
-			// update listing schedule
-			// map Listing(listing_id, listing_schedule)
-			// map ListingBids(listing_id, (account, bid))
-			// map ListingEndSchedule(block, vec![listing_id])
+			let origin = ensure_signed(origin)?;
+			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForAuction);
+
+			if let Some(Listing::Auction(listing)) = Self::listings(&collection_id, token_id) {
+				ensure!(amount > Self::listing_winning_bid(&collection_id, token_id).unwrap_or_else(|| (origin.clone(), listing.reserve_price)).1, Error::<T>::BidTooLow);
+				// check user has the funds to make this bid
+				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
+				// TODO: if there are multiple locks on user asset this could return true inaccuratley
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReason::Reserve.into(), balance.checked_sub(amount)?)?;
+
+				Self::supersede_bid(&collection_id, token_id, (&origin, amount));
+				Self::deposit_event(RawEvent::Bid(collection_id, token_id, amount));
+			} else {
+				return Err(Error::<T>::NotForAuction.into());
+			}
 		}
 	}
 }
@@ -458,12 +486,44 @@ impl<T: Trait> Module<T> {
 	fn close_listings(listings: &[(CollectionId, T::TokenId)]) {
 		for (collection_id, token_id) in listings {
 			match Listings::<T>::take(collection_id, token_id) {
-				Some(Listing::DirectSale(_)) => (), // all the clean ups done
-				Some(Listing::Auction(_)) => {
-					// TODO: winning bids should be paid out here.
-				}
+				Some(Listing::DirectSale(_)) => (), // clean up done already
+				Some(Listing::Auction(listing)) => Self::close_auction(collection_id, *token_id, listing),
 				_ => (),
 			}
+		}
+	}
+	/// supersede the current highest bid for an open auction
+	/// does no checks, caller should ensure the bid is valid
+	fn supersede_bid(collection_id: &CollectionId, token_id: T::TokenId, new_bid: (&T::AccountId, Balance)) {
+		if let Some(old_bid) = ListingWinningBid::<T>::take(collection_id, token_id) {
+			T::MultiCurrency::unreserve(&old_bid.0, Some(listing.payment_asset), old_bid.1);
+		}
+		T::MultiCurrency::reserve(new_bid.0, Some(listing.payment_asset), new_bid.1);
+		ListingWinningBid::<T>::insert(collection_id, token_id, new_bid);
+	}
+	/// Close an auction listing
+	/// Note: this must be infallible
+	fn close_auction(collection_id: &CollectionId, token_id: T::TokenId, listing: &AuctionListing<T>) {
+		if let Some((winner, bid)) = ListingWinningBid::<T>::take(collection_id, token_id) {
+			// transfer funds from buyer to entitled royalty accounts and seller
+			let for_royalties = royalties_schedule.calculate_total_entitlement() * bid;
+			let for_seller = bid - for_royalties; // will not underflow (0 <= total_entitlement <= bid)
+			let mut remainder = bid; // ensure there's no reserve dust left
+
+			for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+				if entitlement.is_zero() {
+					continue
+				}
+				let royalty = entitlement * for_royalties;
+				remainder -= royalty;
+				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
+			}
+			let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller + remainder)?;
+			Self::transfer_ownership(&collection_id, token_id, &current_owner, &winner);
+
+			Self::deposit_event(RawEvent::AuctionSold(collection_id, token_id, listing.payment_asset, bid, winner));
+		} else {
+			Self::deposit_event(RawEvent::AuctionClosed(collection_id, token_id));
 		}
 	}
 }
