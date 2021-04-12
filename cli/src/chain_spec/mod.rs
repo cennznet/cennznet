@@ -198,8 +198,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 			asset_meta: vec![
-				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1)),
-				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2)),
+				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1, 1)),
+				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2, 1)),
 			],
 		}),
 		crml_cennzx: Some(CennzxConfig {

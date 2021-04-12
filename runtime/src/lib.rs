@@ -91,7 +91,9 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, RootMemberOnly, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{
+	CurrencyToVoteHandler, RootMemberOnly, SlashFundsToTreasury, TransferImbalanceToTreasury, WeightToCpayFee,
+};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -227,7 +229,7 @@ impl frame_system::Config for Runtime {
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
 	/// The data to be stored in an account.
-	type AccountData = ();
+	type AccountData = prml_generic_asset::AccountData<AssetId>;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
@@ -353,6 +355,8 @@ impl prml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
+	type AccountStore = System;
+	type OnDustImbalance = TransferImbalanceToTreasury;
 	type WeightInfo = ();
 }
 
@@ -857,8 +861,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
-		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
+	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId, Balance> for Runtime {
+		fn asset_meta() -> Vec<(AssetId, AssetInfo<Balance>)> {
 			GenericAsset::registered_assets()
 		}
 	}

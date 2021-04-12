@@ -212,7 +212,7 @@ impl ExtBuilder {
 		let _ = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let _ = prml_generic_asset::GenesisConfig::<Test> {
-			endowed_accounts: vec![10, 11],
+			endowed_accounts: validators.clone(),
 			initial_balance: 1_000_000_000,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: REWARD_ASSET_ID,
@@ -226,10 +226,10 @@ impl ExtBuilder {
 		let _ = crml_staking::GenesisConfig::<Test> {
 			minimum_bond: 1,
 			current_era: 0,
-			stakers: vec![
-				// (stash, controller, staked_amount, status)
-				(11, 10, 500_000, StakerStatus::<AccountId>::Validator),
-			],
+			stakers: validators
+				.iter()
+				.map(|x| (*x, *x - 1, 500_000, StakerStatus::<AccountId>::Validator))
+				.collect(),
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
 			slash_reward_fraction: Perbill::from_percent(10),

@@ -16,18 +16,17 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Runtime, Treasury};
-use cennznet_primitives::{traits::SimpleAssetSystem, types::Balance};
+use crate::{GenericAsset, Runtime, Treasury};
+use cennznet_primitives::types::Balance;
 use frame_support::{
-	dispatch::DispatchResult,
 	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use prml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
+use prml_generic_asset::{CheckedImbalance, NegativeImbalance, StakingAssetCurrency};
+use prml_support::MultiCurrencyAccounting;
 use smallvec::smallvec;
 use sp_runtime::{traits::Convert, Perbill};
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::{marker::PhantomData, mem, prelude::*};
 
 /// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
 /// calculation.
@@ -91,39 +90,23 @@ impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
 	}
 }
 
-/// Provides an impl for the `SimpleAssetSystem` trait
-/// Used to integrate GA with CENNZX
-pub struct SimpleAssetShim<T: prml_generic_asset::Config>(PhantomData<T>);
-impl<T: prml_generic_asset::Config> SimpleAssetSystem for SimpleAssetShim<T> {
-	type AccountId = T::AccountId;
-	type AssetId = T::AssetId;
-	type Balance = T::Balance;
-	/// Transfer some `amount` of assets `from` one account `to` another
-	fn transfer(
-		asset_id: Self::AssetId,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult {
-		// note: we don't emit a 'transferred' event with this method
-		prml_generic_asset::Module::<T>::make_transfer(asset_id, from, to, amount)
-	}
-	/// Get the liquid asset balance of `account`
-	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance {
-		prml_generic_asset::Module::<T>::free_balance(asset_id, account)
-	}
-	/// Get the default asset/currency ID in the system
-	fn default_asset_id() -> Self::AssetId {
-		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
-	}
-}
-
 /// An on unbalanced handler which takes a slash amount in the staked currency
 /// and moves it to the system `Treasury` account.
 pub struct SlashFundsToTreasury;
 impl OnUnbalanced<NegativeImbalance<Runtime>> for SlashFundsToTreasury {
 	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance<Runtime>) {
 		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
+	}
+}
+
+pub struct TransferImbalanceToTreasury;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for TransferImbalanceToTreasury {
+	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Runtime>) {
+		let treasury_account_id = Treasury::account_id();
+		let deposit_imbalance =
+			GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+		mem::forget(deposit_imbalance);
+		mem::forget(imbalance);
 	}
 }
 

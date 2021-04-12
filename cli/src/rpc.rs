@@ -117,7 +117,7 @@ where
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
+	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId, Balance>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
