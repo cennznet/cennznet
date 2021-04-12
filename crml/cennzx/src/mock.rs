@@ -33,12 +33,16 @@ use crate::{
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::OnUnbalanced};
+use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
+use prml_support::MultiCurrencyAccounting;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	ModuleId,
 };
+use sp_std::mem;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -76,17 +80,32 @@ impl frame_system::Config for Test {
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = prml_generic_asset::AccountData<AssetId>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 }
 
+parameter_types! {
+		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+}
+pub struct TransferImbalanceToTreasury;
+impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
+	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
+		let treasury_account_id = TreasuryModuleId::get().into_account();
+		let deposit_imbalance =
+			GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+		mem::forget(deposit_imbalance);
+		mem::forget(imbalance);
+	}
+}
 impl prml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
+	type AccountStore = System;
+	type OnDustImbalance = TransferImbalanceToTreasury;
 	type WeightInfo = ();
 }
 
