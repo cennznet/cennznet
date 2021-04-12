@@ -289,8 +289,6 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that account 11 is a validator
 		assert!(Staking::current_elected().contains(&11));
-		// Check the balance of the validator account
-		assert_eq!(GenericAsset::free_balance(STAKING_ASSET_ID, &10), 1_000_000_000);
 		// Check the balance of the stash account
 		assert_eq!(GenericAsset::free_balance(REWARD_ASSET_ID, &11), 1_000_000_000);
 		// Check how much is at stake
@@ -318,7 +316,7 @@ fn validator_reward_is_not_added_to_staked_amount_in_dual_currency_model() {
 		// Check that reward went to the stash account of validator
 		assert_eq!(
 			GenericAsset::free_balance(REWARD_ASSET_ID, &11),
-			1_000_000_000 + total_payout
+			1_000_000_000 + total_payout / Session::validators().iter().count() as u64
 		);
 		// Check that amount at stake has NOT changed
 		assert_eq!(
