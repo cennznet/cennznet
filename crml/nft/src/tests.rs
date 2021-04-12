@@ -775,6 +775,42 @@ fn direct_sale_prechecks() {
 }
 
 #[test]
+fn cancel_direct_sale() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		assert_ok!(Nft::direct_sale(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+			Some(5),
+			16_000,
+			1_000
+		));
+		assert_ok!(Nft::cancel_sale(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+		));
+		assert!(has_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id)));
+
+		// storage cleared up
+		assert!(
+			Nft::listing_end_schedule(System::block_number() + <Test as Trait>::DefaultListingDuration::get())
+				.is_empty()
+		);
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+
+		// it should be free to operate on the token
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+			token_owner + 1,
+		));
+	});
+}
+
+#[test]
 fn direct_sale_closes_on_schedule() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
@@ -1100,6 +1136,53 @@ fn direct_purchase_with_overcommitted_royalties() {
 		assert!(GenericAsset::free_balance(payment_asset, &buyer).is_zero());
 		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
 	})
+}
+
+#[test]
+fn cancel_auction() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		let payment_asset = 16_000;
+		let reserve_price = 100_000;
+
+		assert_ok!(Nft::auction(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+			payment_asset,
+			reserve_price,
+			Some(System::block_number() + 1),
+		));
+
+		assert_noop!(
+			Nft::cancel_sale(Some(token_owner + 1).into(), collection_id.clone(), token_id,),
+			Error::<Test>::NoPermission
+		);
+
+		assert_ok!(Nft::cancel_sale(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+		));
+
+		assert!(has_event(RawEvent::AuctionClosed(
+			collection_id.clone(),
+			token_id,
+			AuctionClosureReason::VendorCancelled
+		)));
+
+		// storage cleared up
+		assert!(Nft::listing_end_schedule(System::block_number() + 1).is_empty());
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+
+		// it should be free to operate on the token
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id.clone(),
+			token_id,
+			token_owner + 1,
+		));
+	});
 }
 
 #[test]

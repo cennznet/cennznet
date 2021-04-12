@@ -143,6 +143,8 @@ pub enum AuctionClosureReason {
 	ExpiredNoBids,
 	/// Auction should have happened but settlement failed due to payment issues
 	SettlementFailed,
+	/// Auction was cancelled by the vendor
+	VendorCancelled,
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
