@@ -18,7 +18,7 @@
 use crate::Trait;
 use codec::{Decode, Encode};
 use prml_support::MultiCurrencyAccounting;
-use sp_runtime::Percent;
+use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
 use variant_count::VariantCount;
@@ -132,35 +132,51 @@ impl NFTAttributeValue {
 	}
 }
 
+/// The max. number of entitlements any royalties schedule can have
+/// just a sensible upper bound
+const MAX_ENTITLEMENTS: usize = 8;
+
+/// Reasons for an auction closure
+#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq)]
+pub enum AuctionClosureReason {
+	/// Auction expired with no bids
+	ExpiredNoBids,
+	/// Auction should have happened but settlement failed due to payment issues
+	SettlementFailed,
+}
+
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
 #[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct RoyaltiesSchedule<AccountId> {
-	/// Entitlements on all secondary sales, who and % of the sale price
-	pub entitlements: Vec<(AccountId, Percent)>,
+	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
+	pub entitlements: Vec<(AccountId, Permill)>,
 }
 
 impl<AccountId> RoyaltiesSchedule<AccountId> {
-	/// Validate total royalties are within 100%
+	/// True if entitlements are within valid parameters
+	/// - not overcommitted (> 100%)
+	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
 		self.entitlements.is_empty()
-			|| self
-				.entitlements
-				.iter()
-				.map(|(_who, share)| share.deconstruct() as u32)
-				.sum::<u32>() <= 100_u32
+			|| self.entitlements.len() <= MAX_ENTITLEMENTS
+				&& self
+					.entitlements
+					.iter()
+					.map(|(_who, share)| share.deconstruct() as u32)
+					.sum::<u32>() <= Permill::ACCURACY
 	}
 	/// Calculate the total % entitled for royalties
 	/// It will return `0` if the `entitlements` are overcommitted
-	pub fn calculate_total_entitlement(&self) -> Percent {
+	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Percent::zero();
+			return Permill::zero();
 		}
-		Percent::from_parts(
+		Permill::from_parts(
 			self.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct())
-				.sum::<u8>(),
+				.sum::<u32>(),
 		)
 	}
 }
@@ -199,7 +215,7 @@ pub struct DirectSaleListing<T: Trait> {
 #[cfg(test)]
 mod test {
 	use super::{NFTAttributeValue, RoyaltiesSchedule};
-	use sp_runtime::Percent;
+	use sp_runtime::Permill;
 
 	#[test]
 	fn valid_type_id_range() {
@@ -213,22 +229,22 @@ mod test {
 	#[test]
 	fn valid_royalties_plan() {
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Percent::from_fraction(0.1))],
+			entitlements: vec![(1_u32, Permill::from_fraction(0.1))],
 		}
 		.validate());
 
 		// explicitally specifying zero royalties is odd but fine
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Percent::from_fraction(0.0))],
+			entitlements: vec![(1_u32, Permill::from_fraction(0.0))],
 		}
 		.validate());
 
 		let plan = RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Percent::from_fraction(1.01)), // saturates at 100%
+				(1_u32, Permill::from_fraction(1.01)), // saturates at 100%
 			],
 		};
-		assert_eq!(plan.entitlements[0].1, Percent::one());
+		assert_eq!(plan.entitlements[0].1, Permill::one());
 		assert!(plan.validate());
 	}
 
@@ -237,8 +253,8 @@ mod test {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Percent::from_fraction(0.2)),
-				(2_u32, Percent::from_fraction(0.81)),
+				(1_u32, Permill::from_fraction(0.2)),
+				(2_u32, Permill::from_fraction(0.81)),
 			],
 		}
 		.validate());

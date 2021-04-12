@@ -59,7 +59,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_event!(
-	pub enum Event<T> where CollectionId = CollectionId, <T as Trait>::TokenId, <T as frame_system::Trait>::AccountId, AssetId = AssetId, Balance = Balance {
+	pub enum Event<T> where CollectionId = CollectionId, <T as Trait>::TokenId, <T as frame_system::Trait>::AccountId, AssetId = AssetId, Balance = Balance, Reason = AuctionClosureReason{
 		/// A new NFT collection was created, (collection, owner)
 		CreateCollection(CollectionId, AccountId),
 		/// A new NFT was created, (collection, token, owner)
@@ -80,8 +80,8 @@ decl_event!(
 		AuctionOpen(CollectionId, TokenId, AssetId, Balance),
 		/// An auction has sold (collection, token, payment asset, bid, new owner)
 		AuctionSold(CollectionId, TokenId, AssetId, Balance, AccountId),
-		/// An auction has closed without selling (collection, token)
-		AuctionClosed(CollectionId, TokenId),
+		/// An auction has closed without selling (collection, token, reason)
+		AuctionClosed(CollectionId, TokenId, Reason),
 		/// A new highest bid was placed (collection, token, amount)
 		Bid(CollectionId, TokenId, Balance),
 	}
@@ -161,7 +161,7 @@ decl_storage! {
 		/// Winning bids on open listings. keyed by collection id and token id
 		pub ListingWinningBid get(fn listing_winning_bid): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<(T::AccountId, Balance)>;
 		/// Map from block numbers to listings scheduled to close
-		pub ListingEndSchedule get(fn listing_end_blocks): map hasher(twox_64_concat) T::BlockNumber => Vec<(CollectionId, T::TokenId)>;
+		pub ListingEndSchedule get(fn listing_end_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<(CollectionId, T::TokenId)>;
 	}
 }
 
@@ -173,6 +173,19 @@ pub const MAX_COLLECTION_ID_LENGTH: u8 = 32;
 /// Only matters for string/vec allocated types
 pub const MAX_ATTRIBUTE_LENGTH: usize = 140;
 
+pub(crate) const LOG_TARGET: &'static str = "nft";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		frame_support::debug::$level!(
+			target: crate::LOG_TARGET,
+			$patter $(, $values)*
+		)
+	};
+}
+
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
@@ -180,14 +193,11 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			if !ListingEndSchedule::<T>::contains_key(now) {
-				return Zero::zero();
+			if ListingEndSchedule::<T>::contains_key(now) {
+				Self::close_listings_at(now);
 			}
-			let listings = ListingEndSchedule::<T>::take(now);
-			Self::close_listings(listings.as_slice());
-
 			// TODO: use benchmarked value
-			listings.len() as Weight
+			Zero::zero()
 		}
 
 		/// Create a new NFT collection
@@ -384,26 +394,24 @@ decl_module! {
 					Self::collection_royalties(&collection_id).unwrap_or_else(Default::default)
 				};
 
-				if royalties_schedule.entitlements.is_empty() {
+				let royalty_fees = royalties_schedule.calculate_total_entitlement();
+				if royalty_fees.is_zero() {
 					// full proceeds to seller/`current_owner`
 					T::MultiCurrency::transfer(&origin, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
-					let for_royalties = royalties_schedule.calculate_total_entitlement() * listing.fixed_price;
+					let for_royalties = royalty_fees * listing.fixed_price;
 					let for_seller = listing.fixed_price - for_royalties;
 
 					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
 					imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 					for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
-						if entitlement.is_zero() {
-							continue
-						}
-						let amount = entitlement * for_royalties;
+						let amount = entitlement * listing.fixed_price;
 						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), amount)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
 				}
 
-				// must not fail not that payment has been made
+				// must not fail now that payment has been made
 				Self::transfer_ownership(&collection_id, token_id, &current_owner, &origin);
 				Self::remove_direct_listing(&collection_id, token_id);
 				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
@@ -439,7 +447,7 @@ decl_module! {
 		}
 
 		/// Place a bid on an open auction
-		/// - `amount` to bid (in the seller's payment asset)
+		/// - `amount` to bid (in the seller's requested payment asset)
 		#[weight = 0]
 		#[transactional]
 		fn bid(origin, collection_id: CollectionId, token_id: T::TokenId, amount: Balance) {
@@ -447,27 +455,33 @@ decl_module! {
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForAuction);
 
 			if let Some(Listing::Auction(listing)) = Self::listings(&collection_id, token_id) {
-				ensure!(amount > Self::listing_winning_bid(&collection_id, token_id).unwrap_or_else(|| (origin.clone(), listing.reserve_price)).1, Error::<T>::BidTooLow);
+				if let Some(current_bid) = Self::listing_winning_bid(&collection_id, token_id) {
+					ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
+				} else {
+					// first bid
+					ensure!(amount >= listing.reserve_price, Error::<T>::BidTooLow);
+				}
 
 				// check user has the requisite funds to make this bid
 				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
 				if let Some(balance_after_bid) = balance.checked_sub(amount) {
-					// TODO: GA should tidy up this API
+					// TODO: review this during 3.0 upgrade
 					// - `amount` is unused
 					// - if there are multiple locks on user asset this could return true inaccurately
-					// - it should be `T::MultiCurrency::can_reserve(origin, asset_id, amount)`
+					// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
 					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReason::Reserve.into(), balance_after_bid)?;
-				} else {
-					return Err(Error::<T>::InternalPayment.into());
 				}
 
-				// release old bid
-				if let Some(old_bid) = ListingWinningBid::<T>::take(&collection_id, token_id) {
-					T::MultiCurrency::unreserve(&old_bid.0, Some(listing.payment_asset), old_bid.1);
-				}
-				// ensure_withdraw should've already guaranteed the success of this
+				// try lock funds
 				T::MultiCurrency::reserve(&origin, Some(listing.payment_asset), amount)?;
-				ListingWinningBid::<T>::insert(&collection_id, token_id, (origin, amount));
+
+				ListingWinningBid::<T>::mutate(&collection_id, token_id, |maybe_current_bid| {
+					if let Some(current_bid) = maybe_current_bid {
+						// replace old bid
+						T::MultiCurrency::unreserve(&current_bid.0, Some(listing.payment_asset), current_bid.1);
+					}
+					*maybe_current_bid = Some((origin, amount))
+				});
 
 				Self::deposit_event(RawEvent::Bid(collection_id, token_id, amount));
 			} else {
@@ -500,43 +514,63 @@ impl<T: Trait> Module<T> {
 			});
 		}
 	}
-	/// Close all given `listings` ensuring payments are made for the winning bids
-	fn close_listings(listings: &[(CollectionId, T::TokenId)]) {
-		for (collection_id, token_id) in listings {
-			match Listings::<T>::take(collection_id, token_id) {
+	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships changes are made for winning bids
+	/// Metadata for listings will be removed from storage
+	fn close_listings_at(now: T::BlockNumber) {
+		for (collection_id, token_id) in ListingEndSchedule::<T>::take(now).into_iter() {
+			match Listings::<T>::take(&collection_id, token_id) {
 				Some(Listing::DirectSale(_)) => {
-					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id.clone(), *token_id));
+					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id));
 				}
 				Some(Listing::Auction(listing)) => {
-					if let Some((winner, bid)) = ListingWinningBid::<T>::take(collection_id, token_id) {
-						Self::settle_auction(collection_id, *token_id, &listing, &winner, bid);
-						Self::deposit_event(RawEvent::AuctionSold(
-							collection_id.clone(),
-							*token_id,
-							listing.payment_asset,
-							bid,
-							winner,
-						));
+					if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(&collection_id, token_id) {
+						if let Err(err) =
+							Self::settle_auction(&collection_id, token_id, &listing, &winner, hammer_price)
+						{
+							// auction settlement failed despite our prior validations.
+							// release winning bid tokens. listing metadadta is removed by now.
+							log!(error, "🃏 auction settlement failed: {:?}", err);
+							T::MultiCurrency::unreserve(&winner, Some(listing.payment_asset), hammer_price);
+
+							Self::deposit_event(RawEvent::AuctionClosed(
+								collection_id.clone(),
+								token_id,
+								AuctionClosureReason::SettlementFailed,
+							));
+						} else {
+							// auction settlement success
+							Self::deposit_event(RawEvent::AuctionSold(
+								collection_id.clone(),
+								token_id,
+								listing.payment_asset,
+								hammer_price,
+								winner,
+							));
+						}
 					} else {
-						// no accepted bid
-						Self::deposit_event(RawEvent::AuctionClosed(collection_id.clone(), *token_id));
+						// normal closure, no acceptable bids
+						Self::deposit_event(RawEvent::AuctionClosed(
+							collection_id.clone(),
+							token_id,
+							AuctionClosureReason::ExpiredNoBids,
+						));
 					}
 				}
 				_ => (),
 			}
 		}
 	}
-	/// Settle an auction listing
+	/// Settle an auction listing (guaranteed to be atomic).
 	/// - transfer funds from buyer to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
-	/// Note: this must be infallible
+	#[transactional]
 	fn settle_auction(
 		collection_id: &CollectionId,
 		token_id: T::TokenId,
 		listing: &AuctionListing<T>,
 		winner: &T::AccountId,
-		bid: Balance,
-	) {
+		hammer_price: Balance,
+	) -> DispatchResult {
 		// if there are no custom royalties, fallback to default if it exists
 		let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(&collection_id, token_id) {
 			royalties_schedule
@@ -544,25 +578,30 @@ impl<T: Trait> Module<T> {
 			Self::collection_royalties(&collection_id).unwrap_or_else(Default::default)
 		};
 
-		let for_royalties = royalties_schedule.calculate_total_entitlement() * bid;
-		let for_seller = bid - for_royalties; // will not underflow (0 <= total_entitlement <= bid)
-		let mut remainder = bid; // ensure there's no reserve dust left
+		let for_royalties = royalties_schedule.calculate_total_entitlement() * hammer_price;
+		let for_seller = hammer_price - for_royalties; // will not underflow (0 <= total_entitlement <= hammer_price)
 
-		for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
-			if entitlement.is_zero() {
-				continue;
+		// do royalty payments
+		if !for_royalties.is_zero() {
+			for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+				let royalty = entitlement * hammer_price;
+				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
 			}
-			let royalty = entitlement * for_royalties;
-			remainder -= royalty;
-			let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty);
 		}
+
 		let current_owner = Self::token_owner(&collection_id, token_id);
-		let _ = T::MultiCurrency::repatriate_reserved(
-			&winner,
-			Some(listing.payment_asset),
-			&current_owner,
-			for_seller + remainder,
+		let _ =
+			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller)?;
+
+		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
+		// this should not happen but could for reasons outside the control of this module
+		ensure!(
+			T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset)) >= for_seller,
+			Error::<T>::InternalPayment
 		);
+
 		Self::transfer_ownership(&collection_id, token_id, &current_owner, &winner);
+
+		Ok(())
 	}
 }
