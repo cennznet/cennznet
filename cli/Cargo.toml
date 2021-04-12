@@ -15,48 +15,48 @@ futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 
-sc-authority-discovery = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-chain-spec = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-cli = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-core = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-executor = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-service = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-inherents = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-transaction-pool = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-transaction-pool = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-authority-discovery = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
-sp-consensus-babe = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-epochs = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-network = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-finality-grandpa = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-client-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-runtime = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-authority-discovery = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-cli = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-core = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-executor = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-service = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-inherents = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-transaction-pool = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-transaction-pool = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain", features = ["test-helpers"] }
+sp-consensus-babe = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-grandpa = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-client-api = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-runtime = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.0.0"
-sc-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc-api = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-blockchain = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-block-builder = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-utils = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-basic-authorship = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-slots = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-telemetry = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-sync-state-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-substrate-frame-rpc-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-keystore = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-api = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc-api = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-blockchain = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-block-builder = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keystore = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-utils = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-basic-authorship = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-slots = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-telemetry = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-sync-state-rpc = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-frame-rpc-system = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-keystore = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-benchmarking-cli = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking-cli = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
@@ -64,23 +64,23 @@ cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
-prml-generic-asset-rpc = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-prml-generic-asset = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset-rpc = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+prml-generic-asset = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc1" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
-sp-keyring = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-timestamp = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service-test = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-system = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { rev = "v3.0.0-rc1", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-build-script-utils = { rev = "v3.0.0-rc3", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 [features]
 default = []
