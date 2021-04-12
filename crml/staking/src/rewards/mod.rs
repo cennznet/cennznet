@@ -200,7 +200,7 @@ where
 		// track historic era fee amounts
 		Self::note_fee_payout(TransactionFeePot::<T>::take());
 
-		let _ = T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), development_cut);
+		let _ = T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), development_cut);
 
 		QueuedEraRewards::<T>::mutate(|q| q.push_back(stakers_cut));
 	}
