@@ -589,7 +589,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 	/// Settle an auction listing (guaranteed to be atomic).
-	/// - transfer funds from buyer to entitled royalty accounts and seller
+	/// - transfer funds from winning bidder to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
 	#[transactional]
 	fn settle_auction(

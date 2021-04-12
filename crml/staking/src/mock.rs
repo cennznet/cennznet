@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
 	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
 	weights::{constants::RocksDbWeight, Weight},
-	IterableStorageMap, StorageDoubleMap, StorageValue,
+	IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use sp_core::H256;
 use sp_io;
@@ -439,6 +439,10 @@ impl ExtBuilder {
 	}
 	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
 		self.minimum_bond = minimum_bond;
+		self
+	}
+	pub fn initialize_first_session(mut self, init: bool) -> Self {
+		self.initialize_first_session = init;
 		self
 	}
 	pub fn offset(mut self, offset: BlockNumber) -> Self {

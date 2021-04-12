@@ -31,7 +31,7 @@ const DEFAULT_VALIDATOR_COUNT: usize = 3;
 
 pub struct ExtBuilder {
 	initial_balance: Balance,
-	// Configurable attributes for staking module tests
+	// Configurable fields for staking module tests
 	stash: Balance,
 	// The initial authority set
 	initial_authorities: Vec<AuthorityKeys>,
