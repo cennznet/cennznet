@@ -28,6 +28,7 @@ pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", r
 pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc3" }
 

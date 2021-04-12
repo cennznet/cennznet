@@ -501,14 +501,21 @@ mod tests {
 		Config, CurrentEraRewardPoints, Exposure, HandlePayee, Payouts, RawEvent, RewardPoint, StakerRewardPayment,
 	};
 	use crate::{rewards, IndividualExposure};
-	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
+	use frame_support::{
+		assert_err, assert_noop, assert_ok, parameter_types,
+		traits::{Currency, OnUnbalanced},
+		StorageValue,
+	};
 	use pallet_authorship::EventHandler;
+	use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
+	use prml_support::MultiCurrencyAccounting;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
 		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
 		FixedPointNumber, FixedU128, ModuleId, Perbill,
 	};
+	use sp_std::mem;
 
 	/// The account Id type in this test runtime
 	type AccountId = u64;
@@ -554,17 +561,29 @@ mod tests {
 		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
-		type AccountData = ();
+		type AccountData = prml_generic_asset::AccountData<AssetId>;
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 	}
 
+	pub struct TransferImbalanceToTreasury;
+	impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
+		fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
+			let treasury_account_id = TreasuryModuleId::get().into_account();
+			let deposit_imbalance =
+				GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+			mem::forget(deposit_imbalance);
+			mem::forget(imbalance);
+		}
+	}
 	impl prml_generic_asset::Config for Test {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
+		type AccountStore = System;
+		type OnDustImbalance = TransferImbalanceToTreasury;
 		type WeightInfo = ();
 	}
 
