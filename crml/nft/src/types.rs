@@ -33,15 +33,6 @@ pub type NFTAttributeName = Vec<u8>;
 /// Type Id of an NFT attribute
 pub type NFTAttributeTypeId = u8;
 
-/// A single data field of an NFT
-#[derive(Decode, Encode, Debug, Clone, PartialEq)]
-pub struct NFTAttribute {
-	/// name of the attribute
-	pub name: NFTAttributeName,
-	/// value of the attribute
-	pub value: NFTAttributeValue,
-}
-
 /// Describes the data structure of an NFT class (attribute name, attribute type)
 pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 
@@ -87,28 +78,6 @@ impl NFTAttributeValue {
 			NFTAttributeValue::Url(_) => 11,
 		}
 	}
-	/// Return a new `NFTAttributeValue` with the default value for the given type id.
-	/// It will fail if `type_id` is invalid
-	pub const fn default_from_type_id(type_id: NFTAttributeTypeId) -> Result<NFTAttributeValue, ()> {
-		if !Self::is_valid_type_id(type_id) {
-			return Err(());
-		}
-		match type_id {
-			0 => Ok(NFTAttributeValue::I32(0)),
-			1 => Ok(NFTAttributeValue::U8(0)),
-			2 => Ok(NFTAttributeValue::U16(0)),
-			3 => Ok(NFTAttributeValue::U32(0)),
-			4 => Ok(NFTAttributeValue::U64(0)),
-			5 => Ok(NFTAttributeValue::U128(0)),
-			6 => Ok(NFTAttributeValue::Bytes32([0_u8; 32])),
-			7 => Ok(NFTAttributeValue::Bytes(vec![])),
-			8 => Ok(NFTAttributeValue::String(vec![])),
-			9 => Ok(NFTAttributeValue::Hash([0_u8; 32])),
-			10 => Ok(NFTAttributeValue::Timestamp(0)),
-			11 => Ok(NFTAttributeValue::Url(vec![])),
-			_ => Err(()),
-		}
-	}
 	/// Return whether the given `type_id` is valid to describe an `NFTAttribute`
 	pub const fn is_valid_type_id(type_id: NFTAttributeTypeId) -> bool {
 		type_id < (Self::VARIANT_COUNT as u8)
@@ -130,6 +99,15 @@ impl NFTAttributeValue {
 			NFTAttributeValue::Url(u) => u.len(),
 		}
 	}
+}
+
+/// A single data field of an NFT
+#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+pub struct NFTAttribute {
+	/// name of the attribute
+	pub name: NFTAttributeName,
+	/// value of the attribute
+	pub value: NFTAttributeValue,
 }
 
 /// The max. number of entitlements any royalties schedule can have

@@ -25,11 +25,13 @@ type TokenId = u32;
 
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
+	pub const MaxAttributeLength: u8 = 140;
 }
 impl Trait for Test {
 	type Event = Event;
 	type TokenId = TokenId;
 	type MultiCurrency = prml_generic_asset::Module<Test>;
+	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
 }
@@ -73,7 +75,7 @@ fn setup_token() -> (
 		Some(collection_owner).into(),
 		collection_id.clone(),
 		token_owner,
-		vec![Some(NFTAttributeValue::I32(500))],
+		vec![NFTAttributeValue::I32(500)],
 		None,
 	));
 
@@ -100,7 +102,7 @@ fn setup_token_with_royalties(
 		Some(collection_owner).into(),
 		collection_id.clone(),
 		token_owner,
-		vec![Some(NFTAttributeValue::I32(500))],
+		vec![NFTAttributeValue::I32(500)],
 		Some(token_royalties),
 	));
 
@@ -283,9 +285,9 @@ fn create_token() {
 			collection_id.clone(),
 			token_owner,
 			vec![
-				Some(NFTAttributeValue::I32(-33)),
-				None,
-				Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+				NFTAttributeValue::I32(-33),
+				NFTAttributeValue::U8(0),
+				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 			Some(royalties_schedule.clone()),
 		));
@@ -345,9 +347,9 @@ fn create_multiple_tokens() {
 			collection_id.clone(),
 			token_owner,
 			vec![
-				Some(NFTAttributeValue::I32(-33)),
-				None,
-				Some(NFTAttributeValue::Bytes32([1_u8; 32]))
+				NFTAttributeValue::I32(-33),
+				NFTAttributeValue::U8(0),
+				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 			None,
 		));
@@ -357,9 +359,9 @@ fn create_multiple_tokens() {
 			collection_id.clone(),
 			token_owner,
 			vec![
-				Some(NFTAttributeValue::I32(33)),
-				None,
-				Some(NFTAttributeValue::Bytes32([2_u8; 32]))
+				NFTAttributeValue::I32(33),
+				NFTAttributeValue::U8(0),
+				NFTAttributeValue::Bytes32([2_u8; 32])
 			],
 			None,
 		));
@@ -397,7 +399,7 @@ fn create_token_fails_prechecks() {
 				Some(2_u64).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![None, None],
+				Default::default(),
 				None
 			),
 			Error::<Test>::NoPermission
@@ -408,7 +410,7 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				b"this-collection-doesn't-exist".to_vec(),
 				collection_owner,
-				vec![None, None],
+				Default::default(),
 				None
 			),
 			Error::<Test>::NoCollection
@@ -431,7 +433,11 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![None, None, None],
+				vec![
+					NFTAttributeValue::I32(0),
+					NFTAttributeValue::Url(b"test".to_vec()),
+					NFTAttributeValue::I32(0)
+				],
 				None
 			),
 			Error::<Test>::SchemaMismatch
@@ -443,19 +449,19 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![Some(NFTAttributeValue::U32(404)), None],
+				vec![NFTAttributeValue::U32(404), NFTAttributeValue::U32(404)],
 				None,
 			),
 			Error::<Test>::SchemaMismatch
 		);
 
-		let too_many_attributes: [Option<NFTAttributeValue>; (MAX_SCHEMA_FIELDS + 1_u32) as usize] = Default::default();
+		let too_many_attributes = vec![NFTAttributeValue::U8(0).clone(); (MAX_SCHEMA_FIELDS + 1_u32) as usize];
 		assert_noop!(
 			Nft::create_token(
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				too_many_attributes.to_owned().to_vec(),
+				too_many_attributes,
 				None,
 			),
 			Error::<Test>::SchemaMaxAttributes
@@ -467,7 +473,7 @@ fn create_token_fails_prechecks() {
 				Some(collection_owner).into(),
 				collection_id.clone(),
 				collection_owner,
-				vec![None, None],
+				vec![NFTAttributeValue::I32(0), NFTAttributeValue::Url(b"test".to_vec())],
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Permill::from_fraction(1.2)),
@@ -485,8 +491,8 @@ fn create_token_fails_prechecks() {
 				collection_id,
 				collection_owner,
 				vec![
-					None,
-					Some(NFTAttributeValue::Url([1_u8; MAX_ATTRIBUTE_LENGTH + 1].to_vec()))
+					NFTAttributeValue::I32(0),
+					NFTAttributeValue::Url([1_u8; <Test as Trait>::MaxAttributeLength::get() as usize + 1].to_vec())
 				],
 				None,
 			),
@@ -511,7 +517,7 @@ fn transfer() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttributeValue::I32(500))],
+			vec![NFTAttributeValue::I32(500)],
 			None,
 		));
 
@@ -570,7 +576,7 @@ fn transfer_fails_prechecks() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttributeValue::I32(500))],
+			vec![NFTAttributeValue::I32(500)],
 			None,
 		));
 
@@ -617,7 +623,7 @@ fn burn() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttributeValue::I32(500))],
+			vec![NFTAttributeValue::I32(500)],
 			None,
 		));
 
@@ -658,7 +664,7 @@ fn burn_fails_prechecks() {
 			Some(collection_owner).into(),
 			collection_id.clone(),
 			token_owner,
-			vec![Some(NFTAttributeValue::I32(500))],
+			vec![NFTAttributeValue::I32(500)],
 			None,
 		));
 

@@ -111,8 +111,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 39,
-	impl_version: 39,
+	spec_version: 40,
+	impl_version: 40,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -207,11 +207,15 @@ impl frame_system::Trait for Runtime {
 parameter_types! {
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	/// The maximum length of an attribute value (140 = old tweet limit)
+	/// Only applies to string/vec allocated types
+	pub const MaxAttributeLength: u8 = 140;
 }
 impl crml_nft::Trait for Runtime {
 	type Event = Event;
 	type TokenId = u32;
 	type MultiCurrency = GenericAsset;
+	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
 }

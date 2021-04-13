@@ -52,6 +52,8 @@ pub trait Trait: frame_system::Trait {
 	type TokenId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + One + Into<u64>;
 	/// Default auction / sale length in blocks
 	type DefaultListingDuration: Get<Self::BlockNumber>;
+	/// Maximum byte length of an NFT attribute
+	type MaxAttributeLength: Get<u8>;
 	/// Handles a multi-currency fungible asset system
 	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
@@ -110,7 +112,7 @@ decl_error! {
 		SchemaInvalid,
 		/// The schema contains a duplicate attribute name
 		SchenmaDuplicateAttribute,
-		/// Given attirbute value is larger than the max. `MAX_ATTRIBUTE_LENGTH`
+		/// Given attirbute value is larger than the configured max.
 		MaxAttributeLength,
 		/// origin does not have permission for the operation
 		NoPermission,
@@ -169,9 +171,6 @@ decl_storage! {
 pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
 pub const MAX_COLLECTION_ID_LENGTH: u8 = 32;
-/// The maximum length of an attribute value (140 = old tweet limit)
-/// Only matters for string/vec allocated types
-pub const MAX_ATTRIBUTE_LENGTH: usize = 140;
 
 pub(crate) const LOG_TARGET: &'static str = "nft";
 
@@ -242,12 +241,12 @@ decl_module! {
 
 		/// Issue a new NFT
 		/// `owner` - the token owner
-		/// `attributes` - initial values according to the NFT collection/schema, omitted attributes will be assigned defaults
+		/// `attributes` - initial values according to the NFT collection/schema
 		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
 		/// Caller must be the collection owner
 		#[weight = 0]
 		#[transactional]
-		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<Option<NFTAttributeValue>>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			// Permission and existence check
@@ -267,18 +266,13 @@ decl_module! {
 			ensure!(attributes.len() == schema.len(), Error::<T>::SchemaMismatch);
 
 			// Build the NFT + schema type level validation
-			let token: Vec<NFTAttributeValue> = schema.iter().zip(attributes.iter()).map(|((_schema_attribute_name, schema_attribute_type), maybe_provided_attribute)| {
-				if let Some(provided_attribute) = maybe_provided_attribute {
-					// caller provided an attribute, check it's the correct type
-					if *schema_attribute_type == provided_attribute.type_id() {
-						ensure!(provided_attribute.len() <= MAX_ATTRIBUTE_LENGTH, Error::<T>::MaxAttributeLength);
-						Ok(provided_attribute.clone())
-					} else {
-						Err(Error::<T>::SchemaMismatch)
-					}
+			let token: Vec<NFTAttributeValue> = schema.iter().zip(attributes.iter()).map(|((_schema_attribute_name, schema_attribute_type), provided_attribute)| {
+				// check provided attribute has the correct type
+				if *schema_attribute_type == provided_attribute.type_id() {
+					ensure!(provided_attribute.len() <= T::MaxAttributeLength::get() as usize, Error::<T>::MaxAttributeLength);
+					Ok(provided_attribute.clone())
 				} else {
-					// caller did not provide a field, use the default
-					NFTAttributeValue::default_from_type_id(*schema_attribute_type).map_err(|_| Error::<T>::SchemaInvalid)
+					Err(Error::<T>::SchemaMismatch)
 				}
 			}).collect::<Result<_, Error<T>>>()?;
 
