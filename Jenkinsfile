@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            label 'm5large'
+            label 'benchmark'
             image 'rustlang/rust:nightly'
             args '-u root:root'
         }
@@ -13,6 +13,8 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+		sh 'lscpu'
+		sh 'free -h'
                 sh '''
                   apt-get update && \
                   apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
