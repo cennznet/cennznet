@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            label 'power8'
+            label 'm5large'
             image 'rustlang/rust:nightly'
             args '-u root:root'
         }
