@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{BlockPayoutInterval, EpochDuration, GenericAsset, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
 use frame_support::{
@@ -32,11 +32,14 @@ use sp_std::{marker::PhantomData, mem, prelude::*};
 /// Runs scheduled payouts for the rewards module.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
 
+#[allow(dead_code)]
 /// The max. number of validator payouts per era based on runtime config
 const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
 
+#[allow(dead_code)]
 #[cfg(not(feature = "integration_config"))]
 const MAX_VALIDATORS: u32 = 5_000;
+#[allow(dead_code)]
 #[cfg(feature = "integration_config")]
 const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
@@ -56,8 +59,8 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
-		frame_support::debug::debug!(
-			target: "rewards",
+		log::debug!(
+			target: "runtime::rewards",
 			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
 			validator_stash,
 			amount,

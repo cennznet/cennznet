@@ -2811,7 +2811,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		log!(
 			trace,
-			"[{}] planning new_session({})",
+			"[{:?}] planning new_session({})",
 			<frame_system::Module<T>>::block_number(),
 			new_index
 		);
@@ -2820,7 +2820,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn start_session(start_index: SessionIndex) {
 		log!(
 			trace,
-			"[{}] starting start_session({})",
+			"[{:?}] starting start_session({})",
 			<frame_system::Module<T>>::block_number(),
 			start_index
 		);
@@ -2829,7 +2829,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn end_session(end_index: SessionIndex) {
 		log!(
 			trace,
-			"[{}] ending end_session({})",
+			"[{:?}] ending end_session({})",
 			<frame_system::Module<T>>::block_number(),
 			end_index
 		);
