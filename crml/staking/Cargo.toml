@@ -26,11 +26,12 @@ sp-std = { default-features = false, git = "https://github.com/plugblockchain/pl
 
 [dev-dependencies]
 hex = "0.4"
-parking_lot = "0.10.2"
+parking_lot = "0.11.1"
 rand_chacha = { version = "0.2" }
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }

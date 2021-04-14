@@ -684,7 +684,7 @@ mod tests {
 
 			// denominator can't be zero
 			let inflation_denominator = self.inflation_rate.1.max(One::one());
-			let _ = GenesisConfig {
+			let _ = rewards::GenesisConfig {
 				inflation_rate: FixedU128::saturating_from_rational(self.inflation_rate.0, inflation_denominator),
 				development_fund_take: Perbill::from_percent(10),
 			}
@@ -712,8 +712,6 @@ mod tests {
 		}
 	}
 
-	/// Alias for the reward currency in the module under test
-	type RewardCurrency = <Test as Config>::CurrencyToReward;
 	/// Helper for creating the info required for validator reward payout
 	struct MockCommissionStakeInfo {
 		validator_stash: AccountId,
@@ -867,15 +865,15 @@ mod tests {
 			Rewards::on_end_era(&vec![], 0, false);
 
 			let era_1_inflation_target = 14;
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
-			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
+			assert!(System::events().iter().any(|record| record.event == expected_event));
 			System::reset_events();
 
 			// No fiscal era events are expected for the following eras
 			Rewards::on_end_era(&vec![], 1, false);
 			Rewards::on_end_era(&vec![], 2, false);
-			assert!(!TestSystem::events().iter().any(|record| match record.event {
-				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+			assert!(!System::events().iter().any(|record| match record.event {
+				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
@@ -889,8 +887,8 @@ mod tests {
 
 			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
-			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
+			assert!(System::events().iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_2_inflation_target);
 		});
 	}
@@ -915,8 +913,8 @@ mod tests {
 				// Trigger era end, new fiscal era should be enacted
 				Rewards::on_end_era(&vec![], 0, false);
 
-				let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
-				let events = TestSystem::events();
+				let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+				let events = System::events();
 				assert!(events.iter().any(|record| record.event == expected_event));
 
 				assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
@@ -1395,9 +1393,9 @@ mod tests {
 			let mut remainder = payout;
 			for (payee, amount) in expected_payouts {
 				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
-				assert!(TestSystem::events()
+				assert!(System::events()
 					.iter()
-					.find(|e| e.event == TestEvent::rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.find(|e| e.event == Event::rewards(RawEvent::EraStakerPayout(payee, amount)))
 					.is_some());
 				remainder = remainder.saturating_sub(amount);
 			}
@@ -1437,10 +1435,10 @@ mod tests {
 			// payouts scheduled for each validator
 			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
 
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 
 			assert_eq!(ScheduledPayoutEra::get(), era);
@@ -1461,9 +1459,9 @@ mod tests {
 			Rewards::on_end_era(&validators, era, true);
 			let next_reward = Rewards::calculate_total_reward();
 			assert_eq!(next_reward.transaction_fees, 1_000);
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
-				.find(|e| e.event == TestEvent::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
+				.find(|e| e.event == Event::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
 				.is_some());
 			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
 			assert!(ScheduledPayoutEra::get().is_zero());
@@ -1476,10 +1474,10 @@ mod tests {
 			assert!(TransactionFeePot::<Test>::get().is_zero());
 			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
 			assert_eq!(ScheduledPayoutEra::get(), era + 1);
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 		})
 	}

@@ -17,19 +17,18 @@
 
 //! Test utilities
 
+use crate as staking;
 use crate::rewards::{HandlePayee, RewardCalculation, RewardParts};
 use crate::*;
 use frame_support::{
-	assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
+	assert_ok, parameter_types,
+	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize, OneSessionHandler},
 	weights::{constants::RocksDbWeight, Weight},
-	IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
+	IterableStorageMap, StorageDoubleMap, StorageValue,
 };
 use sp_core::H256;
 use sp_io;
-use sp_npos_elections::{
-	build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
-};
+use sp_npos_elections::{reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment};
 use sp_runtime::{
 	testing::{Header, TestXt, UintAuthorityId},
 	traits::{IdentityLookup, One, Zero},
@@ -55,7 +54,7 @@ thread_local! {
 
 /// Another session handler struct to test on_disabled.
 pub struct OtherSessionHandler;
-impl pallet_session::OneSessionHandler<AccountId> for OtherSessionHandler {
+impl OneSessionHandler<AccountId> for OtherSessionHandler {
 	type Key = UintAuthorityId;
 
 	fn on_genesis_session<'a, I: 'a>(_: I)
@@ -104,9 +103,8 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		Authorship: pallet_authorship::{Module, Call, Storage},
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>},
+		Staking: staking::{Module, Call, Storage, Config<T>, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		Historical: pallet_session_historical::{Module},
 	}
 );
 
@@ -123,18 +121,22 @@ impl FindAuthor<AccountId> for Author11 {
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub BlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::simple_max(
+			frame_support::weights::constants::WEIGHT_PER_SECOND * 2
+		);
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type DbWeight = ();
+	type DbWeight = RocksDbWeight;
 	type Origin = Origin;
 	type Index = AccountIndex;
 	type Call = Call;
 	type BlockNumber = u64;
 	type Hash = H256;
-	type Hashing = BlakeTwo256;
+	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
@@ -142,7 +144,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -214,11 +216,11 @@ parameter_types! {
 	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
-	pub const OffchainSolutionWeightLimit: Weight = MaximumBlockWeight::get();
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const SlashDeferDuration: EraIndex = 0;
 	pub const ElectionLookahead: BlockNumber = 0;
 	pub const MaxIterations: u32 = 0;
+	pub OffchainSolutionWeightLimit: Weight = BlockWeights::get().max_block;
 }
 
 thread_local! {
@@ -365,17 +367,12 @@ impl ExtBuilder {
 		self.minimum_bond = minimum_bond;
 		self
 	}
-	pub fn initialize_first_session(mut self, init: bool) -> Self {
-		self.initialize_first_session = init;
-		self
-	}
 	pub fn offset(mut self, offset: BlockNumber) -> Self {
 		self.offset = offset;
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
-		self.set_associated_constants();
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let balance_factor = if self.existential_deposit > 1 { 256 } else { 1 };
 
@@ -779,8 +776,8 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 	let score = {
 		let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-		let support = build_support_map::<AccountId>(&winners, &staked_assignment).unwrap();
-		let score = evaluate_support(&support);
+		let support = to_supports(&winners, &staked_assignment).unwrap();
+		let score = (&support).evaluate();
 
 		assert!(sp_npos_elections::is_score_better::<Perbill>(
 			better_score,
@@ -881,8 +878,8 @@ pub(crate) fn prepare_submission_with(
 			Staking::slashable_balance_of_fn(),
 		);
 
-		let support_map = build_support_map::<AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
-		evaluate_support::<AccountId>(&support_map)
+		let support_map = to_supports(winners.as_slice(), staked.as_slice()).unwrap();
+		support_map.evaluate()
 	} else {
 		Default::default()
 	};
@@ -917,20 +914,6 @@ macro_rules! assert_session_era {
 			$era,
 		);
 	};
-}
-
-pub(crate) fn staking_events() -> Vec<Event<Test>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| {
-			if let Event::staking(inner) = e {
-				Some(inner)
-			} else {
-				None
-			}
-		})
-		.collect()
 }
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
