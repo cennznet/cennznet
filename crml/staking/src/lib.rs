@@ -224,7 +224,7 @@ pub use slashing::REWARD_F1;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-	debug, decl_error, decl_event, decl_module, decl_storage,
+	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
 	ensure,
 	traits::{
@@ -241,8 +241,9 @@ use frame_system::{self as system, ensure_none, ensure_root, ensure_signed, offc
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
 use sp_npos_elections::{
-	build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen, Assignment,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, ExtendedBalance, SupportMap, VoteWeight, VotingLimit,
+	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, CompactSolution,
+	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
+	VoteWeight,
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, Zero},
@@ -250,7 +251,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
 	},
-	DispatchError, InnerOf, PerThing, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
+	DispatchError, InnerOf, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -262,7 +263,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromItera
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 const MAX_UNLOCKING_CHUNKS: usize = 32;
-pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
+pub const MAX_NOMINATIONS: usize = <CompactAssignments as CompactSolution>::LIMIT;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
 
@@ -270,7 +271,7 @@ pub(crate) const LOG_TARGET: &'static str = "staking";
 #[macro_export]
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
+		log::$level!(
 			target: crate::LOG_TARGET,
 			$patter $(, $values)*
 		)
@@ -1169,7 +1170,7 @@ decl_module! {
 				// needs upgrade
 				Releases::V1 => {
 					migration::upgrade_v1_to_v2::<T>();
-					T::MaximumBlockWeight::get()
+					T::BlockWeights::get().max_block
 				},
 				// won't occur, no live networks on this version...
 				Releases::V0 => Zero::zero(),
@@ -1957,7 +1958,7 @@ decl_module! {
 		#[weight = T::WeightInfo::submit_solution_better(
 			size.validators.into(),
 			size.nominators.into(),
-			compact.len() as u32,
+			compact.voter_count() as u32,
 			winners.len() as u32,
 		)]
 		pub fn submit_election_solution(
@@ -1991,7 +1992,7 @@ decl_module! {
 		#[weight = T::WeightInfo::submit_solution_better(
 			size.validators.into(),
 			size.nominators.into(),
-			compact.len() as u32,
+			compact.voter_count() as u32,
 			winners.len() as u32,
 		)]
 		pub fn submit_election_solution_unsigned(
@@ -2201,7 +2202,7 @@ impl<T: Config> Module<T> {
 			let staked_assignments =
 				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
-			let supports = build_support_map::<T::AccountId>(&elected_stashes, &staked_assignments)
+			let supports = to_supports(&elected_stashes, &staked_assignments)
 				.map_err(|_| {
 					log!(
 						error,
@@ -2211,7 +2212,7 @@ impl<T: Config> Module<T> {
 				.ok()?;
 
 			// collect exposures
-			let exposures = Self::collect_exposure(supports);
+			let exposures = Self::collect_exposures(supports);
 
 			// In order to keep the property required by `on_session_ending` that we must return the
 			// new validator set even if it's the same as the old, as long as any underlying
@@ -2237,7 +2238,9 @@ impl<T: Config> Module<T> {
 	/// Self votes are added and nominations before the most recent slashing span are ignored.
 	///
 	/// No storage item is updated.
-	pub fn do_phragmen<Accuracy: PerThing>(iterations: usize) -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>>
+	pub fn do_phragmen<Accuracy: PerThing128>(
+		iterations: usize,
+	) -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>>
 	where
 		ExtendedBalance: From<InnerOf<Accuracy>>,
 	{
@@ -2286,7 +2289,7 @@ impl<T: Config> Module<T> {
 				all_nominators,
 				Some((iterations, 0)), // exactly run `iterations` rounds.
 			)
-			.map_err(|err| log!(error, "Call to seq-phragmen failed due to {}", err))
+			.map_err(|err| log!(error, "Call to seq-phragmen failed due to {:?}", err))
 			.ok()
 		}
 	}
@@ -2468,15 +2471,14 @@ impl<T: Config> Module<T> {
 			sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
 		// build the support map thereof in order to evaluate.
-		let supports = build_support_map::<T::AccountId>(&winners, &staked_assignments)
-			.map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
+		let supports = to_supports(&winners, &staked_assignments).map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
 
 		// Check if the score is the same as the claimed one.
-		let submitted_score = evaluate_support(&supports);
+		let submitted_score = (&supports).evaluate();
 		ensure!(submitted_score == claimed_score, Error::<T>::OffchainElectionBogusScore);
 
 		// At last, alles Ok. Exposures and store the result.
-		let exposures = Self::collect_exposure(supports);
+		let exposures = Self::collect_exposures(supports);
 		log!(
 			info,
 			"💸 A better solution (with compute {:?} and score {:?}) has been validated and stored on chain.",
@@ -2674,8 +2676,8 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Consume a set of [`Supports`] from [`sp_npos_elections`] and collect them into a [`Exposure`]
-	fn collect_exposure(
-		supports: SupportMap<T::AccountId>,
+	fn collect_exposures(
+		supports: Supports<T::AccountId>,
 	) -> Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)> {
 		let total_issuance = T::Currency::total_issuance();
 		let to_currency = |e: ExtendedBalance| T::CurrencyToVote::to_currency(e, total_issuance);
@@ -2807,8 +2809,8 @@ impl<T: Config> Module<T> {
 /// some session can lag in between the newest session planned and the latest session started.
 impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
+		log!(
+			trace,
 			"[{}] planning new_session({})",
 			<frame_system::Module<T>>::block_number(),
 			new_index
@@ -2816,8 +2818,8 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		Self::new_session(new_index)
 	}
 	fn start_session(start_index: SessionIndex) {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
+		log!(
+			trace,
 			"[{}] starting start_session({})",
 			<frame_system::Module<T>>::block_number(),
 			start_index
@@ -2825,8 +2827,8 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		Self::start_session(start_index)
 	}
 	fn end_session(end_index: SessionIndex) {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
+		log!(
+			trace,
 			"[{}] ending end_session({})",
 			<frame_system::Module<T>>::block_number(),
 			end_index

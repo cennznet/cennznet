@@ -39,9 +39,6 @@ pub use types::*;
 
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Config>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
-/// A pending decrease to total issuance of the reward currency
-type NegativeImbalanceOf<T> =
-	<<T as Config>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: u32) -> Weight;

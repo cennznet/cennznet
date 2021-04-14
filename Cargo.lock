@@ -1170,6 +1170,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "log",
  "pallet-authorship",
  "pallet-balances",
  "pallet-session",
