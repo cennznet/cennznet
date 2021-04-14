@@ -19,7 +19,7 @@ jsonrpc-derive = "15.1.0"
 sp-blockchain = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-core = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-rpc = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-serde = { version = "1.0.101", features = ["derive"] }
+serde = { version = "1.0.102", features = ["derive"] }
 sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-api = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }

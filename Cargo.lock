@@ -683,14 +683,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "1.3.1"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "1.3.1"
+version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -1177,16 +1177,20 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
+ "parking_lot 0.10.2",
  "prml-generic-asset",
- "prml-support",
+ "rand_chacha 0.2.2",
  "serde",
+ "sp-application-crypto",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "sp-storage",
+ "sp-tracing",
+ "static_assertions",
  "substrate-test-utils",
 ]
 

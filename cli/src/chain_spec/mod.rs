@@ -168,7 +168,6 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				.collect::<Vec<_>>(),
 		}),
 		crml_staking: Some(StakingConfig {
-			current_era: 0,
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
@@ -198,8 +197,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 			asset_meta: vec![
-				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 1, 1)),
-				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 2, 1)),
+				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 4, 1)),
+				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4, 1)),
 			],
 		}),
 		crml_cennzx: Some(CennzxConfig {
@@ -210,6 +209,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		crml_staking_rewards: Some(RewardsConfig {
 			// 20% of all fees
 			development_fund_take: Perbill::from_percent(20),
+			// 80% APY
+			inflation_rate: FixedU128::saturating_from_rational(8, 10),
 		}),
 	}
 }

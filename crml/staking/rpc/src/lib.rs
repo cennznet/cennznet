@@ -33,15 +33,15 @@ pub use crml_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 /// Staking custom RPC methods
 #[rpc]
 pub trait StakingApi<BlockHash, AccountId> {
-	/// Return the currently accrued reward for the specified payee (validator or nominator)
+	/// Return the currently accrued reward for the specified stash (validator or nominator)
 	///
-	/// The actual reward to the payee at the end of the current era would be higher or equal the
+	/// The actual reward to the stash at the end of the current era would be higher or equal the
 	/// result of this method.
 	///
 	/// Returns error if the payee is not in the list of the stakers
 	// TODO: we should return Result<Balance>, however we need to update Plug to bring in the latest sp-rpc package before that
 	#[rpc(name = "staking_accruedPayout")]
-	fn accrued_payout(&self, payee: AccountId, at: Option<BlockHash>) -> Result<u64>;
+	fn accrued_payout(&self, stash: AccountId, at: Option<BlockHash>) -> Result<u64>;
 }
 
 /// A struct that implements [`StakingApi`].
@@ -84,7 +84,7 @@ where
 	C::Api: StakingRuntimeApi<Block, AccountId>,
 	AccountId: Codec,
 {
-	fn accrued_payout(&self, payee: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
+	fn accrued_payout(&self, stash: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
 		let api = self.client.runtime_api();
 
 		if at.is_some() {
@@ -97,7 +97,7 @@ where
 
 		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-		api.accrued_payout(&at, &payee).map_err(|e| RpcError {
+		api.accrued_payout(&at, &stash).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to accrued payout.".into(),
 			data: Some(format!("{:?}", e).into()),

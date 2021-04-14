@@ -1,4 +1,4 @@
-/* Copyright 2020 Centrality Investments Limited
+/* Copyright 2020-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedDiv, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
-	FixedPointNumber, FixedPointOperand, FixedU128, ModuleId, Perbill,
+	FixedPointNumber, FixedU128, ModuleId, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -39,9 +39,9 @@ pub use types::*;
 
 /// A balance amount in the reward currency
 type BalanceOf<T> = <<T as Config>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
-/// A pending increase to total issuance of the reward currency
-type PositiveImbalanceOf<T> =
-	<<T as Config>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
+/// A pending decrease to total issuance of the reward currency
+type NegativeImbalanceOf<T> =
+	<<T as Config>::CurrencyToReward as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: u32) -> Weight;
@@ -57,10 +57,12 @@ pub trait Config: frame_system::Config {
 	type TreasuryModuleId: Get<ModuleId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
-	/// The reward payouts would be split among several blocks when their number exceeds this threshold.
-	type PayoutSplitThreshold: Get<u32>;
+	/// The gap between subsequent payouts (in number of blocks)
+	type BlockPayoutInterval: Get<Self::BlockNumber>;
 	/// The number of staking eras in a fiscal era.
 	type FiscalEraLength: Get<u32>;
+	/// Handles running a scheduled payout
+	type ScheduledPayoutRunner: RunScheduledPayout<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo;
 }
@@ -71,10 +73,12 @@ decl_event!(
 		Balance = BalanceOf<T>,
 		AccountId = <T as frame_system::Config>::AccountId,
 	{
-		/// A reward payout happened (nominator/validator account id, amount, era in which the reward was accrued)
-		RewardPayout(AccountId, Balance, EraIndex),
-		/// All the rewards of the specified era is now processed with an unallocated `remainder` that went to treasury
-		AllRewardsPaidOut(EraIndex, Balance),
+		/// Staker payout (nominator/validator account, amount)
+		EraStakerPayout(AccountId, Balance),
+		/// Era reward payout the total (amount to treasury, amount to stakers)
+		EraPayout(Balance, Balance),
+		/// Era ended abruptly e.g. due to early re-election, this amount will be deferred to the next full era
+		EraPayoutDeferred(Balance),
 		/// A fiscal era has begun with the parameter (target_inflation_per_staking_era)
 		NewFiscalEra(Balance),
 	}
@@ -83,19 +87,20 @@ decl_event!(
 decl_storage! {
 	trait Store for Module<T: Config> as Rewards {
 		/// Inflation rate % to apply on reward payouts
-		pub BaseInflationRate get(fn inflation_rate): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
+		pub BaseInflationRate get(fn inflation_rate) config(): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
 		pub DevelopmentFundTake get(fn development_fund_take) config(): Perbill;
 		/// Accumulated transaction fees for reward payout
 		pub TransactionFeePot get(fn transaction_fee_pot): BalanceOf<T>;
 		/// Historic accumulated transaction fees on reward payout
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
-		/// Remaining reward amount of the eras which are not fully processed yet
-		pub QueuedEraRewards get(fn queued_era_rewards): VecDeque<BalanceOf<T>>;
 		/// Where the reward payment should be made. Keyed by stash.
+		// TODO: migrate to blake2 to prevent trie unbalancing
 		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
-		/// Hold the latest not processed payouts and the era when each is accrued
-		pub Payouts get(fn payouts): VecDeque<(T::AccountId, BalanceOf<T>, EraIndex)>;
+		/// Upcoming reward payouts scheduled for block number to a validator and it's stakers of amount earned in era
+		pub ScheduledPayouts: map hasher(twox_64_concat) T::BlockNumber => Option<(T::AccountId, BalanceOf<T>)>;
+		/// The era index for current payouts
+		pub ScheduledPayoutEra get(fn scheduled_payout_era): EraIndex;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
@@ -107,7 +112,7 @@ decl_storage! {
 		/// When true the next staking era will become the start of a new fiscal era.
 		ForceFiscalEra get(fn force_fiscal_era): bool = false;
 		/// Authorship rewards for the current active era.
-		CurrentEraRewardPoints get(fn current_era_points): EraRewardPoints<T::AccountId>;
+		pub CurrentEraRewardPoints get(fn current_era_points): EraRewardPoints<T::AccountId>;
 	}
 }
 
@@ -142,6 +147,18 @@ decl_module! {
 			ensure_root(origin)?;
 			ForceFiscalEra::put(true);
 		}
+
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			// payouts are scheduled to happen on quantized block intervals such that only blocks where-
+			// `now` % `BlockPayoutInterval` == 0 will ever have a payout. see `schedule_reward_payouts`
+			if (now % T::BlockPayoutInterval::get()).is_zero() {
+				if let Some((validator_stash, amount)) = ScheduledPayouts::<T>::take(now) {
+					return T:: ScheduledPayoutRunner::run_payout(&validator_stash, amount, Self::scheduled_payout_era())
+				}
+			}
+
+			Zero::zero()
+		}
 	}
 }
 
@@ -161,116 +178,74 @@ where
 	}
 }
 
-impl<T: Config> StakerRewardPayment for Module<T>
-where
-	BalanceOf<T>: FixedPointOperand,
-{
+impl<T: Config> OnEndEra for Module<T> {
 	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
-	type BlockNumber = T::BlockNumber;
-	/// Perform a reward payout given a mapping of validators and their nominators stake.
-	/// Accounts IDs are the ones which should receive payment.
-	fn enqueue_reward_payouts(
-		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
-		era: EraIndex,
-	) {
-		if ForceFiscalEra::get() {
-			ForceFiscalEra::put(false);
-			FiscalEraEpoch::put(era);
-		}
-
-		if era.saturating_sub(Self::fiscal_era_epoch()) % T::FiscalEraLength::get() == 0 {
-			Self::new_fiscal_era();
-		}
-
-		if validator_commission_stake_map.len().is_zero() {
+	/// A staking era has ended
+	/// Check if we have a new fiscal era starting
+	/// Schedule a staking reward payout
+	fn on_end_era(era_validator_stashes: &[T::AccountId], era_index: EraIndex, is_forced: bool) {
+		// if it's a forced era, don't pay a reward. more than likely something unusual happened
+		// only the nominators + validators who are removed from the next era will miss out on rewards
+		// additionally, to calculate inflation properly we must consider era duration i.e. (bring back reward curve).
+		if is_forced {
+			let deferred_reward = Self::calculate_total_reward();
+			Self::deposit_event(RawEvent::EraPayoutDeferred(deferred_reward.transaction_fees));
 			return;
 		}
 
-		let (stakers_cut, development_cut, payouts) =
-			Self::calculate_payouts_filtered(validator_commission_stake_map, |_, _| false);
+		// calculate reward before changing fiscal era
+		let next_reward = Self::calculate_total_reward();
 
-		payouts.into_iter().for_each(|(account, payout)| {
-			Payouts::<T>::mutate(|p| p.push_back((account, payout, era)));
-		});
-
-		// Reset the reward points storage for the next era
-		<CurrentEraRewardPoints<T>>::kill();
-
-		// track historic era fee amounts
-		Self::note_fee_payout(TransactionFeePot::<T>::take());
-
-		let _ = T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), development_cut);
-
-		QueuedEraRewards::<T>::mutate(|q| q.push_back(stakers_cut));
-	}
-
-	/// Process the reward payouts considering the given quota which is the number of payouts to be processed now.
-	/// Return the benchmarked weight of the call.
-	fn process_reward_payouts(remaining_blocks: Self::BlockNumber) -> Weight {
-		let remaining_payouts = Payouts::<T>::get().len() as u32;
-		let quota = Self::calculate_payout_quota(remaining_payouts, remaining_blocks);
-		if quota.is_zero() {
-			return T::WeightInfo::process_zero_payouts();
+		// Check if fiscal era should renew
+		if ForceFiscalEra::get() {
+			FiscalEraEpoch::put(era_index);
+		}
+		if era_index.saturating_sub(Self::fiscal_era_epoch()) % T::FiscalEraLength::get() == 0 {
+			Self::new_fiscal_era();
 		}
 
-		let weight = T::WeightInfo::process_reward_payouts(quota as u32);
+		ScheduledPayoutEra::put(era_index);
+		// Setup staker payments 💪, delayed by 1 block
+		let remainder = Self::schedule_reward_payouts(
+			era_validator_stashes,
+			next_reward.stakers_cut,
+			<frame_system::Module<T>>::block_number() + One::one(),
+			T::BlockPayoutInterval::get(),
+		);
 
-		let mut payouts = Payouts::<T>::get();
+		// Deduct taxes from network spending
+		let _ = T::CurrencyToReward::deposit_into_existing(
+			&T::TreasuryModuleId::get().into_account(),
+			next_reward.treasury_cut + remainder,
+		);
 
-		// First payout in the current series, gives the right context for processing the rest.
-		let (first_payee, first_amount, first_era) = payouts.pop_front().unwrap_or_default();
-		let mut total_payout_imbalance = T::CurrencyToReward::deposit_creating(&first_payee, first_amount);
-		Self::deposit_event(RawEvent::RewardPayout(first_payee, first_amount, first_era));
-		let mut era_under_process = first_era;
+		Self::deposit_event(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut));
 
-		let handle_remainder = |imbalance: &mut PositiveImbalanceOf<T>| -> BalanceOf<T> {
-			let mut remainder = Zero::zero();
-			QueuedEraRewards::<T>::mutate(|rra| {
-				remainder = rra.pop_front().unwrap_or_default().saturating_sub(imbalance.peek());
-				imbalance.maybe_subsume(
-					T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder)
-						.ok(),
-				);
-			});
-			remainder
-		};
+		// Future tracking for dynamic inflation
+		Self::note_fee_payout(next_reward.transaction_fees);
 
-		for _ in 1..quota {
-			if let Some((payee, amount, era)) = payouts.pop_front() {
-				if era > era_under_process {
-					let remainder = handle_remainder(&mut total_payout_imbalance);
-					Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
-					era_under_process = era;
-				}
-				total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&payee, amount));
-				Self::deposit_event(RawEvent::RewardPayout(payee, amount, era));
-			}
-		}
+		// Clear storage for next eraœ
+		TransactionFeePot::<T>::kill();
+		CurrentEraRewardPoints::<T>::kill();
+		ForceFiscalEra::kill();
+	}
+}
 
-		if payouts.is_empty() {
-			let remainder = handle_remainder(&mut total_payout_imbalance);
-			Self::deposit_event(RawEvent::AllRewardsPaidOut(era_under_process, remainder));
-		} else {
-			QueuedEraRewards::<T>::mutate(|rra| {
-				if let Some(remainder) = rra.front_mut() {
-					*remainder = remainder.saturating_sub(total_payout_imbalance.peek());
-				}
-			});
-		}
+impl<T: Config> RewardCalculation for Module<T> {
+	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
 
-		Payouts::<T>::put(payouts);
-
-		weight
+	/// Calculate the total reward payout as of right now (i.e. for an entire staking era)
+	fn calculate_total_reward() -> RewardParts<Self::Balance> {
+		RewardParts::new(
+			Self::target_inflation_per_staking_era(),
+			Self::transaction_fee_pot(),
+			Self::development_fund_take(),
+		)
 	}
 
-	/// Calculate the total reward payout as of right now
-	fn calculate_next_reward_payout() -> Self::Balance {
-		TransactionFeePot::<T>::get().saturating_add(Self::target_inflation_per_staking_era())
-	}
-
-	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
-	fn payee_next_reward_payout(
+	/// Calculate the reward payout (accrued as of right now) for the given stash.
+	fn calculate_individual_reward(
 		stash: &Self::AccountId,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
@@ -294,31 +269,118 @@ where
 impl<T: Config> HandlePayee for Module<T> {
 	type AccountId = T::AccountId;
 
-	/// (Re-)set the payment target for a stash account.
-	/// If payee is not different from stash, do no operations.
+	/// Set the payment target for a stash account.
 	fn set_payee(stash: &Self::AccountId, payee: &Self::AccountId) {
 		Payee::<T>::insert(stash, payee);
 	}
 
-	/// Remove the corresponding stash-payee from the look up. Do no operations if stash not found.
+	/// Remove the corresponding stash-payee from the look up
 	fn remove_payee(stash: &Self::AccountId) {
 		Payee::<T>::remove(stash);
 	}
 
-	/// Return the reward account for the given stash account.
+	/// Return the payee account for the given stash account.
 	fn payee(stash: &T::AccountId) -> Self::AccountId {
-		if Payee::<T>::contains_key(stash) {
-			Payee::<T>::get(stash)
-		} else {
+		let payee = Payee::<T>::get(stash);
+
+		// a default value means it's unset, just return the stash
+		// note this shouldn't occur in practice, this is useful for tests
+		if payee == T::AccountId::default() {
 			stash.clone()
+		} else {
+			payee
 		}
 	}
 }
 
-impl<T: Config> Module<T>
-where
-	BalanceOf<T>: FixedPointOperand,
-{
+impl<T: Config> Module<T> {
+	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
+	/// Returns a remainder, the amount indivisble by the stakers
+	///
+	/// Payouts will be scheduled `interval` blocks apart, starting from `earliest_block` number at the earliest.
+	/// The real start block will be quantized to begin at the next block number `b` where `b` % `interval` is 0
+	/// This allows more efficient scheduling checks elsewhere.
+	///
+	/// Requires `O(validators)` writes
+	fn schedule_reward_payouts(
+		validators: &[T::AccountId],
+		total_staker_payout: BalanceOf<T>,
+		earliest_block: T::BlockNumber,
+		interval: T::BlockNumber,
+	) -> BalanceOf<T> {
+		let start_block: T::BlockNumber = quantize_forward::<T>(earliest_block, interval);
+
+		// Calculate the necessary total payout for each validator and it's stakers
+		let (per_validator_payouts, remainder) =
+			Self::calculate_per_validator_payouts(total_staker_payout, validators, Self::current_era_points());
+
+		// Schedule the payouts for future blocks
+		for (index, (stash, amount)) in per_validator_payouts.iter().enumerate() {
+			ScheduledPayouts::<T>::insert(
+				start_block + T::BlockNumber::from(index as u32) * interval,
+				(stash, amount),
+			);
+		}
+
+		remainder
+	}
+
+	/// Process the reward payout for the given validator stash and all its supporting nominators
+	/// Requires `O(nominators)` writes
+	pub fn process_reward_payout(
+		validator_stash: &T::AccountId,
+		validator_commission: Perbill,
+		exposures: &Exposure<T::AccountId, BalanceOf<T>>,
+		total_payout: BalanceOf<T>,
+	) {
+		if total_payout.is_zero() {
+			return;
+		}
+		let mut total_payout_imbalance = T::CurrencyToReward::burn(Zero::zero());
+		for (stash, amount) in
+			Self::calculate_npos_payouts(validator_stash, validator_commission, exposures, total_payout)
+		{
+			total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&Self::payee(&stash), amount));
+			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
+		}
+		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
+		T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder).ok();
+	}
+
+	/// Given a list of validator stashes, calculate the value of stake reward for
+	/// each based on their block contribution ratio
+	/// `stakers_cut` the initial reward amount to divvy up between validators
+	fn calculate_per_validator_payouts(
+		stakers_cut: BalanceOf<T>,
+		validators: &[T::AccountId],
+		era_reward_points: EraRewardPoints<T::AccountId>,
+	) -> (Vec<(&T::AccountId, BalanceOf<T>)>, BalanceOf<T>) {
+		let total_reward_points = era_reward_points.total;
+
+		let mut remainder = stakers_cut;
+		let payouts = validators
+			.iter()
+			.map(|validator| {
+				let validator_reward_points = era_reward_points
+					.individual
+					.get(validator)
+					.copied()
+					.unwrap_or_else(Zero::zero);
+				// This is how much every validator is entitled to get, including its nominators shares
+				let payout = if total_reward_points.is_zero() {
+					// When no authorship points are recorded, divide the payout equally
+					stakers_cut / (validators.len() as u32).into()
+				} else {
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+				};
+				remainder -= payout;
+				(validator, payout)
+			})
+			.collect::<Vec<(&T::AccountId, BalanceOf<T>)>>();
+
+		(payouts, remainder)
+	}
+
 	/// Calculate all payouts of the current era as of right now. Then filter out those not relevant
 	/// validator-exposure sets by calling the "filter" function.
 	/// Return the total rewards calculated for the stakers at the time of this call paired with the
@@ -338,14 +400,12 @@ where
 	where
 		F: Fn(&T::AccountId, &Exposure<T::AccountId, BalanceOf<T>>) -> bool,
 	{
-		let total_payout = <Self as StakerRewardPayment>::calculate_next_reward_payout();
+		let payout = <Self as RewardCalculation>::calculate_total_reward();
 
-		if total_payout.is_zero() {
+		if payout.total.is_zero() {
 			return (Zero::zero(), Zero::zero(), vec![]);
 		}
 
-		let development_cut = Self::development_fund_take() * TransactionFeePot::<T>::get();
-		let stakers_cut = total_payout.saturating_sub(development_cut);
 		let era_reward_points = <CurrentEraRewardPoints<T>>::get();
 		let total_reward_points = era_reward_points.total;
 
@@ -360,15 +420,16 @@ where
 				let validator_reward_points = era_reward_points
 					.individual
 					.get(validator)
-					.map(|points| *points)
-					.unwrap_or_else(|| Zero::zero());
+					.copied()
+					.unwrap_or_else(Zero::zero);
 
 				// This is how much every validator is entitled to get, including its nominators shares
 				let validator_total_payout = if total_reward_points.is_zero() {
 					// When no authorship points are recorded, divide the payout equally
-					stakers_cut / (validator_commission_stake_map.len() as u32).into()
+					payout.stakers_cut / (validator_commission_stake_map.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+					Perbill::from_rational_approximation(validator_reward_points, total_reward_points)
+						* payout.stakers_cut
 				};
 
 				if validator_total_payout.is_zero() {
@@ -379,11 +440,9 @@ where
 			})
 			.collect();
 
-		(stakers_cut, development_cut, payouts)
+		(payout.stakers_cut, payout.treasury_cut, payouts)
 	}
-}
 
-impl<T: Config> Module<T> {
 	/// Add the given `fee` amount to the next reward payout
 	pub fn note_transaction_fees(amount: BalanceOf<T>) {
 		TransactionFeePot::<T>::mutate(|acc| *acc = acc.saturating_add(amount));
@@ -442,26 +501,6 @@ impl<T: Config> Module<T> {
 		(*payouts).to_vec()
 	}
 
-	/// Return the number of reward payouts that need to be processed in the current block.
-	/// The result is dependent on the number of the current era's remaining payouts and the number
-	/// of remaining blocks before a new era.
-	fn calculate_payout_quota(remaining_payouts: u32, remaining_blocks: T::BlockNumber) -> u32 {
-		if remaining_blocks.is_zero() {
-			return remaining_payouts;
-		}
-
-		let payout_split_threshold = T::PayoutSplitThreshold::get();
-
-		if remaining_payouts <= payout_split_threshold {
-			return remaining_payouts;
-		}
-
-		let remaining_payouts = <T::BlockNumber as UniqueSaturatedFrom<u32>>::unique_saturated_from(remaining_payouts);
-		let min_payouts = remaining_payouts / (remaining_blocks + One::one());
-		let min_payouts = <T::BlockNumber as UniqueSaturatedInto<u32>>::unique_saturated_into(min_payouts);
-		min_payouts.max(payout_split_threshold)
-	}
-
 	/// Start a new fiscal era. Calculate the new inflation target based on the latest set inflation rate.
 	pub fn new_fiscal_era() {
 		let total_issuance: u128 = T::CurrencyToReward::total_issuance().unique_saturated_into();
@@ -471,6 +510,7 @@ impl<T: Config> Module<T> {
 			.checked_div(&T::FiscalEraLength::get().into())
 			.unwrap_or_else(Zero::zero);
 		<TargetInflationPerStakingEra<T>>::put(target_inflation_per_staking_era);
+
 		Self::deposit_event(RawEvent::NewFiscalEra(target_inflation_per_staking_era));
 	}
 
@@ -495,11 +535,14 @@ impl<T: Config> Module<T> {
 	}
 }
 
+/// Starting from `start` returns the next highest number divisible by `interval`
+fn quantize_forward<T: Config>(start: T::BlockNumber, interval: T::BlockNumber) -> T::BlockNumber {
+	(start + interval) - (start % interval)
+}
+
 #[cfg(test)]
 mod tests {
-	use super::{
-		Config, CurrentEraRewardPoints, Exposure, HandlePayee, Payouts, RawEvent, RewardPoint, StakerRewardPayment,
-	};
+	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use frame_support::{
 		assert_err, assert_noop, assert_ok, parameter_types,
@@ -597,28 +640,55 @@ mod tests {
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
-		pub const PayoutSplitThreshold: u32 = 10;
+		pub const BlockPayoutInterval: <Test as frame_system::Config>::BlockNumber = 3;
 		pub const FiscalEraLength: u32 = 5;
 	}
 	impl Config for Test {
-		type Event = Event;
+		type BlockPayoutInterval = BlockPayoutInterval;
 		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
-		type TreasuryModuleId = TreasuryModuleId;
-		type HistoricalPayoutEras = HistoricalPayoutEras;
-		type PayoutSplitThreshold = PayoutSplitThreshold;
+		type Event = Event;
 		type FiscalEraLength = FiscalEraLength;
+		type HistoricalPayoutEras = HistoricalPayoutEras;
+		type ScheduledPayoutRunner = MockPayoutRunner<Self>;
+		type TreasuryModuleId = TreasuryModuleId;
 		type WeightInfo = ();
+	}
+
+	/// A payout runner which deposits the reward immediately
+	pub struct MockPayoutRunner<T: Config>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> RunScheduledPayout for MockPayoutRunner<T> {
+		type AccountId = T::AccountId;
+		type Balance = BalanceOf<T>;
+
+		/// Make a payout to stash for the given era
+		fn run_payout(stash: &Self::AccountId, amount: Self::Balance, _era_index: EraIndex) -> Weight {
+			let _ = T::CurrencyToReward::deposit_into_existing(stash, amount);
+			return Zero::zero();
+		}
 	}
 
 	// Provides configurable mock genesis storage data.
 	#[derive(Default)]
-	pub struct ExtBuilder {}
+	pub struct ExtBuilder {
+		// The inflation rate (numerator, denominator)
+		inflation_rate: (u32, u32),
+	}
 
 	impl ExtBuilder {
+		/// Set the inflation rate
+		pub fn set_inflation_rate(mut self, inflation_rate: (u32, u32)) -> Self {
+			self.inflation_rate = inflation_rate;
+			self
+		}
+		/// Setup mock genesis, starts a new fiscal era to set inflation rate
 		pub fn build(self) -> sp_io::TestExternalities {
 			let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-			let _ = super::GenesisConfig {
+			// denominator can't be zero
+			let inflation_denominator = self.inflation_rate.1.max(One::one());
+			let _ = GenesisConfig {
+				inflation_rate: FixedU128::saturating_from_rational(self.inflation_rate.0, inflation_denominator),
 				development_fund_take: Perbill::from_percent(10),
 			}
 			.assimilate_storage(&mut storage);
@@ -682,6 +752,14 @@ mod tests {
 		fn as_tuple(&self) -> (AccountId, Perbill, Exposure<AccountId, Balance>) {
 			(self.validator_stash, self.commission, self.exposures.clone())
 		}
+	}
+
+	#[test]
+	fn quantize_forward_cases() {
+		// schedules forward
+		assert_eq!(quantize_forward::<Test>(100, 5), 105);
+		// schedules forward
+		assert_eq!(quantize_forward::<Test>(103, 5), 105);
 	}
 
 	#[test]
@@ -787,73 +865,66 @@ mod tests {
 	#[test]
 	fn fiscal_era_should_naturally_take_fiscal_era_length_eras() {
 		ExtBuilder::default().build().execute_with(|| {
-			// There should be an event for a new fiscal era on era 0
+			// There should be an event for a new fiscal era on era 0 (due to ext builder setup)
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
-			Rewards::enqueue_reward_payouts(Default::default(), 0);
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
-			let events = System::events();
-			assert!(events.iter().any(|record| record.event == expected_event));
+			Rewards::on_end_era(&vec![], 0, false);
+
+			let era_1_inflation_target = 14;
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
+			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
 			System::reset_events();
 
-			// Not any fiscal era event is expected for the following eras
-			Rewards::enqueue_reward_payouts(Default::default(), 1);
-			Rewards::enqueue_reward_payouts(Default::default(), 2);
-
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
-			// Test target inflation doesn't change immediately
-			assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
-
-			Rewards::enqueue_reward_payouts(Default::default(), 3);
-			Rewards::enqueue_reward_payouts(Default::default(), 4);
-			let events = System::events();
-			assert!(!events.iter().any(|record| match record.event {
-				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
+			// No fiscal era events are expected for the following eras
+			Rewards::on_end_era(&vec![], 1, false);
+			Rewards::on_end_era(&vec![], 2, false);
+			assert!(!TestSystem::events().iter().any(|record| match record.event {
+				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
+			// Request inflation rate change, it shouldn't apply until the next fiscal era
+			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
+			assert_eq!(Rewards::target_inflation_per_staking_era(), era_1_inflation_target);
+
+			Rewards::on_end_era(&vec![], 3, false);
+			Rewards::on_end_era(&vec![], 4, false);
+			Rewards::on_end_era(&vec![], 5, false);
+
+			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
-			Rewards::enqueue_reward_payouts(Default::default(), 5);
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(22));
-			let events = System::events();
-			assert!(events.iter().any(|record| record.event == expected_event));
-			assert_eq!(Rewards::target_inflation_per_staking_era(), 22);
+			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
+			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
+			assert_eq!(Rewards::target_inflation_per_staking_era(), era_2_inflation_target);
 		});
 	}
 
 	#[test]
 	fn force_new_fiscal_era() {
-		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
-			// Still expect the default inflation rate
-			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
+		ExtBuilder::default()
+			.set_inflation_rate((1, 100))
+			.build()
+			.execute_with(|| {
+				// set a new annual inflation rate
+				assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
+				// the default fiscal rate should still be in effect 1%
+				assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
 
-			assert_ok!(Rewards::force_new_fiscal_era(Origin::root()));
-			// Even after "force" the inflation rate is not going to change if a new staking era has not begun
-			assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
+				// force a fiscal era change next era
+				assert_ok!(Rewards::force_new_fiscal_era(Origin::root()));
+				assert!(Rewards::force_fiscal_era());
+				// Even after "force" the inflation rate is not going to change if a new staking era has not begun
+				assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
 
-			Rewards::enqueue_reward_payouts(Default::default(), 2);
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
-			let events = System::events();
-			assert!(events.iter().any(|record| record.event == expected_event));
-			assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
-			System::reset_events();
+				// Trigger era end, new fiscal era should be enacted
+				Rewards::on_end_era(&vec![], 0, false);
 
-			// "Force" should have been toggled back off automatically
-			Rewards::enqueue_reward_payouts(Default::default(), 3);
-			Rewards::enqueue_reward_payouts(Default::default(), 4);
-			Rewards::enqueue_reward_payouts(Default::default(), 5);
-			Rewards::enqueue_reward_payouts(Default::default(), 6);
-			let events = System::events();
-			assert!(!events.iter().any(|record| match record.event {
-				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
-				_ => false,
-			}));
+				let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
+				let events = TestSystem::events();
+				assert!(events.iter().any(|record| record.event == expected_event));
 
-			Rewards::enqueue_reward_payouts(Default::default(), 7);
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
-			let events = System::events();
-			assert!(events.iter().any(|record| record.event == expected_event));
-		});
+				assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
+				assert!(!Rewards::force_fiscal_era());
+			});
 	}
 
 	#[test]
@@ -876,218 +947,63 @@ mod tests {
 	}
 
 	#[test]
-	fn enqueue_reward_payouts_development_fund_take() {
+	fn calculate_total_reward_cases() {
 		ExtBuilder::default().build().execute_with(|| {
-			let mock_commission_stake_map =
-				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let tx_fee_reward = 1_000_000;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			let total_payout = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 0);
+			let tx_fees = 10;
+			let base_inflation = 20;
 
-			let development_fund = RewardCurrency::free_balance(&TreasuryModuleId::get().into_account());
-			let take = Rewards::development_fund_take();
-			assert_eq!(development_fund, take * total_payout,);
+			// the basic reward model on CENNZnet is base inflation + fees
+			TransactionFeePot::<Test>::put(tx_fees);
+			TargetInflationPerStakingEra::<Test>::put(base_inflation);
+
+			let next_reward = Rewards::calculate_total_reward();
+			assert_eq!(tx_fees, next_reward.transaction_fees,);
+			assert_eq!(base_inflation, next_reward.inflation,);
+			assert_eq!(base_inflation + tx_fees, next_reward.total);
 			assert_eq!(
-				Rewards::queued_era_rewards()[0],
-				total_payout.saturating_sub(development_fund)
+				DevelopmentFundTake::get() * next_reward.transaction_fees,
+				next_reward.treasury_cut
 			);
-		});
-	}
-
-	#[test]
-	fn simple_reward_payout_inflation() {
-		// the basic reward model on CENNZnet is fees * inflation
-		ExtBuilder::default().build().execute_with(|| {
-			let tx_fee_reward = 10;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 100));
-			let total_payout = Rewards::calculate_next_reward_payout();
-			assert_eq!(total_payout, 12);
-		});
-	}
-
-	#[test]
-	fn large_payouts_split() {
-		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
-
-			let tx_fee_reward = 1_000_000;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			let total_payout = Rewards::calculate_next_reward_payout();
-			let pre_reward_issuance = RewardCurrency::total_issuance();
-
-			let validator_stake_map1 =
-				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let validator_stake_map2 =
-				MockCommissionStakeInfo::new((10, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let validator_stake_map3 =
-				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let validator_stake_map4 =
-				MockCommissionStakeInfo::new((30, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			Rewards::enqueue_reward_payouts(
-				&[
-					validator_stake_map1.as_tuple(),
-					validator_stake_map2.as_tuple(),
-					validator_stake_map3.as_tuple(),
-					validator_stake_map4.as_tuple(),
-				],
-				0,
-			);
-			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<Test>::get().len(), 2);
-			Rewards::process_reward_payouts(2);
-			assert_eq!(Payouts::<Test>::get().len(), 0);
-			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
-		});
-	}
-
-	#[test]
-	fn emit_all_rewards_paid_out_event() {
-		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
-
-			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
-
-			let tx_fee_reward = 1_000_000;
-
-			let validators_number = 4;
-			let validators_stake_info: Vec<(AccountId, Perbill, Exposure<AccountId, Balance>)> = (0..validators_number)
-				.map(|i| {
-					MockCommissionStakeInfo::new(
-						((i + 1) * 10, 1_000),
-						vec![(2, 2_000), (3, 3_000)],
-						Perbill::from_percent(10),
-					)
-					.as_tuple()
-				})
-				.collect();
-			let note_author_to_all = || {
-				for i in 1..=validators_number {
-					Rewards::note_author(i * 10);
-				}
-			};
-
-			note_author_to_all();
-			Rewards::note_transaction_fees(tx_fee_reward);
-			Rewards::enqueue_reward_payouts(&validators_stake_info, 0);
-
-			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<Test>::get().len(), 2);
-
-			note_author_to_all();
-			Rewards::note_transaction_fees(tx_fee_reward);
-			Rewards::enqueue_reward_payouts(&validators_stake_info, 1);
-
-			Rewards::process_reward_payouts(3);
-			assert_eq!(Payouts::<Test>::get().len(), 4);
-
-			let events = System::events();
-			let expected_event = Event::rewards(RawEvent::AllRewardsPaidOut(0, 2));
-			assert!(events.len() as u32 >= 2 * payout_split_threshold + 3);
-			assert!(events.iter().any(|record| record.event == expected_event));
-
-			Rewards::process_reward_payouts(2);
-			assert_eq!(Payouts::<Test>::get().len(), 0);
-
-			let events = System::events();
-			assert!(events.len() as u64 >= validators_number * 6 + 4);
 			assert_eq!(
-				events.last().unwrap().event,
-				Event::rewards(RawEvent::AllRewardsPaidOut(1, 0))
-			)
-		});
-	}
-
-	#[test]
-	fn make_reward_payouts_handles_total_issuance() {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = RewardCurrency::deposit_creating(&1, 1_234);
-			assert_ok!(Rewards::set_development_fund_take(Origin::root(), 10));
-
-			let tx_fee_reward = 1_000_000;
-			Rewards::note_transaction_fees(tx_fee_reward);
-			let total_payout = Rewards::calculate_next_reward_payout();
-			let pre_reward_issuance = RewardCurrency::total_issuance();
-
-			let validator_stake_map1 =
-				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let validator_stake_map2 =
-				MockCommissionStakeInfo::new((10, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let validator_stake_map3 =
-				MockCommissionStakeInfo::new((20, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			Rewards::enqueue_reward_payouts(
-				&[
-					validator_stake_map1.as_tuple(),
-					validator_stake_map2.as_tuple(),
-					validator_stake_map3.as_tuple(),
-				],
-				1,
-			);
-			Rewards::process_reward_payouts(3);
-			assert_eq!(RewardCurrency::total_issuance(), pre_reward_issuance + total_payout);
-		});
-	}
-
-	#[test]
-	fn successive_reward_payouts() {
-		ExtBuilder::default().build().execute_with(|| {
-			let initial_total_issuance = RewardCurrency::total_issuance();
-			let round1_reward = 1_000_000;
-			Rewards::note_transaction_fees(round1_reward);
-
-			let mock_commission_stake_map =
-				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 3_000)], Perbill::from_percent(10));
-			let total_payout1 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 1);
-			Rewards::process_reward_payouts(3);
-			assert_eq!(RewardCurrency::total_issuance(), total_payout1 + initial_total_issuance,);
-
-			// after reward payout, the next payout should be `0`
-			assert!(Rewards::transaction_fee_pot().is_zero());
-			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&round1_reward));
-
-			// Next payout
-			let round2_reward = 10_000;
-			Rewards::note_transaction_fees(round2_reward);
-
-			let total_payout2 = Rewards::calculate_next_reward_payout();
-			Rewards::enqueue_reward_payouts(&[mock_commission_stake_map.as_tuple()], 2);
-			Rewards::process_reward_payouts(3);
-			assert_eq!(
-				RewardCurrency::total_issuance(),
-				total_payout1 + total_payout2 + initial_total_issuance,
+				next_reward.total - (DevelopmentFundTake::get() * next_reward.transaction_fees),
+				next_reward.stakers_cut
 			);
 
-			// after reward payout, the next payout should be `0`
-			assert!(Rewards::transaction_fee_pot().is_zero());
-			assert_eq!(Rewards::transaction_fee_pot_history().front(), Some(&round2_reward));
+			// no tx fees, still rewards based on inflation
+			TransactionFeePot::<Test>::put(0);
+			let next_reward = Rewards::calculate_total_reward();
+			assert!(next_reward.transaction_fees.is_zero());
+			assert_eq!(base_inflation, next_reward.inflation);
+			assert_eq!(base_inflation, next_reward.total);
+
+			// no inflation, still rewards tx fees
+			TransactionFeePot::<Test>::put(tx_fees);
+			TargetInflationPerStakingEra::<Test>::put(0);
+			let next_reward = Rewards::calculate_total_reward();
+			assert_eq!(tx_fees, next_reward.transaction_fees);
+			assert!(next_reward.inflation.is_zero());
+			assert_eq!(tx_fees, next_reward.total);
 		});
 	}
 
 	#[test]
-	fn reward_payout_calculations() {
+	fn calculate_npos_payouts() {
 		ExtBuilder::default().build().execute_with(|| {
 			let mock_commission_stake_map =
 				MockCommissionStakeInfo::new((1, 1_000), vec![(2, 2_000), (3, 2_000)], Perbill::from_percent(10));
-
-			let _ = Rewards::set_inflation_rate(Origin::signed(1), 1, 10);
-			Rewards::note_transaction_fees(1_000_000);
-			let total_payout = Rewards::calculate_next_reward_payout();
-			let development_fund_payout = Rewards::development_fund_take() * total_payout;
-			let reward = total_payout.saturating_sub(development_fund_payout);
+			let staker_reward = 1_000_000;
 
 			let payouts = Rewards::calculate_npos_payouts(
 				&mock_commission_stake_map.validator_stash,
 				mock_commission_stake_map.commission,
 				&mock_commission_stake_map.exposures,
-				reward,
+				staker_reward,
 			);
 
 			// validator takes 10% of reward + 20% of 90% remainder
 			// nominators split 80% of 90% remainder at 50/50 each
-			let validator_commission = Perbill::from_percent(10) * reward;
-			let reward_share = Perbill::from_percent(90) * reward;
+			let validator_commission = Perbill::from_percent(10) * staker_reward;
+			let reward_share = Perbill::from_percent(90) * staker_reward;
 			let validator_share = Perbill::from_percent(20) * reward_share;
 			let nominator_share = Perbill::from_percent(80) * reward_share;
 			assert_eq!(
@@ -1098,32 +1014,55 @@ mod tests {
 					(1, validator_commission + validator_share)
 				]
 			);
-
-			// Run the payout for real
-			Rewards::enqueue_reward_payouts(&vec![mock_commission_stake_map.as_tuple()], 1);
-			Rewards::process_reward_payouts(0);
-			for (staker, r) in payouts {
-				assert_eq!(RewardCurrency::free_balance(&staker), r);
-			}
 		});
 	}
 
 	#[test]
-	fn calculate_npos_payouts_no_nominators() {
+	fn calculate_npos_payouts_zero_commission() {
 		ExtBuilder::default().build().execute_with(|| {
-			let mock_commission_stake_map = MockCommissionStakeInfo::new((1, 1_000), vec![], Perbill::from_percent(10));
-
-			let reward = 1_000_000;
+			let mock_commission_stake_map = MockCommissionStakeInfo::new(
+				(1, 1_000),
+				vec![(2, 2_000), (3, 2_000)],
+				Perbill::from_percent(Zero::zero()),
+			);
+			let staker_reward = 1_000_000;
 
 			let payouts = Rewards::calculate_npos_payouts(
 				&mock_commission_stake_map.validator_stash,
 				mock_commission_stake_map.commission,
 				&mock_commission_stake_map.exposures,
-				reward,
+				staker_reward,
 			);
 
-			// validator takes 100% of the reward
-			assert_eq!(payouts, vec![(1, reward)]);
+			// splits according to stake
+			assert_eq!(
+				payouts,
+				vec![
+					(2, staker_reward * 2 / 5),
+					(3, staker_reward * 2 / 5),
+					(1, staker_reward * 1 / 5)
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn calculate_npos_payouts_no_nominators() {
+		ExtBuilder::default().build().execute_with(|| {
+			let validator_id = 1;
+			let mock_commission_stake_map =
+				MockCommissionStakeInfo::new((validator_id, 1_000), vec![], Perbill::from_percent(10));
+			let staker_reward = 1_000_000;
+
+			let payouts = Rewards::calculate_npos_payouts(
+				&mock_commission_stake_map.validator_stash,
+				mock_commission_stake_map.commission,
+				&mock_commission_stake_map.exposures,
+				staker_reward,
+			);
+
+			// validator takes 100% of the staker_reward
+			assert_eq!(payouts, vec![(validator_id, staker_reward)]);
 		});
 	}
 
@@ -1163,75 +1102,8 @@ mod tests {
 				reward,
 			);
 
-			// validator takes 100% of the reward
+			// validator only takes 100% of the reward
 			assert_eq!(payouts, vec![(1, reward)]);
-		});
-	}
-
-	#[test]
-	fn calculate_npos_payouts_empty_stake_map() {
-		ExtBuilder::default().build().execute_with(|| {
-			let reward = 1_000;
-			Rewards::note_transaction_fees(reward);
-			let total_issuance = RewardCurrency::total_issuance();
-			Rewards::enqueue_reward_payouts(Default::default(), 0);
-
-			assert_eq!(Rewards::calculate_next_reward_payout(), 1002);
-			assert_eq!(Rewards::transaction_fee_pot_history().front(), None);
-			// no payout, expect the total issuance to be as before
-			assert_eq!(RewardCurrency::total_issuance(), total_issuance);
-		});
-	}
-
-	#[test]
-	fn small_reward_payouts() {
-		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
-			assert_eq!(
-				Rewards::calculate_payout_quota(payout_split_threshold - 1, 5),
-				payout_split_threshold - 1
-			);
-		});
-	}
-
-	#[test]
-	fn large_reward_payouts_enough_time() {
-		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
-			assert_eq!(
-				Rewards::calculate_payout_quota(payout_split_threshold, 100),
-				payout_split_threshold
-			);
-			assert_eq!(
-				Rewards::calculate_payout_quota(payout_split_threshold + 1, 100),
-				payout_split_threshold
-			);
-			assert_eq!(
-				Rewards::calculate_payout_quota(2 * payout_split_threshold, 100),
-				payout_split_threshold
-			);
-		});
-	}
-
-	#[test]
-	fn large_reward_payouts_not_enough_time() {
-		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
-			assert_eq!(
-				Rewards::calculate_payout_quota(4 * payout_split_threshold, 1),
-				2 * payout_split_threshold
-			);
-		});
-	}
-
-	#[test]
-	fn large_reward_payouts_no_time() {
-		ExtBuilder::default().build().execute_with(|| {
-			let payout_split_threshold = <Test as Config>::PayoutSplitThreshold::get();
-			assert_eq!(
-				Rewards::calculate_payout_quota(2 * payout_split_threshold, 0),
-				2 * payout_split_threshold
-			);
 		});
 	}
 
@@ -1295,14 +1167,12 @@ mod tests {
 			let fee_payout = 1_000_000;
 			Rewards::note_transaction_fees(fee_payout);
 
-			let total_payout = Rewards::calculate_next_reward_payout();
-
-			let stakers_cut = total_payout.saturating_sub(Rewards::development_fund_take() * fee_payout);
+			let total_payout = Rewards::calculate_total_reward();
 
 			// According to the authorship reward points
-			let staked_on_1_reward_share = Perbill::from_percent(30) * stakers_cut;
-			let staked_on_2_reward_share = Perbill::from_percent(50) * stakers_cut;
-			let staked_on_3_reward_share = Perbill::from_percent(20) * stakers_cut;
+			let staked_on_1_reward_share = Perbill::from_percent(30) * total_payout.stakers_cut;
+			let staked_on_2_reward_share = Perbill::from_percent(50) * total_payout.stakers_cut;
+			let staked_on_3_reward_share = Perbill::from_percent(20) * total_payout.stakers_cut;
 
 			// According to the commissions
 			let nominated_1_reward_share = Perbill::from_percent(90) * staked_on_1_reward_share;
@@ -1315,21 +1185,21 @@ mod tests {
 			let reward_to_6 = nominated_3_reward_share / 3 + 1; // + 1 is needed due to the integer calculation inaccuracy
 
 			assert_eq!(
-				Rewards::payee_next_reward_payout(
+				Rewards::calculate_individual_reward(
 					&4,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_4
 			);
 			assert_eq!(
-				Rewards::payee_next_reward_payout(
+				Rewards::calculate_individual_reward(
 					&5,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_5
 			);
 			assert_eq!(
-				Rewards::payee_next_reward_payout(
+				Rewards::calculate_individual_reward(
 					&6,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
@@ -1338,7 +1208,7 @@ mod tests {
 
 			let reward_to_1 = staked_on_1_reward_share - nominated_1_reward_share / 2 - 1; // - 1 is needed due to the integer calculation inaccuracy
 			assert_eq!(
-				Rewards::payee_next_reward_payout(
+				Rewards::calculate_individual_reward(
 					&1,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
@@ -1357,7 +1227,7 @@ mod tests {
 			Rewards::reward_by_ids(vec![(1, 20)]);
 
 			assert!(
-				Rewards::payee_next_reward_payout(
+				Rewards::calculate_individual_reward(
 					&4,
 					&[
 						MockCommissionStakeInfo::new((1, 1_000), vec![(4, 1_000)], Perbill::from_percent(10))
@@ -1369,28 +1239,251 @@ mod tests {
 	}
 
 	#[test]
-	fn reward_is_split_according_to_points() {
+	fn validators_reward_split_returns_remainder() {
+		// payout is indivisible by number of stakers so there is a remainder
+		// nb: validators have equal 0 reward points for simplicity
+		let (_per_validator_payouts, remainder) =
+			Rewards::calculate_per_validator_payouts(10_000, &vec![1, 2, 3], EraRewardPoints::default());
+
+		assert!(remainder > 0);
+		assert_eq!(remainder, (10_000 - (10_000 / 3) * 3));
+	}
+
+	#[test]
+	fn validator_reward_split_according_to_points() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			let (validator_1, validator_2, validator_3) = (11, 21, 31);
 
 			let fee = 628;
 			Rewards::note_transaction_fees(fee);
 
-			// 42 points to 11, 21 points to 21
-			Rewards::note_author(11);
-			Rewards::note_author(11);
-			Rewards::note_author(21);
-			Rewards::note_uncle(21, 1); // 2 points to the actual author here 11, 1 point to 21
+			// 42 points to validator_1
+			// 21 points to validator_2
+			// 0 blocks/points to validator_3
+			Rewards::note_author(validator_1);
+			Rewards::note_author(validator_1);
+			Rewards::note_author(validator_2);
+			Rewards::note_uncle(validator_2, 1); // 2 points to the actual author here validator_1, 1 point to validator_2
 
-			let stake_map_11 = MockCommissionStakeInfo::new((11, 1_000), vec![], Perbill::from_percent(10));
-			let stake_map_21 = MockCommissionStakeInfo::new((21, 1_000), vec![], Perbill::from_percent(10));
+			let validator_total_payout = Rewards::calculate_total_reward().stakers_cut;
 
-			let authors_payout = Rewards::calculate_next_reward_payout() - Rewards::development_fund_take() * fee;
+			let validators = vec![validator_1, validator_2, validator_3];
+			let authoring_points = CurrentEraRewardPoints::<Test>::get();
+			let (per_validator_payouts, _remainder) =
+				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
-			Rewards::enqueue_reward_payouts(&[stake_map_11.as_tuple(), stake_map_21.as_tuple()], 0);
+			let validator_1_payout = Perbill::from_rational_approximation(
+				authoring_points
+					.individual
+					.get(&validator_1)
+					.map(|points| *points)
+					.unwrap(),
+				authoring_points.total,
+			) * validator_total_payout;
 
-			assert_eq!(Rewards::payouts()[0], (11, authors_payout * 42 / 63, 0));
-			assert_eq!(Rewards::payouts()[1], (21, authors_payout * 21 / 63, 0));
+			let validator_2_payout = Perbill::from_rational_approximation(
+				authoring_points
+					.individual
+					.get(&validator_2)
+					.map(|points| *points)
+					.unwrap(),
+				authoring_points.total,
+			) * validator_total_payout;
+
+			assert_eq!(
+				per_validator_payouts,
+				vec![
+					(&validator_1, validator_1_payout),
+					(&validator_2, validator_2_payout),
+					(&validator_3, Zero::zero())
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn validator_reward_equal_split_when_no_points() {
+		// this should never happen in practice, it is here defensively
+		ExtBuilder::default().build().execute_with(|| {
+			let validators = [11_u64, 21, 31];
+			let [validator_1, validator_2, validator_3] = validators;
+
+			let validator_total_payout = 333;
+			let authoring_points = CurrentEraRewardPoints::<Test>::get();
+			let (per_validator_payouts, _remainder) =
+				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
+
+			assert_eq!(
+				per_validator_payouts,
+				vec![
+					(&validator_1, validator_total_payout / 3),
+					(&validator_2, validator_total_payout / 3),
+					(&validator_3, validator_total_payout / 3)
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn schedule_reward_payouts_by_block_interval() {
+		ExtBuilder::default().build().execute_with(|| {
+			let validator_stashes = [11_u64, 21, 31];
+			let [validator_1, validator_2, validator_3] = validator_stashes;
+
+			// Setup reward points (equal split)
+			for stash in &validator_stashes {
+				Rewards::note_author(*stash);
+			}
+
+			let total_validator_reward = 1_000_000;
+			// schedule payouts to start as early as block 28
+			let earliest_block = 28;
+			let _remainder = Rewards::schedule_reward_payouts(
+				&validator_stashes,
+				total_validator_reward,
+				earliest_block,
+				BlockPayoutInterval::get(),
+			);
+
+			// payouts should start at block 30 because the interval is 3
+			let start_block = quantize_forward::<Test>(earliest_block, BlockPayoutInterval::get());
+
+			// 1 payout for each validator
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validator_stashes.len());
+
+			// payouts are scheduled at the configured block interval
+			assert_eq!(
+				ScheduledPayouts::<Test>::get(start_block).unwrap(),
+				(validator_1, total_validator_reward / 3)
+			);
+
+			assert_eq!(
+				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get()).unwrap(),
+				(validator_2, total_validator_reward / 3)
+			);
+
+			assert_eq!(
+				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get() * 2).unwrap(),
+				(validator_3, total_validator_reward / 3)
+			);
+		})
+	}
+
+	#[test]
+	fn process_reward_payout() {
+		ExtBuilder::default().build().execute_with(|| {
+			let (validator_stash, validator_stake) = (13, 1_000);
+			let nominator_stakes = [(1_u64, 1_000_u64), (2, 2_000), (3, 500)];
+			let commission = Perbill::from_rational_approximation(5_u32, 100);
+
+			let exposures = MockCommissionStakeInfo::new(
+				(validator_stash, validator_stake),
+				nominator_stakes.to_vec(),
+				commission,
+			)
+			.exposures;
+			let initial_issuance = <Test as Config>::CurrencyToReward::total_issuance();
+
+			// check different payee account support (nominator 3)
+			Rewards::set_payee(&3, &8);
+
+			// Execute the payout for this validator and it's nominators
+			let payout = 1_033_221;
+			Rewards::process_reward_payout(&validator_stash, commission, &exposures, payout);
+
+			// Assume these are the correct values based on other unit tests
+			let expected_payouts = Rewards::calculate_npos_payouts(&validator_stash, commission, &exposures, payout);
+
+			// check payout happened to payee account and event deposited
+			let mut remainder = payout;
+			for (payee, amount) in expected_payouts {
+				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
+				assert!(TestSystem::events()
+					.iter()
+					.find(|e| e.event == TestEvent::rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.is_some());
+				remainder = remainder.saturating_sub(amount);
+			}
+
+			// remainder to treasury
+			assert!(remainder > 0);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				remainder
+			);
+
+			// issuance total increase
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::total_issuance(),
+				initial_issuance + payout
+			);
+		})
+	}
+
+	#[test]
+	fn on_end_era() {
+		ExtBuilder::default().build().execute_with(|| {
+			Rewards::note_transaction_fees(1_111);
+
+			let next_reward = Rewards::calculate_total_reward();
+			let era = 2;
+			let validators = [11, 22, 33];
+			Rewards::on_end_era(&validators, era, false);
+
+			// treasury is paid
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				// +1 is the remainder from after stakers cut distribution
+				next_reward.treasury_cut + 1
+			);
+
+			// payouts scheduled for each validator
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
+
+			assert!(TestSystem::events()
+				.iter()
+				.find(|e| e.event
+					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+				.is_some());
+
+			assert_eq!(ScheduledPayoutEra::get(), era);
+			// Storage reset for next era
+			assert!(!TransactionFeePot::<Test>::exists());
+			assert!(!CurrentEraRewardPoints::<Test>::exists());
+		})
+	}
+
+	#[test]
+	fn on_end_era_forced() {
+		ExtBuilder::default().build().execute_with(|| {
+			Rewards::note_transaction_fees(1_000);
+			let validators = [11, 22, 33];
+			let era = 2;
+
+			// Forced era: do nothing
+			Rewards::on_end_era(&validators, era, true);
+			let next_reward = Rewards::calculate_total_reward();
+			assert_eq!(next_reward.transaction_fees, 1_000);
+			assert!(TestSystem::events()
+				.iter()
+				.find(|e| e.event == TestEvent::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
+				.is_some());
+			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
+			assert!(ScheduledPayoutEra::get().is_zero());
+
+			// Normal era: payouts scheduled
+			Rewards::note_transaction_fees(2_000);
+			let next_reward = Rewards::calculate_total_reward();
+			Rewards::on_end_era(&validators, era + 1, false);
+
+			assert!(TransactionFeePot::<Test>::get().is_zero());
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
+			assert_eq!(ScheduledPayoutEra::get(), era + 1);
+			assert!(TestSystem::events()
+				.iter()
+				.find(|e| e.event
+					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+				.is_some());
 		})
 	}
 }

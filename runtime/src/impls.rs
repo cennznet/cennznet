@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -16,37 +16,57 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{GenericAsset, Runtime, Treasury};
-use cennznet_primitives::types::Balance;
+use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use cennznet_primitives::types::{AccountId, Balance};
+use crml_staking::{rewards::RunScheduledPayout, EraIndex};
 use frame_support::{
 	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
-	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use prml_generic_asset::{CheckedImbalance, NegativeImbalance, StakingAssetCurrency};
 use prml_support::MultiCurrencyAccounting;
 use smallvec::smallvec;
-use sp_runtime::{traits::Convert, Perbill};
+use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, mem, prelude::*};
 
-/// Struct that handles the conversion of Balance -> `u64`. This is used for staking's election
-/// calculation.
-pub struct CurrencyToVoteHandler;
+/// Runs scheduled payouts for the rewards module.
+pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
 
-impl CurrencyToVoteHandler {
-	fn factor() -> Balance {
-		(<StakingAssetCurrency<Runtime>>::total_issuance() / u64::max_value() as Balance).max(1)
-	}
-}
+/// The max. number of validator payouts per era based on runtime config
+const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
 
-impl Convert<Balance, u64> for CurrencyToVoteHandler {
-	fn convert(x: Balance) -> u64 {
-		(x / Self::factor()) as u64
-	}
-}
+#[cfg(not(feature = "integration_config"))]
+const MAX_VALIDATORS: u32 = 5_000;
+#[cfg(feature = "integration_config")]
+const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
-impl Convert<u128, Balance> for CurrencyToVoteHandler {
-	fn convert(x: u128) -> Balance {
-		x * Self::factor()
+// failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
+static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
+
+impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRunner<T> {
+	type AccountId = AccountId;
+	type Balance = Balance;
+
+	/// Feed exposure info from staking to run reward calculations
+	/// This is called by Rewards on_initialize at scheduled intervals
+	fn run_payout(validator_stash: &Self::AccountId, amount: Self::Balance, payout_era: EraIndex) -> Weight {
+		use crml_staking::rewards::WeightInfo;
+
+		// payouts for previous era
+		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
+		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
+
+		frame_support::debug::debug!(
+			target: "rewards",
+			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
+			validator_stash,
+			amount,
+			payout_era,
+		);
+
+		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount);
+
+		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
 	}
 }
 
@@ -122,7 +142,7 @@ mod tests {
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
 	use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
-	use sp_runtime::{assert_eq_error_rate, FixedPointNumber};
+	use sp_runtime::{assert_eq_error_rate, traits::Convert, FixedPointNumber};
 
 	fn max_normal() -> Weight {
 		BlockWeights::get()
@@ -253,6 +273,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn min_change_per_day() {
 		// Start with an adjustment multiplier of 1.
 		// if every block in 24 hour period has a maximum weight then the multiplier should have increased

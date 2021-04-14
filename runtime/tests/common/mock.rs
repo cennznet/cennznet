@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus}
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use prml_support::MultiCurrencyAccounting as MultiCurrency;
-use sp_runtime::Perbill;
+use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
@@ -35,6 +35,8 @@ pub struct ExtBuilder {
 	stash: Balance,
 	// The initial authority set
 	initial_authorities: Vec<AuthorityKeys>,
+	/// Whether to make authorities invulnerable
+	invulnerable: bool,
 }
 
 impl Default for ExtBuilder {
@@ -43,6 +45,7 @@ impl Default for ExtBuilder {
 			initial_balance: 0,
 			stash: 0,
 			initial_authorities: Default::default(),
+			invulnerable: true,
 		}
 	}
 }
@@ -50,6 +53,11 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
+		self
+	}
+	// set invulnerables off (it's on by default)
+	pub fn invulnerables_off(mut self) -> Self {
+		self.invulnerable = false;
 		self
 	}
 	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
@@ -68,7 +76,7 @@ impl ExtBuilder {
 			self.initial_authorities.clone()
 		};
 		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
-		endowed_accounts.extend(stash_accounts);
+		endowed_accounts.extend(stash_accounts.clone());
 
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
@@ -102,9 +110,10 @@ impl ExtBuilder {
 
 		let min_validator_count = initial_authorities.len().min(3) as u32;
 
+		let invulnerables = if self.invulnerable { stash_accounts } else { vec![] };
+
 		crml_staking::GenesisConfig::<Runtime> {
 			minimum_bond: 1,
-			current_era: 0,
 			validator_count: initial_authorities.len() as u32,
 			minimum_validator_count: min_validator_count,
 			stakers: initial_authorities
@@ -113,6 +122,7 @@ impl ExtBuilder {
 				.map(|x| (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator))
 				.collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
+			invulnerables,
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -135,6 +145,7 @@ impl ExtBuilder {
 
 		crml_staking::rewards::GenesisConfig {
 			development_fund_take: Perbill::from_percent(10),
+			inflation_rate: FixedU128::saturating_from_rational(8, 10),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

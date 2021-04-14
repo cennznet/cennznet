@@ -36,6 +36,17 @@ use cennznet_primitives::types::Block;
 use cennznet_runtime::RuntimeApi;
 
 // CENNZnet native executor instance.
+#[cfg(not(feature = "runtime-benchmarks"))]
+native_executor_instance!(
+	pub Executor,
+	cennznet_runtime::api::dispatch,
+	cennznet_runtime::native_version,
+	(
+		cennznet_runtime::legacy_host_functions::storage::HostFunctions,
+	),
+);
+// CENNZnet native executor instance with benchmarking
+#[cfg(feature = "runtime-benchmarks")]
 native_executor_instance!(
 	pub Executor,
 	cennznet_runtime::api::dispatch,

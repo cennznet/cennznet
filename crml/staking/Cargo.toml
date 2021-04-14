@@ -7,29 +7,33 @@ repository = "https://github.com/cennznet/cennznet"
 description = "CENNZnet staking pallet"
 
 [dependencies]
-serde = { version = "1.0.101", optional = true }
+static_assertions = "1.1.0"
+serde = { version = "1.0.102", optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-application-crypto = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-io = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-npos-elections = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4", default-features = false, optional = true }
-pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 
 [dev-dependencies]
 hex = "0.4"
+parking_lot = "0.10.2"
+rand_chacha = { version = "0.2" }
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-tracing = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
 
 [features]
@@ -39,7 +43,6 @@ std = [
 	"codec/std",
 	"serde",
 	"sp-io/std",
-	"sp-keyring",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
@@ -48,7 +51,8 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-session/std",
-	"pallet-staking/std"
+	"pallet-staking/std",
+	"sp-application-crypto/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
