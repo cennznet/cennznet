@@ -52,25 +52,22 @@ type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToRewa
 /// Alias for the runtime configured staking currency
 type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
 
+pub const INIT_TIMESTAMP: u64 = 30_000;
+
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
 /// This will finalize the previous block, initialize up to the given block, essentially simulating
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
-pub(crate) fn run_to_block(end: BlockNumber) {
+pub(crate) fn run_to_block(n: BlockNumber) {
 	Staking::on_finalize(System::block_number());
-	let start = System::block_number();
-
-	for b in start..=end {
+	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
 		Rewards::on_initialize(b);
-		// Session modules asks babe module if it can rotate
-		Timestamp::set_timestamp(30_000 + b as u64 * MILLISECS_PER_BLOCK);
-		// force babe slot increment (normally this is set using system digest)
-		pallet_babe::CurrentSlot::put(b as u64);
-		if b != end {
+		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
+		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
 	}
