@@ -50,6 +50,13 @@ pub(crate) type Balance = u128;
 
 thread_local! {
 	static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
+	static SESSIONS_PER_ERA: RefCell<SessionIndex> = RefCell::new(3);
+	static EXISTENTIAL_DEPOSIT: RefCell<Balance> = RefCell::new(0);
+	static SLASH_DEFER_DURATION: RefCell<EraIndex> = RefCell::new(0);
+	static ELECTION_LOOKAHEAD: RefCell<BlockNumber> = RefCell::new(0);
+	static PERIOD: RefCell<BlockNumber> = RefCell::new(1);
+	static OFFSET: RefCell<BlockNumber> = RefCell::new(0);
+	static MAX_ITERATIONS: RefCell<u32> = RefCell::new(0);
 }
 
 /// Another session handler struct to test on_disabled.
@@ -88,6 +95,61 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 pub fn is_disabled(controller: AccountId) -> bool {
 	let stash = Staking::ledger(&controller).unwrap().stash;
 	SESSION.with(|d| d.borrow().1.contains(&stash))
+}
+
+pub struct Offset;
+impl Get<BlockNumber> for Offset {
+	fn get() -> BlockNumber {
+		OFFSET.with(|v| *v.borrow())
+	}
+}
+
+pub struct ExistentialDeposit;
+impl Get<Balance> for ExistentialDeposit {
+	fn get() -> Balance {
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
+	}
+}
+
+pub struct SessionsPerEra;
+impl Get<SessionIndex> for SessionsPerEra {
+	fn get() -> SessionIndex {
+		SESSIONS_PER_ERA.with(|v| *v.borrow())
+	}
+}
+
+impl Get<BlockNumber> for SessionsPerEra {
+	fn get() -> BlockNumber {
+		SESSIONS_PER_ERA.with(|v| *v.borrow() as BlockNumber)
+	}
+}
+
+pub struct ElectionLookahead;
+impl Get<BlockNumber> for ElectionLookahead {
+	fn get() -> BlockNumber {
+		ELECTION_LOOKAHEAD.with(|v| *v.borrow())
+	}
+}
+
+pub struct Period;
+impl Get<BlockNumber> for Period {
+	fn get() -> BlockNumber {
+		PERIOD.with(|v| *v.borrow())
+	}
+}
+
+pub struct SlashDeferDuration;
+impl Get<EraIndex> for SlashDeferDuration {
+	fn get() -> EraIndex {
+		SLASH_DEFER_DURATION.with(|v| *v.borrow())
+	}
+}
+
+pub struct MaxIterations;
+impl Get<u32> for MaxIterations {
+	fn get() -> u32 {
+		MAX_ITERATIONS.with(|v| *v.borrow())
+	}
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -152,7 +214,6 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 0;
 	pub const MaxLocks: u32 = 1024;
 }
 impl pallet_balances::Config for Test {
@@ -166,8 +227,6 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const Period: BlockNumber = 1;
-	pub const Offset: BlockNumber = 0;
 	pub const UncleGenerations: u64 = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
@@ -216,10 +275,6 @@ parameter_types! {
 	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
-	pub const SessionsPerEra: SessionIndex = 3;
-	pub const SlashDeferDuration: EraIndex = 0;
-	pub const ElectionLookahead: BlockNumber = 0;
-	pub const MaxIterations: u32 = 0;
 	pub OffchainSolutionWeightLimit: Weight = BlockWeights::get().max_block;
 }
 
@@ -363,6 +418,16 @@ impl ExtBuilder {
 	pub fn offchain_election_ext(self) -> Self {
 		self.session_per_era(4).period(5).election_lookahead(3)
 	}
+	pub fn set_associated_constants(&self) {
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = self.slash_defer_duration);
+		SESSIONS_PER_ERA.with(|v| *v.borrow_mut() = self.session_per_era);
+		ELECTION_LOOKAHEAD.with(|v| *v.borrow_mut() = self.election_lookahead);
+		PERIOD.with(|v| *v.borrow_mut() = self.session_length);
+		MAX_ITERATIONS.with(|v| *v.borrow_mut() = self.max_offchain_iterations);
+		OFFSET.with(|v| *v.borrow_mut() = self.offset);
+	}
+
 	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
 		self.minimum_bond = minimum_bond;
 		self
@@ -373,6 +438,7 @@ impl ExtBuilder {
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
+		self.set_associated_constants();
 		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let balance_factor = if self.existential_deposit > 1 { 256 } else { 1 };
 
