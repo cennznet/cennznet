@@ -211,7 +211,7 @@ impl<T: Config> OnEndEra for Module<T> {
 		);
 
 		// Deduct taxes from network spending
-		let _ = T::CurrencyToReward::deposit_into_existing(
+		let _ = T::CurrencyToReward::deposit_creating(
 			&T::TreasuryModuleId::get().into_account(),
 			next_reward.treasury_cut + remainder,
 		);
@@ -341,7 +341,7 @@ impl<T: Config> Module<T> {
 			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder).ok();
+		T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), remainder);
 	}
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
@@ -660,7 +660,7 @@ mod tests {
 
 		/// Make a payout to stash for the given era
 		fn run_payout(stash: &Self::AccountId, amount: Self::Balance, _era_index: EraIndex) -> Weight {
-			let _ = T::CurrencyToReward::deposit_into_existing(stash, amount);
+			let _ = T::CurrencyToReward::deposit_creating(stash, amount);
 			return Zero::zero();
 		}
 	}
