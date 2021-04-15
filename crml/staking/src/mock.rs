@@ -165,7 +165,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		Staking: staking::{Module, Call, Storage, Config<T>, Event<T>},
+		Staking: staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -460,6 +460,14 @@ impl ExtBuilder {
 				(31, balance_factor * 2000),
 				(40, balance_factor),
 				(41, balance_factor * 2000),
+				(50, balance_factor),
+				(51, balance_factor * 2000),
+				(60, balance_factor),
+				(61, balance_factor * 2000),
+				(70, balance_factor),
+				(71, balance_factor * 2000),
+				(80, balance_factor),
+				(81, balance_factor * 2000),
 				(100, 2000 * balance_factor),
 				(101, 2000 * balance_factor),
 				// This allows us to have a total_payout different from 0.
