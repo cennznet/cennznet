@@ -31,7 +31,7 @@ use frame_support::{
 	IterableStorageMap,
 };
 use pallet_im_online::UnresponsivenessOffence;
-use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
+use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
 use sp_core::{crypto::UncheckedFrom, H256};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
@@ -67,6 +67,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Staking::on_initialize(b);
 		Rewards::on_initialize(b);
 		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
+		pallet_babe::CurrentSlot::put(Slot::from(b as u64));
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
