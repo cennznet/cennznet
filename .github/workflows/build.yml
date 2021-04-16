@@ -34,3 +34,5 @@ jobs:
       run: cargo build --locked
     - name: Test
       run: cargo test --all
+    - name: Benchmark (build only)
+      run: cargo check --features=runtime-benchmarks
