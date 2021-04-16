@@ -42,7 +42,7 @@ pub struct ExtBuilder {
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
-			initial_balance: 100,
+			initial_balance: 0,
 			stash: 0,
 			initial_authorities: Default::default(),
 			invulnerable: true,
@@ -69,17 +69,14 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
+		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
 		let initial_authorities = if self.initial_authorities.is_empty() {
 			make_authority_keys(DEFAULT_VALIDATOR_COUNT)
 		} else {
 			self.initial_authorities.clone()
 		};
 		let stash_accounts: Vec<_> = initial_authorities.iter().map(|x| x.0.clone()).collect();
-		let mut endowed_accounts = Vec::new();
-		initial_authorities.iter().for_each(|x| {
-			endowed_accounts.push(x.0.clone());
-			endowed_accounts.push(x.1.clone());
-		});
+		endowed_accounts.extend(stash_accounts.clone());
 
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()

@@ -131,26 +131,29 @@ fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
 
 #[test]
 fn start_active_era_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		let blocks_per_era = SessionsPerEra::get() * EpochDuration::get() as u32;
-		start_active_era(1);
-		assert_eq!(System::block_number(), blocks_per_era + 1);
-		assert_eq!(Session::current_index(), SessionsPerEra::get());
-		assert_eq!(Staking::active_era().unwrap().index, 1);
+	ExtBuilder::default()
+		.initial_balance(1 * DOLLARS)
+		.build()
+		.execute_with(|| {
+			let blocks_per_era = SessionsPerEra::get() * EpochDuration::get() as u32;
+			start_active_era(1);
+			assert_eq!(System::block_number(), blocks_per_era + 1);
+			assert_eq!(Session::current_index(), SessionsPerEra::get());
+			assert_eq!(Staking::active_era().unwrap().index, 1);
 
-		// one session extra, should schedule the next era (poorly named 'current era')
-		advance_session();
-		assert_eq!(Staking::current_era().unwrap(), 2);
+			// one session extra, should schedule the next era (poorly named 'current era')
+			advance_session();
+			assert_eq!(Staking::current_era().unwrap(), 2);
 
-		start_active_era(2);
-		assert_eq!(System::block_number(), blocks_per_era * 2 + 1);
-		assert_eq!(Session::current_index(), SessionsPerEra::get() * 2);
-		assert_eq!(Staking::active_era().unwrap().index, 2);
-		assert_eq!(Staking::current_era().unwrap(), 2);
+			start_active_era(2);
+			assert_eq!(System::block_number(), blocks_per_era * 2 + 1);
+			assert_eq!(Session::current_index(), SessionsPerEra::get() * 2);
+			assert_eq!(Staking::active_era().unwrap().index, 2);
+			assert_eq!(Staking::current_era().unwrap(), 2);
 
-		advance_session();
-		assert_eq!(Staking::current_era().unwrap(), 3);
-	})
+			advance_session();
+			assert_eq!(Staking::current_era().unwrap(), 3);
+		})
 }
 
 #[test]
