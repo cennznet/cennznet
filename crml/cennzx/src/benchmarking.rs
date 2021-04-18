@@ -28,8 +28,6 @@ const TRADE_ASSET_A_ID: u32 = 2;
 const TRADE_ASSET_B_ID: u32 = 3;
 
 benchmarks! {
-	_{ }
-
 	buy_asset {
 		let investor: T::AccountId = whitelisted_caller();
 		let buyer: T::AccountId = account("buyer", 0, 0);
