@@ -43,5 +43,13 @@ pipeline {
                 archiveArtifacts artifacts: '*.rs'
             }
         }
+
+	stage('Commit files back') {
+	    steps {
+		sh 'git branch'
+		sh 'echo HELLOWORLD >> a.txt'
+		sh 'git add a.txt; git commit -m "add a.txt"; git push'
+	    }
+	}
     }
 }
