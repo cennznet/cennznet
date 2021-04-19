@@ -19,7 +19,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-		printParams()
+		script{
+		    printParams()
+		}
 		sh 'lscpu'
 		sh 'free -h'
                 sh '''
