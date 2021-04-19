@@ -22,6 +22,8 @@ pipeline {
 		script{
 		    printParams()
 		}
+		cleanWs()
+		sh 'git clean -fdx'
 		sh 'mkdir clean_dir && chmod 777 clean_dir'
 		dir('clean_dir'){
 		    //git checkout here
