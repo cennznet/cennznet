@@ -75,4 +75,10 @@ pipeline {
 	    }
 	}
     }
+    post {
+        always {
+            echo "clean workspace"
+            cleanWs()
+        }
+    }
 }
