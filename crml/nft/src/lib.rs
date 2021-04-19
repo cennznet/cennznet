@@ -38,6 +38,7 @@ use sp_runtime::{
 use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
 mod benchmarking;
+mod default_weights;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -205,12 +206,15 @@ decl_module! {
 
 		fn deposit_event() = default;
 
+		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			if ListingEndSchedule::<T>::contains_key(now) {
-				Self::close_listings_at(now);
+				let removed_count = Self::close_listings_at(now);
+				// 'direct_purchase' weight is comparable to succesful closure of an auction
+				T::WeightInfo::direct_purchase() * removed_count as Weight
+			} else {
+				Zero::zero()
 			}
-			// TODO: use benchmarked value
-			Zero::zero()
 		}
 
 		/// Create a new NFT collection
@@ -552,7 +556,9 @@ impl<T: Trait> Module<T> {
 	}
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships changes are made for winning bids
 	/// Metadata for listings will be removed from storage
-	fn close_listings_at(now: T::BlockNumber) {
+	/// Returns the number of listings removed
+	fn close_listings_at(now: T::BlockNumber) -> u32 {
+		let mut removed = 0_u32;
 		for (collection_id, token_id) in ListingEndSchedule::<T>::take(now).into_iter() {
 			match Listings::<T>::take(&collection_id, token_id) {
 				Some(Listing::DirectSale(_)) => {
@@ -594,7 +600,9 @@ impl<T: Trait> Module<T> {
 				}
 				_ => (),
 			}
+			removed += 1;
 		}
+		return removed;
 	}
 	/// Settle an auction listing (guaranteed to be atomic).
 	/// - transfer funds from winning bidder to entitled royalty accounts and seller

@@ -169,18 +169,22 @@ benchmarks! {
 	bid {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let buyer: T::AccountId = account("buyer", 0, 0);
+
 		let collection_id = setup_token::<T>(owner.clone());
 		let token_id = T::TokenId::from(0_u32);
 		let payment_asset = 16_000;
 		let reserve_price = 1_000_000 * 10_000; // 1 million 4dp asset
 		let duration = T::BlockNumber::from(100_u32);
 
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), reserve_price);
+		let _ = T::MultiCurrency::deposit_creating(&owner, Some(payment_asset), reserve_price);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), reserve_price + 1);
 		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, payment_asset, reserve_price, Some(duration)).expect("listed ok");
+		// worst case path is to replace an existing bid
+		let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, reserve_price);
 
-	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id, reserve_price)
+	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id, reserve_price + 1)
 	verify {
-		assert_eq!(<Nft<T>>::listing_winning_bid(&collection_id, token_id), Some((buyer.clone(), reserve_price)));
+		assert_eq!(<Nft<T>>::listing_winning_bid(&collection_id, token_id), Some((buyer.clone(), reserve_price + 1)));
 	}
 
 	cancel_sale {
