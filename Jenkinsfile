@@ -56,7 +56,9 @@ pipeline {
 
 	stage('Commit files back') {
 	    steps {
+		sh 'git checkout ${CHANGE_BRANCH}'
 		sh 'git branch'
+		sh 'git config --global user.email "you@example.com" && git config --global user.name "Your Name"'
 		sh 'echo HELLOWORLD >> a.txt'
 		sh 'git add a.txt; git commit -m "add a.txt"; git push'
 	    }
