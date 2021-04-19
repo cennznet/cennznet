@@ -33,7 +33,6 @@ use sp_runtime::{
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
-mod benchmarking;
 mod default_weights;
 mod types;
 pub use types::*;
