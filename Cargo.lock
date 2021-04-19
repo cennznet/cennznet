@@ -790,6 +790,9 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-bounties",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -4094,6 +4097,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-contracts"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-contracts-primitives",
+ "pallet-contracts-proc-macro",
+ "parity-scale-codec",
+ "parity-wasm 0.41.0",
+ "pwasm-utils 0.16.0",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-sandbox",
+ "sp-std",
+ "wasmi-validation",
+]
+
+[[package]]
+name = "pallet-contracts-primitives"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "bitflags",
+ "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-contracts-proc-macro"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "pallet-contracts-rpc-runtime-api"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "pallet-contracts-primitives",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "3.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
@@ -5023,6 +5081,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pwasm-utils"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c8ac87af529432d3a4f0e2b3bbf08af49f28f09cc73ed7e551161bdaef5f78d"
+dependencies = [
+ "byteorder",
+ "log",
+ "parity-wasm 0.41.0",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5930,7 +5999,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parity-wasm 0.41.0",
- "pwasm-utils",
+ "pwasm-utils 0.14.0",
  "sc-executor-common",
  "scoped-tls",
  "sp-allocator",
@@ -7333,6 +7402,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sp-sandbox"
+version = "0.9.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-wasm-interface",
+ "wasmi",
 ]
 
 [[package]]
