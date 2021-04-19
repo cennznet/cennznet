@@ -15,9 +15,9 @@ sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug
 sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve", default-features = false, optional = true }
 frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve", default-features = false, optional = true }
 prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve", default-features = false }
 variant_count = "1.0.0"
 
@@ -25,7 +25,6 @@ variant_count = "1.0.0"
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 
 [features]
-migrate = []
 default = ["std"]
 std = [
 	"cennznet-primitives/std",

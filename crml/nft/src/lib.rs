@@ -37,6 +37,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
