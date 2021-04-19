@@ -29,7 +29,7 @@ use frame_support::{
 	weights::Weight,
 	Parameter,
 };
-use frame_system::{ensure_signed, WeightInfo};
+use frame_system::ensure_signed;
 use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, Member, One, Saturating, Zero},
@@ -59,6 +59,19 @@ pub trait Trait: frame_system::Trait {
 	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
+}
+
+/// NFT module weights
+pub trait WeightInfo {
+	fn create_collection() -> Weight;
+	fn create_token() -> Weight;
+	fn transfer() -> Weight;
+	fn burn() -> Weight;
+	fn direct_sale() -> Weight;
+	fn direct_purchase() -> Weight;
+	fn auction() -> Weight;
+	fn bid() -> Weight;
+	fn cancel_sale() -> Weight;
 }
 
 decl_event!(
@@ -205,7 +218,7 @@ decl_module! {
 		/// `collection_id`- 32 byte utf-8 string
 		/// `schema` - for the collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
-		#[weight = 0]
+		#[weight = T::WeightInfo::create_collection()]
 		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -245,7 +258,7 @@ decl_module! {
 		/// `attributes` - initial values according to the NFT collection/schema
 		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
 		/// Caller must be the collection owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::create_token()]
 		#[transactional]
 		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -295,7 +308,7 @@ decl_module! {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::transfer()]
 		fn transfer(origin, collection_id: CollectionId, token_id: T::TokenId, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
 
@@ -313,7 +326,7 @@ decl_module! {
 
 		/// Burn an NFT 🔥
 		/// Caller must be the token owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::burn()]
 		fn burn(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
 
@@ -344,7 +357,7 @@ decl_module! {
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
 		/// Caller must be the token owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::direct_sale()]
 		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
@@ -367,7 +380,7 @@ decl_module! {
 		}
 
 		/// Buy an NFT for its listed price, must be listed for sale
-		#[weight = 0]
+		#[weight = T::WeightInfo::direct_purchase()]
 		#[transactional]
 		fn direct_purchase(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
@@ -421,7 +434,7 @@ decl_module! {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[weight = 0]
+		#[weight = T::WeightInfo::auction()]
 		fn auction(origin, collection_id: CollectionId, token_id: T::TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
@@ -445,7 +458,7 @@ decl_module! {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
-		#[weight = 0]
+		#[weight = T::WeightInfo::bid()]
 		#[transactional]
 		fn bid(origin, collection_id: CollectionId, token_id: T::TokenId, amount: Balance) {
 			let origin = ensure_signed(origin)?;
@@ -489,7 +502,7 @@ decl_module! {
 		/// Close a sale or auction
 		/// Requires no successful bids have been made for the auction.
 		/// Caller must be the token owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::cancel_sale()]
 		fn cancel_sale(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
