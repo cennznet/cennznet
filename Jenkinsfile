@@ -40,6 +40,7 @@ pipeline {
                 sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
                 sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 2 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled'
+		sh 'touch empty.rs'
                 archiveArtifacts artifacts: '*.rs'
             }
         }
