@@ -84,6 +84,10 @@ substrate-build-script-utils = { rev = "v3.0.0-rc4", git = "https://github.com/p
 
 [features]
 default = []
+# Uses integration test config for quicker staking eras + epochs
+quick_staking = [
+	"cennznet-runtime/integration_config"
+]
 runtime-benchmarks = [
 	"cennznet-runtime/runtime-benchmarks",
 ]

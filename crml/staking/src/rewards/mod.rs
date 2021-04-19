@@ -607,6 +607,11 @@ mod tests {
 		type SS58Prefix = ();
 	}
 
+	// As generic asset now deals with existential deposits of the balances, we need to specify what
+	// should happen when an account is dust cleaned. This may happen during some generic asset
+	// operations if the policy of that operation allows it. Currently cennznet runtime transfers the
+	// dust balances to the treasury account. It would be good for staking tests to do the same so the
+	// tests simulates a more realistic scenario.
 	pub struct TransferImbalanceToTreasury;
 	impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
 		fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {

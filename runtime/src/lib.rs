@@ -93,7 +93,8 @@ use constants::{currency::*, time::*};
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	RootMemberOnly, ScheduledPayoutRunner, SlashFundsToTreasury, TransferImbalanceToTreasury, WeightToCpayFee,
+	DealWithFees, RootMemberOnly, ScheduledPayoutRunner, SlashFundsToTreasury, TransferImbalanceToTreasury,
+	WeightToCpayFee,
 };
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
@@ -137,20 +138,6 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 
-type NegativeImbalance = <prml_generic_asset::SpendingAssetCurrency<Runtime> as Currency<AccountId>>::NegativeImbalance;
-
-pub struct DealWithFees;
-impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-		if let Some(fees) = fees_then_tips.next() {
-			Rewards::note_transaction_fees(fees.peek());
-			if let Some(tips) = fees_then_tips.next() {
-				Rewards::note_transaction_fees(tips.peek());
-			}
-		}
-	}
-}
-
 // Configure modules to include in the runtime.
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
@@ -159,7 +146,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 2 seconds of compute with a 6 second average block time.
+/// We allow for 2 seconds of compute with a 5 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
 parameter_types! {

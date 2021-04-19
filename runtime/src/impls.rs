@@ -20,7 +20,7 @@ use crate::{BlockPayoutInterval, EpochDuration, GenericAsset, Rewards, Runtime, 
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
 use frame_support::{
-	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
+	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use prml_generic_asset::{CheckedImbalance, NegativeImbalance, StakingAssetCurrency};
@@ -45,6 +45,18 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
+
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			Rewards::note_transaction_fees(fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				Rewards::note_transaction_fees(tips.peek());
+			}
+		}
+	}
+}
 
 impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;

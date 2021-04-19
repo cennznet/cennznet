@@ -89,6 +89,9 @@ zeroize = { opt-level = 3 }
 
 [features]
 default = []
+quick_staking = [
+	"cennznet-cli/quick_staking"
+]
 runtime-benchmarks = [
 	"cennznet-cli/runtime-benchmarks"
 ]
