@@ -217,7 +217,7 @@ impl crml_nft::Trait for Runtime {
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = weights::crml_nft::WeightInfo;
+	type WeightInfo = weights::crml_nft::WeightInfo<Self>;
 }
 
 parameter_types! {
