@@ -30,6 +30,7 @@ pipeline {
 		    sh 'ls -l'
 		    sh 'git branch'
 		    sh 'git branch -a'
+		    sh 'git checkout ${CHANGE_BRANCH}'
 		}
 
 		sh 'lscpu'
