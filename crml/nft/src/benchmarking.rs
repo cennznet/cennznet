@@ -55,6 +55,13 @@ fn setup_collection<T: Trait>(creator: T::AccountId) -> (CollectionId, NFTSchema
 fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 	let creator: T::AccountId = whitelisted_caller();
 	let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
+	let _ = <Nft<T>>::create_collection(
+		RawOrigin::Signed(creator.clone()).into(),
+		collection_id.clone(),
+		schema.clone(),
+		Some(royalties.clone()),
+	)
+	.expect("created collection");
 	// all attributes max. length
 	let attributes = schema
 		.iter()
