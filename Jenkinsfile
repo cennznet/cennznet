@@ -22,7 +22,7 @@ pipeline {
 		script{
 		    printParams()
 		}
-		sh 'mkdir clean_dir'
+		sh 'mkdir clean_dir && chmod 777 clean_dir'
 		dir('clean_dir'){
 		    //git checkout here
 		    checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[credentialsId: '78db44c0-87cf-4401-a501-cff1cf4aa903', url: 'git@github.com:cennznet/cennznet.git']]])
