@@ -13,10 +13,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-		sh 'git clean -fdx'
 		sh 'mkdir clean_dir && chmod 777 clean_dir'
 		dir('clean_dir'){
-		    checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[credentialsId: 'cennznet-bot-ssh-key', url: 'git@github.com:cennznet/cennznet.git']]])
+		    checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
 		    sh 'ls -l'
 		    sh 'git branch'
 		    sh 'git branch -a'
