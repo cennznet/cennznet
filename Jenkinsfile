@@ -22,9 +22,15 @@ pipeline {
 		    sh 'git branch -a'
 		    sh 'git checkout ${CHANGE_BRANCH}'
 		    sh 'echo HELLO >> hello.txt'
-		    sh 'git config --global user.email "you@example.com" && git config --global user.name "Your Name"'
-                    sh 'echo HELLOWORLD >> a.txt'
-                    sh 'git add a.txt; git commit -m "add a.txt"; git push'
+		    sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
+		    withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot", keyFileVariable: 'keyfile')]) {
+			sh 'mkdir -p ~/.ssh/'
+			sh 'cp ${keyfile} ~/.ssh/id_rsa'
+			sh 'ls ~/.ssh/'
+			
+			sh 'echo HELLOWORLD >> a.txt'
+			sh 'git add a.txt; git commit -m "add a.txt"; git push'
+		    }
 		}
 
 		sh 'lscpu'
