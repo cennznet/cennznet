@@ -27,7 +27,7 @@ pipeline {
 			sh 'mkdir -p ~/.ssh/'
 			sh 'cp ${keyfile} ~/.ssh/id_rsa'
 			sh 'ls ~/.ssh/'
-			
+			sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
 			sh 'echo HELLOWORLD >> a.txt'
 			sh 'git add a.txt; git commit -m "add a.txt"; git push'
 		    }
