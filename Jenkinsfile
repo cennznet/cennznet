@@ -23,7 +23,7 @@ pipeline {
 		    sh 'git checkout ${CHANGE_BRANCH}'
 		    sh 'echo HELLO >> hello.txt'
 		    sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
-		    withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot", keyFileVariable: 'keyfile')]) {
+		    withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
 			sh 'mkdir -p ~/.ssh/'
 			sh 'cp ${keyfile} ~/.ssh/id_rsa'
 			sh 'ls ~/.ssh/'
