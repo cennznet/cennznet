@@ -13,25 +13,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-		sh 'mkdir clean_dir && chmod 777 clean_dir'
-		dir('clean_dir'){
-		    checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
-		    sh 'ls -l'
-		    sh 'git branch'
-		    sh 'git branch -a'
-		    sh 'git checkout ${CHANGE_BRANCH}'
-		    sh 'echo HELLO >> hello.txt'
-		    sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
-		    withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
-			sh 'mkdir -p ~/.ssh/'
-			sh 'cp ${keyfile} ~/.ssh/id_rsa'
-			sh 'ls ~/.ssh/'
-			sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
-			sh 'echo HELLOWORLD >> a.txt'
-			sh 'git add a.txt; git commit -m "add a.txt"; git push'
-		    }
-		}
-
 		sh 'lscpu'
 		sh 'free -h'
                 sh '''
@@ -56,15 +37,36 @@ pipeline {
 
         stage('Run Benchmarks') {
             steps{
+		sh 'mkdir output_dir'
                 sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
-                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 2 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output .'
-                archiveArtifacts artifacts: '*.rs'
+                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 2 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+                archiveArtifacts artifacts: 'output_dir/*'
             }
         }
 
 	stage('Commit files back') {
 	    steps {
+		sh 'mkdir clean_dir && chmod 777 clean_dir'
+		dir('clean_dir'){
+		    checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
+		    sh 'ls -l'
+		    sh 'git branch'
+		    sh 'git branch -a'
+		    sh 'git checkout ${CHANGE_BRANCH}'
+		    sh 'cp ../output_dir/* runtime/src/weights/'
+		    sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
+		    withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
+			sh 'mkdir -p ~/.ssh/'
+			sh 'cp ${keyfile} ~/.ssh/id_rsa'
+			sh 'ls ~/.ssh/'
+			sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
+			sh 'git diff'
+			sh 'git add .; git commit -m "add new benchmark files"; git push'
+		    }
+		}
+
+
 		sh 'git checkout ${CHANGE_BRANCH}'
 		sh 'git branch -a'
 	    }
