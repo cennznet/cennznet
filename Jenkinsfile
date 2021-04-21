@@ -66,9 +66,6 @@ pipeline {
 		    }
 		}
 
-
-		sh 'git checkout ${CHANGE_BRANCH}'
-		sh 'git branch -a'
 	    }
 	}
     }
