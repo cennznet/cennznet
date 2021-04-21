@@ -42,6 +42,9 @@ pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", de
 pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
 pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
+pallet-contracts = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
+pallet-contracts-primitives = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
 
 frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc4" }
@@ -116,6 +119,9 @@ std = [
 	"pallet-tips/std",
 	"pallet-bounties/std",
 	"pallet-utility/std",
+	"pallet-contracts/std",
+	"pallet-contracts-primitives/std",
+	"pallet-contracts-rpc-runtime-api/std",
 	"prml-attestation/std",
 	"prml-generic-asset/std",
 	"prml-generic-asset-rpc-runtime-api/std",
@@ -164,6 +170,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-tips/try-runtime",
+	"pallet-contracts/try-runtime",
 	"crml-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",

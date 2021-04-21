@@ -19,9 +19,9 @@
 use cennznet_primitives::types::Block;
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig, GrandpaConfig,
-	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, WASM_BINARY,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, ContractsConfig, FeeRate, GenericAssetConfig,
+	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus,
+	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -178,6 +178,9 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			minimum_bond: 1,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
+		}),
+		pallet_contracts: Some(ContractsConfig {
+			current_schedule: Default::default(),
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
