@@ -11,27 +11,27 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Trait> crml_cennzx::WeightInfo for WeightInfo<T> {
 	fn buy_asset() -> Weight {
-		(290_169_000 as Weight)
+		(289_501_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn sell_asset() -> Weight {
-		(286_810_000 as Weight)
+		(288_827_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn add_liquidity() -> Weight {
-		(202_529_000 as Weight)
+		(202_106_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(8 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn remove_liquidity() -> Weight {
-		(208_704_000 as Weight)
+		(219_292_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(8 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn set_fee_rate() -> Weight {
-		(12_100_000 as Weight)
+		(11_772_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
