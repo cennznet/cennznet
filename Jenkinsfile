@@ -31,6 +31,9 @@ pipeline {
                   mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
                 '''
                 sh 'cargo build --release --features runtime-benchmarks'
+		sh 'cargo test -p crml-staking --features runtime-benchmarks'
+                sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
+
             }
         }
 
@@ -39,8 +42,6 @@ pipeline {
             agent { label 'benchmark'}
             steps{
                 sh 'mkdir output_dir'
-                sh 'cargo test -p crml-staking --features runtime-benchmarks'
-                sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
                 sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 20 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
