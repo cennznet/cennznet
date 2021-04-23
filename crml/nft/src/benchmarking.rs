@@ -20,7 +20,7 @@
 use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_system::RawOrigin;
+use frame_system::{Module as System, RawOrigin};
 use sp_runtime::Permill;
 
 use crate::types::MAX_ENTITLEMENTS;
@@ -62,10 +62,11 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 		Some(royalties.clone()),
 	)
 	.expect("created collection");
+	assert_eq!(140, T::MaxAttributeLength::get() as usize);
 	// all attributes max. length
 	let attributes = schema
 		.iter()
-		.map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec()))
+		.map(|_| NFTAttributeValue::String([1_u8; 140].to_vec()))
 		.collect::<Vec<NFTAttributeValue>>();
 	let _ = <Nft<T>>::create_token(
 		RawOrigin::Signed(creator.clone()).into(),
@@ -110,6 +111,8 @@ benchmarks! {
 		let collection_id = setup_token::<T>(owner.clone());
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
 		let token_id = T::TokenId::from(0_u32);
+		// Add some tokens to stress test the ownership removal process
+		<CollectedTokens<T>>::insert(collection_id.clone(), owner.clone(), vec![T::TokenId::from(1_u32); 1_000]);
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, new_owner.clone())
 	verify {
@@ -120,6 +123,8 @@ benchmarks! {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
 		let token_id = T::TokenId::from(0_u32);
+		// Add some tokens to stress test the ownership removal process
+		<CollectedTokens<T>>::insert(collection_id.clone(), owner.clone(), vec![T::TokenId::from(1_u32); 1_000]);
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
 	verify {
@@ -194,7 +199,9 @@ benchmarks! {
 		let payment_asset = 16_000;
 		let reserve_price = 1_000_000 * 10_000; // 1 million 4dp asset
 		let duration = T::BlockNumber::from(100_u32);
-
+		// Add some listing data to stress test the listing removal process
+		let fake_listing: (CollectionId, T::TokenId) = (b"some-collection-id".to_vec(), T::TokenId::from(1_u32));
+		ListingEndSchedule::<T>::insert(<System<T>>::block_number(), vec![fake_listing; 1_000]);
 		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, payment_asset, reserve_price, Some(duration)).expect("listed ok");
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
