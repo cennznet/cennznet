@@ -101,18 +101,9 @@ impl NFTAttributeValue {
 	}
 }
 
-/// A single data field of an NFT
-#[derive(Decode, Encode, Debug, Clone, PartialEq)]
-pub struct NFTAttribute {
-	/// name of the attribute
-	pub name: NFTAttributeName,
-	/// value of the attribute
-	pub value: NFTAttributeValue,
-}
-
 /// The max. number of entitlements any royalties schedule can have
 /// just a sensible upper bound
-const MAX_ENTITLEMENTS: usize = 8;
+pub(crate) const MAX_ENTITLEMENTS: usize = 8;
 
 /// Reasons for an auction closure
 #[derive(Decode, Encode, Debug, Clone, PartialEq, Eq)]

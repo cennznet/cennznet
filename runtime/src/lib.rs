@@ -217,7 +217,7 @@ impl crml_nft::Trait for Runtime {
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = ();
+	type WeightInfo = weights::crml_nft::WeightInfo<Self>;
 }
 
 parameter_types! {
@@ -918,6 +918,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
+			add_benchmark!(params, batches, crml_nft, Nft);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
