@@ -48,7 +48,13 @@ pipeline {
         }
 
         stage('Commit files back') {
-            agent { label 'benchmark'}
+            agent {
+                docker {
+                    label 'benchmark'
+                    image 'rustlang/rust:nightly'
+                    args '-u root:root'
+                }
+            }
             steps {
                 sh 'mkdir clean_dir && chmod 777 clean_dir'
                 dir('clean_dir'){
