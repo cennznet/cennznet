@@ -31,8 +31,8 @@ pipeline {
                   mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
                 '''
                 sh 'cargo build --release --features runtime-benchmarks'
-		//sh 'cargo test -p crml-staking --features runtime-benchmarks'
-                //sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
+		sh 'cargo test -p crml-staking --features runtime-benchmarks'
+                sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
 
             }
         }
@@ -59,10 +59,8 @@ pipeline {
                 sh 'mkdir clean_dir && chmod 777 clean_dir'
                 dir('clean_dir'){
                     checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
-                    sh 'ls -l'
-                    sh 'git branch'
-                    sh 'git branch -a'
                     sh 'git checkout ${CHANGE_BRANCH}'
+		    sh 'git branch'
                     sh 'cp ../output_dir/* runtime/src/weights/'
                     sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
                     withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
@@ -71,7 +69,7 @@ pipeline {
                         sh 'ls ~/.ssh/'
                         sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
                         sh 'git diff'
-                        sh 'git add .; git commit -m "add new benchmark files"; git push'
+                        sh 'git add .; git commit -m "add new benchmark files `date`"; git push'
                     }
                 }
 
