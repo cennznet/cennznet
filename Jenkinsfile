@@ -31,7 +31,7 @@ pipeline {
                   mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
                 '''
                 sh 'cargo build --release --features runtime-benchmarks'
-		sh 'cargo test -p crml-staking --features runtime-benchmarks'
+                sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
 
             }
@@ -40,9 +40,9 @@ pipeline {
 
         stage('Run Benchmarks') {
             agent { label 'benchmark'}
-            steps{
+            steps {
                 sh 'rm -rf output_dir && mkdir output_dir'
-                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 20 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
         }
@@ -60,7 +60,7 @@ pipeline {
                 dir('clean_dir'){
                     checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
                     sh 'git checkout ${CHANGE_BRANCH}'
-		    sh 'git branch'
+                    sh 'git branch'
                     sh 'cp ../output_dir/* runtime/src/weights/'
                     sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
                     withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
@@ -74,12 +74,12 @@ pipeline {
                 }
 
             }
-	    post {
-		always {
-		    echo "clean workspace"
-		    cleanWs()
-		}
-	    }
+            post {
+                always {
+                    echo "clean workspace"
+                    cleanWs()
+                }
+            }
 
         }
     }
