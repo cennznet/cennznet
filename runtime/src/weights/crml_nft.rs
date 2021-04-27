@@ -1,6 +1,6 @@
 //! Weights for crml_nft
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 2.0.0
-//! DATE: 2021-04-19, STEPS: [50], REPEAT: 100, LOW RANGE: [], HIGH RANGE: []
+//! DATE: 2021-04-27, STEPS: [50], REPEAT: 200, LOW RANGE: [], HIGH RANGE: []
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 128
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -11,47 +11,47 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Trait> crml_nft::WeightInfo for WeightInfo<T> {
 	fn create_collection() -> Weight {
-		(74_000_000 as Weight)
+		(78_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn create_token() -> Weight {
-		(135_000_000 as Weight)
+		(149_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn transfer() -> Weight {
-		(97_000_000 as Weight)
+		(122_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(6 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn burn() -> Weight {
-		(120_000_000 as Weight)
+		(149_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(6 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
 	}
 	fn direct_sale() -> Weight {
-		(69_000_000 as Weight)
+		(76_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 	fn direct_purchase() -> Weight {
-		(333_000_000 as Weight)
+		(354_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(12 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
 	fn auction() -> Weight {
-		(65_000_000 as Weight)
+		(70_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 	fn bid() -> Weight {
-		(153_000_000 as Weight)
+		(166_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(8 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	fn cancel_sale() -> Weight {
-		(74_000_000 as Weight)
+		(79_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}

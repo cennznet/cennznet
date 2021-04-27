@@ -138,7 +138,7 @@ benchmarks! {
 		let payment_asset = 16_000;
 		let price = 1_000_000 * 10_000; // 1 million 4dp asset
 
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, Some(owner.clone()), payment_asset, price)
+	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, Some(owner.clone()), payment_asset, price, None)
 	verify {
 		assert!(<Nft<T>>::listings(&collection_id, token_id).is_some());
 	}
@@ -151,7 +151,7 @@ benchmarks! {
 		let payment_asset = 16_000;
 		let price = 1_000_000 * 10_000; // 1 million 4dp asset
 		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
-		let _ = <Nft<T>>::direct_sale(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price).expect("listed ok");
+		let _ = <Nft<T>>::direct_sale(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price, None).expect("listed ok");
 
 	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id)
 	verify {
