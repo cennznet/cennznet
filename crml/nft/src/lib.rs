@@ -360,16 +360,17 @@ decl_module! {
 		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
+		/// `duration` listing duration time in blocks
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::direct_sale()]
-		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance) {
+		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
-			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(T::DefaultListingDuration::get());
+			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::mutate(listing_end_block, |schedule| schedule.push((collection_id.clone(), token_id)));
 			let listing = Listing::<T>::DirectSale(
 				DirectSaleListing::<T> {
@@ -445,7 +446,7 @@ decl_module! {
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
-			let listing_end_block = duration.unwrap_or_else(|| <frame_system::Module<T>>::block_number().saturating_add(T::DefaultListingDuration::get()));
+			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::mutate(listing_end_block, |schedule| schedule.push((collection_id.clone(), token_id)));
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {

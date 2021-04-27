@@ -597,7 +597,8 @@ fn transfer_fails_prechecks() {
 			token_id,
 			Some(5),
 			16_000,
-			1_000
+			1_000,
+			None,
 		));
 		// cannot transfer while listed
 		assert_noop!(
@@ -679,7 +680,8 @@ fn burn_fails_prechecks() {
 			token_id,
 			None,
 			16_000,
-			1_000
+			1_000,
+			None,
 		));
 		// cannot burn while listed
 		assert_noop!(
@@ -699,7 +701,8 @@ fn direct_sale() {
 			token_id,
 			Some(5),
 			16_000,
-			1_000
+			1_000,
+			None,
 		));
 
 		let expected = Listing::<Test>::DirectSale(DirectSaleListing::<Test> {
@@ -740,7 +743,8 @@ fn direct_sale_prechecks() {
 				token_id,
 				Some(5),
 				16_000,
-				1_000
+				1_000,
+				None,
 			),
 			Error::<Test>::NoPermission
 		);
@@ -751,7 +755,8 @@ fn direct_sale_prechecks() {
 			token_id,
 			Some(5),
 			16_000,
-			1_000
+			1_000,
+			None,
 		));
 		assert_noop!(
 			Nft::direct_sale(
@@ -760,7 +765,8 @@ fn direct_sale_prechecks() {
 				token_id,
 				Some(5),
 				16_000,
-				1_000
+				1_000,
+				None,
 			),
 			Error::<Test>::TokenListingProtection
 		);
@@ -790,7 +796,8 @@ fn cancel_direct_sale() {
 			token_id,
 			Some(5),
 			16_000,
-			1_000
+			1_000,
+			None,
 		));
 		assert_ok!(Nft::cancel_sale(
 			Some(token_owner).into(),
@@ -820,21 +827,24 @@ fn cancel_direct_sale() {
 fn direct_sale_closes_on_schedule() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
+		let listing_duration = 100;
 		assert_ok!(Nft::direct_sale(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
 			Some(5),
 			16_000,
-			1_000
+			1_000,
+			Some(listing_duration),
 		));
 
-		Nft::on_initialize(System::block_number() + <Test as Trait>::DefaultListingDuration::get());
+		// sale should close after the duration expires
+		Nft::on_initialize(System::block_number() + listing_duration);
 
 		assert_eq!(Nft::token_owner(&collection_id, token_id), token_owner);
 		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
 		assert!(!ListingEndSchedule::<Test>::contains_key(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+			System::block_number() + listing_duration
 		));
 
 		// should be free to transfer now
@@ -862,7 +872,8 @@ fn direct_purchase() {
 			token_id,
 			Some(buyer),
 			payment_asset,
-			price
+			price,
+			None,
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
@@ -911,7 +922,8 @@ fn direct_purchase_with_bespoke_token_royalties() {
 			token_id,
 			Some(buyer),
 			payment_asset,
-			sale_price
+			sale_price,
+			None,
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
@@ -983,7 +995,8 @@ fn direct_purchase_with_collection_royalties() {
 			token_id,
 			Some(buyer),
 			payment_asset,
-			sale_price
+			sale_price,
+			None,
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
@@ -1047,7 +1060,8 @@ fn direct_purchase_fails_prechecks() {
 			token_id,
 			Some(buyer),
 			payment_asset,
-			price
+			price,
+			None,
 		));
 
 		// no permission
@@ -1078,7 +1092,8 @@ fn direct_listing_for_anybody() {
 			token_id,
 			None,
 			payment_asset,
-			price
+			price,
+			None,
 		));
 
 		let buyer = 11;
@@ -1129,7 +1144,8 @@ fn direct_purchase_with_overcommitted_royalties() {
 			token_id,
 			Some(buyer),
 			payment_asset,
-			price
+			price,
+			None,
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
@@ -1208,7 +1224,7 @@ fn auction() {
 			token_id,
 			payment_asset,
 			reserve_price,
-			Some(System::block_number() + 1),
+			Some(1),
 		));
 
 		// first bidder at reserve price
@@ -1291,7 +1307,7 @@ fn auction_royalty_payments() {
 			token_id,
 			payment_asset,
 			reserve_price,
-			Some(System::block_number() + 1),
+			Some(1),
 		));
 
 		// first bidder at reserve price
@@ -1429,7 +1445,7 @@ fn auction_fails_prechecks() {
 				token_id,
 				payment_asset,
 				reserve_price,
-				Some(System::block_number() + 1),
+				Some(1),
 			),
 			Error::<Test>::NoPermission
 		);
@@ -1442,7 +1458,7 @@ fn auction_fails_prechecks() {
 				2,
 				payment_asset,
 				reserve_price,
-				Some(System::block_number() + 1),
+				Some(1),
 			),
 			Error::<Test>::NoPermission
 		);
@@ -1455,7 +1471,7 @@ fn auction_fails_prechecks() {
 				token_id,
 				payment_asset,
 				reserve_price,
-				Some(System::block_number() + 1),
+				Some(1),
 			),
 			Error::<Test>::NoPermission
 		);
@@ -1467,7 +1483,7 @@ fn auction_fails_prechecks() {
 			token_id,
 			payment_asset,
 			reserve_price,
-			Some(System::block_number() + 1),
+			Some(1),
 		));
 		// already listed
 		assert_noop!(
@@ -1477,7 +1493,7 @@ fn auction_fails_prechecks() {
 				token_id,
 				payment_asset,
 				reserve_price,
-				Some(System::block_number() + 1),
+				Some(1),
 			),
 			Error::<Test>::TokenListingProtection
 		);
@@ -1491,6 +1507,7 @@ fn auction_fails_prechecks() {
 				None,
 				payment_asset,
 				reserve_price,
+				None,
 			),
 			Error::<Test>::TokenListingProtection
 		);
@@ -1515,7 +1532,7 @@ fn bid_fails_prechecks() {
 			token_id,
 			payment_asset,
 			reserve_price,
-			Some(System::block_number() + 1),
+			Some(1),
 		));
 
 		let bidder = 5;
