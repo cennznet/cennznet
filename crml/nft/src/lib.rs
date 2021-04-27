@@ -35,7 +35,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, Member, One, Saturating, Zero},
 	DispatchResult,
 };
-use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 mod benchmarking;
 mod default_weights;
@@ -240,9 +240,10 @@ decl_module! {
 			);
 
 			// Attribute names must be unique (future proofing for map lookups etc.)
-			let (attribute_names, _): (Vec<NFTAttributeName>, Vec<NFTAttributeTypeId>) = schema.iter().cloned().unzip();
-			let deduped = BTreeSet::from_iter(attribute_names);
-			ensure!(deduped.len() == schema.len(), Error::<T>::SchemaDuplicateAttribute);
+			let mut set = BTreeSet::new();
+			for (name, _type_id) in schema.iter() {
+				ensure!(set.insert(name), Error::<T>::SchemaDuplicateAttribute);
+			}
 
 			// Create the collection, update ownership, and bookkeeping
 			if let Some(royalties_schedule) = royalties_schedule {
