@@ -126,7 +126,7 @@ decl_error! {
 		/// The schema contains an invalid type
 		SchemaInvalid,
 		/// The schema contains a duplicate attribute name
-		SchenmaDuplicateAttribute,
+		SchemaDuplicateAttribute,
 		/// Given attirbute value is larger than the configured max.
 		MaxAttributeLength,
 		/// origin does not have permission for the operation
@@ -242,7 +242,7 @@ decl_module! {
 			// Attribute names must be unique (future proofing for map lookups etc.)
 			let (attribute_names, _): (Vec<NFTAttributeName>, Vec<NFTAttributeTypeId>) = schema.iter().cloned().unzip();
 			let deduped = BTreeSet::from_iter(attribute_names);
-			ensure!(deduped.len() == schema.len(), Error::<T>::SchenmaDuplicateAttribute);
+			ensure!(deduped.len() == schema.len(), Error::<T>::SchemaDuplicateAttribute);
 
 			// Create the collection, update ownership, and bookkeeping
 			if let Some(royalties_schedule) = royalties_schedule {
@@ -413,15 +413,14 @@ decl_module! {
 					T::MultiCurrency::transfer(&origin, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
-					let for_royalties = royalty_fees * listing.fixed_price;
-					let for_seller = listing.fixed_price - for_royalties;
-
+					let mut for_seller = listing.fixed_price;
 					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
-					imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 					for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
-						let amount = entitlement * listing.fixed_price;
-						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), amount)?).map_err(|_| Error::<T>::InternalPayment)?;
+						let royalty = entitlement * listing.fixed_price;
+						for_seller -= royalty;
+						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
+					imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 				}
 
 				// must not fail now that payment has been made
@@ -623,13 +622,14 @@ impl<T: Trait> Module<T> {
 		};
 
 		let for_royalties = royalties_schedule.calculate_total_entitlement() * hammer_price;
-		let for_seller = hammer_price - for_royalties; // will not underflow (0 <= total_entitlement <= hammer_price)
+		let mut for_seller = hammer_price;
 
 		// do royalty payments
 		if !for_royalties.is_zero() {
 			for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
 				let royalty = entitlement * hammer_price;
 				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
+				for_seller -= royalty;
 			}
 		}
 

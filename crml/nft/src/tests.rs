@@ -163,7 +163,7 @@ fn create_collection_invalid_schema() {
 				],
 				None,
 			),
-			Error::<Test>::SchenmaDuplicateAttribute
+			Error::<Test>::SchemaDuplicateAttribute
 		);
 
 		let too_many_attributes: NFTSchema = (0..=MAX_SCHEMA_FIELDS as usize)
@@ -895,15 +895,15 @@ fn direct_purchase_with_bespoke_token_royalties() {
 		let beneficiary_2 = 12;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.125)),
-				(beneficiary_1, Permill::from_fraction(0.05)),
-				(beneficiary_2, Permill::from_fraction(0.03)),
+				(collection_owner, Permill::from_fraction(0.111)),
+				(beneficiary_1, Permill::from_fraction(0.1111)),
+				(beneficiary_2, Permill::from_fraction(0.3333)),
 			],
 		};
 		let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone());
 		let buyer = 5;
 		let payment_asset = 16_000;
-		let sale_price = 1_234_567_890;
+		let sale_price = 1_000_004;
 
 		assert_ok!(Nft::direct_sale(
 			Some(token_owner).into(),
@@ -921,12 +921,6 @@ fn direct_purchase_with_bespoke_token_royalties() {
 			token_id
 		));
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
-		let for_royalties = royalties_schedule.calculate_total_entitlement() * sale_price;
-		// token owner gets sale price less royalties
-		assert_eq!(
-			GenericAsset::free_balance(payment_asset, &token_owner),
-			sale_price - for_royalties
-		);
 		// royalties distributed according to `entitlements` map
 		assert_eq!(
 			GenericAsset::free_balance(payment_asset, &collection_owner),
@@ -939,6 +933,16 @@ fn direct_purchase_with_bespoke_token_royalties() {
 		assert_eq!(
 			GenericAsset::free_balance(payment_asset, &beneficiary_2),
 			royalties_schedule.entitlements[2].1 * sale_price
+		);
+		// token owner gets sale price less royalties
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &token_owner),
+			sale_price
+				- royalties_schedule
+					.entitlements
+					.into_iter()
+					.map(|(_, e)| e * sale_price)
+					.sum::<Balance>()
 		);
 		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
 
@@ -1268,15 +1272,15 @@ fn auction() {
 fn auction_royalty_payments() {
 	ExtBuilder::default().build().execute_with(|| {
 		let payment_asset = 16_000;
-		let reserve_price = 100_000;
+		let reserve_price = 100_004;
 		let beneficiary_1 = 11;
 		let beneficiary_2 = 12;
 		let collection_owner = 1;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.125)),
-				(beneficiary_1, Permill::from_fraction(0.05)),
-				(beneficiary_2, Permill::from_fraction(0.3)),
+				(collection_owner, Permill::from_fraction(0.1111)),
+				(beneficiary_1, Permill::from_fraction(0.1111)),
+				(beneficiary_2, Permill::from_fraction(0.1111)),
 			],
 		};
 		let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone());
@@ -1305,12 +1309,6 @@ fn auction_royalty_payments() {
 
 		// royaties paid out
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
-		let for_royalties = royalties_schedule.calculate_total_entitlement() * reserve_price;
-		// token owner gets sale price less royalties
-		assert_eq!(
-			GenericAsset::free_balance(payment_asset, &token_owner),
-			reserve_price - for_royalties
-		);
 		// royalties distributed according to `entitlements` map
 		assert_eq!(
 			GenericAsset::free_balance(payment_asset, &collection_owner),
@@ -1323,6 +1321,16 @@ fn auction_royalty_payments() {
 		assert_eq!(
 			GenericAsset::free_balance(payment_asset, &beneficiary_2),
 			royalties_schedule.entitlements[2].1 * reserve_price
+		);
+		// token owner gets sale price less royalties
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &token_owner),
+			reserve_price
+				- royalties_schedule
+					.entitlements
+					.into_iter()
+					.map(|(_, e)| e * reserve_price)
+					.sum::<Balance>()
 		);
 		assert!(GenericAsset::free_balance(payment_asset, &bidder).is_zero());
 		assert!(GenericAsset::reserved_balance(payment_asset, &bidder).is_zero());
