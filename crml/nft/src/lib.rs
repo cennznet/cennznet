@@ -372,7 +372,7 @@ decl_module! {
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			ListingEndSchedule::<T>::mutate(listing_end_block, |schedule| schedule.push((collection_id.clone(), token_id)));
+			ListingEndSchedule::<T>::append(listing_end_block, (collection_id.clone(), token_id));
 			let listing = Listing::<T>::DirectSale(
 				DirectSaleListing::<T> {
 					payment_asset,
@@ -448,7 +448,7 @@ decl_module! {
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
 			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			ListingEndSchedule::<T>::mutate(listing_end_block, |schedule| schedule.push((collection_id.clone(), token_id)));
+			ListingEndSchedule::<T>::append(listing_end_block, (collection_id.clone(), token_id));
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {
 					payment_asset,
@@ -636,13 +636,15 @@ impl<T: Trait> Module<T> {
 		}
 
 		let current_owner = Self::token_owner(&collection_id, token_id);
+		let seller_balance = T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset));
 		let _ =
 			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller)?;
 
 		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
 		// this should not happen but could for reasons outside the control of this module
 		ensure!(
-			T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset)) >= for_seller,
+			T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset))
+				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);
 
