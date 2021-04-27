@@ -547,7 +547,7 @@ impl<T: Trait> Module<T> {
 		let listing_type = Listings::<T>::take(collection_id, token_id);
 		ListingWinningBid::<T>::remove(collection_id, token_id);
 		if let Some(Listing::<T>::DirectSale(listing)) = listing_type {
-			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_owned(), token_id));
+			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_vec(), token_id));
 		}
 	}
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships changes are made for winning bids
