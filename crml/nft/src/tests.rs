@@ -716,10 +716,11 @@ fn direct_sale() {
 		assert_eq!(listing, expected);
 
 		// current block is 1 + duration
-		assert_eq!(
-			Nft::listing_end_schedule(System::block_number() + <Test as Trait>::DefaultListingDuration::get()),
-			vec![(collection_id.clone(), token_id)]
-		);
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
+		)
+		.is_some());
 
 		assert!(has_event(RawEvent::DirectSaleListed(
 			collection_id,
@@ -807,11 +808,12 @@ fn cancel_direct_sale() {
 		assert!(has_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id)));
 
 		// storage cleared up
-		assert!(
-			Nft::listing_end_schedule(System::block_number() + <Test as Trait>::DefaultListingDuration::get())
-				.is_empty()
-		);
 		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
+		)
+		.is_none());
 
 		// it should be free to operate on the token
 		assert_ok!(Nft::transfer(
@@ -842,10 +844,12 @@ fn direct_sale_closes_on_schedule() {
 		Nft::on_initialize(System::block_number() + listing_duration);
 
 		assert_eq!(Nft::token_owner(&collection_id, token_id), token_owner);
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(!ListingEndSchedule::<Test>::contains_key(
-			System::block_number() + listing_duration
-		));
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + listing_duration,
+			(collection_id.clone(), token_id)
+		)
+		.is_none());
 
 		// should be free to transfer now
 		let new_owner = 8;
@@ -886,11 +890,12 @@ fn direct_purchase() {
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price,);
 
 		// listing removed
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
 		)
-		.is_empty());
+		.is_none());
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
@@ -959,11 +964,12 @@ fn direct_purchase_with_bespoke_token_royalties() {
 		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
 
 		// listing removed
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
 		)
-		.is_empty());
+		.is_none());
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
@@ -1028,11 +1034,12 @@ fn direct_purchase_with_collection_royalties() {
 		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
 
 		// listing removed
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
 		)
-		.is_empty());
+		.is_none());
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
@@ -1108,11 +1115,12 @@ fn direct_listing_for_anybody() {
 		assert!(GenericAsset::free_balance(payment_asset, &buyer).is_zero());
 
 		// listing removed
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get()
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			(collection_id.clone(), token_id)
 		)
-		.is_empty());
+		.is_none());
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
@@ -1198,8 +1206,8 @@ fn cancel_auction() {
 		)));
 
 		// storage cleared up
-		assert!(Nft::listing_end_schedule(System::block_number() + 1).is_empty());
 		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(System::block_number() + 1, (collection_id.clone(), token_id)).is_none());
 
 		// it should be free to operate on the token
 		assert_ok!(Nft::transfer(
@@ -1266,8 +1274,8 @@ fn auction() {
 		assert!(GenericAsset::reserved_balance(payment_asset, &bidder_2).is_zero());
 
 		// listing metadata removed
-		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(System::block_number() + 1).is_empty());
+		assert!(Nft::listings(&collection_id, token_id).is_none());
+		assert!(Nft::listing_end_schedule(System::block_number() + 1, (collection_id.clone(), token_id)).is_none());
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), bidder_2);
@@ -1355,7 +1363,10 @@ fn auction_royalty_payments() {
 
 		// listing metadata removed
 		assert!(!Listings::<Test>::contains_key(&collection_id, token_id));
-		assert!(ListingEndSchedule::<Test>::get(System::block_number() + 1).is_empty());
+		assert!(!ListingEndSchedule::<Test>::contains_key(
+			System::block_number() + 1,
+			(&collection_id, token_id)
+		));
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), bidder);
@@ -1394,15 +1405,8 @@ fn close_listings_at_removes_listing_data() {
 		// setup listings storage
 		for i in 0..listings.len() {
 			Listings::<Test>::insert(&collection_id, i as u32, listings[i].clone());
+			ListingEndSchedule::<Test>::insert(System::block_number() + 1, (collection_id.clone(), i as u32), ());
 		}
-		ListingEndSchedule::<Test>::insert(
-			System::block_number() + 1,
-			vec![
-				(b"test-collection".to_vec(), 0u32),
-				(b"test-collection".to_vec(), 1u32),
-				(b"test-collection".to_vec(), 2u32),
-			],
-		);
 		// winning bidder has no funds, this should cause settlement failure
 		ListingWinningBid::<Test>::insert(&collection_id, 2, (11u64, 100u128));
 
@@ -1410,10 +1414,15 @@ fn close_listings_at_removes_listing_data() {
 		Nft::close_listings_at(System::block_number() + 1);
 
 		// Storage clear
-		assert_eq!(Nft::listing_end_schedule(System::block_number() + 1), vec![]);
+		assert!(
+			ListingEndSchedule::<Test>::iter_prefix_values(System::block_number() + 1)
+				.count()
+				.is_zero()
+		);
 		for i in 0..listings.len() {
 			assert!(Nft::listings(&collection_id, i as u32).is_none());
 			assert!(Nft::listing_winning_bid(&collection_id, i as u32).is_none());
+			assert!(Nft::listing_end_schedule(System::block_number() + 1, (collection_id.clone(), i as u32)).is_none());
 		}
 
 		assert!(has_event(RawEvent::DirectSaleClosed(collection_id.clone(), 0)));

@@ -177,8 +177,8 @@ decl_storage! {
 		pub Listings get(fn listings): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<Listing<T>>;
 		/// Winning bids on open listings. keyed by collection id and token id
 		pub ListingWinningBid get(fn listing_winning_bid): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<(T::AccountId, Balance)>;
-		/// Map from block numbers to listings scheduled to close
-		pub ListingEndSchedule get(fn listing_end_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<(CollectionId, T::TokenId)>;
+		/// Block numbers where listings will close. It is `Some` if at block number, (collection id, token id) is listed and scheduled to close.
+		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) (CollectionId, T::TokenId) => Option<()>;
 	}
 }
 
@@ -187,7 +187,7 @@ pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
 pub const MAX_COLLECTION_ID_LENGTH: u8 = 32;
 
-pub(crate) const LOG_TARGET: &'static str = "nft";
+pub(crate) const LOG_TARGET: &str = "nft";
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -208,13 +208,9 @@ decl_module! {
 
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			if ListingEndSchedule::<T>::contains_key(now) {
-				let removed_count = Self::close_listings_at(now);
-				// 'direct_purchase' weight is comparable to succesful closure of an auction
-				T::WeightInfo::direct_purchase() * removed_count as Weight
-			} else {
-				Zero::zero()
-			}
+			let removed_count = Self::close_listings_at(now);
+			// 'direct_purchase' weight is comparable to succesful closure of an auction
+			T::WeightInfo::direct_purchase() * removed_count as Weight
 		}
 
 		/// Create a new NFT collection
@@ -233,15 +229,11 @@ decl_module! {
 			ensure!(!schema.is_empty(), Error::<T>::SchemaEmpty);
 			ensure!(schema.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxAttributes);
 
-			// Check the provided attribute types are valid
-			ensure!(
-				schema.iter().all(|(_name, type_id)| NFTAttributeValue::is_valid_type_id(*type_id)),
-				Error::<T>::SchemaInvalid
-			);
-
-			// Attribute names must be unique (future proofing for map lookups etc.)
 			let mut set = BTreeSet::new();
-			for (name, _type_id) in schema.iter() {
+			for (name, type_id) in schema.iter() {
+				// Check the provided attribute types are valid
+				ensure!(NFTAttributeValue::is_valid_type_id(*type_id), Error::<T>::SchemaInvalid);
+				// Attribute names must be unique (future proofing for map lookups etc.)
 				ensure!(set.insert(name), Error::<T>::SchemaDuplicateAttribute);
 			}
 
@@ -304,7 +296,9 @@ decl_module! {
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
-			<CollectedTokens<T>>::append(&collection_id, owner.clone(), token_id);
+			<CollectedTokens<T>>::mutate(&collection_id, owner.clone(), |tokens| {
+				tokens.insert(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx), token_id);
+			});
 
 			Self::deposit_event(RawEvent::CreateToken(collection_id, token_id, owner));
 
@@ -345,7 +339,7 @@ decl_module! {
 
 			// Update token ownership
 			<CollectedTokens<T>>::mutate(&collection_id, current_owner, |tokens| {
-				tokens.retain(|t| t != &token_id)
+				tokens.remove(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx));
 			});
 			<TokenOwner<T>>::take(&collection_id, token_id);
 			<Tokens<T>>::take(&collection_id, token_id);
@@ -372,7 +366,7 @@ decl_module! {
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			ListingEndSchedule::<T>::append(listing_end_block, (collection_id.clone(), token_id));
+			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
 			let listing = Listing::<T>::DirectSale(
 				DirectSaleListing::<T> {
 					payment_asset,
@@ -394,11 +388,10 @@ decl_module! {
 
 			if let Some(Listing::DirectSale(listing)) = Self::listings(&collection_id, token_id) {
 
-				match listing.buyer {
-					// if buyer is specified in the listing, then `origin` must be buyer
-					Some(buyer) => ensure!(origin == buyer, Error::<T>::NoPermission),
-					None => (),
-				};
+				// if buyer is specified in the listing, then `origin` must be buyer
+				if let Some(buyer) = listing.buyer {
+					ensure!(origin == buyer, Error::<T>::NoPermission);
+				}
 
 				let current_owner = Self::token_owner(&collection_id, token_id);
 
@@ -448,7 +441,7 @@ decl_module! {
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
 			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			ListingEndSchedule::<T>::append(listing_end_block, (collection_id.clone(), token_id));
+			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {
 					payment_asset,
@@ -515,14 +508,14 @@ decl_module! {
 
 			match Self::listings(&collection_id, token_id) {
 				Some(Listing::<T>::DirectSale(sale)) => {
-					ListingEndSchedule::<T>::mutate(sale.close, |schedule| schedule.retain(|(c, t)| (c, t) != (&collection_id, &token_id)));
 					Listings::<T>::remove(&collection_id, token_id);
+					ListingEndSchedule::<T>::remove(sale.close, &(collection_id.clone(), token_id));
 					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id, token_id));
 				},
 				Some(Listing::<T>::Auction(auction)) => {
 					ensure!(Self::listing_winning_bid(&collection_id, token_id).is_none(), Error::<T>::TokenListingProtection);
 					Listings::<T>::remove(&collection_id, token_id);
-					ListingEndSchedule::<T>::mutate(auction.close, |schedule| schedule.retain(|(c, t)| (c, t) != (&collection_id, &token_id)));
+					ListingEndSchedule::<T>::remove(auction.close, &(collection_id.clone(), token_id));
 					Self::deposit_event(RawEvent::AuctionClosed(collection_id, token_id, AuctionClosureReason::VendorCancelled));
 				},
 				None => {},
@@ -541,18 +534,20 @@ impl<T: Trait> Module<T> {
 		new_owner: &T::AccountId,
 	) {
 		// Update token ownership
-		<CollectedTokens<T>>::mutate(collection_id, current_owner, |tokens| tokens.retain(|t| t != &token_id));
+		<CollectedTokens<T>>::mutate(collection_id, current_owner, |tokens| {
+			tokens.remove(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx));
+		});
 		<TokenOwner<T>>::insert(collection_id, token_id, new_owner);
-		<CollectedTokens<T>>::append(collection_id, new_owner, token_id);
+		<CollectedTokens<T>>::mutate(collection_id, new_owner, |tokens| {
+			tokens.insert(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx), token_id);
+		});
 	}
 	/// Remove a single direct listing and all it's metadata
-	fn remove_direct_listing(collection_id: &CollectionId, token_id: T::TokenId) {
+	fn remove_direct_listing(collection_id: &[u8], token_id: T::TokenId) {
 		let listing_type = Listings::<T>::take(collection_id, token_id);
 		ListingWinningBid::<T>::remove(collection_id, token_id);
 		if let Some(Listing::<T>::DirectSale(listing)) = listing_type {
-			ListingEndSchedule::<T>::mutate(listing.close, |listings| {
-				listings.retain(|l| l != &(collection_id.clone(), token_id));
-			});
+			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_owned(), token_id));
 		}
 	}
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships changes are made for winning bids
@@ -560,7 +555,7 @@ impl<T: Trait> Module<T> {
 	/// Returns the number of listings removed
 	fn close_listings_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
-		for (collection_id, token_id) in ListingEndSchedule::<T>::take(now).into_iter() {
+		for ((collection_id, token_id), _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 			match Listings::<T>::take(&collection_id, token_id) {
 				Some(Listing::DirectSale(_)) => {
 					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id));
@@ -603,24 +598,25 @@ impl<T: Trait> Module<T> {
 			}
 			removed += 1;
 		}
-		return removed;
+
+		removed
 	}
 	/// Settle an auction listing (guaranteed to be atomic).
 	/// - transfer funds from winning bidder to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
 	#[transactional]
 	fn settle_auction(
-		collection_id: &CollectionId,
+		collection_id: &[u8],
 		token_id: T::TokenId,
 		listing: &AuctionListing<T>,
 		winner: &T::AccountId,
 		hammer_price: Balance,
 	) -> DispatchResult {
 		// if there are no custom royalties, fallback to default if it exists
-		let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(&collection_id, token_id) {
+		let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(collection_id, token_id) {
 			royalties_schedule
 		} else {
-			Self::collection_royalties(&collection_id).unwrap_or_else(Default::default)
+			Self::collection_royalties(collection_id).unwrap_or_else(Default::default)
 		};
 
 		let for_royalties = royalties_schedule.calculate_total_entitlement() * hammer_price;
@@ -635,7 +631,7 @@ impl<T: Trait> Module<T> {
 			}
 		}
 
-		let current_owner = Self::token_owner(&collection_id, token_id);
+		let current_owner = Self::token_owner(collection_id, token_id);
 		let seller_balance = T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset));
 		let _ =
 			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller)?;
@@ -648,7 +644,7 @@ impl<T: Trait> Module<T> {
 			Error::<T>::InternalPayment
 		);
 
-		Self::transfer_ownership(&collection_id, token_id, &current_owner, &winner);
+		Self::transfer_ownership(collection_id, token_id, &current_owner, &winner);
 
 		Ok(())
 	}
