@@ -541,7 +541,7 @@ impl crml_cennzx::Trait for Runtime {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type WeightInfo = weights::crml_cennzx::WeightInfo;
+	type WeightInfo = weights::crml_cennzx::WeightInfo<Self>;
 }
 
 impl prml_attestation::Trait for Runtime {
