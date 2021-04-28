@@ -54,9 +54,9 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use crml_nft::CollectionId;
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
-use crml_nft::CollectionId;
 pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
@@ -75,7 +75,9 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, TokenId};
+use cennznet_primitives::types::{
+	AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, TokenId,
+};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 pub use crml_sylo::device as sylo_device;
