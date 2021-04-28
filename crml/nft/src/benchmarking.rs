@@ -112,9 +112,10 @@ benchmarks! {
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
 		let token_id = T::TokenId::from(0_u32);
 		// Add some tokens to stress test the ownership transfer process
-		<CollectedTokens<T>>::insert::<_, _, Vec<T::TokenId>>(collection_id.clone(), owner.clone(), (1..1000_u32).map(|i| T::TokenId::from(i)).collect());
-		<CollectedTokens<T>>::insert::<_, _, Vec<T::TokenId>>(collection_id.clone(), new_owner.clone(), (1..1000_u32).map(|i| T::TokenId::from(i)).collect());
-
+		for fake_token_id in 1..1000_u32 {
+			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
+			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(1000 + fake_token_id), new_owner.clone());
+		}
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, new_owner.clone())
 	verify {
@@ -126,11 +127,13 @@ benchmarks! {
 		let collection_id = setup_token::<T>(owner.clone());
 		let token_id = T::TokenId::from(0_u32);
 		// Add some tokens to stress test the ownership removal process
-		<CollectedTokens<T>>::insert::<_, _, Vec<T::TokenId>>(collection_id.clone(), owner.clone(), (1..1000_u32).map(|i| T::TokenId::from(i)).collect());
+		for fake_token_id in 1..1000_u32 {
+			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
+		}
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
 	verify {
-		assert_eq!(<Nft<T>>::tokens_burnt(&collection_id), 1_u32.into());
+		assert!(<Nft<T>>::tokens(&collection_id, token_id).is_empty());
 	}
 
 	direct_sale {
@@ -156,8 +159,10 @@ benchmarks! {
 		let _ = <Nft<T>>::direct_sale(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price, None).expect("listed ok");
 
 		// Add some tokens to stress test the ownership transfer process
-		<CollectedTokens<T>>::insert::<_, _, Vec<T::TokenId>>(collection_id.clone(), owner.clone(), (1..1000_u32).map(|i| T::TokenId::from(i)).collect());
-		<CollectedTokens<T>>::insert::<_, _, Vec<T::TokenId>>(collection_id.clone(), buyer.clone(), (1..1000_u32).map(|i| T::TokenId::from(i)).collect());
+		for fake_token_id in 1..1000_u32 {
+			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
+			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(1000 + fake_token_id), buyer.clone());
+		}
 
 	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id)
 	verify {

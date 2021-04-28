@@ -164,15 +164,10 @@ decl_storage! {
 		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
-		/// The total amount of an NFT collection in existence
 		/// Map from (collection, token) to it's owner
 		pub TokenOwner get(fn token_owner): double_map hasher(blake2_128_concat) CollectionId, hasher(blake2_128_concat) T::TokenId => T::AccountId;
-		/// Map from (collection, account) to the account owned tokens of that collection
-		pub CollectedTokens get(fn collected_tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(blake2_128_concat) T::AccountId => Vec<T::TokenId>;
-		/// The total amount of an NFT collection in existence
+		/// The total number an NFT collection in circulation (excludes burnt tokens)
 		pub TokenIssuance get(fn token_issuance): map hasher(blake2_128_concat) CollectionId => T::TokenId;
-		/// The total amount of an NFT collection burned
-		pub TokensBurnt get(fn tokens_burnt): map hasher(blake2_128_concat) CollectionId => T::TokenId;
 		/// NFT sale/auction listings. keyed by collection id and token id
 		pub Listings get(fn listings): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<Listing<T>>;
 		/// Winning bids on open listings. keyed by collection id and token id
@@ -186,7 +181,7 @@ decl_storage! {
 pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
 pub const MAX_COLLECTION_ID_LENGTH: u8 = 32;
-
+/// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
 // syntactic sugar for logging.
@@ -265,14 +260,15 @@ decl_module! {
 			ensure!(collection_owner.is_some(), Error::<T>::NoCollection);
 			ensure!(collection_owner.unwrap() == origin, Error::<T>::NoPermission);
 
+			// Quick `attributes` sanity checks
+			ensure!(!attributes.is_empty(), Error::<T>::SchemaEmpty);
+			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
+
 			// Check we can issue a new token
 			let token_id = Self::next_token_id(&collection_id);
 			let next_token_id = token_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
 			Self::token_issuance(&collection_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
 
-			// Quick `attributes` sanity checks
-			ensure!(!attributes.is_empty(), Error::<T>::SchemaEmpty);
-			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
 			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
 			ensure!(attributes.len() == schema.len(), Error::<T>::SchemaMismatch);
 
@@ -296,9 +292,6 @@ decl_module! {
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
-			<CollectedTokens<T>>::mutate(&collection_id, owner.clone(), |tokens| {
-				tokens.insert(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx), token_id);
-			});
 
 			Self::deposit_event(RawEvent::CreateToken(collection_id, token_id, owner));
 
@@ -319,7 +312,7 @@ decl_module! {
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
-			Self::transfer_ownership(&collection_id, token_id, &current_owner, &new_owner);
+			<TokenOwner<T>>::insert(&collection_id, token_id, &new_owner);
 			Self::deposit_event(RawEvent::Transfer(collection_id, token_id, new_owner));
 		}
 
@@ -338,15 +331,9 @@ decl_module! {
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
 			// Update token ownership
-			<CollectedTokens<T>>::mutate(&collection_id, current_owner, |tokens| {
-				tokens.remove(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx));
-			});
 			<TokenOwner<T>>::take(&collection_id, token_id);
 			<Tokens<T>>::take(&collection_id, token_id);
-
-			// Will not overflow, cannot exceed the amount issued qed.
-			let tokens_burnt = Self::tokens_burnt(&collection_id).checked_add(&One::one()).unwrap();
-			<TokensBurnt<T>>::insert(&collection_id, tokens_burnt);
+			<TokenIssuance<T>>::mutate(&collection_id, |i| *i -= One::one());
 
 			Self::deposit_event(RawEvent::Burn(collection_id, token_id));
 		}
@@ -419,7 +406,7 @@ decl_module! {
 				}
 
 				// must not fail now that payment has been made
-				Self::transfer_ownership(&collection_id, token_id, &current_owner, &origin);
+				<TokenOwner<T>>::insert(&collection_id, token_id, &origin);
 				Self::remove_direct_listing(&collection_id, token_id);
 				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
 			} else {
@@ -460,7 +447,6 @@ decl_module! {
 		#[transactional]
 		fn bid(origin, collection_id: CollectionId, token_id: T::TokenId, amount: Balance) {
 			let origin = ensure_signed(origin)?;
-			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForAuction);
 
 			if let Some(Listing::Auction(listing)) = Self::listings(&collection_id, token_id) {
 				if let Some(current_bid) = Self::listing_winning_bid(&collection_id, token_id) {
@@ -473,7 +459,7 @@ decl_module! {
 				// check user has the requisite funds to make this bid
 				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
 				if let Some(balance_after_bid) = balance.checked_sub(amount) {
-					// TODO: review this during 3.0 upgrade
+					// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 					// - `amount` is unused
 					// - if there are multiple locks on user asset this could return true inaccurately
 					// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
@@ -526,21 +512,20 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	/// Transfer ownership of a token. modifies storage, does no verification, infallible.
-	fn transfer_ownership(
-		collection_id: &[u8],
-		token_id: T::TokenId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) {
-		// Update token ownership
-		<CollectedTokens<T>>::mutate(collection_id, current_owner, |tokens| {
-			tokens.remove(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx));
-		});
-		<TokenOwner<T>>::insert(collection_id, token_id, new_owner);
-		<CollectedTokens<T>>::mutate(collection_id, new_owner, |tokens| {
-			tokens.insert(tokens.binary_search(&token_id).unwrap_or_else(|idx| idx), token_id);
-		});
+	/// Find the tokens owned by an `address` in the given collection
+	pub fn collected_tokens(collection_id: &CollectionId, address: &T::AccountId) -> Vec<T::TokenId> {
+		<TokenOwner<T>>::iter_prefix(collection_id)
+			.into_iter()
+			.filter_map(
+				|(token_id, owner)| {
+					if &owner == address {
+						Some(token_id)
+					} else {
+						None
+					}
+				},
+			)
+			.collect()
 	}
 	/// Remove a single direct listing and all it's metadata
 	fn remove_direct_listing(collection_id: &[u8], token_id: T::TokenId) {
@@ -594,7 +579,7 @@ impl<T: Trait> Module<T> {
 						));
 					}
 				}
-				_ => (),
+				None => (),
 			}
 			removed += 1;
 		}
@@ -643,8 +628,7 @@ impl<T: Trait> Module<T> {
 				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);
-
-		Self::transfer_ownership(collection_id, token_id, &current_owner, &winner);
+		<TokenOwner<T>>::insert(collection_id, token_id, winner);
 
 		Ok(())
 	}

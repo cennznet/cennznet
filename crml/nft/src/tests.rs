@@ -312,7 +312,7 @@ fn create_token() {
 			Nft::token_royalties(&collection_id, token_id).expect("royalties plan set"),
 			royalties_schedule
 		);
-		assert_eq!(Nft::collected_tokens(&collection_id, token_owner), vec![token_id]);
+		assert_eq!(Nft::collected_tokens(&collection_id, &token_owner), vec![token_id]);
 		assert_eq!(
 			Nft::next_token_id(&collection_id),
 			token_id.checked_add(One::one()).unwrap()
@@ -371,8 +371,8 @@ fn create_multiple_tokens() {
 			token_owner.clone()
 		)));
 
-		assert_eq!(Nft::token_owner(collection_id.clone(), 1), token_owner);
-		assert_eq!(Nft::collected_tokens(collection_id.clone(), token_owner), vec![0, 1]);
+		assert_eq!(Nft::token_owner(&collection_id, 1), token_owner);
+		assert_eq!(Nft::collected_tokens(&collection_id, &token_owner), vec![0, 1]);
 		assert_eq!(Nft::next_token_id(&collection_id), 2);
 		assert_eq!(Nft::token_issuance(collection_id), 2);
 	});
@@ -536,8 +536,8 @@ fn transfer() {
 		)));
 
 		assert_eq!(Nft::token_owner(&collection_id, token_id), new_owner);
-		assert!(Nft::collected_tokens(&collection_id, token_owner).is_empty());
-		assert_eq!(Nft::collected_tokens(&collection_id, new_owner), vec![token_id]);
+		assert!(Nft::collected_tokens(&collection_id, &token_owner).is_empty());
+		assert_eq!(Nft::collected_tokens(&collection_id, &new_owner), vec![token_id]);
 	});
 }
 
@@ -629,13 +629,14 @@ fn burn() {
 		));
 
 		// test
+		assert_eq!(Nft::token_issuance(&collection_id), 1);
 		assert_ok!(Nft::burn(Some(token_owner).into(), collection_id.clone(), token_id));
 		assert!(has_event(RawEvent::Burn(collection_id.clone(), token_id)));
 
 		assert!(!<Tokens<Test>>::contains_key(&collection_id, token_id));
 		assert!(!<TokenOwner<Test>>::contains_key(&collection_id, token_id));
-		assert!(Nft::collected_tokens(&collection_id, token_owner).is_empty());
-		assert_eq!(Nft::tokens_burnt(&collection_id), 1);
+		assert!(Nft::collected_tokens(&collection_id, &token_owner).is_empty());
+		assert!(Nft::token_issuance(&collection_id).is_zero());
 	});
 }
 
@@ -899,7 +900,7 @@ fn direct_purchase() {
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
-		assert_eq!(Nft::collected_tokens(&collection_id, buyer), vec![token_id]);
+		assert_eq!(Nft::collected_tokens(&collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -973,7 +974,7 @@ fn direct_purchase_with_bespoke_token_royalties() {
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
-		assert_eq!(Nft::collected_tokens(&collection_id, buyer), vec![token_id]);
+		assert_eq!(Nft::collected_tokens(&collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1043,7 +1044,7 @@ fn direct_purchase_with_collection_royalties() {
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
-		assert_eq!(Nft::collected_tokens(&collection_id, buyer), vec![token_id]);
+		assert_eq!(Nft::collected_tokens(&collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1124,7 +1125,7 @@ fn direct_listing_for_anybody() {
 
 		// ownership changed
 		assert_eq!(Nft::token_owner(&collection_id, token_id), buyer);
-		assert_eq!(Nft::collected_tokens(&collection_id, buyer), vec![token_id]);
+		assert_eq!(Nft::collected_tokens(&collection_id, &buyer), vec![token_id]);
 	});
 }
 
