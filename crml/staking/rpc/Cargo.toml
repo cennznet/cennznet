@@ -19,7 +19,7 @@ jsonrpc-derive = "15.1.0"
 sp-blockchain = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-core = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-rpc = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-serde = { version = "1.0.101", features = ["derive"] }
+serde = { version = "1.0.102", features = ["derive"] }
 sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-api = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }

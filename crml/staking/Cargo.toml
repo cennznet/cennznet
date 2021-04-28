@@ -14,7 +14,7 @@ frame-benchmarking = { default-features = false, optional = true, git = "https:/
 pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-serde = { version = "1.0.101", optional = true }
+serde = { version = "1.0.102", optional = true }
 static_assertions = "1.1.0"
 sp-application-crypto = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-io = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }

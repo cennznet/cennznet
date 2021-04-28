@@ -732,6 +732,7 @@ dependencies = [
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
  "crml-nft",
+ "crml-nft-rpc-runtime-api",
  "crml-staking",
  "crml-staking-rpc-runtime-api",
  "crml-sylo",
@@ -1132,6 +1133,18 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "variant_count",
+]
+
+[[package]]
+name = "crml-nft-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

@@ -45,7 +45,7 @@ mod mock;
 mod tests;
 
 mod types;
-use types::*;
+pub use types::*;
 
 pub trait Trait: frame_system::Trait {
 	/// The system event type

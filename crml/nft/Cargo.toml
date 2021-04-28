@@ -8,7 +8,7 @@ description = "CENNZnet NFT module"
 
 [dependencies]
 cennznet-primitives = { path = "../../primitives", default-features = false }
-serde = { version = "1.0.101", optional = true } 
+serde = { version = "1.0.102", optional = true } 
 codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
 sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
 sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
