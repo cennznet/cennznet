@@ -10,19 +10,19 @@ description = "CENNZnet NFT module"
 cennznet-primitives = { path = "../../primitives", default-features = false }
 serde = { version = "1.0.102", optional = true } 
 codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
-sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve", default-features = false, optional = true }
-frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve", default-features = false }
+sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false, optional = true }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
 variant_count = "1.0.0"
 
 [dev-dependencies]
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "feat/multi-currency-reserve" }
+prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
 
 [features]
 default = ["std"]
