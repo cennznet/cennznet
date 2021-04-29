@@ -33,10 +33,9 @@ pipeline {
                 sh 'cargo build --release --features runtime-benchmarks'
                 sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
-
+                sh 'cargo test -p crml-nft --features runtime-benchmarks'
             }
         }
-
 
         stage('Run Benchmarks') {
             agent { label 'benchmark'}

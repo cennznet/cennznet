@@ -54,6 +54,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use crml_nft::CollectionId;
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
 pub use frame_support::{
@@ -74,7 +75,9 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
+use cennznet_primitives::types::{
+	AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, TokenId,
+};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 pub use crml_sylo::device as sylo_device;
@@ -111,8 +114,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 39,
-	impl_version: 39,
+	spec_version: 40,
+	impl_version: 40,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -202,6 +205,22 @@ impl frame_system::Trait for Runtime {
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
+}
+
+parameter_types! {
+	/// How long listings are open for by default
+	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	/// The maximum length of an attribute value (140 = old tweet limit)
+	/// Only applies to string/vec allocated types
+	pub const MaxAttributeLength: u8 = 140;
+}
+impl crml_nft::Trait for Runtime {
+	type Event = Event;
+	type TokenId = TokenId;
+	type MultiCurrency = GenericAsset;
+	type MaxAttributeLength = MaxAttributeLength;
+	type DefaultListingDuration = DefaultListingDuration;
+	type WeightInfo = weights::crml_nft::WeightInfo<Self>;
 }
 
 parameter_types! {
@@ -618,6 +637,7 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 	}
 );
 
@@ -821,6 +841,16 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl crml_nft_rpc_runtime_api::NftApi<
+		Block,
+		CollectionId,
+		TokenId,
+		AccountId,
+	> for Runtime {
+		fn collected_tokens(collection_id: &CollectionId, who: &AccountId) -> Vec<TokenId> {
+			Nft::collected_tokens(collection_id, who)
+		}
+	}
 
 	impl crml_cennzx_rpc_runtime_api::CennzxApi<
 		Block,
@@ -901,6 +931,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
+			add_benchmark!(params, batches, crml_nft, Nft);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
