@@ -36,9 +36,9 @@ jobs:
         ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
         ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_ID" "$IMAGE_NAME":stable) || true
     - name: Publish 🐳
-        env:
-          docker_login: ${{ secrets.DockerLogin }}
-          docker_password: ${{ secrets.DockerPassword }}
+      env:
+        docker_login: ${{ secrets.DockerLogin }}
+        docker_password: ${{ secrets.DockerPassword }}
       run: |
         docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
         docker push $IMAGE_NAME:latest --all-tags
