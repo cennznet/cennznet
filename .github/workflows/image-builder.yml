@@ -32,11 +32,14 @@ jobs:
       # - 'stable' if not a release candidate
       run: |
         COMMIT_HASH=$(git rev-parse --short HEAD)
+        echo "commit hash: $COMMIT_TAG"
         COMMIT_TAG=${GITHUB_REF#refs/*/}
-        IMAGE_ID=$(docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .)
-        ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
-        ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_ID" "$IMAGE_NAME":stable) || true
-        docker images | grep $IMAGE_ID
+        echo "commit tag(?): $COMMIT_TAG"
+
+        docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .
+
+        ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_NAME":"$COMMIT_HASH" "$IMAGE_NAME":"$COMMIT_TAG") || true
+        ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_NAME":"$COMMIT_HASH" "$IMAGE_NAME":stable) || true
     # - name: Publish 🐳
     #   env:
     #     DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
