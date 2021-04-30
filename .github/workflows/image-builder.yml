@@ -30,7 +30,7 @@ jobs:
       # - release commit tag e.g. 1.0.0
       # - 'stable' if not a release candidate
       run: |
-        COMMIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
+        COMMIT_HASH=$(git rev-parse --short HEAD)
         COMMIT_TAG=$(git describe --exact-match --tags HEAD)
         IMAGE_ID=$(docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .)
         ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
