@@ -21,8 +21,9 @@ jobs:
       SCCACHE_CACHE_SIZE: "50G"
       IMAGE_NAME: "cennznet/cennznet"
     steps:
-    - name: Check out
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 5
     - name: Build 🛠
       shell: bash
       # build and tag an image with commit hash
@@ -31,7 +32,7 @@ jobs:
       # - 'stable' if not a release candidate
       run: |
         COMMIT_HASH=$(git rev-parse --short HEAD)
-        COMMIT_TAG=$(git describe --exact-match --tags HEAD)
+        COMMIT_TAG=$(git describe --exact-match --tags HEAD) || ""
         IMAGE_ID=$(docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .)
         ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
         ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_ID" "$IMAGE_NAME":stable) || true
