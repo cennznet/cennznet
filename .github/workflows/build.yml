@@ -36,3 +36,13 @@ jobs:
       run: cargo test --all
     - name: Benchmark (build only)
       run: cargo check --features=runtime-benchmarks
+  slackNotification:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: "blockchain-builds"
+        SLACK_USERNAME: "bot"
+        SLACK_ICON_EMOJI: ":cennzukichanpoint:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_MESSAGE: "build status: ✅ ❌"

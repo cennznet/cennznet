@@ -36,10 +36,11 @@ jobs:
         IMAGE_ID=$(docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .)
         ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
         ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_ID" "$IMAGE_NAME":stable) || true
-    - name: Publish 🐳
-      env:
-        docker_login: ${{ secrets.DockerLogin }}
-        docker_password: ${{ secrets.DockerPassword }}
-      run: |
-        docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-        docker push $IMAGE_NAME:latest --all-tags
+        docker images | grep $IMAGE_ID
+    # - name: Publish 🐳
+    #   env:
+    #     DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
+    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    #   run: |
+    #     docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+    #     docker push $IMAGE_NAME:latest --all-tags
