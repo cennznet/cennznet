@@ -39,6 +39,7 @@ jobs:
       env:
         DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+     # https://stackoverflow.com/a/56905333/6163736
       run: |
         docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-        docker push $IMAGE_NAME:latest --all-tags
+        docker push $IMAGE_NAME:latest

@@ -13,17 +13,17 @@ jobs:
     steps:
     - uses: rtCamp/action-slack-notify@v2
       env:
-        SLACK_USERNAME: "bot"
+        SLACK_USERNAME: "status bot"
         SLACK_ICON_EMOJI: ":robot_face:"
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_MESSAGE: "${{github.actor}}'s build for ${{github.head_ref }} succeeded :deal_with_it_parrot:"
+        SLACK_MESSAGE: "build success :deal_with_it_parrot:"
   on-failure:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
     - uses: rtCamp/action-slack-notify@v2
       env:
-        SLACK_USERNAME: "bot"
+        SLACK_USERNAME: "status bot"
         SLACK_ICON_EMOJI: ":robot_face:"
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_MESSAGE: "${{github.actor}}'s build for ${{github.head_ref }} failed :halp:"
+        SLACK_MESSAGE: "build failed :halp:"
