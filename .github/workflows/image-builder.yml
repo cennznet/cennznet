@@ -34,7 +34,7 @@ jobs:
         docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .
 
         ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_NAME":"$COMMIT_HASH" "$IMAGE_NAME":"$COMMIT_TAG") || true
-        ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_NAME":"$COMMIT_HASH" "$IMAGE_NAME":stable) || true
+        ([[ -n "$COMMIT_TAG" && "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_NAME":"$COMMIT_HASH" "$IMAGE_NAME":stable) || true
     - name: Publish 🐳
       env:
         DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
