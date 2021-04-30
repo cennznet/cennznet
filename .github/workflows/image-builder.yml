@@ -1,0 +1,44 @@
+# Build a docker image on push to develop
+# Also tag the image if commit is tagged as an official release
+# all releases and CI build an image
+
+# what happens if we have develop push AND release events happen...
+name: 'Image Builder'
+
+on:
+  pull_request:
+    branches:
+    - 'ci_test'
+  push:
+    branches:
+    - 'ci_test'
+
+jobs:
+  build-image:
+    # only run if prechecks pass and the source branch is named 'prerelease/*'
+    runs-on: [self-hosted, linux]
+    env:
+      SCCACHE_CACHE_SIZE: "50G"
+      IMAGE_NAME: "cennznet/cennznet"
+    steps:
+    - name: Check out
+      uses: actions/checkout@v2
+    - name: Build 🛠
+      shell: bash
+      # build and tag an image with commit hash
+      # maybe additional tags:
+      # - release commit tag e.g. 1.0.0
+      # - 'stable' if not a release candidate
+      run: |
+        COMMIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
+        COMMIT_TAG=$(git describe --exact-match --tags HEAD)
+        IMAGE_ID=$(docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .)
+        ([ -n "$COMMIT_TAG" ] && docker tag "$IMAGE_ID" "$IMAGE_NAME":"$COMMIT_TAG") || true
+        ([[ "$COMMIT_TAG" = *"rc"* ]] && docker tag "$IMAGE_ID" "$IMAGE_NAME":stable) || true
+    - name: Publish 🐳
+        env:
+          docker_login: ${{ secrets.DockerLogin }}
+          docker_password: ${{ secrets.DockerPassword }}
+      run: |
+        docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+        docker push $IMAGE_NAME:latest --all-tags
