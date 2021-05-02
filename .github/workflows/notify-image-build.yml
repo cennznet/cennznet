@@ -1,0 +1,31 @@
+#
+# Configure slack notifications for docker image build status
+#
+on:
+  workflow_run:
+    workflows:
+    - "Image Builder"
+    types:
+    - completed
+
+jobs:
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_USERNAME: "status bot"
+        SLACK_ICON_EMOJI: ":white_check_mark:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_MESSAGE: "image build published 🐳"
+  on-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_USERNAME: "status bot"
+        SLACK_ICON_EMOJI: ":x:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_MESSAGE: "image build failed 🐳"
