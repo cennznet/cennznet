@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,8 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index};
-use cennznet_runtime::opaque::Block;
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, TokenId};
+use cennznet_runtime::{opaque::Block, CollectionId};
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
@@ -109,6 +109,7 @@ where
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
+	C::Api: crml_nft_rpc::NftRuntimeApi<Block, CollectionId, TokenId, AccountId>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
@@ -118,6 +119,7 @@ where
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
+	use crml_nft_rpc::{Nft, NftApi};
 	use crml_staking_rpc::{Staking, StakingApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use prml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
@@ -175,6 +177,7 @@ where
 		client.clone(),
 	)));
 	io.extend_with(CennzxApi::to_delegate(Cennzx::new(client.clone())));
+	io.extend_with(NftApi::to_delegate(Nft::new(client.clone())));
 	io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
 	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client)));
 

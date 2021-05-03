@@ -16,9 +16,10 @@
 
 //! Node-specific RPC methods for interaction with NFT module.
 
-use std::{convert::TryInto, sync::Arc};
+use std::{string::String, sync::Arc};
 
 use codec::Codec;
+use crml_nft::CollectionId;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
@@ -30,9 +31,23 @@ pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi}
 
 /// NFT RPC methods.
 #[rpc]
-pub trait NftApi<CollectionId, TokenId, AccountId> {
+pub trait NftApi<TokenId, AccountId> {
 	#[rpc(name = "nft_collectedTokens")]
-	fn collected_tokens(&self, collection_id: &CollectionId, who: &AccountId) -> Result<Vec<TokenId>>;
+	fn collected_tokens(&self, collection_id: String, who: AccountId) -> Result<Vec<TokenId>>;
+}
+
+/// Error type of this RPC api.
+pub enum Error {
+	/// The call to runtime failed.
+	RuntimeError,
+}
+
+impl From<Error> for i64 {
+	fn from(e: Error) -> i64 {
+		match e {
+			Error::RuntimeError => 1,
+		}
+	}
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -51,26 +66,26 @@ impl<C, T> Nft<C, T> {
 	}
 }
 
-impl<C, Block, CollectionId, TokenId, AccountId> NftApi<CollectionId, TokenId, AccountId> for Nft<C, Block>
+impl<C, Block, TokenId, AccountId> NftApi<TokenId, AccountId> for Nft<C, Block>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: NftRuntimeApi<Block, AssetId, Balance, AccountId>,
-	CollectionId: Codec,
+	TokenId: Codec,
+	C::Api: NftRuntimeApi<Block, CollectionId, TokenId, AccountId>,
 	TokenId: Codec,
 	AccountId: Codec,
 {
-	fn collected_tokens(&self, collection_id: &CollectionId, who: &AccountId) -> Result<Vec<TokenId>> {
+	// `CollectionId` is a Vec<u8>, this was causing some issue for the js API
+	// using String for better compatibility
+	fn collected_tokens(&self, collection_id: String, who: AccountId) -> Result<Vec<TokenId>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-
-		api
-			.collected_tokens(&at, collection_id, who)
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "Unable to query collected NFTs.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})
+		let collection_id_ = collection_id.into_bytes();
+		api.collected_tokens(&at, collection_id_, who).map_err(|e| RpcError {
+			code: ErrorCode::ServerError(Error::RuntimeError.into()),
+			message: "Unable to query collection nfts.".into(),
+			data: Some(format!("{:?}", e).into()),
+		})
 	}
 }

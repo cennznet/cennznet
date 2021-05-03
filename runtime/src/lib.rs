@@ -54,7 +54,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use crml_nft::CollectionId;
+pub use crml_nft::CollectionId;
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
 pub use frame_support::{
@@ -847,8 +847,8 @@ impl_runtime_apis! {
 		TokenId,
 		AccountId,
 	> for Runtime {
-		fn collected_tokens(collection_id: &CollectionId, who: &AccountId) -> Vec<TokenId> {
-			Nft::collected_tokens(collection_id, who)
+		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
+			Nft::collected_tokens(&collection_id, &who)
 		}
 	}
 
