@@ -79,6 +79,7 @@ pipeline {
                         sh 'git status'
 			sh 'git add .'
 			sh 'git status'
+			sh 'ls -l runtime/src/weights/'
 			sh 'git add runtime/src/weights/test.rs'
 			sh 'git status'
 			sh 'git diff'
