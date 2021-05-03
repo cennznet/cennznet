@@ -71,6 +71,7 @@ pipeline {
                     sh 'cp ../output_dir/* runtime/src/weights/'
                     sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
                     //sh 'git config --global commit.gpgsign true'
+		    sh 'git config --global user.signingKey F7DDE7E0F924770F'
                     withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
                         sh 'mkdir -p ~/.ssh/'
                         sh 'cp ${keyfile} ~/.ssh/id_rsa'
