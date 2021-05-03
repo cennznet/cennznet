@@ -53,9 +53,9 @@ pipeline {
             agent {
                 docker {
                     label 'benchmark'
-                    //image 'rustlang/rust:nightly'
-                    image 'maochuanli/debian-buster:latest'
-                    //args '-u root:root'
+                    image 'rustlang/rust:nightly'
+                    //image 'maochuanli/debian-buster:latest'
+                    args '-u root:root'
                 }
             }
             environment {
