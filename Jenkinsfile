@@ -54,7 +54,15 @@ pipeline {
                     args '-u root:root'
                 }
             }
+	    environment {
+		PRIVATE_KEY = credentials('cennznet-bot-gpg-private-key')
+		PUBLIC_KEY = credentials('cennznet-bot-gpg-public-key')
+	    }
             steps {
+		sh 'gpg --list-keys'
+		sh 'gpg --import ${PUBLIC_KEY}'
+		sh 'gpg --allow-secret-key-import --import ${PRIVATE_KEY}'
+		sh 'gpg --list-keys'
                 sh 'mkdir clean_dir && chmod 777 clean_dir'
                 dir('clean_dir'){
                     checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
@@ -62,13 +70,14 @@ pipeline {
                     sh 'git branch'
                     sh 'cp ../output_dir/* runtime/src/weights/'
                     sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
+		    sh 'git config --global commit.gpgsign true'
                     withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
                         sh 'mkdir -p ~/.ssh/'
                         sh 'cp ${keyfile} ~/.ssh/id_rsa'
                         sh 'ls ~/.ssh/'
                         sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
                         sh 'git diff'
-                        sh 'git add .; git commit -m "add new benchmark files `date`"; git push'
+                        sh 'git add .; git commit -S -m "add new benchmark files `date` with gpg signature"; git push'
                     }
                 }
 
