@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sh 'rm -rf output_dir && mkdir output_dir'
                 //sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
-                sh 'echo "dummy test" >> output_dir/a.txt'
+                sh 'echo "dummy test" >> output_dir/test.rs'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
         }
