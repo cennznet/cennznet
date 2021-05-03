@@ -30,12 +30,12 @@ pipeline {
                   rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
                   mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
                 '''
-                /**
+
                 sh 'cargo build --release --features runtime-benchmarks'
                 sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
                 sh 'cargo test -p crml-nft --features runtime-benchmarks'
-                 */
+
             }
         }
 
@@ -43,8 +43,8 @@ pipeline {
             agent { label 'benchmark'}
             steps {
                 sh 'rm -rf output_dir && mkdir output_dir'
-                //sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
-                sh 'echo "dummy test" >> output_dir/test.rs'
+                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+                //sh 'echo "dummy test" >> output_dir/test.rs'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
         }
@@ -70,7 +70,6 @@ pipeline {
                     sh 'git branch'
                     sh 'cp ../output_dir/* runtime/src/weights/'
                     sh 'git config --global user.email "devops@centrality.ai" && git config --global user.name "cennznet-bot"'
-                    //sh 'git config --global commit.gpgsign true'
 		    sh 'git config --global user.signingKey F7DDE7E0F924770F'
                     withCredentials([sshUserPrivateKey(credentialsId: "cennznet-bot-ssh-key", keyFileVariable: 'keyfile')]) {
                         sh 'mkdir -p ~/.ssh/'
