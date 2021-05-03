@@ -55,7 +55,7 @@ pipeline {
                     label 'benchmark'
                     //image 'rustlang/rust:nightly'
                     image 'maochuanli/debian-buster:latest'
-                    args '-u root:root'
+                    //args '-u root:root'
                 }
             }
             environment {
