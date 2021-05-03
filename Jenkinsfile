@@ -76,12 +76,14 @@ pipeline {
                         sh 'cp ${keyfile} ~/.ssh/id_rsa'
                         sh 'ls ~/.ssh/'
                         sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
-                        sh 'git diff'
+                        sh 'git status'
+			sh 'git add .'
+			sh 'git diff'
                         sh 'gpg --list-keys'
                         sh 'gpg --import ${GPG_PUBLIC_KEY}'
                         sh 'gpg --allow-secret-key-import --import ${GPG_PRIVATE_KEY}'
                         sh 'gpg --list-keys'
-                        sh 'git add .; git commit -S -m "add new benchmark files `date` with gpg signature"; git push'
+                        sh 'git commit -S -m "add new benchmark files `date` with gpg signature"; git push'
                     }
                 }
 
