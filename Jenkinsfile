@@ -30,10 +30,12 @@ pipeline {
                   rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
                   mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
                 '''
+		/**
                 sh 'cargo build --release --features runtime-benchmarks'
                 sh 'cargo test -p crml-staking --features runtime-benchmarks'
                 sh 'cargo test -p crml-cennzx --features runtime-benchmarks'
                 sh 'cargo test -p crml-nft --features runtime-benchmarks'
+		 */
             }
         }
 
@@ -41,7 +43,8 @@ pipeline {
             agent { label 'benchmark'}
             steps {
                 sh 'rm -rf output_dir && mkdir output_dir'
-                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+                //sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+		sh 'echo "dummy test" >> output_dir/a.txt'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
         }
@@ -59,10 +62,6 @@ pipeline {
                 GPG_PUBLIC_KEY = credentials('cennznet-bot-gpg-public-key')
             }
             steps {
-                sh 'gpg --list-keys'
-                sh 'gpg --import ${GPG_PUBLIC_KEY}'
-                sh 'gpg --allow-secret-key-import --import ${GPG_PRIVATE_KEY}'
-                sh 'gpg --list-keys'
                 sh 'mkdir clean_dir && chmod 777 clean_dir'
                 dir('clean_dir'){
                     checkout([$class: 'GitSCM', branches: [[name: '${CHANGE_BRANCH}']], extensions: [], userRemoteConfigs: [[url: 'git@github.com:cennznet/cennznet.git']]])
@@ -77,6 +76,10 @@ pipeline {
                         sh 'ls ~/.ssh/'
                         sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
                         sh 'git diff'
+			sh 'gpg --list-keys'
+			sh 'gpg --import ${GPG_PUBLIC_KEY}'
+			sh 'gpg --allow-secret-key-import --import ${GPG_PRIVATE_KEY}'
+			sh 'gpg --list-keys'
                         sh 'git add .; git commit -S -m "add new benchmark files `date` with gpg signature"; git push'
                     }
                 }
