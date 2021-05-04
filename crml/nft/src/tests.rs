@@ -52,6 +52,7 @@ fn setup_collection(owner: AccountId, schema: NFTSchema) -> CollectionId {
 		Some(owner).into(),
 		collection_id.clone(),
 		schema.clone(),
+		Some(b"https://example.com/metadata".to_vec()),
 		None,
 	));
 	collection_id
@@ -163,6 +164,10 @@ fn create_collection() {
 			Nft::collection_schema(collection_id.clone()).expect("schema should exist"),
 			schema
 		);
+		assert_eq!(
+			Nft::collection_metadata_uri(collection_id.clone()),
+			"https://example.com/metadata"
+		);
 		assert_eq!(Nft::collection_royalties(collection_id), None);
 	});
 }
@@ -172,7 +177,7 @@ fn create_collection_invalid_schema() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_id = b"test-collection".to_vec();
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None,),
+			Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None, None),
 			Error::<Test>::SchemaEmpty
 		);
 
@@ -185,6 +190,7 @@ fn create_collection_invalid_schema() {
 					(b"duplicate-attribute".to_vec(), 0),
 					(b"duplicate-attribute".to_vec(), 1)
 				],
+				None,
 				None,
 			),
 			Error::<Test>::SchemaDuplicateAttribute
@@ -199,6 +205,7 @@ fn create_collection_invalid_schema() {
 				collection_id.clone(),
 				too_many_attributes.to_owned().to_vec(),
 				None,
+				None,
 			),
 			Error::<Test>::SchemaMaxAttributes
 		);
@@ -209,6 +216,7 @@ fn create_collection_invalid_schema() {
 				Some(1_u64).into(),
 				collection_id,
 				vec![(b"invalid-attribute".to_vec(), invalid_nft_attribute_type)],
+				None,
 				None,
 			),
 			Error::<Test>::SchemaInvalid
@@ -222,13 +230,13 @@ fn create_collection_invalid_id() {
 		// too long
 		let bad_collection_id = b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 
 		// empty id
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), vec![], vec![], None),
+			Nft::create_collection(Some(1_u64).into(), vec![], vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 
@@ -236,7 +244,7 @@ fn create_collection_invalid_id() {
 		// kudos: https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
 		let bad_collection_id = vec![0xfe, 0xff];
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 	});
@@ -266,6 +274,7 @@ fn create_collection_royalties_invalid() {
 				Some(owner).into(),
 				b"test-collection".to_vec(),
 				schema.clone(),
+				None,
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Permill::from_fraction(1.2)),

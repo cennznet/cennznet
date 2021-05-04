@@ -157,6 +157,8 @@ decl_storage! {
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its onchain schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
+		/// Map from collection to a base metadata URI for its token's offchain attributes
+		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => MetadataURI;
 		/// Map from collection to it's defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
@@ -214,7 +216,7 @@ decl_module! {
 		#[weight = T::WeightInfo::set_owner()]
 		fn set_owner(origin, collection_id: CollectionId, new_owner: T::AccountId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			if let Some(owner) = <CollectionOwner<T>>::get(&collection_id) {
+			if let Some(owner) = Self::collection_owner(&collection_id) {
 				ensure!(owner == origin, Error::<T>::NoPermission);
 				<CollectionOwner<T>>::insert(&collection_id, new_owner);
 				Ok(())
@@ -229,7 +231,7 @@ decl_module! {
 		/// `schema` - for the collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, metadata_uri: Option<MetadataURI>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
@@ -253,6 +255,9 @@ decl_module! {
 				<CollectionRoyalties<T>>::insert(&collection_id, royalties_schedule);
 			}
 			CollectionSchema::insert(&collection_id, schema);
+			if let Some(metadata_uri) = metadata_uri {
+				CollectionMetadataURI::insert(&collection_id, metadata_uri);
+			}
 			<CollectionOwner<T>>::insert(&collection_id, origin.clone());
 
 			Self::deposit_event(RawEvent::CreateCollection(collection_id, origin));

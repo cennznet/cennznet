@@ -27,6 +27,9 @@ use variant_count::VariantCount;
 /// limited to 32 utf-8 bytes in practice
 pub type CollectionId = Vec<u8>;
 
+/// A URI string
+pub type MetadataURI = Vec<u8>;
+
 /// Name of an NFT attribute
 pub type NFTAttributeName = Vec<u8>;
 
