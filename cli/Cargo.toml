@@ -61,6 +61,7 @@ cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
+crml-nft-rpc = { path = "../crml/nft/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
 prml-generic-asset-rpc = { rev = "2.0.6", git = "https://github.com/plugblockchain/plug-blockchain" }
 prml-generic-asset = { rev = "2.0.6", git = "https://github.com/plugblockchain/plug-blockchain" }
