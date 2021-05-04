@@ -88,7 +88,7 @@ benchmarks! {
 			let creator: T::AccountId = account("creator", 0, 0);
 			let new_owner: T::AccountId = account("new_owner", 0, 0);
 			let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
-	
+
 		}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), new_owner.clone())
 		verify {
 			assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(new_owner));

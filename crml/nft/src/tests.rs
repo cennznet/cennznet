@@ -122,8 +122,14 @@ fn set_owner() {
 		let new_owner = 1_u64;
 
 		assert_ok!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
-		assert_noop!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner), Error::<Test>::NoPermission);
-		assert_noop!(Nft::set_owner(Some(collection_owner).into(), b"no-collection".to_vec(), new_owner), Error::<Test>::NoCollection);
+		assert_noop!(
+			Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Nft::set_owner(Some(collection_owner).into(), b"no-collection".to_vec(), new_owner),
+			Error::<Test>::NoCollection
+		);
 	});
 }
 
