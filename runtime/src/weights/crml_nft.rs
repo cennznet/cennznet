@@ -10,6 +10,11 @@ use sp_std::marker::PhantomData;
 
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Trait> crml_nft::WeightInfo for WeightInfo<T> {
+	fn set_owner() -> Weight {
+		(1_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(1 as Weight))
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 	fn create_collection() -> Weight {
 		(76_034_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))

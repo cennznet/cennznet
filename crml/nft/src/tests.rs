@@ -120,9 +120,13 @@ fn set_owner() {
 		)];
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner, schema);
-		let new_owner = 1_u64;
+		let new_owner = 2_u64;
 
-		assert_ok!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
+		assert_ok!(Nft::set_owner(
+			Some(collection_owner).into(),
+			collection_id.clone(),
+			new_owner
+		));
 		assert_noop!(
 			Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner),
 			Error::<Test>::NoPermission
@@ -166,7 +170,7 @@ fn create_collection() {
 		);
 		assert_eq!(
 			Nft::collection_metadata_uri(collection_id.clone()),
-			"https://example.com/metadata"
+			b"https://example.com/metadata".to_vec()
 		);
 		assert_eq!(Nft::collection_royalties(collection_id), None);
 	});
