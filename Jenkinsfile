@@ -77,12 +77,11 @@ pipeline {
                         sh 'git status'
                         sh 'git add .'
                         sh 'git status'
-                        sh 'git status'
                         sh 'gpg --list-keys'
                         sh 'gpg --import ${GPG_PUBLIC_KEY}'
                         sh 'gpg --allow-secret-key-import --import ${GPG_PRIVATE_KEY}'
                         sh 'gpg --list-keys'
-                        sh 'git commit -S -m "add new benchmark files `date` with gpg signature"; git push'
+                        sh 'git commit -S -m "Add new benchmark files `date`"; git push'
                     }
                 }
 
