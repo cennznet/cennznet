@@ -162,7 +162,7 @@ decl_storage! {
 		/// Map from a token to it's royalty scheme
 		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from (collection, token) to it's attributes (as defined by schema)
-		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
+		pub TokenAttributes get(fn token_attributes): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
 		/// Map from (collection, token) to it's owner
@@ -303,7 +303,7 @@ decl_module! {
 				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
 				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule);
 			}
-			<Tokens<T>>::insert(&collection_id, token_id, token);
+			<TokenAttributes<T>>::insert(&collection_id, token_id, token);
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
@@ -320,7 +320,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<Tokens<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
+			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -338,7 +338,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<Tokens<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
+			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -347,7 +347,7 @@ decl_module! {
 
 			// Update token ownership
 			<TokenOwner<T>>::take(&collection_id, token_id);
-			<Tokens<T>>::take(&collection_id, token_id);
+			<TokenAttributes<T>>::take(&collection_id, token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i -= One::one());
 
 			Self::deposit_event(RawEvent::Burn(collection_id, token_id));

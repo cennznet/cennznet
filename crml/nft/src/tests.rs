@@ -321,7 +321,7 @@ fn create_token() {
 			token_owner.clone()
 		)));
 
-		let token = Nft::tokens(&collection_id, token_id);
+		let token = Nft::token_attributes(&collection_id, token_id);
 		assert_eq!(
 			token,
 			vec![
@@ -657,7 +657,7 @@ fn burn() {
 		assert_ok!(Nft::burn(Some(token_owner).into(), collection_id.clone(), token_id));
 		assert!(has_event(RawEvent::Burn(collection_id.clone(), token_id)));
 
-		assert!(!<Tokens<Test>>::contains_key(&collection_id, token_id));
+		assert!(!<TokenAttributes<Test>>::contains_key(&collection_id, token_id));
 		assert!(!<TokenOwner<Test>>::contains_key(&collection_id, token_id));
 		assert!(Nft::collected_tokens(&collection_id, &token_owner).is_empty());
 		assert!(Nft::token_issuance(&collection_id).is_zero());
