@@ -23,10 +23,6 @@ use sp_std::prelude::*;
 // Counts enum variants at compile time
 use variant_count::VariantCount;
 
-/// String Id for an NFT collection
-/// limited to 32 utf-8 bytes in practice
-pub type CollectionId = Vec<u8>;
-
 /// A URI string
 pub type MetadataURI = Vec<u8>;
 

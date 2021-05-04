@@ -21,8 +21,8 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Index, TokenId};
-use cennznet_runtime::{opaque::Block, CollectionId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Index, TokenId};
+use cennznet_runtime::opaque::Block;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;

@@ -21,7 +21,7 @@
 //! Intended to be used "as is" by dapps and provide basic NFT feature set for smart contracts
 //! to extend.
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReason},

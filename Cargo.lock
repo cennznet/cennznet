@@ -1140,7 +1140,7 @@ dependencies = [
 name = "crml-nft-rpc"
 version = "2.0.0"
 dependencies = [
- "crml-nft",
+ "cennznet-primitives",
  "crml-nft-rpc-runtime-api",
  "jsonrpc-core",
  "jsonrpc-core-client",

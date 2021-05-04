@@ -18,8 +18,8 @@
 
 use std::{string::String, sync::Arc};
 
+use cennznet_primitives::types::CollectionId;
 use codec::Codec;
-use crml_nft::CollectionId;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
