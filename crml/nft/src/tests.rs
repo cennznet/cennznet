@@ -110,6 +110,24 @@ fn setup_token_with_royalties(
 }
 
 #[test]
+fn set_owner() {
+	ExtBuilder::default().build().execute_with(|| {
+		// setup token collection + one token
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner, schema);
+		let new_owner = 1_u64;
+
+		assert_ok!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
+		assert_noop!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner), Error::<Test>::NoPermission);
+		assert_noop!(Nft::set_owner(Some(collection_owner).into(), b"no-collection".to_vec(), new_owner), Error::<Test>::NoCollection);
+	});
+}
+
+#[test]
 fn create_collection() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;

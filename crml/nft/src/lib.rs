@@ -64,6 +64,7 @@ pub trait Trait: frame_system::Trait {
 
 /// NFT module weights
 pub trait WeightInfo {
+	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
 	fn create_token() -> Weight;
 	fn transfer() -> Weight;
@@ -154,8 +155,10 @@ decl_storage! {
 	trait Store for Module<T: Trait> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
-		/// Map from collection to its schema definition
+		/// Map from collection to its onchain schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
+		/// Map from collection to its offchain metadata URI
+		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => Option<Vec<u8>>;
 		/// Map from collection to it's defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
@@ -208,13 +211,28 @@ decl_module! {
 			T::WeightInfo::direct_purchase() * removed_count as Weight
 		}
 
+		/// Set the owner of a collection
+		/// Caller must be the current collection owner
+		#[weight = T::WeightInfo::set_owner()]
+		fn set_owner(origin, collection_id: CollectionId, new_owner: T::AccountId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = <CollectionOwner<T>>::get(&collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				<CollectionOwner<T>>::insert(&collection_id, new_owner);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
+		}
+
 		/// Create a new NFT collection
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
 		/// `schema` - for the collection
+		/// `metadata_uri` - offchain URI to retreive token metadata
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, metadata_uri: Option<Vec<u8>>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
@@ -239,6 +257,9 @@ decl_module! {
 			}
 			CollectionSchema::insert(&collection_id, schema);
 			<CollectionOwner<T>>::insert(&collection_id, origin.clone());
+			if let Some(metadata_uri) = metadata_uri {
+				<CollectionMetadataURI>::insert(&collection_id, &metadata_uri);
+			}
 
 			Self::deposit_event(RawEvent::CreateCollection(collection_id, origin));
 

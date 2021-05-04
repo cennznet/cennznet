@@ -83,6 +83,18 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 benchmarks! {
 	_{}
 
+	set_owner {
+		create_collection {
+			let creator: T::AccountId = account("creator", 0, 0);
+			let new_owner: T::AccountId = account("new_owner", 0, 0);
+			let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
+	
+		}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), new_owner.clone())
+		verify {
+			assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(new_owner));
+		}
+	}
+
 	create_collection {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
@@ -236,6 +248,13 @@ mod tests {
 	use super::*;
 	use crate::mock::{ExtBuilder, Test};
 	use frame_support::assert_ok;
+
+	#[test]
+	fn set_owner() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_set_owner::<Test>());
+		});
+	}
 
 	#[test]
 	fn create_collection() {
