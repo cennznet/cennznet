@@ -77,7 +77,6 @@ pipeline {
                         sh 'git status'
                         sh 'git add .'
                         sh 'git status'
-                        sh 'git add runtime/src/weights/test.rs'
                         sh 'git status'
                         sh 'gpg --list-keys'
                         sh 'gpg --import ${GPG_PUBLIC_KEY}'
