@@ -7,6 +7,12 @@ on:
   push:
     branches:
     - 'develop'
+    paths:
+    - '**.rs'
+    - '**.toml'
+    - '**.lock'
+    - 'genesis/**'
+    - 'Dockerfile'
 
 jobs:
   build-image:

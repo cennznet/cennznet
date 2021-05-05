@@ -4,9 +4,21 @@ on:
   pull_request:
     branches:
     - develop
+    paths:
+    - '**.rs'
+    - '**.toml'
+    - '**.lock'
+    - 'genesis/**'
+    - 'Dockerfile'
   push:
     branches:
     - develop
+    paths:
+    - '**.rs'
+    - '**.toml'
+    - '**.lock'
+    - 'genesis/**'
+    - 'Dockerfile'
 
 jobs:
   format-build-test:
