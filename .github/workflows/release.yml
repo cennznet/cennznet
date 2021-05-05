@@ -75,3 +75,13 @@ jobs:
         asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
         asset_name: cennznet_runtime.compact.wasm
         asset_content_type: application/wasm
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_MESSAGE: "Release success :rocket:"
+        SLACK_USERNAME: "CENNZnet status"
+        SLACK_ICON_EMOJI: ":white_check_mark:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

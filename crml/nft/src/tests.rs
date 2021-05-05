@@ -52,6 +52,7 @@ fn setup_collection(owner: AccountId, schema: NFTSchema) -> CollectionId {
 		Some(owner).into(),
 		collection_id.clone(),
 		schema.clone(),
+		Some(b"https://example.com/metadata".to_vec()),
 		None,
 	));
 	collection_id
@@ -110,6 +111,34 @@ fn setup_token_with_royalties(
 }
 
 #[test]
+fn set_owner() {
+	ExtBuilder::default().build().execute_with(|| {
+		// setup token collection + one token
+		let schema = vec![(
+			b"test-attribute".to_vec(),
+			NFTAttributeValue::I32(Default::default()).type_id(),
+		)];
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner, schema);
+		let new_owner = 2_u64;
+
+		assert_ok!(Nft::set_owner(
+			Some(collection_owner).into(),
+			collection_id.clone(),
+			new_owner
+		));
+		assert_noop!(
+			Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Nft::set_owner(Some(collection_owner).into(), b"no-collection".to_vec(), new_owner),
+			Error::<Test>::NoCollection
+		);
+	});
+}
+
+#[test]
 fn create_collection() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
@@ -139,6 +168,10 @@ fn create_collection() {
 			Nft::collection_schema(collection_id.clone()).expect("schema should exist"),
 			schema
 		);
+		assert_eq!(
+			Nft::collection_metadata_uri(collection_id.clone()),
+			b"https://example.com/metadata".to_vec()
+		);
 		assert_eq!(Nft::collection_royalties(collection_id), None);
 	});
 }
@@ -148,7 +181,7 @@ fn create_collection_invalid_schema() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_id = b"test-collection".to_vec();
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None,),
+			Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None, None),
 			Error::<Test>::SchemaEmpty
 		);
 
@@ -161,6 +194,7 @@ fn create_collection_invalid_schema() {
 					(b"duplicate-attribute".to_vec(), 0),
 					(b"duplicate-attribute".to_vec(), 1)
 				],
+				None,
 				None,
 			),
 			Error::<Test>::SchemaDuplicateAttribute
@@ -175,6 +209,7 @@ fn create_collection_invalid_schema() {
 				collection_id.clone(),
 				too_many_attributes.to_owned().to_vec(),
 				None,
+				None,
 			),
 			Error::<Test>::SchemaMaxAttributes
 		);
@@ -185,6 +220,7 @@ fn create_collection_invalid_schema() {
 				Some(1_u64).into(),
 				collection_id,
 				vec![(b"invalid-attribute".to_vec(), invalid_nft_attribute_type)],
+				None,
 				None,
 			),
 			Error::<Test>::SchemaInvalid
@@ -198,13 +234,13 @@ fn create_collection_invalid_id() {
 		// too long
 		let bad_collection_id = b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 
 		// empty id
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), vec![], vec![], None),
+			Nft::create_collection(Some(1_u64).into(), vec![], vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 
@@ -212,7 +248,7 @@ fn create_collection_invalid_id() {
 		// kudos: https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
 		let bad_collection_id = vec![0xfe, 0xff];
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_id, vec![], None, None),
 			Error::<Test>::CollectionIdInvalid
 		);
 	});
@@ -242,6 +278,7 @@ fn create_collection_royalties_invalid() {
 				Some(owner).into(),
 				b"test-collection".to_vec(),
 				schema.clone(),
+				None,
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Permill::from_fraction(1.2)),
@@ -297,7 +334,7 @@ fn create_token() {
 			token_owner.clone()
 		)));
 
-		let token = Nft::tokens(&collection_id, token_id);
+		let token = Nft::token_attributes(&collection_id, token_id);
 		assert_eq!(
 			token,
 			vec![
@@ -633,7 +670,7 @@ fn burn() {
 		assert_ok!(Nft::burn(Some(token_owner).into(), collection_id.clone(), token_id));
 		assert!(has_event(RawEvent::Burn(collection_id.clone(), token_id)));
 
-		assert!(!<Tokens<Test>>::contains_key(&collection_id, token_id));
+		assert!(!<TokenAttributes<Test>>::contains_key(&collection_id, token_id));
 		assert!(!<TokenOwner<Test>>::contains_key(&collection_id, token_id));
 		assert!(Nft::collected_tokens(&collection_id, &token_owner).is_empty());
 		assert!(Nft::token_issuance(&collection_id).is_zero());

@@ -21,7 +21,7 @@
 //! Intended to be used "as is" by dapps and provide basic NFT feature set for smart contracts
 //! to extend.
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReason},
@@ -64,6 +64,7 @@ pub trait Trait: frame_system::Trait {
 
 /// NFT module weights
 pub trait WeightInfo {
+	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
 	fn create_token() -> Weight;
 	fn transfer() -> Weight;
@@ -154,14 +155,16 @@ decl_storage! {
 	trait Store for Module<T: Trait> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
-		/// Map from collection to its schema definition
+		/// Map from collection to its onchain schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
+		/// Map from collection to a base metadata URI for its token's offchain attributes
+		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => MetadataURI;
 		/// Map from collection to it's defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
 		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from (collection, token) to it's attributes (as defined by schema)
-		pub Tokens get(fn tokens): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
+		pub TokenAttributes get(fn token_attributes): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
 		/// Map from (collection, token) to it's owner
@@ -208,13 +211,27 @@ decl_module! {
 			T::WeightInfo::direct_purchase() * removed_count as Weight
 		}
 
+		/// Set the owner of a collection
+		/// Caller must be the current collection owner
+		#[weight = T::WeightInfo::set_owner()]
+		fn set_owner(origin, collection_id: CollectionId, new_owner: T::AccountId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = Self::collection_owner(&collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				<CollectionOwner<T>>::insert(&collection_id, new_owner);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
+		}
+
 		/// Create a new NFT collection
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
 		/// `schema` - for the collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, metadata_uri: Option<MetadataURI>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
@@ -238,6 +255,9 @@ decl_module! {
 				<CollectionRoyalties<T>>::insert(&collection_id, royalties_schedule);
 			}
 			CollectionSchema::insert(&collection_id, schema);
+			if let Some(metadata_uri) = metadata_uri {
+				CollectionMetadataURI::insert(&collection_id, metadata_uri);
+			}
 			<CollectionOwner<T>>::insert(&collection_id, origin.clone());
 
 			Self::deposit_event(RawEvent::CreateCollection(collection_id, origin));
@@ -288,7 +308,7 @@ decl_module! {
 				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
 				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule);
 			}
-			<Tokens<T>>::insert(&collection_id, token_id, token);
+			<TokenAttributes<T>>::insert(&collection_id, token_id, token);
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
 			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
@@ -305,7 +325,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<Tokens<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
+			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -323,7 +343,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<Tokens<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
+			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -332,7 +352,7 @@ decl_module! {
 
 			// Update token ownership
 			<TokenOwner<T>>::take(&collection_id, token_id);
-			<Tokens<T>>::take(&collection_id, token_id);
+			<TokenAttributes<T>>::take(&collection_id, token_id);
 			<TokenIssuance<T>>::mutate(&collection_id, |i| *i -= One::one());
 
 			Self::deposit_event(RawEvent::Burn(collection_id, token_id));
