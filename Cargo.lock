@@ -703,6 +703,7 @@ dependencies = [
  "frame-system",
  "futures 0.3.13",
  "jsonrpc-core",
+ "pallet-contracts-rpc",
  "pallet-im-online",
  "parity-scale-codec",
  "prml-generic-asset",
@@ -4137,6 +4138,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "pallet-contracts-rpc"
+version = "3.0.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc4#c3fde9e2d2254f88227a6f71e5219e9c6801a17e"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
 ]
 
 [[package]]
