@@ -9,6 +9,11 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 use sp_std::marker::PhantomData;
 
 impl crate::WeightInfo for () {
+	fn set_owner() -> Weight {
+		(1_000 as Weight)
+			.saturating_add(DbWeight::get().reads(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
 	fn create_collection() -> Weight {
 		(72_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))

@@ -54,7 +54,6 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use crml_nft::CollectionId;
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
 pub use frame_support::{
@@ -76,7 +75,7 @@ pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
 use cennznet_primitives::types::{
-	AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, TokenId,
+	AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Header, Index, Moment, Signature, TokenId,
 };
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
@@ -847,8 +846,8 @@ impl_runtime_apis! {
 		TokenId,
 		AccountId,
 	> for Runtime {
-		fn collected_tokens(collection_id: &CollectionId, who: &AccountId) -> Vec<TokenId> {
-			Nft::collected_tokens(collection_id, who)
+		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
+			Nft::collected_tokens(&collection_id, &who)
 		}
 	}
 

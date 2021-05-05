@@ -658,6 +658,7 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-nft-rpc",
  "crml-staking-rpc",
  "crml-transaction-payment",
  "frame-benchmarking",
@@ -1133,6 +1134,27 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "variant_count",
+]
+
+[[package]]
+name = "crml-nft-rpc"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-nft-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

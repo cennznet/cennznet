@@ -66,6 +66,10 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// NFT token identifier
 pub type TokenId = u32;
+
+/// NFT colleciton identifier
+pub type CollectionId = Vec<u8>;
+
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]

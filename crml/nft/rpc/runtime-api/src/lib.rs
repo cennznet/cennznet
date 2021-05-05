@@ -30,8 +30,8 @@ sp_api::decl_runtime_apis! {
 	{
 		/// Find all the tokens owned by `who` in a given collection
 		fn collected_tokens(
-			collection_id: &CollectionId,
-			who: &AccountId,
+			collection_id: CollectionId,
+			who: AccountId,
 		) -> Vec<TokenId>;
 	}
 }

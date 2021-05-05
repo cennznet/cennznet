@@ -59,6 +59,7 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_id.clone(),
 		schema.clone(),
+		Some(b"https://example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec()),
 		Some(royalties.clone()),
 	)
 	.expect("created collection");
@@ -83,11 +84,22 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 benchmarks! {
 	_{}
 
+	set_owner {
+		let creator: T::AccountId = account("creator", 0, 0);
+		let new_owner: T::AccountId = account("new_owner", 0, 0);
+		let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), collection_id.clone(), schema.clone(), None, None).expect("created collection");
+
+	}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), new_owner.clone())
+	verify {
+		assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(new_owner));
+	}
+
 	create_collection {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), schema, Some(royalties))
+	}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), schema, Some(b"https://example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec()), Some(royalties))
 	verify {
 		assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(creator));
 	}
@@ -97,7 +109,7 @@ benchmarks! {
 		let owner: T::AccountId = account("owner", 0, 0);
 
 		let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
-		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), collection_id.clone(), schema.clone(), Some(royalties.clone())).expect("created collection");
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), collection_id.clone(), schema.clone(), None, Some(royalties.clone())).expect("created collection");
 		// all attributes max. length
 		let attributes = schema.iter().map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
 
@@ -133,7 +145,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
 	verify {
-		assert!(<Nft<T>>::tokens(&collection_id, token_id).is_empty());
+		assert!(<Nft<T>>::token_attributes(&collection_id, token_id).is_empty());
 	}
 
 	direct_sale {
@@ -236,6 +248,13 @@ mod tests {
 	use super::*;
 	use crate::mock::{ExtBuilder, Test};
 	use frame_support::assert_ok;
+
+	#[test]
+	fn set_owner() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_set_owner::<Test>());
+		});
+	}
 
 	#[test]
 	fn create_collection() {
