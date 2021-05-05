@@ -43,7 +43,7 @@ pipeline {
             agent { label 'benchmark'}
             steps {
                 sh 'rm -rf output_dir && mkdir output_dir'
-                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 100 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
+                sh './target/release/cennznet benchmark --chain dev --steps 50 --repeat 1000 --pallet "*" --extrinsic "*" --raw --execution=wasm --wasm-execution=compiled --output output_dir'
                 archiveArtifacts artifacts: 'output_dir/*'
             }
         }
