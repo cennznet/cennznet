@@ -47,19 +47,16 @@ jobs:
           docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG
           docker push $IMAGE_NAME:$COMMIT_TAG
         fi
-  on-success:
-    runs-on: ubuntu-latest
+  - name: notify success
     if: ${{ success() }}
-    steps:
-    - uses: rtCamp/action-slack-notify@v2
-      env:
-        SLACK_USERNAME: "status bot"
-        SLACK_ICON_EMOJI: ":whale:"
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_MESSAGE: "docker image published :white_check_mark:"
-  on-failure:
-    runs-on: ubuntu-latest
-    if: ${{ failure() }}
+    uses: rtCamp/action-slack-notify@v2
+    env:
+      SLACK_USERNAME: "status bot"
+      SLACK_ICON_EMOJI: ":whale:"
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      SLACK_MESSAGE: "docker image published :white_check_mark:"
+  - name: notify failure
+    if: ${{ failure() && !cancelled() }}
     steps:
     - uses: rtCamp/action-slack-notify@v2
       env:
