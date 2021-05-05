@@ -7,6 +7,12 @@ on:
   push:
     branches:
     - 'develop'
+    paths:
+    - '**.rs'
+    - '**.toml'
+    - '**.lock'
+    - 'genesis/**'
+    - 'Dockerfile'
 
 jobs:
   build-image:
@@ -41,3 +47,24 @@ jobs:
           docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG
           docker push $IMAGE_NAME:$COMMIT_TAG
         fi
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_USERNAME: "status bot"
+        SLACK_ICON_EMOJI: ":whale:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_MESSAGE: "docker image published :white_check_mark:"
+  on-failure:
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    steps:
+    - uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_USERNAME: "status bot"
+        SLACK_ICON_EMOJI: ":whale:"
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_MESSAGE: "docker image build failed :x:"
+        SLACK_COLOR: "#ff0000"
