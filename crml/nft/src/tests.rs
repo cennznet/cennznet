@@ -180,10 +180,6 @@ fn create_collection() {
 fn create_collection_invalid_schema() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_id = b"test-collection".to_vec();
-		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), collection_id.clone(), vec![], None, None),
-			Error::<Test>::SchemaEmpty
-		);
 
 		// duplciate attribute names in schema
 		assert_noop!(
@@ -451,17 +447,6 @@ fn create_token_fails_prechecks() {
 				None
 			),
 			Error::<Test>::NoCollection
-		);
-
-		assert_noop!(
-			Nft::create_token(
-				Some(collection_owner).into(),
-				collection_id.clone(),
-				collection_owner,
-				vec![],
-				None
-			),
-			Error::<Test>::SchemaEmpty
 		);
 
 		// additional attribute vs. schema

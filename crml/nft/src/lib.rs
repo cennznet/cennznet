@@ -122,8 +122,6 @@ decl_error! {
 		SchemaMismatch,
 		/// Provided attribute is not in the collection schema
 		UnknownAttribute,
-		/// The provided attributes or schema cannot be empty
-		SchemaEmpty,
 		/// The schema contains an invalid type
 		SchemaInvalid,
 		/// The schema contains a duplicate attribute name
@@ -238,7 +236,6 @@ decl_module! {
 			ensure!(core::str::from_utf8(&collection_id).is_ok(), Error::<T>::CollectionIdInvalid);
 			ensure!(!<CollectionOwner<T>>::contains_key(&collection_id), Error::<T>::CollectionIdExists);
 
-			ensure!(!schema.is_empty(), Error::<T>::SchemaEmpty);
 			ensure!(schema.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxAttributes);
 
 			let mut set = BTreeSet::new();
@@ -281,7 +278,6 @@ decl_module! {
 			ensure!(collection_owner.unwrap() == origin, Error::<T>::NoPermission);
 
 			// Quick `attributes` sanity checks
-			ensure!(!attributes.is_empty(), Error::<T>::SchemaEmpty);
 			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
 
 			// Check we can issue a new token
