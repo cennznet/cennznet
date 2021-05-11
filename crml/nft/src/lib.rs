@@ -226,10 +226,17 @@ decl_module! {
 		/// Create a new NFT collection
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
-		/// `schema` - for the collection
+		/// `schema` - onchain attributes for tokens in this collection
+		/// `metdata_uri` - offchain metadata uri for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, metadata_uri: Option<MetadataURI>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_collection(
+			origin,
+			collection_id: CollectionId,
+			schema: NFTSchema,
+			metadata_uri: Option<MetadataURI>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
