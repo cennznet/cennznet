@@ -35,12 +35,12 @@ impl<T: frame_system::Trait> crml_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
-	fn direct_sale() -> Weight {
+	fn sell() -> Weight {
 		(75_962_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
-	fn direct_purchase() -> Weight {
+	fn buy() -> Weight {
 		(411_437_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))
 			.saturating_add(T::DbWeight::get().writes(8 as Weight))
