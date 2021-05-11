@@ -102,6 +102,10 @@ decl_event!(
 		AuctionClosed(CollectionId, TokenId, Reason),
 		/// A new highest bid was placed (collection, token, amount)
 		Bid(CollectionId, TokenId, Balance),
+		/// A new batch of tokens was minted (colleciton, start Id, end Id, owner)
+		CreateBatch(CollectionId, TokenId, TokenId, AccountId),
+		/// A batch of tokens was transferred (collection, tokens, new owner)
+		TransferBatch(CollectionId, Vec<TokenId>, AccountId),
 	}
 );
 
@@ -277,20 +281,46 @@ decl_module! {
 		#[weight = T::WeightInfo::create_token()]
 		#[transactional]
 		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+			Self::batch_create_token(origin, collection_id, One::one(), owner, attributes, royalties_schedule)
+		}
+
+		/// Issue a batch of NFTs with the same attributes
+		/// `batch_size` - how many tokens to make
+		/// `owner` - the token owner
+		/// `attributes` - initial values according to the NFT collection/schema
+		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
+		/// Caller must be the collection owner
+		/// -----------
+		/// Weight is equivalent to `batch_size` * `create_token` calls with overhead reads/writes only occuring once
+		#[weight = {
+			let overhead = batch_size.saturating_sub(One::one()).into();
+			T::WeightInfo::create_token()
+				.saturating_mul((*batch_size).into())
+				.saturating_sub(T::DbWeight::get().reads_writes(overhead, overhead))
+		}]
+		#[transactional]
+		fn batch_create_token(origin, collection_id: CollectionId, batch_size: T::TokenId, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
+			ensure!(batch_size > Zero::zero(), Error::<T>::NoToken);
 			// Permission and existence check
 			let collection_owner = Self::collection_owner(&collection_id);
 			ensure!(collection_owner.is_some(), Error::<T>::NoCollection);
 			ensure!(collection_owner.unwrap() == origin, Error::<T>::NoPermission);
 
-			// Quick `attributes` sanity checks
 			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
 
-			// Check we can issue a new token
-			let token_id = Self::next_token_id(&collection_id);
-			let next_token_id = token_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
-			Self::token_issuance(&collection_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
+			// Check we can issue the new tokens
+			let token_id_start = Self::next_token_id(&collection_id);
+			let token_id_end = token_id_start.checked_add(&batch_size);
+			ensure!(
+				token_id_end.is_some(),
+				Error::<T>::NoAvailableIds
+			);
+			ensure!(
+				Self::token_issuance(&collection_id).checked_add(&batch_size).is_some(),
+				Error::<T>::MaxTokensIssued
+			);
 
 			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
 			ensure!(attributes.len() == schema.len(), Error::<T>::SchemaMismatch);
@@ -306,37 +336,72 @@ decl_module! {
 				}
 			}).collect::<Result<_, Error<T>>>()?;
 
-			// Create the token, update ownership, and bookkeeping
+			// Ok make tokens
+			let mut token_id = token_id_start;
+			for _ in 0..batch_size.into() {
+				<TokenAttributes<T>>::insert(&collection_id, token_id, token.clone());
+				<TokenOwner<T>>::insert(&collection_id, token_id, &owner);
+				token_id += One::one();
+			}
+
+			// Add royalties, if any
 			if let Some(royalties_schedule) = royalties_schedule {
 				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
-				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule);
-			}
-			<TokenAttributes<T>>::insert(&collection_id, token_id, token);
-			<NextTokenId<T>>::insert(&collection_id, next_token_id);
-			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
-			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
+				let mut token_id = token_id_start;
+				for _ in 0..batch_size.into() {
+					<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule.clone());
+					token_id += One::one();
+				}
+			};
 
-			Self::deposit_event(RawEvent::CreateToken(collection_id, token_id, owner));
+			<NextTokenId<T>>::mutate(&collection_id,  |i| *i += batch_size);
+			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += batch_size);
+
+			if batch_size == One::one() {
+				Self::deposit_event(RawEvent::CreateToken(collection_id, token_id_start, owner));
+			} else {
+				// `token_id_end` is some qed.
+				Self::deposit_event(RawEvent::CreateBatch(collection_id, token_id_start, token_id_end.unwrap() - One::one(), owner));
+			}
 
 			Ok(())
+		}
+
+		/// Transfer ownership of a batch of NFTs (atomic)
+		/// Tokens be in the same collection
+		/// Caller must be the token owner
+		#[weight = {
+			T::WeightInfo::transfer().saturating_mul(token_ids.len() as u64)
+		}]
+		#[transactional]
+		fn batch_transfer(origin, collection_id: CollectionId, token_ids: Vec<T::TokenId>, new_owner: T::AccountId) {
+			let origin = ensure_signed(origin)?;
+
+			dbg!(token_ids.clone());
+			dbg!(collection_id.clone());
+			ensure!(token_ids.len() > Zero::zero(), Error::<T>::NoToken);
+			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
+
+			for token_id in token_ids.iter() {
+				ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
+				let current_owner = Self::token_owner(&collection_id, token_id);
+				ensure!(current_owner == origin, Error::<T>::NoPermission);
+				ensure!(!Self::listings(&collection_id, token_id).is_some(), Error::<T>::TokenListingProtection);
+				<TokenOwner<T>>::insert(&collection_id, token_id, &new_owner);
+			}
+
+			if token_ids.len() > One::one() {
+				Self::deposit_event(RawEvent::TransferBatch(collection_id, token_ids, new_owner));
+			} else {
+				Self::deposit_event(RawEvent::Transfer(collection_id, token_ids[0], new_owner));
+			}
 		}
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::transfer()]
-		fn transfer(origin, collection_id: CollectionId, token_id: T::TokenId, new_owner: T::AccountId) {
-			let origin = ensure_signed(origin)?;
-
-			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
-
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
-
-			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
-
-			<TokenOwner<T>>::insert(&collection_id, token_id, &new_owner);
-			Self::deposit_event(RawEvent::Transfer(collection_id, token_id, new_owner));
+		fn transfer(origin, collection_id: CollectionId, token_id: T::TokenId, new_owner: T::AccountId) -> DispatchResult {
+			Self::batch_transfer(origin, collection_id, vec![token_id], new_owner)
 		}
 
 		/// Burn an NFT 🔥
@@ -365,7 +430,7 @@ decl_module! {
 		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
-		/// `duration` listing duration time in blocks
+		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::sell()]
 		fn sell(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
@@ -377,8 +442,8 @@ decl_module! {
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
-			let listing = Listing::<T>::FixedPriceSale(
-				FixedPriceSaleListing::<T> {
+			let listing = Listing::<T>::FixedPrice(
+				FixedPriceListing::<T> {
 					payment_asset,
 					fixed_price,
 					close: listing_end_block,
@@ -396,7 +461,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForFixedPriceSale);
 
-			if let Some(Listing::FixedPriceSale(listing)) = Self::listings(&collection_id, token_id) {
+			if let Some(Listing::FixedPrice(listing)) = Self::listings(&collection_id, token_id) {
 
 				// if buyer is specified in the listing, then `origin` must be buyer
 				if let Some(buyer) = listing.buyer {
@@ -516,7 +581,7 @@ decl_module! {
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
 
 			match Self::listings(&collection_id, token_id) {
-				Some(Listing::<T>::FixedPriceSale(sale)) => {
+				Some(Listing::<T>::FixedPrice(sale)) => {
 					Listings::<T>::remove(&collection_id, token_id);
 					ListingEndSchedule::<T>::remove(sale.close, &(collection_id.clone(), token_id));
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id, token_id));
@@ -535,9 +600,9 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	/// Find the tokens owned by an `address` in the given collection
+	/// Find the tokens owned by an `address` in the given collection (sorted)
 	pub fn collected_tokens(collection_id: &CollectionId, address: &T::AccountId) -> Vec<T::TokenId> {
-		<TokenOwner<T>>::iter_prefix(collection_id)
+		let mut result: Vec<T::TokenId> = <TokenOwner<T>>::iter_prefix(collection_id)
 			.into_iter()
 			.filter_map(
 				|(token_id, owner)| {
@@ -548,13 +613,15 @@ impl<T: Trait> Module<T> {
 					}
 				},
 			)
-			.collect()
+			.collect();
+		result.sort_unstable();
+		result
 	}
 	/// Remove a single fixed price listing and all it's metadata
 	fn remove_fixed_price_listing(collection_id: &[u8], token_id: T::TokenId) {
 		let listing_type = Listings::<T>::take(collection_id, token_id);
 		ListingWinningBid::<T>::remove(collection_id, token_id);
-		if let Some(Listing::<T>::FixedPriceSale(listing)) = listing_type {
+		if let Some(Listing::<T>::FixedPrice(listing)) = listing_type {
 			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_vec(), token_id));
 		}
 	}
@@ -565,7 +632,7 @@ impl<T: Trait> Module<T> {
 		let mut removed = 0_u32;
 		for ((collection_id, token_id), _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 			match Listings::<T>::take(&collection_id, token_id) {
-				Some(Listing::FixedPriceSale(_)) => {
+				Some(Listing::FixedPrice(_)) => {
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), token_id));
 				}
 				Some(Listing::Auction(listing)) => {
