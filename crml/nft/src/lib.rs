@@ -69,8 +69,8 @@ pub trait WeightInfo {
 	fn create_token() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
-	fn direct_sale() -> Weight;
-	fn direct_purchase() -> Weight;
+	fn sell() -> Weight;
+	fn buy() -> Weight;
 	fn auction() -> Weight;
 	fn bid() -> Weight;
 	fn cancel_sale() -> Weight;
@@ -88,12 +88,12 @@ decl_event!(
 		Update(CollectionId, TokenId),
 		/// An NFT was burned
 		Burn(CollectionId, TokenId),
-		/// A direct sale has been listed (collection, token, authorised buyer, payment asset, fixed price)
-		DirectSaleListed(CollectionId, TokenId, Option<AccountId>, AssetId, Balance),
-		/// A direct sale has completed (collection, token, new owner, payment asset, fixed price)
-		DirectSaleComplete(CollectionId, TokenId, AccountId, AssetId, Balance),
-		/// A direct sale has closed without selling
-		DirectSaleClosed(CollectionId, TokenId),
+		/// A fixed price sale has been listed (collection, token, authorised buyer, payment asset, fixed price)
+		FixedPriceSaleListed(CollectionId, TokenId, Option<AccountId>, AssetId, Balance),
+		/// A fixed price sale has completed (collection, token, new owner, payment asset, fixed price)
+		FixedPriceSaleComplete(CollectionId, TokenId, AccountId, AssetId, Balance),
+		/// A fixed price sale has closed without selling
+		FixedPriceSaleClosed(CollectionId, TokenId),
 		/// An auction has opened (collection, token, payment asset, reserve price)
 		AuctionOpen(CollectionId, TokenId, AssetId, Balance),
 		/// An auction has sold (collection, token, payment asset, bid, new owner)
@@ -122,8 +122,6 @@ decl_error! {
 		SchemaMismatch,
 		/// Provided attribute is not in the collection schema
 		UnknownAttribute,
-		/// The provided attributes or schema cannot be empty
-		SchemaEmpty,
 		/// The schema contains an invalid type
 		SchemaInvalid,
 		/// The schema contains a duplicate attribute name
@@ -137,7 +135,7 @@ decl_error! {
 		/// The NFT does not exist
 		NoToken,
 		/// The NFT is not listed for a direct sale
-		NotForDirectSale,
+		NotForFixedPriceSale,
 		/// The NFT is not listed for auction sale
 		NotForAuction,
 		/// Cannot operate on a listed NFT
@@ -207,8 +205,8 @@ decl_module! {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let removed_count = Self::close_listings_at(now);
-			// 'direct_purchase' weight is comparable to succesful closure of an auction
-			T::WeightInfo::direct_purchase() * removed_count as Weight
+			// 'buy' weight is comparable to succesful closure of an auction
+			T::WeightInfo::buy() * removed_count as Weight
 		}
 
 		/// Set the owner of a collection
@@ -228,17 +226,23 @@ decl_module! {
 		/// Create a new NFT collection
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
-		/// `schema` - for the collection
+		/// `schema` - onchain attributes for tokens in this collection
+		/// `metdata_uri` - offchain metadata uri for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(origin, collection_id: CollectionId, schema: NFTSchema, metadata_uri: Option<MetadataURI>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn create_collection(
+			origin,
+			collection_id: CollectionId,
+			schema: NFTSchema,
+			metadata_uri: Option<MetadataURI>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!collection_id.is_empty() && collection_id.len() <= MAX_COLLECTION_ID_LENGTH as usize, Error::<T>::CollectionIdInvalid);
 			ensure!(core::str::from_utf8(&collection_id).is_ok(), Error::<T>::CollectionIdInvalid);
 			ensure!(!<CollectionOwner<T>>::contains_key(&collection_id), Error::<T>::CollectionIdExists);
 
-			ensure!(!schema.is_empty(), Error::<T>::SchemaEmpty);
 			ensure!(schema.len() <= MAX_SCHEMA_FIELDS as usize, Error::<T>::SchemaMaxAttributes);
 
 			let mut set = BTreeSet::new();
@@ -281,7 +285,6 @@ decl_module! {
 			ensure!(collection_owner.unwrap() == origin, Error::<T>::NoPermission);
 
 			// Quick `attributes` sanity checks
-			ensure!(!attributes.is_empty(), Error::<T>::SchemaEmpty);
 			ensure!(attributes.len() as u32 <= MAX_SCHEMA_FIELDS, Error::<T>::SchemaMaxAttributes);
 
 			// Check we can issue a new token
@@ -358,14 +361,14 @@ decl_module! {
 			Self::deposit_event(RawEvent::Burn(collection_id, token_id));
 		}
 
-		/// Sell an NFT to specific account at a fixed price
+		/// Sell an NFT at a fixed price
 		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks
 		/// Caller must be the token owner
-		#[weight = T::WeightInfo::direct_sale()]
-		fn direct_sale(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
+		#[weight = T::WeightInfo::sell()]
+		fn sell(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
 			let current_owner = Self::token_owner(&collection_id, token_id);
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
@@ -374,8 +377,8 @@ decl_module! {
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
-			let listing = Listing::<T>::DirectSale(
-				DirectSaleListing::<T> {
+			let listing = Listing::<T>::FixedPrice(
+				FixedPriceListing::<T> {
 					payment_asset,
 					fixed_price,
 					close: listing_end_block,
@@ -383,17 +386,17 @@ decl_module! {
 				}
 			);
 			Listings::insert(&collection_id, token_id, listing);
-			Self::deposit_event(RawEvent::DirectSaleListed(collection_id, token_id, buyer, payment_asset, fixed_price));
+			Self::deposit_event(RawEvent::FixedPriceSaleListed(collection_id, token_id, buyer, payment_asset, fixed_price));
 		}
 
 		/// Buy an NFT for its listed price, must be listed for sale
-		#[weight = T::WeightInfo::direct_purchase()]
+		#[weight = T::WeightInfo::buy()]
 		#[transactional]
-		fn direct_purchase(origin, collection_id: CollectionId, token_id: T::TokenId) {
+		fn buy(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
-			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForDirectSale);
+			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForFixedPriceSale);
 
-			if let Some(Listing::DirectSale(listing)) = Self::listings(&collection_id, token_id) {
+			if let Some(Listing::FixedPrice(listing)) = Self::listings(&collection_id, token_id) {
 
 				// if buyer is specified in the listing, then `origin` must be buyer
 				if let Some(buyer) = listing.buyer {
@@ -427,10 +430,10 @@ decl_module! {
 
 				// must not fail now that payment has been made
 				<TokenOwner<T>>::insert(&collection_id, token_id, &origin);
-				Self::remove_direct_listing(&collection_id, token_id);
-				Self::deposit_event(RawEvent::DirectSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
+				Self::remove_fixed_price_listing(&collection_id, token_id);
+				Self::deposit_event(RawEvent::FixedPriceSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
 			} else {
-				return Err(Error::<T>::NotForDirectSale.into());
+				return Err(Error::<T>::NotForFixedPriceSale.into());
 			}
 		}
 
@@ -513,10 +516,10 @@ decl_module! {
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
 
 			match Self::listings(&collection_id, token_id) {
-				Some(Listing::<T>::DirectSale(sale)) => {
+				Some(Listing::<T>::FixedPrice(sale)) => {
 					Listings::<T>::remove(&collection_id, token_id);
 					ListingEndSchedule::<T>::remove(sale.close, &(collection_id.clone(), token_id));
-					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id, token_id));
+					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id, token_id));
 				},
 				Some(Listing::<T>::Auction(auction)) => {
 					ensure!(Self::listing_winning_bid(&collection_id, token_id).is_none(), Error::<T>::TokenListingProtection);
@@ -547,11 +550,11 @@ impl<T: Trait> Module<T> {
 			)
 			.collect()
 	}
-	/// Remove a single direct listing and all it's metadata
-	fn remove_direct_listing(collection_id: &[u8], token_id: T::TokenId) {
+	/// Remove a single fixed price listing and all it's metadata
+	fn remove_fixed_price_listing(collection_id: &[u8], token_id: T::TokenId) {
 		let listing_type = Listings::<T>::take(collection_id, token_id);
 		ListingWinningBid::<T>::remove(collection_id, token_id);
-		if let Some(Listing::<T>::DirectSale(listing)) = listing_type {
+		if let Some(Listing::<T>::FixedPrice(listing)) = listing_type {
 			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_vec(), token_id));
 		}
 	}
@@ -562,8 +565,8 @@ impl<T: Trait> Module<T> {
 		let mut removed = 0_u32;
 		for ((collection_id, token_id), _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 			match Listings::<T>::take(&collection_id, token_id) {
-				Some(Listing::DirectSale(_)) => {
-					Self::deposit_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id));
+				Some(Listing::FixedPrice(_)) => {
+					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), token_id));
 				}
 				Some(Listing::Auction(listing)) => {
 					if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(&collection_id, token_id) {
