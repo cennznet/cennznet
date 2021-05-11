@@ -828,7 +828,10 @@ fn cancel_sell() {
 			collection_id.clone(),
 			token_id,
 		));
-		assert!(has_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), token_id)));
+		assert!(has_event(RawEvent::FixedPriceSaleClosed(
+			collection_id.clone(),
+			token_id
+		)));
 
 		// storage cleared up
 		assert!(Nft::listings(&collection_id, token_id).is_none());
