@@ -377,8 +377,8 @@ decl_module! {
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
-			let listing = Listing::<T>::FixedPriceSale(
-				FixedPriceSaleListing::<T> {
+			let listing = Listing::<T>::FixedPrice(
+				FixedPriceListing::<T> {
 					payment_asset,
 					fixed_price,
 					close: listing_end_block,
@@ -396,7 +396,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			ensure!(<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::NotForFixedPriceSale);
 
-			if let Some(Listing::FixedPriceSale(listing)) = Self::listings(&collection_id, token_id) {
+			if let Some(Listing::FixedPrice(listing)) = Self::listings(&collection_id, token_id) {
 
 				// if buyer is specified in the listing, then `origin` must be buyer
 				if let Some(buyer) = listing.buyer {
@@ -516,7 +516,7 @@ decl_module! {
 			ensure!(current_owner == origin, Error::<T>::NoPermission);
 
 			match Self::listings(&collection_id, token_id) {
-				Some(Listing::<T>::FixedPriceSale(sale)) => {
+				Some(Listing::<T>::FixedPrice(sale)) => {
 					Listings::<T>::remove(&collection_id, token_id);
 					ListingEndSchedule::<T>::remove(sale.close, &(collection_id.clone(), token_id));
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id, token_id));
@@ -554,7 +554,7 @@ impl<T: Trait> Module<T> {
 	fn remove_fixed_price_listing(collection_id: &[u8], token_id: T::TokenId) {
 		let listing_type = Listings::<T>::take(collection_id, token_id);
 		ListingWinningBid::<T>::remove(collection_id, token_id);
-		if let Some(Listing::<T>::FixedPriceSale(listing)) = listing_type {
+		if let Some(Listing::<T>::FixedPrice(listing)) = listing_type {
 			ListingEndSchedule::<T>::remove(listing.close, &(collection_id.to_vec(), token_id));
 		}
 	}
@@ -565,7 +565,7 @@ impl<T: Trait> Module<T> {
 		let mut removed = 0_u32;
 		for ((collection_id, token_id), _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 			match Listings::<T>::take(&collection_id, token_id) {
-				Some(Listing::FixedPriceSale(_)) => {
+				Some(Listing::FixedPrice(_)) => {
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), token_id));
 				}
 				Some(Listing::Auction(listing)) => {
