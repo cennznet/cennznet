@@ -745,7 +745,7 @@ fn sell() {
 		)
 		.is_some());
 
-		assert!(has_event(RawEvent::FixedPriceListed(
+		assert!(has_event(RawEvent::FixedPriceSaleListed(
 			collection_id,
 			token_id,
 			Some(5),
@@ -828,7 +828,7 @@ fn cancel_sell() {
 			collection_id.clone(),
 			token_id,
 		));
-		assert!(has_event(RawEvent::FixedPriceClosed(collection_id.clone(), token_id)));
+		assert!(has_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), token_id)));
 
 		// storage cleared up
 		assert!(Nft::listings(&collection_id, token_id).is_none());
@@ -1069,7 +1069,7 @@ fn buy_fails_prechecks() {
 		// not for sale
 		assert_noop!(
 			Nft::buy(Some(buyer).into(), collection_id.clone(), token_id),
-			Error::<Test>::NotForFixedPrice,
+			Error::<Test>::NotForFixedPriceSale,
 		);
 
 		assert_ok!(Nft::sell(
@@ -1428,7 +1428,7 @@ fn close_listings_at_removes_listing_data() {
 			assert!(Nft::listing_end_schedule(System::block_number() + 1, (collection_id.clone(), i as u32)).is_none());
 		}
 
-		assert!(has_event(RawEvent::FixedPriceClosed(collection_id.clone(), 0)));
+		assert!(has_event(RawEvent::FixedPriceSaleClosed(collection_id.clone(), 0)));
 		assert!(has_event(RawEvent::AuctionClosed(
 			collection_id.clone(),
 			1,
