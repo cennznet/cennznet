@@ -148,7 +148,7 @@ benchmarks! {
 		assert!(<Nft<T>>::token_attributes(&collection_id, token_id).is_empty());
 	}
 
-	direct_sale {
+	sell {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
 		let token_id = T::TokenId::from(0_u32);
@@ -160,7 +160,7 @@ benchmarks! {
 		assert!(<Nft<T>>::listings(&collection_id, token_id).is_some());
 	}
 
-	direct_purchase {
+	buy {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let buyer: T::AccountId = account("buyer", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
@@ -168,7 +168,7 @@ benchmarks! {
 		let payment_asset = 16_000;
 		let price = 1_000_000 * 10_000; // 1 million 4dp asset
 		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
-		let _ = <Nft<T>>::direct_sale(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price, None).expect("listed ok");
+		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price, None).expect("listed ok");
 
 		// Add some tokens to stress test the ownership transfer process
 		for fake_token_id in 1..1000_u32 {
@@ -285,16 +285,16 @@ mod tests {
 	}
 
 	#[test]
-	fn direct_sale() {
+	fn sell() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_direct_sale::<Test>());
+			assert_ok!(test_benchmark_sell::<Test>());
 		});
 	}
 
 	#[test]
-	fn direct_purchase() {
+	fn buy() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_direct_purchase::<Test>());
+			assert_ok!(test_benchmark_buy::<Test>());
 		});
 	}
 

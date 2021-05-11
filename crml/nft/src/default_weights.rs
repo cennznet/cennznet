@@ -34,12 +34,12 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(6 as Weight))
 			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
-	fn direct_sale() -> Weight {
+	fn sell() -> Weight {
 		(69_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(3 as Weight))
 			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
-	fn direct_purchase() -> Weight {
+	fn buy() -> Weight {
 		(329_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(12 as Weight))
 			.saturating_add(DbWeight::get().writes(10 as Weight))

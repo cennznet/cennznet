@@ -154,7 +154,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 /// A type of NFT sale listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub enum Listing<T: Trait> {
-	DirectSale(DirectSaleListing<T>),
+	FixedPrice(FixedPriceListing<T>),
 	Auction(AuctionListing<T>),
 }
 
@@ -171,7 +171,7 @@ pub struct AuctionListing<T: Trait> {
 
 /// Information about a fixed price listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub struct DirectSaleListing<T: Trait> {
+pub struct FixedPriceListing<T: Trait> {
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
 	/// The requested amount for a succesful sale

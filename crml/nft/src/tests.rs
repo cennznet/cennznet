@@ -613,7 +613,7 @@ fn transfer_fails_prechecks() {
 			Error::<Test>::NoPermission,
 		);
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -697,7 +697,7 @@ fn burn_fails_prechecks() {
 			Error::<Test>::NoPermission,
 		);
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -715,10 +715,10 @@ fn burn_fails_prechecks() {
 }
 
 #[test]
-fn direct_sale() {
+fn sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -728,7 +728,7 @@ fn direct_sale() {
 			None,
 		));
 
-		let expected = Listing::<Test>::DirectSale(DirectSaleListing::<Test> {
+		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: 16_000,
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
@@ -745,7 +745,7 @@ fn direct_sale() {
 		)
 		.is_some());
 
-		assert!(has_event(RawEvent::DirectSaleListed(
+		assert!(has_event(RawEvent::FixedPriceListed(
 			collection_id,
 			token_id,
 			Some(5),
@@ -756,12 +756,12 @@ fn direct_sale() {
 }
 
 #[test]
-fn direct_sale_prechecks() {
+fn sell_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		// no permission
 		assert_noop!(
-			Nft::direct_sale(
+			Nft::sell(
 				Some(token_owner + 1).into(),
 				collection_id.clone(),
 				token_id,
@@ -773,7 +773,7 @@ fn direct_sale_prechecks() {
 			Error::<Test>::NoPermission
 		);
 		// token listed already
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -783,7 +783,7 @@ fn direct_sale_prechecks() {
 			None,
 		));
 		assert_noop!(
-			Nft::direct_sale(
+			Nft::sell(
 				Some(token_owner).into(),
 				collection_id.clone(),
 				token_id,
@@ -795,7 +795,7 @@ fn direct_sale_prechecks() {
 			Error::<Test>::TokenListingProtection
 		);
 
-		// can't auction, listed for direct sale
+		// can't auction, listed for fixed price sale
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner).into(),
@@ -811,10 +811,10 @@ fn direct_sale_prechecks() {
 }
 
 #[test]
-fn cancel_direct_sale() {
+fn cancel_sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -828,7 +828,7 @@ fn cancel_direct_sale() {
 			collection_id.clone(),
 			token_id,
 		));
-		assert!(has_event(RawEvent::DirectSaleClosed(collection_id.clone(), token_id)));
+		assert!(has_event(RawEvent::FixedPriceClosed(collection_id.clone(), token_id)));
 
 		// storage cleared up
 		assert!(Nft::listings(&collection_id, token_id).is_none());
@@ -849,11 +849,11 @@ fn cancel_direct_sale() {
 }
 
 #[test]
-fn direct_sale_closes_on_schedule() {
+fn sell_closes_on_schedule() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_duration = 100;
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -886,14 +886,14 @@ fn direct_sale_closes_on_schedule() {
 }
 
 #[test]
-fn direct_purchase() {
+fn buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let buyer = 5;
 		let payment_asset = 16_000;
 		let price = 1_000;
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -904,11 +904,7 @@ fn direct_purchase() {
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
-		assert_ok!(Nft::direct_purchase(
-			Some(buyer).into(),
-			collection_id.clone(),
-			token_id
-		));
+		assert_ok!(Nft::buy(Some(buyer).into(), collection_id.clone(), token_id));
 		// no royalties, all proceeds to token owner
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price,);
 
@@ -927,7 +923,7 @@ fn direct_purchase() {
 }
 
 #[test]
-fn direct_purchase_with_bespoke_token_royalties() {
+fn buy_with_bespoke_token_royalties() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1;
 		let beneficiary_1 = 11;
@@ -944,7 +940,7 @@ fn direct_purchase_with_bespoke_token_royalties() {
 		let payment_asset = 16_000;
 		let sale_price = 1_000_004;
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -955,11 +951,7 @@ fn direct_purchase_with_bespoke_token_royalties() {
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
-		assert_ok!(Nft::direct_purchase(
-			Some(buyer).into(),
-			collection_id.clone(),
-			token_id
-		));
+		assert_ok!(Nft::buy(Some(buyer).into(), collection_id.clone(), token_id));
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 		// royalties distributed according to `entitlements` map
 		assert_eq!(
@@ -1001,7 +993,7 @@ fn direct_purchase_with_bespoke_token_royalties() {
 }
 
 #[test]
-fn direct_purchase_with_collection_royalties() {
+fn buy_with_collection_royalties() {
 	ExtBuilder::default().build().execute_with(|| {
 		let beneficiary_1 = 11;
 		let beneficiary_2 = 12;
@@ -1018,7 +1010,7 @@ fn direct_purchase_with_collection_royalties() {
 		let payment_asset = 16_000;
 		let sale_price = 1_000;
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -1029,11 +1021,7 @@ fn direct_purchase_with_collection_royalties() {
 		));
 
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price);
-		assert_ok!(Nft::direct_purchase(
-			Some(buyer).into(),
-			collection_id.clone(),
-			token_id
-		));
+		assert_ok!(Nft::buy(Some(buyer).into(), collection_id.clone(), token_id));
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 		let for_royalties = royalties_schedule.calculate_total_entitlement() * sale_price;
 		// token owner gets sale price less royalties
@@ -1071,7 +1059,7 @@ fn direct_purchase_with_collection_royalties() {
 }
 
 #[test]
-fn direct_purchase_fails_prechecks() {
+fn buy_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let buyer = 5;
@@ -1080,11 +1068,11 @@ fn direct_purchase_fails_prechecks() {
 
 		// not for sale
 		assert_noop!(
-			Nft::direct_purchase(Some(buyer).into(), collection_id.clone(), token_id),
-			Error::<Test>::NotForDirectSale,
+			Nft::buy(Some(buyer).into(), collection_id.clone(), token_id),
+			Error::<Test>::NotForFixedPrice,
 		);
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -1096,27 +1084,27 @@ fn direct_purchase_fails_prechecks() {
 
 		// no permission
 		assert_noop!(
-			Nft::direct_purchase(Some(buyer + 1).into(), collection_id.clone(), token_id),
+			Nft::buy(Some(buyer + 1).into(), collection_id.clone(), token_id),
 			Error::<Test>::NoPermission,
 		);
 
 		// fund the buyer with not quite enough
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price - 1);
 		assert_noop!(
-			Nft::direct_purchase(Some(buyer).into(), collection_id.clone(), token_id),
+			Nft::buy(Some(buyer).into(), collection_id.clone(), token_id),
 			prml_generic_asset::Error::<Test>::InsufficientBalance,
 		);
 	});
 }
 
 #[test]
-fn direct_listing_for_anybody() {
+fn sell_to_anybody() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let payment_asset = 16_000;
 		let price = 1_000;
 
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -1128,11 +1116,7 @@ fn direct_listing_for_anybody() {
 
 		let buyer = 11;
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
-		assert_ok!(Nft::direct_purchase(
-			Some(buyer).into(),
-			collection_id.clone(),
-			token_id
-		));
+		assert_ok!(Nft::buy(Some(buyer).into(), collection_id.clone(), token_id));
 
 		// paid
 		assert!(GenericAsset::free_balance(payment_asset, &buyer).is_zero());
@@ -1152,7 +1136,7 @@ fn direct_listing_for_anybody() {
 }
 
 #[test]
-fn direct_purchase_with_overcommitted_royalties() {
+fn buy_with_overcommitted_royalties() {
 	ExtBuilder::default().build().execute_with(|| {
 		// royalties are > 100% total which could create funds out of nothing
 		// in this case, default to 0 royalties.
@@ -1169,7 +1153,7 @@ fn direct_purchase_with_overcommitted_royalties() {
 		let buyer = 5;
 		let payment_asset = 16_000;
 		let price = 1_000;
-		assert_ok!(Nft::direct_sale(
+		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id.clone(),
 			token_id,
@@ -1182,11 +1166,7 @@ fn direct_purchase_with_overcommitted_royalties() {
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 
-		assert_ok!(Nft::direct_purchase(
-			Some(buyer).into(),
-			collection_id.clone(),
-			token_id
-		));
+		assert_ok!(Nft::buy(Some(buyer).into(), collection_id.clone(), token_id));
 
 		assert!(bad_schedule.calculate_total_entitlement().is_zero());
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price);
@@ -1405,7 +1385,7 @@ fn close_listings_at_removes_listing_data() {
 		let price = 123_456;
 		let listings = vec![
 			// an open sale which won't be bought before closing
-			Listing::<Test>::DirectSale(DirectSaleListing::<Test> {
+			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 				payment_asset,
 				fixed_price: price,
 				buyer: None,
@@ -1448,7 +1428,7 @@ fn close_listings_at_removes_listing_data() {
 			assert!(Nft::listing_end_schedule(System::block_number() + 1, (collection_id.clone(), i as u32)).is_none());
 		}
 
-		assert!(has_event(RawEvent::DirectSaleClosed(collection_id.clone(), 0)));
+		assert!(has_event(RawEvent::FixedPriceClosed(collection_id.clone(), 0)));
 		assert!(has_event(RawEvent::AuctionClosed(
 			collection_id.clone(),
 			1,
@@ -1532,7 +1512,7 @@ fn auction_fails_prechecks() {
 
 		// listed for auction
 		assert_noop!(
-			Nft::direct_sale(
+			Nft::sell(
 				Some(token_owner).into(),
 				collection_id.clone(),
 				token_id,
