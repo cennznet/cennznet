@@ -62,6 +62,9 @@ pub trait Trait: frame_system::Trait {
 	type WeightInfo: WeightInfo;
 }
 
+/// A type to denote quantities of tokens
+type TokenCount<T> = <T as Trait>::TokenId;
+
 /// NFT module weights
 pub trait WeightInfo {
 	fn set_owner() -> Weight;
@@ -155,20 +158,20 @@ decl_storage! {
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its onchain schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
-		/// Map from collection to a base metadata URI for its token's offchain attributes
+		/// Map from collection to a base metadata URI for its token's off-chain attributes
 		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => MetadataURI;
 		/// Map from collection to it's defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a token to it's royalty scheme
 		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from (collection, token) to it's attributes (as defined by schema)
+		/// Map from (collection, token) to its on-chain attributes (as defined by schema)
 		pub TokenAttributes get(fn token_attributes): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
 		/// Map from (collection, token) to it's owner
-		pub TokenOwner get(fn token_owner): double_map hasher(blake2_128_concat) CollectionId, hasher(blake2_128_concat) T::TokenId => T::AccountId;
-		/// The total number an NFT collection in circulation (excludes burnt tokens)
-		pub TokenIssuance get(fn token_issuance): map hasher(blake2_128_concat) CollectionId => T::TokenId;
+		pub TokenOwner get(fn token_owner): double_map hasher(blake2_128_concat) (CollectionId, T::TokenId), hasher(blake2_128_concat) T::AccountId => TokenCount<T>;
+		/// The total number of a token in circulation (less burnt tokens)
+		pub TokenSupply get(fn token_supply): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => TokenCount<T>;
 		/// NFT sale/auction listings. keyed by collection id and token id
 		pub Listings get(fn listings): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<Listing<T>>;
 		/// Winning bids on open listings. keyed by collection id and token id
@@ -290,13 +293,13 @@ decl_module! {
 			// Check we can issue a new token
 			let token_id = Self::next_token_id(&collection_id);
 			let next_token_id = token_id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableIds)?;
-			Self::token_issuance(&collection_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
+			Self::token_supply(&collection_id, token_id).checked_add(&One::one()).ok_or(Error::<T>::MaxTokensIssued)?;
 
 			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
 			ensure!(attributes.len() == schema.len(), Error::<T>::SchemaMismatch);
 
 			// Build the NFT + schema type level validation
-			let token: Vec<NFTAttributeValue> = schema.iter().zip(attributes.iter()).map(|((_schema_attribute_name, schema_attribute_type), provided_attribute)| {
+			let token_attributes: Vec<NFTAttributeValue> = schema.iter().zip(attributes.iter()).map(|((_schema_attribute_name, schema_attribute_type), provided_attribute)| {
 				// check provided attribute has the correct type
 				if *schema_attribute_type == provided_attribute.type_id() {
 					ensure!(provided_attribute.len() <= T::MaxAttributeLength::get() as usize, Error::<T>::MaxAttributeLength);
@@ -311,10 +314,10 @@ decl_module! {
 				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
 				<TokenRoyalties<T>>::insert(&collection_id, token_id, royalties_schedule);
 			}
-			<TokenAttributes<T>>::insert(&collection_id, token_id, token);
+			<TokenAttributes<T>>::insert(&collection_id, token_id, token_attributes);
 			<NextTokenId<T>>::insert(&collection_id, next_token_id);
-			<TokenIssuance<T>>::mutate(&collection_id, |i| *i += One::one());
-			<TokenOwner<T>>::insert(&collection_id, token_id, owner.clone());
+			<TokenSupply<T>>::insert(&collection_id, token_id, TokenCount::<T>::one());
+			<TokenOwner<T>>::insert((&collection_id, token_id), owner, TokenCount::<T>::one());
 
 			Self::deposit_event(RawEvent::CreateToken(collection_id, token_id, owner));
 
@@ -328,14 +331,14 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
+			let quantity = Self::token_owner((&collection_id, token_id), origin);
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
+			<TokenOwner<T>>::mutate((&collection_id, token_id), origin, |q| *q -= TokenCount::<T>::one());
+			<TokenOwner<T>>::mutate((&collection_id, token_id), new_owner, |q| *q += TokenCount::<T>::one());
 
-			<TokenOwner<T>>::insert(&collection_id, token_id, &new_owner);
 			Self::deposit_event(RawEvent::Transfer(collection_id, token_id, new_owner));
 		}
 
@@ -346,17 +349,23 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
-			ensure!(<TokenAttributes<T>>::contains_key(&collection_id, token_id), Error::<T>::NoToken);
 
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
+			let quantity = Self::token_owner((&collection_id, token_id), origin);
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
-			// Update token ownership
-			<TokenOwner<T>>::take(&collection_id, token_id);
-			<TokenAttributes<T>>::take(&collection_id, token_id);
-			<TokenIssuance<T>>::mutate(&collection_id, |i| *i -= One::one());
+			// Update token ownership + supply
+			if Self::token_supply(&collection_id, token_id) == TokenCount::<T>::one() {
+				// remove supply
+				<TokenOwner<T>>::take((&collection_id, token_id), origin);
+				<TokenSupply<T>>::take(&collection_id, token_id);
+				<TokenAttributes<T>>::take(&collection_id, token_id);
+			} else {
+				// reduce supply
+				<TokenOwner<T>>::mutate((&collection_id, token_id), origin, |q| *q -= TokenCount::<T>::one());
+				<TokenSupply<T>>::mutate(&collection_id, token_id, |q| *q -= TokenCount::<T>::one());
+			}
 
 			Self::deposit_event(RawEvent::Burn(collection_id, token_id));
 		}
@@ -370,8 +379,8 @@ decl_module! {
 		#[weight = T::WeightInfo::sell()]
 		fn sell(origin, collection_id: CollectionId, token_id: T::TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
+			let quantity = Self::token_owner((&collection_id, token_id), origin);
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
@@ -379,6 +388,7 @@ decl_module! {
 			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
 			let listing = Listing::<T>::FixedPrice(
 				FixedPriceListing::<T> {
+					seller: origin,
 					payment_asset,
 					fixed_price,
 					close: listing_end_block,
@@ -386,6 +396,7 @@ decl_module! {
 				}
 			);
 			Listings::insert(&collection_id, token_id, listing);
+
 			Self::deposit_event(RawEvent::FixedPriceSaleListed(collection_id, token_id, buyer, payment_asset, fixed_price));
 		}
 
@@ -403,8 +414,6 @@ decl_module! {
 					ensure!(origin == buyer, Error::<T>::NoPermission);
 				}
 
-				let current_owner = Self::token_owner(&collection_id, token_id);
-
 				// if there are no custom royalties, fallback to default if it exists
 				let royalties_schedule = if let Some(royalties_schedule) = Self::token_royalties(&collection_id, token_id) {
 					royalties_schedule
@@ -415,7 +424,7 @@ decl_module! {
 				let royalty_fees = royalties_schedule.calculate_total_entitlement();
 				if royalty_fees.is_zero() {
 					// full proceeds to seller/`current_owner`
-					T::MultiCurrency::transfer(&origin, &current_owner, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+					T::MultiCurrency::transfer(&origin, &listing.seller, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
 					let mut for_seller = listing.fixed_price;
@@ -425,11 +434,12 @@ decl_module! {
 						for_seller -= royalty;
 						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
-					imbalance.offset(T::MultiCurrency::deposit_into_existing(&current_owner, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 				}
 
 				// must not fail now that payment has been made
-				<TokenOwner<T>>::insert(&collection_id, token_id, &origin);
+				<TokenOwner<T>>::mutate((&collection_id, token_id), &listing.seller, |q| *q -= TokenCount::<T>::one());
+				<TokenOwner<T>>::mutate((&collection_id, token_id), &origin, |q| *q += TokenCount::<T>::one());
 				Self::remove_fixed_price_listing(&collection_id, token_id);
 				Self::deposit_event(RawEvent::FixedPriceSaleComplete(collection_id, token_id, origin, listing.payment_asset, listing.fixed_price));
 			} else {
@@ -445,8 +455,8 @@ decl_module! {
 		#[weight = T::WeightInfo::auction()]
 		fn auction(origin, collection_id: CollectionId, token_id: T::TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
+			let quantity = Self::token_owner((&collection_id, token_id), origin);
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			ensure!(!<Listings<T>>::contains_key(&collection_id, token_id), Error::<T>::TokenListingProtection);
 
@@ -454,6 +464,7 @@ decl_module! {
 			ListingEndSchedule::<T>::insert(listing_end_block, &(collection_id.clone(), token_id), ());
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {
+					seller: origin,
 					payment_asset,
 					reserve_price,
 					close: listing_end_block,
@@ -512,16 +523,17 @@ decl_module! {
 		#[weight = T::WeightInfo::cancel_sale()]
 		fn cancel_sale(origin, collection_id: CollectionId, token_id: T::TokenId) {
 			let origin = ensure_signed(origin)?;
-			let current_owner = Self::token_owner(&collection_id, token_id);
-			ensure!(current_owner == origin, Error::<T>::NoPermission);
+			let listing = Self::listings(&collection_id, token_id);
 
-			match Self::listings(&collection_id, token_id) {
+			match listing {
 				Some(Listing::<T>::FixedPrice(sale)) => {
+					ensure!(origin == sale.seller, Error::<T>::NoPermission);
 					Listings::<T>::remove(&collection_id, token_id);
 					ListingEndSchedule::<T>::remove(sale.close, &(collection_id.clone(), token_id));
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(collection_id, token_id));
 				},
 				Some(Listing::<T>::Auction(auction)) => {
+					ensure!(origin == auction.seller, Error::<T>::NoPermission);
 					ensure!(Self::listing_winning_bid(&collection_id, token_id).is_none(), Error::<T>::TokenListingProtection);
 					Listings::<T>::remove(&collection_id, token_id);
 					ListingEndSchedule::<T>::remove(auction.close, &(collection_id.clone(), token_id));
@@ -536,8 +548,8 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	/// Find the tokens owned by an `address` in the given collection
-	pub fn collected_tokens(collection_id: &CollectionId, address: &T::AccountId) -> Vec<T::TokenId> {
-		<TokenOwner<T>>::iter_prefix(collection_id)
+	pub fn collected_tokens(collection_id: &CollectionId, address: &T::AccountId) -> Vec<(T::TokenId, TokenCount<T>)> {
+		<TokenOwner<T>>::iter_prefix_values(collection_id)
 			.into_iter()
 			.filter_map(
 				|(token_id, owner)| {
@@ -639,19 +651,19 @@ impl<T: Trait> Module<T> {
 			}
 		}
 
-		let current_owner = Self::token_owner(collection_id, token_id);
-		let seller_balance = T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset));
+		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset));
 		let _ =
-			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &current_owner, for_seller)?;
+			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &listing.seller, for_seller)?;
 
 		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
 		// this should not happen but could for reasons outside the control of this module
 		ensure!(
-			T::MultiCurrency::free_balance(&current_owner, Some(listing.payment_asset))
+			T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset))
 				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);
-		<TokenOwner<T>>::insert(collection_id, token_id, winner);
+		<TokenOwner<T>>::mutate((collection_id, token_id), listing.seller, |q| *q -= TokenCount::<T>::one());
+		<TokenOwner<T>>::mutate((collection_id, token_id), winner, |q| *q += TokenCount::<T>::one());
 
 		Ok(())
 	}

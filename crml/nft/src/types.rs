@@ -161,6 +161,8 @@ pub enum Listing<T: Trait> {
 /// Information about an auction listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub struct AuctionListing<T: Trait> {
+	/// the auction seller
+	pub seller: T::AccountId,
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
 	/// The threshold amount for a succesful bid
@@ -172,6 +174,8 @@ pub struct AuctionListing<T: Trait> {
 /// Information about a fixed price listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub struct FixedPriceListing<T: Trait> {
+	/// the fixed price seller
+	pub seller: T::AccountId,
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
 	/// The requested amount for a succesful sale
