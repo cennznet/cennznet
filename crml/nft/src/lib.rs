@@ -77,7 +77,15 @@ pub trait WeightInfo {
 }
 
 decl_event!(
-	pub enum Event<T> where CollectionId = CollectionId, <T as Trait>::TokenId, <T as frame_system::Trait>::AccountId, AssetId = AssetId, Balance = Balance, Reason = AuctionClosureReason{
+	pub enum Event<T> where
+		CollectionId = CollectionId,
+		<T as Trait>::TokenId,
+		<T as frame_system::Trait>::AccountId,
+		AssetId = AssetId,
+		Balance = Balance,
+		Reason = AuctionClosureReason,
+		EditionId = EditionId<T>
+	{
 		/// A new NFT collection was created, (collection, owner)
 		CreateCollection(CollectionId, AccountId),
 		/// A new NFT was created, (collection, token, owner)
@@ -102,9 +110,9 @@ decl_event!(
 		AuctionClosed(CollectionId, TokenId, Reason),
 		/// A new highest bid was placed (collection, token, amount)
 		Bid(CollectionId, TokenId, Balance),
-		/// A new batch of tokens was minted (colleciton, start Id, end Id, owner)
-		CreateBatch(CollectionId, TokenId, TokenId, AccountId),
-		/// A batch of tokens was transferred (collection, tokens, new owner)
+		/// A batch of tokens were minted (colleciton,edition, owner)
+		CreateBatch(CollectionId, EditionId, AccountId),
+		/// A batch of tokens were transferred (collection, tokens, new owner)
 		TransferBatch(CollectionId, Vec<TokenId>, AccountId),
 	}
 );
@@ -161,18 +169,22 @@ decl_storage! {
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
 		/// Map from collection to a base metadata URI for its token's offchain attributes
 		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => MetadataURI;
-		/// Map from collection to it's defacto royalty scheme
+		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
+		/// Map from a collection to any editions it contains
+		pub Editions get(fn editions): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) EditionId<T> => Option<Edition<T>>;
 		/// Map from a token to it's royalty scheme
 		pub TokenRoyalties get(fn token_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from (collection, token) to it's attributes (as defined by schema)
 		pub TokenAttributes get(fn token_attributes): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Vec<NFTAttributeValue>;
 		/// The next available token Id for an NFT collection
 		pub NextTokenId get(fn next_token_id): map hasher(twox_64_concat) CollectionId => T::TokenId;
-		/// Map from (collection, token) to it's owner
+		/// The next avilable edition Id for an NFT collection
+		pub NextEditionId get(fn next_edition_id): map hasher(twox_64_concat) CollectionId => EditionId<T>;
+		/// Map from (collection, token) to its owner
 		pub TokenOwner get(fn token_owner): double_map hasher(blake2_128_concat) CollectionId, hasher(blake2_128_concat) T::TokenId => T::AccountId;
-		/// The total number an NFT collection in circulation (excludes burnt tokens)
-		pub TokenIssuance get(fn token_issuance): map hasher(blake2_128_concat) CollectionId => T::TokenId;
+		/// The total number of an NFT collection in circulation (excludes burnt tokens)
+		pub TokenIssuance get(fn token_issuance): map hasher(blake2_128_concat) CollectionId => TokenCount<T>;
 		/// NFT sale/auction listings. keyed by collection id and token id
 		pub Listings get(fn listings): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) T::TokenId => Option<Listing<T>>;
 		/// Winning bids on open listings. keyed by collection id and token id
@@ -312,14 +324,18 @@ decl_module! {
 
 			// Check we can issue the new tokens
 			let token_id_start = Self::next_token_id(&collection_id);
-			let token_id_end = token_id_start.checked_add(&batch_size);
 			ensure!(
-				token_id_end.is_some(),
+				token_id_start.checked_add(&batch_size).is_some(),
 				Error::<T>::NoAvailableIds
 			);
 			ensure!(
 				Self::token_issuance(&collection_id).checked_add(&batch_size).is_some(),
 				Error::<T>::MaxTokensIssued
+			);
+			let edition_id = Self::next_edition_id(&collection_id);
+			ensure!(
+				edition_id.checked_add(&EditionId::<T>::one()).is_some(),
+				Error::<T>::NoAvailableIds
 			);
 
 			let schema: NFTSchema = Self::collection_schema(&collection_id).ok_or(Error::<T>::NoCollection)?;
@@ -360,8 +376,14 @@ decl_module! {
 			if batch_size == One::one() {
 				Self::deposit_event(RawEvent::CreateToken(collection_id, token_id_start, owner));
 			} else {
-				// `token_id_end` is some qed.
-				Self::deposit_event(RawEvent::CreateBatch(collection_id, token_id_start, token_id_end.unwrap() - One::one(), owner));
+				// batch create, record the edition info.
+				<Editions<T>>::insert(&collection_id, edition_id, Edition::<T> {
+					id: edition_id,
+					start_token_id: token_id_start,
+					count: batch_size,
+				});
+				<NextEditionId<T>>::mutate(&collection_id,  |i| *i += One::one());
+				Self::deposit_event(RawEvent::CreateBatch(collection_id, edition_id, owner));
 			}
 
 			Ok(())
@@ -595,7 +617,6 @@ decl_module! {
 				None => {},
 			}
 		}
-
 	}
 }
 

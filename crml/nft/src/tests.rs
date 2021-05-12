@@ -37,7 +37,9 @@ impl Trait for Test {
 }
 
 // Check the test system contains an event record `event`
-fn has_event(event: RawEvent<CollectionId, TokenId, AccountId, AssetId, Balance, AuctionClosureReason>) -> bool {
+fn has_event(
+	event: RawEvent<CollectionId, TokenId, AccountId, AssetId, Balance, AuctionClosureReason, EditionId<Test>>,
+) -> bool {
 	System::events()
 		.iter()
 		.find(|e| e.event == Event::nft(event.clone()))
@@ -351,6 +353,8 @@ fn create_token() {
 			token_id.checked_add(One::one()).unwrap()
 		);
 		assert_eq!(Nft::token_issuance(&collection_id), 1);
+		// no edition created
+		assert!(Nft::next_edition_id(&collection_id).is_zero());
 	});
 }
 
@@ -1674,6 +1678,12 @@ fn batch_transfer_fails() {
 			Error::<Test>::NoPermission
 		);
 
+		// transfer empty ids should fail
+		assert_noop!(
+			Nft::batch_transfer(Some(token_owner).into(), collection_id.clone(), vec![], new_owner,),
+			Error::<Test>::NoToken
+		);
+
 		// token is for sale
 		<Listings<Test>>::insert(
 			&collection_id,
@@ -1717,7 +1727,7 @@ fn batch_create() {
 			NFTAttributeValue::String(b"foobar".to_owned().to_vec()),
 		];
 		let token_owner = 2_u64;
-		// mint token Ids 0,1,2
+		// mint token Ids 0-4
 		assert_ok!(Nft::batch_create_token(
 			Some(collection_owner).into(),
 			collection_id.clone(),
@@ -1727,11 +1737,11 @@ fn batch_create() {
 			None,
 		));
 
+		let edition_id = Nft::next_edition_id(&collection_id);
 		let created = vec![0_u32, 1, 2, 3, 4];
 		assert!(has_event(RawEvent::CreateBatch(
 			collection_id.clone(),
-			0,
-			4,
+			edition_id,
 			token_owner
 		)));
 
@@ -1742,5 +1752,47 @@ fn batch_create() {
 		}
 
 		assert_eq!(Nft::collected_tokens(&collection_id, &token_owner), created);
+		assert_eq!(
+			Nft::editions(&collection_id, edition_id).expect("edition created"),
+			Edition::<Test> {
+				id: edition_id,
+				start_token_id: created[0],
+				count: created.len() as u32,
+			}
+		);
+	});
+}
+
+#[test]
+fn batch_create_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner, vec![]);
+
+		// no edition Ids remain
+		assert_noop!(
+			Nft::batch_create_token(
+				Some(collection_owner).into(),
+				collection_id.clone(),
+				5,
+				collection_owner,
+				vec![],
+				None,
+			),
+			Error::<Test>::NoAvailableIds
+		);
+
+		// create 0 should fail
+		assert_noop!(
+			Nft::batch_create_token(
+				Some(collection_owner).into(),
+				collection_id.clone(),
+				0,
+				collection_owner,
+				vec![],
+				None,
+			),
+			Error::<Test>::NoToken
+		);
 	});
 }

@@ -182,6 +182,32 @@ pub struct FixedPriceListing<T: Trait> {
 	pub buyer: Option<T::AccountId>,
 }
 
+/// Edition identifier
+/// An edition is a sub-grouping of tokens within a colleciton
+pub type EditionId<T> = <T as Trait>::TokenId;
+
+/// Info. about an edition of NFTs
+/// An edition is a sub-grouping of tokens within a colleciton-
+/// that are considered copies/replicas.
+///
+/// Token Ids in an `Edition` are issued contiguously
+/// ```ignore
+/// let edition_token_ids: Vec<T::TokenId> =
+///  (edition.start_token_id..edition.start_token_id + edition.count).iter().collect()
+/// ```
+#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+pub struct Edition<T: Trait> {
+	/// The unique id of this edition
+	pub id: EditionId<T>,
+	/// The starting token Id minted in this edition
+	pub start_token_id: T::TokenId,
+	/// The number of tokens in this edition
+	pub count: TokenCount<T>,
+}
+
+/// Denotes a quantitiy of tokens
+pub type TokenCount<T> = <T as Trait>::TokenId;
+
 #[cfg(test)]
 mod test {
 	use super::{NFTAttributeValue, RoyaltiesSchedule};
