@@ -399,8 +399,6 @@ decl_module! {
 		fn batch_transfer(origin, collection_id: CollectionId, token_ids: Vec<T::TokenId>, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
 
-			dbg!(token_ids.clone());
-			dbg!(collection_id.clone());
 			ensure!(token_ids.len() > Zero::zero(), Error::<T>::NoToken);
 			ensure!(CollectionSchema::contains_key(&collection_id), Error::<T>::NoCollection);
 

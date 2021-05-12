@@ -1727,6 +1727,9 @@ fn batch_create() {
 			NFTAttributeValue::String(b"foobar".to_owned().to_vec()),
 		];
 		let token_owner = 2_u64;
+		let edition_id = Nft::next_edition_id(&collection_id);
+		let created = vec![0_u32, 1, 2, 3, 4];
+
 		// mint token Ids 0-4
 		assert_ok!(Nft::batch_create_token(
 			Some(collection_owner).into(),
@@ -1737,8 +1740,6 @@ fn batch_create() {
 			None,
 		));
 
-		let edition_id = Nft::next_edition_id(&collection_id);
-		let created = vec![0_u32, 1, 2, 3, 4];
 		assert!(has_event(RawEvent::CreateBatch(
 			collection_id.clone(),
 			edition_id,
@@ -1770,6 +1771,7 @@ fn batch_create_fails() {
 		let collection_id = setup_collection(collection_owner, vec![]);
 
 		// no edition Ids remain
+		<NextEditionId<Test>>::insert(&collection_id, u32::max_value());
 		assert_noop!(
 			Nft::batch_create_token(
 				Some(collection_owner).into(),
