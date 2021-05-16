@@ -65,7 +65,7 @@ pub type Timestamp = u64;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// NFT token identifier
-pub type TokenId = u32;
+pub type TokenId = Hash;
 
 /// NFT colleciton identifier
 pub type CollectionId = Vec<u8>;

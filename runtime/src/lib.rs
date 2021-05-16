@@ -215,7 +215,6 @@ parameter_types! {
 }
 impl crml_nft::Trait for Runtime {
 	type Event = Event;
-	type TokenId = TokenId;
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;

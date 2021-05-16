@@ -20,11 +20,18 @@
 use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_system::{Module as System, RawOrigin};
+use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
 use crate::types::MAX_ENTITLEMENTS;
 use crate::{Module as Nft, MAX_COLLECTION_ID_LENGTH};
+
+/// payment asset
+const PAYMENT_ASSET: u32 = 16_000;
+/// sale price, 1 million 4dp asset
+const PRICE: u128 = 1_000_000 * 10_000;
+/// QUANTITY
+const QUANTITY: u32 = 1_000_000;
 
 // Create a collection for benchmarking
 // Returns the collection id, schema, and royalties schedule
@@ -69,9 +76,10 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 		.iter()
 		.map(|_| NFTAttributeValue::String([1_u8; 140].to_vec()))
 		.collect::<Vec<NFTAttributeValue>>();
-	let _ = <Nft<T>>::create_token(
+	let _ = <Nft<T>>::batch_create_token(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_id.clone(),
+		QUANTITY, // QUANTITY
 		owner.clone(),
 		attributes.clone(),
 		Some(royalties),
@@ -109,95 +117,72 @@ benchmarks! {
 		let owner: T::AccountId = account("owner", 0, 0);
 
 		let (collection_id, schema, royalties) = setup_collection::<T>(creator.clone());
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), collection_id.clone(), schema.clone(), None, Some(royalties.clone())).expect("created collection");
 		// all attributes max. length
 		let attributes = schema.iter().map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_id.clone(), owner.clone(), attributes, Some(royalties))
 	verify {
-		assert_eq!(<Nft<T>>::token_owner(&collection_id, T::TokenId::from(0_u32)), owner);
+		assert_eq!(<Nft<T>>::balance_of(token_id, owner), 1);
 	}
 
 	transfer {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
-		let token_id = T::TokenId::from(0_u32);
-		// Add some tokens to stress test the ownership transfer process
-		for fake_token_id in 1..1000_u32 {
-			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
-			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(1000 + fake_token_id), new_owner.clone());
-		}
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, new_owner.clone())
+	}: _(RawOrigin::Signed(owner.clone()), token_id, new_owner.clone())
 	verify {
-		assert_eq!(<Nft<T>>::token_owner(&collection_id, token_id), new_owner);
+		assert_eq!(<Nft<T>>::balance_of(token_id, new_owner), 1);
 	}
 
 	burn {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		// Add some tokens to stress test the ownership removal process
-		for fake_token_id in 1..1000_u32 {
-			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
-		}
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
+	}: _(RawOrigin::Signed(owner.clone()), token_id, QUANTITY)
 	verify {
-		assert!(<Nft<T>>::token_attributes(&collection_id, token_id).is_empty());
+		assert!(<Nft<T>>::token_attributes(token_id).is_empty());
 	}
 
 	sell {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		let payment_asset = 16_000;
-		let price = 1_000_000 * 10_000; // 1 million 4dp asset
+		let token_id = generate_token_id::<T>(&collection_id, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
 
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, Some(owner.clone()), payment_asset, price, Some(T::BlockNumber::from(1_u32)))
+	}: _(RawOrigin::Signed(owner.clone()), token_id, QUANTITY, Some(owner.clone()), PAYMENT_ASSET, PRICE, Some(T::BlockNumber::from(1_u32)))
 	verify {
-		assert!(<Nft<T>>::listings(&collection_id, token_id).is_some());
+		assert!(<Nft<T>>::listings(listing_id).is_some());
 	}
 
 	buy {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let buyer: T::AccountId = account("buyer", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		let payment_asset = 16_000;
-		let price = 1_000_000 * 10_000; // 1 million 4dp asset
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
-		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, Some(buyer.clone()), payment_asset, price, None).expect("listed ok");
+		let token_id = generate_token_id::<T>(&collection_id, 0);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None).expect("listed ok");
 
-		// Add some tokens to stress test the ownership transfer process
-		for fake_token_id in 1..1000_u32 {
-			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(fake_token_id), owner.clone());
-			<TokenOwner<T>>::insert(&collection_id, T::TokenId::from(1000 + fake_token_id), buyer.clone());
-		}
-
-	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id)
+	}: _(RawOrigin::Signed(buyer.clone()), listing_id)
 	verify {
-		assert_eq!(<Nft<T>>::token_owner(&collection_id, token_id), buyer);
+		assert_eq!(<Nft<T>>::balance_of(&token_id, buyer), QUANTITY);
 	}
 
 	auction {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		let payment_asset = 16_000;
-		let reserve_price = 1_000_000 * 10_000; // 1 million 4dp asset
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 		let duration = T::BlockNumber::from(100_u32);
+		let listing_id = <Nft<T>>::next_listing_id();
 
-		// stress test add
-		let fake_listing: (CollectionId, T::TokenId) = (b"some-collection-id".to_vec(), T::TokenId::from(1_u32));
-		for i in 0..1000_u32 {
-			ListingEndSchedule::<T>::insert(<System<T>>::block_number() + duration, (fake_listing.0.clone(), T::TokenId::from(i)), ());
-		}
-
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id, payment_asset, reserve_price, Some(duration))
+	}: _(RawOrigin::Signed(owner.clone()), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration))
 	verify {
-		assert!(<Nft<T>>::listings(&collection_id, token_id).is_some());
+		assert!(<Nft<T>>::listings(listing_id).is_some());
 	}
 
 	bid {
@@ -205,41 +190,32 @@ benchmarks! {
 		let buyer: T::AccountId = account("buyer", 0, 0);
 
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		let payment_asset = 16_000;
-		let reserve_price = 1_000_000 * 10_000; // 1 million 4dp asset
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 		let duration = T::BlockNumber::from(100_u32);
 
-		let _ = T::MultiCurrency::deposit_creating(&owner, Some(payment_asset), reserve_price);
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), reserve_price + 1);
-		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, payment_asset, reserve_price, Some(duration)).expect("listed ok");
+		let _ = T::MultiCurrency::deposit_creating(&owner, Some(PAYMENT_ASSET), PRICE);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE + 1);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
 		// worst case path is to replace an existing bid
-		let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, reserve_price);
+		let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), listing_id, PRICE);
 
-	}: _(RawOrigin::Signed(buyer.clone()), collection_id.clone(), token_id, reserve_price + 1)
+	}: _(RawOrigin::Signed(buyer.clone()), listing_id, PRICE + 1)
 	verify {
-		assert_eq!(<Nft<T>>::listing_winning_bid(&collection_id, token_id), Some((buyer.clone(), reserve_price + 1)));
+		assert_eq!(<Nft<T>>::listing_winning_bid(listing_id), Some((buyer.clone(), PRICE + 1)));
 	}
 
 	cancel_sale {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let token_id = T::TokenId::from(0_u32);
-		let payment_asset = 16_000;
-		let reserve_price = 1_000_000 * 10_000; // 1 million 4dp asset
+		let token_id = generate_token_id::<T>(&collection_id, 0);
 		let duration = T::BlockNumber::from(100_u32);
-		// Add some listing data to stress test the listing removal process
-		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), collection_id.clone(), token_id, payment_asset, reserve_price, Some(duration)).expect("listed ok");
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
 
-		// stress test removal
-		let fake_listing: (CollectionId, T::TokenId) = (b"some-collection-id".to_vec(), T::TokenId::from(1_u32));
-		for i in 0..1000_u32 {
-			ListingEndSchedule::<T>::insert(<System<T>>::block_number() + duration, (fake_listing.0.clone(), T::TokenId::from(i)), ());
-		}
-
-	}: _(RawOrigin::Signed(owner.clone()), collection_id.clone(), token_id)
+	}: _(RawOrigin::Signed(owner.clone()), listing_id)
 	verify {
-		assert!(<Nft<T>>::listings(&collection_id, token_id).is_none());
+		assert!(<Nft<T>>::listings(listing_id).is_none());
 	}
 }
 

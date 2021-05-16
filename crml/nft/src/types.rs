@@ -167,6 +167,12 @@ pub struct AuctionListing<T: Trait> {
 	pub reserve_price: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
+	/// The token being sold
+	pub token_id: TokenId<T>,
+	/// How many of the tokens are for sale (1 for NFT, >= 1 for semi-fungible)
+	pub quantity: TokenCount,
+	/// The seller of the tokens
+	pub seller: T::AccountId,
 }
 
 /// Information about a fixed price listing
@@ -180,7 +186,26 @@ pub struct FixedPriceListing<T: Trait> {
 	pub close: T::BlockNumber,
 	/// The authorised buyer. If unset, any buyer is authorised
 	pub buyer: Option<T::AccountId>,
+	/// The token being sold
+	pub token_id: TokenId<T>,
+	/// How many of the tokens are for sale (1 for NFT, >= 1 for semi-fungible)
+	pub quantity: TokenCount,
+	/// The seller of the tokens
+	pub seller: T::AccountId,
 }
+
+/// Auto-incrementing Uint Id.
+/// Uniquely identifies tokens within a collection
+pub type InnerId = u32;
+
+/// Unique Id for a listing
+pub type ListingId = u128;
+
+/// Denotes a quantitiy of tokens
+pub type TokenCount = InnerId;
+
+/// A unique identifier for a token
+pub type TokenId<T> = <T as frame_system::Trait>::Hash;
 
 #[cfg(test)]
 mod test {
