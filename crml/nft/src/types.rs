@@ -23,8 +23,16 @@ use sp_std::prelude::*;
 // Counts enum variants at compile time
 use variant_count::VariantCount;
 
-/// A URI string
-pub type MetadataURI = Vec<u8>;
+/// A metadata URI string
+#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+pub enum MetadataBaseURI {
+	/// Collection metadata is hosted by IPFS
+	/// Its tokens' metdata will be available at `ipfs://<token_metadata_path>`
+	Ipfs,
+	/// Collection metadata is hosted by an HTTPS server
+	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metaata_path>`
+	Https(Vec<u8>),
+}
 
 /// Name of an NFT attribute
 pub type NFTAttributeName = Vec<u8>;

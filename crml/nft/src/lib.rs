@@ -155,7 +155,7 @@ decl_storage! {
 		/// Map from collection to its onchain schema definition
 		pub CollectionSchema get(fn collection_schema): map hasher(blake2_128_concat) CollectionId => Option<NFTSchema>;
 		/// Map from collection to a base metadata URI for its token's offchain attributes
-		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => MetadataURI;
+		pub CollectionMetadataBaseURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from collection to all of its tokens (value is meaningless)
@@ -164,10 +164,12 @@ decl_storage! {
 		pub TokenCollection get(fn token_collection): map hasher(identity) TokenId<T> => CollectionId;
 		/// Map from token to its total issuance
 		pub TokenIssuance get(fn token_issuance): map hasher(identity) TokenId<T> => TokenCount;
-		/// Map from a token to it's royalty scheme
+		/// Map from a token to its royalty scheme
 		pub TokenRoyalties get(fn token_royalties): map hasher(identity) TokenId<T> => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from (collection, token) to it's attributes (as defined by schema)
+		/// Map from (collection, token) to its attributes (as defined by schema)
 		pub TokenAttributes get(fn token_attributes): map hasher(identity) TokenId<T> => Vec<NFTAttributeValue>;
+		/// Map from token to its metadata path i.e. `TokenMetadataURI = CollectionMetadataBaseURI + TokenMetadataPath`
+		pub TokenMetadataPath get(fn token_metadata_path): map hasher(identity) TokenId<T> => Vec<u8>;
 		/// The next sequential integer token Id within an NFT collection
 		/// It is used as material to generate the global `TokenId`
 		NextInnerTokenId get(fn next_inner_token_id): map hasher(twox_64_concat) CollectionId => InnerId;
@@ -244,14 +246,14 @@ decl_module! {
 		/// The caller will be come the collection' owner
 		/// `collection_id`- 32 byte utf-8 string
 		/// `schema` - onchain attributes for tokens in this collection
-		/// `metdata_uri` - offchain metadata uri for tokens in this collection
+		/// `metdata_base_uri` - Base URI for off-chain metadata for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
 		fn create_collection(
 			origin,
 			collection_id: CollectionId,
 			schema: NFTSchema,
-			metadata_uri: Option<MetadataURI>,
+			metadata_base_uri: Option<MetadataBaseURI>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -276,8 +278,8 @@ decl_module! {
 				<CollectionRoyalties<T>>::insert(&collection_id, royalties_schedule);
 			}
 			CollectionSchema::insert(&collection_id, schema);
-			if let Some(metadata_uri) = metadata_uri {
-				CollectionMetadataURI::insert(&collection_id, metadata_uri);
+			if let Some(metadata_base_uri) = metadata_base_uri {
+				CollectionMetadataBaseURI::insert(&collection_id, metadata_base_uri);
 			}
 			<CollectionOwner<T>>::insert(&collection_id, &origin);
 
@@ -286,28 +288,48 @@ decl_module! {
 			Ok(())
 		}
 
-		/// Issue a new NFT
+		/// Issue a unique NFT
+		///
 		/// `owner` - the token owner
 		/// `attributes` - initial values according to the NFT collection/schema
 		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
+		/// `token_metadata_path` - URI path to this tokens offchain metadata from the collection base URI, if any
 		/// Caller must be the collection owner
 		#[weight = T::WeightInfo::create_token()]
 		#[transactional]
-		fn create_token(origin, collection_id: CollectionId, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
-			Self::batch_create_token(origin, collection_id, One::one(), owner, attributes, royalties_schedule)
+		fn issue_unique(
+			origin,
+			collection_id: CollectionId,
+			owner: T::AccountId,
+			attributes: Vec<NFTAttributeValue>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			token_metadata_path: Option<Vec<u8>>,
+		) -> DispatchResult {
+			Self::create_batch(origin, collection_id, One::one(), owner, attributes, royalties_schedule, token_metadata_path)
 		}
 
-		/// Issue a batch of NFTs with the same attributes
+		/// Issue a batch of semi-fungible tokens
+		/// The tokens will share the same `TokenId` and will have an initial balance == quantity
+		/// 
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner
 		/// `attributes` - initial values according to the NFT collection/schema
 		/// `royalties_schedule` - optional royalty schedule for secondary sales of _this_ token, defaults to the collection config
+		/// `token_metadata_path` - URI path to this tokens offchain metadata from the collection base URI, if any
 		/// Caller must be the collection owner
 		/// -----------
-		/// Weight is O(1) regardless of quantity
+		/// Weight is O(1) regardless of `quantity`
 		#[weight = T::WeightInfo::create_token()]
 		#[transactional]
-		fn batch_create_token(origin, collection_id: CollectionId, quantity: TokenCount, owner: T::AccountId, attributes: Vec<NFTAttributeValue>, royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>) -> DispatchResult {
+		fn issue_batch(
+			origin,
+			collection_id: CollectionId,
+			quantity: TokenCount,
+			owner: T::AccountId,
+			attributes: Vec<NFTAttributeValue>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			token_metadata_path: Option<Vec<u8>>,
+		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -348,6 +370,9 @@ decl_module! {
 			<TokenCollection<T>>::insert(token_id, &collection_id);
 			<CollectionTokens<T>>::insert(&collection_id, token_id, true);
 			<TokenIssuance<T>>::insert(token_id, quantity);
+			if let Some(token_metadata_path) = token_metadata_path {
+				<TokenMetadataPath<T>>::insert(token_id, token_metadata_path);
+			}
 			// will not overflow, asserted prior qed.
 			NextInnerTokenId::mutate(&collection_id, |i| *i += InnerId::one());
 
@@ -369,7 +394,7 @@ decl_module! {
 			T::WeightInfo::transfer().saturating_mul(tokens.len() as u64)
 		}]
 		#[transactional]
-		fn batch_transfer(origin, tokens: Vec<(T::Hash, TokenCount)>, new_owner: T::AccountId) {
+		fn transfer_batch(origin, tokens: Vec<(T::Hash, TokenCount)>, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(tokens.len() > Zero::zero(), Error::<T>::NoToken);
@@ -382,7 +407,7 @@ decl_module! {
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::transfer()]
 		fn transfer(origin, token_id: TokenId<T>, new_owner: T::AccountId) -> DispatchResult {
-			Self::batch_transfer(origin, vec![(token_id, One::one())], new_owner)
+			Self::transfer_batch(origin, vec![(token_id, One::one())], new_owner)
 		}
 
 		/// Burn an NFT 🔥
@@ -406,6 +431,7 @@ decl_module! {
 				<CollectionTokens<T>>::remove(collection_id, token_id);
 				<TokenRoyalties<T>>::remove(token_id);
 				<TokenIssuance<T>>::remove(token_id);
+				<TokenMetadataPath<T>>::remove(token_id);
 			} else {
 				<BalanceOf<T>>::mutate(token_id, &origin, |q| *q = q.saturating_sub(quantity));
 				<TokenIssuance<T>>::mutate(token_id, |q| *q = q.saturating_sub(quantity));
