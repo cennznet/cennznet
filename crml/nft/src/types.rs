@@ -213,7 +213,7 @@ pub type ListingId = u128;
 pub type TokenCount = SerialNumber;
 
 /// Global unique token identifier
-pub type TokenId = (Vec<u8>, SeriesId, SerialNumber);
+pub type TokenId = (u32, SeriesId, SerialNumber);
 
 /// Result of querying an addresseses owned tokens in a collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
