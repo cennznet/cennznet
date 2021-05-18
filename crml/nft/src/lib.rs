@@ -24,12 +24,12 @@
 //! *Collections*:
 //!  A namespacing tool for logical grouping of related tokens
 //!  Tokens within a collection can have the same royalties fees, metadata base URIs, and owner address
-//! 
+//!
 //! *Series*:
 //! A grouping of tokens within a collection namespace
 //! Tokens in the same series will have exact attributes and royalties.
 //! A series of size 1 contains an NFT, while a series with > 1 token is considered semi-fungible
-//! 
+//!
 //! *Tokens*:
 //!  Individual tokens are uniquely identifiable by a tuple of (collection, series, serial number)
 //!
@@ -167,25 +167,22 @@ decl_storage! {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(blake2_128_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to a base metadata URI for its token's offchain attributes
-		pub CollectionMetadataBaseURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => Option<MetadataBaseURI>;
+		pub CollectionMetadatURI get(fn collection_metadata_uri): map hasher(blake2_128_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(blake2_128_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
+		/// Map from token to its locked status
+		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
 		/// Map from a token to its owner
+		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
-		/// Map from (collection, set), address to its balance (0-1 for NFTs,  0-* for SFTs)
-		pub BalanceOf get(fn balance_of): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(blake2_128_concat) T::AccountId => TokenCount;
 		/// Map from (collection, set) to its attributes
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
-		/// Whether a series is limited edition or not
-		pub IsLimitedEdition get(fn is_limited_edition): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// Map from a (collection, set) to its total issuance
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a (collection, set) to its royalty scheme
 		pub SeriesRoyalties get(fn series_royalties): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map of locks on tokens
-		pub Locks get(fn locks): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => bool;
-		/// Map from token to its metadata path i.e. `SetMetadataURI = CollectionMetadataBaseURI + SeriesMetadataPath`
-		pub SeriesMetadataPath get(fn set_metadata_path): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<u8>;
+		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
+		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(blake2_128_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
 		/// The next group Id within an NFT collection
 		/// It is used as material to generate the global `TokenId`
 		NextSeriesId get(fn next_series_id): map hasher(blake2_128_concat) CollectionId => SeriesId;
@@ -273,7 +270,7 @@ decl_module! {
 				<CollectionRoyalties<T>>::insert(&collection_id, royalties_schedule);
 			}
 			if let Some(metadata_base_uri) = metadata_base_uri {
-				CollectionMetadataBaseURI::insert(&collection_id, metadata_base_uri);
+				CollectionMetadatURI::insert(&collection_id, metadata_base_uri);
 			}
 			<CollectionOwner<T>>::insert(&collection_id, &origin);
 
@@ -299,7 +296,7 @@ decl_module! {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			metadata_path: Option<Vec<u8>>,
 		) -> DispatchResult {
-			Self::mint_series(origin, collection_id, One::one(), owner, true, attributes, royalties_schedule, metadata_path)
+			Self::mint_series(origin, collection_id, One::one(), owner, attributes, royalties_schedule, metadata_path)
 		}
 
 		/// Mint a series of tokens distinguishable only by a serial number (SFT)
@@ -320,7 +317,6 @@ decl_module! {
 			collection_id: CollectionId,
 			quantity: TokenCount,
 			owner: Option<T::AccountId>,
-			is_limited_edition: bool,
 			attributes: Vec<NFTAttributeValue>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			metadata_path: Option<Vec<u8>>,
@@ -344,14 +340,12 @@ decl_module! {
 				Error::<T>::NoAvailableIds
 			);
 
-			// Ok create the set metadata
-
-			// All these attributes are the same in a set
-			IsLimitedEdition::insert(&collection_id, series_id, is_limited_edition);
+			// Ok create the token series data
+			// All these attributes are the same in a series
 			SeriesAttributes::insert(&collection_id, series_id, attributes);
 			SeriesIssuance::insert(&collection_id, series_id, quantity);
 			if let Some(metadata_path) = metadata_path {
-				SeriesMetadataPath::insert(&collection_id, series_id, metadata_path);
+				SeriesMetadataURI::insert(&collection_id, series_id, metadata_path);
 			}
 			// Add set royalties, if any
 			if let Some(royalties_schedule) = royalties_schedule {
@@ -359,9 +353,9 @@ decl_module! {
 				<SeriesRoyalties<T>>::insert(&collection_id, series_id, royalties_schedule);
 			};
 
-			// Now mint the set tokens
+			// Now mint the series tokens
 			let owner = owner.unwrap_or_else(|| origin.clone());
-			<BalanceOf<T>>::insert((&collection_id, series_id), &owner, quantity);
+
 			// TODO: can we do a lazy mint or similar here to avoid the O(N)...
 			for serial_number in 0..quantity as usize {
 				<TokenOwner<T>>::insert((&collection_id, series_id), serial_number as SerialNumber, &owner);
@@ -401,9 +395,8 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-			// cannot make additional tokens for a limited edition series
-			ensure!(!Self::is_limited_edition(&collection_id, series_id), Error::<T>::NoPermission);
 			let serial_number = Self::next_serial_number(&collection_id, series_id);
+			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
 
 			// Permission and existence check
@@ -415,9 +408,8 @@ decl_module! {
 
 			// Mint the set tokens
 			let owner = owner.unwrap_or_else(|| origin.clone());
-			<BalanceOf<T>>::mutate((&collection_id, series_id), &owner, |q| *q = q.saturating_add(quantity));
-			for s in serial_number..serial_number + quantity {
-				<TokenOwner<T>>::insert((&collection_id, series_id), s, &owner);
+			for serial_number in serial_number..serial_number + quantity {
+				<TokenOwner<T>>::insert((&collection_id, series_id), serial_number as SerialNumber, &owner);
 			}
 
 			NextSerialNumber::mutate(&collection_id, series_id, |q| *q = q.saturating_add(quantity));
@@ -451,9 +443,10 @@ decl_module! {
 			Self::transfer_batch(origin, collection_id, series_id, vec![serial_number], new_owner)
 		}
 
-		/// Burn some tokens 🔥
+		/// Burn some tokens 🔥 (atomic)
 		///
 		/// Caller must be the token owner
+		/// Fails on duplicate serials
 		#[weight = T::WeightInfo::burn()]
 		#[transactional]
 		fn burn(origin, collection_id: CollectionId, series_id: SeriesId, serial_numbers: Vec<SerialNumber>) {
@@ -462,20 +455,18 @@ decl_module! {
 			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
 			for serial_number in serial_numbers.iter() {
-				ensure!(!Self::locks((&collection_id, series_id), serial_number), Error::<T>::TokenListingProtection);
+				ensure!(!Self::token_locks((&collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((&collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
 				<TokenOwner<T>>::remove((&collection_id, series_id), serial_number);
 			}
 
 			if Self::series_issuance(&collection_id, series_id).saturating_sub(serial_numbers.len() as TokenCount).is_zero() {
 				// this is the last of the tokens
-				<BalanceOf<T>>::remove((&collection_id, series_id), &origin);
 				SeriesAttributes::remove(&collection_id, series_id);
 				<SeriesRoyalties<T>>::remove(&collection_id, series_id);
 				SeriesIssuance::remove(&collection_id, series_id);
-				SeriesMetadataPath::remove(&collection_id, series_id);
+				SeriesMetadataURI::remove(&collection_id, series_id);
 			} else {
-				<BalanceOf<T>>::mutate((&collection_id, series_id), &origin, |q| *q = q.saturating_sub(serial_numbers.len() as TokenCount));
 				SeriesIssuance::mutate(&collection_id, series_id, |q| *q = q.saturating_sub(serial_numbers.len() as TokenCount));
 			}
 
@@ -496,7 +487,7 @@ decl_module! {
 
 			let (collection_id, series_id, serial_number) = &token_id;
 			ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoToken);
-			ensure!(!Self::locks((collection_id, series_id), serial_number), Error::<T>::TokenListingProtection);
+			ensure!(!Self::token_locks(&token_id), Error::<T>::TokenListingProtection);
 
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -513,7 +504,7 @@ decl_module! {
 					seller: origin.clone(),
 				}
 			);
-			Locks::insert((collection_id, series_id), serial_number, true);
+			TokenLocks::insert(token_id, true);
 			Listings::insert(listing_id, listing);
 			NextListingId::mutate(|i| *i += 1);
 
@@ -560,7 +551,7 @@ decl_module! {
 				}
 
 				// must not fail now that payment has been made
-				Locks::remove((collection_id, series_id), serial_number);
+				TokenLocks::remove(&listing.token_id);
 				Self::do_transfer(&listing.seller, &collection_id, *series_id, &[*serial_number], &origin)?;
 				Self::remove_fixed_price_listing(listing_id);
 
@@ -580,9 +571,10 @@ decl_module! {
 		#[weight = T::WeightInfo::auction()]
 		fn auction(origin, token_id: TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
+
 			let (collection_id, series_id, serial_number) = &token_id;
 			ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoToken);
-			ensure!(!Self::locks((collection_id, series_id), serial_number), Error::<T>::TokenListingProtection);
+			ensure!(!Self::token_locks(&token_id), Error::<T>::TokenListingProtection);
 
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -598,7 +590,7 @@ decl_module! {
 					seller: origin.clone(),
 				}
 			);
-			Locks::insert((collection_id, series_id), serial_number, true);
+			TokenLocks::insert(&token_id, true);
 			Listings::insert(listing_id, listing);
 			NextListingId::mutate(|i| *i += 1);
 
@@ -659,8 +651,7 @@ decl_module! {
 					ensure!(sale.seller == origin, Error::<T>::NoPermission);
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
-					let (collection_id, series_id, serial_number) = sale.token_id;
-					Locks::remove((collection_id, series_id), serial_number);
+					TokenLocks::remove(sale.token_id);
 
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(listing_id));
 				},
@@ -669,8 +660,7 @@ decl_module! {
 					ensure!(Self::listing_winning_bid(listing_id).is_none(), Error::<T>::TokenListingProtection);
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(auction.close, listing_id);
-					let (collection_id, series_id, serial_number) = auction.token_id;
-					Locks::remove((collection_id, series_id), serial_number);
+					TokenLocks::remove(auction.token_id);
 
 					Self::deposit_event(RawEvent::AuctionClosed(listing_id, AuctionClosureReason::VendorCancelled));
 				},
@@ -691,10 +681,8 @@ impl<T: Trait> Module<T> {
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
 		for serial_number in serial_numbers.iter() {
-			ensure!(
-				!Self::locks((collection_id, series_id), serial_number),
-				Error::<T>::TokenListingProtection
-			);
+			let token_id = (collection_id, series_id, *serial_number);
+			ensure!(!Self::token_locks(token_id), Error::<T>::TokenListingProtection);
 			ensure!(
 				&Self::token_owner((collection_id, series_id), serial_number) == current_owner,
 				Error::<T>::NoPermission
@@ -702,23 +690,17 @@ impl<T: Trait> Module<T> {
 			<TokenOwner<T>>::insert((collection_id, series_id), serial_number, new_owner);
 		}
 
-		<BalanceOf<T>>::mutate((collection_id, series_id), current_owner, |q| {
-			*q -= serial_numbers.len() as TokenCount
-		});
-		<BalanceOf<T>>::mutate((collection_id, series_id), new_owner, |q| {
-			*q += serial_numbers.len() as TokenCount
-		});
-
 		Ok(())
 	}
 	/// Find the tokens owned by an `address` in the given collection
 	pub fn collected_tokens(collection_id: &CollectionId, address: &T::AccountId) -> Vec<SerialNumber> {
 		let mut owned_tokens = Vec::<SerialNumber>::default();
 		let next_series_id = Self::next_series_id(collection_id);
+
+		// Search each series up until the last known series Id
 		for series_id in 0..next_series_id {
 			let mut set_tokens: Vec<SerialNumber> = <TokenOwner<T>>::iter_prefix((collection_id, series_id))
-				.filter(|(_serial_number, owner)| owner == address)
-				.map(|(serial_number, _owner)| serial_number)
+				.filter_map(|(serial_number, owner)| if &owner == address { Some(serial_number) } else { None })
 				.collect();
 
 			owned_tokens.append(&mut set_tokens);
@@ -742,8 +724,7 @@ impl<T: Trait> Module<T> {
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 			match Listings::<T>::take(listing_id) {
 				Some(Listing::FixedPrice(listing)) => {
-					let (collection_id, series_id, serial_number) = listing.token_id;
-					Locks::remove((collection_id, series_id), serial_number);
+					TokenLocks::remove(listing.token_id);
 
 					Self::deposit_event(RawEvent::FixedPriceSaleClosed(listing_id));
 				}
@@ -755,8 +736,7 @@ impl<T: Trait> Module<T> {
 							log!(error, "🃏 auction settlement failed: {:?}", err);
 							T::MultiCurrency::unreserve(&winner, Some(listing.payment_asset), hammer_price);
 							// release listing tokens
-							let (collection_id, series_id, serial_number) = listing.token_id;
-							Locks::remove((collection_id, series_id), serial_number);
+							TokenLocks::remove(listing.token_id);
 
 							// listing metadadta is removed by now.
 							Self::deposit_event(RawEvent::AuctionClosed(
@@ -775,8 +755,7 @@ impl<T: Trait> Module<T> {
 					} else {
 						// normal closure, no acceptable bids
 						// release listed tokens
-						let (collection_id, series_id, serial_number) = listing.token_id;
-						Locks::remove((collection_id, series_id), serial_number);
+						TokenLocks::remove(listing.token_id);
 
 						// listing metadadta is removed by now.
 						Self::deposit_event(RawEvent::AuctionClosed(listing_id, AuctionClosureReason::ExpiredNoBids));
@@ -826,7 +805,7 @@ impl<T: Trait> Module<T> {
 			Error::<T>::InternalPayment
 		);
 
-		Locks::remove((collection_id, series_id), serial_number);
+		TokenLocks::remove(&listing.token_id);
 
 		Self::do_transfer(&listing.seller, collection_id, *series_id, &[*serial_number], winner)?;
 

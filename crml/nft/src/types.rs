@@ -23,7 +23,7 @@ use sp_std::prelude::*;
 // Counts enum variants at compile time
 use variant_count::VariantCount;
 
-/// A metadata URI string
+/// A base metadata URI string for a collection
 #[derive(Decode, Encode, Debug, Clone, PartialEq)]
 pub enum MetadataBaseURI {
 	/// Collection metadata is hosted by IPFS
