@@ -215,6 +215,15 @@ pub type TokenCount = SerialNumber;
 /// Global unique token identifier
 pub type TokenId = (Vec<u8>, SeriesId, SerialNumber);
 
+/// Result of querying an addresseses owned tokens in a collection
+#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+pub struct CollectedTokensResult {
+	/// The collection
+	pub collection_id: Vec<u8>,
+	/// The tokens owned in a series
+	pub series_tokens: Vec<(SeriesId, Vec<SerialNumber>)>,
+}
+
 #[cfg(test)]
 mod test {
 	use super::{NFTAttributeValue, RoyaltiesSchedule};
