@@ -64,15 +64,6 @@ pub type Timestamp = u64;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
-/// NFT token identifier
-pub type TokenId = Hash;
-
-/// NFT colleciton moniker
-pub type CollectionNameType = Vec<u8>;
-
-/// NFT collection identifier
-pub type CollectionId = u32;
-
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]

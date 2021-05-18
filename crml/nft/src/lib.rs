@@ -34,7 +34,7 @@
 //!  Individual tokens are uniquely identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, CollectionNameType};
+use cennznet_primitives::types::{AssetId, Balance};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReason},

@@ -199,6 +199,13 @@ pub struct FixedPriceListing<T: Trait> {
 }
 
 /// Auto-incrementing Uint
+/// Uniquely identifies a collection
+pub type CollectionId = u32;
+
+/// NFT colleciton moniker
+pub type CollectionNameType = Vec<u8>;
+
+/// Auto-incrementing Uint
 /// Uniquely identifies a series of tokens within a collection
 pub type SeriesId = u32;
 
@@ -213,16 +220,7 @@ pub type ListingId = u128;
 pub type TokenCount = SerialNumber;
 
 /// Global unique token identifier
-pub type TokenId = (u32, SeriesId, SerialNumber);
-
-/// Result of querying an addresseses owned tokens in a collection
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub struct CollectedTokensResult {
-	/// The collection
-	pub collection_id: Vec<u8>,
-	/// The tokens owned in a series
-	pub series_tokens: Vec<(SeriesId, Vec<SerialNumber>)>,
-}
+pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {
