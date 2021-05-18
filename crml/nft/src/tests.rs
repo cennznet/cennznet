@@ -615,6 +615,9 @@ fn transfer_fails_prechecks() {
 	});
 }
 
+// TODO: burn handles duplicates
+// TODO: check mint additional can't make an NFT increase by 1
+
 #[test]
 fn burn() {
 	ExtBuilder::default().build().execute_with(|| {

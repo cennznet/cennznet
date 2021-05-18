@@ -19,7 +19,17 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
-	fn create_token() -> Weight {
+	fn mint_unique() -> Weight {
+		(133_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
+	}
+	fn mint_series() -> Weight {
+		(133_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
+	}
+	fn mint_additional() -> Weight {
 		(133_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(5 as Weight))
 			.saturating_add(DbWeight::get().writes(6 as Weight))
