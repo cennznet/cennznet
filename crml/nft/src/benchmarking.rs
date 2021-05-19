@@ -103,6 +103,7 @@ benchmarks! {
 	}
 
 	mint_additional {
+		let q in 1 .. 1_000;
 		let creator: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
 
@@ -113,14 +114,15 @@ benchmarks! {
 		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, Some(royalties.clone())).expect("created collection");
 		// all attributes max. length
 		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
-		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, QUANTITY, Some(owner.clone()), attributes, Some(b"/tokens".to_vec())).expect("minted series");
+		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), attributes, Some(b"/tokens".to_vec())).expect("minted series");
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, QUANTITY, Some(owner.clone()))
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, q.into(), Some(owner.clone()))
 	verify {
-		assert_eq!(<Nft<T>>::next_serial_number(collection_id, series_id), QUANTITY * 2);
+		assert_eq!(<Nft<T>>::next_serial_number(collection_id, series_id), q + 1);
 	}
 
 	mint_series {
+		let q in 1 .. 1_000;
 		let creator: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
 
@@ -132,7 +134,7 @@ benchmarks! {
 		// all attributes max. length
 		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, QUANTITY, Some(owner.clone()), attributes, Some(b"/tokens".to_vec()))
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, q.into(), Some(owner.clone()), attributes, Some(b"/tokens".to_vec()))
 	verify {
 		// the last token id in
 		assert_eq!(<Nft<T>>::token_owner((collection_id, series_id), <Nft<T>>::next_serial_number(collection_id, series_id) - 1), owner);

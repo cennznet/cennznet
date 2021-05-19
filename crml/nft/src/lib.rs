@@ -76,9 +76,8 @@ pub trait Trait: frame_system::Trait {
 pub trait WeightInfo {
 	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
-	fn mint_unique() -> Weight;
-	fn mint_series() -> Weight;
-	fn mint_additional() -> Weight;
+	fn mint_series(q: u32) -> Weight;
+	fn mint_additional(q: u32) -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
 	fn sell() -> Weight;
@@ -296,7 +295,7 @@ decl_module! {
 		/// `attributes` - initial values according to the NFT collection/schema
 		/// `metadata_path` - URI path to the offchain metadata relative to the collection base URI
 		/// Caller must be the collection owner
-		#[weight = T::WeightInfo::mint_unique()]
+		#[weight = T::WeightInfo::mint_series(1)]
 		#[transactional]
 		fn mint_unique(
 			origin,
@@ -318,7 +317,7 @@ decl_module! {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Performs O(N) writes where N is `quantity`
-		#[weight = T::WeightInfo::mint_unique().saturating_mul(*quantity as Weight)]
+		#[weight = T::WeightInfo::mint_series(*quantity)]
 		#[transactional]
 		fn mint_series(
 			origin,
@@ -387,12 +386,7 @@ decl_module! {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
-		#[weight = {
-			T::WeightInfo::mint_additional()
-			.saturating_add(
-				T::DbWeight::get().writes(1).saturating_mul(*quantity as Weight)
-			)
-		}]
+		#[weight = T::WeightInfo::mint_additional(*quantity)]
 		#[transactional]
 		fn mint_additional(
 			origin,
