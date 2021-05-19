@@ -520,6 +520,76 @@ fn burn_fails_prechecks() {
 }
 
 #[test]
+fn sell_bundle() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let quantity = 5;
+
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			quantity,
+			None,
+			vec![NFTAttributeValue::I32(123)],
+			None,
+		));
+
+		let tokens = vec![(collection_id, 0, 1), (collection_id, 0, 3), (collection_id, 0, 4)];
+		let listing_id = Nft::next_listing_id();
+
+		assert_ok!(Nft::sell_bundle(
+			Some(collection_owner).into(),
+			tokens.clone(),
+			None,
+			16_000,
+			1_000,
+			None,
+		));
+
+		for token in tokens.iter() {
+			assert!(Nft::token_locks(token));
+		}
+
+		let buyer = 3;
+		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(16_000), 1_000);
+		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+	})
+}
+
+#[test]
+fn sell_bundle_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let collection_id_2 = setup_collection(collection_owner);
+		// mint some fake tokens
+		<TokenOwner<Test>>::insert((collection_id, 0), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id_2, 0), 1, collection_owner);
+
+		// empty tokens fails
+		assert_noop!(
+			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, 16_000, 1_000, None,),
+			Error::<Test>::NoToken
+		);
+
+		// cannot bundle sell tokens from different collections
+		assert_noop!(
+			Nft::sell_bundle(
+				Some(collection_owner).into(),
+				vec![(collection_id, 0, 1), (collection_id_2, 0, 1),],
+				None,
+				16_000,
+				1_000,
+				None,
+			),
+			Error::<Test>::MixedBundleSale
+		);
+	})
+}
+
+#[test]
 fn sell() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
@@ -535,6 +605,7 @@ fn sell() {
 		));
 
 		assert!(Nft::token_locks(&token_id));
+		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: 16_000,
@@ -565,10 +636,10 @@ fn sell() {
 }
 
 #[test]
-fn sell_prechecks() {
+fn sell_fails() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
-		// Not owner
+		// Not token owner
 		assert_noop!(
 			Nft::sell(Some(token_owner + 1).into(), token_id, Some(5), 16_000, 1_000, None),
 			Error::<Test>::NoPermission
@@ -677,7 +748,7 @@ fn buy() {
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		// no royalties, all proceeds to token owner
-		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price,);
+		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price);
 
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
@@ -688,6 +759,7 @@ fn buy() {
 
 		// ownership changed
 		assert!(!Nft::token_locks(&token_id));
+		assert!(!Nft::open_collection_listings(collection_id, listing_id));
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
 	});
 }
@@ -924,6 +996,78 @@ fn cancel_auction() {
 }
 
 #[test]
+fn auction_bundle() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let quantity = 5;
+
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			quantity,
+			None,
+			vec![NFTAttributeValue::I32(123)],
+			None,
+		));
+
+		let tokens = vec![(collection_id, 0, 1), (collection_id, 0, 3), (collection_id, 0, 4)];
+		let listing_id = Nft::next_listing_id();
+
+		assert_ok!(Nft::auction_bundle(
+			Some(collection_owner).into(),
+			tokens.clone(),
+			16_000,
+			1_000,
+			Some(1),
+		));
+
+		assert!(Nft::open_collection_listings(collection_id, listing_id));
+		for token in tokens.iter() {
+			assert!(Nft::token_locks(token));
+		}
+
+		let buyer = 3;
+		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(16_000), 1_000);
+		assert_ok!(Nft::bid(Some(buyer).into(), listing_id, 1_000));
+		// end auction
+		let _ = Nft::on_initialize(System::block_number() + 1);
+
+		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+	})
+}
+
+#[test]
+fn auction_bundle_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let collection_id_2 = setup_collection(collection_owner);
+		// mint some fake tokens
+		<TokenOwner<Test>>::insert((collection_id, 0), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id_2, 0), 1, collection_owner);
+
+		// empty tokens fails
+		assert_noop!(
+			Nft::auction_bundle(Some(collection_owner).into(), vec![], 16_000, 1_000, None,),
+			Error::<Test>::NoToken
+		);
+
+		// cannot bundle sell tokens from different collections
+		assert_noop!(
+			Nft::auction_bundle(
+				Some(collection_owner).into(),
+				vec![(collection_id, 0, 1), (collection_id_2, 0, 1),],
+				16_000,
+				1_000,
+				None,
+			),
+			Error::<Test>::MixedBundleSale
+		);
+	})
+}
+
+#[test]
 fn auction() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
@@ -941,6 +1085,7 @@ fn auction() {
 		));
 		assert_eq!(Nft::next_listing_id(), listing_id + 1);
 		assert!(Nft::token_locks(&token_id));
+		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
 		// first bidder at reserve price
 		let bidder_1 = 10;
@@ -972,6 +1117,7 @@ fn auction() {
 		// ownership changed
 		assert!(!Nft::token_locks(&token_id));
 		assert_eq!(Nft::collected_tokens(collection_id, &bidder_2), vec![token_id]);
+		assert!(!Nft::open_collection_listings(collection_id, listing_id));
 
 		// event logged
 		assert!(has_event(RawEvent::AuctionSold(
@@ -1297,7 +1443,6 @@ fn transfer_batch() {
 	});
 }
 
-// TODO: check opencollectionlistings
 #[test]
 fn transfer_batch_fails() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1409,6 +1554,10 @@ fn mint_series() {
 			additional_quantity,
 			Some(token_owner + 1), // new owner this time
 		));
+		assert_eq!(
+			Nft::next_serial_number(collection_id, series_id),
+			quantity + additional_quantity
+		);
 
 		assert_eq!(
 			Nft::collected_tokens(collection_id, &token_owner),
