@@ -108,8 +108,8 @@ decl_event!(
 		CreateAdditional(CollectionId, SeriesId, TokenCount, AccountId),
 		/// A unique token was created (collection, series id, serial number, owner)
 		CreateToken(CollectionId, TokenId, AccountId),
-		/// Token(s) were transferred (token Ids, new owner)
-		Transfer(Vec<TokenId>, AccountId),
+		/// Token(s) were transferred (previous owner, token Ids, new owner)
+		Transfer(AccountId, Vec<TokenId>, AccountId),
 		/// Tokens were burned (collection, series id, serial numbers)
 		Burn(CollectionId, SeriesId, Vec<SerialNumber>),
 		/// A fixed price sale has been listed (collection, listing)
@@ -369,9 +369,9 @@ decl_module! {
 
 			// will not overflow, asserted prior qed.
 			NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
+			NextSerialNumber::insert(collection_id, series_id, quantity as SerialNumber);
 
 			if quantity > One::one() {
-				NextSerialNumber::insert(collection_id, series_id, quantity as SerialNumber);
 				Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
 			} else {
 				Self::deposit_event(RawEvent::CreateToken(collection_id, (collection_id, series_id, 0 as SerialNumber), owner));
@@ -452,7 +452,7 @@ decl_module! {
 			}
 			Self::do_transfer_unchecked(&tokens, &new_owner);
 
-			Self::deposit_event(RawEvent::Transfer(tokens, new_owner));
+			Self::deposit_event(RawEvent::Transfer(origin, tokens, new_owner));
 		}
 
 		/// Burn a token 🔥

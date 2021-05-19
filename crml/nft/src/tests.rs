@@ -43,6 +43,7 @@ fn has_event(
 		Balance,
 		AuctionClosureReason,
 		SeriesId,
+		SerialNumber,
 		TokenCount,
 		CollectionNameType,
 	>,
@@ -85,7 +86,6 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::Accou
 		Some(token_owner),
 		vec![NFTAttributeValue::I32(500)],
 		None,
-		None,
 	));
 
 	(collection_id, token_id, token_owner)
@@ -93,11 +93,13 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::Accou
 
 /// Setup a token, return collection id, token id, token owner
 fn setup_token_with_royalties(
-	token_royalties: RoyaltiesSchedule<AccountId>,
+	royalties_schedule: RoyaltiesSchedule<AccountId>,
 	quantity: TokenCount,
 ) -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
+	CollectionRoyalties::<Test>::insert(collection_id, royalties_schedule);
+
 	let token_owner = 2_u64;
 	let token_id = first_token_id(collection_id);
 	assert_ok!(Nft::mint_series(
@@ -106,7 +108,6 @@ fn setup_token_with_royalties(
 		quantity,
 		Some(token_owner),
 		vec![NFTAttributeValue::I32(500)],
-		Some(token_royalties),
 		None,
 	));
 
@@ -213,10 +214,6 @@ fn mint_unique() {
 
 		let token_owner = 2_u64;
 		let series_id = 0;
-		let token_serial = 0;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::from_percent(10))],
-		};
 		assert_eq!(Nft::next_series_id(collection_id), series_id);
 		assert_ok!(Nft::mint_unique(
 			Some(collection_owner).into(),
@@ -227,15 +224,9 @@ fn mint_unique() {
 				NFTAttributeValue::U8(0),
 				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
-			Some(royalties_schedule.clone()),
 			None,
 		));
-		assert!(has_event(RawEvent::CreateToken(
-			collection_id,
-			series_id,
-			token_serial,
-			token_owner.clone()
-		)));
+		assert!(has_event(RawEvent::CreateToken(collection_id, token_id, token_owner,)));
 
 		let token_attributes = Nft::series_attributes(collection_id, series_id);
 		assert_eq!(
@@ -247,11 +238,9 @@ fn mint_unique() {
 			],
 		);
 
-		assert_eq!(
-			Nft::series_royalties(collection_id, series_id).expect("royalties plan set"),
-			royalties_schedule
-		);
 		assert_eq!(Nft::collected_tokens(collection_id, &token_owner), vec![token_id]);
+		assert_eq!(Nft::token_owner((collection_id, series_id), 0), token_owner);
+		assert_eq!(Nft::next_serial_number(collection_id, series_id), 1);
 		assert_eq!(Nft::next_series_id(collection_id), series_id + 1);
 		assert_eq!(Nft::series_issuance(collection_id, series_id), 1);
 	});
@@ -278,7 +267,6 @@ fn create_multiple_unique_tokens() {
 				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 			None,
-			None,
 		));
 
 		assert_ok!(Nft::mint_unique(
@@ -290,15 +278,9 @@ fn create_multiple_unique_tokens() {
 				NFTAttributeValue::U8(0),
 				NFTAttributeValue::String(String::from("💎🙌").as_bytes().to_vec())
 			],
-			None,
 			Some(metadata_uri.to_vec()),
 		));
-		assert!(has_event(RawEvent::CreateToken(
-			collection_id,
-			token_2.1, // series Id
-			token_2.2, // token Id
-			token_owner.clone()
-		)));
+		assert!(has_event(RawEvent::CreateToken(collection_id, token_2, token_owner,)));
 
 		assert_eq!(Nft::series_metadata_uri(collection_id, 1), Some(metadata_uri.to_vec()));
 		assert_eq!(
@@ -322,7 +304,6 @@ fn mint_unique_fails_prechecks() {
 				Some(collection_owner),
 				Default::default(),
 				None,
-				None,
 			),
 			Error::<Test>::NoPermission
 		);
@@ -333,7 +314,6 @@ fn mint_unique_fails_prechecks() {
 				collection_id + 1, // collection doesn't exist
 				None,
 				Default::default(),
-				None,
 				None,
 			),
 			Error::<Test>::NoCollection
@@ -347,27 +327,8 @@ fn mint_unique_fails_prechecks() {
 				None,
 				too_many_attributes,
 				None,
-				None,
 			),
 			Error::<Test>::SchemaMaxAttributes
-		);
-
-		// royalties > 100%
-		assert_noop!(
-			Nft::mint_unique(
-				Some(collection_owner).into(),
-				collection_id,
-				None,
-				vec![NFTAttributeValue::I32(0), NFTAttributeValue::Url(b"test".to_vec())],
-				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_fraction(1.2)),
-						(3_u64, Permill::from_fraction(1.2))
-					]
-				}),
-				None,
-			),
-			Error::<Test>::RoyaltiesOvercommitment
 		);
 
 		// attribute value too long
@@ -380,7 +341,6 @@ fn mint_unique_fails_prechecks() {
 					NFTAttributeValue::I32(0),
 					NFTAttributeValue::Url([1_u8; <Test as Trait>::MaxAttributeLength::get() as usize + 1].to_vec())
 				],
-				None,
 				None,
 			),
 			Error::<Test>::MaxAttributeLength
@@ -402,13 +362,12 @@ fn transfer() {
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
 			None,
-			None,
 		));
 
 		// test
 		let new_owner = 3_u64;
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id.clone(), new_owner,));
-		assert!(has_event(RawEvent::Transfer(collection_id, 0, vec![0], new_owner)));
+		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
+		assert!(has_event(RawEvent::Transfer(token_owner, vec![token_id], new_owner)));
 
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), vec![token_id]);
@@ -427,7 +386,7 @@ fn transfer_fails_prechecks() {
 
 		// no token yet
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id.clone(), token_owner),
+			Nft::transfer(Some(token_owner).into(), token_id, token_owner),
 			Error::<Test>::NoPermission,
 		);
 
@@ -441,13 +400,13 @@ fn transfer_fails_prechecks() {
 
 		let not_the_owner = 3_u64;
 		assert_noop!(
-			Nft::transfer(Some(not_the_owner).into(), token_id.clone(), not_the_owner),
+			Nft::transfer(Some(not_the_owner).into(), token_id, not_the_owner),
 			Error::<Test>::NoPermission,
 		);
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(5),
 			16_000,
 			1_000,
@@ -456,7 +415,7 @@ fn transfer_fails_prechecks() {
 
 		// cannot transfer while listed
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id.clone(), token_owner),
+			Nft::transfer(Some(token_owner).into(), token_id, token_owner),
 			Error::<Test>::TokenListingProtection,
 		);
 	});
@@ -479,11 +438,10 @@ fn burn() {
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
 			None,
-			None,
 		));
 
 		// test
-		assert_ok!(Nft::burn(Some(token_owner).into(), token_id.clone()));
+		assert_ok!(Nft::burn(Some(token_owner).into(), token_id));
 		assert!(has_event(RawEvent::Burn(collection_id, series_id, vec![0])));
 
 		assert_ok!(Nft::burn_batch(
@@ -495,7 +453,6 @@ fn burn() {
 		assert!(has_event(RawEvent::Burn(collection_id, series_id, vec![1, 2])));
 
 		assert!(!SeriesIssuance::contains_key(collection_id, series_id));
-		assert!(!<SeriesRoyalties<Test>>::contains_key(collection_id, series_id));
 		assert!(!SeriesMetadataURI::contains_key(collection_id, series_id));
 		assert!(!SeriesAttributes::contains_key(collection_id, series_id));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 0));
@@ -570,7 +527,7 @@ fn sell() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(5),
 			16_000,
 			1_000,
@@ -584,7 +541,7 @@ fn sell() {
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
 			buyer: Some(5),
-			token_id: token_id.clone(),
+			tokens: vec![token_id],
 			seller: token_owner,
 		});
 
@@ -599,7 +556,7 @@ fn sell() {
 
 		// Can't transfer while listed for sale
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id.clone(), token_owner + 1),
+			Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1),
 			Error::<Test>::TokenListingProtection
 		);
 
@@ -613,34 +570,27 @@ fn sell_prechecks() {
 		let (_, token_id, token_owner) = setup_token();
 		// Not owner
 		assert_noop!(
-			Nft::sell(
-				Some(token_owner + 1).into(),
-				token_id.clone(),
-				Some(5),
-				16_000,
-				1_000,
-				None
-			),
+			Nft::sell(Some(token_owner + 1).into(), token_id, Some(5), 16_000, 1_000, None),
 			Error::<Test>::NoPermission
 		);
 
 		// token listed already
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(5),
 			16_000,
 			1_000,
 			None,
 		));
 		assert_noop!(
-			Nft::sell(Some(token_owner).into(), token_id.clone(), Some(5), 16_000, 1_000, None),
+			Nft::sell(Some(token_owner).into(), token_id, Some(5), 16_000, 1_000, None),
 			Error::<Test>::TokenListingProtection
 		);
 
 		// can't auction, listed for fixed price sale
 		assert_noop!(
-			Nft::auction(Some(token_owner).into(), token_id.clone(), 16_000, 1_000, None),
+			Nft::auction(Some(token_owner).into(), token_id, 16_000, 1_000, None),
 			Error::<Test>::TokenListingProtection
 		);
 	});
@@ -653,7 +603,7 @@ fn cancel_sell() {
 		let listing_id = Nft::next_listing_id();
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(5),
 			16_000,
 			1_000,
@@ -670,11 +620,7 @@ fn cancel_sell() {
 		));
 
 		// it should be free to operate on the token
-		assert_ok!(Nft::transfer(
-			Some(token_owner).into(),
-			token_id.clone(),
-			token_owner + 1,
-		));
+		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1,));
 	});
 }
 
@@ -687,7 +633,7 @@ fn sell_closes_on_schedule() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(5),
 			16_000,
 			1_000,
@@ -706,7 +652,7 @@ fn sell_closes_on_schedule() {
 
 		// should be free to transfer now
 		let new_owner = 8;
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id.clone(), new_owner,));
+		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
 	});
 }
 
@@ -721,7 +667,7 @@ fn buy() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(buyer),
 			payment_asset,
 			price,
@@ -764,70 +710,63 @@ fn buy_with_royalties() {
 		let payment_asset = 16_000;
 		let sale_price = 1_000_008;
 		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price * 2);
-		let series_id = 0;
+		let token_id = first_token_id(collection_id);
 
-		// Test token royalties on 1st iteration
-		// Test collection royalties on 2nd iteration
-		for test_index in 0..=1_u32 {
-			let token_id = (collection_id, series_id, test_index as SerialNumber);
-			if test_index == 1 {
-				SeriesRoyalties::<Test>::remove(collection_id, series_id);
-				CollectionRoyalties::<Test>::insert(collection_id, &royalties_schedule);
-			}
-			let listing_id = Nft::next_listing_id();
-			assert_eq!(listing_id, test_index as ListingId);
-			assert_ok!(Nft::sell(
-				Some(token_owner).into(),
-				token_id.clone(),
-				Some(buyer),
-				payment_asset,
-				sale_price,
-				None,
-			));
+		let (collection_id, _, _) = token_id;
+		CollectionRoyalties::<Test>::insert(collection_id, &royalties_schedule);
+		let listing_id = Nft::next_listing_id();
+		assert_eq!(listing_id, 0);
+		assert_ok!(Nft::sell(
+			Some(token_owner).into(),
+			token_id,
+			Some(buyer),
+			payment_asset,
+			sale_price,
+			None,
+		));
 
-			let initial_balance_owner = GenericAsset::free_balance(payment_asset, &collection_owner);
-			let initial_balance_b1 = GenericAsset::free_balance(payment_asset, &beneficiary_1);
-			let initial_balance_b2 = GenericAsset::free_balance(payment_asset, &beneficiary_2);
-			let initial_balance_seller = GenericAsset::free_balance(payment_asset, &token_owner);
+		let initial_balance_owner = GenericAsset::free_balance(payment_asset, &collection_owner);
+		let initial_balance_b1 = GenericAsset::free_balance(payment_asset, &beneficiary_1);
+		let initial_balance_b2 = GenericAsset::free_balance(payment_asset, &beneficiary_2);
+		let initial_balance_seller = GenericAsset::free_balance(payment_asset, &token_owner);
 
-			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			let presale_issuance = GenericAsset::total_issuance(payment_asset);
-			// royalties distributed according to `entitlements` map
-			assert_eq!(
-				GenericAsset::free_balance(payment_asset, &collection_owner),
-				initial_balance_owner + royalties_schedule.clone().entitlements[0].1 * sale_price
-			);
-			assert_eq!(
-				GenericAsset::free_balance(payment_asset, &beneficiary_1),
-				initial_balance_b1 + royalties_schedule.clone().entitlements[1].1 * sale_price
-			);
-			assert_eq!(
-				GenericAsset::free_balance(payment_asset, &beneficiary_2),
-				initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
-			);
-			// token owner gets sale price less royalties
-			assert_eq!(
-				GenericAsset::free_balance(payment_asset, &token_owner),
-				initial_balance_seller + sale_price
-					- royalties_schedule
-						.clone()
-						.entitlements
-						.into_iter()
-						.map(|(_, e)| e * sale_price)
-						.sum::<Balance>()
-			);
-			assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
+		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+		let presale_issuance = GenericAsset::total_issuance(payment_asset);
+		// royalties distributed according to `entitlements` map
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &collection_owner),
+			initial_balance_owner + royalties_schedule.clone().entitlements[0].1 * sale_price
+		);
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &beneficiary_1),
+			initial_balance_b1 + royalties_schedule.clone().entitlements[1].1 * sale_price
+		);
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &beneficiary_2),
+			initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
+		);
+		// token owner gets sale price less royalties
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &token_owner),
+			initial_balance_seller + sale_price
+				- royalties_schedule
+					.clone()
+					.entitlements
+					.into_iter()
+					.map(|(_, e)| e * sale_price)
+					.sum::<Balance>()
+		);
+		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
 
-			// listing removed
-			assert!(Nft::listings(listing_id).is_none());
-			assert!(!Nft::listing_end_schedule(
-				System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
-				listing_id
-			));
+		// listing removed
+		assert!(Nft::listings(listing_id).is_none());
+		assert!(!Nft::listing_end_schedule(
+			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			listing_id
+		));
 
-			// ownership changed
-			assert!(Nft::collected_tokens(collection_id, &buyer).contains(&token_id));
-		}
+		// ownership changed
+		assert!(Nft::collected_tokens(collection_id, &buyer).contains(&token_id));
 	});
 }
 
@@ -848,7 +787,7 @@ fn buy_fails_prechecks() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(buyer),
 			payment_asset,
 			price,
@@ -880,7 +819,7 @@ fn sell_to_anybody() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			None,
 			payment_asset,
 			price,
@@ -919,8 +858,7 @@ fn buy_with_overcommitted_royalties() {
 				(12_u64, Permill::from_fraction(0.9)),
 			],
 		};
-		let series_id = 0;
-		SeriesRoyalties::<Test>::insert(collection_id, series_id, bad_schedule.clone());
+		CollectionRoyalties::<Test>::insert(collection_id, bad_schedule.clone());
 		let listing_id = Nft::next_listing_id();
 
 		let buyer = 5;
@@ -928,7 +866,7 @@ fn buy_with_overcommitted_royalties() {
 		let price = 1_000;
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			Some(buyer),
 			payment_asset,
 			price,
@@ -957,7 +895,7 @@ fn cancel_auction() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			payment_asset,
 			reserve_price,
 			Some(System::block_number() + 1),
@@ -981,11 +919,7 @@ fn cancel_auction() {
 		assert!(!Nft::listing_end_schedule(System::block_number() + 1, listing_id));
 
 		// it should be free to operate on the token
-		assert_ok!(Nft::transfer(
-			Some(token_owner).into(),
-			token_id.clone(),
-			token_owner + 1,
-		));
+		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1,));
 	});
 }
 
@@ -1000,7 +934,7 @@ fn auction() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			payment_asset,
 			reserve_price,
 			Some(1),
@@ -1070,7 +1004,7 @@ fn auction_royalty_payments() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			payment_asset,
 			reserve_price,
 			Some(1),
@@ -1143,7 +1077,7 @@ fn close_listings_at_removes_listing_data() {
 				buyer: None,
 				close: System::block_number() + 1,
 				seller: 1,
-				token_id: token_1.clone(),
+				tokens: vec![token_1],
 			}),
 			// an open auction which has no bids before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1151,7 +1085,7 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
-				token_id: token_1.clone(),
+				tokens: vec![token_1],
 			}),
 			// an open auction which has a winning bid before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1159,7 +1093,7 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
-				token_id: token_1.clone(),
+				tokens: vec![token_1],
 			}),
 		];
 
@@ -1226,7 +1160,7 @@ fn auction_fails_prechecks() {
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner + 1).into(),
-				token_id.clone(),
+				token_id,
 				payment_asset,
 				reserve_price,
 				Some(1),
@@ -1237,7 +1171,7 @@ fn auction_fails_prechecks() {
 		// setup listed token, and try list it again
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			payment_asset,
 			reserve_price,
 			Some(1),
@@ -1246,7 +1180,7 @@ fn auction_fails_prechecks() {
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner).into(),
-				token_id.clone(),
+				token_id,
 				payment_asset,
 				reserve_price,
 				Some(1),
@@ -1285,7 +1219,7 @@ fn bid_fails_prechecks() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			token_id.clone(),
+			token_id,
 			payment_asset,
 			reserve_price,
 			Some(1),
@@ -1346,33 +1280,19 @@ fn transfer_batch() {
 			Some(token_owner),
 			vec![],
 			None,
-			None,
 		));
 
 		// test
-		let token_serials = vec![0, 1, 2];
+		let tokens = vec![
+			(collection_id, series_id, 0),
+			(collection_id, series_id, 1),
+			(collection_id, series_id, 2),
+		];
 		let new_owner = 3_u64;
-		assert_ok!(Nft::transfer_batch(
-			Some(token_owner).into(),
-			collection_id,
-			series_id,
-			token_serials.clone(),
-			new_owner,
-		));
-		assert!(has_event(RawEvent::Transfer(
-			collection_id,
-			series_id,
-			token_serials.clone(),
-			new_owner
-		)));
+		assert_ok!(Nft::transfer_batch(Some(token_owner).into(), tokens.clone(), new_owner,));
+		assert!(has_event(RawEvent::Transfer(token_owner, tokens.clone(), new_owner)));
 
-		assert_eq!(
-			Nft::collected_tokens(collection_id, &new_owner),
-			token_serials
-				.into_iter()
-				.map(|t| (collection_id, series_id, t))
-				.collect::<Vec<TokenId>>()
-		);
+		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), tokens);
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
 	});
 }
@@ -1393,7 +1313,6 @@ fn transfer_batch_fails() {
 			Some(token_owner),
 			vec![],
 			None,
-			None,
 		));
 
 		// token 3 doesn't exist
@@ -1401,9 +1320,11 @@ fn transfer_batch_fails() {
 		assert_noop!(
 			Nft::transfer_batch(
 				Some(token_owner).into(),
-				collection_id,
-				series_id,
-				vec![0, 1, 2, 3],
+				vec![
+					(collection_id, series_id, 0),
+					(collection_id, series_id, 3),
+					(collection_id, series_id, 1),
+				],
 				new_owner,
 			),
 			Error::<Test>::NoPermission
@@ -1413,9 +1334,11 @@ fn transfer_batch_fails() {
 		assert_noop!(
 			Nft::transfer_batch(
 				Some(token_owner + 1).into(),
-				collection_id,
-				series_id,
-				vec![0, 1, 2],
+				vec![
+					(collection_id, series_id, 0),
+					(collection_id, series_id, 1),
+					(collection_id, series_id, 2),
+				],
 				new_owner
 			),
 			Error::<Test>::NoPermission
@@ -1423,7 +1346,7 @@ fn transfer_batch_fails() {
 
 		// transfer empty ids should fail
 		assert_noop!(
-			Nft::transfer_batch(Some(token_owner).into(), collection_id, series_id, vec![], new_owner),
+			Nft::transfer_batch(Some(token_owner).into(), vec![], new_owner),
 			Error::<Test>::NoToken
 		);
 	});
@@ -1449,7 +1372,6 @@ fn mint_series() {
 			quantity,
 			Some(token_owner),
 			series_attributes.clone(),
-			None,
 			None,
 		));
 
@@ -1524,7 +1446,6 @@ fn mint_series_fails() {
 				Some(collection_owner),
 				vec![],
 				None,
-				None,
 			),
 			Error::<Test>::NoToken
 		);
@@ -1545,7 +1466,6 @@ fn mint_additional_fails() {
 			5,
 			None,
 			vec![],
-			None,
 			None,
 		));
 
