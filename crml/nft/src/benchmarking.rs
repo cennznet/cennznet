@@ -30,7 +30,7 @@ const PAYMENT_ASSET: u32 = 16_000;
 /// sale price, 1 million 4dp asset
 const PRICE: u128 = 1_000_000 * 10_000;
 /// QUANTITY
-const QUANTITY: u32 = 1_000_000;
+const QUANTITY: u32 = 100;
 
 // Create a collection for benchmarking
 // Returns the collection id, schema, and royalties schedule
@@ -71,7 +71,6 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 		QUANTITY, // QUANTITY
 		Some(owner.clone()),
 		attributes.clone(),
-		Some(royalties),
 		None,
 	)
 	.expect("created token");
@@ -103,6 +102,24 @@ benchmarks! {
 		assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(creator));
 	}
 
+	mint_additional {
+		let creator: T::AccountId = whitelisted_caller();
+		let owner: T::AccountId = account("owner", 0, 0);
+
+		let (collection_id, royalties) = setup_collection::<T>(creator.clone());
+		let series_id = <Nft<T>>::next_series_id(collection_id);
+		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
+		let final_token_id = (collection_id, series_id, serial_number);
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, Some(royalties.clone())).expect("created collection");
+		// all attributes max. length
+		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
+		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, QUANTITY, Some(owner.clone()), attributes, Some(b"/tokens".to_vec())).expect("minted series");
+
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, QUANTITY, Some(owner.clone()))
+	verify {
+		assert_eq!(<Nft<T>>::next_serial_number(collection_id, series_id), QUANTITY * 2);
+	}
+
 	mint_series {
 		let creator: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
@@ -115,116 +132,104 @@ benchmarks! {
 		// all attributes max. length
 		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, QUANTITY, Some(owner.clone()), attributes, Some(royalties), Some(b"/tokens".to_vec()))
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, QUANTITY, Some(owner.clone()), attributes, Some(b"/tokens".to_vec()))
 	verify {
 		// the last token id in
 		assert_eq!(<Nft<T>>::token_owner((collection_id, series_id), <Nft<T>>::next_serial_number(collection_id, series_id) - 1), owner);
 	}
 
-	transfer_batch {
+	transfer {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let series_id = <Nft<T>>::next_series_id(collection_id);
-		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-		let serial_numbers = (serial_number..serial_number + QUANTITY).map(|s| s as SerialNumber).collect();
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
 
-	}: _(RawOrigin::Signed(owner.clone()), collection_id, series_id, serial_numbers, new_owner.clone())
+	}: _(RawOrigin::Signed(owner.clone()), (collection_id, 0, 0), new_owner.clone())
 	verify {
-		assert_eq!(<Nft<T>>::token_owner((collection_id, series_id), <Nft<T>>::next_serial_number(collection_id, series_id) - 1), owner);
+		assert_eq!(<Nft<T>>::token_owner((collection_id, 0), 0), new_owner);
 	}
 
-	burn_batch {
+	burn {
 		let owner: T::AccountId = account("owner", 0, 0);
 		let collection_id = setup_token::<T>(owner.clone());
-		let series_id = <Nft<T>>::next_series_id(collection_id);
-		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-		let serial_numbers = (serial_number..serial_number + QUANTITY).map(|s| s as SerialNumber).collect();
-		let token_id = (collection_id, series_id, serial_number);
-	}: _(RawOrigin::Signed(owner.clone()), collection_id, series_id, serial_numbers)
+
+		let token_id = (collection_id, 0, 0);
+	}: _(RawOrigin::Signed(owner.clone()), token_id)
 	verify {
-		assert!(<Nft<T>>::series_attributes(collection_id, series_id).is_empty());
+		assert_eq!(<Nft<T>>::token_owner((collection_id, 0), 0), T::AccountId::default());
 	}
 
-	// sell {
-	// 	let owner: T::AccountId = account("owner", 0, 0);
-	// 	let collection_id = setup_token::<T>(owner.clone());
-	// 	let series_id = <Nft<T>>::next_series_id(collection_id);
-	// 	let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-	// 	let token_id = (collection_id, series_id, serial_number);
-	// 	let listing_id = <Nft<T>>::next_listing_id();
+	sell {
+		let owner: T::AccountId = account("owner", 0, 0);
+		let collection_id = setup_token::<T>(owner.clone());
+		let token_id = (collection_id, 0, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
 
-	// }: _(RawOrigin::Signed(owner.clone()), token_id, QUANTITY, Some(owner.clone()), PAYMENT_ASSET, PRICE, Some(T::BlockNumber::from(1_u32)))
-	// verify {
-	// 	assert!(<Nft<T>>::listings(listing_id).is_some());
-	// }
+	}: _(RawOrigin::Signed(owner.clone()), token_id, Some(owner.clone()), PAYMENT_ASSET, PRICE, Some(T::BlockNumber::from(1_u32)))
+	verify {
+		assert!(<Nft<T>>::listings(listing_id).is_some());
+	}
 
-	// buy {
-	// 	let owner: T::AccountId = account("owner", 0, 0);
-	// 	let buyer: T::AccountId = account("buyer", 0, 0);
-	// 	let collection_id = setup_token::<T>(owner.clone());
-	// 	let series_id = <Nft<T>>::next_series_id(collection_id);
-	// 	let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-	// 	let token_id = (collection_id, series_id, serial_number);
-	// 	let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE);
-	// 	let listing_id = <Nft<T>>::next_listing_id();
-	// 	let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None).expect("listed ok");
+	buy {
+		let owner: T::AccountId = account("owner", 0, 0);
+		let buyer: T::AccountId = account("buyer", 0, 0);
+		let collection_id = setup_token::<T>(owner.clone());
+		let token_id = (collection_id, 0, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None).expect("listed ok");
 
-	// }: _(RawOrigin::Signed(buyer.clone()), listing_id)
-	// verify {
-	// 	assert_eq!(<Nft<T>>::balance_of(&token_id, buyer), QUANTITY);
-	// }
+	}: _(RawOrigin::Signed(buyer.clone()), listing_id)
+	verify {
+		assert_eq!(<Nft<T>>::token_owner((collection_id, 0), 0), buyer);
+	}
 
-	// auction {
-	// 	let owner: T::AccountId = account("owner", 0, 0);
-	// 	let collection_id = setup_token::<T>(owner.clone());
-	// 	let series_id = <Nft<T>>::next_series_id(collection_id);
-	// 	let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-	// 	let token_id = (collection_id, series_id, serial_number);
-	// 	let duration = T::BlockNumber::from(100_u32);
-	// 	let listing_id = <Nft<T>>::next_listing_id();
+	auction {
+		let owner: T::AccountId = account("owner", 0, 0);
+		let collection_id = setup_token::<T>(owner.clone());
+		let token_id = (collection_id, 0, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let duration = T::BlockNumber::from(100_u32);
+		let listing_id = <Nft<T>>::next_listing_id();
 
-	// }: _(RawOrigin::Signed(owner.clone()), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration))
-	// verify {
-	// 	assert!(<Nft<T>>::listings(listing_id).is_some());
-	// }
+	}: _(RawOrigin::Signed(owner.clone()), token_id, PAYMENT_ASSET, PRICE, Some(duration))
+	verify {
+		assert!(<Nft<T>>::listings(listing_id).is_some());
+	}
 
-	// bid {
-	// 	let owner: T::AccountId = account("owner", 0, 0);
-	// 	let buyer: T::AccountId = account("buyer", 0, 0);
+	bid {
+		let owner: T::AccountId = account("owner", 0, 0);
+		let buyer: T::AccountId = account("buyer", 0, 0);
+		let collection_id = setup_token::<T>(owner.clone());
+		let token_id = (collection_id, 0, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let duration = T::BlockNumber::from(100_u32);
 
-	// 	let collection_id = setup_token::<T>(owner.clone());
-	// 	let series_id = <Nft<T>>::next_series_id(collection_id);
-	// 	let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-	// 	let token_id = (collection_id, series_id, serial_number);
-	// 	let duration = T::BlockNumber::from(100_u32);
+		let _ = T::MultiCurrency::deposit_creating(&owner, Some(PAYMENT_ASSET), PRICE);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE + 1);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
+		// worst case path is to replace an existing bid
+		let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), listing_id, PRICE);
 
-	// 	let _ = T::MultiCurrency::deposit_creating(&owner, Some(PAYMENT_ASSET), PRICE);
-	// 	let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE + 1);
-	// 	let listing_id = <Nft<T>>::next_listing_id();
-	// 	let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
-	// 	// worst case path is to replace an existing bid
-	// 	let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), listing_id, PRICE);
+	}: _(RawOrigin::Signed(buyer.clone()), listing_id, PRICE + 1)
+	verify {
+		assert_eq!(<Nft<T>>::listing_winning_bid(listing_id), Some((buyer.clone(), PRICE + 1)));
+	}
 
-	// }: _(RawOrigin::Signed(buyer.clone()), listing_id, PRICE + 1)
-	// verify {
-	// 	assert_eq!(<Nft<T>>::listing_winning_bid(listing_id), Some((buyer.clone(), PRICE + 1)));
-	// }
+	cancel_sale {
+		let owner: T::AccountId = account("owner", 0, 0);
+		let collection_id = setup_token::<T>(owner.clone());
+		let token_id = (collection_id, 0, 0);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let duration = T::BlockNumber::from(100_u32);
+		let listing_id = <Nft<T>>::next_listing_id();
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
 
-	// cancel_sale {
-	// 	let owner: T::AccountId = account("owner", 0, 0);
-	// 	let collection_id = setup_token::<T>(owner.clone());
-	// 	let series_id = <Nft<T>>::next_series_id(collection_id);
-	// 	let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
-	// 	let token_id = (collection_id, series_id, serial_number);
-	// 	let duration = T::BlockNumber::from(100_u32);
-	// 	let listing_id = <Nft<T>>::next_listing_id();
-	// 	let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, QUANTITY, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
-
-	// }: _(RawOrigin::Signed(owner.clone()), listing_id)
-	// verify {
-	// 	assert!(<Nft<T>>::listings(listing_id).is_none());
-	// }
+	}: _(RawOrigin::Signed(owner.clone()), listing_id)
+	verify {
+		assert!(<Nft<T>>::listings(listing_id).is_none());
+	}
 }
 
 #[cfg(test)]
@@ -248,6 +253,13 @@ mod tests {
 	}
 
 	#[test]
+	fn mint_additional() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_mint_additional::<Test>());
+		});
+	}
+
+	#[test]
 	fn mint_series() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_mint_series::<Test>());
@@ -255,51 +267,51 @@ mod tests {
 	}
 
 	#[test]
-	fn transfer_batch() {
+	fn transfer() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_transfer_batch::<Test>());
+			assert_ok!(test_benchmark_transfer::<Test>());
 		});
 	}
 
 	#[test]
-	fn burn_batch() {
+	fn burn() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_burn_batch::<Test>());
+			assert_ok!(test_benchmark_burn::<Test>());
 		});
 	}
 
-	// #[test]
-	// fn sell() {
-	// 	ExtBuilder::default().build().execute_with(|| {
-	// 		assert_ok!(test_benchmark_sell::<Test>());
-	// 	});
-	// }
+	#[test]
+	fn sell() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_sell::<Test>());
+		});
+	}
 
-	// #[test]
-	// fn buy() {
-	// 	ExtBuilder::default().build().execute_with(|| {
-	// 		assert_ok!(test_benchmark_buy::<Test>());
-	// 	});
-	// }
+	#[test]
+	fn buy() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_buy::<Test>());
+		});
+	}
 
-	// #[test]
-	// fn auction() {
-	// 	ExtBuilder::default().build().execute_with(|| {
-	// 		assert_ok!(test_benchmark_auction::<Test>());
-	// 	});
-	// }
+	#[test]
+	fn auction() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_auction::<Test>());
+		});
+	}
 
-	// #[test]
-	// fn bid() {
-	// 	ExtBuilder::default().build().execute_with(|| {
-	// 		assert_ok!(test_benchmark_bid::<Test>());
-	// 	});
-	// }
+	#[test]
+	fn bid() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_bid::<Test>());
+		});
+	}
 
-	// #[test]
-	// fn cancel_sale() {
-	// 	ExtBuilder::default().build().execute_with(|| {
-	// 		assert_ok!(test_benchmark_cancel_sale::<Test>());
-	// 	});
-	// }
+	#[test]
+	fn cancel_sale() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_ok!(test_benchmark_cancel_sale::<Test>());
+		});
+	}
 }

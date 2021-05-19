@@ -380,7 +380,7 @@ decl_module! {
 			Ok(())
 		}
 
-		/// Mint additional tokens to an SFT series
+		/// Mint additional tokens to an existing series
 		///
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner, defaults to the caller
@@ -388,7 +388,10 @@ decl_module! {
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
 		#[weight = {
-			T::WeightInfo::mint_additional().saturating_mul(*quantity as Weight)
+			T::WeightInfo::mint_additional()
+			.saturating_add(
+				T::DbWeight::get().writes(1).saturating_mul(*quantity as Weight)
+			)
 		}]
 		#[transactional]
 		fn mint_additional(
@@ -469,7 +472,12 @@ decl_module! {
 		///
 		/// Caller must be the token owner
 		/// Fails on duplicate serials
-		#[weight = T::WeightInfo::burn()]
+		#[weight = {
+			T::WeightInfo::burn()
+				.saturating_add(
+					T::DbWeight::get().reads_writes(2, 1).saturating_mul(serial_numbers.len() as Weight)
+				)
+		}]
 		#[transactional]
 		fn burn_batch(origin, collection_id: CollectionId, series_id: SeriesId, serial_numbers: Vec<SerialNumber>) {
 			let origin = ensure_signed(origin)?;
@@ -516,7 +524,12 @@ decl_module! {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[weight = T::WeightInfo::sell()]
+		#[weight = {
+			T::WeightInfo::sell()
+				.saturating_add(
+					T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
+				)
+		}]
 		#[transactional]
 		fn sell_bundle(origin, tokens: Vec<TokenId>, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
@@ -624,7 +637,12 @@ decl_module! {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[weight = T::WeightInfo::auction()]
+		#[weight = {
+			T::WeightInfo::auction()
+				.saturating_add(
+					T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
+				)
+		}]
 		#[transactional]
 		fn auction_bundle(origin, tokens: Vec<TokenId>, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
 			let origin = ensure_signed(origin)?;
