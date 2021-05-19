@@ -12,7 +12,6 @@
 // *     https://centrality.ai/licenses/gplv3.txt
 // *     https://centrality.ai/licenses/lgplv3.txt
 // */
-
 //! NFT benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
@@ -55,13 +54,17 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 	let _ = <Nft<T>>::create_collection(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_name,
-		Some(MetadataBaseURI::Https(b"example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec())),
+		Some(MetadataBaseURI::Https(
+			b"example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec(),
+		)),
 		Some(royalties.clone()),
 	)
 	.expect("created collection");
 	assert_eq!(140, T::MaxAttributeLength::get() as usize);
 	// all attributes max. length
-	let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
+	let attributes = (0..MAX_SCHEMA_FIELDS)
+		.map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec()))
+		.collect::<Vec<NFTAttributeValue>>();
 	let _ = <Nft<T>>::mint_series(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_id,

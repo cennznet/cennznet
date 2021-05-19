@@ -42,7 +42,6 @@ fn has_event(
 		AssetId,
 		Balance,
 		AuctionClosureReason,
-		SerialNumber,
 		SeriesId,
 		TokenCount,
 		CollectionNameType,
@@ -438,7 +437,6 @@ fn transfer_fails_prechecks() {
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
 			None,
-			None,
 		));
 
 		let not_the_owner = 3_u64;
@@ -533,7 +531,6 @@ fn burn_fails_prechecks() {
 			100,
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
-			None,
 			None,
 		));
 
@@ -1380,6 +1377,7 @@ fn transfer_batch() {
 	});
 }
 
+// TODO: check opencollectionlistings
 #[test]
 fn transfer_batch_fails() {
 	ExtBuilder::default().build().execute_with(|| {

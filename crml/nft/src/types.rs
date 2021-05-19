@@ -177,8 +177,8 @@ pub struct AuctionListing<T: Trait> {
 	pub close: T::BlockNumber,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The token Id for sale
-	pub token_id: TokenId,
+	/// The token Ids for sale in this listing
+	pub tokens: Vec<TokenId>,
 }
 
 /// Information about a fixed price listing
@@ -194,8 +194,8 @@ pub struct FixedPriceListing<T: Trait> {
 	pub buyer: Option<T::AccountId>,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The token Id for sale
-	pub token_id: TokenId,
+	/// The token Ids for sale in this listing
+	pub tokens: Vec<TokenId>,
 }
 
 /// Auto-incrementing Uint
