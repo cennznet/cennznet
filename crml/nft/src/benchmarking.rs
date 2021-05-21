@@ -103,7 +103,7 @@ benchmarks! {
 	}
 
 	mint_additional {
-		let q in 1 .. 1_000;
+		let q in 1 .. 10;
 		let creator: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
 
@@ -122,7 +122,7 @@ benchmarks! {
 	}
 
 	mint_series {
-		let q in 1 .. 1_000;
+		let q in 1 .. 10;
 		let creator: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
 

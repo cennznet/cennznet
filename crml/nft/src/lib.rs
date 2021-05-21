@@ -232,6 +232,7 @@ decl_module! {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
+			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to succesful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
