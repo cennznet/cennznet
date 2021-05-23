@@ -20,14 +20,14 @@ impl<T: frame_system::Trait> crml_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
-	fn mint_additional(q: u32, ) -> Weight {
+	fn mint_additional(q: u32) -> Weight {
 		(81_195_000 as Weight)
 			.saturating_add((4_550_000 as Weight).saturating_mul(q as Weight))
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
-	fn mint_series(q: u32, ) -> Weight {
+	fn mint_series(q: u32) -> Weight {
 		(78_788_000 as Weight)
 			.saturating_add((6_647_000 as Weight).saturating_mul(q as Weight))
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
