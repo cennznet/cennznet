@@ -240,6 +240,7 @@ fn mint_unique() {
 
 		assert_eq!(Nft::collected_tokens(collection_id, &token_owner), vec![token_id]);
 		assert_eq!(Nft::token_owner((collection_id, series_id), 0), token_owner);
+		assert!(Nft::is_single_issue(collection_id, series_id));
 		assert_eq!(Nft::next_serial_number(collection_id, series_id), 1);
 		assert_eq!(Nft::next_series_id(collection_id), series_id + 1);
 		assert_eq!(Nft::series_issuance(collection_id, series_id), 1);
@@ -570,7 +571,7 @@ fn sell_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, 16_000, 1_000, None,),
+			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, 16_000, 1_000, None),
 			Error::<Test>::NoToken
 		);
 
@@ -1049,7 +1050,7 @@ fn auction_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::auction_bundle(Some(collection_owner).into(), vec![], 16_000, 1_000, None,),
+			Nft::auction_bundle(Some(collection_owner).into(), vec![], 16_000, 1_000, None),
 			Error::<Test>::NoToken
 		);
 
@@ -1620,20 +1621,35 @@ fn mint_additional_fails() {
 
 		// add 0 additional fails
 		assert_noop!(
-			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id, 0, None,),
+			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id, 0, None),
 			Error::<Test>::NoToken
 		);
 
 		// add to non-existing series fails
 		assert_noop!(
-			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id + 1, 5, None,),
+			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id + 1, 5, None),
 			Error::<Test>::NoToken
 		);
 
 		// not collection owner
 		assert_noop!(
-			Nft::mint_additional(Some(collection_owner + 1).into(), collection_id, series_id, 5, None,),
+			Nft::mint_additional(Some(collection_owner + 1).into(), collection_id, series_id, 5, None),
 			Error::<Test>::NoPermission
+		);
+
+		// mint token Ids 0-4
+		assert_ok!(Nft::mint_unique(
+			Some(collection_owner).into(),
+			collection_id,
+			None,
+			vec![],
+			None,
+		));
+
+		// One of one token
+		assert_noop!(
+			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id, 5, None),
+			Error::<Test>::AddToSingleIssue
 		);
 	});
 }

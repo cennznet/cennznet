@@ -27,7 +27,8 @@
 //!
 //! *Series*:
 //! A grouping of tokens within a collection namespace
-//! Tokens in the same series will have exact attributes and royalties.
+//! Tokens in the same series will have exact onchain attributes, dinstingiushable by a serial number.
+//! Series may be one-of-one i.e. the classic NFT
 //! A series of size 1 contains an NFT, while a series with > 1 token is considered semi-fungible
 //!
 //! *Tokens*:
@@ -161,6 +162,8 @@ decl_error! {
 		BidTooLow,
 		/// Selling tokens from different collections is not allowed
 		MixedBundleSale,
+		/// Cannot mint additional tokens in a single issue series
+		AddToSingleIssue,
 	}
 }
 
@@ -185,6 +188,8 @@ decl_storage! {
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
+		/// Demarcates a series limited to exactly one token
+		IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// The next available collection Id
 		NextCollectionId get(fn next_collection_id): CollectionId;
 		/// The next group Id within an NFT collection
@@ -304,11 +309,14 @@ decl_module! {
 			owner: Option<T::AccountId>,
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
-		) -> DispatchResult {
-			Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path)
+		) {
+			let series_id = Self::next_series_id(collection_id);
+			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path)?;
+			IsSingleIssue::insert(collection_id, series_id, true);
 		}
 
 		/// Mint a series of tokens distinguishable only by a serial number (SFT)
+		/// Series can be issued additional tokens with `mint_additional`
 		///
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner, defaults to the caller
@@ -362,7 +370,6 @@ decl_module! {
 			// Now mint the series tokens
 			let owner = owner.unwrap_or_else(|| origin.clone());
 
-			// TODO: can we do a lazy mint or similar here to avoid the O(N)...
 			for serial_number in 0..quantity as SerialNumber {
 				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
 			}
@@ -381,6 +388,7 @@ decl_module! {
 		}
 
 		/// Mint additional tokens to an existing series
+		/// It will fail if the series is not semi-fungible
 		///
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner, defaults to the caller
@@ -399,6 +407,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+			ensure!(!Self::is_single_issue(collection_id, series_id), Error::<T>::AddToSingleIssue);
 			let serial_number = Self::next_serial_number(collection_id, series_id);
 			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
