@@ -179,6 +179,8 @@ pub struct AuctionListing<T: Trait> {
 	pub seller: T::AccountId,
 	/// The token Ids for sale in this listing
 	pub tokens: Vec<TokenId>,
+	/// The royalties applicable to this auction
+	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 }
 
 /// Information about a fixed price listing
@@ -196,6 +198,8 @@ pub struct FixedPriceListing<T: Trait> {
 	pub seller: T::AccountId,
 	/// The token Ids for sale in this listing
 	pub tokens: Vec<TokenId>,
+	/// The royalties applicable to this sale
+	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 }
 
 /// Auto-incrementing Uint
