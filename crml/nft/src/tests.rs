@@ -1637,7 +1637,6 @@ fn mint_additional_fails() {
 			Error::<Test>::NoPermission
 		);
 
-		// mint token Ids 0-4
 		assert_ok!(Nft::mint_unique(
 			Some(collection_owner).into(),
 			collection_id,
@@ -1648,7 +1647,7 @@ fn mint_additional_fails() {
 
 		// One of one token
 		assert_noop!(
-			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id, 5, None),
+			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id + 1, 5, None),
 			Error::<Test>::AddToSingleIssue
 		);
 	});
