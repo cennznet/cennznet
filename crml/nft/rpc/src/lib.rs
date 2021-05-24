@@ -16,10 +16,10 @@
 
 //! Node-specific RPC methods for interaction with NFT module.
 
-use std::{string::String, sync::Arc};
+use std::sync::Arc;
 
-use cennznet_primitives::types::CollectionId;
 use codec::Codec;
+use crml_nft::{CollectionId, TokenId};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
@@ -31,9 +31,9 @@ pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi}
 
 /// NFT RPC methods.
 #[rpc]
-pub trait NftApi<TokenId, AccountId> {
+pub trait NftApi<AccountId> {
 	#[rpc(name = "nft_collectedTokens")]
-	fn collected_tokens(&self, collection_id: String, who: AccountId) -> Result<Vec<TokenId>>;
+	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>>;
 }
 
 /// Error type of this RPC api.
@@ -66,23 +66,18 @@ impl<C, T> Nft<C, T> {
 	}
 }
 
-impl<C, Block, TokenId, AccountId> NftApi<TokenId, AccountId> for Nft<C, Block>
+impl<C, Block, AccountId> NftApi<AccountId> for Nft<C, Block>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	TokenId: Codec,
-	C::Api: NftRuntimeApi<Block, CollectionId, TokenId, AccountId>,
-	TokenId: Codec,
+	C::Api: NftRuntimeApi<Block, AccountId>,
 	AccountId: Codec,
 {
-	// `CollectionId` is a Vec<u8>, this was causing some issue for the js API
-	// using String for better compatibility
-	fn collected_tokens(&self, collection_id: String, who: AccountId) -> Result<Vec<TokenId>> {
+	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		let collection_id_ = collection_id.into_bytes();
-		api.collected_tokens(&at, collection_id_, who).map_err(|e| RpcError {
+		api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection nfts.".into(),
 			data: Some(format!("{:?}", e).into()),

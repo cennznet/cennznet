@@ -23,8 +23,16 @@ use sp_std::prelude::*;
 // Counts enum variants at compile time
 use variant_count::VariantCount;
 
-/// A URI string
-pub type MetadataURI = Vec<u8>;
+/// A base metadata URI string for a collection
+#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+pub enum MetadataBaseURI {
+	/// Collection metadata is hosted by IPFS
+	/// Its tokens' metdata will be available at `ipfs://<token_metadata_path>`
+	Ipfs,
+	/// Collection metadata is hosted by an HTTPS server
+	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metaata_path>`
+	Https(Vec<u8>),
+}
 
 /// Name of an NFT attribute
 pub type NFTAttributeName = Vec<u8>;
@@ -167,6 +175,10 @@ pub struct AuctionListing<T: Trait> {
 	pub reserve_price: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
+	/// The seller of the tokens
+	pub seller: T::AccountId,
+	/// The token Ids for sale in this listing
+	pub tokens: Vec<TokenId>,
 }
 
 /// Information about a fixed price listing
@@ -180,7 +192,35 @@ pub struct FixedPriceListing<T: Trait> {
 	pub close: T::BlockNumber,
 	/// The authorised buyer. If unset, any buyer is authorised
 	pub buyer: Option<T::AccountId>,
+	/// The seller of the tokens
+	pub seller: T::AccountId,
+	/// The token Ids for sale in this listing
+	pub tokens: Vec<TokenId>,
 }
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a collection
+pub type CollectionId = u32;
+
+/// NFT colleciton moniker
+pub type CollectionNameType = Vec<u8>;
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a series of tokens within a collection
+pub type SeriesId = u32;
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a token within a series
+pub type SerialNumber = u32;
+
+/// Unique Id for a listing
+pub type ListingId = u128;
+
+/// Denotes a quantitiy of tokens
+pub type TokenCount = SerialNumber;
+
+/// Global unique token identifier
+pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {

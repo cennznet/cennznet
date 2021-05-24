@@ -74,11 +74,10 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{
-	AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Header, Index, Moment, Signature, TokenId,
-};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
+use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -215,7 +214,6 @@ parameter_types! {
 }
 impl crml_nft::Trait for Runtime {
 	type Event = Event;
-	type TokenId = TokenId;
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
@@ -842,12 +840,10 @@ impl_runtime_apis! {
 
 	impl crml_nft_rpc_runtime_api::NftApi<
 		Block,
-		CollectionId,
-		TokenId,
 		AccountId,
 	> for Runtime {
 		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
-			Nft::collected_tokens(&collection_id, &who)
+			Nft::collected_tokens(collection_id, &who)
 		}
 	}
 

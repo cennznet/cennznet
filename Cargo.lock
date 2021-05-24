@@ -1141,6 +1141,7 @@ name = "crml-nft-rpc"
 version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-nft",
  "crml-nft-rpc-runtime-api",
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -1161,6 +1162,7 @@ dependencies = [
 name = "crml-nft-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
+ "crml-nft",
  "parity-scale-codec",
  "serde",
  "serde_json",
