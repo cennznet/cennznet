@@ -63,10 +63,10 @@ fn first_token_id(collection_id: CollectionId) -> TokenId {
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionId {
 	let collection_id = Nft::next_collection_id();
-	let collecton_name = b"test-collection".to_vec();
+	let collection_name = b"test-collection".to_vec();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
-		collecton_name,
+		collection_name,
 		Some(MetadataBaseURI::Https(b"example.com/metadata".to_vec())),
 		None,
 	));
@@ -86,6 +86,7 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::Accou
 		Some(token_owner),
 		vec![NFTAttributeValue::I32(500)],
 		None,
+		None,
 	));
 
 	(collection_id, token_id, token_owner)
@@ -98,7 +99,7 @@ fn setup_token_with_royalties(
 ) -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
-	CollectionRoyalties::<Test>::insert(collection_id, royalties_schedule);
+	<SeriesRoyalties<Test>>::insert(collection_id, 0, royalties_schedule);
 
 	let token_owner = 2_u64;
 	let token_id = first_token_id(collection_id);
@@ -108,6 +109,7 @@ fn setup_token_with_royalties(
 		quantity,
 		Some(token_owner),
 		vec![NFTAttributeValue::I32(500)],
+		None,
 		None,
 	));
 
@@ -225,6 +227,7 @@ fn mint_unique() {
 				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 			None,
+			None,
 		));
 		assert!(has_event(RawEvent::CreateToken(collection_id, token_id, token_owner,)));
 
@@ -268,6 +271,7 @@ fn create_multiple_unique_tokens() {
 				NFTAttributeValue::Bytes32([1_u8; 32])
 			],
 			None,
+			None,
 		));
 
 		assert_ok!(Nft::mint_unique(
@@ -280,6 +284,7 @@ fn create_multiple_unique_tokens() {
 				NFTAttributeValue::String(String::from("💎🙌").as_bytes().to_vec())
 			],
 			Some(metadata_uri.to_vec()),
+			None,
 		));
 		assert!(has_event(RawEvent::CreateToken(collection_id, token_2, token_owner,)));
 
@@ -305,6 +310,7 @@ fn mint_unique_fails_prechecks() {
 				Some(collection_owner),
 				Default::default(),
 				None,
+				None,
 			),
 			Error::<Test>::NoPermission
 		);
@@ -315,6 +321,7 @@ fn mint_unique_fails_prechecks() {
 				collection_id + 1, // collection doesn't exist
 				None,
 				Default::default(),
+				None,
 				None,
 			),
 			Error::<Test>::NoCollection
@@ -327,6 +334,7 @@ fn mint_unique_fails_prechecks() {
 				collection_id,
 				None,
 				too_many_attributes,
+				None,
 				None,
 			),
 			Error::<Test>::SchemaMaxAttributes
@@ -342,6 +350,7 @@ fn mint_unique_fails_prechecks() {
 					NFTAttributeValue::I32(0),
 					NFTAttributeValue::Url([1_u8; <Test as Trait>::MaxAttributeLength::get() as usize + 1].to_vec())
 				],
+				None,
 				None,
 			),
 			Error::<Test>::MaxAttributeLength
@@ -362,6 +371,7 @@ fn transfer() {
 			collection_id,
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
+			None,
 			None,
 		));
 
@@ -396,6 +406,7 @@ fn transfer_fails_prechecks() {
 			collection_id,
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
+			None,
 			None,
 		));
 
@@ -439,6 +450,7 @@ fn burn() {
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
 			None,
+			Some(RoyaltiesSchedule::<AccountId>::default()),
 		));
 
 		// test
@@ -454,6 +466,7 @@ fn burn() {
 		assert!(has_event(RawEvent::Burn(collection_id, series_id, vec![1, 2])));
 
 		assert!(!SeriesIssuance::contains_key(collection_id, series_id));
+		assert!(!<SeriesRoyalties<Test>>::contains_key(collection_id, series_id));
 		assert!(!SeriesMetadataURI::contains_key(collection_id, series_id));
 		assert!(!SeriesAttributes::contains_key(collection_id, series_id));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 0));
@@ -489,6 +502,7 @@ fn burn_fails_prechecks() {
 			100,
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
+			None,
 			None,
 		));
 
@@ -534,6 +548,7 @@ fn sell_bundle() {
 			None,
 			vec![NFTAttributeValue::I32(123)],
 			None,
+			None,
 		));
 
 		let tokens = vec![(collection_id, 0, 1), (collection_id, 0, 3), (collection_id, 0, 4)];
@@ -566,8 +581,9 @@ fn sell_bundle_fails() {
 		let collection_id = setup_collection(collection_owner);
 		let collection_id_2 = setup_collection(collection_owner);
 		// mint some fake tokens
-		<TokenOwner<Test>>::insert((collection_id, 0), 1, collection_owner);
-		<TokenOwner<Test>>::insert((collection_id_2, 0), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id, 1), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id, 2), 2, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id_2, 1), 1, collection_owner);
 
 		// empty tokens fails
 		assert_noop!(
@@ -579,13 +595,28 @@ fn sell_bundle_fails() {
 		assert_noop!(
 			Nft::sell_bundle(
 				Some(collection_owner).into(),
-				vec![(collection_id, 0, 1), (collection_id_2, 0, 1),],
+				vec![(collection_id, 1, 1), (collection_id_2, 1, 1),],
 				None,
 				16_000,
 				1_000,
 				None,
 			),
 			Error::<Test>::MixedBundleSale
+		);
+
+		// cannot bundle sell when series have royalties set
+		<SeriesRoyalties<Test>>::insert(collection_id, 1, RoyaltiesSchedule::<AccountId>::default());
+		<SeriesRoyalties<Test>>::insert(collection_id, 2, RoyaltiesSchedule::<AccountId>::default());
+		assert_noop!(
+			Nft::sell_bundle(
+				Some(collection_owner).into(),
+				vec![(collection_id, 1, 1), (collection_id, 2, 2)],
+				None,
+				16_000,
+				1_000,
+				None,
+			),
+			Error::<Test>::RoyaltiesProtection
 		);
 	})
 }
@@ -615,6 +646,7 @@ fn sell() {
 			buyer: Some(5),
 			tokens: vec![token_id],
 			seller: token_owner,
+			royalties_schedule: Default::default(),
 		});
 
 		let listing = Nft::listings(listing_id).expect("token is listed");
@@ -1010,6 +1042,7 @@ fn auction_bundle() {
 			None,
 			vec![NFTAttributeValue::I32(123)],
 			None,
+			None,
 		));
 
 		let tokens = vec![(collection_id, 0, 1), (collection_id, 0, 3), (collection_id, 0, 4)];
@@ -1045,8 +1078,9 @@ fn auction_bundle_fails() {
 		let collection_id = setup_collection(collection_owner);
 		let collection_id_2 = setup_collection(collection_owner);
 		// mint some fake tokens
-		<TokenOwner<Test>>::insert((collection_id, 0), 1, collection_owner);
-		<TokenOwner<Test>>::insert((collection_id_2, 0), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id, 1), 1, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id, 2), 2, collection_owner);
+		<TokenOwner<Test>>::insert((collection_id_2, 1), 1, collection_owner);
 
 		// empty tokens fails
 		assert_noop!(
@@ -1058,12 +1092,26 @@ fn auction_bundle_fails() {
 		assert_noop!(
 			Nft::auction_bundle(
 				Some(collection_owner).into(),
-				vec![(collection_id, 0, 1), (collection_id_2, 0, 1),],
+				vec![(collection_id, 1, 1), (collection_id_2, 1, 1),],
 				16_000,
 				1_000,
 				None,
 			),
 			Error::<Test>::MixedBundleSale
+		);
+
+		// cannot bundle sell when series have royalties set
+		<SeriesRoyalties<Test>>::insert(collection_id, 1, RoyaltiesSchedule::<AccountId>::default());
+		<SeriesRoyalties<Test>>::insert(collection_id, 2, RoyaltiesSchedule::<AccountId>::default());
+		assert_noop!(
+			Nft::auction_bundle(
+				Some(collection_owner).into(),
+				vec![(collection_id, 1, 1), (collection_id, 2, 2)],
+				16_000,
+				1_000,
+				None,
+			),
+			Error::<Test>::RoyaltiesProtection
 		);
 	})
 }
@@ -1165,7 +1213,7 @@ fn auction_royalty_payments() {
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + 1);
 
-		// royaties paid out
+		// royalties paid out
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 		// royalties distributed according to `entitlements` map
 		assert_eq!(
@@ -1225,6 +1273,7 @@ fn close_listings_at_removes_listing_data() {
 				close: System::block_number() + 1,
 				seller: 1,
 				tokens: vec![token_1],
+				royalties_schedule: Default::default(),
 			}),
 			// an open auction which has no bids before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1233,6 +1282,7 @@ fn close_listings_at_removes_listing_data() {
 				close: System::block_number() + 1,
 				seller: 1,
 				tokens: vec![token_1],
+				royalties_schedule: Default::default(),
 			}),
 			// an open auction which has a winning bid before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1241,6 +1291,7 @@ fn close_listings_at_removes_listing_data() {
 				close: System::block_number() + 1,
 				seller: 1,
 				tokens: vec![token_1],
+				royalties_schedule: Default::default(),
 			}),
 		];
 
@@ -1427,6 +1478,7 @@ fn transfer_batch() {
 			Some(token_owner),
 			vec![],
 			None,
+			None,
 		));
 
 		// test
@@ -1458,6 +1510,7 @@ fn transfer_batch_fails() {
 			3,
 			Some(token_owner),
 			vec![],
+			None,
 			None,
 		));
 
@@ -1510,6 +1563,9 @@ fn mint_series() {
 		let token_owner = 2_u64;
 		let quantity = 5;
 		let series_id = Nft::next_series_id(collection_id);
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: vec![(collection_owner, Permill::one())],
+		};
 
 		// mint token Ids 0-4
 		assert_ok!(Nft::mint_series(
@@ -1519,6 +1575,7 @@ fn mint_series() {
 			Some(token_owner),
 			series_attributes.clone(),
 			None,
+			Some(royalties_schedule.clone()),
 		));
 
 		assert!(has_event(RawEvent::CreateSeries(
@@ -1534,6 +1591,10 @@ fn mint_series() {
 			series_attributes.clone()
 		);
 		assert_eq!(Nft::series_issuance(collection_id, series_id), quantity);
+		assert_eq!(
+			Nft::series_royalties(collection_id, series_id).expect("royalties set"),
+			royalties_schedule
+		);
 		// We minted collection token 0, next collection token id is 1
 		assert_eq!(Nft::next_series_id(collection_id), 1);
 		assert_eq!(
@@ -1596,6 +1657,7 @@ fn mint_series_fails() {
 				Some(collection_owner),
 				vec![],
 				None,
+				None,
 			),
 			Error::<Test>::NoToken
 		);
@@ -1616,6 +1678,7 @@ fn mint_additional_fails() {
 			5,
 			None,
 			vec![],
+			None,
 			None,
 		));
 
@@ -1643,12 +1706,13 @@ fn mint_additional_fails() {
 			None,
 			vec![],
 			None,
+			None,
 		));
 
 		// One of one token
 		assert_noop!(
 			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id + 1, 5, None),
-			Error::<Test>::AddToSingleIssue
+			Error::<Test>::AddToUniqueIssue
 		);
 	});
 }

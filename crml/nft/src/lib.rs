@@ -22,12 +22,12 @@
 //! to extend.
 //!
 //! *Collections*:
-//!  A namespacing tool for logical grouping of related tokens
+//!  A name spacing tool for logical grouping of related tokens
 //!  Tokens within a collection can have the same royalties fees, metadata base URIs, and owner address
 //!
 //! *Series*:
 //! A grouping of tokens within a collection namespace
-//! Tokens in the same series will have exact onchain attributes, dinstingiushable by a serial number.
+//! Tokens in the same series will have exact onchain attributes, distinguishable by a serial number.
 //! Series may be one-of-one i.e. the classic NFT
 //! A series of size 1 contains an NFT, while a series with > 1 token is considered semi-fungible
 //!
@@ -83,7 +83,6 @@ pub trait WeightInfo {
 	fn burn() -> Weight;
 	fn sell() -> Weight;
 	fn buy() -> Weight;
-	fn auction() -> Weight;
 	fn bid() -> Weight;
 	fn cancel_sale() -> Weight;
 }
@@ -162,8 +161,10 @@ decl_error! {
 		BidTooLow,
 		/// Selling tokens from different collections is not allowed
 		MixedBundleSale,
-		/// Cannot mint additional tokens in a single issue series
-		AddToSingleIssue,
+		/// Cannot mint additional tokens in a unique issue series
+		AddToUniqueIssue,
+		/// Tokens with different individual royalties cannot be sold together
+		RoyaltiesProtection,
 	}
 }
 
@@ -174,7 +175,7 @@ decl_storage! {
 		/// Map from collection to its human friendly name
 		pub CollectionName get(fn collection_name): map hasher(twox_64_concat) CollectionId => CollectionNameType;
 		/// Map from collection to a base metadata URI for its token's offchain attributes
-		pub CollectionMetadatURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
+		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(twox_64_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from token to its locked status
@@ -184,6 +185,8 @@ decl_storage! {
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
 		/// Map from (collection, series) to its attributes
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
+		/// Map from (collection, series) to configured royalties schedule
+		pub SeriesRoyalties get(fn series_royalties): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a (collection, series) to its total issuance
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
@@ -195,7 +198,7 @@ decl_storage! {
 		/// The next group Id within an NFT collection
 		/// It is used as material to generate the global `TokenId`
 		NextSeriesId get(fn next_series_id): map hasher(twox_64_concat) CollectionId => SeriesId;
-		/// The next available serial number in a given (colleciton, series)
+		/// The next available serial number in a given (collection, series)
 		NextSerialNumber get(fn next_serial_number): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => SerialNumber;
 		/// The next available listing Id
 		pub NextListingId get(fn next_listing_id): ListingId;
@@ -261,7 +264,7 @@ decl_module! {
 		///
 		/// The caller will become the collection owner
 		/// `collection_id`- 32 byte utf-8 string
-		/// `metdata_base_uri` - Base URI for off-chain metadata for tokens in this collection
+		/// `metadata_base_uri` - Base URI for off-chain metadata for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
 		fn create_collection(
@@ -284,7 +287,7 @@ decl_module! {
 				<CollectionRoyalties<T>>::insert(collection_id, royalties_schedule);
 			}
 			if let Some(metadata_base_uri) = metadata_base_uri {
-				CollectionMetadatURI::insert(collection_id, metadata_base_uri);
+				CollectionMetadataURI::insert(collection_id, metadata_base_uri);
 			}
 			<CollectionOwner<T>>::insert(collection_id, &origin);
 			CollectionName::insert(collection_id, &name);
@@ -309,9 +312,10 @@ decl_module! {
 			owner: Option<T::AccountId>,
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) {
 			let series_id = Self::next_series_id(collection_id);
-			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path)?;
+			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path, royalties_schedule)?;
 			IsSingleIssue::insert(collection_id, series_id, true);
 		}
 
@@ -335,6 +339,7 @@ decl_module! {
 			owner: Option<T::AccountId>,
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -365,6 +370,9 @@ decl_module! {
 			SeriesIssuance::insert(collection_id, series_id, quantity);
 			if let Some(metadata_path) = metadata_path {
 				SeriesMetadataURI::insert(collection_id, series_id, metadata_path);
+			}
+			if let Some(royalties_schedule) = royalties_schedule {
+				<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
 			}
 
 			// Now mint the series tokens
@@ -407,7 +415,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-			ensure!(!Self::is_single_issue(collection_id, series_id), Error::<T>::AddToSingleIssue);
+			ensure!(!Self::is_single_issue(collection_id, series_id), Error::<T>::AddToUniqueIssue);
 			let serial_number = Self::next_serial_number(collection_id, series_id);
 			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
@@ -499,6 +507,8 @@ decl_module! {
 				SeriesAttributes::remove(collection_id, series_id);
 				SeriesIssuance::remove(collection_id, series_id);
 				SeriesMetadataURI::remove(collection_id, series_id);
+				<SeriesRoyalties<T>>::remove(collection_id, series_id);
+				IsSingleIssue::remove(collection_id, series_id);
 			} else {
 				SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_sub(serial_numbers.len() as TokenCount));
 			}
@@ -521,7 +531,7 @@ decl_module! {
 
 		/// Sell a bundle of tokens at a fixed price
 		/// - Tokens must be from the same collection
-		/// - Tokens with individual royalties schedules cannot be sold in bundles
+		/// - Tokens with individual royalties schedules cannot be sold with this method
 		///
 		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
@@ -542,11 +552,11 @@ decl_module! {
 				return Err(Error::<T>::NoToken.into());
 			}
 
-			let bundle_collection_id = tokens[0].0;
+			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
+
+			// use the first token's collection as representative of the bundle
+			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
-				if collection_id != &bundle_collection_id {
-					return Err(Error::<T>::MixedBundleSale.into());
-				}
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
 				TokenLocks::insert((collection_id, series_id, serial_number), true);
@@ -565,8 +575,10 @@ decl_module! {
 					tokens: tokens.clone(),
 					buyer: buyer.clone(),
 					seller: origin.clone(),
+					royalties_schedule,
 				}
 			);
+
 			OpenCollectionListings::insert(bundle_collection_id, listing_id, true);
 			Listings::insert(listing_id, listing);
 			NextListingId::mutate(|i| *i += 1);
@@ -590,9 +602,7 @@ decl_module! {
 
 				let (collection_id, _series_id, _serial_number) = listing.tokens.get(0).ok_or_else(|| Error::<T>::NoToken)?;
 
-				let royalties_schedule = Self::collection_royalties(collection_id).unwrap_or_else(Default::default);
-
-				let royalty_fees = royalties_schedule.calculate_total_entitlement();
+				let royalty_fees = listing.royalties_schedule.calculate_total_entitlement();
 				if royalty_fees.is_zero() {
 					// full proceeds to seller/`current_owner`
 					T::MultiCurrency::transfer(&origin, &listing.seller, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
@@ -600,7 +610,7 @@ decl_module! {
 					// withdraw funds from buyer, split between royalty payments and seller
 					let mut for_seller = listing.fixed_price;
 					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
-					for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
 						let royalty = entitlement * listing.fixed_price;
 						for_seller -= royalty;
 						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
@@ -629,20 +639,21 @@ decl_module! {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[weight = T::WeightInfo::auction()]
+		#[weight = T::WeightInfo::sell()]
 		fn auction(origin, token_id: TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) -> DispatchResult {
 			Self::auction_bundle(origin, vec![token_id], payment_asset, reserve_price, duration)
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
 		/// - Tokens must be from the same collection
+		/// - Tokens with individual royalties schedules cannot be sold in bundles
 		///
 		/// Caller must be the token owner
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[weight = {
-			T::WeightInfo::auction()
+			T::WeightInfo::sell()
 				.saturating_add(
 					T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
 				)
@@ -655,11 +666,11 @@ decl_module! {
 				return Err(Error::<T>::NoToken.into());
 			}
 
-			let bundle_collection_id = tokens[0].0;
+			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
+
+			// use the first token's collection as representative of the bundle
+			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
-				if collection_id != &bundle_collection_id {
-					return Err(Error::<T>::MixedBundleSale.into());
-				}
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
 				TokenLocks::insert((collection_id, series_id, serial_number), true);
@@ -677,8 +688,10 @@ decl_module! {
 					close: listing_end_block,
 					tokens: tokens.clone(),
 					seller: origin.clone(),
+					royalties_schedule,
 				}
 			);
+
 			OpenCollectionListings::insert(bundle_collection_id, listing_id, true);
 			Listings::insert(listing_id, listing);
 			NextListingId::mutate(|i| *i += 1);
@@ -769,6 +782,30 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+	/// Check royalties will be respected on all tokens if placed into a bundle sale.
+	/// We're ok iff, all tokens in the bundle are from the:
+	/// 1) same collection and same series
+	/// 2) same collection and different series, no series royalties set (could extend to iff royalties equal)
+	/// Although possible, we do not support:
+	/// 3) different collections, no royalties allowed
+	fn check_bundle_royalties(tokens: &[TokenId]) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
+		// use the first token's collection as representative of the bundle
+		let (bundle_collection_id, bundle_series_id, _serial_number) = tokens[0];
+
+		for (collection_id, series_id, _serial_number) in tokens.iter() {
+			ensure!(*collection_id == bundle_collection_id, Error::<T>::MixedBundleSale);
+			if *series_id != bundle_series_id {
+				ensure!(
+					!<SeriesRoyalties<T>>::contains_key(collection_id, series_id),
+					Error::<T>::RoyaltiesProtection
+				);
+			}
+		}
+
+		// series schedule takes priority if it exists
+		Ok(Self::series_royalties(bundle_collection_id, bundle_series_id)
+			.unwrap_or_else(|| Self::collection_royalties(bundle_collection_id).unwrap_or_else(Default::default)))
+	}
 	/// Transfer the given tokens from `current_owner` to `new_owner`
 	/// Does no verification
 	fn do_transfer_unchecked(tokens: &[TokenId], new_owner: &T::AccountId) {
@@ -840,7 +877,7 @@ impl<T: Trait> Module<T> {
 							log!(error, "🃏 auction settlement failed: {:?}", err);
 							T::MultiCurrency::unreserve(&winner, Some(listing.payment_asset), hammer_price);
 
-							// listing metadadta is removed by now.
+							// listing metadata is removed by now.
 							Self::deposit_event(RawEvent::AuctionClosed(
 								listing_collection_id,
 								listing_id,
@@ -858,7 +895,7 @@ impl<T: Trait> Module<T> {
 						}
 					} else {
 						// normal closure, no acceptable bids
-						// listing metadadta is removed by now.
+						// listing metadata is removed by now.
 						Self::deposit_event(RawEvent::AuctionClosed(
 							listing_collection_id,
 							listing_id,
@@ -878,16 +915,13 @@ impl<T: Trait> Module<T> {
 	/// - transfer ownership to the winning bidder
 	#[transactional]
 	fn settle_auction(listing: &AuctionListing<T>, winner: &T::AccountId, hammer_price: Balance) -> DispatchResult {
-		let listing_collection_id = listing.tokens[0].0;
-
-		let royalties_schedule = Self::collection_royalties(listing_collection_id).unwrap_or_else(Default::default);
-
-		let for_royalties = royalties_schedule.calculate_total_entitlement() * hammer_price;
+		let for_royalties = listing.royalties_schedule.calculate_total_entitlement() * hammer_price;
 		let mut for_seller = hammer_price;
 
 		// do royalty payments
 		if !for_royalties.is_zero() {
-			for (who, entitlement) in royalties_schedule.entitlements.into_iter() {
+			let entitlements = listing.royalties_schedule.entitlements.clone();
+			for (who, entitlement) in entitlements.into_iter() {
 				let royalty = entitlement * hammer_price;
 				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
 				for_seller -= royalty;

@@ -19,12 +19,12 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
-	fn mint_series(q: u32) -> Weight {
+	fn mint_series(_q: u32) -> Weight {
 		(133_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(5 as Weight))
 			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
-	fn mint_additional(q: u32) -> Weight {
+	fn mint_additional(_q: u32) -> Weight {
 		(133_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(5 as Weight))
 			.saturating_add(DbWeight::get().writes(6 as Weight))
@@ -48,11 +48,6 @@ impl crate::WeightInfo for () {
 		(329_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(12 as Weight))
 			.saturating_add(DbWeight::get().writes(10 as Weight))
-	}
-	fn auction() -> Weight {
-		(65_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn bid() -> Weight {
 		(117_000_000 as Weight)
