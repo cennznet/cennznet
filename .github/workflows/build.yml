@@ -3,22 +3,22 @@ name: CI
 on:
   pull_request:
     branches:
-    - develop
+      - develop
     paths:
-    - '**.rs'
-    - '**.toml'
-    - '**.lock'
-    - 'genesis/**'
-    - 'Dockerfile'
+      - "**.rs"
+      - "**.toml"
+      - "**.lock"
+      - "genesis/**"
+      - "Dockerfile"
   push:
     branches:
-    - develop
+      - develop
     paths:
-    - '**.rs'
-    - '**.toml'
-    - '**.lock'
-    - 'genesis/**'
-    - 'Dockerfile'
+      - "**.rs"
+      - "**.toml"
+      - "**.lock"
+      - "genesis/**"
+      - "Dockerfile"
 
 jobs:
   format-build-test:
@@ -26,42 +26,42 @@ jobs:
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
-    - name: Cancel previous runs
-      uses: styfle/cancel-workflow-action@0.6.0
-      with:
-        access_token: ${{ github.token }}
-    - name: Check out
-      uses: actions/checkout@v2
-    - name: Install toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly-2021-02-11
-        components: rustfmt
-        target: wasm32-unknown-unknown
-        default: true
-    - name: Format
-      run: cargo fmt --all -- --check
-    - name: Build
-      run: cargo build --locked
-    - name: Test
-      run: cargo test --all
-    - name: Benchmark (build only)
-      run: cargo check --features=runtime-benchmarks
-    - name: notify success
-      if: ${{ success() }}
-      uses: rtCamp/action-slack-notify@v2
-      env:
-        SLACK_MESSAGE: "build success :deal_with_it_parrot:"
-        SLACK_USERNAME: "CENNZnet status"
-        SLACK_ICON_EMOJI: ":white_check_mark:"
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-    - name: notify failure
-      if: ${{ failure() && !cancelled() }}
-      uses: rtCamp/action-slack-notify@v2
-      env:
-        SLACK_MESSAGE: "build failed :halp:"
-        SLACK_USERNAME: "CENNZnet status"
-        SLACK_ICON_EMOJI: ":x:"
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_COLOR: "#ff0000"
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.6.0
+        with:
+          access_token: ${{ github.token }}
+      - name: Check out
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2021-02-11
+          components: rustfmt
+          target: wasm32-unknown-unknown
+          default: true
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Build
+        run: cargo build --locked
+      - name: Test
+        run: cargo test --all
+      - name: Benchmark (build only)
+        run: cargo check --features=runtime-benchmarks
+      - name: notify success
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: "build success :deal_with_it_parrot:"
+          SLACK_USERNAME: "CENNZnet status"
+          SLACK_ICON_EMOJI: ":white_check_mark:"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      - name: notify failure
+        if: ${{ failure() && !cancelled() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: "build failed :halp:"
+          SLACK_USERNAME: "CENNZnet status"
+          SLACK_ICON_EMOJI: ":x:"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: "#ff0000"
