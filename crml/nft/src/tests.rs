@@ -1213,7 +1213,7 @@ fn auction_royalty_payments() {
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + 1);
 
-		// royaties paid out
+		// royalties paid out
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 		// royalties distributed according to `entitlements` map
 		assert_eq!(

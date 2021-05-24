@@ -54,11 +54,6 @@ impl<T: frame_system::Trait> crml_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(8 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
-	fn auction() -> Weight {
-		(91_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-	}
 	fn bid() -> Weight {
 		(151_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(8 as Weight))

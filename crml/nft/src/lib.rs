@@ -83,7 +83,6 @@ pub trait WeightInfo {
 	fn burn() -> Weight;
 	fn sell() -> Weight;
 	fn buy() -> Weight;
-	fn auction() -> Weight;
 	fn bid() -> Weight;
 	fn cancel_sale() -> Weight;
 }

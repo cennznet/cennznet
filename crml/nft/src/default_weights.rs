@@ -49,11 +49,6 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(12 as Weight))
 			.saturating_add(DbWeight::get().writes(10 as Weight))
 	}
-	fn auction() -> Weight {
-		(65_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
 	fn bid() -> Weight {
 		(117_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(6 as Weight))

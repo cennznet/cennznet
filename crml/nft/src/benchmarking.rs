@@ -72,6 +72,7 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 		Some(owner.clone()),
 		attributes.clone(),
 		None,
+		None,
 	)
 	.expect("created token");
 
@@ -114,7 +115,7 @@ benchmarks! {
 		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, Some(royalties.clone())).expect("created collection");
 		// all attributes max. length
 		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
-		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), attributes, Some(b"/tokens".to_vec())).expect("minted series");
+		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), attributes, Some(b"/tokens".to_vec()), None).expect("minted series");
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, q.into(), Some(owner.clone()))
 	verify {
@@ -286,13 +287,6 @@ mod tests {
 	fn buy() {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_ok!(test_benchmark_buy::<Test>());
-		});
-	}
-
-	#[test]
-	fn auction() {
-		ExtBuilder::default().build().execute_with(|| {
-			assert_ok!(test_benchmark_auction::<Test>());
 		});
 	}
 
