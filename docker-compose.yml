@@ -1,11 +1,11 @@
 version: '3'
 services:
   node-0:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-0:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --validator
       - --alice
       - --base-path=/mnt/data
@@ -19,11 +19,11 @@ services:
       - "9944:9944"
       - "30334:30333"
   node-1:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-1:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --validator
       - --bob
       - --base-path=/mnt/data
@@ -33,11 +33,11 @@ services:
     ports:
       - "30335:30333"
   node-2:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-2:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --validator
       - --charlie
       - --base-path=/mnt/data
@@ -47,11 +47,11 @@ services:
     ports:
       - "30336:30333"
   node-3:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-3:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --validator
       - --dave
       - --base-path=/mnt/data
@@ -61,11 +61,11 @@ services:
     ports:
       - "30337:30333"
   node-4:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-4:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --validator
       - --eve
       - --base-path=/mnt/data
@@ -75,11 +75,11 @@ services:
     ports:
       - "30338:30333"
   node-5:
-    image: cennznet/cennznet:1.4.0
+    image: cennznet/cennznet:1.5.0
     volumes:
     - ./data/node-5:/mnt/data
     command:
-      - --chain=/cennznet/genesis/rata.raw.json
+      - --chain=rata
       - --name=full-${HOSTNAME:-localhost}-5
       - --base-path=/mnt/data
       - --node-key=8967bcbae338641d1102ff4465fda281f0bf6e9842702f3a992650d4855f5cd0
