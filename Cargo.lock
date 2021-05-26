@@ -695,6 +695,7 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-nft-rpc",
  "crml-staking-rpc",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc",
@@ -772,6 +773,8 @@ dependencies = [
  "cennznet-runtime",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-nft",
+ "crml-nft-rpc-runtime-api",
  "crml-staking",
  "crml-staking-rpc-runtime-api",
  "crml-sylo",
@@ -1162,6 +1165,62 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-arithmetic",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-nft"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "prml-generic-asset",
+ "prml-support",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+ "variant_count",
+]
+
+[[package]]
+name = "crml-nft-rpc"
+version = "2.1.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-nft",
+ "crml-nft-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-nft-rpc-runtime-api"
+version = "2.1.0"
+dependencies = [
+ "crml-nft",
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -8630,6 +8689,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b676010e055c99033117c2343b33a40a30b91fecd6c49055ac9cd2d6c305ab1"
 dependencies = [
  "ctor",
+]
+
+[[package]]
+name = "variant_count"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aae2faf80ac463422992abf4de234731279c058aaf33171ca70277c98406b124"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

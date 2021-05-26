@@ -1,0 +1,43 @@
+[package]
+name = "crml-nft"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+description = "CENNZnet NFT module"
+
+[dependencies]
+cennznet-primitives = { path = "../../primitives", default-features = false }
+serde = { version = "1.0.102", optional = true }
+log = { version = "0.4.14", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-keyring = { optional = true, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4", default-features = false, optional = true }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4", default-features = false }
+variant_count = "1.0.0"
+
+[dev-dependencies]
+prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc4" }
+
+[features]
+default = ["std"]
+std = [
+	"cennznet-primitives/std",
+	"prml-support/std",
+	"codec/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keyring",
+	"sp-runtime/std",
+	"sp-std/std",
+	"frame-support/std",
+	"frame-system/std",
+]
+runtime-benchmarks = ["frame-benchmarking"]
