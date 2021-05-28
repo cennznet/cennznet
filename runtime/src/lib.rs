@@ -238,7 +238,7 @@ impl crml_nft::Trait for Runtime {
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = weights::crml_nft::WeightInfo<Self>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -640,7 +640,7 @@ impl crml_cennzx::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type WeightInfo = weights::crml_cennzx::WeightInfo<Self>;
+	type WeightInfo = ();
 }
 
 impl prml_attestation::Config for Runtime {
@@ -736,8 +736,8 @@ construct_runtime!(
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 30,
 		Tips: pallet_tips::{Module, Call, Storage, Event<T>} = 31,
-		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
-		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>} = 32,
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 33,
 	}
 );
 

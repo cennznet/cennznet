@@ -8,7 +8,21 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 use sp_std::marker::PhantomData;
 
-impl crate::WeightInfo for () {
+/// NFT module weights
+pub trait WeightInfo {
+	fn set_owner() -> Weight;
+	fn create_collection() -> Weight;
+	fn mint_series(q: u32) -> Weight;
+	fn mint_additional(q: u32) -> Weight;
+	fn transfer() -> Weight;
+	fn burn() -> Weight;
+	fn sell() -> Weight;
+	fn buy() -> Weight;
+	fn bid() -> Weight;
+	fn cancel_sale() -> Weight;
+}
+
+impl WeightInfo for () {
 	fn set_owner() -> Weight {
 		(1_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))

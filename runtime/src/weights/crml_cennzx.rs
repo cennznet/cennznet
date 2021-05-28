@@ -9,7 +9,7 @@ use frame_support::{traits::Get, weights::Weight};
 use sp_std::marker::PhantomData;
 
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Trait> crml_cennzx::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> crml_cennzx::WeightInfo for WeightInfo<T> {
 	fn buy_asset() -> Weight {
 		(331_370_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))

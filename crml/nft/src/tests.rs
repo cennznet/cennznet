@@ -14,25 +14,9 @@
 */
 
 use super::*;
-use crate::mock::{AccountId, Event, ExtBuilder, Test};
-use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnInitialize};
+use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
+use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
-
-type Nft = Module<Test>;
-type GenericAsset = prml_generic_asset::Module<Test>;
-type System = frame_system::Module<Test>;
-
-parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
-}
-impl Trait for Test {
-	type Event = Event;
-	type MultiCurrency = prml_generic_asset::Module<Test>;
-	type MaxAttributeLength = MaxAttributeLength;
-	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = ();
-}
 
 // Check the test system contains an event record `event`
 fn has_event(
@@ -50,7 +34,7 @@ fn has_event(
 ) -> bool {
 	System::events()
 		.iter()
-		.find(|e| e.event == Event::nft(event.clone()))
+		.find(|e| e.event == Event::crml_nft(event.clone()))
 		.is_some()
 }
 
@@ -75,7 +59,7 @@ fn setup_collection(owner: AccountId) -> CollectionId {
 }
 
 /// Setup a token, return collection id, token id, token owner
-fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
+fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
 	let token_owner = 2_u64;
@@ -96,7 +80,7 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::Accou
 fn setup_token_with_royalties(
 	royalties_schedule: RoyaltiesSchedule<AccountId>,
 	quantity: TokenCount,
-) -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
+) -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
 	<SeriesRoyalties<Test>>::insert(collection_id, 0, royalties_schedule);

@@ -51,11 +51,12 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 mod benchmarking;
-mod default_weights;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+use weights::WeightInfo;
 
 mod types;
 pub use types::*;
@@ -71,20 +72,6 @@ pub trait Trait: frame_system::Config {
 	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
-}
-
-/// NFT module weights
-pub trait WeightInfo {
-	fn set_owner() -> Weight;
-	fn create_collection() -> Weight;
-	fn mint_series(q: u32) -> Weight;
-	fn mint_additional(q: u32) -> Weight;
-	fn transfer() -> Weight;
-	fn burn() -> Weight;
-	fn sell() -> Weight;
-	fn buy() -> Weight;
-	fn bid() -> Weight;
-	fn cancel_sale() -> Weight;
 }
 
 decl_event!(
