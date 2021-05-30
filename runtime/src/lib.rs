@@ -734,10 +734,10 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
-		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 30,
-		Tips: pallet_tips::{Module, Call, Storage, Event<T>} = 31,
-		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>} = 32,
-		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 33,
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 31,
+		Tips: pallet_tips::{Module, Call, Storage, Event<T>} = 32,
+		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>} = 33,
 	}
 );
 
