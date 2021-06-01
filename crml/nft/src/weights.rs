@@ -24,53 +24,59 @@ pub trait WeightInfo {
 
 impl WeightInfo for () {
 	fn set_owner() -> Weight {
-		(1_000 as Weight)
+		(16_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn create_collection() -> Weight {
-		(72_000_000 as Weight)
+		(51_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
-	fn mint_series(_q: u32) -> Weight {
-		(133_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
+	fn mint_additional(q: u32) -> Weight {
+		(79_200_000 as Weight)
+			// Standard Error: 2_166_000
+			.saturating_add((3_536_000 as Weight).saturating_mul(q as Weight))
+			.saturating_add(DbWeight::get().reads(4 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
-	fn mint_additional(_q: u32) -> Weight {
-		(133_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
+	fn mint_series(q: u32) -> Weight {
+		(74_033_000 as Weight)
+			// Standard Error: 58_000
+			.saturating_add((4_321_000 as Weight).saturating_mul(q as Weight))
+			.saturating_add(DbWeight::get().reads(2 as Weight))
 			.saturating_add(DbWeight::get().writes(6 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
 	fn transfer() -> Weight {
-		(96_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
+		(51_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn burn() -> Weight {
-		(119_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn sell() -> Weight {
-		(69_000_000 as Weight)
+		(65_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(3 as Weight))
 			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
+	fn sell() -> Weight {
+		(93_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
+	}
 	fn buy() -> Weight {
-		(329_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(12 as Weight))
-			.saturating_add(DbWeight::get().writes(10 as Weight))
+		(477_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(13 as Weight))
+			.saturating_add(DbWeight::get().writes(11 as Weight))
 	}
 	fn bid() -> Weight {
-		(117_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
+		(165_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
 	fn cancel_sale() -> Weight {
-		(74_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
+		(60_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 }
