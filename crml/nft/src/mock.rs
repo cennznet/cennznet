@@ -97,7 +97,7 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
 }
-impl crate::Trait for Test {
+impl crate::Config for Test {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;

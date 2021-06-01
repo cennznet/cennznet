@@ -61,7 +61,7 @@ use weights::WeightInfo;
 mod types;
 pub use types::*;
 
-pub trait Trait: frame_system::Config {
+pub trait Config: frame_system::Config {
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// Default auction / sale length in blocks
@@ -117,7 +117,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// A collection with the same ID already exists
 		CollectionIdExists,
 		/// Given collection name is invalid (invalid utf-8, too long, empty)
@@ -156,7 +156,7 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Nft {
+	trait Store for Module<T: Config> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its human friendly name
@@ -219,7 +219,7 @@ macro_rules! log {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -768,7 +768,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
 	/// We're ok iff, all tokens in the bundle are from the:
 	/// 1) same collection and same series

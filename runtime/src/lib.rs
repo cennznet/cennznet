@@ -233,7 +233,7 @@ parameter_types! {
 	/// Only applies to string/vec allocated types
 	pub const MaxAttributeLength: u8 = 140;
 }
-impl crml_nft::Trait for Runtime {
+impl crml_nft::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;

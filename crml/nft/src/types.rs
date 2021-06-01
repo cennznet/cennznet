@@ -15,7 +15,7 @@
 
 //! NFT module types
 
-use crate::Trait;
+use crate::Config;
 use codec::{Decode, Encode};
 use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{PerThing, Permill};
@@ -161,18 +161,18 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 
 /// A type of NFT sale listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub enum Listing<T: Trait> {
+pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
 	Auction(AuctionListing<T>),
 }
 
 /// Information about an auction listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub struct AuctionListing<T: Trait> {
+pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
-	pub payment_asset: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
+	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
 	/// The threshold amount for a succesful bid
-	pub reserve_price: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance,
+	pub reserve_price: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
 	/// The seller of the tokens
@@ -185,11 +185,11 @@ pub struct AuctionListing<T: Trait> {
 
 /// Information about a fixed price listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub struct FixedPriceListing<T: Trait> {
+pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
-	pub payment_asset: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
+	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
 	/// The requested amount for a succesful sale
-	pub fixed_price: <<T as Trait>::MultiCurrency as MultiCurrencyAccounting>::Balance,
+	pub fixed_price: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
 	/// The authorised buyer. If unset, any buyer is authorised

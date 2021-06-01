@@ -34,7 +34,7 @@ const QUANTITY: u32 = 100;
 
 // Create a collection for benchmarking
 // Returns the collection id, schema, and royalties schedule
-fn setup_collection<T: Trait>(creator: T::AccountId) -> (CollectionId, RoyaltiesSchedule<T::AccountId>) {
+fn setup_collection<T: Config>(creator: T::AccountId) -> (CollectionId, RoyaltiesSchedule<T::AccountId>) {
 	let collection_id = <Nft<T>>::next_collection_id();
 	// Royalties with max. entitled addresses
 	let royalties = RoyaltiesSchedule::<T::AccountId> {
@@ -47,7 +47,7 @@ fn setup_collection<T: Trait>(creator: T::AccountId) -> (CollectionId, Royalties
 }
 
 // Create a token for benchmarking
-fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
+fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 	let creator: T::AccountId = whitelisted_caller();
 	let (collection_id, royalties) = setup_collection::<T>(creator.clone());
 	let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
@@ -80,8 +80,6 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 }
 
 benchmarks! {
-	_{}
-
 	set_owner {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
