@@ -371,6 +371,12 @@ fn elected_validators_receive_transaction_fee_reward() {
 					initial_balance + per_validator_reward_era_1,
 				)
 			}
+
+			assert_eq!(
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				// + 6 is a remainder after the stakers_cut is split
+				reward_parts.treasury_cut + 5
+			);
 		});
 }
 
