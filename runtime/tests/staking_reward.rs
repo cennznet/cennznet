@@ -353,6 +353,13 @@ fn elected_validators_receive_transaction_fee_reward() {
 
 			// end era 1, reward payouts are scheduled
 			start_active_era(2);
+
+			// treasury is paid its cut of network tx fees
+			assert_eq!(
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				reward_parts.treasury_cut
+			);
+
 			// skip a few blocks to ensure payouts are made
 			advance_session();
 			advance_session();
@@ -365,11 +372,10 @@ fn elected_validators_receive_transaction_fee_reward() {
 				)
 			}
 
-			// treasury is paid its cut of network tx fees
 			assert_eq!(
 				RewardCurrency::free_balance(&Treasury::account_id()),
 				// + 6 is a remainder after the stakers_cut is split
-				reward_parts.treasury_cut + 6
+				reward_parts.treasury_cut + 5
 			);
 		});
 }

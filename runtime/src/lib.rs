@@ -77,6 +77,7 @@ pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
+use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -223,6 +224,21 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
+}
+
+parameter_types! {
+	/// How long listings are open for by default
+	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	/// The maximum length of an attribute value (140 = old tweet limit)
+	/// Only applies to string/vec allocated types
+	pub const MaxAttributeLength: u8 = 140;
+}
+impl crml_nft::Config for Runtime {
+	type Event = Event;
+	type MultiCurrency = GenericAsset;
+	type MaxAttributeLength = MaxAttributeLength;
+	type DefaultListingDuration = DefaultListingDuration;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -718,9 +734,10 @@ construct_runtime!(
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
 		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
-		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 30,
-		Tips: pallet_tips::{Module, Call, Storage, Event<T>} = 31,
-		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
+		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 31,
+		Tips: pallet_tips::{Module, Call, Storage, Event<T>} = 32,
+		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>} = 33,
 	}
 );
 
@@ -962,6 +979,14 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl crml_nft_rpc_runtime_api::NftApi<
+		Block,
+		AccountId,
+	> for Runtime {
+		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
+			Nft::collected_tokens(collection_id, &who)
+		}
+	}
 
 	impl crml_cennzx_rpc_runtime_api::CennzxApi<
 		Block,
@@ -1042,6 +1067,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 
 			add_benchmark!(params, batches, crml_cennzx, Cennzx);
+			add_benchmark!(params, batches, crml_nft, Nft);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
