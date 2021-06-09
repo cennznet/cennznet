@@ -16,9 +16,9 @@
 
 //! Node-specific RPC methods for interaction with CENNZX.
 
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, sync::Arc, str::FromStr, fmt::Display};
 
-use codec::{Codec, Decode};
+use codec::{Codec, Decode, Encode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use serde::{Deserialize, Serialize};
@@ -32,23 +32,20 @@ pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRu
 
 /// Contracts RPC methods.
 #[rpc]
-pub trait CennzxApi<AssetId, Balance, AccountId> {
+pub trait CennzxApi<AssetId, Balance, AccountId> where
+	Balance: FromStr + Display,
+{
 	#[rpc(name = "cennzx_buyPrice")]
-	// TODO: prefer to return Result<Balance>, however Serde JSON library only allows u64.
-	//  - change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
-	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Vec<u8>, asset_to_pay: AssetId) -> Result<Vec<u8>>;
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<BuyPriceResponse<Balance>>;
 
 	#[rpc(name = "cennzx_sellPrice")]
-	// TODO: change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
-	fn sell_price(&self, asset_to_sell: AssetId, amount_to_buy: Vec<u8>, asset_to_payout: AssetId) -> Result<Vec<u8>>;
+	fn sell_price(&self, asset_to_sell: AssetId, amount_to_buy: Balance, asset_to_payout: AssetId) -> Result<SellPriceResponse<Balance>>;
 
 	#[rpc(name = "cennzx_liquidityValue")]
-	// TODO: change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
-	fn liquidity_value(&self, account_id: AccountId, asset_id: AssetId) -> Result<LiquidityValueRPC>;
+	fn liquidity_value(&self, account_id: AccountId, asset_id: AssetId) -> Result<LiquidityValueResponse<Balance>>;
 
 	#[rpc(name = "cennzx_liquidityPrice")]
-	// TODO: change to Result<Balance> once https://github.com/serde-rs/serde/pull/1679 is merged
-	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: Balance) -> Result<LiquidityPriceRPC>;
+	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: Balance) -> Result<LiquidityPriceResponse<Balance>>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -67,17 +64,59 @@ impl<C, T> Cennzx<C, T> {
 	}
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct LiquidityValueRPC {
-	liquidity: Vec<u8>,
-	core: Vec<u8>,
-	asset: Vec<u8>,
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "Balance: std::fmt::Display"))]
+#[serde(bound(deserialize = "Balance: std::str::FromStr"))]
+pub struct BuyPriceResponse<Balance> {
+	#[serde(with = "serde_balance")]
+	price: Balance,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct LiquidityPriceRPC {
-	core: Vec<u8>,
-	asset: Vec<u8>,
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "Balance: std::fmt::Display"))]
+#[serde(bound(deserialize = "Balance: std::str::FromStr"))]
+pub struct SellPriceResponse<Balance> {
+	#[serde(with = "serde_balance")]
+	price: Balance,
+}
+
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "Balance: std::fmt::Display"))]
+#[serde(bound(deserialize = "Balance: std::str::FromStr"))]
+pub struct LiquidityValueResponse<Balance> {
+	#[serde(with = "serde_balance")]
+	liquidity: Balance,
+
+	#[serde(with = "serde_balance")]
+	core: Balance,
+
+	#[serde(with = "serde_balance")]
+	asset: Balance,
+}
+
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "Balance: std::fmt::Display"))]
+#[serde(bound(deserialize = "Balance: std::str::FromStr"))]
+pub struct LiquidityPriceResponse<Balance> {
+	#[serde(with = "serde_balance")]
+	core: Balance,
+
+	#[serde(with = "serde_balance")]
+	asset: Balance,
+}
+
+mod serde_balance {
+	use serde::{Deserialize, Deserializer, Serializer};
+
+	pub fn serialize<S: Serializer, Balance: std::fmt::Display>(t: &Balance, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_str(&t.to_string())
+	}
+
+	pub fn deserialize<'de, D: Deserializer<'de>, Balance: std::str::FromStr>(deserializer: D) -> Result<Balance, D::Error> {
+		let s = String::deserialize(deserializer)?;
+		s.parse::<Balance>()
+			.map_err(|_| serde::de::Error::custom("Parse from string failed"))
+	}
 }
 
 /// Error type of this RPC api.
@@ -104,15 +143,15 @@ where
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
 	AssetId: Codec,
-	Balance: Codec + BaseArithmetic,
+	Balance: Codec + BaseArithmetic + FromStr + Display,
 	AccountId: Codec,
 {
-	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Vec<u8>, asset_to_pay: AssetId) -> Result<Vec<u8>> {
+	fn buy_price(&self, asset_to_buy: AssetId, amount_to_buy: Balance, asset_to_pay: AssetId) -> Result<BuyPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let amount_to_buy: Balance = Decode::decode(&mut amount_to_buy.as_slice()).unwrap();
+		//let amount_to_buy: Balance = Decode::decode(&mut amount_to_buy.as_slice()).unwrap();
 
 		let result = api
 			.buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay)
@@ -124,8 +163,7 @@ where
 
 		match result {
 			CennzxResult::Success(price) => {
-				let price = price.encode();
-				TryInto::<Vec<u8>>::try_into(price).map_err(|e| RpcError {
+				TryInto::<Balance>::try_into(price).map_err(|e| RpcError {
 					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 					message: "Price too large.".into(),
 					data: Some(format!("{:?}", e).into()),
@@ -139,12 +177,10 @@ where
 		}
 	}
 
-	fn sell_price(&self, asset_to_sell: AssetId, amount_to_sell: Vec<u8>, asset_to_payout: AssetId) -> Result<Vec<u8>> {
+	fn sell_price(&self, asset_to_sell: AssetId, amount_to_sell: Balance, asset_to_payout: AssetId) -> Result<SellPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-
-		let amount_to_sell: Balance = Decode::decode(&mut amount_to_sell.as_slice()).unwrap();
 
 		let result = api
 			.sell_price(&at, asset_to_sell, amount_to_sell, asset_to_payout)
@@ -153,10 +189,10 @@ where
 				message: "Unable to query sell price.".into(),
 				data: Some(format!("{:?}", e).into()),
 			})?;
+
 		match result {
 			CennzxResult::Success(price) => {
-				let price = price.encode();
-				TryInto::<Vec<u8>>::try_into(price).map_err(|e| RpcError {
+				TryInto::<Balance>::try_into(price).map_err(|e| RpcError {
 					code: ErrorCode::ServerError(Error::PriceOverflow.into()),
 					message: "Price too large.".into(),
 					data: Some(format!("{:?}", e).into()),
@@ -170,7 +206,7 @@ where
 		}
 	}
 
-	fn liquidity_value(&self, account: AccountId, asset_id: AssetId) -> Result<LiquidityValueRPC> {
+	fn liquidity_value(&self, account: AccountId, asset_id: AssetId) -> Result<LiquidityValueResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
@@ -181,14 +217,14 @@ where
 			data: Some(format!("{:?}", e).into()),
 		})?;
 
-		Ok(LiquidityValueRPC {
-			liquidity: result.0.encode(),
-			core: result.1.encode(),
-			asset: result.2.encode(),
+		Ok(LiquidityValueResponse {
+			liquidity: result.0,
+			core: result.1,
+			asset: result.2,
 		})
 	}
 
-	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: Balance) -> Result<LiquidityPriceRPC> {
+	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: Balance) -> Result<LiquidityPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
@@ -201,9 +237,9 @@ where
 				data: Some(format!("{:?}", e).into()),
 			})?;
 
-		Ok(LiquidityPriceRPC {
-			core: result.0.encode(),
-			asset: result.1.encode(),
+		Ok(LiquidityPriceResponse {
+			core: result.0,
+			asset: result.1,
 		})
 	}
 }
@@ -228,7 +264,7 @@ mod test {
 
 	#[test]
 	fn working_cennzx_struct_rpc() {
-		let info = LiquidityValueRPC {
+		let info = LiquidityValueResponse {
 			liquidity: u128::MAX.encode(),
 			core: u128::MAX.encode(),
 			asset: u128::MAX.encode(),
@@ -239,7 +275,7 @@ mod test {
 			\"asset\":[255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]}";
 
 		assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
-		assert_eq!(serde_json::from_str::<LiquidityValueRPC>(json_str).unwrap(), info);
+		assert_eq!(serde_json::from_str::<LiquidityValueResponse>(json_str).unwrap(), info);
 
 		//let info: u128 = Decode::decode(&mut info.as_slice()).unwrap();
 		//assert_eq!(info, b);
