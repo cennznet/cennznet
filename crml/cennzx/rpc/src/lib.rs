@@ -19,28 +19,29 @@
 use codec::{Codec, Decode, Encode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use serde::{Deserialize, Serialize};
+use primitive_types::U256;
+use serde::{Deserialize, Deserializer, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::BaseArithmetic;
 use sp_blockchain::HeaderBackend;
-use sp_rpc::number::NumberOrHex;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, traits::SaturatedConversion};
-use std::{convert::TryInto, fmt::Display, str::FromStr, sync::Arc};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
+use std::convert::TryFrom;
 
 /// Contracts RPC methods.
 #[rpc]
 pub trait CennzxApi<AssetId, Balance, AccountId>
 where
-	Balance: FromStr + Display,
+	Balance: FromStr + Display + From<u128>,
 {
 	#[rpc(name = "cennzx_buyPrice")]
 	fn buy_price(
 		&self,
 		asset_to_buy: AssetId,
-		amount_to_buy: NumberOrHex,
+		amount_to_buy: WrappedBalance,
 		asset_to_pay: AssetId,
 	) -> Result<BuyPriceResponse<Balance>>;
 
@@ -48,7 +49,7 @@ where
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
-		amount_to_buy: NumberOrHex,
+		amount_to_buy: WrappedBalance,
 		asset_to_payout: AssetId,
 	) -> Result<SellPriceResponse<Balance>>;
 
@@ -59,7 +60,7 @@ where
 	fn liquidity_price(
 		&self,
 		asset_id: AssetId,
-		liquidity_to_buy: NumberOrHex,
+		liquidity_to_buy: WrappedBalance,
 	) -> Result<LiquidityPriceResponse<Balance>>;
 }
 
@@ -136,6 +137,34 @@ mod serde_balance {
 	}
 }
 
+// A balance type for receiving over RPC
+pub struct WrappedBalance(u128);
+#[derive(Debug, Default, Serialize, Deserialize)]
+/// Private, used to help serde handle `WrappedBalance`
+/// https://github.com/serde-rs/serde/issues/751#issuecomment-277580700
+struct WrappedBalanceHelper {
+	value: u128,
+}
+impl Serialize for WrappedBalance {
+	fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		WrappedBalanceHelper { value: self.0 }.serialize(serializer)
+	}
+}
+impl<'de> Deserialize<'de> for WrappedBalance {
+	fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let u256: U256 =
+			Deserialize::deserialize(deserializer).map_err(|_| serde::de::Error::custom("Parse as U256 failed"))?;
+		let value = TryFrom::try_from(u256).map_err(|_| serde::de::Error::custom("Try from U256 failed"))?;
+		Ok(WrappedBalance(value))
+	}
+}
+
 /// Error type of this RPC api.
 pub enum Error {
 	/// The call to runtime failed.
@@ -160,31 +189,21 @@ where
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
 	AssetId: Codec,
-	Balance: Codec + BaseArithmetic + FromStr + Display,
+	Balance: Codec + BaseArithmetic + FromStr + Display + From<u128>,
 	AccountId: Codec,
 {
 	fn buy_price(
 		&self,
 		asset_to_buy: AssetId,
-		amount_to_buy: NumberOrHex,
+		amount_to_buy: WrappedBalance,
 		asset_to_pay: AssetId,
 	) -> Result<BuyPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let amount_to_buy: u128 = match amount_to_buy {
-			NumberOrHex::Number(amount_to_buy) => amount_to_buy.saturated_into(),
-			NumberOrHex::Hex(amount_to_buy) => amount_to_buy.try_into().map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "amount_to_buy larger than u128".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?,
-		};
-		let amount_to_buy: Balance = amount_to_buy.saturated_into();
-
 		let result = api
-			.buy_price(&at, asset_to_buy, amount_to_buy, asset_to_pay)
+			.buy_price(&at, asset_to_buy, amount_to_buy.0.into(), asset_to_pay)
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::Runtime.into()),
 				message: "Unable to query buy price.".into(),
@@ -204,25 +223,15 @@ where
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
-		amount_to_sell: NumberOrHex,
+		amount_to_sell: WrappedBalance,
 		asset_to_payout: AssetId,
 	) -> Result<SellPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let amount_to_sell: u128 = match amount_to_sell {
-			NumberOrHex::Number(amount_to_sell) => amount_to_sell.saturated_into(),
-			NumberOrHex::Hex(amount_to_sell) => amount_to_sell.try_into().map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "amount_to_sell larger than u128".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?,
-		};
-		let amount_to_sell: Balance = amount_to_sell.saturated_into();
-
 		let result = api
-			.sell_price(&at, asset_to_sell, amount_to_sell, asset_to_payout)
+			.sell_price(&at, asset_to_sell, amount_to_sell.0.into(), asset_to_payout)
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::Runtime.into()),
 				message: "Unable to query sell price.".into(),
@@ -260,24 +269,14 @@ where
 	fn liquidity_price(
 		&self,
 		asset_id: AssetId,
-		liquidity_to_buy: NumberOrHex,
+		liquidity_to_buy: WrappedBalance,
 	) -> Result<LiquidityPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let liquidity_to_buy: u128 = match liquidity_to_buy {
-			NumberOrHex::Number(liquidity_to_buy) => liquidity_to_buy.saturated_into(),
-			NumberOrHex::Hex(liquidity_to_buy) => liquidity_to_buy.try_into().map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "liquidity_to_buy larger than u128".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?,
-		};
-		let liquidity_to_buy: Balance = liquidity_to_buy.saturated_into();
-
 		let result = api
-			.liquidity_price(&at, asset_id, liquidity_to_buy)
+			.liquidity_price(&at, asset_id, liquidity_to_buy.0.into())
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::Runtime.into()),
 				message: "Unable to query liquidity price.".into(),
