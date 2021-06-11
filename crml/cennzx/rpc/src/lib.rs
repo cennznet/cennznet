@@ -17,19 +17,19 @@
 //! Node-specific RPC methods for interaction with CENNZX.
 
 use codec::{Codec, Decode, Encode};
+use hex;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use primitive_types::U256;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::traits::BaseArithmetic;
+use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
 pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
-use std::convert::TryFrom;
+use std::convert::TryInto;
 
 /// Contracts RPC methods.
 #[rpc]
@@ -153,15 +153,46 @@ impl Serialize for WrappedBalance {
 		WrappedBalanceHelper { value: self.0 }.serialize(serializer)
 	}
 }
+
 impl<'de> Deserialize<'de> for WrappedBalance {
 	fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		let u256: U256 =
-			Deserialize::deserialize(deserializer).map_err(|_| serde::de::Error::custom("Parse as U256 failed"))?;
-		let value = TryFrom::try_from(u256).map_err(|_| serde::de::Error::custom("Try from U256 failed"))?;
-		Ok(WrappedBalance(value))
+		deserializer.deserialize_any(WrappedBalanceVisitor).map_err(|err| {
+			println!("{:?}", err);
+			serde::de::Error::custom("deserialize failed")
+		})
+		// let value = TryFrom::try_from(u256).map_err(|_| serde::de::Error::custom("Try from U256 failed"))?;
+		// Ok(WrappedBalance(1_u128))
+	}
+}
+
+struct WrappedBalanceVisitor;
+
+impl<'de> serde::de::Visitor<'de> for WrappedBalanceVisitor {
+	type Value = WrappedBalance;
+	fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(formatter, "an integer or hex-string")
+	}
+
+	fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+	where
+		E: serde::de::Error,
+	{
+		Ok(WrappedBalance(v.saturated_into()))
+	}
+
+	fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
+	where
+		E: serde::de::Error,
+	{
+		let decoded_string =
+			hex::decode(&s[2..]).map_err(|_| serde::de::Error::custom("expected hex encoded string"))?;
+		let fixed_16_bytes: [u8; 16] = decoded_string
+			.try_into()
+			.map_err(|_| serde::de::Error::custom("parse big int as u128 failed"))?;
+		Ok(WrappedBalance(u128::from_be_bytes(fixed_16_bytes)))
 	}
 }
 
