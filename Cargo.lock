@@ -1092,7 +1092,6 @@ dependencies = [
  "jsonrpc-core-client",
  "jsonrpc-derive",
  "parity-scale-codec",
- "primitive-types",
  "serde",
  "serde_json",
  "sp-api",

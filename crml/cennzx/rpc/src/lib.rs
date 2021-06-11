@@ -19,11 +19,11 @@
 use codec::{Codec, Decode, Encode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::BaseArithmetic;
 use sp_blockchain::HeaderBackend;
+use sp_rpc::number::NumberOrHex;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, traits::SaturatedConversion};
 use std::{convert::TryInto, fmt::Display, str::FromStr, sync::Arc};
 
@@ -40,7 +40,7 @@ where
 	fn buy_price(
 		&self,
 		asset_to_buy: AssetId,
-		amount_to_buy: U256,
+		amount_to_buy: NumberOrHex,
 		asset_to_pay: AssetId,
 	) -> Result<BuyPriceResponse<Balance>>;
 
@@ -48,7 +48,7 @@ where
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
-		amount_to_buy: U256,
+		amount_to_buy: NumberOrHex,
 		asset_to_payout: AssetId,
 	) -> Result<SellPriceResponse<Balance>>;
 
@@ -56,7 +56,11 @@ where
 	fn liquidity_value(&self, account_id: AccountId, asset_id: AssetId) -> Result<LiquidityValueResponse<Balance>>;
 
 	#[rpc(name = "cennzx_liquidityPrice")]
-	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: U256) -> Result<LiquidityPriceResponse<Balance>>;
+	fn liquidity_price(
+		&self,
+		asset_id: AssetId,
+		liquidity_to_buy: NumberOrHex,
+	) -> Result<LiquidityPriceResponse<Balance>>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -162,18 +166,21 @@ where
 	fn buy_price(
 		&self,
 		asset_to_buy: AssetId,
-		amount_to_buy: U256,
+		amount_to_buy: NumberOrHex,
 		asset_to_pay: AssetId,
 	) -> Result<BuyPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let amount_to_buy: u128 = amount_to_buy.try_into().map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::Runtime.into()),
-			message: "amount_to_buy larger than u128".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let amount_to_buy: u128 = match amount_to_buy {
+			NumberOrHex::Number(amount_to_buy) => amount_to_buy.saturated_into(),
+			NumberOrHex::Hex(amount_to_buy) => amount_to_buy.try_into().map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "amount_to_buy larger than u128".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?,
+		};
 		let amount_to_buy: Balance = amount_to_buy.saturated_into();
 
 		let result = api
@@ -197,18 +204,21 @@ where
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
-		amount_to_sell: U256,
+		amount_to_sell: NumberOrHex,
 		asset_to_payout: AssetId,
 	) -> Result<SellPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let amount_to_sell: u128 = amount_to_sell.try_into().map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::Runtime.into()),
-			message: "amount_to_sell larger than u128".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let amount_to_sell: u128 = match amount_to_sell {
+			NumberOrHex::Number(amount_to_sell) => amount_to_sell.saturated_into(),
+			NumberOrHex::Hex(amount_to_sell) => amount_to_sell.try_into().map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "amount_to_sell larger than u128".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?,
+		};
 		let amount_to_sell: Balance = amount_to_sell.saturated_into();
 
 		let result = api
@@ -247,16 +257,23 @@ where
 		})
 	}
 
-	fn liquidity_price(&self, asset_id: AssetId, liquidity_to_buy: U256) -> Result<LiquidityPriceResponse<Balance>> {
+	fn liquidity_price(
+		&self,
+		asset_id: AssetId,
+		liquidity_to_buy: NumberOrHex,
+	) -> Result<LiquidityPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let liquidity_to_buy: u128 = liquidity_to_buy.try_into().map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::Runtime.into()),
-			message: "liquidity_to_buy larger than u128".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let liquidity_to_buy: u128 = match liquidity_to_buy {
+			NumberOrHex::Number(liquidity_to_buy) => liquidity_to_buy.saturated_into(),
+			NumberOrHex::Hex(liquidity_to_buy) => liquidity_to_buy.try_into().map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::Runtime.into()),
+				message: "liquidity_to_buy larger than u128".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?,
+		};
 		let liquidity_to_buy: Balance = liquidity_to_buy.saturated_into();
 
 		let result = api
