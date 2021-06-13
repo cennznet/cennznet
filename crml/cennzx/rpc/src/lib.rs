@@ -25,11 +25,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr, sync::Arc, convert::TryInto};
 
 pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
-use std::convert::TryInto;
 
 /// Contracts RPC methods.
 #[rpc]
@@ -102,10 +101,8 @@ pub struct SellPriceResponse<Balance> {
 pub struct LiquidityValueResponse<Balance> {
 	#[serde(with = "serde_balance")]
 	liquidity: Balance,
-
 	#[serde(with = "serde_balance")]
 	core: Balance,
-
 	#[serde(with = "serde_balance")]
 	asset: Balance,
 }
@@ -116,7 +113,6 @@ pub struct LiquidityValueResponse<Balance> {
 pub struct LiquidityPriceResponse<Balance> {
 	#[serde(with = "serde_balance")]
 	core: Balance,
-
 	#[serde(with = "serde_balance")]
 	asset: Balance,
 }
@@ -159,15 +155,12 @@ impl<'de> Deserialize<'de> for WrappedBalance {
 	where
 		D: Deserializer<'de>,
 	{
-		deserializer.deserialize_any(WrappedBalanceVisitor).map_err(|err| {
-			println!("{:?}", err);
-			serde::de::Error::custom("deserialize failed")
-		})
-		// let value = TryFrom::try_from(u256).map_err(|_| serde::de::Error::custom("Try from U256 failed"))?;
-		// Ok(WrappedBalance(1_u128))
+		deserializer.deserialize_any(WrappedBalanceVisitor).map_err(|_|
+			serde::de::Error::custom("deserialize failed"))
 	}
 }
 
+/// Implements custom serde visitor for decoding balance inputs as integer or hex
 struct WrappedBalanceVisitor;
 
 impl<'de> serde::de::Visitor<'de> for WrappedBalanceVisitor {
@@ -187,6 +180,7 @@ impl<'de> serde::de::Visitor<'de> for WrappedBalanceVisitor {
 	where
 		E: serde::de::Error,
 	{
+		//remove the first two chars as we are expecting a string prefixed with '0x'
 		let decoded_string =
 			hex::decode(&s[2..]).map_err(|_| serde::de::Error::custom("expected hex encoded string"))?;
 		let fixed_16_bytes: [u8; 16] = decoded_string
