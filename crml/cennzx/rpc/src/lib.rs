@@ -314,3 +314,21 @@ where
 		})
 	}
 }
+
+#[test]
+fn wrapped_balance_can_deserialize_integer_or_hex() {
+	let info = WrappedBalance{ 0: u64::MAX.into() };
+	let json_str = r#"{"value":18446744073709551615}"#;
+	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
+	assert_eq!(
+		serde_json::from_str::<WrappedBalance>("18446744073709551615").unwrap(),
+		info
+	);
+	let info = WrappedBalance{0: u128::MAX};
+	let json_str = r#"{"value":340282366920938463463374607431768211455}"#;
+	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
+	assert_eq!(
+		serde_json::from_str::<WrappedBalance>(r#""0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF""#).unwrap(),
+		info
+	);
+}
