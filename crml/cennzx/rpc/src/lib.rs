@@ -25,7 +25,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{fmt::Display, str::FromStr, sync::Arc, convert::TryInto};
+use std::{convert::TryInto, fmt::Display, str::FromStr, sync::Arc};
 
 pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
@@ -155,8 +155,9 @@ impl<'de> Deserialize<'de> for WrappedBalance {
 	where
 		D: Deserializer<'de>,
 	{
-		deserializer.deserialize_any(WrappedBalanceVisitor).map_err(|_|
-			serde::de::Error::custom("deserialize failed"))
+		deserializer
+			.deserialize_any(WrappedBalanceVisitor)
+			.map_err(|_| serde::de::Error::custom("deserialize failed"))
 	}
 }
 
@@ -317,15 +318,18 @@ where
 
 #[test]
 fn wrapped_balance_can_deserialize_integer_or_hex() {
-	let info = WrappedBalance{ 0: u64::MAX.into() };
+	let info = WrappedBalance { 0: u64::MAX.into() };
 	let json_str = r#"{"value":18446744073709551615}"#;
+
 	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
 	assert_eq!(
 		serde_json::from_str::<WrappedBalance>("18446744073709551615").unwrap(),
 		info
 	);
-	let info = WrappedBalance{0: u128::MAX};
+
+	let info = WrappedBalance { 0: u128::MAX };
 	let json_str = r#"{"value":340282366920938463463374607431768211455}"#;
+
 	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
 	assert_eq!(
 		serde_json::from_str::<WrappedBalance>(r#""0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF""#).unwrap(),
