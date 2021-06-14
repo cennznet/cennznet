@@ -133,6 +133,7 @@ mod serde_balance {
 	}
 }
 
+#[derive(Debug, PartialEq)]
 // A balance type for receiving over RPC
 pub struct WrappedBalance(u128);
 #[derive(Debug, Default, Serialize, Deserialize)]
