@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -180,10 +180,6 @@ decl_module! {
 			Ok(())
 		}
 
-		//
-		// Manage Liquidity
-		//
-
 		/// Deposit core asset and trade asset at current ratio to mint liquidity
 		/// Returns amount of liquidity minted.
 		///
@@ -193,6 +189,7 @@ decl_module! {
 		/// `asset_amount` - Amount of trade asset to add
 		/// `core_amount` - Amount of core asset to add
 		#[weight = T::WeightInfo::add_liquidity()]
+		#[transactional]
 		pub fn add_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
@@ -252,6 +249,7 @@ decl_module! {
 		/// `min_asset_withdraw` - The minimum trade asset withdrawn
 		/// `min_core_withdraw` -  The minimum core asset withdrawn
 		#[weight = T::WeightInfo::remove_liquidity()]
+		#[transactional]
 		pub fn remove_liquidity(
 			origin,
 			#[compact] asset_id: T::AssetId,
