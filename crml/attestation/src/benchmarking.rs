@@ -18,7 +18,7 @@
 
 use super::*;
 
-use frame_benchmarking::{account, benchmarks, whitelisted_caller, impl_benchmark_test_suite};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::RawOrigin;
 
 use crate::Module as Attestation;
@@ -64,8 +64,4 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(
-	Attestation,
-	crate::mock::new_test_ext(),
-	crate::mock::Test,
-);
+impl_benchmark_test_suite!(Attestation, crate::mock::new_test_ext(), crate::mock::Test,);

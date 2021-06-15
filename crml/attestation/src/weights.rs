@@ -20,7 +20,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::weights::{Weight, constants::RocksDbWeight as DbWeight};
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub trait WeightInfo {
 	fn set_claim() -> Weight;
