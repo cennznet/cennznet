@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -21,15 +21,11 @@ pub mod asset {
 	use cennznet_primitives::types::AssetId;
 
 	pub const CENNZ_ASSET_ID: AssetId = 16000;
-	pub const CENTRAPAY_ASSET_ID: AssetId = 16001;
-	pub const PLUG_ASSET_ID: AssetId = 16002;
-	pub const SYLO_ASSET_ID: AssetId = 16003;
-	pub const CERTI_ASSET_ID: AssetId = 16004;
-	pub const ARDA_ASSET_ID: AssetId = 16005;
+	pub const CPAY_ASSET_ID: AssetId = 16001;
 	pub const NEXT_ASSET_ID: AssetId = 17000;
 
 	pub const STAKING_ASSET_ID: AssetId = CENNZ_ASSET_ID;
-	pub const SPENDING_ASSET_ID: AssetId = CENTRAPAY_ASSET_ID;
+	pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
 }
 
 /// Money matters.

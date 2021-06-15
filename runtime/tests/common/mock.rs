@@ -83,7 +83,7 @@ impl ExtBuilder {
 			.unwrap();
 		crml_cennzx::GenesisConfig::<Runtime> {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
-			core_asset_id: CENTRAPAY_ASSET_ID,
+			core_asset_id: CPAY_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -91,7 +91,7 @@ impl ExtBuilder {
 		prml_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![
 				CENNZ_ASSET_ID,
-				CENTRAPAY_ASSET_ID,
+				CPAY_ASSET_ID,
 				PLUG_ASSET_ID,
 				SYLO_ASSET_ID,
 				CERTI_ASSET_ID,
@@ -177,14 +177,7 @@ fn runtime_mock_setup_works() {
 				(eve(), amount),
 				(ferdie(), amount),
 			];
-			let assets = vec![
-				CENNZ_ASSET_ID,
-				CENTRAPAY_ASSET_ID,
-				PLUG_ASSET_ID,
-				SYLO_ASSET_ID,
-				CERTI_ASSET_ID,
-				ARDA_ASSET_ID,
-			];
+			let assets = vec![CENNZ_ASSET_ID, CPAY_ASSET_ID];
 			for asset in &assets {
 				for (account, balance) in &tests {
 					assert_eq!(

@@ -93,10 +93,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{
-	DealWithFees, RootMemberOnly, ScheduledPayoutRunner, SlashFundsToTreasury, TransferImbalanceToTreasury,
-	WeightToCpayFee,
-};
+use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, TransferImbalanceToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -218,7 +215,7 @@ impl frame_system::Config for Runtime {
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
 	/// The data to be stored in an account.
-	type AccountData = prml_generic_asset::AccountData<AssetId>;
+	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
@@ -238,21 +235,6 @@ impl crml_nft::Config for Runtime {
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	/// How long listings are open for by default
-	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
-	/// The maximum length of an attribute value (140 = old tweet limit)
-	/// Only applies to string/vec allocated types
-	pub const MaxAttributeLength: u8 = 140;
-}
-impl crml_nft::Trait for Runtime {
-	type Event = Event;
-	type MultiCurrency = GenericAsset;
-	type MaxAttributeLength = MaxAttributeLength;
-	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = weights::crml_nft::WeightInfo<Self>;
 }
 
 parameter_types! {
@@ -391,7 +373,6 @@ impl prml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type AccountStore = System;
 	type OnDustImbalance = TransferImbalanceToTreasury;
 	type WeightInfo = ();
 }
@@ -533,7 +514,7 @@ parameter_types! {
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
-	pub const MaximumReasonLength: u32 = 16384;
+	pub const MaximumReasonLength: u32 = 16_384;
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
@@ -550,7 +531,7 @@ impl pallet_treasury::Config for Runtime {
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
-	type SpendFunds = Bounties;
+	type SpendFunds = ();
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
 }
 
@@ -874,8 +855,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId, Balance> for Runtime {
-		fn asset_meta() -> Vec<(AssetId, AssetInfo<Balance>)> {
+	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
 			GenericAsset::registered_assets()
 		}
 	}

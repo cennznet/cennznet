@@ -23,7 +23,7 @@ use core::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-pub use primitive_types::U256 as HighPrecisionUnsigned;
+pub use sp_core::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;
 
 /// A trait for values which hold an implicit scale factor that needs to be taken into account in calculations
