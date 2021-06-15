@@ -179,9 +179,6 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}),
-		pallet_contracts: Some(ContractsConfig {
-			current_schedule: Default::default(),
-		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
 		pallet_babe: Some(BabeConfig { authorities: vec![] }),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),

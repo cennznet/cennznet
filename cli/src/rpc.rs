@@ -119,7 +119,6 @@ where
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId, Balance>,
-	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -129,7 +128,6 @@ where
 	use crml_nft_rpc::{Nft, NftApi};
 	use crml_staking_rpc::{Staking, StakingApi};
 	use crml_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use pallet_contracts_rpc::{Contracts, ContractsApi};
 	use prml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
@@ -197,7 +195,6 @@ where
 	io.extend_with(CennzxApi::to_delegate(Cennzx::new(client.clone())));
 	io.extend_with(NftApi::to_delegate(Nft::new(client.clone())));
 	io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
-	io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
 	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client)));
 
 	io

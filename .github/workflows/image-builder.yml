@@ -4,6 +4,10 @@
 name: "Image Builder"
 
 on:
+  release:
+    types: 
+      - "created"
+      - "released"
   push:
     branches:
       - "develop"

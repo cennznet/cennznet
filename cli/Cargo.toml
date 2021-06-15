@@ -67,7 +67,6 @@ crml-nft-rpc = { path = "../crml/nft/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
 prml-generic-asset-rpc = { rev = "3.0.0-rc5", git = "https://github.com/plugblockchain/plug-blockchain" }
 prml-generic-asset = { rev = "3.0.0-rc5", git = "https://github.com/plugblockchain/plug-blockchain" }
-pallet-contracts-rpc = { rev = "3.0.0-rc5", git = "https://github.com/plugblockchain/plug-blockchain" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 
