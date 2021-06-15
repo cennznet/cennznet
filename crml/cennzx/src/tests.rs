@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ use crate::{
 	with_account, with_exchange, Error, ExchangeAddressFor, RawEvent,
 };
 use core::convert::TryFrom;
+use frame_support::traits::{LockableCurrency, WithdrawReasons};
 use frame_support::{assert_err, assert_ok};
 use prml_support::MultiCurrencyAccounting;
 
@@ -87,6 +88,34 @@ fn add_liquidity_fails_with_insufficient_trade_balance() {
 		assert_err!(
 			Cennzx::add_liquidity(origin, asset_id, min_liquidity, max_trade_amount, core_amount),
 			Error::<Test>::InsufficientTradeAssetBalance
+		);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_with_locked_trade_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let core_balance = 1000;
+		let locked_balance = 1000;
+		let locked_asset_id = <prml_generic_asset::Module<Test>>::staking_asset_id();
+		let investor: AccountId = with_account!(CORE_ASSET_ID => core_balance, locked_asset_id => locked_balance);
+
+		<prml_generic_asset::StakingAssetCurrency<Test>>::set_lock(
+			*b"CENNZX__",
+			&investor,
+			locked_balance,
+			WithdrawReasons::all(),
+		);
+
+		let min_liquidity = 1;
+		let max_trade_amount = 101;
+		let core_amount = 100;
+
+		let origin = Origin::signed(investor.clone());
+
+		assert_err!(
+			Cennzx::add_liquidity(origin, locked_asset_id, min_liquidity, max_trade_amount, core_amount),
+			prml_generic_asset::Error::<Test>::LiquidityRestrictions
 		);
 	});
 }
