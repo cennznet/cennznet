@@ -33,9 +33,9 @@ use crate::{
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
+use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
+use crml_support::MultiCurrencyAccounting;
 use frame_support::{parameter_types, traits::OnUnbalanced};
-use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use prml_support::MultiCurrencyAccounting;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -54,7 +54,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: prml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
@@ -105,7 +105,7 @@ impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
 		mem::forget(imbalance);
 	}
 }
-impl prml_generic_asset::Config for Test {
+impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
@@ -139,7 +139,7 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		prml_generic_asset::GenesisConfig::<Test> {
+		crml_generic_asset::GenesisConfig::<Test> {
 			assets: Vec::new(),
 			initial_balance: 0,
 			endowed_accounts: Vec::new(),
@@ -174,8 +174,8 @@ macro_rules! with_exchange (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a1), $b1);
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a1), $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a2), $b2);
 			exchange_address
 		}
 	}
@@ -187,8 +187,8 @@ macro_rules! with_exchange (
 macro_rules! assert_exchange_balance_eq (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-		let bal1 = <prml_generic_asset::Module<Test>>::free_balance($a1, &exchange_address);
-		let bal2 = <prml_generic_asset::Module<Test>>::free_balance($a2, &exchange_address);
+		let bal1 = <crml_generic_asset::Module<Test>>::free_balance($a1, &exchange_address);
+		let bal2 = <crml_generic_asset::Module<Test>>::free_balance($a2, &exchange_address);
 		assert_eq!(bal1, $b1);
 		assert_eq!(bal2, $b2);
 	};
@@ -205,14 +205,14 @@ macro_rules! with_account (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let account = sp_keyring::AccountKeyring::Alice.into();
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
 			assert_eq!(
-				<prml_generic_asset::Module<Test>>::free_balance($a1, &account),
+				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
 				$b1
 			);
 			assert_eq!(
-				<prml_generic_asset::Module<Test>>::free_balance($a2, &account),
+				<crml_generic_asset::Module<Test>>::free_balance($a2, &account),
 				$b2
 			);
 			account
@@ -226,14 +226,14 @@ macro_rules! with_account (
 				"charlie" => sp_keyring::AccountKeyring::Charlie.into(),
 				_ =>  sp_keyring::AccountKeyring::Alice.into(), // default back to "andrea"
 			};
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
-			let _ = <prml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
 			assert_eq!(
-				<prml_generic_asset::Module<Test>>::free_balance($a1, &account),
+				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
 				$b1
 			);
 			assert_eq!(
-				<prml_generic_asset::Module<Test>>::free_balance($a2, &account),
+				<crml_generic_asset::Module<Test>>::free_balance($a2, &account),
 				$b2
 			);
 			account
@@ -242,12 +242,12 @@ macro_rules! with_account (
 );
 
 /// Assert account has asset balance equal to
-// alias for `assert_eq!(<prml_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
+// alias for `assert_eq!(<crml_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
 #[macro_export]
 macro_rules! assert_balance_eq (
 	($address:expr, $asset_id:ident => $balance:expr) => {
 		assert_eq!(
-			<prml_generic_asset::Module<Test>>::free_balance($asset_id, &$address),
+			<crml_generic_asset::Module<Test>>::free_balance($asset_id, &$address),
 			$balance,
 		);
 	};

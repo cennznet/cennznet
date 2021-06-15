@@ -893,7 +893,7 @@ fn buy_fails_prechecks() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price - 1);
 		assert_noop!(
 			Nft::buy(Some(buyer).into(), listing_id),
-			prml_generic_asset::Error::<Test>::InsufficientBalance,
+			crml_generic_asset::Error::<Test>::InsufficientBalance,
 		);
 	});
 }
@@ -1417,7 +1417,7 @@ fn bid_fails_prechecks() {
 		// no free balance
 		assert_noop!(
 			Nft::bid(Some(bidder).into(), listing_id, reserve_price),
-			prml_generic_asset::Error::<Test>::InsufficientBalance
+			crml_generic_asset::Error::<Test>::InsufficientBalance
 		);
 
 		// balance already reserved for other reasons
@@ -1429,7 +1429,7 @@ fn bid_fails_prechecks() {
 		));
 		assert_noop!(
 			Nft::bid(Some(bidder).into(), listing_id, reserve_price),
-			prml_generic_asset::Error::<Test>::InsufficientBalance
+			crml_generic_asset::Error::<Test>::InsufficientBalance
 		);
 		let _ = <<Test as Config>::MultiCurrency as MultiCurrencyAccounting>::unreserve(
 			&bidder,

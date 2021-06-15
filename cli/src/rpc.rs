@@ -118,17 +118,17 @@ where
 	C::Api: crml_nft_rpc::NftRuntimeApi<Block, AccountId>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: prml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
+	C::Api: crml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
+	use crml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use crml_nft_rpc::{Nft, NftApi};
 	use crml_staking_rpc::{Staking, StakingApi};
 	use crml_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use prml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
 	let mut io = jsonrpc_core::IoHandler::default();

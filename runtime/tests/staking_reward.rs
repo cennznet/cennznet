@@ -195,8 +195,8 @@ fn era_transaction_fees_collected() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -245,8 +245,8 @@ fn era_transaction_fees_accrued() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -301,7 +301,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 	let initial_balance = 100_000_000 * DOLLARS;
 	let staked_amount = initial_balance / validators.len() as Balance;
 	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
 		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,

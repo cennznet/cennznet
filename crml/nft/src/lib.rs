@@ -36,6 +36,7 @@
 //!
 
 use cennznet_primitives::types::{AssetId, Balance};
+use crml_support::MultiCurrencyAccounting;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons},
@@ -43,7 +44,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::ensure_signed;
-use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult,

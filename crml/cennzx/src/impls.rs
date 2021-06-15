@@ -17,8 +17,8 @@
 //!
 use crate::{Config, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
+use crml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use frame_support::dispatch::DispatchError;
-use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -91,8 +91,8 @@ pub(crate) mod impl_tests {
 		Error,
 	};
 	use cennznet_primitives::types::FeeExchange;
+	use crml_support::MultiCurrencyAccounting;
 	use frame_support::{assert_err, assert_ok};
-	use prml_support::MultiCurrencyAccounting;
 
 	#[test]
 	fn it_generates_an_exchange_address() {

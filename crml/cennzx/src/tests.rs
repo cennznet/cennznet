@@ -27,9 +27,9 @@ use crate::{
 	with_account, with_exchange, Error, ExchangeAddressFor, RawEvent,
 };
 use core::convert::TryFrom;
+use crml_support::MultiCurrencyAccounting;
 use frame_support::traits::{LockableCurrency, WithdrawReasons};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use prml_support::MultiCurrencyAccounting;
 
 #[test]
 fn investor_can_add_liquidity() {
@@ -97,10 +97,10 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		let core_balance = 1000;
 		let locked_balance = 1000;
-		let locked_asset_id = <prml_generic_asset::Module<Test>>::staking_asset_id();
+		let locked_asset_id = <crml_generic_asset::Module<Test>>::staking_asset_id();
 		let investor: AccountId = with_account!(CORE_ASSET_ID => core_balance, locked_asset_id => locked_balance);
 
-		<prml_generic_asset::StakingAssetCurrency<Test>>::set_lock(
+		<crml_generic_asset::StakingAssetCurrency<Test>>::set_lock(
 			*b"CENNZX__",
 			&investor,
 			locked_balance,
@@ -115,7 +115,7 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 
 		assert_noop!(
 			Cennzx::add_liquidity(origin, locked_asset_id, min_liquidity, max_trade_amount, core_amount),
-			prml_generic_asset::Error::<Test>::LiquidityRestrictions
+			crml_generic_asset::Error::<Test>::LiquidityRestrictions
 		);
 	});
 }

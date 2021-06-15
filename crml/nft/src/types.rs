@@ -17,7 +17,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode};
-use prml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrencyAccounting;
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time

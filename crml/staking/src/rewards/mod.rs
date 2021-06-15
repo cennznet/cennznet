@@ -540,14 +540,14 @@ fn quantize_forward<T: Config>(start: T::BlockNumber, interval: T::BlockNumber) 
 mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
+	use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
+	use crml_support::MultiCurrencyAccounting;
 	use frame_support::{
 		assert_err, assert_noop, assert_ok, parameter_types,
 		traits::{Currency, OnUnbalanced},
 		StorageValue,
 	};
 	use pallet_authorship::EventHandler;
-	use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
-	use prml_support::MultiCurrencyAccounting;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
@@ -573,7 +573,7 @@ mod tests {
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
 			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			GenericAsset: prml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 			Authorship: pallet_authorship::{Module, Call, Storage},
 			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
 		}
@@ -622,7 +622,7 @@ mod tests {
 			mem::forget(imbalance);
 		}
 	}
-	impl prml_generic_asset::Config for Test {
+	impl crml_generic_asset::Config for Test {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
@@ -645,7 +645,7 @@ mod tests {
 	}
 	impl Config for Test {
 		type BlockPayoutInterval = BlockPayoutInterval;
-		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
+		type CurrencyToReward = crml_generic_asset::SpendingAssetCurrency<Self>;
 		type Event = Event;
 		type FiscalEraLength = FiscalEraLength;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
@@ -693,7 +693,7 @@ mod tests {
 			}
 			.assimilate_storage(&mut storage);
 
-			let _ = prml_generic_asset::GenesisConfig::<Test> {
+			let _ = crml_generic_asset::GenesisConfig::<Test> {
 				endowed_accounts: vec![10, 11],
 				initial_balance: 500,
 				staking_asset_id: 16000,

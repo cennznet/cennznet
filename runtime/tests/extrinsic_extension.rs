@@ -20,8 +20,8 @@ use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
+use crml_support::MultiCurrencyAccounting as MultiCurrency;
 use frame_support::assert_ok;
-use prml_support::MultiCurrencyAccounting as MultiCurrency;
 
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
@@ -32,7 +32,7 @@ use common::mock::ExtBuilder;
 fn generic_asset_transfer_works_without_fee_exchange() {
 	let initial_balance = 10 * DOLLARS;
 	let transfer_amount = 7_777 * MICROS;
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
 		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,
@@ -70,7 +70,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 	let initial_liquidity = 50 * DOLLARS;
 	let transfer_amount = 25 * MICROS;
 
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
 		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,

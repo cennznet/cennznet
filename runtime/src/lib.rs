@@ -23,13 +23,13 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
+use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
-use prml_generic_asset_rpc_runtime_api;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
@@ -76,6 +76,7 @@ pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
+pub use crml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
@@ -85,7 +86,6 @@ pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-pub use prml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -369,7 +369,7 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl prml_generic_asset::Config for Runtime {
+impl crml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
@@ -627,7 +627,7 @@ construct_runtime!(
 		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 1,
 		Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 2,
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
-		GenericAsset: prml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
+		GenericAsset: crml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
 		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
 		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
 		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
@@ -855,7 +855,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl prml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+	impl crml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
 		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
 			GenericAsset::registered_assets()
 		}

@@ -695,6 +695,8 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-generic-asset",
+ "crml-generic-asset-rpc",
  "crml-nft-rpc",
  "crml-staking-rpc",
  "crml-transaction-payment",
@@ -706,8 +708,6 @@ dependencies = [
  "jsonrpc-core",
  "pallet-im-online",
  "parity-scale-codec",
- "prml-generic-asset",
- "prml-generic-asset-rpc",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -773,10 +773,13 @@ dependencies = [
  "crml-attestation",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-generic-asset",
+ "crml-generic-asset-rpc-runtime-api",
  "crml-nft",
  "crml-nft-rpc-runtime-api",
  "crml-staking",
  "crml-staking-rpc-runtime-api",
+ "crml-support",
  "crml-sylo",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc-runtime-api",
@@ -806,9 +809,6 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
- "prml-generic-asset",
- "prml-generic-asset-rpc-runtime-api",
- "prml-support",
  "serde",
  "smallvec 1.6.1",
  "sp-api",
@@ -1120,12 +1120,12 @@ version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
+ "crml-generic-asset",
+ "crml-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "prml-generic-asset",
- "prml-support",
  "serde",
  "sp-core",
  "sp-io",
@@ -1170,21 +1170,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-generic-asset"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-generic-asset-rpc"
+version = "2.0.0"
+dependencies = [
+ "crml-generic-asset",
+ "crml-generic-asset-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "sc-client-db",
+ "sc-consensus",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "crml-generic-asset-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "crml-generic-asset",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "crml-nft"
 version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-generic-asset",
+ "crml-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "parity-scale-codec",
- "prml-generic-asset",
- "prml-support",
  "serde",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std",
  "variant_count",
@@ -1229,6 +1276,8 @@ dependencies = [
 name = "crml-staking"
 version = "2.0.0"
 dependencies = [
+ "crml-generic-asset",
+ "crml-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -1242,8 +1291,6 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "parking_lot 0.11.1",
- "prml-generic-asset",
- "prml-support",
  "rand_chacha 0.2.2",
  "serde",
  "sp-application-crypto",
@@ -1283,6 +1330,18 @@ version = "1.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-support"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
  "sp-runtime",
  "sp-std",
 ]
@@ -4843,33 +4902,12 @@ name = "prml-generic-asset"
 version = "3.0.0"
 source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#003d87bd38d2cd023e5c75d59b8a29aff8a12961"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "prml-support",
- "serde",
  "sp-runtime",
  "sp-std",
-]
-
-[[package]]
-name = "prml-generic-asset-rpc"
-version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#003d87bd38d2cd023e5c75d59b8a29aff8a12961"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "parity-scale-codec",
- "prml-generic-asset",
- "prml-generic-asset-rpc-runtime-api",
- "sc-client-db",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
 ]
 
 [[package]]
@@ -4891,7 +4929,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "serde",
  "sp-runtime",
  "sp-std",
 ]

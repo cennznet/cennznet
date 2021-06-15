@@ -184,7 +184,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		prml_generic_asset: Some(GenericAssetConfig {
+		crml_generic_asset: Some(GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CPAY_ASSET_ID, root_key.clone())],

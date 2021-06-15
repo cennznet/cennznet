@@ -20,7 +20,7 @@ use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use prml_support::MultiCurrencyAccounting as MultiCurrency;
+use crml_support::MultiCurrencyAccounting as MultiCurrency;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -88,7 +88,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		prml_generic_asset::GenesisConfig::<Runtime> {
+		crml_generic_asset::GenesisConfig::<Runtime> {
 			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			initial_balance: self.initial_balance,
 			endowed_accounts: endowed_accounts,

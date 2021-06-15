@@ -15,9 +15,9 @@
 
 use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
+use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
+use crml_support::MultiCurrencyAccounting;
 use frame_support::{parameter_types, traits::OnUnbalanced};
-use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use prml_support::MultiCurrencyAccounting;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: prml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
 		Nft: crml_nft::{Module, Call, Storage, Event<T>},
 	}
 );
@@ -84,7 +84,7 @@ impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
 		mem::forget(imbalance);
 	}
 }
-impl prml_generic_asset::Config for Test {
+impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;

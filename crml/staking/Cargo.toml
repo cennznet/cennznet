@@ -31,8 +31,8 @@ rand_chacha = { version = "0.2" }
 pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+crml-generic-asset = { path = "../generic-asset" }
+crml-support = { path = "../support" }
 sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 sp-tracing = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }

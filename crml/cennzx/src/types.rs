@@ -58,7 +58,7 @@ impl Into<&'static str> for FeeRateError {
 	}
 }
 
-/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `prml_generic_asset::Balance` type
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `crml_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);
