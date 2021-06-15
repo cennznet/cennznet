@@ -643,7 +643,7 @@ impl crml_cennzx::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl prml_attestation::Config for Runtime {
+impl crml_attestation::Config for Runtime {
 	type Event = Event;
 	type WeightInfo = ();
 }
@@ -732,7 +732,7 @@ construct_runtime!(
 		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
 		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
 		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		Attestation: prml_attestation::{Module, Call, Storage, Event<T>} = 28,
+		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>} = 31,

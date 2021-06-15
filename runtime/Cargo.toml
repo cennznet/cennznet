@@ -67,7 +67,6 @@ sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain
 sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
 sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
 
-prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
 prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
 prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
 prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "3.0.0-rc5" }
@@ -83,6 +82,7 @@ frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-bloc
 hex-literal = { version = "0.3.1", optional = true }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
+crml-attestation = { path = "../crml/attestation", default-features = false}
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
 crml-nft = { path = "../crml/nft", default-features = false}
@@ -124,7 +124,7 @@ std = [
 	"pallet-contracts/std",
 	"pallet-contracts-primitives/std",
 	"pallet-contracts-rpc-runtime-api/std",
-	"prml-attestation/std",
+	"crml-attestation/std",
 	"prml-generic-asset/std",
 	"prml-generic-asset-rpc-runtime-api/std",
 	"prml-support/std",
