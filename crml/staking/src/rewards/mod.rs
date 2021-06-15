@@ -600,7 +600,7 @@ mod tests {
 		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
-		type AccountData = prml_generic_asset::AccountData<AssetId>;
+		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
@@ -626,7 +626,6 @@ mod tests {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
-		type AccountStore = System;
 		type OnDustImbalance = TransferImbalanceToTreasury;
 		type WeightInfo = ();
 	}

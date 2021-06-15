@@ -16,7 +16,7 @@
 use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
 use frame_support::{parameter_types, traits::OnUnbalanced};
-use prml_generic_asset::{AccountData, CheckedImbalance, NegativeImbalance};
+use prml_generic_asset::{CheckedImbalance, NegativeImbalance};
 use prml_support::MultiCurrencyAccounting;
 use sp_core::H256;
 use sp_runtime::{
@@ -56,7 +56,7 @@ impl frame_system::Config for Test {
 	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
@@ -64,7 +64,7 @@ impl frame_system::Config for Test {
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = AccountData<u32>;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -88,7 +88,6 @@ impl prml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type AccountStore = System;
 	type OnDustImbalance = TransferImbalanceToTreasury;
 	type WeightInfo = ();
 }

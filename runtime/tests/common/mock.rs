@@ -92,10 +92,6 @@ impl ExtBuilder {
 			assets: vec![
 				CENNZ_ASSET_ID,
 				CPAY_ASSET_ID,
-				PLUG_ASSET_ID,
-				SYLO_ASSET_ID,
-				CERTI_ASSET_ID,
-				ARDA_ASSET_ID,
 			],
 			initial_balance: self.initial_balance,
 			endowed_accounts: endowed_accounts,
