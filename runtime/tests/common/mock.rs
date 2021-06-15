@@ -174,10 +174,10 @@ fn runtime_mock_setup_works() {
 			for asset in &assets {
 				for (account, balance) in &tests {
 					assert_eq!(
-						<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
+						<GenericAsset as MultiCurrency>::free_balance(&account, *asset),
 						*balance,
 					);
-					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
+					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, 123), 0)
 				}
 				// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
 				assert_eq!(GenericAsset::total_issuance(asset), amount * 9);

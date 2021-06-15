@@ -139,7 +139,7 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for TransferImbalanceToTreasury {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Runtime>) {
 		let treasury_account_id = Treasury::account_id();
 		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
 		mem::forget(deposit_imbalance);
 		mem::forget(imbalance);
 	}

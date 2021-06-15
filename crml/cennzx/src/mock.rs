@@ -100,7 +100,7 @@ impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
 		let treasury_account_id = TreasuryModuleId::get().into_account();
 		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
 		mem::forget(deposit_imbalance);
 		mem::forget(imbalance);
 	}
@@ -174,8 +174,8 @@ macro_rules! with_exchange (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a1), $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, $a1, $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, $a2, $b2);
 			exchange_address
 		}
 	}
@@ -205,8 +205,8 @@ macro_rules! with_account (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let account = sp_keyring::AccountKeyring::Alice.into();
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a1, $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a2, $b2);
 			assert_eq!(
 				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
 				$b1
@@ -226,8 +226,8 @@ macro_rules! with_account (
 				"charlie" => sp_keyring::AccountKeyring::Charlie.into(),
 				_ =>  sp_keyring::AccountKeyring::Alice.into(), // default back to "andrea"
 			};
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a1), $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, Some($a2), $b2);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a1, $b1);
+			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a2, $b2);
 			assert_eq!(
 				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
 				$b1

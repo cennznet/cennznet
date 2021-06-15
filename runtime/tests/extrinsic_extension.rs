@@ -54,11 +54,11 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 			assert!(r.is_ok());
 
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CPAY_ASSET_ID),
 				initial_balance - transfer_amount - extrinsic_fee_for(&xt)
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
 			);
 		});
@@ -113,15 +113,15 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 			// Check remaining balances
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CENNZ_ASSET_ID),
 				initial_balance - initial_liquidity - cennz_sold_amount, // transfer fee is charged in CENNZ
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CPAY_ASSET_ID),
 				initial_balance - initial_liquidity - transfer_amount // transfer fee is not charged in CPAY
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
 			);
 		});
