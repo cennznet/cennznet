@@ -89,10 +89,7 @@ impl ExtBuilder {
 		.unwrap();
 
 		prml_generic_asset::GenesisConfig::<Runtime> {
-			assets: vec![
-				CENNZ_ASSET_ID,
-				CPAY_ASSET_ID,
-			],
+			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			initial_balance: self.initial_balance,
 			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
