@@ -20,7 +20,7 @@ Now you can proceed to the terminal with the following command:
 # Start a local validator on a development chain
 $ docker run \
     -p 9933:9933 -p 9944:9944 \
-    cennznet/cennznet:1.5.0 \
+    cennznet/cennznet:1.5.1 \
     --dev \
     --unsafe-ws-external \
     --unsafe-rpc-external \
