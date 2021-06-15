@@ -28,7 +28,7 @@ use crate::{
 };
 use core::convert::TryFrom;
 use frame_support::traits::{LockableCurrency, WithdrawReasons};
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use prml_support::MultiCurrencyAccounting;
 
 #[test]
