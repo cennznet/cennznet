@@ -20,7 +20,7 @@ use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use crml_support::MultiCurrencyAccounting as MultiCurrency;
+use crml_support::MultiCurrency;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};

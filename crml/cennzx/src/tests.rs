@@ -27,7 +27,7 @@ use crate::{
 	with_account, with_exchange, Error, ExchangeAddressFor, RawEvent,
 };
 use core::convert::TryFrom;
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use frame_support::traits::{LockableCurrency, WithdrawReasons};
 use frame_support::{assert_err, assert_noop, assert_ok};
 

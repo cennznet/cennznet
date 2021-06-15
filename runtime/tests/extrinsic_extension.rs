@@ -20,7 +20,7 @@ use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
-use crml_support::MultiCurrencyAccounting as MultiCurrency;
+use crml_support::MultiCurrency;
 use frame_support::assert_ok;
 
 mod common;

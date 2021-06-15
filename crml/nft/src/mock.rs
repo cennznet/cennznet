@@ -16,7 +16,7 @@
 use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use frame_support::{parameter_types, traits::OnUnbalanced};
 use sp_core::H256;
 use sp_runtime::{
@@ -79,7 +79,7 @@ impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
 		let treasury_account_id = TreasuryModuleId::get().into_account();
 		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
 		mem::forget(deposit_imbalance);
 		mem::forget(imbalance);
 	}

@@ -20,7 +20,7 @@ use crate::{BlockPayoutInterval, EpochDuration, GenericAsset, Rewards, Runtime, 
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{CheckedImbalance, NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use frame_support::{
 	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},

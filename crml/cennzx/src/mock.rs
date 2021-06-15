@@ -34,7 +34,7 @@ use crate::{
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
 use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use frame_support::{parameter_types, traits::OnUnbalanced};
 use sp_core::H256;
 use sp_runtime::{

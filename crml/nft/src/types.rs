@@ -17,7 +17,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode};
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
@@ -170,9 +170,9 @@ pub enum Listing<T: Config> {
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
-	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
+	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
 	/// The threshold amount for a succesful bid
-	pub reserve_price: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::Balance,
+	pub reserve_price: <<T as Config>::MultiCurrency as MultiCurrency>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
 	/// The seller of the tokens
@@ -187,9 +187,9 @@ pub struct AuctionListing<T: Config> {
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
-	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::CurrencyId,
+	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
 	/// The requested amount for a succesful sale
-	pub fixed_price: <<T as Config>::MultiCurrency as MultiCurrencyAccounting>::Balance,
+	pub fixed_price: <<T as Config>::MultiCurrency as MultiCurrency>::Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
 	/// The authorised buyer. If unset, any buyer is authorised

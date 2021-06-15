@@ -17,7 +17,7 @@
 //!
 use crate::{Config, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
-use crml_support::{AssetIdAuthority, MultiCurrencyAccounting};
+use crml_support::MultiCurrency;
 use frame_support::dispatch::DispatchError;
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
@@ -70,7 +70,7 @@ impl<T: Config> BuyFeeAsset for Module<T> {
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
 		let fee_exchange_asset_id = exchange_op.asset_id();
-		let fee_asset_id = <T::MultiCurrency as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id();
+		let fee_asset_id = <T::MultiCurrency as MultiCurrency>::fee_currency();
 
 		Self::execute_buy(
 			&who,
@@ -91,7 +91,7 @@ pub(crate) mod impl_tests {
 		Error,
 	};
 	use cennznet_primitives::types::FeeExchange;
-	use crml_support::MultiCurrencyAccounting;
+	use crml_support::MultiCurrency;
 	use frame_support::{assert_err, assert_ok};
 
 	#[test]

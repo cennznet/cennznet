@@ -541,7 +541,7 @@ mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-	use crml_support::MultiCurrencyAccounting;
+	use crml_support::MultiCurrency;
 	use frame_support::{
 		assert_err, assert_noop, assert_ok, parameter_types,
 		traits::{Currency, OnUnbalanced},
@@ -617,7 +617,7 @@ mod tests {
 		fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
 			let treasury_account_id = TreasuryModuleId::get().into_account();
 			let deposit_imbalance =
-				GenericAsset::deposit_creating(&treasury_account_id, Some(imbalance.asset_id()), imbalance.amount());
+				GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
 			mem::forget(deposit_imbalance);
 			mem::forget(imbalance);
 		}

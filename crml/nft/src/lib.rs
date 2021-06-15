@@ -36,7 +36,7 @@
 //!
 
 use cennznet_primitives::types::{AssetId, Balance};
-use crml_support::MultiCurrencyAccounting;
+use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons},
@@ -69,7 +69,7 @@ pub trait Config: frame_system::Config {
 	/// Maximum byte length of an NFT attribute
 	type MaxAttributeLength: Get<u8>;
 	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
+	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
 }
@@ -592,17 +592,17 @@ decl_module! {
 				let royalty_fees = listing.royalties_schedule.calculate_total_entitlement();
 				if royalty_fees.is_zero() {
 					// full proceeds to seller/`current_owner`
-					T::MultiCurrency::transfer(&origin, &listing.seller, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+					T::MultiCurrency::transfer(&origin, &listing.seller, listing.payment_asset, listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
 					let mut for_seller = listing.fixed_price;
-					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReasons::TRANSFER, ExistenceRequirement::AllowDeath)?;
+					let mut imbalance = T::MultiCurrency::withdraw(&origin, listing.payment_asset, listing.fixed_price, WithdrawReasons::TRANSFER, ExistenceRequirement::AllowDeath)?;
 					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
 						let royalty = entitlement * listing.fixed_price;
 						for_seller -= royalty;
-						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
+						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
-					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 				}
 
 				// must not fail now that payment has been made
@@ -702,22 +702,22 @@ decl_module! {
 				}
 
 				// check user has the requisite funds to make this bid
-				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
+				let balance = T::MultiCurrency::free_balance(&origin, listing.payment_asset);
 				if let Some(balance_after_bid) = balance.checked_sub(amount) {
 					// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 					// - `amount` is unused
 					// - if there are multiple locks on user asset this could return true inaccurately
 					// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReasons::RESERVE, balance_after_bid)?;
+					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, listing.payment_asset, amount, WithdrawReasons::RESERVE, balance_after_bid)?;
 				}
 
 				// try lock funds
-				T::MultiCurrency::reserve(&origin, Some(listing.payment_asset), amount)?;
+				T::MultiCurrency::reserve(&origin, listing.payment_asset, amount)?;
 
 				ListingWinningBid::<T>::mutate(listing_id, |maybe_current_bid| {
 					if let Some(current_bid) = maybe_current_bid {
 						// replace old bid
-						T::MultiCurrency::unreserve(&current_bid.0, Some(listing.payment_asset), current_bid.1);
+						T::MultiCurrency::unreserve(&current_bid.0, listing.payment_asset, current_bid.1);
 					}
 					*maybe_current_bid = Some((origin, amount))
 				});
@@ -862,7 +862,7 @@ impl<T: Config> Module<T> {
 							// auction settlement failed despite our prior validations.
 							// release winning bid funds
 							log!(error, "🃏 auction settlement failed: {:?}", err);
-							T::MultiCurrency::unreserve(&winner, Some(listing.payment_asset), hammer_price);
+							T::MultiCurrency::unreserve(&winner, listing.payment_asset, hammer_price);
 
 							// listing metadata is removed by now.
 							Self::deposit_event(RawEvent::AuctionClosed(
@@ -910,19 +910,18 @@ impl<T: Config> Module<T> {
 			let entitlements = listing.royalties_schedule.entitlements.clone();
 			for (who, entitlement) in entitlements.into_iter() {
 				let royalty = entitlement * hammer_price;
-				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
+				let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &who, royalty)?;
 				for_seller -= royalty;
 			}
 		}
 
-		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset));
-		let _ =
-			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &listing.seller, for_seller)?;
+		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset);
+		let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &listing.seller, for_seller)?;
 
 		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
 		// this should not happen but could for reasons outside the control of this module
 		ensure!(
-			T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset))
+			T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset)
 				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);

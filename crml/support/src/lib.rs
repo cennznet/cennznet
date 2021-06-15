@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # Common prml types and traits
+//! # Common crml types and traits
 
 // Note: in the following traits the terms:
 // - 'token' / 'asset' / 'currency' and
@@ -39,17 +39,13 @@ pub trait AssetIdAuthority {
 
 /// An abstraction over the accounting behaviour of a fungible, multi-currency system
 /// Currencies in the system are identifiable by a unique `CurrencyId`
-pub trait MultiCurrencyAccounting {
+pub trait MultiCurrency {
 	/// The ID type for an account in the system
 	type AccountId: Debug + Default;
 	/// The balance of an account for a particular currency
 	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating;
 	/// The ID type of a currency in the system
 	type CurrencyId: Debug + Default;
-	/// A type the is aware of the default network currency ID
-	/// When the currency ID is not specified for a `MultiCurrencyAccounting` method, it will be used
-	/// by default
-	type DefaultCurrencyId: AssetIdAuthority<AssetId = Self::CurrencyId>;
 	/// The opaque token type for an imbalance of a particular currency. This is returned by unbalanced operations
 	/// and must be dealt with. It may be dropped but cannot be cloned.
 	type NegativeImbalance: Imbalance<Self::Balance, Opposite = Self::PositiveImbalance>;
@@ -61,10 +57,13 @@ pub trait MultiCurrencyAccounting {
 
 	/// The minimum balance any single account may have. This is equivalent to the `Balances` module's
 	/// `ExistentialDeposit`.
-	fn minimum_balance(currency: Option<Self::CurrencyId>) -> Self::Balance;
+	fn minimum_balance(currency: Self::CurrencyId) -> Self::Balance;
+
+	/// Return the currency Id of the system fee currency
+	fn fee_currency() -> Self::CurrencyId;
 
 	/// The combined balance (free + reserved) of `who` for the given `currency`.
-	fn total_balance(who: &Self::AccountId, currency: Option<Self::CurrencyId>) -> Self::Balance;
+	fn total_balance(who: &Self::AccountId, currency: Self::CurrencyId) -> Self::Balance;
 
 	/// The 'free' balance of a given account.
 	///
@@ -77,7 +76,7 @@ pub trait MultiCurrencyAccounting {
 	///
 	/// `system::AccountNonce` is also deleted if `ReservedBalance` is also zero (it also gets
 	/// collapsed to zero if it ever becomes less than `ExistentialDeposit`.
-	fn free_balance(who: &Self::AccountId, currency: Option<Self::CurrencyId>) -> Self::Balance;
+	fn free_balance(who: &Self::AccountId, currency: Self::CurrencyId) -> Self::Balance;
 
 	/// Returns `Ok` iff the account is able to make a withdrawal of the given amount
 	/// for the given reason. Basically, it's just a dry-run of `withdraw`.
@@ -85,7 +84,7 @@ pub trait MultiCurrencyAccounting {
 	/// `Err(...)` with the reason why not otherwise.
 	fn ensure_can_withdraw(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		_amount: Self::Balance,
 		reasons: WithdrawReasons,
 		new_balance: Self::Balance,
@@ -98,7 +97,7 @@ pub trait MultiCurrencyAccounting {
 	/// Infallible.
 	fn deposit_creating(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		value: Self::Balance,
 	) -> Self::PositiveImbalance;
 
@@ -107,7 +106,7 @@ pub trait MultiCurrencyAccounting {
 	/// If `who` doesn't exist, nothing is done and an Err returned.
 	fn deposit_into_existing(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		value: Self::Balance,
 	) -> result::Result<Self::PositiveImbalance, DispatchError>;
 
@@ -118,7 +117,7 @@ pub trait MultiCurrencyAccounting {
 	/// has led to killing of the account.
 	fn make_free_balance_be(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance>;
 
@@ -129,7 +128,7 @@ pub trait MultiCurrencyAccounting {
 	fn transfer(
 		source: &Self::AccountId,
 		dest: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		value: Self::Balance,
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult;
@@ -144,7 +143,7 @@ pub trait MultiCurrencyAccounting {
 	/// is `value`.
 	fn withdraw(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		value: Self::Balance,
 		reasons: WithdrawReasons,
 		liveness: ExistenceRequirement,
@@ -154,12 +153,12 @@ pub trait MultiCurrencyAccounting {
 	///
 	/// If the free balance is lower than `amount`, then no funds will be moved and an `Err` will
 	/// be returned. This is different behavior than `unreserve`.
-	fn reserve(who: &Self::AccountId, currency: Option<Self::CurrencyId>, amount: Self::Balance) -> DispatchResult;
+	fn reserve(who: &Self::AccountId, currency: Self::CurrencyId, amount: Self::Balance) -> DispatchResult;
 
 	/// Move upto `amount` of reserved balance from `who` to the free balance of `beneficiary`.
 	fn repatriate_reserved(
 		who: &Self::AccountId,
-		currency: Option<Self::CurrencyId>,
+		currency: Self::CurrencyId,
 		beneficiary: &Self::AccountId,
 		amount: Self::Balance,
 	) -> result::Result<Self::Balance, DispatchError>;
@@ -168,5 +167,5 @@ pub trait MultiCurrencyAccounting {
 	///
 	/// As many assets up to `amount` will be moved as possible. If the reserve balance of `who`
 	/// is less than `amount`, then the remaining amount will be returned.
-	fn unreserve(who: &Self::AccountId, currency: Option<Self::CurrencyId>, amount: Self::Balance) -> Self::Balance;
+	fn unreserve(who: &Self::AccountId, currency: Self::CurrencyId, amount: Self::Balance) -> Self::Balance;
 }

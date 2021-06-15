@@ -452,9 +452,9 @@ decl_module! {
 // by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 enum Releases {
-	/// Storage version pre Plug 3.0.0.
+	/// Storage version runtime version <= 40
 	V0 = 0,
-	/// Storage version after Plug 3.0.0 is adopted.
+	/// Storage version as of runtime version 41
 	V1 = 1,
 }
 
