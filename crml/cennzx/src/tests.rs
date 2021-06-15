@@ -113,7 +113,7 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 
 		let origin = Origin::signed(investor.clone());
 
-		assert_err!(
+		assert_noop!(
 			Cennzx::add_liquidity(origin, locked_asset_id, min_liquidity, max_trade_amount, core_amount),
 			prml_generic_asset::Error::<Test>::LiquidityRestrictions
 		);
