@@ -771,6 +771,7 @@ dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
  "cennznet-runtime",
+ "crml-attestation",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
  "crml-nft",
@@ -811,7 +812,6 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
- "prml-attestation",
  "prml-generic-asset",
  "prml-generic-asset-rpc-runtime-api",
  "prml-support",
@@ -1113,6 +1113,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "crml-attestation"
+version = "2.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4944,22 +4959,6 @@ dependencies = [
  "impl-codec",
  "impl-serde",
  "uint",
-]
-
-[[package]]
-name = "prml-attestation"
-version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=3.0.0-rc5#0e618fd85534567c6886d1307a16994ae7aa9e66"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
