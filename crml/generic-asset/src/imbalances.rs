@@ -36,10 +36,19 @@ use sp_std::{mem, result};
 /// denoting that funds have been created without any equal and opposite
 /// accounting.
 #[must_use]
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct PositiveImbalance<T: Config> {
 	amount: T::Balance,
 	asset_id: T::AssetId,
+}
+
+impl<T: Config> Default for PositiveImbalance<T> {
+	fn default() -> Self {
+		Self {
+			amount: T::Balance::zero(),
+			asset_id: T::AssetId::zero(),
+		}
+	}
 }
 
 impl<T: Config> PositiveImbalance<T> {
@@ -53,10 +62,19 @@ impl<T: Config> PositiveImbalance<T> {
 /// denoting that funds have been destroyed without any equal and opposite
 /// accounting.
 #[must_use]
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct NegativeImbalance<T: Config> {
 	amount: T::Balance,
 	asset_id: T::AssetId,
+}
+
+impl<T: Config> Default for NegativeImbalance<T> {
+	fn default() -> Self {
+		Self {
+			amount: T::Balance::zero(),
+			asset_id: T::AssetId::zero(),
+		}
+	}
 }
 
 impl<T: Config> NegativeImbalance<T> {
@@ -127,10 +145,7 @@ impl<T: Config> TryDrop for NegativeImbalance<T> {
 	}
 }
 
-impl<T: Config> Imbalance<T::Balance> for NegativeImbalance<T>
-where
-	T::Balance: Default,
-{
+impl<T: Config> Imbalance<T::Balance> for NegativeImbalance<T> {
 	type Opposite = PositiveImbalance<T>;
 
 	fn zero() -> Self {

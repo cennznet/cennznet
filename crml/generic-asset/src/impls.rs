@@ -169,11 +169,11 @@ impl<T: Config> MultiCurrency for Module<T> {
 }
 
 /// A dust imbalance handler that transfers dust to the given `PalletId`
-pub struct TransferDustImbalance<T, M: Get<PalletId>>(sp_std::marker::PhantomData<(T,M)>);
+pub struct TransferDustImbalance<T, M: Get<PalletId>>(sp_std::marker::PhantomData<(T, M)>);
 impl<T, M> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<T, M>
 where
 	T: Config,
-	M: Get<PalletId>
+	M: Get<PalletId>,
 {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<T>) {
 		let beneficiary = M::get().into_account();
