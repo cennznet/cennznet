@@ -26,7 +26,7 @@ use frame_support::{
 };
 use smallvec::smallvec;
 use sp_runtime::Perbill;
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::marker::PhantomData;
 
 /// Runs scheduled payouts for the rewards module.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
@@ -104,16 +104,11 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 }
 
 /// Provides a membership set with only the configured sudo user
+#[allow(dead_code)]
 pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
 impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
-		t == (&pallet_sudo::Module::<T>::key())
-	}
-	fn sorted_members() -> Vec<T::AccountId> {
-		vec![(pallet_sudo::Module::<T>::key())]
-	}
-	fn count() -> usize {
-		1
+		t == (&pallet_sudo::Pallet::<T>::key())
 	}
 }
 impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {

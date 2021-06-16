@@ -182,7 +182,7 @@ mod types;
 mod weights;
 
 // Export GA types/traits
-pub use self::imbalances::{CheckedImbalance, NegativeImbalance, OffsetResult, PositiveImbalance};
+pub use self::imbalances::{CheckedImbalance, NegativeImbalance, PositiveImbalance};
 use frame_support::traits::OnUnbalanced;
 pub use types::*;
 use weights::WeightInfo;
@@ -422,8 +422,8 @@ decl_module! {
 								Some(account_id)
 							} else {
 								// set provider = 1
-								if <frame_system::Module<T>>::providers(&account_id).is_zero() {
-									<frame_system::Module<T>>::inc_providers(&account_id);
+								if <frame_system::Pallet<T>>::providers(&account_id).is_zero() {
+									<frame_system::Pallet<T>>::inc_providers(&account_id);
 								}
 								None
 							}
@@ -962,8 +962,8 @@ impl<T: Config> Module<T> {
 			// Tell the system module we are "providing" the account
 			// This is only done so that FRAME pallets from substrate think
 			// this accounts "exists"
-			if <frame_system::Module<T>>::providers(&who).is_zero() {
-				<frame_system::Module<T>>::inc_providers(&who);
+			if <frame_system::Pallet<T>>::providers(&who).is_zero() {
+				<frame_system::Pallet<T>>::inc_providers(&who);
 			}
 			*balance = free
 		});

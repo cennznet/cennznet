@@ -147,7 +147,7 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			// Ensure our test genesis hash exists in storage.
 			// This allows signed extrinsics to validate.
-			frame_system::Module::<Runtime>::set_parent_hash(GENESIS_HASH.into());
+			frame_system::Pallet::<Runtime>::set_parent_hash(GENESIS_HASH.into());
 		});
 
 		ext

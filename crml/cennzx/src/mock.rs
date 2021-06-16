@@ -34,12 +34,11 @@ use crate::{
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
 use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -86,13 +85,13 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 }
 impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
@@ -143,7 +142,7 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 
 		// Run in the context of the first block
-		ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
+		ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 		ext
 	}
 }
@@ -238,7 +237,7 @@ macro_rules! assert_balance_eq (
 
 /// Returns the last recorded block event
 pub fn last_event() -> Event {
-	frame_system::Module::<Test>::events()
+	frame_system::Pallet::<Test>::events()
 		.pop()
 		.expect("Event expected")
 		.event

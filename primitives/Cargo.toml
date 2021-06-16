@@ -7,10 +7,10 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e" }
 
 [features]
 default = ["std"]

@@ -13,13 +13,13 @@ log = { version = "0.4.14", default-features = false }
 variant_count = "1.0.0"
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false, optional = true }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false  }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
+sp-io = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }

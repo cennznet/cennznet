@@ -10,10 +10,10 @@ description = "Common crml types and traits"
 [dependencies]
 serde = { version = "1.0.101", default-features = false, features = ["derive"], optional = true}
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "85fa0ab80c3ceccf4bb98380d7833578aaf8815e", default-features = false }
 
 [features]
 default = ["std"]

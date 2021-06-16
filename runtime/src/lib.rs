@@ -61,7 +61,7 @@ pub use frame_support::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
 	},
-	StorageValue,
+	PalletId, StorageValue,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -70,7 +70,7 @@ use frame_system::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
+pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
@@ -315,24 +315,76 @@ parameter_types! {
 }
 impl crml_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
-	type Call = Call;
 	type Currency = StakingAssetCurrency<Self>;
 	type CurrencyToVote = U128CurrencyToVote;
+	type ElectionProvider = ElectionProviderMultiPhase;
 	type Event = Event;
-	type ElectionLookahead = ElectionLookahead;
-	type MaxIterations = MaxIterations;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
-	type MinSolutionScoreBump = MinSolutionScoreBump;
 	type NextNewSession = Session;
-	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type SessionInterface = Self;
 	type SessionsPerEra = SessionsPerEra;
 	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
 	type SlashDeferDuration = SlashDeferDuration;
 	type Rewarder = Rewards;
 	type UnixTime = Timestamp;
-	type UnsignedPriority = StakingUnsignedPriority;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	// phase durations. 1/4 of the last session for each.
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+
+	// fallback: no need to do on-chain phragmen initially.
+	pub const Fallback: pallet_election_provider_multi_phase::FallbackStrategy =
+		pallet_election_provider_multi_phase::FallbackStrategy::OnChain;
+
+	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
+
+	// miner configs
+	pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
+	pub const MinerMaxIterations: u32 = 10;
+	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+		.saturating_sub(BlockExecutionWeight::get());
+	// Solution can occupy 90% of normal block size
+	pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
+		*RuntimeBlockLength::get()
+		.max
+		.get(DispatchClass::Normal);
+
+	pub OffchainRepeat: BlockNumber = 5;
+}
+
+sp_npos_elections::generate_solution_type!(
+	#[compact]
+	pub struct NposCompactSolution16::<
+		VoterIndex = u32,
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+	>(16)
+);
+
+pub const MAX_NOMINATIONS: u32 = <NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
+
+impl pallet_election_provider_multi_phase::Config for Runtime {
+	type Event = Event;
+	type Currency = SpendingAssetCurrency<Self>;
+	type SignedPhase = SignedPhase;
+	type UnsignedPhase = UnsignedPhase;
+	type SolutionImprovementThreshold = SolutionImprovementThreshold;
+	type OffchainRepeat = OffchainRepeat;
+	type MinerMaxIterations = MinerMaxIterations;
+	type MinerMaxWeight = MinerMaxWeight;
+	type MinerMaxLength = MinerMaxLength;
+	type MinerTxPriority = MultiPhaseUnsignedPriority;
+	type DataProvider = Staking;
+	type OnChainAccuracy = Perbill;
+	type CompactSolution = NposCompactSolution16;
+	type Fallback = Fallback;
+	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Runtime>;
+	type BenchmarkingConfig = ();
 }
 
 impl_opaque_keys! {
@@ -375,7 +427,7 @@ impl crml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
@@ -456,22 +508,17 @@ parameter_types! {
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type Event = Event;
+	type NextSessionRotation = Babe;
 	type ValidatorSet = Historical;
-	type SessionDuration = SessionDuration;
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
-		RuntimeBlockWeights::get().max_block;
-}
 impl pallet_offences::Config for Runtime {
 	type Event = Event;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
-	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -514,14 +561,14 @@ parameter_types! {
 	pub const DataDepositPerByte: Balance = 1 * MICROS;
 	pub const BountyDepositBase: Balance = 1 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
 	pub const MaximumReasonLength: u32 = 16_384;
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
 impl pallet_treasury::Config for Runtime {
-	type ModuleId = TreasuryModuleId;
+	type PalletId = TreasuryPalletId;
 	type Currency = SpendingAssetCurrency<Self>;
 	// root only is sufficient for launch phase
 	type ApproveOrigin = EnsureRoot<AccountId>;
@@ -549,7 +596,7 @@ impl crml_staking_rewards::Config for Runtime {
 	type FiscalEraLength = FiscalEraLength;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type ScheduledPayoutRunner = ScheduledPayoutRunner<Self>;
-	type TreasuryModuleId = TreasuryModuleId;
+	type TreasuryPalletId = TreasuryPalletId;
 	type WeightInfo = ();
 }
 
@@ -625,42 +672,43 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		// Give modules fixed indexes in the runtime
-		System: frame_system::{Module, Call, Storage, Config, Event<T>} = 0,
-		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 1,
-		Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 2,
-		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
-		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
-		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
-		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
-		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 10,
-		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
-		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 1,
+		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 2,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
+		Authorship: pallet_authorship::{Pallet, Call, Storage} = 5,
+		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 6,
+		Staking: crml_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
+		Offences: pallet_offences::{Pallet, Call, Storage, Event} = 8,
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 9,
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 10,
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
+		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Call, Config} = 12,
 		// Governance Modules (Sudo initially)
-		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 13,
-		// Democracy: pallet_democracy::{Module, Call, Storage, Config, Event<T>}
-		// Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
-		// TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
-		// Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
-		// TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>}
-		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
-		Utility: pallet_utility::{Module, Call, Event} = 15,
-		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
-		TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
-		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
-		Historical: session_historical::{Module} = 20,
-		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
-		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
-		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
-		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
-		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
-		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
-		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
-		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
-		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 13,
+		// Democracy: pallet_democracy::{Pallet, Call, Storage, Config, Event<T>}
+		// Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>}
+		// TechnicalCommittee: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>}
+		// Elections: pallet_elections_phragmen::{Pallet, Call, Storage, Event<T>, Config<T>},
+		// TechnicalMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>}
+		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>} = 14,
+		Utility: pallet_utility::{Pallet, Call, Event} = 15,
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 16,
+		TransactionPayment: crml_transaction_payment::{Pallet, Storage} = 17,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 18,
+		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Call, Storage} = 19,
+		Historical: session_historical::{Pallet} = 20,
+		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
+		SyloGroups: sylo_groups::{Pallet, Call, Storage} = 22,
+		SyloE2EE: sylo_e2ee::{Pallet, Call, Storage} = 23,
+		SyloDevice: sylo_device::{Pallet, Call, Storage} = 24,
+		SyloInbox: sylo_inbox::{Pallet, Call, Storage} = 25,
+		SyloResponse: sylo_response::{Pallet, Call, Storage} = 26,
+		SyloVault: sylo_vault::{Pallet, Call, Storage} = 27,
+		Attestation: crml_attestation::{Pallet, Call, Storage, Event<T>} = 28,
+		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
+		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
 	}
 );
 
@@ -691,7 +739,7 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
-	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules, ()>;
+	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPallets, ()>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -732,10 +780,6 @@ impl_runtime_apis! {
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
-		}
-
-		fn random_seed() -> <Block as BlockT>::Hash {
-			RandomnessCollectiveFlip::random_seed()
 		}
 	}
 

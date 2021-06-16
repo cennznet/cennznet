@@ -27,7 +27,7 @@
 use crate::{Config, TotalIssuance};
 use frame_support::{
 	storage::StorageMap,
-	traits::{Imbalance, TryDrop},
+	traits::{Imbalance, SameOrOther, TryDrop},
 };
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{mem, result};
@@ -36,7 +36,7 @@ use sp_std::{mem, result};
 /// denoting that funds have been created without any equal and opposite
 /// accounting.
 #[must_use]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct PositiveImbalance<T: Config> {
 	amount: T::Balance,
 	asset_id: T::AssetId,
@@ -53,7 +53,7 @@ impl<T: Config> PositiveImbalance<T> {
 /// denoting that funds have been destroyed without any equal and opposite
 /// accounting.
 #[must_use]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct NegativeImbalance<T: Config> {
 	amount: T::Balance,
 	asset_id: T::AssetId,
@@ -103,15 +103,17 @@ impl<T: Config> Imbalance<T::Balance> for PositiveImbalance<T> {
 		self.amount = self.amount.saturating_add(other.amount);
 		mem::forget(other);
 	}
-	fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+	fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
 		let (a, b) = (self.amount, other.amount);
 		let asset_id = self.asset_id;
 		mem::forget((self, other));
 
-		if a >= b {
-			Ok(Self::new(a - b, asset_id))
+		if a > b {
+			SameOrOther::Same(Self::new(a - b, asset_id))
+		} else if a < b {
+			SameOrOther::Other(NegativeImbalance::new(b - a, asset_id))
 		} else {
-			Err(NegativeImbalance::new(b - a, asset_id))
+			SameOrOther::None
 		}
 	}
 	fn peek(&self) -> T::Balance {
@@ -125,7 +127,10 @@ impl<T: Config> TryDrop for NegativeImbalance<T> {
 	}
 }
 
-impl<T: Config> Imbalance<T::Balance> for NegativeImbalance<T> {
+impl<T: Config> Imbalance<T::Balance> for NegativeImbalance<T>
+where
+	T::Balance: Default,
+{
 	type Opposite = PositiveImbalance<T>;
 
 	fn zero() -> Self {
@@ -156,15 +161,17 @@ impl<T: Config> Imbalance<T::Balance> for NegativeImbalance<T> {
 		self.amount = self.amount.saturating_add(other.amount);
 		mem::forget(other);
 	}
-	fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+	fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
 		let (a, b) = (self.amount, other.amount);
 		let asset_id = self.asset_id;
 		mem::forget((self, other));
 
-		if a >= b {
-			Ok(Self::new(a - b, asset_id))
+		if a > b {
+			SameOrOther::Same(Self::new(a - b, asset_id))
+		} else if a < b {
+			SameOrOther::Other(PositiveImbalance::new(b - a, asset_id))
 		} else {
-			Err(PositiveImbalance::new(b - a, asset_id))
+			SameOrOther::None
 		}
 	}
 	fn peek(&self) -> T::Balance {
@@ -186,13 +193,6 @@ impl<T: Config> Drop for NegativeImbalance<T> {
 	}
 }
 
-/// The result of an offset operation
-#[derive(Debug)]
-pub enum OffsetResult<T: Config, I: Imbalance<T::Balance>> {
-	Imbalance(I),
-	Opposite(I::Opposite),
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
 	/// The operation cannot occur on imbalances with different asset IDs
@@ -210,12 +210,12 @@ pub trait CheckedImbalance<T: Config>: Imbalance<T::Balance> {
 	/// Set the imbalance asset ID
 	fn set_asset_id(&mut self, new_asset_id: T::AssetId);
 	/// Offset with asset ID safety checks
-	fn checked_offset(self, other: Self::Opposite) -> result::Result<OffsetResult<T, Self>, Error>
+	fn checked_offset(self, other: Self::Opposite) -> result::Result<SameOrOther<Self, Self::Opposite>, Error>
 	where
 		Self::Opposite: CheckedImbalance<T>,
 	{
 		if other.asset_id().is_zero() {
-			return Ok(OffsetResult::Imbalance(self));
+			return Ok(SameOrOther::Same(self));
 		}
 		if self.asset_id().is_zero() && !self.amount().is_zero() {
 			return Err(Error::ZeroIdWithNonZeroAmount);
@@ -223,10 +223,7 @@ pub trait CheckedImbalance<T: Config>: Imbalance<T::Balance> {
 		if self.asset_id() != other.asset_id() {
 			return Err(Error::DifferentAssetIds);
 		}
-		match self.offset(other) {
-			Ok(i) => Ok(OffsetResult::Imbalance(i)),
-			Err(i) => Ok(OffsetResult::Opposite(i)),
-		}
+		Ok(self.offset(other))
 	}
 	/// Subsume with asset ID safety checks
 	fn checked_subsume(&mut self, other: Self) -> result::Result<(), Error> {

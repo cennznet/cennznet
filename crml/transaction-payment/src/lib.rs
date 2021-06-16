@@ -192,7 +192,7 @@ where
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| weights.max_block);
-		let current_block_weight = <frame_system::Module<T>>::block_weight();
+		let current_block_weight = <frame_system::Pallet<T>>::block_weight();
 		let normal_block_weight = *current_block_weight.get(DispatchClass::Normal).min(&normal_max_weight);
 
 		let s = S::get();
@@ -325,7 +325,7 @@ decl_module! {
 			target += addition;
 
 			sp_io::TestExternalities::new_empty().execute_with(|| {
-				<frame_system::Module<T>>::set_block_consumed_resources(target, 0);
+				<frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
 				let next = T::FeeMultiplierUpdate::convert(min_value);
 				assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
 					block saturation is more than target by 1% and multiplier is minimal then \

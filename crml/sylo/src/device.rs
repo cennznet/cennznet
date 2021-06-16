@@ -20,7 +20,7 @@ pub type DeviceId = u32;
 pub trait Config: frame_system::Config {}
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {}
 }
 
 // The data that is stored

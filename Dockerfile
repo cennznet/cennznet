@@ -2,7 +2,7 @@ FROM  rustlang/rust:nightly AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 
-ARG RUST_VERSION=1.50.0
+ARG RUST_VERSION=1.52.1
 ARG RUST_NIGHTLY=nightly-2021-03-05
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \

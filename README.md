@@ -1,7 +1,7 @@
 # CENNZnet Node
 [![license: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](LICENSE) ![ci status badge](https://github.com/cennznet/cennznet/workflows/CI/badge.svg) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
-CENNZnet node based on [Plug](https://github.com/plugblockchain/plug-blockchain).
+CENNZnet node based on [Plug](https://github.com/paritytech/substrate).
 For technical and guides, please refer to the [CENNZnet Wiki](https://wiki.cennz.net/#/).
 
 

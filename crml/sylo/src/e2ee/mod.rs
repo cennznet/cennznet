@@ -25,7 +25,7 @@ pub trait Config: inbox::Config + response::Config + device::Config + groups::Co
 pub type PreKeyBundle = Vec<u8>;
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {}
 }
 
 decl_storage! {
