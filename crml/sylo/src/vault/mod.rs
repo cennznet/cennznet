@@ -14,17 +14,17 @@
 */
 use frame_support::{decl_module, decl_storage, dispatch::Vec};
 
-pub trait Trait: frame_system::Trait {}
+pub trait Config: frame_system::Config {}
 
 pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as SyloVault {
+	trait Store for Module<T: Config> as SyloVault {
 		pub Vault get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }

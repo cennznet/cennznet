@@ -36,14 +36,14 @@
 //!
 
 use cennznet_primitives::types::{AssetId, Balance};
+use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
-	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReason},
+	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons},
 	transactional,
 	weights::Weight,
 };
 use frame_system::ensure_signed;
-use prml_support::MultiCurrencyAccounting;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult,
@@ -51,46 +51,33 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 mod benchmarking;
-mod default_weights;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+use weights::WeightInfo;
 
 mod types;
 pub use types::*;
 
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
 	/// The system event type
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// Default auction / sale length in blocks
 	type DefaultListingDuration: Get<Self::BlockNumber>;
 	/// Maximum byte length of an NFT attribute
 	type MaxAttributeLength: Get<u8>;
 	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: MultiCurrencyAccounting<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
+	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
-}
-
-/// NFT module weights
-pub trait WeightInfo {
-	fn set_owner() -> Weight;
-	fn create_collection() -> Weight;
-	fn mint_series(q: u32) -> Weight;
-	fn mint_additional(q: u32) -> Weight;
-	fn transfer() -> Weight;
-	fn burn() -> Weight;
-	fn sell() -> Weight;
-	fn buy() -> Weight;
-	fn bid() -> Weight;
-	fn cancel_sale() -> Weight;
 }
 
 decl_event!(
 	pub enum Event<T> where
 		CollectionId = CollectionId,
-		<T as frame_system::Trait>::AccountId,
+		<T as frame_system::Config>::AccountId,
 		AssetId = AssetId,
 		Balance = Balance,
 		Reason = AuctionClosureReason,
@@ -130,7 +117,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// A collection with the same ID already exists
 		CollectionIdExists,
 		/// Given collection name is invalid (invalid utf-8, too long, empty)
@@ -169,7 +156,7 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Nft {
+	trait Store for Module<T: Config> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its human friendly name
@@ -224,7 +211,7 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[macro_export]
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
+		log::$level!(
 			target: crate::LOG_TARGET,
 			$patter $(, $values)*
 		)
@@ -232,7 +219,7 @@ macro_rules! log {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -242,7 +229,7 @@ decl_module! {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
-			// 'buy' weight is comparable to succesful closure of an auction
+			// 'buy' weight is comparable to successful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
 		}
 
@@ -605,17 +592,17 @@ decl_module! {
 				let royalty_fees = listing.royalties_schedule.calculate_total_entitlement();
 				if royalty_fees.is_zero() {
 					// full proceeds to seller/`current_owner`
-					T::MultiCurrency::transfer(&origin, &listing.seller, Some(listing.payment_asset), listing.fixed_price, ExistenceRequirement::AllowDeath)?;
+					T::MultiCurrency::transfer(&origin, &listing.seller, listing.payment_asset, listing.fixed_price, ExistenceRequirement::AllowDeath)?;
 				} else {
 					// withdraw funds from buyer, split between royalty payments and seller
 					let mut for_seller = listing.fixed_price;
-					let mut imbalance = T::MultiCurrency::withdraw(&origin, Some(listing.payment_asset), listing.fixed_price, WithdrawReason::Transfer.into(), ExistenceRequirement::AllowDeath)?;
+					let mut imbalance = T::MultiCurrency::withdraw(&origin, listing.payment_asset, listing.fixed_price, WithdrawReasons::TRANSFER, ExistenceRequirement::AllowDeath)?;
 					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
 						let royalty = entitlement * listing.fixed_price;
 						for_seller -= royalty;
-						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, Some(listing.payment_asset), royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
+						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
-					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, Some(listing.payment_asset), for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
 				}
 
 				// must not fail now that payment has been made
@@ -715,22 +702,22 @@ decl_module! {
 				}
 
 				// check user has the requisite funds to make this bid
-				let balance = T::MultiCurrency::free_balance(&origin, Some(listing.payment_asset));
+				let balance = T::MultiCurrency::free_balance(&origin, listing.payment_asset);
 				if let Some(balance_after_bid) = balance.checked_sub(amount) {
 					// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 					// - `amount` is unused
 					// - if there are multiple locks on user asset this could return true inaccurately
 					// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, Some(listing.payment_asset), amount, WithdrawReason::Reserve.into(), balance_after_bid)?;
+					let _ = T::MultiCurrency::ensure_can_withdraw(&origin, listing.payment_asset, amount, WithdrawReasons::RESERVE, balance_after_bid)?;
 				}
 
 				// try lock funds
-				T::MultiCurrency::reserve(&origin, Some(listing.payment_asset), amount)?;
+				T::MultiCurrency::reserve(&origin, listing.payment_asset, amount)?;
 
 				ListingWinningBid::<T>::mutate(listing_id, |maybe_current_bid| {
 					if let Some(current_bid) = maybe_current_bid {
 						// replace old bid
-						T::MultiCurrency::unreserve(&current_bid.0, Some(listing.payment_asset), current_bid.1);
+						T::MultiCurrency::unreserve(&current_bid.0, listing.payment_asset, current_bid.1);
 					}
 					*maybe_current_bid = Some((origin, amount))
 				});
@@ -781,7 +768,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
 	/// We're ok iff, all tokens in the bundle are from the:
 	/// 1) same collection and same series
@@ -875,7 +862,7 @@ impl<T: Trait> Module<T> {
 							// auction settlement failed despite our prior validations.
 							// release winning bid funds
 							log!(error, "🃏 auction settlement failed: {:?}", err);
-							T::MultiCurrency::unreserve(&winner, Some(listing.payment_asset), hammer_price);
+							T::MultiCurrency::unreserve(&winner, listing.payment_asset, hammer_price);
 
 							// listing metadata is removed by now.
 							Self::deposit_event(RawEvent::AuctionClosed(
@@ -923,19 +910,18 @@ impl<T: Trait> Module<T> {
 			let entitlements = listing.royalties_schedule.entitlements.clone();
 			for (who, entitlement) in entitlements.into_iter() {
 				let royalty = entitlement * hammer_price;
-				let _ = T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &who, royalty)?;
+				let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &who, royalty)?;
 				for_seller -= royalty;
 			}
 		}
 
-		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset));
-		let _ =
-			T::MultiCurrency::repatriate_reserved(&winner, Some(listing.payment_asset), &listing.seller, for_seller)?;
+		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset);
+		let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &listing.seller, for_seller)?;
 
 		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
 		// this should not happen but could for reasons outside the control of this module
 		ensure!(
-			T::MultiCurrency::free_balance(&listing.seller, Some(listing.payment_asset))
+			T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset)
 				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);

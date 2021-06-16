@@ -1,5 +1,5 @@
 #!/bin/bash
-nightly_version=nightly-2021-02-21
+nightly_version=nightly-2021-03-05
 
 echo Installing the stable Rust toolchain...
 rustup install stable

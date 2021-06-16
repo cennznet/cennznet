@@ -34,7 +34,7 @@ const QUANTITY: u32 = 100;
 
 // Create a collection for benchmarking
 // Returns the collection id, schema, and royalties schedule
-fn setup_collection<T: Trait>(creator: T::AccountId) -> (CollectionId, RoyaltiesSchedule<T::AccountId>) {
+fn setup_collection<T: Config>(creator: T::AccountId) -> (CollectionId, RoyaltiesSchedule<T::AccountId>) {
 	let collection_id = <Nft<T>>::next_collection_id();
 	// Royalties with max. entitled addresses
 	let royalties = RoyaltiesSchedule::<T::AccountId> {
@@ -47,7 +47,7 @@ fn setup_collection<T: Trait>(creator: T::AccountId) -> (CollectionId, Royalties
 }
 
 // Create a token for benchmarking
-fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
+fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 	let creator: T::AccountId = whitelisted_caller();
 	let (collection_id, royalties) = setup_collection::<T>(creator.clone());
 	let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
@@ -80,8 +80,6 @@ fn setup_token<T: Trait>(owner: T::AccountId) -> CollectionId {
 }
 
 benchmarks! {
-	_{}
-
 	set_owner {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
@@ -184,7 +182,7 @@ benchmarks! {
 		let collection_id = setup_token::<T>(owner.clone());
 		let token_id = (collection_id, 0, 0);
 		let listing_id = <Nft<T>>::next_listing_id();
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, PRICE);
 		let listing_id = <Nft<T>>::next_listing_id();
 		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None).expect("listed ok");
 
@@ -201,8 +199,8 @@ benchmarks! {
 		let listing_id = <Nft<T>>::next_listing_id();
 		let duration = T::BlockNumber::from(100_u32);
 
-		let _ = T::MultiCurrency::deposit_creating(&owner, Some(PAYMENT_ASSET), PRICE);
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(PAYMENT_ASSET), PRICE + 1);
+		let _ = T::MultiCurrency::deposit_creating(&owner, PAYMENT_ASSET, PRICE);
+		let _ = T::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, PRICE + 1);
 		let listing_id = <Nft<T>>::next_listing_id();
 		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
 		// worst case path is to replace an existing bid

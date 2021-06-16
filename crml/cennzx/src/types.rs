@@ -23,7 +23,7 @@ use core::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-pub use primitive_types::U256 as HighPrecisionUnsigned;
+pub use sp_core::U256 as HighPrecisionUnsigned;
 pub use u128 as LowPrecisionUnsigned;
 
 /// A trait for values which hold an implicit scale factor that needs to be taken into account in calculations
@@ -58,7 +58,7 @@ impl Into<&'static str> for FeeRateError {
 	}
 }
 
-/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `prml_generic_asset::Balance` type
+/// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `crml_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);

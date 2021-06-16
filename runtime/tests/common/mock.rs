@@ -20,7 +20,7 @@ use cennznet_primitives::types::Balance;
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
-use prml_support::MultiCurrencyAccounting as MultiCurrency;
+use crml_support::MultiCurrency;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -83,20 +83,13 @@ impl ExtBuilder {
 			.unwrap();
 		crml_cennzx::GenesisConfig::<Runtime> {
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
-			core_asset_id: CENTRAPAY_ASSET_ID,
+			core_asset_id: CPAY_ASSET_ID,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		prml_generic_asset::GenesisConfig::<Runtime> {
-			assets: vec![
-				CENNZ_ASSET_ID,
-				CENTRAPAY_ASSET_ID,
-				PLUG_ASSET_ID,
-				SYLO_ASSET_ID,
-				CERTI_ASSET_ID,
-				ARDA_ASSET_ID,
-			],
+		crml_generic_asset::GenesisConfig::<Runtime> {
+			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			initial_balance: self.initial_balance,
 			endowed_accounts: endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
@@ -164,35 +157,32 @@ impl ExtBuilder {
 #[test]
 fn runtime_mock_setup_works() {
 	let amount = 100;
-	ExtBuilder::default().initial_balance(amount).build().execute_with(|| {
-		let tests = vec![
-			(alice(), amount),
-			(bob(), amount),
-			(charlie(), amount),
-			(dave(), amount),
-			(eve(), amount),
-			(ferdie(), amount),
-		];
-		let assets = vec![
-			CENNZ_ASSET_ID,
-			CENTRAPAY_ASSET_ID,
-			PLUG_ASSET_ID,
-			SYLO_ASSET_ID,
-			CERTI_ASSET_ID,
-			ARDA_ASSET_ID,
-		];
-		for asset in &assets {
-			for (account, balance) in &tests {
-				assert_eq!(
-					<GenericAsset as MultiCurrency>::free_balance(&account, Some(*asset)),
-					*balance,
-				);
-				assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, Some(123)), 0,)
+	ExtBuilder::default()
+		.initial_balance(amount)
+		.stash(amount)
+		.build()
+		.execute_with(|| {
+			let tests = vec![
+				(alice(), amount),
+				(bob(), amount),
+				(charlie(), amount),
+				(dave(), amount),
+				(eve(), amount),
+				(ferdie(), amount),
+			];
+			let assets = vec![CENNZ_ASSET_ID, CPAY_ASSET_ID];
+			for asset in &assets {
+				for (account, balance) in &tests {
+					assert_eq!(
+						<GenericAsset as MultiCurrency>::free_balance(&account, *asset),
+						*balance,
+					);
+					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, 123), 0)
+				}
+				// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+				assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
 			}
-			// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
-			assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
-		}
-	});
+		});
 }
 
 pub mod contracts {

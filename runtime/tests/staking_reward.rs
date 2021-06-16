@@ -31,7 +31,7 @@ use frame_support::{
 	IterableStorageMap,
 };
 use pallet_im_online::UnresponsivenessOffence;
-use sp_consensus_babe::{digests, AuthorityIndex, BABE_ENGINE_ID};
+use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
 use sp_core::{crypto::UncheckedFrom, H256};
 use sp_runtime::{
 	traits::{Header as HeaderT, Saturating, Zero},
@@ -48,29 +48,27 @@ use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
 /// Alias for the runtime configured staking reward currency
-type RewardCurrency = <Runtime as crml_staking::rewards::Trait>::CurrencyToReward;
+type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToReward;
 /// Alias for the runtime configured staking currency
-type StakeCurrency = <Runtime as crml_staking::Trait>::Currency;
+type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
+
+pub const INIT_TIMESTAMP: u64 = 30_000;
 
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
 /// This will finalize the previous block, initialize up to the given block, essentially simulating
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
-pub(crate) fn run_to_block(end: BlockNumber) {
+pub(crate) fn run_to_block(n: BlockNumber) {
 	Staking::on_finalize(System::block_number());
-	let start = System::block_number();
-
-	for b in start..=end {
+	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
 		Rewards::on_initialize(b);
-		// Session modules asks babe module if it can rotate
-		Timestamp::set_timestamp(30_000 + b as u64 * MILLISECS_PER_BLOCK);
-		// force babe slot increment (normally this is set using system digest)
-		pallet_babe::CurrentSlot::put(b as u64);
-		if b != end {
+		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
+		pallet_babe::CurrentSlot::put(Slot::from(b as u64));
+		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
 	}
@@ -120,7 +118,7 @@ fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
 
 	let digest_data = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 		authority_index: author_index,
-		slot_number: Babe::current_slot(),
+		slot: Babe::current_slot(),
 	});
 
 	let digest = header.digest_mut();
@@ -133,26 +131,29 @@ fn set_author(mut header: Header, author_index: AuthorityIndex) -> Header {
 
 #[test]
 fn start_active_era_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		let blocks_per_era = SessionsPerEra::get() * EpochDuration::get() as u32;
-		start_active_era(1);
-		assert_eq!(System::block_number(), blocks_per_era + 1);
-		assert_eq!(Session::current_index(), SessionsPerEra::get());
-		assert_eq!(Staking::active_era().unwrap().index, 1);
+	ExtBuilder::default()
+		.initial_balance(1 * DOLLARS)
+		.build()
+		.execute_with(|| {
+			let blocks_per_era = SessionsPerEra::get() * EpochDuration::get() as u32;
+			start_active_era(1);
+			assert_eq!(System::block_number(), blocks_per_era + 1);
+			assert_eq!(Session::current_index(), SessionsPerEra::get());
+			assert_eq!(Staking::active_era().unwrap().index, 1);
 
-		// one session extra, should schedule the next era (poorly named 'current era')
-		advance_session();
-		assert_eq!(Staking::current_era().unwrap(), 2);
+			// one session extra, should schedule the next era (poorly named 'current era')
+			advance_session();
+			assert_eq!(Staking::current_era().unwrap(), 2);
 
-		start_active_era(2);
-		assert_eq!(System::block_number(), blocks_per_era * 2 + 1);
-		assert_eq!(Session::current_index(), SessionsPerEra::get() * 2);
-		assert_eq!(Staking::active_era().unwrap().index, 2);
-		assert_eq!(Staking::current_era().unwrap(), 2);
+			start_active_era(2);
+			assert_eq!(System::block_number(), blocks_per_era * 2 + 1);
+			assert_eq!(Session::current_index(), SessionsPerEra::get() * 2);
+			assert_eq!(Staking::active_era().unwrap().index, 2);
+			assert_eq!(Staking::current_era().unwrap(), 2);
 
-		advance_session();
-		assert_eq!(Staking::current_era().unwrap(), 3);
-	})
+			advance_session();
+			assert_eq!(Staking::current_era().unwrap(), 3);
+		})
 }
 
 #[test]
@@ -194,8 +195,8 @@ fn era_transaction_fees_collected() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -244,8 +245,8 @@ fn era_transaction_fees_accrued() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -300,8 +301,8 @@ fn elected_validators_receive_transaction_fee_reward() {
 	let initial_balance = 100_000_000 * DOLLARS;
 	let staked_amount = initial_balance / validators.len() as Balance;
 	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
-		CENTRAPAY_ASSET_ID,
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
+		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,
 	));
@@ -352,6 +353,13 @@ fn elected_validators_receive_transaction_fee_reward() {
 
 			// end era 1, reward payouts are scheduled
 			start_active_era(2);
+
+			// treasury is paid its cut of network tx fees
+			assert_eq!(
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				reward_parts.treasury_cut
+			);
+
 			// skip a few blocks to ensure payouts are made
 			advance_session();
 			advance_session();
@@ -364,11 +372,10 @@ fn elected_validators_receive_transaction_fee_reward() {
 				)
 			}
 
-			// treasury is paid its cut of network tx fees
 			assert_eq!(
 				RewardCurrency::free_balance(&Treasury::account_id()),
 				// + 6 is a remainder after the stakers_cut is split
-				reward_parts.treasury_cut + 6
+				reward_parts.treasury_cut + 5
 			);
 		});
 }

@@ -17,8 +17,6 @@
 
 //! Tests for the module.
 
-use std::u64;
-
 use super::*;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -1130,7 +1128,7 @@ fn on_free_balance_zero_stash_removes_validator() {
 			assert!(<Ledger<Test>>::contains_key(&10));
 			assert!(<Bonded<Test>>::contains_key(&11));
 			assert!(<Validators<Test>>::contains_key(&11));
-			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			assert_eq!(<<Test as Config>::Rewarder as HandlePayee>::payee(&11), 11);
 
 			// Reduce free_balance of controller to 0
 			let _ = Balances::slash(&10, Balance::max_value());
@@ -1144,12 +1142,12 @@ fn on_free_balance_zero_stash_removes_validator() {
 			assert!(<Ledger<Test>>::contains_key(&10));
 			assert!(<Bonded<Test>>::contains_key(&11));
 			assert!(<Validators<Test>>::contains_key(&11));
-			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			assert_eq!(<<Test as Config>::Rewarder as HandlePayee>::payee(&11), 11);
 
 			// Reduce free_balance of stash to 0
 			let _ = Balances::slash(&11, Balance::max_value());
-			// Check total balance of stash
-			assert_eq!(Balances::total_balance(&11), 0);
+			// Check total balance of stash. It should be equal to the existential deposit.
+			assert_eq!(Balances::total_balance(&11), 10);
 
 			// Reap the stash
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
@@ -1187,7 +1185,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
 			assert!(<Ledger<Test>>::contains_key(&10));
 			assert!(<Bonded<Test>>::contains_key(&11));
 			assert!(<Nominators<Test>>::contains_key(&11));
-			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			assert_eq!(<<Test as Config>::Rewarder as HandlePayee>::payee(&11), 11);
 
 			// Reduce free_balance of controller to 0
 			let _ = Balances::slash(&10, Balance::max_value());
@@ -1203,12 +1201,12 @@ fn on_free_balance_zero_stash_removes_nominator() {
 			assert!(<Ledger<Test>>::contains_key(&10));
 			assert!(<Bonded<Test>>::contains_key(&11));
 			assert!(<Nominators<Test>>::contains_key(&11));
-			assert_eq!(<<Test as Trait>::Rewarder as HandlePayee>::payee(&11), 11);
+			assert_eq!(<<Test as Config>::Rewarder as HandlePayee>::payee(&11), 11);
 
 			// Reduce free_balance of stash to 0
 			let _ = Balances::slash(&11, Balance::max_value());
-			// Check total balance of stash
-			assert_eq!(Balances::total_balance(&11), 0);
+			// Check total balance of stash. Only the minimum balance equal to existential_deposit should remain.
+			assert_eq!(Balances::total_balance(&11), 10);
 
 			// Reap the stash
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
@@ -1928,8 +1926,9 @@ fn garbage_collection_after_slashing() {
 			// validator and nominator slash in era are garbage-collected by era change,
 			// so we don't test those here.
 
-			assert_eq!(Balances::free_balance(11), 0);
-			assert_eq!(Balances::total_balance(&11), 0);
+			// Only the existential deposit would be left
+			assert_eq!(Balances::free_balance(11), 2);
+			assert_eq!(Balances::total_balance(&11), 2);
 
 			let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
 			assert_eq!(slashing_spans.iter().count(), 2);
@@ -2603,7 +2602,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let MetaEvent::staking(inner) = e {
+						if let mock::Event::staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2674,7 +2673,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let MetaEvent::staking(inner) = e {
+						if let mock::Event::staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2693,7 +2692,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let MetaEvent::staking(inner) = e {
+						if let mock::Event::staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2727,7 +2726,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let MetaEvent::staking(inner) = e {
+						if let mock::Event::staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2764,7 +2763,7 @@ mod offchain_election {
 					ElectionSize::default(),
 				),
 				Error::<Test>::OffchainElectionEarlySubmission,
-				Some(<Test as frame_system::Trait>::DbWeight::get().reads(1)),
+				Some(<Test as frame_system::Config>::DbWeight::get().reads(1)),
 			);
 		})
 	}
@@ -2790,7 +2789,7 @@ mod offchain_election {
 				assert_err_with_weight!(
 					submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
 					Error::<Test>::OffchainElectionWeakSubmission,
-					Some(<Test as frame_system::Trait>::DbWeight::get().reads(3))
+					Some(<Test as frame_system::Config>::DbWeight::get().reads(3))
 				);
 			})
 	}
@@ -2837,6 +2836,7 @@ mod offchain_election {
 			let call = extrinsic.call;
 			let inner = match call {
 				mock::Call::Staking(inner) => inner,
+				_ => unreachable!(),
 			};
 
 			assert_eq!(
@@ -2944,6 +2944,7 @@ mod offchain_election {
 			let call = extrinsic.call;
 			let inner = match call {
 				mock::Call::Staking(inner) => inner,
+				_ => unreachable!(),
 			};
 
 			assert_eq!(
@@ -2980,6 +2981,7 @@ mod offchain_election {
 			let call = extrinsic.call;
 			let inner = match call {
 				mock::Call::Staking(inner) => inner,
+				_ => unreachable!(),
 			};
 
 			// pass this call to ValidateUnsigned
@@ -3672,19 +3674,19 @@ fn set_history_depth_works() {
 fn offences_weight_calculated_correctly() {
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
 		// On offence with zero offenders: 4 Reads, 1 Write
-		let zero_offence_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1);
+		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(
 			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0),
 			Ok(zero_offence_weight)
 		);
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
-		let n_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 5);
+		let n_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 5);
 
 		let offenders: Vec<
 			OffenceDetails<
-				<Test as frame_system::Trait>::AccountId,
+				<Test as frame_system::Config>::AccountId,
 				pallet_session::historical::IdentificationTuple<Test>,
 			>,
 		> = (1..10)
@@ -3706,14 +3708,14 @@ fn offences_weight_calculated_correctly() {
 
 		let n = 1; // Number of offenders
 		let rw = 3 + 3 * n; // rw reads and writes
-		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)
+		let one_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(rw, rw)
 			// One `slash_cost`
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `slash_cost` * nominators (1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(2, 2);
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
 		assert_eq!(
 			Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0),
@@ -3728,7 +3730,7 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(Validators::<Test>::iter().count(), 0);
 		assert_eq!(Nominators::<Test>::iter().count(), 0);
 		// When this pallet has nothing, we do 4 reads each block
-		let base_weight = <Test as frame_system::Trait>::DbWeight::get().reads(4);
+		let base_weight = <Test as frame_system::Config>::DbWeight::get().reads(4);
 		assert_eq!(base_weight, Staking::on_initialize(0));
 	});
 
@@ -3750,7 +3752,7 @@ fn on_initialize_weight_is_correct() {
 			// With 4 validators and 5 nominator, we should increase weight by:
 			// - (4 + 5) reads
 			// - 3 Writes
-			let final_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4 + 9, 3);
+			let final_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4 + 9, 3);
 			assert_eq!(final_weight, Staking::on_initialize(System::block_number()));
 		});
 }

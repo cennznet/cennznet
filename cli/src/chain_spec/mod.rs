@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -16,11 +16,12 @@
 
 //! CENNZnet chain configurations.
 
+use cennznet_primitives::types::Block;
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	opaque::Block, opaque::SessionKeys, AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate,
-	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig, GrandpaConfig,
+	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -142,7 +143,12 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	const INITIAL_BOND: Balance = 100 * DOLLARS;
 	let initial_authorities = network_keys.initial_authorities;
 	let root_key = network_keys.root_key;
-	let endowed_accounts = network_keys.endowed_accounts;
+	let mut endowed_accounts = network_keys.endowed_accounts;
+	initial_authorities.iter().for_each(|x| {
+		if !endowed_accounts.contains(&x.0) {
+			endowed_accounts.push(x.0.clone())
+		}
+	});
 
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
@@ -178,27 +184,24 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		prml_generic_asset: Some(GenericAssetConfig {
-			assets: vec![CENNZ_ASSET_ID, CENTRAPAY_ASSET_ID],
+		crml_generic_asset: Some(GenericAssetConfig {
+			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
-			permissions: vec![
-				(CENNZ_ASSET_ID, root_key.clone()),
-				(CENTRAPAY_ASSET_ID, root_key.clone()),
-			],
+			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CPAY_ASSET_ID, root_key.clone())],
 			initial_balance: 1_000_000 * DOLLARS, // 1,000,000.0000 (4dp asset)
 			endowed_accounts,
 			next_asset_id: NEXT_ASSET_ID,
 			staking_asset_id: STAKING_ASSET_ID,
 			spending_asset_id: SPENDING_ASSET_ID,
 			asset_meta: vec![
-				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 4)),
-				(CENTRAPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4)),
+				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 4, 1)),
+				(CPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4, 1)),
 			],
 		}),
 		crml_cennzx: Some(CennzxConfig {
 			// 0.003%
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
-			core_asset_id: CENTRAPAY_ASSET_ID,
+			core_asset_id: CPAY_ASSET_ID,
 		}),
 		crml_staking_rewards: Some(RewardsConfig {
 			// 20% of all fees
@@ -303,7 +306,7 @@ pub(crate) mod tests {
 				))
 			},
 			|config| {
-				let (keep_alive, _, client, network, transaction_pool) = new_light_base(config)?;
+				let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
 				Ok(sc_service_test::TestNetComponents::new(
 					keep_alive,
 					client,

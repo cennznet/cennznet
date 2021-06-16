@@ -14,25 +14,12 @@
 */
 
 use super::*;
-use crate::mock::{AccountId, Event, ExtBuilder, Test};
-use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnInitialize};
+use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
+use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
 
-type Nft = Module<Test>;
-type GenericAsset = prml_generic_asset::Module<Test>;
-type System = frame_system::Module<Test>;
-
-parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
-}
-impl Trait for Test {
-	type Event = Event;
-	type MultiCurrency = prml_generic_asset::Module<Test>;
-	type MaxAttributeLength = MaxAttributeLength;
-	type DefaultListingDuration = DefaultListingDuration;
-	type WeightInfo = ();
-}
+/// The asset Id used for payment in these tests
+const PAYMENT_ASSET: AssetId = 16_001;
 
 // Check the test system contains an event record `event`
 fn has_event(
@@ -50,7 +37,7 @@ fn has_event(
 ) -> bool {
 	System::events()
 		.iter()
-		.find(|e| e.event == Event::nft(event.clone()))
+		.find(|e| e.event == Event::crml_nft(event.clone()))
 		.is_some()
 }
 
@@ -75,7 +62,7 @@ fn setup_collection(owner: AccountId) -> CollectionId {
 }
 
 /// Setup a token, return collection id, token id, token owner
-fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
+fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
 	let token_owner = 2_u64;
@@ -96,7 +83,7 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Trait>::Accou
 fn setup_token_with_royalties(
 	royalties_schedule: RoyaltiesSchedule<AccountId>,
 	quantity: TokenCount,
-) -> (CollectionId, TokenId, <Test as frame_system::Trait>::AccountId) {
+) -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
 	<SeriesRoyalties<Test>>::insert(collection_id, 0, royalties_schedule);
@@ -348,7 +335,7 @@ fn mint_unique_fails_prechecks() {
 				None,
 				vec![
 					NFTAttributeValue::I32(0),
-					NFTAttributeValue::Url([1_u8; <Test as Trait>::MaxAttributeLength::get() as usize + 1].to_vec())
+					NFTAttributeValue::Url([1_u8; <Test as Config>::MaxAttributeLength::get() as usize + 1].to_vec())
 				],
 				None,
 				None,
@@ -420,7 +407,7 @@ fn transfer_fails_prechecks() {
 			Some(token_owner).into(),
 			token_id,
 			Some(5),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
@@ -522,7 +509,7 @@ fn burn_fails_prechecks() {
 			Some(token_owner).into(),
 			first_token_id(collection_id),
 			None,
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
@@ -558,7 +545,7 @@ fn sell_bundle() {
 			Some(collection_owner).into(),
 			tokens.clone(),
 			None,
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
@@ -568,7 +555,7 @@ fn sell_bundle() {
 		}
 
 		let buyer = 3;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(16_000), 1_000);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, 1_000);
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
 	})
@@ -587,7 +574,7 @@ fn sell_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, 16_000, 1_000, None),
+			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, PAYMENT_ASSET, 1_000, None),
 			Error::<Test>::NoToken
 		);
 
@@ -597,7 +584,7 @@ fn sell_bundle_fails() {
 				Some(collection_owner).into(),
 				vec![(collection_id, 1, 1), (collection_id_2, 1, 1),],
 				None,
-				16_000,
+				PAYMENT_ASSET,
 				1_000,
 				None,
 			),
@@ -612,7 +599,7 @@ fn sell_bundle_fails() {
 				Some(collection_owner).into(),
 				vec![(collection_id, 1, 1), (collection_id, 2, 2)],
 				None,
-				16_000,
+				PAYMENT_ASSET,
 				1_000,
 				None,
 			),
@@ -631,7 +618,7 @@ fn sell() {
 			Some(token_owner).into(),
 			token_id,
 			Some(5),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
@@ -640,9 +627,9 @@ fn sell() {
 		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
-			payment_asset: 16_000,
+			payment_asset: PAYMENT_ASSET,
 			fixed_price: 1_000,
-			close: System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(5),
 			tokens: vec![token_id],
 			seller: token_owner,
@@ -654,7 +641,7 @@ fn sell() {
 
 		// current block is 1 + duration
 		assert!(Nft::listing_end_schedule(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		));
 
@@ -674,7 +661,14 @@ fn sell_fails() {
 		let (_, token_id, token_owner) = setup_token();
 		// Not token owner
 		assert_noop!(
-			Nft::sell(Some(token_owner + 1).into(), token_id, Some(5), 16_000, 1_000, None),
+			Nft::sell(
+				Some(token_owner + 1).into(),
+				token_id,
+				Some(5),
+				PAYMENT_ASSET,
+				1_000,
+				None
+			),
 			Error::<Test>::NoPermission
 		);
 
@@ -683,18 +677,18 @@ fn sell_fails() {
 			Some(token_owner).into(),
 			token_id,
 			Some(5),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
 		assert_noop!(
-			Nft::sell(Some(token_owner).into(), token_id, Some(5), 16_000, 1_000, None),
+			Nft::sell(Some(token_owner).into(), token_id, Some(5), PAYMENT_ASSET, 1_000, None),
 			Error::<Test>::TokenListingProtection
 		);
 
 		// can't auction, listed for fixed price sale
 		assert_noop!(
-			Nft::auction(Some(token_owner).into(), token_id, 16_000, 1_000, None),
+			Nft::auction(Some(token_owner).into(), token_id, PAYMENT_ASSET, 1_000, None),
 			Error::<Test>::TokenListingProtection
 		);
 	});
@@ -709,7 +703,7 @@ fn cancel_sell() {
 			Some(token_owner).into(),
 			token_id,
 			Some(5),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			None,
 		));
@@ -719,7 +713,7 @@ fn cancel_sell() {
 		// storage cleared up
 		assert!(Nft::listings(listing_id).is_none());
 		assert!(!Nft::listing_end_schedule(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		));
 
@@ -739,7 +733,7 @@ fn sell_closes_on_schedule() {
 			Some(token_owner).into(),
 			token_id,
 			Some(5),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			Some(listing_duration),
 		));
@@ -765,7 +759,7 @@ fn buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let buyer = 5;
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let price = 1_000;
 		let listing_id = Nft::next_listing_id();
 
@@ -778,7 +772,7 @@ fn buy() {
 			None,
 		));
 
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price);
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		// no royalties, all proceeds to token owner
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), price);
@@ -786,7 +780,7 @@ fn buy() {
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
 		assert!(!Nft::listing_end_schedule(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		));
 
@@ -812,9 +806,9 @@ fn buy_with_royalties() {
 		};
 		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
 		let buyer = 5;
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let sale_price = 1_000_008;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), sale_price * 2);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, sale_price * 2);
 		let token_id = first_token_id(collection_id);
 
 		let (collection_id, _, _) = token_id;
@@ -866,7 +860,7 @@ fn buy_with_royalties() {
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
 		assert!(!Nft::listing_end_schedule(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		));
 
@@ -880,7 +874,7 @@ fn buy_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
 		let buyer = 5;
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let price = 1_000;
 		let listing_id = Nft::next_listing_id();
 
@@ -906,10 +900,10 @@ fn buy_fails_prechecks() {
 		);
 
 		// fund the buyer with not quite enough
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price - 1);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price - 1);
 		assert_noop!(
 			Nft::buy(Some(buyer).into(), listing_id),
-			prml_generic_asset::Error::<Test>::InsufficientBalance,
+			crml_generic_asset::Error::<Test>::InsufficientBalance,
 		);
 	});
 }
@@ -918,7 +912,7 @@ fn buy_fails_prechecks() {
 fn sell_to_anybody() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let price = 1_000;
 		let listing_id = Nft::next_listing_id();
 
@@ -932,7 +926,7 @@ fn sell_to_anybody() {
 		));
 
 		let buyer = 11;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price);
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
 		// paid
@@ -941,7 +935,7 @@ fn sell_to_anybody() {
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
 		assert!(!Nft::listing_end_schedule(
-			System::block_number() + <Test as Trait>::DefaultListingDuration::get(),
+			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		));
 
@@ -967,7 +961,7 @@ fn buy_with_overcommitted_royalties() {
 		let listing_id = Nft::next_listing_id();
 
 		let buyer = 5;
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let price = 1_000;
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
@@ -978,7 +972,7 @@ fn buy_with_overcommitted_royalties() {
 			None,
 		));
 
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(payment_asset), price);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price);
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
 
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
@@ -994,7 +988,7 @@ fn buy_with_overcommitted_royalties() {
 fn cancel_auction() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_000;
 		let listing_id = Nft::next_listing_id();
 
@@ -1051,7 +1045,7 @@ fn auction_bundle() {
 		assert_ok!(Nft::auction_bundle(
 			Some(collection_owner).into(),
 			tokens.clone(),
-			16_000,
+			PAYMENT_ASSET,
 			1_000,
 			Some(1),
 		));
@@ -1062,7 +1056,7 @@ fn auction_bundle() {
 		}
 
 		let buyer = 3;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&buyer, Some(16_000), 1_000);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, 1_000);
 		assert_ok!(Nft::bid(Some(buyer).into(), listing_id, 1_000));
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + 1);
@@ -1084,7 +1078,7 @@ fn auction_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::auction_bundle(Some(collection_owner).into(), vec![], 16_000, 1_000, None),
+			Nft::auction_bundle(Some(collection_owner).into(), vec![], PAYMENT_ASSET, 1_000, None),
 			Error::<Test>::NoToken
 		);
 
@@ -1093,7 +1087,7 @@ fn auction_bundle_fails() {
 			Nft::auction_bundle(
 				Some(collection_owner).into(),
 				vec![(collection_id, 1, 1), (collection_id_2, 1, 1),],
-				16_000,
+				PAYMENT_ASSET,
 				1_000,
 				None,
 			),
@@ -1107,7 +1101,7 @@ fn auction_bundle_fails() {
 			Nft::auction_bundle(
 				Some(collection_owner).into(),
 				vec![(collection_id, 1, 1), (collection_id, 2, 2)],
-				16_000,
+				PAYMENT_ASSET,
 				1_000,
 				None,
 			),
@@ -1120,7 +1114,7 @@ fn auction_bundle_fails() {
 fn auction() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_000;
 
 		let listing_id = Nft::next_listing_id();
@@ -1138,14 +1132,14 @@ fn auction() {
 
 		// first bidder at reserve price
 		let bidder_1 = 10;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&bidder_1, Some(payment_asset), reserve_price);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder_1, payment_asset, reserve_price);
 		assert_ok!(Nft::bid(Some(bidder_1).into(), listing_id, reserve_price,));
 		assert_eq!(GenericAsset::reserved_balance(payment_asset, &bidder_1), reserve_price);
 
 		// second bidder raises bid
 		let winning_bid = reserve_price + 1;
 		let bidder_2 = 11;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&bidder_2, Some(payment_asset), reserve_price + 1);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder_2, payment_asset, reserve_price + 1);
 		assert_ok!(Nft::bid(Some(bidder_2).into(), listing_id, winning_bid,));
 		assert!(GenericAsset::reserved_balance(payment_asset, &bidder_1).is_zero()); // bidder_1 funds released
 		assert_eq!(GenericAsset::reserved_balance(payment_asset, &bidder_2), winning_bid);
@@ -1182,7 +1176,7 @@ fn auction() {
 #[test]
 fn auction_royalty_payments() {
 	ExtBuilder::default().build().execute_with(|| {
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_004;
 		let beneficiary_1 = 11;
 		let beneficiary_2 = 12;
@@ -1207,7 +1201,7 @@ fn auction_royalty_payments() {
 
 		// first bidder at reserve price
 		let bidder = 10;
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&bidder, Some(payment_asset), reserve_price);
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder, payment_asset, reserve_price);
 		assert_ok!(Nft::bid(Some(bidder).into(), listing_id, reserve_price,));
 
 		// end auction
@@ -1259,7 +1253,7 @@ fn auction_royalty_payments() {
 fn close_listings_at_removes_listing_data() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_id = Nft::next_collection_id();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let price = 123_456;
 
 		let token_1 = first_token_id(collection_id);
@@ -1337,7 +1331,7 @@ fn close_listings_at_removes_listing_data() {
 fn auction_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_000;
 
 		let missing_token_id = (collection_id, 0, 2);
@@ -1411,7 +1405,7 @@ fn bid_fails_prechecks() {
 		);
 
 		let (_, token_id, token_owner) = setup_token();
-		let payment_asset = 16_000;
+		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_000;
 		let listing_id = Nft::next_listing_id();
 
@@ -1433,25 +1427,21 @@ fn bid_fails_prechecks() {
 		// no free balance
 		assert_noop!(
 			Nft::bid(Some(bidder).into(), listing_id, reserve_price),
-			prml_generic_asset::Error::<Test>::InsufficientBalance
+			crml_generic_asset::Error::<Test>::InsufficientBalance
 		);
 
 		// balance already reserved for other reasons
-		let _ = <Test as Trait>::MultiCurrency::deposit_creating(&bidder, Some(payment_asset), reserve_price + 100);
-		assert_ok!(<<Test as Trait>::MultiCurrency as MultiCurrencyAccounting>::reserve(
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder, payment_asset, reserve_price + 100);
+		assert_ok!(<<Test as Config>::MultiCurrency as MultiCurrency>::reserve(
 			&bidder,
-			Some(payment_asset),
+			payment_asset,
 			reserve_price
 		));
 		assert_noop!(
 			Nft::bid(Some(bidder).into(), listing_id, reserve_price),
-			prml_generic_asset::Error::<Test>::InsufficientBalance
+			crml_generic_asset::Error::<Test>::InsufficientBalance
 		);
-		let _ = <<Test as Trait>::MultiCurrency as MultiCurrencyAccounting>::unreserve(
-			&bidder,
-			Some(payment_asset),
-			reserve_price,
-		);
+		let _ = <<Test as Config>::MultiCurrency as MultiCurrency>::unreserve(&bidder, payment_asset, reserve_price);
 
 		// <= current bid
 		assert_ok!(Nft::bid(Some(bidder).into(), listing_id, reserve_price,));

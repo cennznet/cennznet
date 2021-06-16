@@ -20,8 +20,8 @@ use cennznet_runtime::{
 	constants::{asset::*, currency::*},
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
+use crml_support::MultiCurrency;
 use frame_support::assert_ok;
-use prml_support::MultiCurrencyAccounting as MultiCurrency;
 
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
@@ -32,14 +32,15 @@ use common::mock::ExtBuilder;
 fn generic_asset_transfer_works_without_fee_exchange() {
 	let initial_balance = 10 * DOLLARS;
 	let transfer_amount = 7_777 * MICROS;
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
-		CENTRAPAY_ASSET_ID,
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
+		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,
 	));
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
+		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
@@ -53,11 +54,11 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 			assert!(r.is_ok());
 
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CPAY_ASSET_ID),
 				initial_balance - transfer_amount - extrinsic_fee_for(&xt)
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
 			);
 		});
@@ -69,14 +70,15 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 	let initial_liquidity = 50 * DOLLARS;
 	let transfer_amount = 25 * MICROS;
 
-	let runtime_call = Call::GenericAsset(prml_generic_asset::Call::transfer(
-		CENTRAPAY_ASSET_ID,
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
+		CPAY_ASSET_ID,
 		bob(),
 		transfer_amount,
 	));
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
+		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
 			// Alice sets up CENNZ <> CPAY liquidity
@@ -111,15 +113,15 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 
 			// Check remaining balances
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENNZ_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CENNZ_ASSET_ID),
 				initial_balance - initial_liquidity - cennz_sold_amount, // transfer fee is charged in CENNZ
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&alice(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&alice(), CPAY_ASSET_ID),
 				initial_balance - initial_liquidity - transfer_amount // transfer fee is not charged in CPAY
 			);
 			assert_eq!(
-				<GenericAsset as MultiCurrency>::free_balance(&bob(), Some(CENTRAPAY_ASSET_ID)),
+				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
 			);
 		});

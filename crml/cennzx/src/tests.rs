@@ -27,9 +27,9 @@ use crate::{
 	with_account, with_exchange, Error, ExchangeAddressFor, RawEvent,
 };
 use core::convert::TryFrom;
+use crml_support::MultiCurrency;
 use frame_support::traits::{LockableCurrency, WithdrawReasons};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use prml_support::MultiCurrencyAccounting;
 
 #[test]
 fn investor_can_add_liquidity() {
@@ -46,7 +46,7 @@ fn investor_can_add_liquidity() {
 		));
 		assert_eq!(
 			last_event(),
-			Event::cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 15)),
+			Event::crml_cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 15)),
 		);
 
 		// Second investment
@@ -60,7 +60,7 @@ fn investor_can_add_liquidity() {
 		));
 		assert_eq!(
 			last_event(),
-			Event::cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 16)),
+			Event::crml_cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 16)),
 		);
 
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 20, TRADE_ASSET_A_ID => 31);
@@ -97,10 +97,10 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		let core_balance = 1000;
 		let locked_balance = 1000;
-		let locked_asset_id = <prml_generic_asset::Module<Test>>::staking_asset_id();
+		let locked_asset_id = <crml_generic_asset::Module<Test>>::staking_asset_id();
 		let investor: AccountId = with_account!(CORE_ASSET_ID => core_balance, locked_asset_id => locked_balance);
 
-		<prml_generic_asset::StakingAssetCurrency<Test>>::set_lock(
+		<crml_generic_asset::StakingAssetCurrency<Test>>::set_lock(
 			*b"CENNZX__",
 			&investor,
 			locked_balance,
@@ -115,7 +115,7 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 
 		assert_noop!(
 			Cennzx::add_liquidity(origin, locked_asset_id, min_liquidity, max_trade_amount, core_amount),
-			prml_generic_asset::Error::<Test>::LiquidityRestrictions
+			crml_generic_asset::Error::<Test>::LiquidityRestrictions
 		);
 	});
 }
@@ -360,7 +360,7 @@ fn asset_to_core_execute_buy() {
 
 		assert_eq!(
 			last_event(),
-			Event::cennzx(RawEvent::AssetBought(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 1004, 5)),
+			Event::crml_cennzx(RawEvent::AssetBought(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 1004, 5)),
 		);
 	});
 }
@@ -1184,7 +1184,7 @@ fn asset_to_core_execute_sell() {
 
 		assert_eq!(
 			last_event(),
-			Event::cennzx(RawEvent::AssetSold(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 90, 81)),
+			Event::crml_cennzx(RawEvent::AssetSold(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 90, 81)),
 		);
 	});
 }

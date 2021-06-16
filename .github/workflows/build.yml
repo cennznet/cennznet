@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - trunk/*
     paths:
       - "**.rs"
       - "**.toml"
@@ -13,6 +14,7 @@ on:
   push:
     branches:
       - develop
+      - trunk/*
     paths:
       - "**.rs"
       - "**.toml"
@@ -36,7 +38,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-02-11
+          toolchain: nightly-2021-03-05
           components: rustfmt
           target: wasm32-unknown-unknown
           default: true

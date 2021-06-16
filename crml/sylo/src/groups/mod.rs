@@ -22,7 +22,7 @@ use crate::{
 	inbox, vault,
 };
 
-pub trait Trait: inbox::Trait + device::Trait + vault::Trait {}
+pub trait Config: inbox::Config + device::Config + vault::Config {}
 
 // Meta type stored on group, members and invites
 pub type Meta = Vec<(Text, Text)>;
@@ -76,11 +76,11 @@ where
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as SyloGroups {
+	trait Store for Module<T: Config> as SyloGroups {
 		Groups get(fn group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
 
 		/// Stores the group ids that a user is a member of

@@ -16,7 +16,7 @@
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, dispatch::Vec};
 
-pub trait Trait: frame_system::Trait {}
+pub trait Config: frame_system::Config {}
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -33,12 +33,12 @@ impl<T: Encode + Decode> Default for Response<T> {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
 }
 
 // The data that is stored
 decl_storage! {
-	trait Store for Module<T: Trait> as SyloResponse {
+	trait Store for Module<T: Config> as SyloResponse {
 		Responses get(fn response): map hasher(blake2_128_concat) (T::AccountId, T::Hash /* request_id */) => Response<T::AccountId>;
 	}
 }

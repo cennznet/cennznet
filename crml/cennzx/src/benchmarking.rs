@@ -28,8 +28,6 @@ const TRADE_ASSET_A_ID: u32 = 2;
 const TRADE_ASSET_B_ID: u32 = 3;
 
 benchmarks! {
-	_{ }
-
 	buy_asset {
 		let investor: T::AccountId = whitelisted_caller();
 		let buyer: T::AccountId = account("buyer", 0, 0);
@@ -38,17 +36,17 @@ benchmarks! {
 		let asset_a: T::AssetId = TRADE_ASSET_A_ID.into();
 		let asset_b: T::AssetId = TRADE_ASSET_B_ID.into();
 
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 1000u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_b), 300u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&buyer, Some(asset_a), 100u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, core_asset_id, 1000u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, asset_a, 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, asset_b, 300u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&buyer, asset_a, 100u32.into());
 
 		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_a, 20u32.into(), 20u32.into(), 100u32.into());
 		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_b, 30u32.into(), 30u32.into(), 100u32.into());
 
 	}: _(RawOrigin::Signed(buyer.clone()), None, asset_a, asset_b, 10u32.into(), 50u32.into())
 	verify {
-		assert_eq!(T::MultiCurrency::free_balance(&buyer, Some(asset_a)), 79u32.into());
+		assert_eq!(T::MultiCurrency::free_balance(&buyer, asset_a), 79u32.into());
 	}
 
 	sell_asset {
@@ -59,17 +57,17 @@ benchmarks! {
 		let asset_a: T::AssetId = TRADE_ASSET_A_ID.into();
 		let asset_b: T::AssetId = TRADE_ASSET_B_ID.into();
 
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 1000u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_a), 200u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(asset_b), 300u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&seller, Some(asset_a), 100u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, core_asset_id, 1000u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, asset_a, 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, asset_b, 300u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&seller, asset_a, 100u32.into());
 
 		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_a, 20u32.into(), 20u32.into(), 100u32.into());
 		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), asset_b, 30u32.into(), 30u32.into(), 100u32.into());
 
 	}: _(RawOrigin::Signed(seller.clone()), None, asset_a, asset_b, 20u32.into(), 5u32.into())
 	verify {
-		assert_eq!(T::MultiCurrency::free_balance(&seller, Some(asset_a)), 80u32.into());
+		assert_eq!(T::MultiCurrency::free_balance(&seller, asset_a), 80u32.into());
 	}
 
 	add_liquidity {
@@ -78,8 +76,8 @@ benchmarks! {
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
 		let trade_asset_id: T::AssetId = TRADE_ASSET_A_ID.into();
 
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 200u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(trade_asset_id), 100u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, core_asset_id, 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, trade_asset_id, 100u32.into());
 
 		// Create an initial liquidity to force a longer logic path in the benchmarked add_liquidity
 		let initial_liquidity = 10u32.into();
@@ -99,8 +97,8 @@ benchmarks! {
 		let core_asset_id = <Cennzx<T>>::core_asset_id();
 		let trade_asset_id: T::AssetId = TRADE_ASSET_A_ID.into();
 
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(core_asset_id), 200u32.into());
-		let _ = T::MultiCurrency::deposit_creating(&investor, Some(trade_asset_id), 100u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, core_asset_id, 200u32.into());
+		let _ = T::MultiCurrency::deposit_creating(&investor, trade_asset_id, 100u32.into());
 
 		let initial_liquidity = 10u32.into();
 		let _ = <Cennzx<T>>::add_liquidity(RawOrigin::Signed(investor.clone()).into(), trade_asset_id, initial_liquidity, 9u32.into(), 20u32.into());

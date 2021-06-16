@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature,
+	MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::*;
 
@@ -64,12 +64,17 @@ pub type Timestamp = u64;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
+/// Block type.
+pub type Block = generic::Block<Header, OpaqueExtrinsic>;
+
+/// Block ID.
+pub type BlockId = generic::BlockId<Block>;
+
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
-	#[codec(compact)]
 	V1(FeeExchangeV1<AssetId, Balance>),
 }
 

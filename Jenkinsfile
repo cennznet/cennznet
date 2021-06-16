@@ -2,10 +2,10 @@ pipeline {
     agent none
     environment {
         RUST_VERSION='1.50.0'
-        RUST_NIGHTLY='nightly-2021-02-21'
+        RUST_NIGHTLY='nightly-2021-03-05'
     }
     options{
-        lock('singleton-build') 
+        lock('singleton-build')
     }
     stages {
         stage('Prepare and Build with extra features') {

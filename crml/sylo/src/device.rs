@@ -17,15 +17,15 @@ use frame_support::{decl_module, decl_storage, dispatch::Vec};
 
 pub type DeviceId = u32;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Config: frame_system::Config {}
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
 }
 
 // The data that is stored
 decl_storage! {
-	trait Store for Module<T: Trait> as SyloDevice {
+	trait Store for Module<T: Config> as SyloDevice {
 		pub Devices get(fn devices): map hasher(blake2_128_concat) T::AccountId => Vec<DeviceId>;
 	}
 }

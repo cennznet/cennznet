@@ -1,6 +1,6 @@
 [package]
 name = "cennznet-runtime"
-version = "1.5.1"
+version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 build = "build.rs"
@@ -11,83 +11,83 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 cennznet-cli = { path = "../cli", default-features = false }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-wabt = "0.9.1"
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
 # when running tests for the cennznet-runtime use the "integration_config" feature flag.
 # This save us from cases such as 24 hour eras in staking/session tests.
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-749580481
 cennznet-runtime = { path = ".", features = ["integration_config"] }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "1.3.5", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.102", optional = true, features = ["derive"] }
-smallvec = "1.4.1"
+log = { version = "0.4.14", default-features = false }
+smallvec = "1.6.1"
 static_assertions = "1.1.0"
 
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6", features = ["historical"] }
-pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
+pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", features = ["historical"] }
+pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
 
-frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
+frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+frame-try-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", optional = true }
 
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6"}
-sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6"}
-sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-
-prml-attestation = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-prml-generic-asset-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7"}
+sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7"}
+sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
 
 futures = { version = "0.3.1", features = ["compat"] }
 
 # Used for the node template's RPCs
-frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6" }
+frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
 
 # Used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6", optional = true }
-frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "2.0.6", optional = true }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", optional = true }
+frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
+crml-attestation = { path = "../crml/attestation", default-features = false}
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
+crml-generic-asset= { path = "../crml/generic-asset", default-features = false }
+crml-generic-asset-rpc-runtime-api = { path = "../crml/generic-asset/rpc/runtime-api", default-features = false }
 crml-nft = { path = "../crml/nft", default-features = false}
 crml-nft-rpc-runtime-api = { path = "../crml/nft/rpc/runtime-api", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false}
 crml-staking-rpc-runtime-api = { path = "../crml/staking/rpc/runtime-api", default-features = false }
+crml-support = { path = "../crml/support", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
+crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+substrate-wasm-builder = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 
 [features]
 default = ["std"]
@@ -95,6 +95,7 @@ std = [
 	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-try-runtime/std",
 	"pallet-authorship/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
@@ -108,13 +109,8 @@ std = [
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
-	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
-	"prml-attestation/std",
-	"prml-generic-asset/std",
-	"prml-generic-asset-rpc-runtime-api/std",
-	"prml-support/std",
 	"serde",
 	"sp-api/std",
 	"sp-authority-discovery/std",
@@ -133,14 +129,43 @@ std = [
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
 	"cennznet-primitives/std",
+	"crml-attestation/std",
 	"crml-cennzx/std",
 	"crml-cennzx-rpc-runtime-api/std",
+	"crml-generic-asset/std",
+	"crml-generic-asset-rpc-runtime-api/std",
 	"crml-nft/std",
 	"crml-nft-rpc-runtime-api/std",
 	"crml-staking/std",
 	"crml-staking-rpc-runtime-api/std",
+	"crml-support/std",
 	"crml-sylo/std",
 	"crml-transaction-payment/std",
+	"crml-transaction-payment-rpc-runtime-api/std",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-try-runtime",
+	"frame-system/try-runtime",
+	"pallet-authority-discovery/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-grandpa/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-randomness-collective-flip/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-utility/try-runtime",
+	"cennznet-primitives/try-runtime",
+	"crml-cennzx/try-runtime",
+	"crml-staking/try-runtime",
+	"crml-sylo/try-runtime",
+	"crml-transaction-payment/try-runtime",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

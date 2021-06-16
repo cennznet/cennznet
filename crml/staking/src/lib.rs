@@ -18,7 +18,7 @@
 //!
 //! The Staking module is used to manage funds at stake by network maintainers.
 //!
-//! - [`staking::Trait`](./trait.Trait.html)
+//! - [`staking::Config`](./trait.Config.html)
 //! - [`Call`](./enum.Call.html)
 //! - [`Module`](./struct.Module.html)
 //!
@@ -224,7 +224,7 @@ pub use slashing::REWARD_F1;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-	debug, decl_error, decl_event, decl_module, decl_storage,
+	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
 	ensure,
 	traits::{
@@ -241,8 +241,9 @@ use frame_system::{self as system, ensure_none, ensure_root, ensure_signed, offc
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
 use sp_npos_elections::{
-	build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen, Assignment,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, ExtendedBalance, SupportMap, VoteWeight, VotingLimit,
+	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, CompactSolution,
+	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
+	VoteWeight,
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, Zero},
@@ -250,7 +251,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
 	},
-	DispatchError, InnerOf, PerThing, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
+	DispatchError, InnerOf, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -262,7 +263,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromItera
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 const MAX_UNLOCKING_CHUNKS: usize = 32;
-pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
+pub const MAX_NOMINATIONS: usize = <CompactAssignments as CompactSolution>::LIMIT;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
 
@@ -270,7 +271,7 @@ pub(crate) const LOG_TARGET: &'static str = "staking";
 #[macro_export]
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
+		log::$level!(
 			target: crate::LOG_TARGET,
 			$patter $(, $values)*
 		)
@@ -627,9 +628,9 @@ pub enum ElectionCompute {
 	Unsigned,
 }
 
-pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
-	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug)]
@@ -645,8 +646,8 @@ pub struct ActiveEraInfo {
 
 /// Means for interacting with a specialized version of the `session` trait.
 ///
-/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`
-pub trait SessionInterface<AccountId>: frame_system::Trait {
+/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
+pub trait SessionInterface<AccountId>: frame_system::Config {
 	/// Disable a given validator by stash ID.
 	///
 	/// Returns `true` if new era should be forced at the end of this session.
@@ -659,22 +660,22 @@ pub trait SessionInterface<AccountId>: frame_system::Trait {
 	fn prune_historical_up_to(up_to: SessionIndex);
 }
 
-impl<T: Trait> SessionInterface<<T as frame_system::Trait>::AccountId> for T
+impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
-	T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
-	T: pallet_session::historical::Trait<
-		FullIdentification = Exposure<<T as frame_system::Trait>::AccountId, BalanceOf<T>>,
+	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+	T: pallet_session::historical::Config<
+		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
 		FullIdentificationOf = ExposureOf<T>,
 	>,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Trait>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Trait>::AccountId>,
-	T::ValidatorIdOf: Convert<<T as frame_system::Trait>::AccountId, Option<<T as frame_system::Trait>::AccountId>>,
+	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
+	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
-	fn disable_validator(validator: &<T as frame_system::Trait>::AccountId) -> Result<bool, ()> {
+	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
 		<pallet_session::Module<T>>::disable(validator)
 	}
 
-	fn validators() -> Vec<<T as frame_system::Trait>::AccountId> {
+	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
 		<pallet_session::Module<T>>::validators()
 	}
 
@@ -683,7 +684,7 @@ where
 	}
 }
 
-pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
+pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	/// The staking balance.
 	type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -704,7 +705,7 @@ pub trait Trait: frame_system::Trait + SendTransactionTypes<Call<Self>> {
 	type CurrencyToVote: CurrencyToVote<BalanceOf<Self>>;
 
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
 	/// Handler for the unbalanced reduction when slashing a staker.
 	type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -821,7 +822,7 @@ impl From<u32> for Releases {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Staking {
+	trait Store for Module<T: Config> as Staking {
 		/// Minimum amount to bond.
 		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
 
@@ -1026,7 +1027,7 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
+	pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Config>::AccountId {
 		/// One validator (and its nominators) has been slashed by the given amount.
 		Slash(AccountId, Balance),
 		/// The validator is invulnerable, so it has NOT been slashed.
@@ -1057,7 +1058,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// Not a controller account.
 		NotController,
 		/// Not a stash account.
@@ -1121,7 +1122,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		/// Number of sessions per era.
 		const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -1169,7 +1170,7 @@ decl_module! {
 				// needs upgrade
 				Releases::V1 => {
 					migration::upgrade_v1_to_v2::<T>();
-					T::MaximumBlockWeight::get()
+					T::BlockWeights::get().max_block
 				},
 				// won't occur, no live networks on this version...
 				Releases::V0 => Zero::zero(),
@@ -1740,7 +1741,6 @@ decl_module! {
 		fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
 			ensure_root(origin)?;
 			<Invulnerables<T>>::put(validators.clone());
-			debug::print!("Set invulnerable:{:?}", validators );
 			Self::deposit_event(RawEvent::SetInvulnerables(validators) );
 
 		}
@@ -1901,7 +1901,8 @@ decl_module! {
 		/// # </weight>
 		#[weight = T::WeightInfo::reap_stash(1_u32)]
 		fn reap_stash(_origin, stash: T::AccountId) {
-			ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
+			let at_minimum_or_dust = T::Currency::total_balance(&stash) <= T::Currency::minimum_balance();
+			ensure!(at_minimum_or_dust, Error::<T>::FundedTarget);
 			Self::kill_stash(&stash)?;
 			T::Currency::remove_lock(STAKING_ID, &stash);
 		}
@@ -1958,7 +1959,7 @@ decl_module! {
 		#[weight = T::WeightInfo::submit_solution_better(
 			size.validators.into(),
 			size.nominators.into(),
-			compact.len() as u32,
+			compact.voter_count() as u32,
 			winners.len() as u32,
 		)]
 		pub fn submit_election_solution(
@@ -1992,7 +1993,7 @@ decl_module! {
 		#[weight = T::WeightInfo::submit_solution_better(
 			size.validators.into(),
 			size.nominators.into(),
-			compact.len() as u32,
+			compact.voter_count() as u32,
 			winners.len() as u32,
 		)]
 		pub fn submit_election_solution_unsigned(
@@ -2022,7 +2023,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// The total balance that can be slashed from a stash account as of right now.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
@@ -2202,7 +2203,7 @@ impl<T: Trait> Module<T> {
 			let staked_assignments =
 				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
-			let supports = build_support_map::<T::AccountId>(&elected_stashes, &staked_assignments)
+			let supports = to_supports(&elected_stashes, &staked_assignments)
 				.map_err(|_| {
 					log!(
 						error,
@@ -2212,7 +2213,7 @@ impl<T: Trait> Module<T> {
 				.ok()?;
 
 			// collect exposures
-			let exposures = Self::collect_exposure(supports);
+			let exposures = Self::collect_exposures(supports);
 
 			// In order to keep the property required by `on_session_ending` that we must return the
 			// new validator set even if it's the same as the old, as long as any underlying
@@ -2238,7 +2239,9 @@ impl<T: Trait> Module<T> {
 	/// Self votes are added and nominations before the most recent slashing span are ignored.
 	///
 	/// No storage item is updated.
-	pub fn do_phragmen<Accuracy: PerThing>(iterations: usize) -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>>
+	pub fn do_phragmen<Accuracy: PerThing128>(
+		iterations: usize,
+	) -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>>
 	where
 		ExtendedBalance: From<InnerOf<Accuracy>>,
 	{
@@ -2287,7 +2290,7 @@ impl<T: Trait> Module<T> {
 				all_nominators,
 				Some((iterations, 0)), // exactly run `iterations` rounds.
 			)
-			.map_err(|err| log!(error, "Call to seq-phragmen failed due to {}", err))
+			.map_err(|err| log!(error, "Call to seq-phragmen failed due to {:?}", err))
 			.ok()
 		}
 	}
@@ -2469,15 +2472,14 @@ impl<T: Trait> Module<T> {
 			sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
 		// build the support map thereof in order to evaluate.
-		let supports = build_support_map::<T::AccountId>(&winners, &staked_assignments)
-			.map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
+		let supports = to_supports(&winners, &staked_assignments).map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
 
 		// Check if the score is the same as the claimed one.
-		let submitted_score = evaluate_support(&supports);
+		let submitted_score = (&supports).evaluate();
 		ensure!(submitted_score == claimed_score, Error::<T>::OffchainElectionBogusScore);
 
 		// At last, alles Ok. Exposures and store the result.
-		let exposures = Self::collect_exposure(supports);
+		let exposures = Self::collect_exposures(supports);
 		log!(
 			info,
 			"💸 A better solution (with compute {:?} and score {:?}) has been validated and stored on chain.",
@@ -2675,8 +2677,8 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Consume a set of [`Supports`] from [`sp_npos_elections`] and collect them into a [`Exposure`]
-	fn collect_exposure(
-		supports: SupportMap<T::AccountId>,
+	fn collect_exposures(
+		supports: Supports<T::AccountId>,
 	) -> Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)> {
 		let total_issuance = T::Currency::total_issuance();
 		let to_currency = |e: ExtendedBalance| T::CurrencyToVote::to_currency(e, total_issuance);
@@ -2806,29 +2808,29 @@ impl<T: Trait> Module<T> {
 ///
 /// Once the first new_session is planned, all session must start and then end in order, though
 /// some session can lag in between the newest session planned and the latest session started.
-impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
+impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
-			"[{}] planning new_session({})",
+		log!(
+			trace,
+			"[{:?}] planning new_session({})",
 			<frame_system::Module<T>>::block_number(),
 			new_index
 		);
 		Self::new_session(new_index)
 	}
 	fn start_session(start_index: SessionIndex) {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
-			"[{}] starting start_session({})",
+		log!(
+			trace,
+			"[{:?}] starting start_session({})",
 			<frame_system::Module<T>>::block_number(),
 			start_index
 		);
 		Self::start_session(start_index)
 	}
 	fn end_session(end_index: SessionIndex) {
-		frame_support::debug::native::trace!(
-			target: LOG_TARGET,
-			"[{}] ending end_session({})",
+		log!(
+			trace,
+			"[{:?}] ending end_session({})",
 			<frame_system::Module<T>>::block_number(),
 			end_index
 		);
@@ -2836,7 +2838,7 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	}
 }
 
-impl<T: Trait> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>> for Module<T> {
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>> for Module<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
 			let current_era = Self::current_era()
@@ -2864,7 +2866,7 @@ impl<T: Trait> historical::SessionManager<T::AccountId, Exposure<T::AccountId, B
 /// if any.
 pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: Trait> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
+impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
 		<Module<T>>::ledger(&controller).map(|l| l.stash)
 	}
@@ -2877,7 +2879,7 @@ impl<T: Trait> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
 pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: Trait> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>> for ExposureOf<T> {
+impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>> for ExposureOf<T> {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
 		if let Some(active_era) = <Module<T>>::active_era() {
 			Some(<Module<T>>::eras_stakers(active_era.index, &validator))
@@ -2888,16 +2890,16 @@ impl<T: Trait> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Trait> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
 where
-	T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
-	T: pallet_session::historical::Trait<
-		FullIdentification = Exposure<<T as frame_system::Trait>::AccountId, BalanceOf<T>>,
+	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+	T: pallet_session::historical::Config<
+		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
 		FullIdentificationOf = ExposureOf<T>,
 	>,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Trait>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Trait>::AccountId>,
-	T::ValidatorIdOf: Convert<<T as frame_system::Trait>::AccountId, Option<<T as frame_system::Trait>::AccountId>>,
+	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
+	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
 	fn on_offence(
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
@@ -3028,7 +3030,7 @@ pub struct FilterHistoricalOffences<T, R> {
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O> for FilterHistoricalOffences<Module<T>, R>
 where
-	T: Trait,
+	T: Config,
 	R: ReportOffence<Reporter, Offender, O>,
 	O: Offence<Offender>,
 {
@@ -3055,7 +3057,7 @@ where
 }
 
 #[allow(deprecated)]
-impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
+impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_election_solution_unsigned(_, _, score, era, _) = call {

@@ -48,7 +48,7 @@ where
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
-		amount_to_buy: WrappedBalance,
+		amount_to_sell: WrappedBalance,
 		asset_to_payout: AssetId,
 	) -> Result<SellPriceResponse<Balance>>;
 

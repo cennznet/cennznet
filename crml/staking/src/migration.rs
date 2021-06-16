@@ -21,17 +21,17 @@ use frame_support::Twox64Concat;
 //   * CurrentElected
 //   * CurrentEraStart
 //   * CurrentEraStartSessionIndex
-pub fn upgrade_v1_to_v2<T: Trait>() {
+pub fn upgrade_v1_to_v2<T: Config>() {
 	/// Deprecated storages used for migration only.
 	mod deprecated {
-		use crate::{BalanceOf, Exposure, SessionIndex, Trait};
+		use crate::{BalanceOf, Config, Exposure, SessionIndex};
 		use frame_support::{decl_module, decl_storage};
 		use sp_std::prelude::*;
 
-		decl_module! { pub struct Module<T: Trait> for enum Call where origin: T::Origin {} }
+		decl_module! { pub struct Module<T: Config> for enum Call where origin: T::Origin {} }
 
 		decl_storage! {
-			pub trait Store for Module<T: Trait> as Staking {
+			pub trait Store for Module<T: Config> as Staking {
 				pub SlotStake: BalanceOf<T>;
 
 				/// The currently elected validator set keyed by stash account ID.

@@ -53,7 +53,7 @@ fn fee_components_ga() {
 			100_000 * DOLLARS,
 			1_000_000 * DOLLARS,
 		] {
-			let call = Call::GenericAsset(prml_generic_asset::Call::transfer(CENTRAPAY_ASSET_ID, bob(), *amount));
+			let call = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), *amount));
 			let tx = signed_tx(call);
 			let tx_fee =
 				TransactionPayment::compute_fee_parts(Encode::encode(&tx).len() as u32, &tx.get_dispatch_info());

@@ -20,7 +20,6 @@
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
 
 use crate::{EraIndex, Exposure};
-use frame_support::traits::OnUnbalanced;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
@@ -38,19 +37,16 @@ mod types;
 pub use types::*;
 
 /// A balance amount in the reward currency
-type BalanceOf<T> = <<T as Trait>::CurrencyToReward as Currency<<T as system::Trait>::AccountId>>::Balance;
-/// A pending decrease to total issuance of the reward currency
-type NegativeImbalanceOf<T> =
-	<<T as Trait>::CurrencyToReward as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+type BalanceOf<T> = <<T as Config>::CurrencyToReward as Currency<<T as system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
 	fn process_reward_payouts(p: u32) -> Weight;
 	fn process_zero_payouts() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
 	/// The system event type
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// The reward currency system (total issuance, account balance, etc.) for payouts.
 	type CurrencyToReward: Currency<Self::AccountId>;
 	/// The treasury account for payouts
@@ -71,7 +67,7 @@ decl_event!(
 	pub enum Event<T>
 	where
 		Balance = BalanceOf<T>,
-		AccountId = <T as frame_system::Trait>::AccountId,
+		AccountId = <T as frame_system::Config>::AccountId,
 	{
 		/// Staker payout (nominator/validator account, amount)
 		EraStakerPayout(AccountId, Balance),
@@ -85,7 +81,7 @@ decl_event!(
 );
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Rewards {
+	trait Store for Module<T: Config> as Rewards {
 		/// Inflation rate % to apply on reward payouts
 		pub BaseInflationRate get(fn inflation_rate) config(): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
@@ -117,7 +113,7 @@ decl_storage! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
 		fn deposit_event() = default;
 
@@ -168,7 +164,7 @@ decl_module! {
 /// * 1 point to the producer of each referenced uncle block.
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
 where
-	T: Trait + pallet_authorship::Trait,
+	T: Config + pallet_authorship::Config,
 {
 	fn note_author(author: T::AccountId) {
 		Self::reward_by_ids(vec![(author, 20)])
@@ -178,7 +174,7 @@ where
 	}
 }
 
-impl<T: Trait> OnEndEra for Module<T> {
+impl<T: Config> OnEndEra for Module<T> {
 	type AccountId = T::AccountId;
 	/// A staking era has ended
 	/// Check if we have a new fiscal era starting
@@ -214,7 +210,7 @@ impl<T: Trait> OnEndEra for Module<T> {
 		);
 
 		// Deduct taxes from network spending
-		let _ = T::CurrencyToReward::deposit_into_existing(
+		let _ = T::CurrencyToReward::deposit_creating(
 			&T::TreasuryModuleId::get().into_account(),
 			next_reward.treasury_cut + remainder,
 		);
@@ -231,7 +227,7 @@ impl<T: Trait> OnEndEra for Module<T> {
 	}
 }
 
-impl<T: Trait> RewardCalculation for Module<T> {
+impl<T: Config> RewardCalculation for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
@@ -266,7 +262,7 @@ impl<T: Trait> RewardCalculation for Module<T> {
 	}
 }
 
-impl<T: Trait> HandlePayee for Module<T> {
+impl<T: Config> HandlePayee for Module<T> {
 	type AccountId = T::AccountId;
 
 	/// Set the payment target for a stash account.
@@ -293,7 +289,7 @@ impl<T: Trait> HandlePayee for Module<T> {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
 	/// Returns a remainder, the amount indivisble by the stakers
 	///
@@ -344,7 +340,7 @@ impl<T: Trait> Module<T> {
 			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_into_existing(&T::TreasuryModuleId::get().into_account(), remainder).ok();
+		T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), remainder);
 	}
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
@@ -535,16 +531,8 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-/// This handles the `NegativeImbalance` from burning transaction fees.
-/// The amount is noted by the rewards module for later distribution.
-impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
-	fn on_unbalanced(imbalance: NegativeImbalanceOf<T>) {
-		Self::note_transaction_fees(imbalance.peek());
-	}
-}
-
 /// Starting from `start` returns the next highest number divisible by `interval`
-fn quantize_forward<T: Trait>(start: T::BlockNumber, interval: T::BlockNumber) -> T::BlockNumber {
+fn quantize_forward<T: Config>(start: T::BlockNumber, interval: T::BlockNumber) -> T::BlockNumber {
 	(start + interval) - (start % interval)
 }
 
@@ -552,14 +540,14 @@ fn quantize_forward<T: Trait>(start: T::BlockNumber, interval: T::BlockNumber) -
 mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
-	use frame_support::{assert_err, assert_noop, assert_ok, impl_outer_event, impl_outer_origin, parameter_types};
-	use frame_system::{InitKind, Module as System};
+	use crml_generic_asset::impls::TransferDustImbalance;
+	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
-		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-		ModuleId,
+		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
+		FixedPointNumber, FixedU128, ModuleId, Perbill,
 	};
 
 	/// The account Id type in this test runtime
@@ -569,81 +557,75 @@ mod tests {
 	/// The balance type in this test runtime
 	type Balance = u64;
 
-	/// The test runtime struct
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct TestRuntime;
+	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+	type Block = frame_system::mocking::MockBlock<Test>;
 
-	impl_outer_origin! {
-		pub enum Origin for TestRuntime {}
-	}
-
-	use prml_generic_asset as generic;
-	impl_outer_event! {
-		pub enum TestEvent for TestRuntime {
-			system<T>,
-			generic<T>,
-			rewards<T>,
+	frame_support::construct_runtime!(
+		pub enum Test where
+			Block = Block,
+			NodeBlock = Block,
+			UncheckedExtrinsic = UncheckedExtrinsic,
+		{
+			System: frame_system::{Module, Call, Config, Storage, Event<T>},
+			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Module, Call, Storage},
+			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
 		}
-	}
+	);
 
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: u32 = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
-	impl frame_system::Trait for TestRuntime {
+	impl frame_system::Config for Test {
 		type BaseCallFilter = ();
+		type BlockWeights = ();
+		type BlockLength = ();
+		type DbWeight = ();
 		type Origin = Origin;
 		type Index = u64;
-		type Call = ();
+		type Call = Call;
 		type BlockNumber = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = AccountId;
+		type AccountId = u64;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
-		type Event = TestEvent;
+		type Event = Event;
 		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type DbWeight = ();
-		type BlockExecutionWeight = ();
-		type ExtrinsicBaseWeight = ();
-		type MaximumExtrinsicWeight = MaximumBlockWeight;
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type MaximumBlockLength = MaximumBlockLength;
 		type Version = ();
-		type PalletInfo = ();
+		type PalletInfo = PalletInfo;
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
+		type SS58Prefix = ();
 	}
 
-	impl prml_generic_asset::Trait for TestRuntime {
+	impl crml_generic_asset::Config for Test {
 		type AssetId = AssetId;
 		type Balance = Balance;
-		type Event = TestEvent;
+		type Event = Event;
+		type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 		type WeightInfo = ();
 	}
 
-	impl pallet_authorship::Trait for TestRuntime {
+	impl pallet_authorship::Config for Test {
 		type FindAuthor = crate::mock::Author11;
 		type UncleGenerations = crate::mock::UncleGenerations;
 		type FilterUncle = ();
-		type EventHandler = Module<Self>;
+		type EventHandler = Rewards;
 	}
 
 	parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
-		pub const BlockPayoutInterval: <TestRuntime as frame_system::Trait>::BlockNumber = 3;
+		pub const BlockPayoutInterval: <Test as frame_system::Config>::BlockNumber = 3;
 		pub const FiscalEraLength: u32 = 5;
 	}
-	impl Trait for TestRuntime {
+	impl Config for Test {
 		type BlockPayoutInterval = BlockPayoutInterval;
-		type CurrencyToReward = prml_generic_asset::SpendingAssetCurrency<Self>;
-		type Event = TestEvent;
+		type CurrencyToReward = crml_generic_asset::SpendingAssetCurrency<Self>;
+		type Event = Event;
 		type FiscalEraLength = FiscalEraLength;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type ScheduledPayoutRunner = MockPayoutRunner<Self>;
@@ -652,15 +634,15 @@ mod tests {
 	}
 
 	/// A payout runner which deposits the reward immediately
-	pub struct MockPayoutRunner<T: Trait>(sp_std::marker::PhantomData<T>);
+	pub struct MockPayoutRunner<T: Config>(sp_std::marker::PhantomData<T>);
 
-	impl<T: Trait> RunScheduledPayout for MockPayoutRunner<T> {
+	impl<T: Config> RunScheduledPayout for MockPayoutRunner<T> {
 		type AccountId = T::AccountId;
 		type Balance = BalanceOf<T>;
 
 		/// Make a payout to stash for the given era
 		fn run_payout(stash: &Self::AccountId, amount: Self::Balance, _era_index: EraIndex) -> Weight {
-			let _ = T::CurrencyToReward::deposit_into_existing(stash, amount);
+			let _ = T::CurrencyToReward::deposit_creating(stash, amount);
 			return Zero::zero();
 		}
 	}
@@ -680,19 +662,17 @@ mod tests {
 		}
 		/// Setup mock genesis, starts a new fiscal era to set inflation rate
 		pub fn build(self) -> sp_io::TestExternalities {
-			let mut storage = frame_system::GenesisConfig::default()
-				.build_storage::<TestRuntime>()
-				.unwrap();
+			let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 			// denominator can't be zero
 			let inflation_denominator = self.inflation_rate.1.max(One::one());
-			let _ = GenesisConfig {
+			let _ = rewards::GenesisConfig {
 				inflation_rate: FixedU128::saturating_from_rational(self.inflation_rate.0, inflation_denominator),
 				development_fund_take: Perbill::from_percent(10),
 			}
 			.assimilate_storage(&mut storage);
 
-			let _ = prml_generic_asset::GenesisConfig::<TestRuntime> {
+			let _ = crml_generic_asset::GenesisConfig::<Test> {
 				endowed_accounts: vec![10, 11],
 				initial_balance: 500,
 				staking_asset_id: 16000,
@@ -706,13 +686,7 @@ mod tests {
 
 			let mut ext = sp_io::TestExternalities::from(storage);
 			ext.execute_with(|| {
-				TestSystem::initialize(
-					&1,
-					&[0u8; 32].into(),
-					&[0u8; 32].into(),
-					&Default::default(),
-					InitKind::Full,
-				);
+				System::initialize(&1, &[0u8; 32].into(), &Default::default(), Default::default());
 				Rewards::new_fiscal_era();
 			});
 
@@ -720,12 +694,6 @@ mod tests {
 		}
 	}
 
-	/// Alias for the mocked module under test
-	type Rewards = Module<TestRuntime>;
-	/// Alias for the reward currency in the module under test
-	type RewardCurrency = <TestRuntime as Trait>::CurrencyToReward;
-	/// Alias for the mocked system module
-	type TestSystem = System<TestRuntime>;
 	/// Helper for creating the info required for validator reward payout
 	struct MockCommissionStakeInfo {
 		validator_stash: AccountId,
@@ -766,9 +734,9 @@ mod tests {
 	#[test]
 	fn quantize_forward_cases() {
 		// schedules forward
-		assert_eq!(quantize_forward::<TestRuntime>(100, 5), 105);
+		assert_eq!(quantize_forward::<Test>(100, 5), 105);
 		// schedules forward
-		assert_eq!(quantize_forward::<TestRuntime>(103, 5), 105);
+		assert_eq!(quantize_forward::<Test>(103, 5), 105);
 	}
 
 	#[test]
@@ -806,7 +774,7 @@ mod tests {
 	fn note_fee_payout_retains_n_latest() {
 		// note multiple fee payouts, it should keep only the latest n in state.
 		ExtBuilder::default().build().execute_with(|| {
-			let historical_payouts = [1_000_u64; <TestRuntime as Trait>::HistoricalPayoutEras::get() as usize];
+			let historical_payouts = [1_000_u64; <Test as Config>::HistoricalPayoutEras::get() as usize];
 			for payout in &historical_payouts {
 				Rewards::note_fee_payout(*payout);
 			}
@@ -825,16 +793,6 @@ mod tests {
 				// new_payouts     historical_payouts[3..]
 				[3333, 2222, 1111, 1000, 1000, 1000, 1000]
 			);
-		});
-	}
-
-	#[test]
-	fn on_unbalanced_handler_notes_fees() {
-		ExtBuilder::default().build().execute_with(|| {
-			let issued = 1_000;
-			let imbalance = RewardCurrency::issue(issued);
-			Rewards::on_unbalanced(imbalance);
-			assert_eq!(Rewards::transaction_fee_pot(), issued);
 		});
 	}
 
@@ -876,11 +834,8 @@ mod tests {
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 3, 10));
 			Rewards::new_fiscal_era();
 
-			let events = TestSystem::events();
-			assert_eq!(
-				events.last().unwrap().event,
-				TestEvent::rewards(RawEvent::NewFiscalEra(60))
-			);
+			let events = System::events();
+			assert_eq!(events.last().unwrap().event, Event::rewards(RawEvent::NewFiscalEra(60)));
 		});
 	}
 
@@ -892,15 +847,15 @@ mod tests {
 			Rewards::on_end_era(&vec![], 0, false);
 
 			let era_1_inflation_target = 14;
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
-			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
-			TestSystem::reset_events();
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
+			assert!(System::events().iter().any(|record| record.event == expected_event));
+			System::reset_events();
 
 			// No fiscal era events are expected for the following eras
 			Rewards::on_end_era(&vec![], 1, false);
 			Rewards::on_end_era(&vec![], 2, false);
-			assert!(!TestSystem::events().iter().any(|record| match record.event {
-				TestEvent::rewards(RawEvent::NewFiscalEra(_)) => true,
+			assert!(!System::events().iter().any(|record| match record.event {
+				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
@@ -914,8 +869,8 @@ mod tests {
 
 			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
-			let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
-			assert!(TestSystem::events().iter().any(|record| record.event == expected_event));
+			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
+			assert!(System::events().iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_2_inflation_target);
 		});
 	}
@@ -940,8 +895,8 @@ mod tests {
 				// Trigger era end, new fiscal era should be enacted
 				Rewards::on_end_era(&vec![], 0, false);
 
-				let expected_event = TestEvent::rewards(RawEvent::NewFiscalEra(14));
-				let events = TestSystem::events();
+				let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+				let events = System::events();
 				assert!(events.iter().any(|record| record.event == expected_event));
 
 				assert_eq!(Rewards::target_inflation_per_staking_era(), 14);
@@ -975,8 +930,8 @@ mod tests {
 			let base_inflation = 20;
 
 			// the basic reward model on CENNZnet is base inflation + fees
-			TransactionFeePot::<TestRuntime>::put(tx_fees);
-			TargetInflationPerStakingEra::<TestRuntime>::put(base_inflation);
+			TransactionFeePot::<Test>::put(tx_fees);
+			TargetInflationPerStakingEra::<Test>::put(base_inflation);
 
 			let next_reward = Rewards::calculate_total_reward();
 			assert_eq!(tx_fees, next_reward.transaction_fees,);
@@ -992,15 +947,15 @@ mod tests {
 			);
 
 			// no tx fees, still rewards based on inflation
-			TransactionFeePot::<TestRuntime>::put(0);
+			TransactionFeePot::<Test>::put(0);
 			let next_reward = Rewards::calculate_total_reward();
 			assert!(next_reward.transaction_fees.is_zero());
 			assert_eq!(base_inflation, next_reward.inflation);
 			assert_eq!(base_inflation, next_reward.total);
 
 			// no inflation, still rewards tx fees
-			TransactionFeePot::<TestRuntime>::put(tx_fees);
-			TargetInflationPerStakingEra::<TestRuntime>::put(0);
+			TransactionFeePot::<Test>::put(tx_fees);
+			TargetInflationPerStakingEra::<Test>::put(0);
 			let next_reward = Rewards::calculate_total_reward();
 			assert_eq!(tx_fees, next_reward.transaction_fees);
 			assert!(next_reward.inflation.is_zero());
@@ -1132,7 +1087,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<TestRuntime>>::author(), 11);
+			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);
@@ -1144,13 +1099,13 @@ mod tests {
 
 			// 21 is rewarded as an uncle producer
 			// 11 is rewarded as a block producer and uncle referencer and uncle producer
-			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<Test>>::get()
 				.individual
 				.values()
 				.cloned()
 				.collect();
 			assert_eq!(reward_points, vec![20 + 2 * 3 + 1, 1, 1]);
-			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 29);
+			assert_eq!(<CurrentEraRewardPoints<Test>>::get().total, 29);
 		})
 	}
 
@@ -1162,13 +1117,13 @@ mod tests {
 			let charlie: AccountId = 31;
 			Rewards::reward_by_ids(vec![(bob, 1), (alice, 1), (charlie, 1), (alice, 1)]);
 
-			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<TestRuntime>>::get()
+			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<Test>>::get()
 				.individual
 				.values()
 				.cloned()
 				.collect();
 			assert_eq!(reward_points, vec![2, 1, 1]);
-			assert_eq!(<CurrentEraRewardPoints<TestRuntime>>::get().total, 4);
+			assert_eq!(<CurrentEraRewardPoints<Test>>::get().total, 4);
 		})
 	}
 
@@ -1181,7 +1136,7 @@ mod tests {
 			let stake_map_3 =
 				MockCommissionStakeInfo::new((3, 3_000), vec![(5, 1_000), (6, 2_000)], Perbill::from_percent(2));
 
-			<Module<TestRuntime>>::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
+			Rewards::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
 
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 20));
 			Rewards::new_fiscal_era();
@@ -1246,7 +1201,7 @@ mod tests {
 			assert_eq!(Rewards::payee(&4), 5);
 
 			Rewards::note_transaction_fees(1000);
-			<Module<TestRuntime>>::reward_by_ids(vec![(1, 20)]);
+			Rewards::reward_by_ids(vec![(1, 20)]);
 
 			assert!(
 				Rewards::calculate_individual_reward(
@@ -1290,7 +1245,7 @@ mod tests {
 			let validator_total_payout = Rewards::calculate_total_reward().stakers_cut;
 
 			let validators = vec![validator_1, validator_2, validator_3];
-			let authoring_points = CurrentEraRewardPoints::<TestRuntime>::get();
+			let authoring_points = CurrentEraRewardPoints::<Test>::get();
 			let (per_validator_payouts, _remainder) =
 				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
@@ -1331,7 +1286,7 @@ mod tests {
 			let [validator_1, validator_2, validator_3] = validators;
 
 			let validator_total_payout = 333;
-			let authoring_points = CurrentEraRewardPoints::<TestRuntime>::get();
+			let authoring_points = CurrentEraRewardPoints::<Test>::get();
 			let (per_validator_payouts, _remainder) =
 				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
@@ -1368,24 +1323,24 @@ mod tests {
 			);
 
 			// payouts should start at block 30 because the interval is 3
-			let start_block = quantize_forward::<TestRuntime>(earliest_block, BlockPayoutInterval::get());
+			let start_block = quantize_forward::<Test>(earliest_block, BlockPayoutInterval::get());
 
 			// 1 payout for each validator
-			assert_eq!(ScheduledPayouts::<TestRuntime>::iter().count(), validator_stashes.len());
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validator_stashes.len());
 
 			// payouts are scheduled at the configured block interval
 			assert_eq!(
-				ScheduledPayouts::<TestRuntime>::get(start_block).unwrap(),
+				ScheduledPayouts::<Test>::get(start_block).unwrap(),
 				(validator_1, total_validator_reward / 3)
 			);
 
 			assert_eq!(
-				ScheduledPayouts::<TestRuntime>::get(start_block + BlockPayoutInterval::get()).unwrap(),
+				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get()).unwrap(),
 				(validator_2, total_validator_reward / 3)
 			);
 
 			assert_eq!(
-				ScheduledPayouts::<TestRuntime>::get(start_block + BlockPayoutInterval::get() * 2).unwrap(),
+				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get() * 2).unwrap(),
 				(validator_3, total_validator_reward / 3)
 			);
 		})
@@ -1404,7 +1359,7 @@ mod tests {
 				commission,
 			)
 			.exposures;
-			let initial_issuance = <TestRuntime as Trait>::CurrencyToReward::total_issuance();
+			let initial_issuance = <Test as Config>::CurrencyToReward::total_issuance();
 
 			// check different payee account support (nominator 3)
 			Rewards::set_payee(&3, &8);
@@ -1419,10 +1374,10 @@ mod tests {
 			// check payout happened to payee account and event deposited
 			let mut remainder = payout;
 			for (payee, amount) in expected_payouts {
-				assert_eq!(<TestRuntime as Trait>::CurrencyToReward::free_balance(&payee), amount);
-				assert!(TestSystem::events()
+				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
+				assert!(System::events()
 					.iter()
-					.find(|e| e.event == TestEvent::rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.find(|e| e.event == Event::rewards(RawEvent::EraStakerPayout(payee, amount)))
 					.is_some());
 				remainder = remainder.saturating_sub(amount);
 			}
@@ -1430,13 +1385,13 @@ mod tests {
 			// remainder to treasury
 			assert!(remainder > 0);
 			assert_eq!(
-				<TestRuntime as Trait>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
 				remainder
 			);
 
 			// issuance total increase
 			assert_eq!(
-				<TestRuntime as Trait>::CurrencyToReward::total_issuance(),
+				<Test as Config>::CurrencyToReward::total_issuance(),
 				initial_issuance + payout
 			);
 		})
@@ -1454,24 +1409,24 @@ mod tests {
 
 			// treasury is paid
 			assert_eq!(
-				<TestRuntime as Trait>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
 				// +1 is the remainder from after stakers cut distribution
 				next_reward.treasury_cut + 1
 			);
 
 			// payouts scheduled for each validator
-			assert_eq!(ScheduledPayouts::<TestRuntime>::iter().count(), validators.len());
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
 
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 
 			assert_eq!(ScheduledPayoutEra::get(), era);
 			// Storage reset for next era
-			assert!(!TransactionFeePot::<TestRuntime>::exists());
-			assert!(!CurrentEraRewardPoints::<TestRuntime>::exists());
+			assert!(!TransactionFeePot::<Test>::exists());
+			assert!(!CurrentEraRewardPoints::<Test>::exists());
 		})
 	}
 
@@ -1486,11 +1441,11 @@ mod tests {
 			Rewards::on_end_era(&validators, era, true);
 			let next_reward = Rewards::calculate_total_reward();
 			assert_eq!(next_reward.transaction_fees, 1_000);
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
-				.find(|e| e.event == TestEvent::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
+				.find(|e| e.event == Event::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
 				.is_some());
-			assert!(ScheduledPayouts::<TestRuntime>::iter().count().is_zero());
+			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
 			assert!(ScheduledPayoutEra::get().is_zero());
 
 			// Normal era: payouts scheduled
@@ -1498,13 +1453,13 @@ mod tests {
 			let next_reward = Rewards::calculate_total_reward();
 			Rewards::on_end_era(&validators, era + 1, false);
 
-			assert!(TransactionFeePot::<TestRuntime>::get().is_zero());
-			assert_eq!(ScheduledPayouts::<TestRuntime>::iter().count(), validators.len());
+			assert!(TransactionFeePot::<Test>::get().is_zero());
+			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
 			assert_eq!(ScheduledPayoutEra::get(), era + 1);
-			assert!(TestSystem::events()
+			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== TestEvent::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 		})
 	}

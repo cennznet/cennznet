@@ -17,37 +17,48 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
-use cennznet_primitives::{
-	traits::SimpleAssetSystem,
-	types::{AccountId, Balance},
-};
+use cennznet_primitives::types::{AccountId, Balance};
+use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
 use frame_support::{
-	dispatch::DispatchResult,
-	traits::{Contains, ContainsLengthBound, Currency, Get, OnUnbalanced},
+	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use prml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use smallvec::smallvec;
 use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
-pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Trait>(PhantomData<T>);
+pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
 
+#[allow(dead_code)]
 /// The max. number of validator payouts per era based on runtime config
 const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
 
+#[allow(dead_code)]
 #[cfg(not(feature = "integration_config"))]
 const MAX_VALIDATORS: u32 = 5_000;
+#[allow(dead_code)]
 #[cfg(feature = "integration_config")]
 const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
-impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunner<T> {
+/// Handles block transaction fees tracking them using the Rewards module
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			Rewards::note_transaction_fees(fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				Rewards::note_transaction_fees(tips.peek());
+			}
+		}
+	}
+}
+
+impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;
 	type Balance = Balance;
 
@@ -60,8 +71,8 @@ impl<T: crml_staking::rewards::Trait> RunScheduledPayout for ScheduledPayoutRunn
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
-		frame_support::debug::debug!(
-			target: "rewards",
+		log::debug!(
+			target: "runtime::rewards",
 			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
 			validator_stash,
 			amount,
@@ -93,8 +104,8 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 }
 
 /// Provides a membership set with only the configured sudo user
-pub struct RootMemberOnly<T: pallet_sudo::Trait>(PhantomData<T>);
-impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
+pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
+impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
 		t == (&pallet_sudo::Module::<T>::key())
 	}
@@ -105,39 +116,12 @@ impl<T: pallet_sudo::Trait> Contains<T::AccountId> for RootMemberOnly<T> {
 		1
 	}
 }
-impl<T: pallet_sudo::Trait> ContainsLengthBound for RootMemberOnly<T> {
+impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
 	fn min_len() -> usize {
 		1
 	}
 	fn max_len() -> usize {
 		1
-	}
-}
-
-/// Provides an impl for the `SimpleAssetSystem` trait
-/// Used to integrate GA with CENNZX
-pub struct SimpleAssetShim<T: prml_generic_asset::Trait>(PhantomData<T>);
-impl<T: prml_generic_asset::Trait> SimpleAssetSystem for SimpleAssetShim<T> {
-	type AccountId = T::AccountId;
-	type AssetId = T::AssetId;
-	type Balance = T::Balance;
-	/// Transfer some `amount` of assets `from` one account `to` another
-	fn transfer(
-		asset_id: Self::AssetId,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult {
-		// note: we don't emit a 'transferred' event with this method
-		prml_generic_asset::Module::<T>::make_transfer(asset_id, from, to, amount)
-	}
-	/// Get the liquid asset balance of `account`
-	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance {
-		prml_generic_asset::Module::<T>::free_balance(asset_id, account)
-	}
-	/// Get the default asset/currency ID in the system
-	fn default_asset_id() -> Self::AssetId {
-		<prml_generic_asset::Module<T> as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id()
 	}
 }
 
@@ -158,14 +142,17 @@ mod tests {
 			currency::{DOLLARS, MICROS, WEI},
 			time::DAYS,
 		},
-		AdjustmentVariable, AvailableBlockRatio, MaximumBlockWeight, MinimumMultiplier, Multiplier, Runtime, System,
+		AdjustmentVariable, MinimumMultiplier, Multiplier, Runtime, RuntimeBlockWeights as BlockWeights, System,
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
-	use frame_support::weights::{Weight, WeightToFeePolynomial};
+	use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
 	use sp_runtime::{assert_eq_error_rate, traits::Convert, FixedPointNumber};
 
-	fn max() -> Weight {
-		AvailableBlockRatio::get() * MaximumBlockWeight::get()
+	fn max_normal() -> Weight {
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
+			.unwrap_or_else(|| BlockWeights::get().max_block)
 	}
 
 	fn min_multiplier() -> Multiplier {
@@ -173,7 +160,7 @@ mod tests {
 	}
 
 	fn target() -> Weight {
-		TargetBlockFullness::get() * max()
+		TargetBlockFullness::get() * max_normal()
 	}
 
 	// update based on runtime impl.
@@ -189,7 +176,7 @@ mod tests {
 		let previous_float = previous_float.max(min_multiplier().into_inner() as f64 / accuracy);
 
 		// maximum tx weight
-		let m = max() as f64;
+		let m = max_normal() as f64;
 		// block weight always truncated to max weight
 		let block_weight = (block_weight as f64).min(m);
 		let v: f64 = AdjustmentVariable::get().to_fraction();
@@ -214,7 +201,7 @@ mod tests {
 			.unwrap()
 			.into();
 		t.execute_with(|| {
-			System::set_block_limits(w, 0);
+			System::set_block_consumed_resources(w, 0);
 			assertions()
 		});
 	}
@@ -227,8 +214,8 @@ mod tests {
 			(100, fm.clone()),
 			(1000, fm.clone()),
 			(target(), fm.clone()),
-			(max() / 2, fm.clone()),
-			(max(), fm.clone()),
+			(max_normal() / 2, fm.clone()),
+			(max_normal(), fm.clone()),
 		];
 		test_set.into_iter().for_each(|(w, fm)| {
 			run_with_system_weight(w, || {
@@ -295,7 +282,7 @@ mod tests {
 		// Start with an adjustment multiplier of 1.
 		// if every block in 24 hour period has a maximum weight then the multiplier should have increased
 		// to > ~23% by the end of the period.
-		run_with_system_weight(max(), || {
+		run_with_system_weight(max_normal(), || {
 			let mut fm = Multiplier::one();
 			// `DAYS` is a function of `SECS_PER_BLOCK`
 			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
@@ -314,7 +301,7 @@ mod tests {
 		// `cargo test congested_chain_simulation -- --nocapture` to get some insight.
 
 		// almost full. The entire quota of normal transactions is taken.
-		let block_weight = AvailableBlockRatio::get() * max() - 100;
+		let block_weight = BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap() - 100;
 
 		// Default substrate weight.
 		let tx_weight = frame_support::weights::constants::ExtrinsicBaseWeight::get();
@@ -333,7 +320,7 @@ mod tests {
 				}
 				fm = next;
 				iterations += 1;
-				let fee = <Runtime as crml_transaction_payment::Trait>::WeightToFee::calc(&tx_weight);
+				let fee = <Runtime as crml_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);
 				println!(
 					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} weis, \
@@ -436,8 +423,8 @@ mod tests {
 			10 * mb,
 			2147483647,
 			4294967295,
-			MaximumBlockWeight::get() / 2,
-			MaximumBlockWeight::get(),
+			BlockWeights::get().max_block / 2,
+			BlockWeights::get().max_block,
 			Weight::max_value() / 2,
 			Weight::max_value(),
 		]

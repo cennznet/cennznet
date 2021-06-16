@@ -13,79 +13,83 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
+use crml_generic_asset::impls::TransferDustImbalance;
+use frame_support::parameter_types;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill,
+	ModuleId,
 };
-
-mod nft {
-	pub use crate::Event;
-}
-
-impl_outer_event! {
-	pub enum Event for Test {
-		frame_system<T>,
-		prml_generic_asset<T>,
-		nft<T>,
-	}
-}
-
-// For testing the module, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Test;
 
 pub type AccountId = u64;
 
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		Nft: crml_nft::{Module, Call, Storage, Event<T>},
+	}
+);
+
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: u32 = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
-
-impl frame_system::Trait for Test {
+impl frame_system::Config for Test {
+	type BlockWeights = ();
+	type BlockLength = ();
 	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
 	type BlockNumber = u64;
+	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = Event;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
+	type Event = Event;
 	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = ();
 }
 
-impl prml_generic_asset::Trait for Test {
-	type Event = Event;
+parameter_types! {
+	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+}
+impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
+	type Event = Event;
+	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 	type WeightInfo = ();
 }
 
-impl_outer_origin! {
-	pub enum Origin for Test where system = frame_system {}
+parameter_types! {
+	pub const DefaultListingDuration: u64 = 5;
+	pub const MaxAttributeLength: u8 = 140;
+}
+impl crate::Config for Test {
+	type Event = Event;
+	type MultiCurrency = GenericAsset;
+	type MaxAttributeLength = MaxAttributeLength;
+	type DefaultListingDuration = DefaultListingDuration;
+	type WeightInfo = ();
 }
 
 #[derive(Default)]
@@ -99,13 +103,7 @@ impl ExtBuilder {
 			.into();
 
 		ext.execute_with(|| {
-			frame_system::Module::<Test>::initialize(
-				&1,
-				&[0u8; 32].into(),
-				&[0u8; 32].into(),
-				&Default::default(),
-				frame_system::InitKind::Full,
-			);
+			System::initialize(&1, &[0u8; 32].into(), &Default::default(), frame_system::InitKind::Full);
 		});
 
 		ext

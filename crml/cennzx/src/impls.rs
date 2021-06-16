@@ -15,10 +15,10 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{BalanceOf, Module, Trait};
+use crate::{Config, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
+use crml_support::MultiCurrency;
 use frame_support::dispatch::DispatchError;
-use prml_support::{AssetIdAuthority, MultiCurrencyAccounting};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -34,9 +34,9 @@ pub trait ExchangeAddressFor {
 }
 
 /// A CENNZX exchange address generator implementation
-pub struct ExchangeAddressGenerator<T: Trait>(PhantomData<T>);
+pub struct ExchangeAddressGenerator<T: Config>(PhantomData<T>);
 
-impl<T: Trait> ExchangeAddressFor for ExchangeAddressGenerator<T>
+impl<T: Config> ExchangeAddressFor for ExchangeAddressGenerator<T>
 where
 	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 	T::AssetId: Into<u64>,
@@ -58,10 +58,10 @@ where
 	}
 }
 
-impl<T: Trait> BuyFeeAsset for Module<T> {
+impl<T: Config> BuyFeeAsset for Module<T> {
 	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
-	type FeeExchange = FeeExchange<T::AssetId, BalanceOf<T>>;
+	type Balance = T::Balance;
+	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;
 
 	/// Use CENNZX to seamlessly buy fee asset
 	fn buy_fee_asset(
@@ -70,7 +70,7 @@ impl<T: Trait> BuyFeeAsset for Module<T> {
 		exchange_op: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
 		let fee_exchange_asset_id = exchange_op.asset_id();
-		let fee_asset_id = <T::MultiCurrency as MultiCurrencyAccounting>::DefaultCurrencyId::asset_id();
+		let fee_asset_id = <T::MultiCurrency as MultiCurrency>::fee_currency();
 
 		Self::execute_buy(
 			&who,
@@ -91,8 +91,8 @@ pub(crate) mod impl_tests {
 		Error,
 	};
 	use cennznet_primitives::types::FeeExchange;
+	use crml_support::MultiCurrency;
 	use frame_support::{assert_err, assert_ok};
-	use prml_support::MultiCurrencyAccounting;
 
 	#[test]
 	fn it_generates_an_exchange_address() {

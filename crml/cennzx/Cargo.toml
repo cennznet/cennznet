@@ -1,39 +1,37 @@
 [package]
 name = "crml-cennzx"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-codec = { version = "1.3.5", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-primitive-types = { version = "0.7.2", default-features = false }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false, optional = true }
-prml-generic-asset = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-prml-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6", default-features = false }
+crml-generic-asset = { path = "../generic-asset", default-features = false }
+crml-support = { path = "../support", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false, optional = true }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 
 [dev-dependencies]
 cennznet-runtime = { path = "../../runtime" }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "2.0.6" }
+sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"primitive-types/std",
 	"serde",
 	"cennznet-primitives/std",
+	"crml-generic-asset/std",
+	"crml-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"prml-generic-asset/std",
-	"prml-support/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -42,3 +40,4 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking"
 ]
+try-runtime = ["frame-support/try-runtime"]

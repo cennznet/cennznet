@@ -18,14 +18,14 @@ use frame_support::{decl_module, decl_storage, dispatch::Vec};
 type MessageId = u32;
 type Message = Vec<u8>;
 
-pub trait Trait: frame_system::Trait {}
+pub trait Config: frame_system::Config {}
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as SyloInbox {
+	trait Store for Module<T: Config> as SyloInbox {
 		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
 		Values get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}

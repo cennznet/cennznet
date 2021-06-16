@@ -17,19 +17,18 @@
 
 //! Test utilities
 
+use crate as staking;
 use crate::rewards::{HandlePayee, RewardCalculation, RewardParts};
 use crate::*;
 use frame_support::{
-	assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
+	assert_ok, parameter_types,
+	traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize, OneSessionHandler},
 	weights::{constants::RocksDbWeight, Weight},
-	IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
+	IterableStorageMap, StorageDoubleMap, StorageValue,
 };
 use sp_core::H256;
 use sp_io;
-use sp_npos_elections::{
-	build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
-};
+use sp_npos_elections::{reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment};
 use sp_runtime::{
 	testing::{Header, TestXt, UintAuthorityId},
 	traits::{IdentityLookup, One, Zero},
@@ -62,7 +61,7 @@ thread_local! {
 
 /// Another session handler struct to test on_disabled.
 pub struct OtherSessionHandler;
-impl pallet_session::OneSessionHandler<AccountId> for OtherSessionHandler {
+impl OneSessionHandler<AccountId> for OtherSessionHandler {
 	type Key = UintAuthorityId;
 
 	fn on_genesis_session<'a, I: 'a>(_: I)
@@ -153,32 +152,22 @@ impl Get<u32> for MaxIterations {
 	}
 }
 
-impl_outer_origin! {
-	pub enum Origin for Test where system = frame_system {}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-impl_outer_dispatch! {
-	pub enum Call for Test where origin: Origin {
-		staking::Staking,
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+		Staking: staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
 	}
-}
-
-mod staking {
-	// Re-export needed for `impl_outer_event!`.
-	pub use super::super::*;
-}
-use frame_system as system;
-use pallet_balances as balances;
-use pallet_session as session;
-
-impl_outer_event! {
-	pub enum MetaEvent for Test {
-		system<T>,
-		balances<T>,
-		session,
-		staking<T>,
-	}
-}
+);
 
 /// Author of block is always 11
 pub struct Author11;
@@ -191,53 +180,51 @@ impl FindAuthor<AccountId> for Author11 {
 	}
 }
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Test;
-
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = frame_support::weights::constants::WEIGHT_PER_SECOND * 2;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-	pub const MaxLocks: u32 = 1024;
+	pub BlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::simple_max(
+			frame_support::weights::constants::WEIGHT_PER_SECOND * 2
+		);
 }
-impl frame_system::Trait for Test {
+impl frame_system::Config for Test {
 	type BaseCallFilter = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = RocksDbWeight;
 	type Origin = Origin;
 	type Index = AccountIndex;
-	type BlockNumber = BlockNumber;
 	type Call = Call;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = MetaEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = RocksDbWeight;
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = ();
 }
-impl pallet_balances::Trait for Test {
-	type MaxLocks = MaxLocks;
+
+parameter_types! {
+	pub const MaxLocks: u32 = 1024;
+}
+impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = MetaEvent;
+	type Event = Event;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type MaxLocks = MaxLocks;
 	type WeightInfo = ();
 }
+
 parameter_types! {
 	pub const UncleGenerations: u64 = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
@@ -247,33 +234,35 @@ sp_runtime::impl_opaque_keys! {
 		pub other: OtherSessionHandler,
 	}
 }
-impl pallet_session::Trait for Test {
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
-	type Keys = SessionKeys;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionHandler = (OtherSessionHandler,);
-	type Event = MetaEvent;
+impl pallet_session::Config for Test {
+	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
-	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionHandler = (OtherSessionHandler,);
+	type Keys = SessionKeys;
+	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = ();
 }
 
-impl pallet_session::historical::Trait for Test {
+impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
-impl pallet_authorship::Trait for Test {
+
+impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
 	type EventHandler = ();
 }
+
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;
 }
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
@@ -285,18 +274,18 @@ parameter_types! {
 	pub const MaxNominatorRewardedPerValidator: u32 = 64;
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
-	pub const OffchainSolutionWeightLimit: Weight = MaximumBlockWeight::get();
+	pub OffchainSolutionWeightLimit: Weight = BlockWeights::get().max_block;
 }
 
 thread_local! {
 	pub static REWARD_REMAINDER_UNBALANCED: RefCell<u128> = RefCell::new(0);
 }
 
-impl Trait for Test {
+impl Config for Test {
 	type Currency = Balances;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
-	type Event = MetaEvent;
+	type Event = Event;
 	type Slash = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -437,12 +426,9 @@ impl ExtBuilder {
 		MAX_ITERATIONS.with(|v| *v.borrow_mut() = self.max_offchain_iterations);
 		OFFSET.with(|v| *v.borrow_mut() = self.offset);
 	}
+
 	pub fn minimum_bond(mut self, minimum_bond: Balance) -> Self {
 		self.minimum_bond = minimum_bond;
-		self
-	}
-	pub fn initialize_first_session(mut self, init: bool) -> Self {
-		self.initialize_first_session = init;
 		self
 	}
 	pub fn offset(mut self, offset: BlockNumber) -> Self {
@@ -474,6 +460,14 @@ impl ExtBuilder {
 				(31, balance_factor * 2000),
 				(40, balance_factor),
 				(41, balance_factor * 2000),
+				(50, balance_factor),
+				(51, balance_factor * 2000),
+				(60, balance_factor),
+				(61, balance_factor * 2000),
+				(70, balance_factor),
+				(71, balance_factor * 2000),
+				(80, balance_factor),
+				(81, balance_factor * 2000),
 				(100, 2000 * balance_factor),
 				(101, 2000 * balance_factor),
 				// This allows us to have a total_payout different from 0.
@@ -507,7 +501,7 @@ impl ExtBuilder {
 				),
 			];
 		}
-		let _ = GenesisConfig::<Test> {
+		let _ = crate::GenesisConfig::<Test> {
 			stakers,
 			validator_count: self.validator_count,
 			minimum_bond: self.minimum_bond,
@@ -560,12 +554,6 @@ impl ExtBuilder {
 		ext.execute_with(post_conditions);
 	}
 }
-
-pub type System = frame_system::Module<Test>;
-pub type Balances = pallet_balances::Module<Test>;
-pub type Session = pallet_session::Module<Test>;
-pub type Timestamp = pallet_timestamp::Module<Test>;
-pub type Staking = Module<Test>;
 
 fn post_conditions() {
 	check_nominators();
@@ -861,8 +849,8 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 	let score = {
 		let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-		let support = build_support_map::<AccountId>(&winners, &staked_assignment).unwrap();
-		let score = evaluate_support(&support);
+		let support = to_supports(&winners, &staked_assignment).unwrap();
+		let score = (&support).evaluate();
 
 		assert!(sp_npos_elections::is_score_better::<Perbill>(
 			better_score,
@@ -963,8 +951,8 @@ pub(crate) fn prepare_submission_with(
 			Staking::slashable_balance_of_fn(),
 		);
 
-		let support_map = build_support_map::<AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
-		evaluate_support::<AccountId>(&support_map)
+		let support_map = to_supports(winners.as_slice(), staked.as_slice()).unwrap();
+		support_map.evaluate()
 	} else {
 		Default::default()
 	};
@@ -1001,28 +989,14 @@ macro_rules! assert_session_era {
 	};
 }
 
-pub(crate) fn staking_events() -> Vec<Event<Test>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| {
-			if let MetaEvent::staking(inner) = e {
-				Some(inner)
-			} else {
-				None
-			}
-		})
-		.collect()
-}
-
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
 /// A rewarder which does nothing
-pub struct NoopRewarder<T: Trait>(sp_std::marker::PhantomData<T>);
+pub struct NoopRewarder<T: Config>(sp_std::marker::PhantomData<T>);
 
-impl<T: Trait> RewardCalculation for NoopRewarder<T> {
+impl<T: Config> RewardCalculation for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 	fn calculate_total_reward() -> RewardParts<Self::Balance> {
@@ -1036,7 +1010,7 @@ impl<T: Trait> RewardCalculation for NoopRewarder<T> {
 	}
 }
 
-impl<T: Trait> HandlePayee for NoopRewarder<T> {
+impl<T: Config> HandlePayee for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 	fn set_payee(_stash: &Self::AccountId, _payee: &Self::AccountId) {}
 	fn remove_payee(_stash: &Self::AccountId) {}
@@ -1045,6 +1019,6 @@ impl<T: Trait> HandlePayee for NoopRewarder<T> {
 	}
 }
 
-impl<T: Trait> OnEndEra for NoopRewarder<T> {
+impl<T: Config> OnEndEra for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 }
