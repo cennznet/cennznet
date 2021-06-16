@@ -15,16 +15,14 @@
 
 use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
-use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use crml_support::MultiCurrency;
-use frame_support::{parameter_types, traits::OnUnbalanced};
+use crml_generic_asset::impls::TransferDustImbalance;
+use frame_support::parameter_types;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup},
 	ModuleId,
 };
-use sp_std::mem;
 
 pub type AccountId = u64;
 
@@ -74,21 +72,11 @@ impl frame_system::Config for Test {
 parameter_types! {
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-pub struct TransferImbalanceToTreasury;
-impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
-		let treasury_account_id = TreasuryModuleId::get().into_account();
-		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
-		mem::forget(deposit_imbalance);
-		mem::forget(imbalance);
-	}
-}
 impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferImbalanceToTreasury;
+	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 	type WeightInfo = ();
 }
 

@@ -76,7 +76,9 @@ pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
-pub use crml_generic_asset::{AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency};
+pub use crml_generic_asset::{
+	impls::TransferDustImbalance, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency,
+};
 use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
@@ -93,7 +95,7 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, TransferImbalanceToTreasury, WeightToCpayFee};
+use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -373,7 +375,7 @@ impl crml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferImbalanceToTreasury;
+	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 	type WeightInfo = ();
 }
 

@@ -175,7 +175,7 @@ use sp_std::{cmp, fmt::Debug, result};
 
 mod benchmarking;
 mod imbalances;
-mod impls;
+pub mod impls;
 mod mock;
 mod tests;
 mod types;

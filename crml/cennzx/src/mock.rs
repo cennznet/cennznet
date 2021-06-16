@@ -33,16 +33,14 @@ use crate::{
 };
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
-use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-use crml_support::MultiCurrency;
-use frame_support::{parameter_types, traits::OnUnbalanced};
+use crml_generic_asset::impls::TransferDustImbalance;
+use frame_support::parameter_types;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup},
 	ModuleId,
 };
-use sp_std::mem;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -90,26 +88,11 @@ impl frame_system::Config for Test {
 parameter_types! {
 		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 }
-// As generic asset now deals with existential deposits of the balances, we need to specify what
-// should happen when an account is dust cleaned. This may happen during some generic asset
-// operations if the policy of that operation allows it. Currently cennznet runtime transfers the
-// dust balances to the treasury account. It would be good for cennzx tests to do the same so the
-// tests simulates a more realistic scenario.
-pub struct TransferImbalanceToTreasury;
-impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
-		let treasury_account_id = TreasuryModuleId::get().into_account();
-		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
-		mem::forget(deposit_imbalance);
-		mem::forget(imbalance);
-	}
-}
 impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferImbalanceToTreasury;
+	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 	type WeightInfo = ();
 }
 

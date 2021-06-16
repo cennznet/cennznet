@@ -16,18 +16,17 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{BlockPayoutInterval, EpochDuration, GenericAsset, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
 use cennznet_primitives::types::{AccountId, Balance};
-use crml_generic_asset::{CheckedImbalance, NegativeImbalance, StakingAssetCurrency};
+use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
-use crml_support::MultiCurrency;
 use frame_support::{
 	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use smallvec::smallvec;
 use sp_runtime::Perbill;
-use sp_std::{marker::PhantomData, mem, prelude::*};
+use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
@@ -46,6 +45,7 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
+/// Handles block transaction fees tracking them using the Rewards module
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
@@ -131,17 +131,6 @@ pub struct SlashFundsToTreasury;
 impl OnUnbalanced<NegativeImbalance<Runtime>> for SlashFundsToTreasury {
 	fn on_nonzero_unbalanced(slash_amount: NegativeImbalance<Runtime>) {
 		StakingAssetCurrency::resolve_creating(&Treasury::account_id(), slash_amount);
-	}
-}
-
-pub struct TransferImbalanceToTreasury;
-impl OnUnbalanced<NegativeImbalance<Runtime>> for TransferImbalanceToTreasury {
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Runtime>) {
-		let treasury_account_id = Treasury::account_id();
-		let deposit_imbalance =
-			GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
-		mem::forget(deposit_imbalance);
-		mem::forget(imbalance);
 	}
 }
 

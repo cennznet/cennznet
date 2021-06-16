@@ -540,11 +540,10 @@ fn quantize_forward<T: Config>(start: T::BlockNumber, interval: T::BlockNumber) 
 mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
-	use crml_generic_asset::{CheckedImbalance, NegativeImbalance};
-	use crml_support::MultiCurrency;
+	use crml_generic_asset::impls::TransferDustImbalance;
 	use frame_support::{
 		assert_err, assert_noop, assert_ok, parameter_types,
-		traits::{Currency, OnUnbalanced},
+		traits::Currency,
 		StorageValue,
 	};
 	use pallet_authorship::EventHandler;
@@ -554,7 +553,6 @@ mod tests {
 		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
 		FixedPointNumber, FixedU128, ModuleId, Perbill,
 	};
-	use sp_std::mem;
 
 	/// The account Id type in this test runtime
 	type AccountId = u64;
@@ -607,26 +605,11 @@ mod tests {
 		type SS58Prefix = ();
 	}
 
-	// As generic asset now deals with existential deposits of the balances, we need to specify what
-	// should happen when an account is dust cleaned. This may happen during some generic asset
-	// operations if the policy of that operation allows it. Currently cennznet runtime transfers the
-	// dust balances to the treasury account. It would be good for staking tests to do the same so the
-	// tests simulates a more realistic scenario.
-	pub struct TransferImbalanceToTreasury;
-	impl OnUnbalanced<NegativeImbalance<Test>> for TransferImbalanceToTreasury {
-		fn on_nonzero_unbalanced(imbalance: NegativeImbalance<Test>) {
-			let treasury_account_id = TreasuryModuleId::get().into_account();
-			let deposit_imbalance =
-				GenericAsset::deposit_creating(&treasury_account_id, imbalance.asset_id(), imbalance.amount());
-			mem::forget(deposit_imbalance);
-			mem::forget(imbalance);
-		}
-	}
 	impl crml_generic_asset::Config for Test {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
-		type OnDustImbalance = TransferImbalanceToTreasury;
+		type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
 		type WeightInfo = ();
 	}
 

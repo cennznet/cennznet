@@ -16,14 +16,14 @@
 
 //! Extra trait implementations for the `GenericAsset` module
 
-use crate::{Config, Error, Module, NegativeImbalance, PositiveImbalance, SpendingAssetIdAuthority};
+use crate::{CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance, SpendingAssetIdAuthority};
 use crml_support::{AssetIdAuthority, MultiCurrency};
-use frame_support::traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons};
+use frame_support::traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons};
 use sp_runtime::{
-	traits::{CheckedSub, UniqueSaturatedInto, Zero},
-	DispatchError, DispatchResult,
+	traits::{AccountIdConversion, CheckedSub, Saturating, UniqueSaturatedInto, Zero},
+	DispatchError, DispatchResult, ModuleId,
 };
-use sp_std::result;
+use sp_std::{mem, result};
 
 impl<T: Config> MultiCurrency for Module<T> {
 	type AccountId = T::AccountId;
@@ -162,6 +162,21 @@ impl<T: Config> MultiCurrency for Module<T> {
 		}
 
 		<Module<T>>::unreserve(currency, who, amount)
+	}
+}
+
+/// A dust imbalance handler that transfers dust to the given `ModuleId`
+pub struct TransferDustImbalance<M: Get<ModuleId>>(sp_std::marker::PhantomData<M>);
+impl<T: Config, M: Get<ModuleId>> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<M> {
+	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<T>) {
+		let beneficiary = M::get().into_account();
+		let beneficiary_balance = <Module<T>>::free_balance(imbalance.asset_id(), &beneficiary);
+		<Module<T>>::set_free_balance(
+			imbalance.asset_id(),
+			&beneficiary,
+			beneficiary_balance.saturating_add(imbalance.peek()),
+		);
+		mem::forget(imbalance);
 	}
 }
 
