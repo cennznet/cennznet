@@ -541,11 +541,7 @@ mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::impls::TransferDustImbalance;
-	use frame_support::{
-		assert_err, assert_noop, assert_ok, parameter_types,
-		traits::Currency,
-		StorageValue,
-	};
+	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{

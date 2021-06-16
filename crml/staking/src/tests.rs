@@ -1110,7 +1110,7 @@ fn on_free_balance_zero_stash_removes_validator() {
 	// Tests that validator storage items are cleaned up when stash is empty
 	// Tests that storage items are untouched when controller is empty
 	ExtBuilder::default()
-		.existential_deposit(9)
+		.existential_deposit(10)
 		.minimum_bond(10)
 		.build_and_execute(|| {
 			// Check the balance of the validator account
@@ -1147,7 +1147,7 @@ fn on_free_balance_zero_stash_removes_validator() {
 			// Reduce free_balance of stash to 0
 			let _ = Balances::slash(&11, Balance::max_value());
 			// Check total balance of stash. It should be equal to the existential deposit.
-			assert_eq!(Balances::total_balance(&11), 9);
+			assert_eq!(Balances::total_balance(&11), 10);
 
 			// Reap the stash
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
@@ -1166,7 +1166,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
 	// Tests that nominator storage items are cleaned up when stash is empty
 	// Tests that storage items are untouched when controller is empty
 	ExtBuilder::default()
-		.existential_deposit(9)
+		.existential_deposit(10)
 		.minimum_bond(10)
 		.build_and_execute(|| {
 			// Make 10 a nominator
@@ -1206,7 +1206,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
 			// Reduce free_balance of stash to 0
 			let _ = Balances::slash(&11, Balance::max_value());
 			// Check total balance of stash. Only the minimum balance equal to existential_deposit should remain.
-			assert_eq!(Balances::total_balance(&11), 9);
+			assert_eq!(Balances::total_balance(&11), 10);
 
 			// Reap the stash
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
@@ -1896,7 +1896,7 @@ fn garbage_collection_after_slashing() {
 	// ensures that `SlashingSpans` and `SpanSlash` of an account is removed after reaping.
 	ExtBuilder::default()
 		.existential_deposit(2)
-		.minimum_bond(3)
+		.minimum_bond(2)
 		.build_and_execute(|| {
 			assert_eq!(Balances::free_balance(11), 256_000);
 
