@@ -229,7 +229,7 @@ decl_module! {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
-			// 'buy' weight is comparable to succesful closure of an auction
+			// 'buy' weight is comparable to successful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
 		}
 
