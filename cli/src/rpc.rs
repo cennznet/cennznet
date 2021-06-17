@@ -36,9 +36,8 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::Block as BlockT;
 use sp_transaction_pool::TransactionPool;
-use sp_utils::mpsc::TracingUnboundedSender;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {

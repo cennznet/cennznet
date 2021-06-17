@@ -1349,16 +1349,7 @@ decl_module! {
 
 			ensure!(deduped.len() == targets.len(), Error::<T>::DuplicateNominee);
 
-			let old = Self::nominators(stash).map_or_else(Vec::new, |x| x.targets);
-
-			let targets = targets.into_iter()
-			.map(|n| if old.contains(&n) || Validators::<T>::contains_key(&n) {
-					Ok(n)
-				} else {
-					Err(Error::<T>::BadTarget.into())
-				}
-			).collect::<Result<Vec<T::AccountId>, Error::<T>>>()?;
-
+			let targets = Self::nominators(stash).map_or_else(Vec::new, |x| x.targets);
 			let nominations = Nominations {
 				targets,
 				submitted_in: Self::current_era().unwrap_or(0),

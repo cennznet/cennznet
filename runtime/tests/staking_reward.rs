@@ -25,7 +25,6 @@ use cennznet_runtime::{
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
-	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OnFinalize, OnInitialize},
 	IterableStorageMap,
@@ -43,7 +42,7 @@ use sp_staking::{
 };
 mod common;
 
-use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
+use common::helpers::{extrinsic_fee_for, header, header_for_block_number, make_authority_keys, sign};
 use common::keyring::{alice, bob, charlie, signed_extra};
 use common::mock::ExtBuilder;
 
@@ -189,7 +188,7 @@ fn staking_genesis_config_works() {
 }
 
 #[test]
-fn era_transaction_fees_collected() {
+fn era_transaction_fees_collected_within_era() {
 	// Check era transaction fees are tracked
 	let initial_balance = 10_000 * DOLLARS;
 	let validators = make_authority_keys(6);
@@ -212,6 +211,7 @@ fn era_transaction_fees_collected() {
 				signed: Some((bob(), signed_extra(0, 0, None))),
 				function: runtime_call_2.clone(),
 			});
+			Executive::initialize_block(&header());
 
 			// Start with 0 transaction rewards
 			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
@@ -239,7 +239,7 @@ fn era_transaction_fees_collected() {
 }
 
 #[test]
-fn era_transaction_fees_accrued() {
+fn era_transaction_fees_accrue_on_forced_eras() {
 	// Check era transaction fees are tracked
 	let initial_balance = 10_000 * DOLLARS;
 	let validators = make_authority_keys(6);
@@ -262,18 +262,21 @@ fn era_transaction_fees_accrued() {
 				signed: Some((bob(), signed_extra(0, 0, None))),
 				function: runtime_call_2.clone(),
 			});
+			Executive::initialize_block(&header());
 
 			// Start with 0 transaction rewards
 			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
 
 			// Apply first extrinsic and check transaction rewards
 			let r = Executive::apply_extrinsic(xt_1.clone());
+			println!("{:?}", r);
 			assert!(r.is_ok());
 			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
 			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
+			println!("{:?}", r2);
 			assert!(r2.is_ok());
 			era1_tx_fees += extrinsic_fee_for(&xt_2);
 			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
@@ -514,7 +517,7 @@ fn slashed_cennz_goes_to_treasury() {
 			// Once `SlashDeferDuration` + 1 eras have passed the offence from era(0) will be applied.
 			// Fast-forward eras so that the slash is applied
 			// `start_active_era` seems to have some problems here...
-			start_session(SlashDeferDuration::get() * SessionsPerEra::get() + 1);
+			start_active_era(SlashDeferDuration::get() + 1);
 
 			// Treasury should receive all offenders stake
 			assert_eq!(

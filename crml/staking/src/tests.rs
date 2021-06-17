@@ -21,7 +21,7 @@ use super::*;
 use frame_election_provider_support::Support;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, OnFinalize, OnInitialize, ReservableCurrency},
+	traits::{Currency, OnInitialize, ReservableCurrency},
 	StorageMap,
 };
 use mock::*;
