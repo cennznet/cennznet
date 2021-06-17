@@ -43,33 +43,33 @@ $ docker run \
 
 Follow these steps to build and run CENNZnet from source.
 
-### 1. Set up build environment
+### 1) Set up build environment
 
-For Linux (the example below is for Debian-based machines):
-```
+Linux (Debian-based):
+```bash
 $ sudo apt install -y build-essential clang cmake gcc git libclang-dev libssl-dev pkg-config
 ```
 
-For MacOS (via Homebrew):
-```
+MacOS (via Homebrew):
+```bash
 $ brew install openssl cmake llvm
 ```
 
-For Windows follow [this guide](https://substrate.dev/docs/en/knowledgebase/getting-started/windows-users)  
+Windows follow [this guide](https://substrate.dev/docs/en/knowledgebase/getting-started/windows-users)  
 
-### 2. Install Rust
+### 2) Install Rust
 
 Install Rust on your machine through [here](https://rustup.rs/), and the following rust version and toolchains.
-```
+```bash
 $ cargo --version
 $ rustup install nightly
 $ rustup target add --toolchain=nightly wasm32-unknown-unknown
 ```
 
-### 3. Build and Run
+### 3) Build and Run
 
-Then clone the repo, build the binary and run it.
-```
+Clone the repo, build the binary and run it.
+```bash
 $ git clone https://github.com/cennznet/cennznet.git
 $ cd cennznet
 $ cargo build --release
