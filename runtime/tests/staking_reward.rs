@@ -67,7 +67,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Staking::on_initialize(b);
 		Rewards::on_initialize(b);
 		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
-		pallet_babe::CurrentSlot::put(Slot::from(b as u64));
+		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
@@ -555,11 +555,11 @@ fn slashed_cennz_goes_to_reporter() {
 			};
 
 			let slash_fraction = Perbill::from_percent(90);
-			assert_ok!(Staking::on_offence(
+			Staking::on_offence(
 				&[offence],
 				&[slash_fraction],
 				Staking::eras_start_session_index(active_era()).expect("session index exists"),
-			));
+			);
 
 			// Fast-forward eras so that the slash is applied
 			start_active_era(SlashDeferDuration::get() + 1);

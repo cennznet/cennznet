@@ -14,7 +14,7 @@
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # NFT Module
+//! # NFT Pallet
 //!
 //! Provides the basic creation and management of dynamic NFTs (created at runtime).
 //!
@@ -117,7 +117,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		/// A collection with the same ID already exists
 		CollectionIdExists,
 		/// Given collection name is invalid (invalid utf-8, too long, empty)
@@ -156,7 +156,7 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as Nft {
+	trait Store for Pallet<T: Config> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its human friendly name
@@ -770,7 +770,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
 	/// We're ok iff, all tokens in the bundle are from the:
 	/// 1) same collection and same series

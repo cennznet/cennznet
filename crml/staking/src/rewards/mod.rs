@@ -34,6 +34,8 @@ use sp_runtime::{
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 mod default_weights;
+#[cfg(test)]
+mod inflation;
 mod types;
 pub use types::*;
 
@@ -82,7 +84,7 @@ decl_event!(
 );
 
 decl_storage! {
-	trait Store for Module<T: Config> as Rewards {
+	trait Store for Pallet<T: Config> as Rewards {
 		/// Inflation rate % to apply on reward payouts
 		pub BaseInflationRate get(fn inflation_rate) config(): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
@@ -163,7 +165,7 @@ decl_module! {
 /// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
 /// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
 /// * 1 point to the producer of each referenced uncle block.
-impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
+impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
 where
 	T: Config + pallet_authorship::Config,
 {
@@ -175,7 +177,7 @@ where
 	}
 }
 
-impl<T: Config> OnEndEra for Module<T> {
+impl<T: Config> OnEndEra for Pallet<T> {
 	type AccountId = T::AccountId;
 	/// A staking era has ended
 	/// Check if we have a new fiscal era starting
@@ -228,7 +230,7 @@ impl<T: Config> OnEndEra for Module<T> {
 	}
 }
 
-impl<T: Config> RewardCalculation for Module<T> {
+impl<T: Config> RewardCalculation for Pallet<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
@@ -263,7 +265,7 @@ impl<T: Config> RewardCalculation for Module<T> {
 	}
 }
 
-impl<T: Config> HandlePayee for Module<T> {
+impl<T: Config> HandlePayee for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Set the payment target for a stash account.
@@ -290,7 +292,7 @@ impl<T: Config> HandlePayee for Module<T> {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
 	/// Returns a remainder, the amount indivisble by the stakers
 	///
@@ -539,13 +541,15 @@ mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::impls::TransferDustImbalance;
-	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
+	use frame_support::{
+		assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, PalletId, StorageValue,
+	};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
 		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
-		FixedPointNumber, FixedU128, PalletId, Perbill,
+		FixedPointNumber, FixedU128, Perbill,
 	};
 
 	/// The account Id type in this test runtime
@@ -564,10 +568,10 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-			Authorship: pallet_authorship::{Module, Call, Storage},
-			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Pallet, Call, Storage},
+			Rewards: rewards::{Pallet, Call, Storage, Config, Event<T>},
 		}
 	);
 
@@ -595,6 +599,7 @@ mod tests {
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
+		type OnSetCode = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 	}
@@ -1085,7 +1090,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);

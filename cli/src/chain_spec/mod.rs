@@ -21,7 +21,7 @@ use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig, GrandpaConfig,
 	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, WASM_BINARY,
+	SudoConfig, SystemConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -151,11 +151,11 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	});
 
 	GenesisConfig {
-		frame_system: Some(SystemConfig {
+		frame_system: SystemConfig {
 			code: WASM_BINARY.expect("wasm binary not available").to_vec(),
 			changes_trie_config: Default::default(),
-		}),
-		pallet_session: Some(SessionConfig {
+		},
+		pallet_session: SessionConfig {
 			keys: initial_authorities
 				.iter()
 				.map(|x| {
@@ -166,8 +166,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 					)
 				})
 				.collect::<Vec<_>>(),
-		}),
-		crml_staking: Some(StakingConfig {
+		},
+		crml_staking: StakingConfig {
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
@@ -178,13 +178,16 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			minimum_bond: 1,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
-		}),
-		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
-		pallet_babe: Some(BabeConfig { authorities: vec![] }),
-		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
-		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		crml_generic_asset: Some(GenericAssetConfig {
+		},
+		pallet_sudo: SudoConfig { key: root_key.clone() },
+		pallet_babe: BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+		},
+		pallet_im_online: ImOnlineConfig { keys: vec![] },
+		pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+		pallet_grandpa: GrandpaConfig { authorities: vec![] },
+		crml_generic_asset: GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CPAY_ASSET_ID, root_key.clone())],
@@ -197,18 +200,18 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 4, 1)),
 				(CPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4, 1)),
 			],
-		}),
-		crml_cennzx: Some(CennzxConfig {
+		},
+		crml_cennzx: CennzxConfig {
 			// 0.003%
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CPAY_ASSET_ID,
-		}),
-		crml_staking_rewards: Some(RewardsConfig {
+		},
+		crml_staking_rewards: RewardsConfig {
 			// 20% of all fees
 			development_fund_take: Perbill::from_percent(20),
 			// 80% APY
 			inflation_rate: FixedU128::saturating_from_rational(8, 10),
-		}),
+		},
 	}
 }
 
@@ -306,7 +309,7 @@ pub(crate) mod tests {
 				))
 			},
 			|config| {
-				let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
+				let (keep_alive, _, client, network, transaction_pool) = new_light_base(config)?;
 				Ok(sc_service_test::TestNetComponents::new(
 					keep_alive,
 					client,

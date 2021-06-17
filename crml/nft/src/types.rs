@@ -243,19 +243,19 @@ mod test {
 	#[test]
 	fn valid_royalties_plan() {
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.1))],
+			entitlements: vec![(1_u32, Permill::from_float(0.1))],
 		}
 		.validate());
 
 		// explicitally specifying zero royalties is odd but fine
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.0))],
+			entitlements: vec![(1_u32, Permill::from_float(0.0))],
 		}
 		.validate());
 
 		let plan = RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Permill::from_fraction(1.01)), // saturates at 100%
+				(1_u32, Permill::from_float(1.01)), // saturates at 100%
 			],
 		};
 		assert_eq!(plan.entitlements[0].1, Permill::one());
@@ -266,10 +266,7 @@ mod test {
 	fn invalid_royalties_plan() {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
-			entitlements: vec![
-				(1_u32, Permill::from_fraction(0.2)),
-				(2_u32, Permill::from_fraction(0.81)),
-			],
+			entitlements: vec![(1_u32, Permill::from_float(0.2)), (2_u32, Permill::from_float(0.81)),],
 		}
 		.validate());
 	}

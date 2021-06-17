@@ -31,7 +31,7 @@ pub fn upgrade_v1_to_v2<T: Config>() {
 		decl_module! { pub struct Module<T: Config> for enum Call where origin: T::Origin {} }
 
 		decl_storage! {
-			pub trait Store for Module<T: Config> as Staking {
+			pub trait Store for Pallet<T: Config> as Staking {
 				pub SlotStake: BalanceOf<T>;
 
 				/// The currently elected validator set keyed by stash account ID.
@@ -58,10 +58,10 @@ pub fn upgrade_v1_to_v2<T: Config>() {
 	}
 
 	let current_era_start_index = deprecated::CurrentEraStartSessionIndex::get();
-	let current_era = <Module<T> as Store>::CurrentEra::get().unwrap_or(0);
+	let current_era = <Pallet<T> as Store>::CurrentEra::get().unwrap_or(0);
 	let current_era_start = deprecated::CurrentEraStart::get();
-	<Module<T> as Store>::ErasStartSessionIndex::insert(current_era, current_era_start_index);
-	<Module<T> as Store>::ActiveEra::put(ActiveEraInfo {
+	<Pallet<T> as Store>::ErasStartSessionIndex::insert(current_era, current_era_start_index);
+	<Pallet<T> as Store>::ActiveEra::put(ActiveEraInfo {
 		index: current_era,
 		start: Some(current_era_start),
 	});
@@ -71,7 +71,7 @@ pub fn upgrade_v1_to_v2<T: Config>() {
 	for validator in &current_elected {
 		let exposure = deprecated::Stakers::<T>::get(validator);
 		current_total_stake += exposure.total;
-		<Module<T> as Store>::ErasStakers::insert(current_era, validator, &exposure);
+		<Pallet<T> as Store>::ErasStakers::insert(current_era, validator, &exposure);
 
 		let mut exposure_clipped = exposure;
 		let clipped_max_len = T::MaxNominatorRewardedPerValidator::get() as usize;
@@ -81,12 +81,12 @@ pub fn upgrade_v1_to_v2<T: Config>() {
 				.sort_unstable_by(|a, b| a.value.cmp(&b.value).reverse());
 			exposure_clipped.others.truncate(clipped_max_len);
 		}
-		<Module<T> as Store>::ErasStakersClipped::insert(current_era, validator, exposure_clipped);
+		<Pallet<T> as Store>::ErasStakersClipped::insert(current_era, validator, exposure_clipped);
 
-		let pref = <Module<T> as Store>::Validators::get(validator);
-		<Module<T> as Store>::ErasValidatorPrefs::insert(current_era, validator, pref);
+		let pref = <Pallet<T> as Store>::Validators::get(validator);
+		<Pallet<T> as Store>::ErasValidatorPrefs::insert(current_era, validator, pref);
 	}
-	<Module<T> as Store>::ErasTotalStake::insert(current_era, current_total_stake);
+	<Pallet<T> as Store>::ErasTotalStake::insert(current_era, current_total_stake);
 
 	// Kill old storages
 	deprecated::Stakers::<T>::remove_all();

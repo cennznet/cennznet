@@ -18,7 +18,7 @@
 
 use super::*;
 
-use crate::Module as GenericAsset;
+use crate::Pallet as GenericAsset;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_std::ops::{Add, Mul};

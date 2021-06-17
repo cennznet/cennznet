@@ -76,7 +76,7 @@ pub fn make_runtime_cennznut(module: &str, method: &str) -> CENNZnut {
 		block_cooldown: None,
 		constraints: None,
 	};
-	let module_obj = cennznut::v0::module::Module {
+	let module_obj = cennznut::v0::module::Pallet {
 		name: module.to_string(),
 		block_cooldown: None,
 		methods: vec![(method.to_string(), method_obj)],
@@ -94,7 +94,7 @@ pub fn make_contract_cennznut(contract_addr: &AccountId) -> CENNZnut {
 		block_cooldown: None,
 		constraints: None,
 	};
-	let module_obj = cennznut::v0::module::Module {
+	let module_obj = cennznut::v0::module::Pallet {
 		name: "contracts".to_string(),
 		block_cooldown: None,
 		methods: vec![("call".to_string(), method_obj)],

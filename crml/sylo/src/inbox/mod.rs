@@ -25,7 +25,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloInbox {
+	trait Store for Pallet<T: Config> as SyloInbox {
 		NextIndexes: map hasher(blake2_128_concat) T::AccountId => MessageId;
 		Values get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(MessageId, Message)>;
 	}

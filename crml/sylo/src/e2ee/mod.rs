@@ -29,7 +29,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloE2EE {
+	trait Store for Pallet<T: Config> as SyloE2EE {
 		PreKeyBundles get(fn pkbs): map hasher(blake2_128_concat) (T::AccountId, DeviceId) => Vec<PreKeyBundle>;
 	}
 }

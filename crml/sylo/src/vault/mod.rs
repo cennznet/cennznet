@@ -24,7 +24,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloVault {
+	trait Store for Pallet<T: Config> as SyloVault {
 		pub Vault get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }

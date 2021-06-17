@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Transaction Payment Module
+//! # Transaction Payment Pallet
 //!
 //! This module provides the basic logic needed to pay the absolute minimum amount needed for a
 //! transaction to be included. This includes:
@@ -271,7 +271,7 @@ pub trait Config: frame_system::Config {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as TransactionPayment {
+	trait Store for Pallet<T: Config> as TransactionPayment {
 		pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::saturating_from_integer(1);
 
 		StorageVersion build(|_: &GenesisConfig| Releases::V2): Releases;
@@ -336,7 +336,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config> Module<T>
+impl<T: Config> Pallet<T>
 where
 	BalanceOf<T>: FixedPointOperand,
 {
@@ -545,7 +545,7 @@ impl<Balance: Copy + Saturating> FeeParts<Balance> {
 	}
 }
 
-impl<T> Convert<Weight, BalanceOf<T>> for Module<T>
+impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
 where
 	T: Config,
 	BalanceOf<T>: FixedPointOperand,
@@ -593,7 +593,7 @@ where
 		TransactionValidityError,
 	> {
 		let tip = self.tip;
-		let fee = Module::<T>::compute_fee(len as u32, info, tip);
+		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		if let Some(exchange) = &self.fee_exchange {
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
@@ -698,7 +698,7 @@ where
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
 		let (tip, who, imbalance) = pre;
-		let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(&who, info, post_info, actual_fee, tip, imbalance)?;
 		Ok(())
 	}
@@ -723,7 +723,7 @@ mod tests {
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Header, TestXt},
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup, One},
 		Perbill,
 	};
 	use std::cell::RefCell;
@@ -737,9 +737,9 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: system::{Module, Call, Config, Storage, Event<T>},
-			Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: crml_transaction_payment::{Module, Storage},
+			System: system::{Pallet, Call, Config, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			TransactionPayment: crml_transaction_payment::{Pallet, Storage},
 		}
 	);
 
@@ -793,6 +793,7 @@ mod tests {
 		type AccountData = pallet_balances::AccountData<u64>;
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
+		type OnSetCode = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 	}
@@ -1158,25 +1159,25 @@ mod tests {
 					class: DispatchClass::Operational,
 					pays_fee: Pays::No,
 				};
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 10), 10);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 10), 10);
 				// No tip, only base fee works
 				let dispatch_info = DispatchInfo {
 					weight: 0,
 					class: DispatchClass::Operational,
 					pays_fee: Pays::Yes,
 				};
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
 				// Tip + base fee works
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 69), 169);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 69), 169);
 				// Len (byte fee) + base fee works
-				assert_eq!(Module::<Runtime>::compute_fee(42, &dispatch_info, 0), 520);
+				assert_eq!(Pallet::<Runtime>::compute_fee(42, &dispatch_info, 0), 520);
 				// Weight fee + base fee works
 				let dispatch_info = DispatchInfo {
 					weight: 1000,
 					class: DispatchClass::Operational,
 					pays_fee: Pays::Yes,
 				};
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 1100);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 0), 1100);
 			});
 	}
 
@@ -1196,7 +1197,7 @@ mod tests {
 					class: DispatchClass::Operational,
 					pays_fee: Pays::Yes,
 				};
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
 
 				// Everything works together :)
 				let dispatch_info = DispatchInfo {
@@ -1206,7 +1207,7 @@ mod tests {
 				};
 				// 123 weight, 456 length, 100 base
 				assert_eq!(
-					Module::<Runtime>::compute_fee(456, &dispatch_info, 789),
+					Pallet::<Runtime>::compute_fee(456, &dispatch_info, 789),
 					100 + (3 * 123 / 2) + 4560 + 789,
 				);
 			});
@@ -1229,7 +1230,7 @@ mod tests {
 					class: DispatchClass::Operational,
 					pays_fee: Pays::Yes,
 				};
-				assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+				assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
 
 				// Everything works together.
 				let dispatch_info = DispatchInfo {
@@ -1239,7 +1240,7 @@ mod tests {
 				};
 				// 123 weight, 456 length, 100 base
 				assert_eq!(
-					Module::<Runtime>::compute_fee(456, &dispatch_info, 789),
+					Pallet::<Runtime>::compute_fee(456, &dispatch_info, 789),
 					100 + (123 / 2) + 4560 + 789,
 				);
 			});
@@ -1260,7 +1261,7 @@ mod tests {
 					pays_fee: Pays::Yes,
 				};
 				assert_eq!(
-					Module::<Runtime>::compute_fee(<u32>::max_value(), &dispatch_info, <u64>::max_value()),
+					Pallet::<Runtime>::compute_fee(<u32>::max_value(), &dispatch_info, <u64>::max_value()),
 					<u64>::max_value()
 				);
 			});
@@ -1386,7 +1387,7 @@ mod tests {
 				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
-				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
+				let actual_fee = Pallet::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
 
 				// 33 weight, 10 length, 7 base, 5 tip
 				assert_eq!(actual_fee, 7 + 10 + (33 * 5 / 4) + 5);
@@ -1416,7 +1417,7 @@ mod tests {
 				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
-				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
+				let actual_fee = Pallet::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
 
 				// Only 5 tip is paid
 				assert_eq!(actual_fee, 5);

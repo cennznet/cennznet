@@ -86,7 +86,7 @@ pub trait Config: frame_system::Config {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		EmptyExchangePool,
 		InsufficientExchangePoolReserve,
 		InsufficientBalance,
@@ -311,7 +311,7 @@ decl_event! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as Cennzx
+	trait Store for Pallet<T: Config> as Cennzx
 	{
 		/// Asset Id of the core liquidity asset
 		pub CoreAssetId get(fn core_asset_id) config(): T::AssetId;
@@ -327,7 +327,7 @@ decl_storage! {
 }
 
 // The main implementation block for the module.
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	//
 	// Liquidity
 	//

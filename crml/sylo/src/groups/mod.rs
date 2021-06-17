@@ -80,7 +80,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloGroups {
+	trait Store for Pallet<T: Config> as SyloGroups {
 		Groups get(fn group): map hasher(blake2_128_concat) T::Hash => Group<T::AccountId, T::Hash>;
 
 		/// Stores the group ids that a user is a member of

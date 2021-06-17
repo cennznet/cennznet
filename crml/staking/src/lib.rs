@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! # Staking Module
+//! # Staking Pallet
 //!
 //! The Staking module is used to manage funds at stake by network maintainers.
 //!
 //! - [`staking::Config`](./trait.Config.html)
 //! - [`Call`](./enum.Call.html)
-//! - [`Module`](./struct.Module.html)
+//! - [`Pallet`](./struct.Pallet.html)
 //!
 //! ## Overview
 //!
@@ -139,7 +139,7 @@
 //!
 //! ### Slot Stake
 //!
-//! The term [`SlotStake`](./struct.Module.html#method.slot_stake) will be used throughout this
+//! The term [`SlotStake`](./struct.Pallet.html#method.slot_stake) will be used throughout this
 //! section. It refers to a value calculated at the end of each era, containing the _minimum value
 //! at stake among all validators._ Note that a validator's value at stake might be a combination
 //! of the validator's own stake and the votes it received. See [`Exposure`](./struct.Exposure.html)
@@ -200,7 +200,7 @@
 //!
 //! The Staking module depends on the [`GenesisConfig`](./struct.GenesisConfig.html).
 //!
-//! ## Related Modules
+//! ## Related Pallets
 //!
 //! - [Balances](../pallet_balances/index.html): Used to manage values at stake.
 //! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new validators
@@ -568,15 +568,15 @@ where
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
 	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-		<pallet_session::Module<T>>::disable(validator)
+		<pallet_session::Pallet<T>>::disable(validator)
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Module<T>>::validators()
+		<pallet_session::Pallet<T>>::validators()
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Module<T>>::prune_up_to(up_to);
+		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }
 
@@ -602,7 +602,7 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 		Self::AccountId,
 		Self::BlockNumber,
 		// we only accept an election provider that has staking as data provider.
-		DataProvider = Module<Self>,
+		DataProvider = Pallet<Self>,
 	>;
 
 	/// The overarching event type.
@@ -696,7 +696,7 @@ impl From<u32> for Releases {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as Staking {
+	trait Store for Pallet<T: Config> as Staking {
 		/// Minimum amount to bond.
 		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
 
@@ -859,7 +859,7 @@ decl_storage! {
 					T::Currency::free_balance(&stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
-				let _ = <Module<T>>::bond(
+				let _ = <Pallet<T>>::bond(
 					T::Origin::from(Some(stash.clone()).into()),
 					controller.clone(),
 					balance,
@@ -867,13 +867,13 @@ decl_storage! {
 				);
 				let _ = match status {
 					StakerStatus::Validator => {
-						<Module<T>>::validate(
+						<Pallet<T>>::validate(
 							T::Origin::from(Some(controller.clone()).into()),
 							Default::default(),
 						)
 					},
 					StakerStatus::Nominator(votes) => {
-						<Module<T>>::nominate(
+						<Pallet<T>>::nominate(
 							T::Origin::from(Some(controller.clone()).into()),
 							votes.to_vec(),
 						)
@@ -915,7 +915,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		/// Not a controller account.
 		NotController,
 		/// Not a stash account.
@@ -1677,7 +1677,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// The total balance that can be slashed from a stash account as of right now.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
@@ -2136,7 +2136,7 @@ impl<T: Config> Module<T> {
 	}
 }
 
-impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::AccountId, T::BlockNumber> for Module<T> {
+impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::AccountId, T::BlockNumber> for Pallet<T> {
 	const MAXIMUM_VOTES_PER_VOTER: u32 = T::MAX_NOMINATIONS;
 	fn desired_targets() -> data_provider::Result<(u32, Weight)> {
 		Ok((
@@ -2203,7 +2203,7 @@ impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::Account
 		now.saturating_add(until_this_session_end.saturating_add(sessions_left.saturating_mul(session_length)))
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(any(feature = "runtime-benchmarks"))]
 	fn put_snapshot(
 		voters: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)>,
 		targets: Vec<T::AccountId>,
@@ -2228,7 +2228,6 @@ impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::Account
 				v,
 				ValidatorPrefs {
 					commission: Perbill::zero(),
-					blocked: false,
 				},
 			);
 		});
@@ -2252,7 +2251,6 @@ impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::Account
 				Nominations {
 					targets: t,
 					submitted_in: 0,
-					suppressed: false,
 				},
 			);
 		});
@@ -2264,7 +2262,7 @@ impl<T: Config> frame_election_provider_support::ElectionDataProvider<T::Account
 ///
 /// Once the first new_session is planned, all session must start and then end in order, though
 /// some session can lag in between the newest session planned and the latest session started.
-impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
+impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		log!(
 			trace,
@@ -2294,7 +2292,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 	}
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>> for Module<T> {
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
 			let current_era = Self::current_era()
@@ -2324,7 +2322,7 @@ pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		<Module<T>>::ledger(&controller).map(|l| l.stash)
+		<Pallet<T>>::ledger(&controller).map(|l| l.stash)
 	}
 }
 
@@ -2337,8 +2335,8 @@ pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>> for ExposureOf<T> {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		if let Some(active_era) = <Module<T>>::active_era() {
-			Some(<Module<T>>::eras_stakers(active_era.index, &validator))
+		if let Some(active_era) = <Pallet<T>>::active_era() {
+			Some(<Pallet<T>>::eras_stakers(active_era.index, &validator))
 		} else {
 			None
 		}
@@ -2346,7 +2344,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
@@ -2476,7 +2474,7 @@ pub struct FilterHistoricalOffences<T, R> {
 	_inner: sp_std::marker::PhantomData<(T, R)>,
 }
 
-impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O> for FilterHistoricalOffences<Module<T>, R>
+impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O> for FilterHistoricalOffences<Pallet<T>, R>
 where
 	T: Config,
 	R: ReportOffence<Reporter, Offender, O>,
@@ -2494,7 +2492,7 @@ where
 		{
 			R::report_offence(reporters, offence)
 		} else {
-			<Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
+			<Pallet<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
 			Ok(())
 		}
 	}

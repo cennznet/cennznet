@@ -16,7 +16,7 @@
 
 //! Extra trait implementations for the `GenericAsset` module
 
-use crate::{CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance, SpendingAssetIdAuthority};
+use crate::{CheckedImbalance, Config, Error, NegativeImbalance, Pallet, PositiveImbalance, SpendingAssetIdAuthority};
 use crml_support::{AssetIdAuthority, MultiCurrency};
 use frame_support::{
 	traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons},
@@ -28,7 +28,7 @@ use sp_runtime::{
 };
 use sp_std::{mem, result};
 
-impl<T: Config> MultiCurrency for Module<T> {
+impl<T: Config> MultiCurrency for Pallet<T> {
 	type AccountId = T::AccountId;
 	type CurrencyId = T::AssetId;
 	type Balance = T::Balance;
@@ -40,17 +40,17 @@ impl<T: Config> MultiCurrency for Module<T> {
 	}
 
 	fn minimum_balance(currency: Self::CurrencyId) -> Self::Balance {
-		<Module<T>>::asset_meta(currency)
+		<Pallet<T>>::asset_meta(currency)
 			.existential_deposit()
 			.unique_saturated_into()
 	}
 
 	fn total_balance(who: &T::AccountId, currency: Self::CurrencyId) -> Self::Balance {
-		<Module<T>>::total_balance(currency, who)
+		<Pallet<T>>::total_balance(currency, who)
 	}
 
 	fn free_balance(who: &T::AccountId, currency: Self::CurrencyId) -> Self::Balance {
-		<Module<T>>::free_balance(currency, who)
+		<Pallet<T>>::free_balance(currency, who)
 	}
 
 	fn deposit_creating(
@@ -63,7 +63,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		}
 
 		let asset_id = currency;
-		let imbalance = Self::make_free_balance_be(who, currency, <Module<T>>::free_balance(asset_id, who) + value);
+		let imbalance = Self::make_free_balance_be(who, currency, <Pallet<T>>::free_balance(asset_id, who) + value);
 		if let SignedImbalance::Positive(p) = imbalance {
 			p
 		} else {
@@ -88,7 +88,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		reasons: WithdrawReasons,
 		new_balance: Self::Balance,
 	) -> DispatchResult {
-		<Module<T>>::ensure_can_withdraw(currency, who, amount, reasons, new_balance)
+		<Pallet<T>>::ensure_can_withdraw(currency, who, amount, reasons, new_balance)
 	}
 
 	fn make_free_balance_be(
@@ -97,13 +97,13 @@ impl<T: Config> MultiCurrency for Module<T> {
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		let asset_id = currency;
-		let original = <Module<T>>::free_balance(asset_id, who);
+		let original = <Pallet<T>>::free_balance(asset_id, who);
 		let imbalance = if original <= balance {
 			SignedImbalance::Positive(Self::PositiveImbalance::new(balance - original, asset_id))
 		} else {
 			SignedImbalance::Negative(Self::NegativeImbalance::new(original - balance, asset_id))
 		};
-		<Module<T>>::set_free_balance(asset_id, who, balance);
+		<Pallet<T>>::set_free_balance(asset_id, who, balance);
 		imbalance
 	}
 
@@ -117,7 +117,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		if value.is_zero() {
 			return Ok(());
 		}
-		<Module<T>>::make_transfer(currency, transactor, dest, value, req)
+		<Pallet<T>>::make_transfer(currency, transactor, dest, value, req)
 	}
 
 	fn withdraw(
@@ -132,12 +132,12 @@ impl<T: Config> MultiCurrency for Module<T> {
 		}
 
 		let asset_id = currency;
-		let new_balance = <Module<T>>::free_balance(asset_id, who)
+		let new_balance = <Pallet<T>>::free_balance(asset_id, who)
 			.checked_sub(&value)
 			.ok_or(Error::<T>::InsufficientBalance)?;
 
-		<Module<T>>::ensure_can_withdraw(asset_id, who, value, reasons, new_balance)?;
-		<Module<T>>::set_free_balance(asset_id, who, new_balance);
+		<Pallet<T>>::ensure_can_withdraw(asset_id, who, value, reasons, new_balance)?;
+		<Pallet<T>>::set_free_balance(asset_id, who, new_balance);
 
 		Ok(Self::NegativeImbalance::new(value, asset_id))
 	}
@@ -147,7 +147,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 			return Ok(());
 		}
 
-		<Module<T>>::reserve(currency, who, amount)
+		<Pallet<T>>::reserve(currency, who, amount)
 	}
 
 	fn repatriate_reserved(
@@ -156,7 +156,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		beneficiary: &Self::AccountId,
 		amount: Self::Balance,
 	) -> result::Result<Self::Balance, DispatchError> {
-		<Module<T>>::repatriate_reserved(currency, who, beneficiary, amount)
+		<Pallet<T>>::repatriate_reserved(currency, who, beneficiary, amount)
 	}
 
 	fn unreserve(who: &Self::AccountId, currency: Self::CurrencyId, amount: Self::Balance) -> Self::Balance {
@@ -164,21 +164,21 @@ impl<T: Config> MultiCurrency for Module<T> {
 			return Zero::zero();
 		}
 
-		<Module<T>>::unreserve(currency, who, amount)
+		<Pallet<T>>::unreserve(currency, who, amount)
 	}
 }
 
 /// A dust imbalance handler that transfers dust to the given `PalletId`
-pub struct TransferDustImbalance<T, M: Get<PalletId>>(sp_std::marker::PhantomData<(T, M)>);
-impl<T, M> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<T, M>
+pub struct TransferDustImbalance<M: Get<PalletId>>(sp_std::marker::PhantomData<M>);
+impl<T, M> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<M>
 where
 	T: Config,
 	M: Get<PalletId>,
 {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<T>) {
 		let beneficiary = M::get().into_account();
-		let beneficiary_balance = <Module<T>>::free_balance(imbalance.asset_id(), &beneficiary);
-		<Module<T>>::set_free_balance(
+		let beneficiary_balance = <Pallet<T>>::free_balance(imbalance.asset_id(), &beneficiary);
+		<Pallet<T>>::set_free_balance(
 			imbalance.asset_id(),
 			&beneficiary,
 			beneficiary_balance.saturating_add(imbalance.peek()),

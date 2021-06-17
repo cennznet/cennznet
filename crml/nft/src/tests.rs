@@ -183,10 +183,7 @@ fn create_collection_royalties_invalid() {
 				b"test-collection".to_vec(),
 				None,
 				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_fraction(1.2)),
-						(4_u64, Permill::from_fraction(3.3))
-					]
+					entitlements: vec![(3_u64, Permill::from_float(1.2)), (4_u64, Permill::from_float(3.3))]
 				}),
 			),
 			Error::<Test>::RoyaltiesOvercommitment
@@ -799,9 +796,9 @@ fn buy_with_royalties() {
 		let beneficiary_2 = 12;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.111)),
-				(beneficiary_1, Permill::from_fraction(0.1111)),
-				(beneficiary_2, Permill::from_fraction(0.3333)),
+				(collection_owner, Permill::from_float(0.111)),
+				(beneficiary_1, Permill::from_float(0.1111)),
+				(beneficiary_2, Permill::from_float(0.3333)),
 			],
 		};
 		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -952,10 +949,7 @@ fn buy_with_overcommitted_royalties() {
 		// royalty schedules should not make it into storage but we protect against it anyway
 		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
-			entitlements: vec![
-				(11_u64, Permill::from_fraction(0.125)),
-				(12_u64, Permill::from_fraction(0.9)),
-			],
+			entitlements: vec![(11_u64, Permill::from_float(0.125)), (12_u64, Permill::from_float(0.9))],
 		};
 		CollectionRoyalties::<Test>::insert(collection_id, bad_schedule.clone());
 		let listing_id = Nft::next_listing_id();
@@ -1183,9 +1177,9 @@ fn auction_royalty_payments() {
 		let collection_owner = 1;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.1111)),
-				(beneficiary_1, Permill::from_fraction(0.1111)),
-				(beneficiary_2, Permill::from_fraction(0.1111)),
+				(collection_owner, Permill::from_float(0.1111)),
+				(beneficiary_1, Permill::from_float(0.1111)),
+				(beneficiary_2, Permill::from_float(0.1111)),
 			],
 		};
 		let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 1);

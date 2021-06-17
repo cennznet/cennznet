@@ -97,7 +97,7 @@ fn add_liquidity_fails_with_locked_trade_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		let core_balance = 1000;
 		let locked_balance = 1000;
-		let locked_asset_id = <crml_generic_asset::Module<Test>>::staking_asset_id();
+		let locked_asset_id = <crml_generic_asset::Pallet<Test>>::staking_asset_id();
 		let investor: AccountId = with_account!(CORE_ASSET_ID => core_balance, locked_asset_id => locked_balance);
 
 		<crml_generic_asset::StakingAssetCurrency<Test>>::set_lock(

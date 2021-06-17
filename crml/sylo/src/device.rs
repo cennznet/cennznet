@@ -25,7 +25,7 @@ decl_module! {
 
 // The data that is stored
 decl_storage! {
-	trait Store for Module<T: Config> as SyloDevice {
+	trait Store for Pallet<T: Config> as SyloDevice {
 		pub Devices get(fn devices): map hasher(blake2_128_concat) T::AccountId => Vec<DeviceId>;
 	}
 }

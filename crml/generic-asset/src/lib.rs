@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Plug.  If not, see <http://www.gnu.org/licenses/>.
 
-//! # Generic Asset Module
+//! # Generic Asset Pallet
 //!
 //! The Generic Asset module provides functionality for handling accounts and asset balances.
 //!
@@ -211,7 +211,7 @@ pub trait Config: frame_system::Config {
 
 decl_error! {
 	/// Error for the generic-asset module.
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		/// No new assets id available.
 		AssetIdExhausted,
 		/// Cannot transfer zero amount.
@@ -465,7 +465,7 @@ impl Default for Releases {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as GenericAsset {
+	trait Store for Pallet<T: Config> as GenericAsset {
 		/// Total issuance of a given asset.
 		///
 		/// TWOX-NOTE: `AssetId` is trusted.
@@ -526,7 +526,7 @@ decl_storage! {
 			config.assets.iter().for_each(|asset_id| {
 				<AssetMeta<T>>::insert(asset_id, <AssetInfo>::default());
 				config.endowed_accounts.iter().for_each(|account_id| {
-					Module::<T>::set_free_balance(*asset_id, account_id, config.initial_balance);
+					Pallet::<T>::set_free_balance(*asset_id, account_id, config.initial_balance);
 				});
 			});
 		});
@@ -540,16 +540,16 @@ fn migrate_locks<T: Config>() {
 		use crate::types::BalanceLock;
 		use sp_std::vec::Vec;
 
-		pub struct Module<T>(sp_std::marker::PhantomData<T>);
+		pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
 		frame_support::decl_storage! {
-			trait Store for Module<T: Config> as GenericAsset {
+			trait Store for Pallet<T: Config> as GenericAsset {
 				pub Locks get(fn locks):
 					map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
 			}
 		}
 	}
 
-	let staking_asset_id = <Module<T>>::staking_asset_id();
+	let staking_asset_id = <Pallet<T>>::staking_asset_id();
 	let all_locks = <old_storage::Locks<T>>::drain().collect::<Vec<(T::AccountId, Vec<BalanceLock<T::Balance>>)>>();
 	all_locks.iter().for_each(|(account_id, locks)| {
 		if !locks.is_empty() {
@@ -582,7 +582,7 @@ decl_event! {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Get an account's total balance of an asset kind.
 	pub fn total_balance(asset_id: T::AssetId, who: &T::AccountId) -> T::Balance {
 		Self::free_balance(asset_id, who) + Self::reserved_balance(asset_id, who)
@@ -977,7 +977,7 @@ impl<T: Config> Module<T> {
 		reasons: WithdrawReasons,
 	) {
 		let mut new_lock = Some(BalanceLock { id, amount, reasons });
-		let mut locks = <Module<T>>::locks(asset_id, who)
+		let mut locks = <Pallet<T>>::locks(asset_id, who)
 			.into_iter()
 			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
 			.collect::<Vec<_>>();
@@ -995,7 +995,7 @@ impl<T: Config> Module<T> {
 		reasons: WithdrawReasons,
 	) {
 		let mut new_lock = Some(BalanceLock { id, amount, reasons });
-		let mut locks = <Module<T>>::locks(asset_id, who)
+		let mut locks = <Pallet<T>>::locks(asset_id, who)
 			.into_iter()
 			.filter_map(|l| {
 				if l.id == id {
@@ -1016,7 +1016,7 @@ impl<T: Config> Module<T> {
 	}
 
 	fn remove_lock(id: LockIdentifier, asset_id: T::AssetId, who: &T::AccountId) {
-		let mut locks = <Module<T>>::locks(asset_id, who);
+		let mut locks = <Pallet<T>>::locks(asset_id, who);
 		locks.retain(|l| l.id != id);
 		if locks.is_empty() {
 			<Locks<T>>::remove(asset_id, who);
@@ -1043,12 +1043,12 @@ where
 	}
 
 	fn free_balance(who: &T::AccountId) -> Self::Balance {
-		<Module<T>>::free_balance(U::asset_id(), &who)
+		<Pallet<T>>::free_balance(U::asset_id(), &who)
 	}
 
 	/// Returns the total staking asset issuance
 	fn total_issuance() -> Self::Balance {
-		<Module<T>>::total_issuance(U::asset_id())
+		<Pallet<T>>::total_issuance(U::asset_id())
 	}
 
 	fn minimum_balance() -> Self::Balance {
@@ -1063,7 +1063,7 @@ where
 		value: Self::Balance,
 		req: ExistenceRequirement,
 	) -> DispatchResult {
-		<Module<T>>::make_transfer(U::asset_id(), transactor, dest, value, req)
+		<Pallet<T>>::make_transfer(U::asset_id(), transactor, dest, value, req)
 	}
 
 	fn ensure_can_withdraw(
@@ -1072,7 +1072,7 @@ where
 		reasons: WithdrawReasons,
 		new_balance: Self::Balance,
 	) -> DispatchResult {
-		<Module<T>>::ensure_can_withdraw(U::asset_id(), who, amount, reasons, new_balance)
+		<Pallet<T>>::ensure_can_withdraw(U::asset_id(), who, amount, reasons, new_balance)
 	}
 
 	fn withdraw(
@@ -1092,9 +1092,9 @@ where
 			if amount > Zero::zero() {
 				T::OnDustImbalance::on_nonzero_unbalanced(NegativeImbalance::new(amount, U::asset_id()));
 			}
-			<Module<T>>::deposit_event(Event::<T>::DustReclaimed(U::asset_id(), who.clone(), amount));
+			<Pallet<T>>::deposit_event(Event::<T>::DustReclaimed(U::asset_id(), who.clone(), amount));
 		} else {
-			<Module<T>>::set_free_balance(U::asset_id(), who, new_balance);
+			<Pallet<T>>::set_free_balance(U::asset_id(), who, new_balance);
 		}
 
 		Ok(NegativeImbalance::new(value, U::asset_id()))
@@ -1125,22 +1125,22 @@ where
 		who: &T::AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		let original = <Module<T>>::free_balance(U::asset_id(), who);
+		let original = <Pallet<T>>::free_balance(U::asset_id(), who);
 		let imbalance = if original <= balance {
 			SignedImbalance::Positive(PositiveImbalance::new(balance - original, U::asset_id()))
 		} else {
 			SignedImbalance::Negative(NegativeImbalance::new(original - balance, U::asset_id()))
 		};
-		<Module<T>>::set_free_balance(U::asset_id(), who, balance);
+		<Pallet<T>>::set_free_balance(U::asset_id(), who, balance);
 		imbalance
 	}
 
 	fn can_slash(who: &T::AccountId, value: Self::Balance) -> bool {
-		<Module<T>>::free_balance(U::asset_id(), &who) >= value
+		<Pallet<T>>::free_balance(U::asset_id(), &who) >= value
 	}
 
 	fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-		let remaining = <Module<T>>::slash(U::asset_id(), who, value);
+		let remaining = <Pallet<T>>::slash(U::asset_id(), who, value);
 		if let Some(r) = remaining {
 			(NegativeImbalance::new(value - r, U::asset_id()), r)
 		} else {
@@ -1178,25 +1178,25 @@ where
 		Self::free_balance(who)
 			.checked_sub(&value)
 			.map_or(false, |new_balance| {
-				<Module<T>>::ensure_can_withdraw(U::asset_id(), who, value, WithdrawReasons::RESERVE, new_balance)
+				<Pallet<T>>::ensure_can_withdraw(U::asset_id(), who, value, WithdrawReasons::RESERVE, new_balance)
 					.is_ok()
 			})
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
-		<Module<T>>::reserved_balance(U::asset_id(), &who)
+		<Pallet<T>>::reserved_balance(U::asset_id(), &who)
 	}
 
 	fn reserve(who: &T::AccountId, value: Self::Balance) -> DispatchResult {
-		<Module<T>>::reserve(U::asset_id(), who, value)
+		<Pallet<T>>::reserve(U::asset_id(), who, value)
 	}
 
 	fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
-		<Module<T>>::unreserve(U::asset_id(), who, value)
+		<Pallet<T>>::unreserve(U::asset_id(), who, value)
 	}
 
 	fn slash_reserved(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-		let leftover = <Module<T>>::slash_reserved(U::asset_id(), who, value).unwrap_or(Zero::zero());
+		let leftover = <Pallet<T>>::slash_reserved(U::asset_id(), who, value).unwrap_or(Zero::zero());
 		(NegativeImbalance::new(value - leftover, U::asset_id()), leftover)
 	}
 
@@ -1206,7 +1206,7 @@ where
 		value: Self::Balance,
 		_status: BalanceStatus,
 	) -> result::Result<Self::Balance, DispatchError> {
-		<Module<T>>::repatriate_reserved(U::asset_id(), slashed, beneficiary, value)
+		<Pallet<T>>::repatriate_reserved(U::asset_id(), slashed, beneficiary, value)
 	}
 }
 
@@ -1215,7 +1215,7 @@ pub struct StakingAssetIdAuthority<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> AssetIdAuthority for StakingAssetIdAuthority<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
-		<Module<T>>::staking_asset_id()
+		<Pallet<T>>::staking_asset_id()
 	}
 }
 
@@ -1224,7 +1224,7 @@ pub struct SpendingAssetIdAuthority<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> AssetIdAuthority for SpendingAssetIdAuthority<T> {
 	type AssetId = T::AssetId;
 	fn asset_id() -> Self::AssetId {
-		<Module<T>>::spending_asset_id()
+		<Pallet<T>>::spending_asset_id()
 	}
 }
 
@@ -1238,15 +1238,15 @@ where
 	type MaxLocks = ();
 
 	fn set_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance, reasons: WithdrawReasons) {
-		<Module<T>>::set_lock(id, U::asset_id(), who, amount, reasons)
+		<Pallet<T>>::set_lock(id, U::asset_id(), who, amount, reasons)
 	}
 
 	fn extend_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance, reasons: WithdrawReasons) {
-		<Module<T>>::extend_lock(id, U::asset_id(), who, amount, reasons)
+		<Pallet<T>>::extend_lock(id, U::asset_id(), who, amount, reasons)
 	}
 
 	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-		<Module<T>>::remove_lock(id, U::asset_id(), who)
+		<Pallet<T>>::remove_lock(id, U::asset_id(), who)
 	}
 }
 
