@@ -85,6 +85,7 @@ crml-support = { path = "../crml/support", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
+crml-snake = { path = "../crml/snake", default-features = false}
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }

@@ -808,6 +808,7 @@ dependencies = [
  "crml-generic-asset-rpc-runtime-api",
  "crml-nft",
  "crml-nft-rpc-runtime-api",
+ "crml-snake",
  "crml-staking",
  "crml-staking-rpc-runtime-api",
  "crml-support",
@@ -1308,6 +1309,21 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-snake"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

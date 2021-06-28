@@ -1,0 +1,32 @@
+[package]
+name = "crml-snake"
+version = "0.1.0"
+authors = ["Jason <jason.j.tulp@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false, optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false}
+byteorder = {version = "1.4.3", default-features = false}
+
+[features]
+default = ["std"]
+std = [
+    "byteorder/std",
+    "codec/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+]
+runtime-benchmarks = ["frame-benchmarking"]

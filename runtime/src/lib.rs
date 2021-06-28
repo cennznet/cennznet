@@ -50,6 +50,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
+pub use crml_snake;
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
 pub use frame_support::{
@@ -277,6 +278,12 @@ impl pallet_grandpa::Config for Runtime {
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
 	type HandleEquivocation = ();
 	type WeightInfo = ();
+}
+
+impl crml_snake::Config for Runtime {
+	type Event = Event;
+	type WeightInfo = ();
+	type RandomnessSource = RandomnessCollectiveFlip;
 }
 
 parameter_types! {
@@ -661,6 +668,8 @@ construct_runtime!(
 		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Snake: crml_snake::{Module, Call, Storage, Event<T>} = 31,
+
 	}
 );
 
