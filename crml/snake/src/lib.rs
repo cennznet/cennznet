@@ -1,11 +1,26 @@
-// Copyright 2021-infiinity by  Jason Investments Ltd.
-// This file is part of Cennznet.
-// Any snakes used in this module are entirely fictional and can not harm you in any way
+/* Copyright 2019-2020 Centrality Investments Limited
+*
+* Licensed under the LGPL, Version 3.0 (the "License");
+* you may not use this file except in compliance with the License.
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+* You may obtain a copy of the License at the root of this project source code,
+* or at:
+*     https://centrality.ai/licenses/gplv3.txt
+*     https://centrality.ai/licenses/lgplv3.txt
+*/
 
 #![cfg_attr(not(feature = "std"), no_std)]
+mod mock;
+mod tests;
+mod types;
+
+use codec::Encode;
 
 use byteorder::{BigEndian, ByteOrder};
-use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, traits::Randomness, weights::Weight, IterableStorageMap,
 	StorageMap,
@@ -15,43 +30,7 @@ use sp_core::hash::H256;
 use sp_runtime::DispatchResult;
 use sp_std::cmp::{max, min};
 use sp_std::vec;
-use sp_std::vec::Vec;
-
-const MAX_WINDOW_SIZE: i8 = 100;
-const MIN_WINDOW_SIZE: i8 = 5;
-
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
-pub struct WindowSize {
-	window_width: i8,
-	window_height: i8,
-}
-
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
-pub struct Snake {
-	body: Vec<(i8, i8)>,
-	dir: Direction,
-	direction_changed: bool,
-}
-
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
-pub struct Food {
-	x: i8,
-	y: i8,
-}
-
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum Direction {
-	Up,
-	Left,
-	Down,
-	Right,
-}
-
-impl Default for Direction {
-	fn default() -> Direction {
-		Direction::Right
-	}
-}
+pub use types::{Direction, Food, Snake, WindowSize, MAX_WINDOW_SIZE, MIN_WINDOW_SIZE};
 
 // 2. Runtime Configuration Trait
 // All of the runtime types and consts go in here. If the module
@@ -167,11 +146,16 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where
 		<T as frame_system::Config>::AccountId,
+		WindowSize = WindowSize,
+		Snake = Snake,
+		Food = Food,
+		Direction = Direction,
+		score = u32,
 	{
 		/// Game started (account_id, game, snake, food)
 		GameStarted(AccountId, WindowSize, Snake, Food),
 		/// Game has ended (account_id, game, score)
-		GameEnded(AccountId, WindowSize, u32),
+		GameEnded(AccountId, WindowSize, score),
 		/// Snakes Direction has changed (account_id, snake, new_direction)
 		DirectionChanged(AccountId, Snake, Direction),
 		/// Snakes new direction is the same as the previous direction (account_id, snake, new_direction)

@@ -7,6 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1.0.102", optional = true }
 sp-core ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-io ={ default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
@@ -17,16 +18,22 @@ frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false}
 byteorder = {version = "1.4.3", default-features = false}
 
+[dev-dependencies]
+pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+
+
 [features]
 default = ["std"]
 std = [
     "byteorder/std",
     "codec/std",
+    "serde",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-randomness-collective-flip/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
