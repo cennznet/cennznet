@@ -1,0 +1,40 @@
+[package]
+name = "crml-eth-bridge"
+version = "1.0.0"
+edition = "2018"
+authors = ['Centrality Developers <https://github.com/cennznet>']
+repository = "https://github.com/cennznet/cennznet/"
+description = "Module for bridging ERC-20 tokens"
+license = "GPL-3.0"
+
+[dependencies]
+parking_lot = '0.11'
+parity-scale-codec = { version = '2.0', default-features = false, features = ['derive'] }
+serde = { version = '1.0.100', default-features = false, features = ['derive'] }
+serde_json = { version = '1.0.45', default-features = false, features = ['alloc'] }
+web3 = { version = "0.16.0", default-features = false, features = ['wasm'] }
+
+# Substrate packages
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-keystore = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", optional = true }
+
+[features]
+default = ['std']
+std = [
+	'web3/wasm',
+	'frame-support/std',
+	'frame-system/std',
+	'parity-scale-codec/std',
+	'sp-keystore',
+	'sp-io/std',
+	'sp-runtime/std',
+	'sp-std/std',
+	'sp-arithmetic/std',
+	'sp-keystore/std',
+]

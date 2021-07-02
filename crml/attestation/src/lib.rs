@@ -83,7 +83,6 @@ decl_module! {
 			);
 
 			<Values<T>>::remove((holder.clone(), issuer.clone(), topic));
-
 			<Topics<T>>::mutate((holder.clone(), issuer.clone()),|topics| topics.retain(|vec_topic| *vec_topic != topic));
 
 			let remove_issuer = <Topics<T>>::get((holder.clone(), issuer.clone())).len().is_zero();
