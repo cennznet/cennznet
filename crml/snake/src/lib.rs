@@ -12,15 +12,14 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-
 #![cfg_attr(not(feature = "std"), no_std)]
+
 mod mock;
 mod tests;
 mod types;
 
-use codec::Encode;
-
 use byteorder::{BigEndian, ByteOrder};
+use codec::Encode;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, traits::Randomness, weights::Weight, IterableStorageMap,
 	StorageMap,
@@ -30,9 +29,10 @@ use sp_core::hash::H256;
 use sp_runtime::DispatchResult;
 use sp_std::cmp::{max, min};
 use sp_std::vec;
+pub use types::*;
 pub use types::{Direction, Food, Snake, WindowSize, MAX_WINDOW_SIZE, MIN_WINDOW_SIZE};
 
-// 2. Runtime Configuration Trait
+// Runtime Configuration Trait
 // All of the runtime types and consts go in here. If the module
 // is dependent on specific other modules, then their configuration traits
 // should be added to the inherited traits list.
@@ -52,8 +52,6 @@ decl_error! {
 		NoGameExists,
 		/// There is already a game running, end this game before starting a new one
 		GameAlreadyRunning,
-		/// There is no data associated with the snake
-		SnakeHasNoBody,
 	}
 }
 
@@ -150,12 +148,12 @@ decl_event! {
 		Snake = Snake,
 		Food = Food,
 		Direction = Direction,
-		score = u32,
+		Score = u32,
 	{
 		/// Game started (account_id, game, snake, food)
 		GameStarted(AccountId, WindowSize, Snake, Food),
 		/// Game has ended (account_id, game, score)
-		GameEnded(AccountId, WindowSize, score),
+		GameEnded(AccountId, WindowSize, Score),
 		/// Snakes Direction has changed (account_id, snake, new_direction)
 		DirectionChanged(AccountId, Snake, Direction),
 		/// Snakes new direction is the same as the previous direction (account_id, snake, new_direction)
@@ -284,7 +282,6 @@ impl<T: Config> Module<T> {
 		// Check if the snake head is on food
 		if new_head.0 == food.x && new_head.1 == food.y {
 			food = Self::move_food(account_id.clone(), food.clone(), &snake, &game_state);
-			Self::deposit_event(Event::<T>::FoodMoved(account_id.clone(), snake.clone(), food.clone()));
 
 			let tail = snake.body[snake.body.len() - 1].clone();
 			snake.body.push(tail)
@@ -323,6 +320,7 @@ impl<T: Config> Module<T> {
 		food.x = rand_x;
 		food.y = rand_y;
 
+		Self::deposit_event(Event::<T>::FoodMoved(account_id.clone(), snake.clone(), food.clone()));
 		<FoodMeta<T>>::insert(&account_id, &food);
 		food
 	}

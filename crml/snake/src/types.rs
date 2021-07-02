@@ -18,8 +18,6 @@
 use codec::{Decode, Encode};
 use sp_std::vec::Vec;
 
-//#[cfg(feature = "std")]
-
 pub const MAX_WINDOW_SIZE: i8 = 100;
 pub const MIN_WINDOW_SIZE: i8 = 5;
 

@@ -17,9 +17,8 @@
 #![cfg(test)]
 
 use crate as crml_snake;
-use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnInitialize};
-
 use frame_support::traits::TestRandomness;
+use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnInitialize};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -34,18 +33,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 // test accounts
 pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
-/*
-pub const SNAKE: Snake = Snake {
-	body: vec![(3, 0), (2, 0), (1, 0), (0, 0)],
-	dir: Direction::Right,
-	direction_changed: false,
-};
-pub const WINDOW_SIZE: WindowSize = WindowSize {
-	window_width: 20,
-	window_height: 20,
-};
-pub const FOOD: Food = Food { x: 5, y: 5 };
-*/
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -113,12 +100,14 @@ impl ExtBuilder {
 			.unwrap()
 			.into();
 
+		//initialize with block number of 1 as events aren't recorded on Genesis block
+		ext.execute_with(|| {
+			System::initialize(&1, &[0u8; 32].into(), &Default::default(), frame_system::InitKind::Full);
+		});
+
 		if self.start {
 			assert_ok!(ext.execute_with(|| Snake::start(Origin::signed(ALICE), self.window_size, self.window_size)));
 		}
-
-		//ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
-
 		ext
 	}
 

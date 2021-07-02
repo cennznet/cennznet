@@ -20,8 +20,8 @@ use cennznet_primitives::types::Block;
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, FeeRate, GenericAssetConfig, GrandpaConfig,
-	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, SnakeConfig, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
