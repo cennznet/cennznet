@@ -3,7 +3,8 @@
   "id": "CENNZnet Rata V1",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWN4FV1Kvmb8XgJxc67B2879BHvU2qkwGPzumcJsrMT9Vm"
+    "/dns4/bootnode-rata-0.centrality.me/tcp/30333/p2p/12D3KooWA6iSdKNJUpvNPTRzxiLfA2LzPgCTywWP2ZeRnabDaDEa",
+    "/dns4/bootnode-rata-1.centrality.me/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8"
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-rata-v1",
