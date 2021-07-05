@@ -24,15 +24,18 @@ use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
 	weights::{DispatchClass, Weight},
+	PalletId,
 };
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedDiv, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
-	FixedPointNumber, FixedU128, ModuleId, Perbill,
+	FixedPointNumber, FixedU128, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 mod default_weights;
+#[cfg(test)]
+mod inflation;
 mod types;
 pub use types::*;
 
@@ -50,7 +53,7 @@ pub trait Config: frame_system::Config {
 	/// The reward currency system (total issuance, account balance, etc.) for payouts.
 	type CurrencyToReward: Currency<Self::AccountId>;
 	/// The treasury account for payouts
-	type TreasuryModuleId: Get<ModuleId>;
+	type TreasuryPalletId: Get<PalletId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
 	/// The gap between subsequent payouts (in number of blocks)
@@ -81,7 +84,7 @@ decl_event!(
 );
 
 decl_storage! {
-	trait Store for Module<T: Config> as Rewards {
+	trait Store for Pallet<T: Config> as Rewards {
 		/// Inflation rate % to apply on reward payouts
 		pub BaseInflationRate get(fn inflation_rate) config(): FixedU128 = FixedU128::saturating_from_rational(1u64, 100u64);
 		/// Development fund % take for reward payouts, parts-per-billion
@@ -162,7 +165,7 @@ decl_module! {
 /// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
 /// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
 /// * 1 point to the producer of each referenced uncle block.
-impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
+impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
 where
 	T: Config + pallet_authorship::Config,
 {
@@ -170,11 +173,11 @@ where
 		Self::reward_by_ids(vec![(author, 20)])
 	}
 	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
+		Self::reward_by_ids(vec![(<pallet_authorship::Pallet<T>>::author(), 2), (author, 1)])
 	}
 }
 
-impl<T: Config> OnEndEra for Module<T> {
+impl<T: Config> OnEndEra for Pallet<T> {
 	type AccountId = T::AccountId;
 	/// A staking era has ended
 	/// Check if we have a new fiscal era starting
@@ -205,13 +208,13 @@ impl<T: Config> OnEndEra for Module<T> {
 		let remainder = Self::schedule_reward_payouts(
 			era_validator_stashes,
 			next_reward.stakers_cut,
-			<frame_system::Module<T>>::block_number() + One::one(),
+			<frame_system::Pallet<T>>::block_number() + One::one(),
 			T::BlockPayoutInterval::get(),
 		);
 
 		// Deduct taxes from network spending
 		let _ = T::CurrencyToReward::deposit_creating(
-			&T::TreasuryModuleId::get().into_account(),
+			&T::TreasuryPalletId::get().into_account(),
 			next_reward.treasury_cut + remainder,
 		);
 
@@ -227,7 +230,7 @@ impl<T: Config> OnEndEra for Module<T> {
 	}
 }
 
-impl<T: Config> RewardCalculation for Module<T> {
+impl<T: Config> RewardCalculation for Pallet<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
@@ -262,7 +265,7 @@ impl<T: Config> RewardCalculation for Module<T> {
 	}
 }
 
-impl<T: Config> HandlePayee for Module<T> {
+impl<T: Config> HandlePayee for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Set the payment target for a stash account.
@@ -289,7 +292,7 @@ impl<T: Config> HandlePayee for Module<T> {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
 	/// Returns a remainder, the amount indivisble by the stakers
 	///
@@ -340,7 +343,7 @@ impl<T: Config> Module<T> {
 			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), remainder);
+		T::CurrencyToReward::deposit_creating(&T::TreasuryPalletId::get().into_account(), remainder);
 	}
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
@@ -367,7 +370,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					stakers_cut / (validators.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * stakers_cut
 				};
 				remainder -= payout;
 				(validator, payout)
@@ -424,8 +427,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					payout.stakers_cut / (validator_commission_stake_map.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points)
-						* payout.stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * payout.stakers_cut
 				};
 
 				if validator_total_payout.is_zero() {
@@ -479,15 +481,13 @@ impl<T: Config> Module<T> {
 
 		// Iterate all nominator staked amounts
 		for nominator_stake in &validator_stake.others {
-			let contribution_ratio =
-				Perbill::from_rational_approximation(nominator_stake.value, aggregate_validator_stake);
+			let contribution_ratio = Perbill::from_rational(nominator_stake.value, aggregate_validator_stake);
 			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
 		// As a validator always self-nominates using it's own stake.
-		let validator_contribution_ratio =
-			Perbill::from_rational_approximation(validator_stake.own, aggregate_validator_stake);
+		let validator_contribution_ratio = Perbill::from_rational(validator_stake.own, aggregate_validator_stake);
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
@@ -541,13 +541,15 @@ mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::impls::TransferDustImbalance;
-	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
+	use frame_support::{
+		assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, PalletId, StorageValue,
+	};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
 		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
-		FixedPointNumber, FixedU128, ModuleId, Perbill,
+		FixedPointNumber, FixedU128, Perbill,
 	};
 
 	/// The account Id type in this test runtime
@@ -566,10 +568,10 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-			Authorship: pallet_authorship::{Module, Call, Storage},
-			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Pallet, Call, Storage},
+			Rewards: rewards::{Pallet, Call, Storage, Config, Event<T>},
 		}
 	);
 
@@ -597,6 +599,7 @@ mod tests {
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
+		type OnSetCode = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 	}
@@ -605,7 +608,7 @@ mod tests {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
-		type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+		type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 		type WeightInfo = ();
 	}
 
@@ -617,7 +620,7 @@ mod tests {
 	}
 
 	parameter_types! {
-		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
 		pub const BlockPayoutInterval: <Test as frame_system::Config>::BlockNumber = 3;
 		pub const FiscalEraLength: u32 = 5;
@@ -629,7 +632,7 @@ mod tests {
 		type FiscalEraLength = FiscalEraLength;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type ScheduledPayoutRunner = MockPayoutRunner<Self>;
-		type TreasuryModuleId = TreasuryModuleId;
+		type TreasuryPalletId = TreasuryPalletId;
 		type WeightInfo = ();
 	}
 
@@ -1068,7 +1071,7 @@ mod tests {
 			let mock_commission_stake_map = MockCommissionStakeInfo::new(
 				(1, 1_000),
 				vec![(2, 2_000), (3, 2_000)],
-				Perbill::from_rational_approximation(2u32, 1u32),
+				Perbill::from_rational(2u32, 1u32),
 			);
 
 			let reward = 1_000;
@@ -1087,7 +1090,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);
@@ -1249,7 +1252,7 @@ mod tests {
 			let (per_validator_payouts, _remainder) =
 				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
-			let validator_1_payout = Perbill::from_rational_approximation(
+			let validator_1_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_1)
@@ -1258,7 +1261,7 @@ mod tests {
 				authoring_points.total,
 			) * validator_total_payout;
 
-			let validator_2_payout = Perbill::from_rational_approximation(
+			let validator_2_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_2)
@@ -1351,7 +1354,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let (validator_stash, validator_stake) = (13, 1_000);
 			let nominator_stakes = [(1_u64, 1_000_u64), (2, 2_000), (3, 500)];
-			let commission = Perbill::from_rational_approximation(5_u32, 100);
+			let commission = Perbill::from_rational(5_u32, 100);
 
 			let exposures = MockCommissionStakeInfo::new(
 				(validator_stash, validator_stake),
@@ -1385,7 +1388,7 @@ mod tests {
 			// remainder to treasury
 			assert!(remainder > 0);
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
 				remainder
 			);
 
@@ -1409,7 +1412,7 @@ mod tests {
 
 			// treasury is paid
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
 				// +1 is the remainder from after stakers cut distribution
 				next_reward.treasury_cut + 1
 			);

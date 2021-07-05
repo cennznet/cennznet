@@ -16,12 +16,11 @@
 use crate as crml_nft;
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ModuleId,
 };
 
 pub type AccountId = u64;
@@ -35,9 +34,9 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		Nft: crml_nft::{Module, Call, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Nft: crml_nft::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -65,18 +64,19 @@ impl frame_system::Config for Test {
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
+	type OnSetCode = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 }
 
 parameter_types! {
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 }
 impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 

@@ -21,7 +21,7 @@ use super::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::RawOrigin;
 
-use crate::Module as Attestation;
+use crate::Pallet as Attestation;
 
 const SEED: u32 = 0;
 

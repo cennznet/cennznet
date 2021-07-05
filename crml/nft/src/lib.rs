@@ -14,7 +14,7 @@
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # NFT Module
+//! # NFT Pallet
 //!
 //! Provides the basic creation and management of dynamic NFTs (created at runtime).
 //!
@@ -117,7 +117,7 @@ decl_event!(
 
 decl_error! {
 	/// Error for the staking module.
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		/// A collection with the same ID already exists
 		CollectionIdExists,
 		/// Given collection name is invalid (invalid utf-8, too long, empty)
@@ -156,7 +156,7 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as Nft {
+	trait Store for Pallet<T: Config> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its human friendly name
@@ -219,7 +219,7 @@ macro_rules! log {
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -552,7 +552,7 @@ decl_module! {
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+			let listing_end_block = <frame_system::Pallet<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
 			let listing = Listing::<T>::FixedPrice(
 				FixedPriceListing::<T> {
@@ -600,9 +600,11 @@ decl_module! {
 					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
 						let royalty = entitlement * listing.fixed_price;
 						for_seller -= royalty;
-						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
+						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?)
+							.same()
+							.map_err(|_| Error::<T>::InternalPayment)?;
 					}
-					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?);
 				}
 
 				// must not fail now that payment has been made
@@ -666,7 +668,7 @@ decl_module! {
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+			let listing_end_block =<frame_system::Pallet<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {
@@ -768,7 +770,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
 	/// We're ok iff, all tokens in the bundle are from the:
 	/// 1) same collection and same series

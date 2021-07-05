@@ -24,7 +24,7 @@ use super::*;
 use crate::mock::{
 	new_test_ext_with_balance, new_test_ext_with_default, new_test_ext_with_next_asset_id,
 	new_test_ext_with_permissions, Event as TestEvent, GenericAsset, NegativeImbalanceOf, Origin, PositiveImbalanceOf,
-	System, Test, TreasuryModuleId, ALICE, ASSET_ID, BOB, CHARLIE, ID_1, ID_2, INITIAL_BALANCE, INITIAL_ISSUANCE,
+	System, Test, TreasuryPalletId, ALICE, ASSET_ID, BOB, CHARLIE, ID_1, ID_2, INITIAL_BALANCE, INITIAL_ISSUANCE,
 	SPENDING_ASSET_ID, STAKING_ASSET_ID, TEST1_ASSET_ID, TEST2_ASSET_ID,
 };
 use crate::CheckedImbalance;
@@ -409,7 +409,7 @@ fn on_dust_imbalance_hook_invoked() {
 
 		// Our test hook transfers dust to the treasury account
 		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryModuleId::get().into_account();
+		let treasury_account_id = TreasuryPalletId::get().into_account();
 		assert_eq!(
 			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
 			asset_info.existential_deposit() - 1
@@ -473,7 +473,7 @@ fn on_runtime_upgrade() {
 
 		// Our test hook transfers dust to the treasury account
 		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryModuleId::get().into_account();
+		let treasury_account_id = TreasuryPalletId::get().into_account();
 		assert_eq!(
 			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
 			(asset_info_1.existential_deposit() - 1) * 2 // sum of Alice & Bob's dust
@@ -491,9 +491,9 @@ fn migrate_locks_on_runtime_upgrade() {
 			use super::Config;
 			use crate::types::BalanceLock;
 
-			pub struct Module<T>(sp_std::marker::PhantomData<T>);
+			pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
 			frame_support::decl_storage! {
-				trait Store for Module<T: Config> as GenericAsset {
+				trait Store for Pallet<T: Config> as GenericAsset {
 					pub Locks get(fn locks):
 						map hasher(blake2_128_concat) u64 => Vec<BalanceLock<u64>>;
 				}
@@ -535,7 +535,7 @@ fn migrate_locks_on_runtime_upgrade() {
 		assert!(!old_storage::Locks::contains_key(ALICE));
 		assert!(!old_storage::Locks::contains_key(BOB));
 
-		assert_eq!(<Module<Test>>::staking_asset_id(), STAKING_ASSET_ID);
+		assert_eq!(<Pallet<Test>>::staking_asset_id(), STAKING_ASSET_ID);
 		assert_eq!(<Locks<Test>>::iter().count(), 2);
 		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, ALICE), alice_locks);
 		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, BOB), bob_locks);
@@ -1714,7 +1714,7 @@ fn zero_asset_id_should_updated_after_negative_imbalance_operations() {
 }
 
 #[test]
-fn zero_asset_id_should_updated_after_positive_imbalance_operations() {
+fn zero_asset_id_should_update_after_positive_imbalance_operations() {
 	let asset_id = 16000;
 	new_test_ext_with_default().execute_with(|| {
 		// generate empty positive imbalance
@@ -1754,12 +1754,12 @@ fn zero_asset_id_should_updated_after_positive_imbalance_operations() {
 
 		let positive_im = PositiveImbalanceOf::new(100, asset_id);
 		let opposite_im = NegativeImbalanceOf::new(150, asset_id);
-		assert_ok!(positive_im.checked_offset(opposite_im));
+		assert!(positive_im.checked_offset(opposite_im).is_ok());
 
 		// offset opposite im with same asset id should work
 		let offset_im = PositiveImbalanceOf::new(100, asset_id);
 		let opposite_im = NegativeImbalanceOf::new(25, asset_id);
-		assert_ok!(offset_im.checked_offset(opposite_im));
+		assert!(offset_im.checked_offset(opposite_im).is_ok());
 	});
 }
 
@@ -1850,16 +1850,16 @@ fn negative_imbalance_offset_with_incompatible_asset_id_should_fail() {
 		// create two mew imbalances with different asset id
 		let negative_im = NegativeImbalanceOf::new(100, 1);
 		let opposite_im = PositiveImbalanceOf::new(50, 2);
-		assert_eq!(
-			negative_im.checked_offset(opposite_im).unwrap_err(),
-			imbalances::Error::DifferentAssetIds,
-		);
+		match negative_im.checked_offset(opposite_im) {
+			Err(err) => assert_eq!(err, imbalances::Error::DifferentAssetIds),
+			_ => assert!(false),
+		}
 		let negative_im = NegativeImbalanceOf::new(100, 0);
 		let opposite_im = PositiveImbalanceOf::new(50, 2);
-		assert_eq!(
-			negative_im.checked_offset(opposite_im).unwrap_err(),
-			imbalances::Error::ZeroIdWithNonZeroAmount,
-		);
+		match negative_im.checked_offset(opposite_im) {
+			Err(err) => assert_eq!(err, imbalances::Error::ZeroIdWithNonZeroAmount),
+			_ => assert!(false),
+		}
 	});
 }
 
@@ -1869,16 +1869,16 @@ fn positive_imbalance_offset_with_incompatible_asset_id_should_fail() {
 		// create two mew imbalances with different asset id
 		let positive_im = PositiveImbalanceOf::new(100, 1);
 		let opposite_im = NegativeImbalanceOf::new(50, 2);
-		assert_eq!(
-			positive_im.checked_offset(opposite_im).unwrap_err(),
-			imbalances::Error::DifferentAssetIds,
-		);
+		match positive_im.checked_offset(opposite_im) {
+			Err(err) => assert_eq!(err, imbalances::Error::DifferentAssetIds),
+			_ => assert!(false),
+		}
 		let positive_im = PositiveImbalanceOf::new(100, 0);
 		let opposite_im = NegativeImbalanceOf::new(50, 2);
-		assert_eq!(
-			positive_im.checked_offset(opposite_im).unwrap_err(),
-			imbalances::Error::ZeroIdWithNonZeroAmount,
-		);
+		match positive_im.checked_offset(opposite_im) {
+			Err(err) => assert_eq!(err, imbalances::Error::ZeroIdWithNonZeroAmount),
+			_ => assert!(false),
+		}
 	});
 }
 

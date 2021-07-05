@@ -22,7 +22,7 @@ use super::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 
-use crate::Module as Cennzx;
+use crate::Pallet as Cennzx;
 
 const TRADE_ASSET_A_ID: u32 = 2;
 const TRADE_ASSET_B_ID: u32 = 3;

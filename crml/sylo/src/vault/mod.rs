@@ -20,11 +20,11 @@ pub type VaultKey = Vec<u8>;
 pub type VaultValue = Vec<u8>;
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {}
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloVault {
+	trait Store for Pallet<T: Config> as SyloVault {
 		pub Vault get(fn values): map hasher(blake2_128_concat) T::AccountId => Vec<(VaultKey, VaultValue)>;
 	}
 }

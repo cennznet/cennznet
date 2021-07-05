@@ -1,7 +1,7 @@
 pipeline {
     agent none
     environment {
-        RUST_VERSION='1.50.0'
+        RUST_VERSION='1.52.1'
         RUST_NIGHTLY='nightly-2021-03-05'
     }
     options{

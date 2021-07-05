@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! # Transaction Payment Module
+//! # Transaction Payment Pallet
 //!
 //! Transaction Payment Customized Error Code Constants
 

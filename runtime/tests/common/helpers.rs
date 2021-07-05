@@ -37,7 +37,7 @@ pub fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 /// Calculate the transaction fees of `xt` according to the current runtime implementation.
 /// Ignores tip.
 pub fn extrinsic_fee_for(xt: &UncheckedExtrinsic) -> Balance {
-	crml_transaction_payment::Module::<Runtime>::compute_fee(xt.encode().len() as u32, &xt.get_dispatch_info(), 0)
+	crml_transaction_payment::Pallet::<Runtime>::compute_fee(xt.encode().len() as u32, &xt.get_dispatch_info(), 0)
 }
 
 pub fn header_for_block_number(n: BlockNumber) -> Header {

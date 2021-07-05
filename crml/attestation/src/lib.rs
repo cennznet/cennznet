@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Attestation Module
+//! # Attestation Pallet
 //!
 //! The Attestation module provides functionality for entities to create attestation claims about one another.
 //!
@@ -119,7 +119,7 @@ decl_event!(
 // }
 //
 decl_storage! {
-	trait Store for Module<T: Config> as Attestation {
+	trait Store for Pallet<T: Config> as Attestation {
 		/// A map from holders to all their attesting issuers
 		Issuers get(fn issuers):
 			map hasher(blake2_128_concat) T::AccountId => Vec<T::AccountId>;
@@ -134,12 +134,12 @@ decl_storage! {
 
 decl_error! {
 	/// Error for the attestation module.
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Pallet<T: Config> {
 		TopicNotRegistered,
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Sets a claim about a `holder` from an `issuer`
 	/// If the claim `topic` already exists, then the claim `value` is updated,
 	/// Otherwise, a new claim is created for the `holder` by the `issuer`

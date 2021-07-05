@@ -26,7 +26,7 @@ use frame_support::{
 };
 use smallvec::smallvec;
 use sp_runtime::Perbill;
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::marker::PhantomData;
 
 /// Runs scheduled payouts for the rewards module.
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
@@ -104,16 +104,11 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 }
 
 /// Provides a membership set with only the configured sudo user
+#[allow(dead_code)]
 pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
 impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
-		t == (&pallet_sudo::Module::<T>::key())
-	}
-	fn sorted_members() -> Vec<T::AccountId> {
-		vec![(pallet_sudo::Module::<T>::key())]
-	}
-	fn count() -> usize {
-		1
+		t == (&pallet_sudo::Pallet::<T>::key())
 	}
 }
 impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
@@ -146,7 +141,11 @@ mod tests {
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
 	use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
-	use sp_runtime::{assert_eq_error_rate, traits::Convert, FixedPointNumber};
+	use sp_runtime::{
+		assert_eq_error_rate,
+		traits::{Convert, One, Zero},
+		FixedPointNumber,
+	};
 
 	fn max_normal() -> Weight {
 		BlockWeights::get()
@@ -179,7 +178,7 @@ mod tests {
 		let m = max_normal() as f64;
 		// block weight always truncated to max weight
 		let block_weight = (block_weight as f64).min(m);
-		let v: f64 = AdjustmentVariable::get().to_fraction();
+		let v: f64 = AdjustmentVariable::get().to_float();
 
 		// Ideal saturation in terms of weight
 		let ss = target() as f64;
@@ -189,7 +188,7 @@ mod tests {
 		let t1 = v * (s / m - ss / m);
 		let t2 = v.powi(2) * (s / m - ss / m).powi(2) / 2.0;
 		let next_float = previous_float * (1.0 + t1 + t2);
-		Multiplier::from_fraction(next_float)
+		Multiplier::from_float(next_float)
 	}
 
 	fn run_with_system_weight<F>(w: Weight, assertions: F)

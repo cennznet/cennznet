@@ -15,7 +15,7 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{Config, Module};
+use crate::{Config, Pallet};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use crml_support::MultiCurrency;
 use frame_support::dispatch::DispatchError;
@@ -47,7 +47,7 @@ where
 	/// Generates a unique, deterministic exchange address for the given `core_asset_id`, `asset_id` pair
 	/// It's uniqueness and collision resistance is determined by the `T::Hashing` implementation
 	fn exchange_address_for(asset_id: T::AssetId) -> T::AccountId {
-		let core_asset_id = Module::<T>::core_asset_id();
+		let core_asset_id = Pallet::<T>::core_asset_id();
 		// 13 + 64 + 64
 		let mut buf = Vec::<u8>::with_capacity(141);
 		buf.extend_from_slice(b"cennz-x-spot:");
@@ -58,7 +58,7 @@ where
 	}
 }
 
-impl<T: Config> BuyFeeAsset for Module<T> {
+impl<T: Config> BuyFeeAsset for Pallet<T> {
 	type AccountId = T::AccountId;
 	type Balance = T::Balance;
 	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;

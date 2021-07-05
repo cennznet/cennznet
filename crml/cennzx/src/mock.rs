@@ -34,12 +34,11 @@ use crate::{
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
 use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -51,9 +50,9 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -81,18 +80,19 @@ impl frame_system::Config for Test {
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
+	type OnSetCode = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 }
 
 parameter_types! {
-		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 }
 impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
@@ -143,7 +143,7 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 
 		// Run in the context of the first block
-		ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
+		ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 		ext
 	}
 }
@@ -157,8 +157,8 @@ macro_rules! with_exchange (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, $a1, $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&exchange_address, $a2, $b2);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&exchange_address, $a1, $b1);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&exchange_address, $a2, $b2);
 			exchange_address
 		}
 	}
@@ -170,8 +170,8 @@ macro_rules! with_exchange (
 macro_rules! assert_exchange_balance_eq (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		let exchange_address = crate::impls::ExchangeAddressGenerator::<Test>::exchange_address_for($a2);
-		let bal1 = <crml_generic_asset::Module<Test>>::free_balance($a1, &exchange_address);
-		let bal2 = <crml_generic_asset::Module<Test>>::free_balance($a2, &exchange_address);
+		let bal1 = <crml_generic_asset::Pallet<Test>>::free_balance($a1, &exchange_address);
+		let bal2 = <crml_generic_asset::Pallet<Test>>::free_balance($a2, &exchange_address);
 		assert_eq!(bal1, $b1);
 		assert_eq!(bal2, $b2);
 	};
@@ -188,14 +188,14 @@ macro_rules! with_account (
 	($a1:ident => $b1:expr, $a2:ident => $b2:expr) => {
 		{
 			let account = sp_keyring::AccountKeyring::Alice.into();
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a1, $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a2, $b2);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&account, $a1, $b1);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&account, $a2, $b2);
 			assert_eq!(
-				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
+				<crml_generic_asset::Pallet<Test>>::free_balance($a1, &account),
 				$b1
 			);
 			assert_eq!(
-				<crml_generic_asset::Module<Test>>::free_balance($a2, &account),
+				<crml_generic_asset::Pallet<Test>>::free_balance($a2, &account),
 				$b2
 			);
 			account
@@ -209,14 +209,14 @@ macro_rules! with_account (
 				"charlie" => sp_keyring::AccountKeyring::Charlie.into(),
 				_ =>  sp_keyring::AccountKeyring::Alice.into(), // default back to "andrea"
 			};
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a1, $b1);
-			let _ = <crml_generic_asset::Module<Test>>::deposit_creating(&account, $a2, $b2);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&account, $a1, $b1);
+			let _ = <crml_generic_asset::Pallet<Test>>::deposit_creating(&account, $a2, $b2);
 			assert_eq!(
-				<crml_generic_asset::Module<Test>>::free_balance($a1, &account),
+				<crml_generic_asset::Pallet<Test>>::free_balance($a1, &account),
 				$b1
 			);
 			assert_eq!(
-				<crml_generic_asset::Module<Test>>::free_balance($a2, &account),
+				<crml_generic_asset::Pallet<Test>>::free_balance($a2, &account),
 				$b2
 			);
 			account
@@ -225,12 +225,12 @@ macro_rules! with_account (
 );
 
 /// Assert account has asset balance equal to
-// alias for `assert_eq!(<crml_generic_asset::Module<Test>>::free_balance(asset_id, address), amount)`
+// alias for `assert_eq!(<crml_generic_asset::Pallet<Test>>::free_balance(asset_id, address), amount)`
 #[macro_export]
 macro_rules! assert_balance_eq (
 	($address:expr, $asset_id:ident => $balance:expr) => {
 		assert_eq!(
-			<crml_generic_asset::Module<Test>>::free_balance($asset_id, &$address),
+			<crml_generic_asset::Pallet<Test>>::free_balance($asset_id, &$address),
 			$balance,
 		);
 	};
@@ -238,7 +238,7 @@ macro_rules! assert_balance_eq (
 
 /// Returns the last recorded block event
 pub fn last_event() -> Event {
-	frame_system::Module::<Test>::events()
+	frame_system::Pallet::<Test>::events()
 		.pop()
 		.expect("Event expected")
 		.event

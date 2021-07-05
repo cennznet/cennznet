@@ -25,11 +25,11 @@ pub trait Config: inbox::Config + response::Config + device::Config + groups::Co
 pub type PreKeyBundle = Vec<u8>;
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin, system = frame_system {}
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {}
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as SyloE2EE {
+	trait Store for Pallet<T: Config> as SyloE2EE {
 		PreKeyBundles get(fn pkbs): map hasher(blake2_128_concat) (T::AccountId, DeviceId) => Vec<PreKeyBundle>;
 	}
 }

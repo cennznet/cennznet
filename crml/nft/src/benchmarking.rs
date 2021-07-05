@@ -23,7 +23,7 @@ use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
 use crate::types::MAX_ENTITLEMENTS;
-use crate::{Module as Nft, MAX_COLLECTION_NAME_LENGTH};
+use crate::{Pallet as Nft, MAX_COLLECTION_NAME_LENGTH};
 
 /// payment asset
 const PAYMENT_ASSET: u32 = 16_000;
