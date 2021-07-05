@@ -1,12 +1,13 @@
 {
   "name": "CENNZnet Nikau",
-  "id": "CENNZnet Nikau V1",
+  "id": "CENNZnet Nikau V2",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWQvEF5XmxFmpVQrtfwxe1oKviaB2KSFDvWgUYu2uRJU9B"
+    "/dns4/bootnode-nikau-0.centrality.me/tcp/30333/p2p/12D3KooWA6iSdKNJUpvNPTRzxiLfA2LzPgCTywWP2ZeRnabDaDEa",
+    "/dns4/bootnode-nikau-1.centrality.me/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8"
   ],
   "telemetryEndpoints": null,
-  "protocolId": "cennznet-nikau-v1",
+  "protocolId": "cennznet-nikau-v2",
   "properties": null,
   "forkBlocks": null,
   "badBlocks": null,
@@ -65,7 +66,7 @@
           "5CAT41NyWwec6h5HJBUJDyMmAomNXR3QXoM6vvdwyAa619zK",
           "5FZHCEhg2eonnazusuSJkekuRsJRhsBL6NqRAtQR7FooPryS",
           "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
-          "5GqKkTK4xHn79vuUyyPjrG9ff12dPyQ8wirckAaP1VoEwhLv"
+          "5GnNQBgBzbKdcjW4SGoYoMZNr568EdCqSmC8KJFF62yRgHHC"
         ],
         "permissions": [
           [
@@ -88,20 +89,8 @@
         "slashRewardFraction": 100000000,
         "stakers": [
           [
-            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
-            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
-            1000000000,
-            "Validator"
-          ],
-          [
-            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
-            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
-            1000000000,
-            "Validator"
-          ],
-          [
-            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
-            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
+            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
+            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
             1000000000,
             "Validator"
           ],
@@ -118,14 +107,26 @@
             "Validator"
           ],
           [
-            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
-            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
+            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
+            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
             1000000000,
             "Validator"
           ],
           [
-            "5GqKkTK4xHn79vuUyyPjrG9ff12dPyQ8wirckAaP1VoEwhLv",
-            "5GqKkTK4xHn79vuUyyPjrG9ff12dPyQ8wirckAaP1VoEwhLv",
+            "5GnNQBgBzbKdcjW4SGoYoMZNr568EdCqSmC8KJFF62yRgHHC",
+            "5GnNQBgBzbKdcjW4SGoYoMZNr568EdCqSmC8KJFF62yRgHHC",
+            1000000000,
+            "Validator"
+          ],
+          [
+            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
+            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
+            1000000000,
+            "Validator"
+          ],
+          [
+            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
+            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
             1000000000,
             "Validator"
           ]
@@ -134,33 +135,13 @@
       "palletSession": {
         "keys": [
           [
-            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
-            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
+            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
+            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
             {
-              "grandpa": "5G1z2KKdT8NSBuFSfrwb4SZsQ13fS1BtymCteqQbVB7Ntyks",
-              "babe": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh",
-              "im_online": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh",
-              "authority_discovery": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh"
-            }
-          ],
-          [
-            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
-            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
-            {
-              "grandpa": "5FNxhvTLC8fuu2brhHP3zYGzcsyjda9sft4MyeHft9vP3DZB",
-              "babe": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA",
-              "im_online": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA",
-              "authority_discovery": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA"
-            }
-          ],
-          [
-            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
-            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
-            {
-              "grandpa": "5FUzfPxyX1DGkucztnCRsVBr32mERGnhKVAm5YoSme5ZgGS2",
-              "babe": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc",
-              "im_online": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc",
-              "authority_discovery": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc"
+              "grandpa": "5DywndmEJH9zFykz19Xo31CR7s2oajJeE3widc9XP4Hn6971",
+              "babe": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1",
+              "im_online": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1",
+              "authority_discovery": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1"
             }
           ],
           [
@@ -184,13 +165,43 @@
             }
           ],
           [
-            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
-            "5D7nc2LVeHJKJ2WQQueecH8hJnv3UQVBZcwzspxn5EzuFgaN",
+            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
+            "5EA7RChxWwmQhcKXQVCbebhiBjLnKGCVtxuHZQ9gdMiuJSwa",
             {
-              "grandpa": "5DywndmEJH9zFykz19Xo31CR7s2oajJeE3widc9XP4Hn6971",
-              "babe": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1",
-              "im_online": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1",
-              "authority_discovery": "5DNmoAw4skr8TMXkSmgRL81zPtuQpryYgcaJtiS7ndnBagW1"
+              "grandpa": "5FNxhvTLC8fuu2brhHP3zYGzcsyjda9sft4MyeHft9vP3DZB",
+              "babe": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA",
+              "im_online": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA",
+              "authority_discovery": "5EqRoYSXfZgZuzY7AM92NwMZdg7mS6wfPZ2QYVZ9MdQd1yrA"
+            }
+          ],
+          [
+            "5GnNQBgBzbKdcjW4SGoYoMZNr568EdCqSmC8KJFF62yRgHHC",
+            "5GnNQBgBzbKdcjW4SGoYoMZNr568EdCqSmC8KJFF62yRgHHC",
+            {
+              "grandpa": "5ETPZ2sVHzHqQZEEBYnuW5kRB28S6m85hVJg1oA3oBn9mnXQ",
+              "babe": "5ChUiQ3gsyBpwoY2hNE1TC1xX5VXEK5UmYeCb4Zw71iEFKEt",
+              "im_online": "5ChUiQ3gsyBpwoY2hNE1TC1xX5VXEK5UmYeCb4Zw71iEFKEt",
+              "authority_discovery": "5ChUiQ3gsyBpwoY2hNE1TC1xX5VXEK5UmYeCb4Zw71iEFKEt"
+            }
+          ],
+          [
+            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
+            "5FNu2kkrMCf4za5EAo6LRxvmLkqjXLqUGsTHEx4xUnJzHDyn",
+            {
+              "grandpa": "5FUzfPxyX1DGkucztnCRsVBr32mERGnhKVAm5YoSme5ZgGS2",
+              "babe": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc",
+              "im_online": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc",
+              "authority_discovery": "5D1zFjmyuE5H9BUAyBryS2nHFkRPaSGbpqqxZHGuu9Dvpzgc"
+            }
+          ],
+          [
+            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
+            "5CLa1oyLG8ceuzbKhX6mmgZdDrfn5C91b3E32sQjYSvNKUck",
+            {
+              "grandpa": "5G1z2KKdT8NSBuFSfrwb4SZsQ13fS1BtymCteqQbVB7Ntyks",
+              "babe": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh",
+              "im_online": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh",
+              "authority_discovery": "5FACmBWWHJrzsTSTHJYGYKwPnJpJYdjtyAeWowagVNzLhNxh"
             }
           ]
         ]
