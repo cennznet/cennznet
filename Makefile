@@ -8,7 +8,7 @@ IMAGE_NAME=cennznet
 endif
 
 ifndef DOCKER_BUILD_ARGS
-# You can add '--no-cache --quite' here if you like
+# You can add '--no-cache --quiet' here if you like
 DOCKER_BUILD_ARGS=
 endif
 

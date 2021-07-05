@@ -53,7 +53,22 @@ $ rustup install nightly
 $ rustup target add --toolchain=nightly wasm32-unknown-unknown
 ```
 
-#### 3. Build the node binary and run
+#### 3. Build the node Docker image
+
+Prepare your docker engine, and make sure it is running.
+
+```
+# To use the default image name and tag
+$ make 
+
+# To custom your image name and tag
+$ IMAGE_NAME='cennznet' IMAGE_TAG='v1.5.1' DOCKER_BUILD_ARGS='--no-cache --quiet' make build
+
+# Without using make
+$ docker build --no-cache -t cennznet:v1.5.1 .
+```
+
+#### 4. Build the node binary and run
 
 Then clone the repo, build the binary and run it.
 ```
