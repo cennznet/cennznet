@@ -1,5 +1,10 @@
 # CENNZnet-Eth bridge
 
+setup
+```bash
+npm install --save-dev @remix-project/remix-tests
+```
+
 ## Dir structure
 ```bash
 #  solidity contract
