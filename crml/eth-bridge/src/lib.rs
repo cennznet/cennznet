@@ -122,6 +122,8 @@ impl<T: SigningTypes> SignedPayload<T> for NotarizationPayload<T::Public> {
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	// config values
+	/// The deposited event topic of a deposit on Ethereum
+	type EthDepositContractTopic: Get<H256>;
 	/// The Eth deposit contract address
 	type EthDepositContractAddress: Get<H160>;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
@@ -275,8 +277,15 @@ impl<T: Config> Pallet<T> {
 			.iter()
 			.find(|log| log.transaction_hash == Some(tx_hash)) {
 				// TODO:
-				// log.topics == our topic
-				// log.data == our expected data
+				// 1) log.topics == our topic
+				// T::DepositEventTopic::get() == keccack256("MyEventName(address,bytes32,uint256")
+				// https://ethereum.stackexchange.com/questions/7835/what-is-topics0-in-event-logs
+				// 2) log.data == our expected data
+				// rlp crate: https://github.com/paritytech/frontier/blob/1b810cf8143bc545955459ae1e788ef23e627050/frame/ethereum/Cargo.toml#L25
+				// https://docs.rs/rlp/0.3.0/src/rlp/lib.rs.html#77-80
+				// rlp::decode_list()
+				// 3) check log.removed is false
+				// e.g. MyEventType::rlp_decode(log.data)
 			}
 		else {
 			// no log found
@@ -316,6 +325,7 @@ impl<T: Config> Pallet<T> {
 	/// and returns the JSON response as vector of bytes.
 	fn fetch_from_remote() -> Result<Vec<u8>, Error<T>> {
 		// TODO: load this info from some client config...
+		// e.g. offchain indexed
 		const HTTP_REMOTE_REQUEST: &str = "https://api.github.com/orgs/substrate-developer-hub";
 		const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807";
 		const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds

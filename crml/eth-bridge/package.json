@@ -1,0 +1,14 @@
+{
+  "name": "cennznet-bridge",
+  "version": "1.0.0",
+  "description": "Bridge ethereum tokens with CENNZnet",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "CENNZnet Developers",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.2.0"
+  }
+}
