@@ -11,7 +11,7 @@ contract CENNZnetBridge is Ownable {
     bool isBridgeActive;
     mapping (address => mapping(address => uint)) public balances;
 
-    event Deposit(address indexed, address tokenType, uint amount, bytes32 cennznetAddress);
+    event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress);
 
     // Deposit amount of tokenType
     // the pegged version of the token will be claim-able on CENNZnet

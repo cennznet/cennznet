@@ -77,6 +77,7 @@ cennznet-primitives = { path = "../primitives", default-features = false }
 crml-attestation = { path = "../crml/attestation", default-features = false}
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
+crml-eth-bridge = { path = "../crml/eth-bridge", default-features = false}
 crml-generic-asset= { path = "../crml/generic-asset", default-features = false }
 crml-generic-asset-rpc-runtime-api = { path = "../crml/generic-asset/rpc/runtime-api", default-features = false }
 crml-nft = { path = "../crml/nft", default-features = false}
@@ -134,6 +135,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"cennznet-primitives/std",
 	"crml-attestation/std",
+	"crml-eth-bridge/std",
 	"crml-cennzx/std",
 	"crml-cennzx-rpc-runtime-api/std",
 	"crml-generic-asset/std",
@@ -166,6 +168,8 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
 	"cennznet-primitives/try-runtime",
+	"crml-attestation/std",
+	"crml-eth-bridge/std",
 	"crml-cennzx/try-runtime",
 	"crml-staking/try-runtime",
 	"crml-sylo/try-runtime",

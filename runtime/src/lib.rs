@@ -618,6 +618,42 @@ impl crml_attestation::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const EthDepositContractTopic: H256 = Default::default();
+	/// The Eth deposit contract address
+	pub const EthDepositContractAddress: H160 = Default::default();
+	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	pub const RequiredConfirmations: u16 = 0;
+	/// The threshold of notarizations required to approve an Eth deposit
+	pub const DepositApprovalThreshold: Percent = Percent::from_rational(51, 100);
+	/// Deposits cannot be claimed after this time # of Eth blocks)
+	pub const DepositClaimPeriod: u32 = 1_000;
+
+	pub const DummyAuthoritiesCounter: u16 = 1;
+}
+impl crml_eth_bridge::Config for Runtime {
+	/// The deposited event topic of a deposit on Ethereum
+	type EthDepositContractTopic: Get<H256>;
+	/// The Eth deposit contract address
+	type EthDepositContractAddress: Get<H160>;
+	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	type RequiredConfirmations: Get<u16>;
+	/// The threshold of notarizations required to approve an Eth deposit
+	type DepositApprovalThreshold: Get<Percent>;
+	/// Deposits cannot be claimed after this time # of Eth blocks)
+	type DepositClaimPeriod: Get<u32>;
+
+	// config types
+	/// The identifier type for an offchain worker.
+	type AuthorityId = Self::Public;
+	/// Returns the count of active network authorities (validators)
+	type ActiveAuthoritiesCounter = DummyAuthoritiesCounter;
+	/// The overarching dispatch call type.
+	type Call = Call<Self>;
+	/// The overarching event type.
+	type Event = Event<Self>;
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

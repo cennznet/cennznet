@@ -104,13 +104,8 @@ where
 struct ExtBuilder;
 
 impl ExtBuilder {
-	pub fn build() -> (
-		TestExternalities,
-		Arc<RwLock<PoolState>>,
-		Arc<RwLock<OffchainState>>,
-	) {
-		const PHRASE: &str =
-			"expire stage crawl shell boss any story swamp skull yellow bamboo copy";
+	pub fn build() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
+		const PHRASE: &str = "expire stage crawl shell boss any story swamp skull yellow bamboo copy";
 
 		let (offchain, offchain_state) = testing::TestOffchainExt::new();
 		let (pool, pool_state) = testing::TestTransactionPoolExt::new();
@@ -170,10 +165,7 @@ fn test_offchain_signed_tx() {
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert_eq!(tx.signature.unwrap().0, 0);
-		assert_eq!(
-			tx.call,
-			Call::OcwDemo(ocw_demo::Call::submit_number_signed(num))
-		);
+		assert_eq!(tx.call, Call::OcwDemo(ocw_demo::Call::submit_number_signed(num)));
 	});
 }
 
@@ -190,9 +182,6 @@ fn test_offchain_unsigned_tx() {
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert_eq!(tx.signature, None);
-		assert_eq!(
-			tx.call,
-			Call::OcwDemo(ocw_demo::Call::submit_number_unsigned(num))
-		);
+		assert_eq!(tx.call, Call::OcwDemo(ocw_demo::Call::submit_number_unsigned(num)));
 	});
 }

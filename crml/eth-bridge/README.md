@@ -1,11 +1,6 @@
 # CENNZnet-Eth bridge
 
-setup
-```bash
-npm install --save-dev @remix-project/remix-tests
-```
-
-## Dir structure
+## Structure
 ```bash
 #  solidity contract
 contracts/
@@ -15,13 +10,23 @@ libraries/
 src/
 ```
 
+## Setup
+```bash
+# install
+yarn
+# compile
+yarn build
+# test
+yarn test
+```
+
 ## Geth setup
 
 ```bash
 ./geth-up.sh
 ```
 
-CENNZnet account for accepting deposits
+Example CENNZnet account for accepting deposits
 ```
 subkey inspect //BridgeTest
 Secret Key URI `//BridgeTest` is account:

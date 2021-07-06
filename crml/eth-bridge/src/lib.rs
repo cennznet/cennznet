@@ -23,28 +23,24 @@ mod tests;
 mod types;
 use types::*;
 
-use frame_support::{
-	log, decl_error, decl_event, decl_module, decl_storage,
-	dispatch::DispatchResult,
-	traits::Get,
-};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, log, traits::Get};
 use parity_scale_codec::{Codec, Decode, Encode};
 
 use frame_system::{
 	ensure_none, ensure_signed,
-	offchain::{
-		AppCrypto, CreateSignedTransaction, SendUnsignedTransaction,
-		SignedPayload, Signer, SigningTypes,
-	},
+	offchain::{AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer, SigningTypes},
 };
-use sp_core::{H160, H256, crypto::KeyTypeId};
+use sp_core::{crypto::KeyTypeId, H160, H256};
 use sp_runtime::{
-	Percent, RuntimeDebug, offchain as rt_offchain,
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	}
+	offchain as rt_offchain,
+	traits::IdentifyAccount,
+	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
+	Percent, RuntimeDebug,
 };
-use sp_std::{prelude::*, str};
+use sp_std::{
+	prelude::*,
+	str::{self, FromStr},
+};
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -70,7 +66,6 @@ macro_rules! log {
 	};
 }
 
-
 /// Based on the above `KeyTypeId` we need to generate a pallet-specific crypto type wrapper.
 /// We can utilize the supported crypto kinds (`sr25519`, `ed25519` and `ecdsa`) and augment
 /// them with the pallet-specific identifier.
@@ -91,9 +86,7 @@ pub mod crypto {
 	}
 
 	// implemented for mock runtime in test
-	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
-		for TestAuthId
-	{
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature> for TestAuthId {
 		type RuntimeAppPublic = Public;
 		type GenericSignature = sp_core::sr25519::Signature;
 		type GenericPublic = sp_core::sr25519::Public;
@@ -110,7 +103,7 @@ pub struct NotarizationPayload<Public: Codec> {
 	public: Public,
 	/// Whether the claim was validated or not
 	// TODO: status enum instead of bool
-	is_valid: bool
+	is_valid: bool,
 }
 
 impl<T: SigningTypes> SignedPayload<T> for NotarizationPayload<T::Public> {
@@ -193,7 +186,7 @@ decl_module! {
 		// TODO: weight here should reflect the offchain work which is triggered as a result
 		/// Submit a bridge deposit claim for an ethereum tx hash
 		pub fn deposit_claim(origin, tx_hash: H256) {
-			let origin = ensure_signed(origin)?;
+			let _ = ensure_signed(origin)?;
 			let claim_id = Self::next_claim_id();
 			PendingClaims::insert(claim_id, tx_hash);
 			NextClaimId::put(claim_id.wrapping_add(1));
@@ -207,10 +200,9 @@ decl_module! {
 
 			// we don't need to verify the signature here because it has been verified in
 			//`validate_unsigned` function when sending out the unsigned tx.
-			// TODO: fix types here
-			<ClaimNotarizations<T>>::insert(payload.claim_id, payload.public.into(), payload.is_valid);
+			<ClaimNotarizations<T>>::insert::<u64, T::AccountId, bool>(payload.claim_id, payload.public.into_account(), payload.is_valid);
 			// - check if threshold reached for or against
-			let notarizations = ClaimNotarizations::iter_prefix(payload.claim_id).count() as u32;
+			let notarizations = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
 
 			if Percent::from_rational(notarizations, T::ActiveAuthoritiesCounter::get()) > T::DepositApprovalThreshold::get() {
 				// - clean up + release tokens
@@ -234,11 +226,14 @@ decl_module! {
 			// TODO: is this run async or can it stall a block?
 			// if it's async fire all the claims we can otherwise be conservative e.g .limit to 1
 
-			// TODO: only need one account here...
-			let account = Signer::<T, T::AuthorityId>::any_account();
+			// TODO: read public key from keystore
+			// let account = Signer::<T, T::AuthorityId>::any_account();
 			for (claim_id, tx_hash) in PendingClaims::iter() {
-				if Self::claim_notarizations(claim_id, account.into()).is_none() {
+				// TODO: use this node's signing key
+				// singing with 0 address for testing
+				if <ClaimNotarizations<T>>::get::<u64, T::AccountId>(claim_id, Default::default()).is_none() {
 					let is_valid = Self::offchain_verify_claim(claim_id, tx_hash);
+					// TODO: must pass through the same singer here
 					Self::offchain_send_notarization(claim_id, is_valid);
 				}
 			}
@@ -249,7 +244,6 @@ decl_module! {
 }
 
 impl<T: Config> Pallet<T> {
-
 	/// Verify a claim
 	/// - check Eth full node for transaction status
 	/// - tx success
@@ -265,29 +259,36 @@ impl<T: Config> Pallet<T> {
 		let tx_receipt = result.unwrap();
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
-			return false
+			return false;
 		}
 
 		// transaction should be to our configured bridge contract
 		if tx_receipt.to.unwrap_or_default() != T::EthDepositContractAddress::get() {
-			return false
+			return false;
 		}
 
-		if let Some(log) = tx_receipt.logs
-			.iter()
-			.find(|log| log.transaction_hash == Some(tx_hash)) {
-				// TODO:
-				// 1) log.topics == our topic
-				// T::DepositEventTopic::get() == keccack256("MyEventName(address,bytes32,uint256")
-				// https://ethereum.stackexchange.com/questions/7835/what-is-topics0-in-event-logs
-				// 2) log.data == our expected data
-				// rlp crate: https://github.com/paritytech/frontier/blob/1b810cf8143bc545955459ae1e788ef23e627050/frame/ethereum/Cargo.toml#L25
-				// https://docs.rs/rlp/0.3.0/src/rlp/lib.rs.html#77-80
-				// rlp::decode_list()
-				// 3) check log.removed is false
-				// e.g. MyEventType::rlp_decode(log.data)
-			}
-		else {
+		if let Some(log) = tx_receipt.logs.iter().find(|log| log.transaction_hash == Some(tx_hash)) {
+			// TODO:
+			// 1) log.topics == our topic
+			// 0x0c823526689243a45c315d12c5a634a2670843e4837cc1d51af12d25aad839dc
+			// T::DepositEventTopic::get() == keccack256("Deposit(address,address,uint256,bytes32")
+			// https://ethereum.stackexchange.com/questions/7835/what-is-topics0-in-event-logs
+			// 2) log.data == our expected data
+			// rlp crate: https://github.com/paritytech/frontier/blob/1b810cf8143bc545955459ae1e788ef23e627050/frame/ethereum/Cargo.toml#L25
+			// https://docs.rs/rlp/0.3.0/src/rlp/lib.rs.html#77-80
+			// rlp::decode_list()
+			// 3) check log.removed is false
+			// e.g. MyEventType::rlp_decode(log.data)
+			return log.is_removed()
+				&& log
+					.topics
+					.iter()
+					.find(|t| {
+						**t == H256::from_str("0x0c823526689243a45c315d12c5a634a2670843e4837cc1d51af12d25aad839dc")
+							.unwrap()
+					})
+					.is_some();
+		} else {
 			// no log found
 			return false;
 		}
@@ -297,7 +298,7 @@ impl<T: Config> Pallet<T> {
 		let tx_block_number = tx_receipt.block_number.unwrap_or_default();
 		// have we got enough block confirmations
 		if latest_block_number.saturating_sub(tx_block_number.as_u64()) >= T::RequiredConfirmations::get() as u64 {
-			return false
+			return false;
 		}
 
 		// TODO: need replay protection
@@ -308,7 +309,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Fetch from remote and deserialize the JSON to a struct
 	fn get_transaction_receipt(tx_hash: H256) -> Result<TransactionReceipt, Error<T>> {
-		let resp_bytes = Self::fetch_from_remote().map_err(|e| {
+		let resp_bytes = Self::fetch_from_remote(tx_hash).map_err(|e| {
 			log!(error, "💎 Read from eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetchingError
 		})?;
@@ -323,11 +324,11 @@ impl<T: Config> Pallet<T> {
 
 	/// This function uses the `offchain::http` API to query the remote github information,
 	/// and returns the JSON response as vector of bytes.
-	fn fetch_from_remote() -> Result<Vec<u8>, Error<T>> {
+	fn fetch_from_remote(tx_hash: H256) -> Result<Vec<u8>, Error<T>> {
 		// TODO: load this info from some client config...
 		// e.g. offchain indexed
-		const HTTP_REMOTE_REQUEST: &str = "https://api.github.com/orgs/substrate-developer-hub";
-		const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807";
+		const HTTP_REMOTE_REQUEST: &str = "http://localhost:8545";
+		const HTTP_HEADER_USER_AGENT: &str = "application/json";
 		const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
 		log!(info, "💎 sending request to: {}", HTTP_REMOTE_REQUEST);
 
@@ -335,13 +336,19 @@ impl<T: Config> Pallet<T> {
 		let request = rt_offchain::http::Request::get(HTTP_REMOTE_REQUEST);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-		let timeout = sp_io::offchain::timestamp()
-			.add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
 
-		// For github API request, we also need to specify `user-agent` in http request header.
-		// See: https://developer.github.com/v3/#user-agent-required
+		// '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],"id":1}'
+		let payload = GetTxReceiptRequest {
+			json_rpc: "2.0".to_string(),
+			method: "get_ethTransactionReceipt".to_string(),
+			params: vec![tx_hash],
+			id: 1,
+		};
+
 		let pending = request
-			.add_header("User-Agent", HTTP_HEADER_USER_AGENT)
+			.body(vec![serde_json::to_string(&payload).unwrap().as_bytes()])
+			.add_header("Content-Type", HTTP_HEADER_USER_AGENT)
 			.deadline(timeout) // Setting the timeout time
 			.send() // Sending the request out by the host
 			.map_err(|_| <Error<T>>::HttpFetchingError)?;
@@ -399,10 +406,10 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_notarization(ref payload, ref signature) = call {
-				if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, *signature) {
-					return InvalidTransaction::BadProof.into();
-				}
-				ValidTransaction::with_tag_prefix("eth-bridge")
+			if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone()) {
+				return InvalidTransaction::BadProof.into();
+			}
+			ValidTransaction::with_tag_prefix("eth-bridge")
 				.priority(UNSIGNED_TXS_PRIORITY)
 				// TODO: does this need to be unique in the tx pool?
 				.and_provides([&b"notarize"])
