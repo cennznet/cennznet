@@ -4,7 +4,7 @@ mkdir test-eth-data || true
 
 echo "starting geth node.."
 docker rm -f cennznet-eth
-docker run -p 8545:8545 -p 8546:8546 \
+docker run -p 8545:8545 -p 8546:8546 --pull \
     --name=cennznet-eth \
     -v $(pwd)/test-eth-data:/test-eth-data \
     ethereum/client-go \
@@ -15,4 +15,3 @@ docker run -p 8545:8545 -p 8546:8546 \
         --http.addr 0.0.0.0 \
         --http.api web3,eth,debug,personal,net \
         --http.corsdomain "https://remix.ethereum.org"
-
