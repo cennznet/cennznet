@@ -9,9 +9,11 @@ license = "GPL-3.0"
 [dependencies]
 parking_lot = "0.11"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+heapless = "0.4.4"
 serde = { version = "1.0.126", default-features = false, features = ["derive"] }
 # TODO: needs pr to main repo
-serde-json-core = { git = "https://github.com/holygits/serde-json-core", branch = "master" }
+# serde-json-core = { git = "https://github.com/holygits/serde-json-core", branch = "master" }
+serde-json-core = { path = "../../../serde-json-core" }
 ethereum-types = { version = "0.12", default-features = false, features = ["serialize"] }
 rustc-hex = { version = "2.1.0", default-features = false }
 

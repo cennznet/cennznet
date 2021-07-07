@@ -17,7 +17,6 @@
 
 use core::fmt;
 use ethereum_types::{Address, Bloom as H2048, H256, U256, U64};
-use rustc_hex::FromHex;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_std::vec::Vec;
@@ -36,17 +35,15 @@ pub struct Log {
 	/// Data
 	pub data: Bytes,
 	/// Block Hash
-	pub block_hash: Option<H256>,
+	pub block_hash: H256,
 	/// Block Number
-	pub block_number: Option<U256>,
+	pub block_number: U64,
 	/// Transaction Hash
 	pub transaction_hash: Option<H256>,
 	/// Transaction Index
-	pub transaction_index: Option<U256>,
+	pub transaction_index: U64,
 	/// Log Index in Block
-	pub log_index: Option<U256>,
-	/// Log Index in Transaction
-	pub transaction_log_index: Option<U256>,
+	pub log_index: U256,
 	/// Whether Log Type is Removed (Geth Compatibility Field)
 	#[serde(default)]
 	pub removed: bool,
@@ -57,46 +54,49 @@ pub struct Log {
 // remove after: https://github.com/tomusdrw/rust-web3/issues/513 is solved
 /// "Receipt" of an executed transaction: details of its execution.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionReceipt {
-	/// Transaction hash.
-	#[serde(rename = "transactionHash")]
-	pub transaction_hash: H256,
-	/// Index within the block.
-	#[serde(rename = "transactionIndex")]
-	pub transaction_index: Index,
 	/// Hash of the block this transaction was included within.
-	#[serde(rename = "blockHash")]
-	pub block_hash: Option<H256>,
+	pub block_hash: H256,
 	/// Number of the block this transaction was included within.
-	#[serde(rename = "blockNumber")]
-	pub block_number: Option<U64>,
+	pub block_number: U64,
+	/// Contract address created, or `None` if not a deployment.
+	pub contract_address: Option<Address>,
+	/// Cumulative gas used within the block after this was executed.
+	pub cumulative_gas_used: U256,
+	pub effective_gas_price: U256,
 	/// Address of the sender.
 	pub from: Address,
-	/// Address of the receiver, or `None` if a contract deployment
-	pub to: Option<Address>,
-	/// Cumulative gas used within the block after this was executed.
-	#[serde(rename = "cumulativeGasUsed")]
-	pub cumulative_gas_used: U256,
 	/// Gas used by this transaction alone.
 	///
 	/// Gas used is `None` if the the client is running in light client mode.
-	#[serde(rename = "gasUsed")]
 	pub gas_used: Option<U256>,
-	/// Contract address created, or `None` if not a deployment.
-	#[serde(rename = "contractAddress")]
-	pub contract_address: Option<Address>,
 	/// Logs generated within this transaction.
 	pub logs: Vec<Log>,
 	/// Status: either 1 (success) or 0 (failure).
 	pub status: Option<U64>,
+	/// Address of the receiver, or `None` if a contract deployment
+	pub to: Option<Address>,
+	/// Transaction hash.
+	pub transaction_hash: H256,
+	/// Index within the block.
+	pub transaction_index: Index,
 	/// State root.
 	pub root: Option<H256>,
 	/// Logs bloom
-	#[serde(rename = "logsBloom")]
 	pub logs_bloom: H2048,
 	/// Transaction type, Some(1) for AccessList transaction, None for Legacy
 	#[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
 	pub transaction_type: Option<U64>,
+	#[serde(default)]
+	pub removed: bool,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+pub struct EthResponse<'a, D> {
+	jsonrpc: &'a str,
+	id: u32,
+	pub result: D,
 }
 
 /// JSON-RPC protocol version header
@@ -117,7 +117,7 @@ pub struct GetTxReceiptRequest {
 }
 
 /// JSON-RPC method name for the request
-const METHOD_TX: &'static str = "eth_get_transactionReceipt";
+const METHOD_TX: &'static str = "eth_getTransactionReceipt";
 impl GetTxReceiptRequest {
 	pub fn new(tx_hash: H256) -> Self {
 		Self {
@@ -138,19 +138,19 @@ pub struct GetBlockNumberRequest {
 	/// The method which is called
 	pub method: &'static str,
 	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: (),
+	pub params: Vec<u8>,
 	/// The id for the request
 	pub id: usize,
 }
 
 /// JSON-RPC method name for the request
-const METHOD_BLOCK: &'static str = "eth_get_transactionReceipt";
+const METHOD_BLOCK: &'static str = "eth_blockNumber";
 impl GetBlockNumberRequest {
 	pub fn new() -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_BLOCK,
-			params: (),
+			params: Default::default(),
 			id: 1,
 		}
 	}
@@ -192,6 +192,13 @@ impl<'a> Deserialize<'a> for Bytes {
 	}
 }
 
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+	(0..s.len())
+		.step_by(2)
+		.map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+		.collect()
+}
+
 struct BytesVisitor;
 
 impl<'a> Visitor<'a> for BytesVisitor {
@@ -207,45 +214,12 @@ impl<'a> Visitor<'a> for BytesVisitor {
 	{
 		if value.len() >= 2 && value.starts_with("0x") && value.len() & 1 == 0 {
 			Ok(Bytes::new(
-				FromHex::from_hex(&value[2..]).map_err(|_| Error::custom("invalid hex"))?,
+				decode_hex(&value[2..]).expect("it is hex")
 			))
 		} else {
 			Err(Error::custom(
 				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
 			))
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use rustc_hex::FromHex;
-
-	#[test]
-	fn test_bytes_serialize() {
-		let bytes = Bytes("0123456789abcdef".from_hex().unwrap());
-		let serialized = serde_json::to_string(&bytes).unwrap();
-		assert_eq!(serialized, r#""0x0123456789abcdef""#);
-	}
-
-	#[test]
-	fn test_bytes_deserialize() {
-		let bytes0: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""∀∂""#);
-		let bytes1: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""""#);
-		let bytes2: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""0x123""#);
-		let bytes3: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""0xgg""#);
-
-		let bytes4: Bytes = serde_json::from_str(r#""0x""#).unwrap();
-		let bytes5: Bytes = serde_json::from_str(r#""0x12""#).unwrap();
-		let bytes6: Bytes = serde_json::from_str(r#""0x0123""#).unwrap();
-
-		assert!(bytes0.is_err());
-		assert!(bytes1.is_err());
-		assert!(bytes2.is_err());
-		assert!(bytes3.is_err());
-		assert_eq!(bytes4, Bytes(vec![]));
-		assert_eq!(bytes5, Bytes(vec![0x12]));
-		assert_eq!(bytes6, Bytes(vec![0x1, 0x23]));
 	}
 }

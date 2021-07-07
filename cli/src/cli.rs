@@ -4,12 +4,12 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub struct EthClientOpts {
-    /// Eth JSON-RPC client endpoint
-	#[structopt(long = "eth-host", about = "Eth client JSON-RPC endpoint")]
-    pub eth_host: String,
-    /// Eth JSON-RPC client api key
+	/// Eth JSON-RPC client endpoint
+	#[structopt(long = "eth-rpc", about = "Eth client JSON-RPC endpoint")]
+	pub eth_host: Option<String>,
+	/// Eth JSON-RPC client api key
 	#[structopt(long = "eth-api-key", about = "Eth client JSON-RPC API key")]
-    pub eth_api_key: String,
+	pub eth_api_key: Option<String>,
 }
 
 #[derive(Debug, StructOpt)]

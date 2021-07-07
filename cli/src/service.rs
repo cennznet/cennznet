@@ -216,7 +216,7 @@ pub struct NewFullBase {
 /// Creates a full service from the configuration.
 pub fn new_full_base(
 	mut config: Configuration,
-	eth_host: String,
+	eth_host: Option<String>,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 		&sc_consensus_babe::BabeLink<Block>,
@@ -422,7 +422,7 @@ pub fn new_full_base(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration, eth_host: String) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration, eth_host: Option<String>) -> Result<TaskManager, ServiceError> {
 	new_full_base(config, eth_host, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
 }
 

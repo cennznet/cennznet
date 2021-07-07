@@ -368,8 +368,7 @@ sp_npos_elections::generate_solution_type!(
 	>(16)
 );
 
-pub const MAX_NOMINATIONS: u32 =
-	<NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
+pub const MAX_NOMINATIONS: u32 = <NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
@@ -753,7 +752,7 @@ construct_runtime!(
 		Attestation: crml_attestation::{Pallet, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
-		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event<T>} = 31,
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 31,
 	}
 );
 

@@ -1226,6 +1226,7 @@ dependencies = [
  "ethereum-types",
  "frame-support",
  "frame-system",
+ "heapless",
  "pallet-im-online",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -6929,7 +6930,6 @@ dependencies = [
 [[package]]
 name = "serde-json-core"
 version = "0.0.1"
-source = "git+https://github.com/holygits/serde-json-core?branch=master#dedb6577d175b799d3630864b4148351f400889e"
 dependencies = [
  "heapless",
  "serde",
