@@ -23,33 +23,24 @@ mod tests;
 mod types;
 use types::*;
 
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, log, traits::Get};
-use parity_scale_codec::{Codec, Decode, Encode};
-
+use codec::{Codec, Decode, Encode};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, log, traits::{Get, OneSessionHandler}, Parameter};
 use frame_system::{
 	ensure_none, ensure_signed,
-	offchain::{AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer, SigningTypes},
+	offchain::{CreateSignedTransaction, SignedPayload, SigningTypes, SubmitTransaction},
 };
-use sp_core::{crypto::KeyTypeId, H160, H256};
+use sp_core::{H160, H256};
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::IdentifyAccount,
+	traits::{MaybeSerializeDeserialize, Member},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-	Percent, RuntimeDebug,
+	Percent, RuntimeAppPublic, RuntimeDebug,
 };
 use sp_std::{
 	prelude::*,
 	str::{self, FromStr},
 };
 
-/// Defines application identifier for crypto keys of this module.
-///
-/// Every module that deals with signatures needs to declare its unique identifier for
-/// its crypto keys.
-/// When an offchain worker is signing transactions it's going to request keys from type
-/// `KeyTypeId` via the keystore to sign the transaction.
-/// The keys can be inserted manually via RPC (see `author_insertKey`).
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"eth-");
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 
@@ -64,33 +55,6 @@ macro_rules! log {
 			$patter $(, $values)*
 		)
 	};
-}
-
-/// Based on the above `KeyTypeId` we need to generate a pallet-specific crypto type wrapper.
-/// We can utilize the supported crypto kinds (`sr25519`, `ed25519` and `ecdsa`) and augment
-/// them with the pallet-specific identifier.
-pub mod crypto {
-	use crate::KEY_TYPE;
-	use sp_core::sr25519::Signature as Sr25519Signature;
-	use sp_runtime::app_crypto::{app_crypto, sr25519};
-	use sp_runtime::{traits::Verify, MultiSignature, MultiSigner};
-
-	app_crypto!(sr25519, KEY_TYPE);
-
-	pub struct TestAuthId;
-	// implemented for ocw-runtime
-	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = sp_core::sr25519::Signature;
-		type GenericPublic = sp_core::sr25519::Public;
-	}
-
-	// implemented for mock runtime in test
-	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature> for TestAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = sp_core::sr25519::Signature;
-		type GenericPublic = sp_core::sr25519::Public;
-	}
 }
 
 /// An independent notarization vote on a claim
@@ -116,21 +80,19 @@ impl<T: SigningTypes> SignedPayload<T> for NotarizationPayload<T::Public> {
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	// config values
 	/// The deposited event topic of a deposit on Ethereum
-	type EthDepositContractTopic: Get<H256>;
+	// type EthDepositContractTopic: Get<H256>;
 	/// The Eth deposit contract address
-	type EthDepositContractAddress: Get<H160>;
+	// type EthDepositContractAddress: Get<H160>;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	type RequiredConfirmations: Get<u16>;
 	/// The threshold of notarizations required to approve an Eth deposit
-	type DepositApprovalThreshold: Get<Percent>;
+	// type DepositApprovalThreshold: Get<Percent>;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	type DepositClaimPeriod: Get<u32>;
 
 	// config types
-	/// The identifier type for an offchain worker.
-	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-	/// Returns the count of active network authorities (validators)
-	type ActiveAuthoritiesCounter: Get<u32>;
+	/// The identifier type for an authority.
+	type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// The overarching dispatch call type.
 	type Call: From<Call<Self>>;
 	/// The overarching event type.
@@ -145,7 +107,9 @@ decl_storage! {
 		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) u64 => H256;
 		/// Notarizations for pending claims
 		/// None, no notarization or Some(yay/nay)
-		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AccountId => Option<bool>
+		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
+		/// Active notary (Validator) public keys
+		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
 	}
 }
 
@@ -160,19 +124,10 @@ decl_event! {
 
 decl_error! {
 	pub enum Error for Pallet<T: Config> {
-		// Error returned when not sure which ocw function to executed
-		UnknownOffchainMux,
-
 		// Error returned when making signed transactions in off-chain worker
 		NoLocalSigningAccount,
-		OffchainSignedTxError,
-
-		// Error returned when making unsigned transactions in off-chain worker
-		OffchainUnsignedTxError,
-
 		// Error returned when making unsigned transactions with signed payloads in off-chain worker
 		OffchainUnsignedTxSignedPayloadError,
-
 		// Error returned when fetching github info
 		HttpFetchingError,
 	}
@@ -195,16 +150,18 @@ decl_module! {
 		#[weight = 100_000]
 		/// Internal only
 		/// Validators will call this with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload<T::Public>, _signature: T::Signature) -> DispatchResult {
+		pub fn submit_notarization(origin, payload: NotarizationPayload<T::AuthorityId>, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
 			//`validate_unsigned` function when sending out the unsigned tx.
-			<ClaimNotarizations<T>>::insert::<u64, T::AccountId, bool>(payload.claim_id, payload.public.into_account(), payload.is_valid);
+			<ClaimNotarizations<T>>::insert::<u64, T::AuthorityId, bool>(payload.claim_id, payload.public, payload.is_valid);
 			// - check if threshold reached for or against
 			let notarizations = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
 
-			if Percent::from_rational(notarizations, T::ActiveAuthoritiesCounter::get()) > T::DepositApprovalThreshold::get() {
+			// TODO: Keys::<T>::decode_len().unwrap_or_default() as u32
+			let validators_len = 1_u32;
+			if Percent::from_rational(notarizations, validators_len) >= Percent::from_rational(51_u32, 100_u32) {
 				// - clean up + release tokens
 				// Self::deposit_event(RawEvent::TokenClaim(claim_id));
 			}
@@ -212,29 +169,38 @@ decl_module! {
 			Ok(())
 		}
 
-		fn offchain_worker(block_number: T::BlockNumber) {
-			// TODO: check only validators run this
+		fn offchain_worker(_block_number: T::BlockNumber) {
 			log!(info, "💎 entering off-chain worker");
-			// check pending claims
-			// if empty return
-			// if not empty
-			// check if voted on the first claim
-			// submit notarization for the first claim
+
+			// Get all signing keys for this protocol e.g. we piggyback the 'imon' key
+			let keys = T::AuthorityId::all();
+			// We only expect one key to be present
+			if keys.iter().count() > 1 {
+				log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
+				return
+			}
+			let key = match keys.first() {
+				Some(key) => key,
+				None => {
+					log!(error, "💎 no signing keys for: {:?}, will not participate in notarization!", T::AuthorityId::ID);
+					return
+				}
+			};
+
+			// check local `key` is a valid bridge notary
+			// TODO: optimise this as it's O(N) with the validator set
+			if !<NotaryKeys<T>>::get().iter().any(|notary| notary == key) {
+				log!(error, "💎 not an active notary this session, exiting: {:?}", key);
+			}
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
-			// TODO: is this run async or can it stall a block?
-			// if it's async fire all the claims we can otherwise be conservative e.g .limit to 1
-
-			// TODO: read public key from keystore
-			// let account = Signer::<T, T::AuthorityId>::any_account();
 			for (claim_id, tx_hash) in PendingClaims::iter() {
-				// TODO: use this node's signing key
-				// singing with 0 address for testing
-				if <ClaimNotarizations<T>>::get::<u64, T::AccountId>(claim_id, Default::default()).is_none() {
-					let is_valid = Self::offchain_verify_claim(claim_id, tx_hash);
-					// TODO: must pass through the same singer here
-					Self::offchain_send_notarization(claim_id, is_valid);
+				if !<ClaimNotarizations<T>>::contains_key::<u64, T::AuthorityId>(claim_id, key.clone()) {
+					let is_valid = Self::offchain_verify_claim(tx_hash);
+					let _ = Self::offchain_send_notarization(key, claim_id, is_valid).map_err(|err| {
+						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+					});
 				}
 			}
 
@@ -250,7 +216,7 @@ impl<T: Config> Pallet<T> {
 	/// - tx sent to deposit contract address
 	/// - check for log with deposited amount and token type
 	/// - confirmations >= T::RequiredConfirmations
-	fn offchain_verify_claim(claim_id: u64, tx_hash: H256) -> bool {
+	fn offchain_verify_claim(tx_hash: H256) -> bool {
 		let result = Self::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 get tx receipt: {:?}, failed: {:?}", tx_hash, err);
@@ -263,7 +229,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// transaction should be to our configured bridge contract
-		if tx_receipt.to.unwrap_or_default() != T::EthDepositContractAddress::get() {
+		if tx_receipt.to.unwrap_or_default() != H160::from_str("0x0c823526689243a45c315d12c5a634a2670843e4837cc1d51af12d25aad839dc").unwrap() {
 			return false;
 		}
 
@@ -277,56 +243,77 @@ impl<T: Config> Pallet<T> {
 			// rlp crate: https://github.com/paritytech/frontier/blob/1b810cf8143bc545955459ae1e788ef23e627050/frame/ethereum/Cargo.toml#L25
 			// https://docs.rs/rlp/0.3.0/src/rlp/lib.rs.html#77-80
 			// rlp::decode_list()
-			// 3) check log.removed is false
 			// e.g. MyEventType::rlp_decode(log.data)
-			return log.is_removed()
-				&& log
-					.topics
-					.iter()
-					.find(|t| {
-						**t == H256::from_str("0x0c823526689243a45c315d12c5a634a2670843e4837cc1d51af12d25aad839dc")
-							.unwrap()
-					})
-					.is_some();
+			let log_exists = log
+				.topics
+				.iter()
+				.find(|t| {
+					**t == H256::from_str("0x0c823526689243a45c315d12c5a634a2670843e4837cc1d51af12d25aad839dc").unwrap()
+				})
+				.is_some();
+			if !log_exists {
+				return false;
+			}
 		} else {
 			// no log found
 			return false;
 		}
 
-		// TODO: fetch latest block number from node
-		let latest_block_number = 1_000_u64;
+		let latest_block_number = Self::get_block_number().unwrap_or_default();
 		let tx_block_number = tx_receipt.block_number.unwrap_or_default();
 		// have we got enough block confirmations
-		if latest_block_number.saturating_sub(tx_block_number.as_u64()) >= T::RequiredConfirmations::get() as u64 {
+		if latest_block_number.as_u64().saturating_sub(tx_block_number.as_u64())
+			>= T::RequiredConfirmations::get() as u64
+		{
 			return false;
 		}
 
 		// TODO: need replay protection
 		// - require nonce in log on eth side per withdrawing address
 		// - store bridge nonce on this side, check it's increasing
+		// store claimed txHashes
 		true
 	}
 
-	/// Fetch from remote and deserialize the JSON to a struct
+	/// Get transaction receipt from eth client
 	fn get_transaction_receipt(tx_hash: H256) -> Result<TransactionReceipt, Error<T>> {
-		let resp_bytes = Self::fetch_from_remote(tx_hash).map_err(|e| {
+		// '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],"id":1}'
+		let request = GetTxReceiptRequest::new(tx_hash);
+		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 Read from eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetchingError
 		})?;
 
-		// Deserialize JSON string to struct
-		let resp_str = str::from_utf8(&resp_bytes).map_err(|_| <Error<T>>::HttpFetchingError)?;
-		let tx_receipt: TransactionReceipt =
-			serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::HttpFetchingError)?;
+		// Deserialize JSON to struct
+		let tx_receipt: TransactionReceipt = serde_json_core::from_slice(&resp_bytes).map_err(|err| {
+			log!(error, "💎 deserialize json response error: {:?}", err);
+			<Error<T>>::HttpFetchingError
+		})?;
 
 		Ok(tx_receipt)
 	}
 
+	/// Get latest block number from eth client
+	fn get_block_number() -> Result<EthBlockNumber, Error<T>> {
+		let request = GetBlockNumberRequest::new();
+		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
+			log!(error, "💎 Read from eth-rpc API error: {:?}", e);
+			<Error<T>>::HttpFetchingError
+		})?;
+
+		// Deserialize JSON to struct
+		let eth_block_number: EthBlockNumber = serde_json_core::from_slice(&resp_bytes).map_err(|err| {
+			log!(error, "💎 deserialize json response error: {:?}", err);
+			<Error<T>>::HttpFetchingError
+		})?;
+
+		Ok(eth_block_number)
+	}
+
 	/// This function uses the `offchain::http` API to query the remote github information,
 	/// and returns the JSON response as vector of bytes.
-	fn fetch_from_remote(tx_hash: H256) -> Result<Vec<u8>, Error<T>> {
-		// TODO: load this info from some client config...
-		// e.g. offchain indexed
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
+		// TODO: load this info from some client config.e.g. offchain indexed
 		const HTTP_REMOTE_REQUEST: &str = "http://localhost:8545";
 		const HTTP_HEADER_USER_AGENT: &str = "application/json";
 		const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
@@ -338,20 +325,19 @@ impl<T: Config> Pallet<T> {
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
 		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
 
-		// '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],"id":1}'
-		let payload = GetTxReceiptRequest {
-			json_rpc: "2.0".to_string(),
-			method: "get_ethTransactionReceipt".to_string(),
-			params: vec![tx_hash],
-			id: 1,
-		};
-
 		let pending = request
-			.body(vec![serde_json::to_string(&payload).unwrap().as_bytes()])
+			.body(vec![serde_json_core::to_string::<serde_json_core::consts::U512, R>(
+				&request_body,
+			)
+			.unwrap()
+			.as_bytes()])
 			.add_header("Content-Type", HTTP_HEADER_USER_AGENT)
 			.deadline(timeout) // Setting the timeout time
 			.send() // Sending the request out by the host
-			.map_err(|_| <Error<T>>::HttpFetchingError)?;
+			.map_err(|_| {
+				log!(error, "💎 unexpected http request error");
+				<Error<T>>::HttpFetchingError
+			})?;
 
 		// By default, the http request is async from the runtime perspective. So we are asking the
 		// runtime to wait here.
@@ -359,8 +345,14 @@ impl<T: Config> Pallet<T> {
 		// ref: https://substrate.dev/rustdocs/v3.0.0/sp_runtime/offchain/http/struct.PendingRequest.html#method.try_wait
 		let response = pending
 			.try_wait(timeout)
-			.map_err(|_| <Error<T>>::HttpFetchingError)?
-			.map_err(|_| <Error<T>>::HttpFetchingError)?;
+			.map_err(|_| {
+				log!(error, "💎 unexpected http request error: timeline reached?");
+				<Error<T>>::HttpFetchingError
+			})?
+			.map_err(|_| {
+				log!(error, "💎 unexpected http request error: timeline reached 2");
+				<Error<T>>::HttpFetchingError
+			})?;
 
 		if response.code != 200 {
 			log!(error, "💎 unexpected http request status code: {}", response.code);
@@ -372,32 +364,18 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(claim_id: u64, is_valid: bool) -> Result<(), Error<T>> {
+	fn offchain_send_notarization(key: &T::AuthorityId, claim_id: u64, is_valid: bool) -> Result<(), Error<T>> {
+		let payload = NotarizationPayload {
+			claim_id,
+			public: key.clone(),
+			is_valid,
+		};
+		let signature = key.sign(&payload.encode()).ok_or(<Error<T>>::OffchainUnsignedTxSignedPayloadError)?;
+		let call = Call::submit_notarization(payload, signature);
 		// Retrieve the signer to sign the payload
-		let signer = Signer::<T, T::AuthorityId>::any_account();
+		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayloadError)?;
 
-		// `send_unsigned_transaction` is returning a type of `Option<(Account<T>, Result<(), ()>)>`.
-		//   Similar to `send_signed_transaction`, they account for:
-		//   - `None`: no account is available for sending transaction
-		//   - `Some((account, Ok(())))`: transaction is successfully sent
-		//   - `Some((account, Err(())))`: error occured when sending the transaction
-		if let Some((_, res)) = signer.send_unsigned_transaction(
-			|account| NotarizationPayload {
-				claim_id,
-				public: account.public.clone(),
-				is_valid,
-			},
-			Call::submit_notarization,
-		) {
-			return res.map_err(|_| {
-				log!(error, "💎 signing send notarization failed");
-				<Error<T>>::OffchainUnsignedTxSignedPayloadError
-			});
-		} else {
-			// The case of `None`: no account is available for sending
-			log!(error, "💎 no signing account available");
-			Err(<Error<T>>::NoLocalSigningAccount)
-		}
+		Ok(())
 	}
 }
 
@@ -406,7 +384,9 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_notarization(ref payload, ref signature) = call {
-			if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone()) {
+			// TODO: ! check `payload.public` is a valid authority
+			// TODO: check `payload.public` has not voted already
+			if !(payload.public.verify(&payload.encode(), signature)) {
 				return InvalidTransaction::BadProof.into();
 			}
 			ValidTransaction::with_tag_prefix("eth-bridge")
@@ -420,4 +400,33 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 			InvalidTransaction::Call.into()
 		}
 	}
+}
+
+impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+	type Public = T::AuthorityId;
+}
+
+/// Tracks notary public keys (i.e. the active validator set keys)
+impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
+	type Key = T::AuthorityId;
+
+	fn on_genesis_session<'a, I: 'a>(validators: I)
+		where I: Iterator<Item=(&'a T::AccountId, T::AuthorityId)>
+	{
+		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
+		NotaryKeys::<T>::put(keys);
+	}
+
+	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, _queued_validators: I)
+		where I: Iterator<Item=(&'a T::AccountId, T::AuthorityId)>
+	{
+		// Remember who the authorities are for the new session.
+		NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+	}
+
+	fn on_before_session_ending() {
+		// TODO: enable offence reporting here
+	}
+
+	fn on_disabled(_i: usize) {}
 }

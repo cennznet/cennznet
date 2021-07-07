@@ -15,9 +15,9 @@ codec = { package = "parity-scale-codec", version = "2.0.0" }
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-sp-core = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-sp-rpc = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+sp-rpc = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 crml-transaction-payment-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }

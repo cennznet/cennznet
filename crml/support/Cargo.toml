@@ -8,12 +8,12 @@ repository = "https://cennznet/cennznet"
 description = "Common crml types and traits"
 
 [dependencies]
-serde = { version = "1.0.101", default-features = false, features = ["derive"], optional = true}
+serde = { version = "1.0.126", default-features = false, features = ["derive"], optional = true}
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 
 [features]
 default = ["std"]

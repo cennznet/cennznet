@@ -88,6 +88,7 @@ pub use crml_sylo::response as sylo_response;
 pub use crml_sylo::vault as sylo_vault;
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+use pallet_election_provider_multi_phase::FallbackStrategy;
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -281,6 +282,8 @@ impl pallet_grandpa::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl pallet_randomness_collective_flip::Config for Runtime {}
+
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
@@ -326,12 +329,19 @@ impl crml_staking::Config for Runtime {
 
 parameter_types! {
 	// phase durations. 1/4 of the last session for each.
+	// TODO: is this long enough...
 	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
-	// fallback: no need to do on-chain phragmen initially.
-	pub const Fallback: pallet_election_provider_multi_phase::FallbackStrategy =
-		pallet_election_provider_multi_phase::FallbackStrategy::OnChain;
+	// signed config
+	pub const SignedMaxSubmissions: u32 = 10;
+	pub const SignedRewardBase: Balance = 10_0000;
+	pub const SignedDepositBase: Balance = 10_0000;
+	pub const SignedDepositByte: Balance = 10;
+	pub OffchainRepeat: BlockNumber = 5;
+
+	// fallback: no on-chain fallback.
+	pub const Fallback: FallbackStrategy = FallbackStrategy::Nothing;
 
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 
@@ -347,8 +357,6 @@ parameter_types! {
 		*RuntimeBlockLength::get()
 		.max
 		.get(DispatchClass::Normal);
-
-	pub OffchainRepeat: BlockNumber = 5;
 }
 
 sp_npos_elections::generate_solution_type!(
@@ -360,8 +368,8 @@ sp_npos_elections::generate_solution_type!(
 	>(16)
 );
 
-pub const MAX_NOMINATIONS: u32 = <NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
-
+pub const MAX_NOMINATIONS: u32 =
+	<NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type Event = Event;
 	type Currency = SpendingAssetCurrency<Self>;
@@ -373,6 +381,15 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerMaxWeight = MinerMaxWeight;
 	type MinerMaxLength = MinerMaxLength;
 	type MinerTxPriority = MultiPhaseUnsignedPriority;
+	type SignedMaxSubmissions = SignedMaxSubmissions;
+	type SignedRewardBase = SignedRewardBase;
+	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositByte = SignedDepositByte;
+	type SignedDepositWeight = ();
+	type SignedMaxWeight = MinerMaxWeight;
+	// TODO: review this
+	type SlashHandler = (); // burn slashes
+	type RewardHandler = ();
 	type DataProvider = Staking;
 	type OnChainAccuracy = Perbill;
 	type CompactSolution = NposCompactSolution16;
@@ -619,39 +636,33 @@ impl crml_attestation::Config for Runtime {
 }
 
 parameter_types! {
-	pub const EthDepositContractTopic: H256 = Default::default();
+	// pub const EthDepositContractTopic: sp_core::H256 = Default::default();
 	/// The Eth deposit contract address
-	pub const EthDepositContractAddress: H160 = Default::default();
+	// pub const EthDepositContractAddress: sp_core::H160 = Default::default();
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	pub const RequiredConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit
-	pub const DepositApprovalThreshold: Percent = Percent::from_rational(51, 100);
+	// pub const DepositApprovalThreshold: Percent = Percent::from_rational(51_u8, 100_u8);
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	pub const DepositClaimPeriod: u32 = 1_000;
-
-	pub const DummyAuthoritiesCounter: u16 = 1;
 }
 impl crml_eth_bridge::Config for Runtime {
 	/// The deposited event topic of a deposit on Ethereum
-	type EthDepositContractTopic: Get<H256>;
+	// type EthDepositContractTopic = EthDepositContractTopic;
 	/// The Eth deposit contract address
-	type EthDepositContractAddress: Get<H160>;
+	// type EthDepositContractAddress = EthDepositContractAddress;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	type RequiredConfirmations: Get<u16>;
+	type RequiredConfirmations = RequiredConfirmations;
 	/// The threshold of notarizations required to approve an Eth deposit
-	type DepositApprovalThreshold: Get<Percent>;
+	// type DepositApprovalThreshold = DepositApprovalThreshold;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
-	type DepositClaimPeriod: Get<u32>;
-
-	// config types
+	type DepositClaimPeriod = DepositClaimPeriod;
 	/// The identifier type for an offchain worker.
-	type AuthorityId = Self::Public;
-	/// Returns the count of active network authorities (validators)
-	type ActiveAuthoritiesCounter = DummyAuthoritiesCounter;
+	type AuthorityId = ImOnlineId;
 	/// The overarching dispatch call type.
-	type Call = Call<Self>;
+	type Call = Call;
 	/// The overarching event type.
-	type Event = Event<Self>;
+	type Event = Event;
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
@@ -713,11 +724,11 @@ construct_runtime!(
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 5,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 6,
 		Staking: crml_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
-		Offences: pallet_offences::{Pallet, Call, Storage, Event} = 8,
+		Offences: pallet_offences::{Pallet, Storage, Event} = 8,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 9,
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 10,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Call, Config} = 12,
+		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 12,
 		// Governance Pallets (Sudo initially)
 		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 13,
 		// Democracy: pallet_democracy::{Pallet, Call, Storage, Config, Event<T>}
@@ -730,7 +741,7 @@ construct_runtime!(
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 16,
 		TransactionPayment: crml_transaction_payment::{Pallet, Storage} = 17,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 18,
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Call, Storage} = 19,
+		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage} = 19,
 		Historical: session_historical::{Pallet} = 20,
 		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
 		SyloGroups: sylo_groups::{Pallet, Call, Storage} = 22,
@@ -742,6 +753,7 @@ construct_runtime!(
 		Attestation: crml_attestation::{Pallet, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event<T>} = 31,
 	}
 );
 
@@ -827,8 +839,9 @@ impl_runtime_apis! {
 		fn validate_transaction(
 			source: TransactionSource,
 			tx: <Block as BlockT>::Extrinsic,
+			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx)
+			Executive::validate_transaction(source, tx, block_hash)
 		}
 	}
 

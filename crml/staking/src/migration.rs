@@ -89,7 +89,7 @@ pub fn upgrade_v1_to_v2<T: Config>() {
 	<Pallet<T> as Store>::ErasTotalStake::insert(current_era, current_total_stake);
 
 	// Kill old storages
-	deprecated::Stakers::<T>::remove_all();
+	deprecated::Stakers::<T>::remove_all(None);
 	deprecated::SlotStake::<T>::kill();
 	deprecated::CurrentElected::<T>::kill();
 	deprecated::CurrentEraStart::kill();

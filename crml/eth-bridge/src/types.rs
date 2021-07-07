@@ -15,14 +15,48 @@
 
 //! CENNZnet Eth Bridge Types
 
-use serde::{Deserialize, Serialize};
-use web3::types::{Address, Index, Log, H2048, H256, U256, U64};
+use core::fmt;
+use ethereum_types::{Address, Bloom as H2048, H256, U256, U64};
+use rustc_hex::FromHex;
+use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use sp_std::vec::Vec;
+
+type Index = U64;
+pub type EthBlockNumber = U64;
+
+/// Log
+#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Log {
+	/// address
+	pub address: Address,
+	/// Topics
+	pub topics: Vec<H256>,
+	/// Data
+	pub data: Bytes,
+	/// Block Hash
+	pub block_hash: Option<H256>,
+	/// Block Number
+	pub block_number: Option<U256>,
+	/// Transaction Hash
+	pub transaction_hash: Option<H256>,
+	/// Transaction Index
+	pub transaction_index: Option<U256>,
+	/// Log Index in Block
+	pub log_index: Option<U256>,
+	/// Log Index in Transaction
+	pub transaction_log_index: Option<U256>,
+	/// Whether Log Type is Removed (Geth Compatibility Field)
+	#[serde(default)]
+	pub removed: bool,
+}
 
 // Copied from https://docs.rs/web3/0.14.0/src/web3/types/transaction.rs.html#40-73
 // missing from/to fields
 // remove after: https://github.com/tomusdrw/rust-web3/issues/513 is solved
 /// "Receipt" of an executed transaction: details of its execution.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
 pub struct TransactionReceipt {
 	/// Transaction hash.
 	#[serde(rename = "transactionHash")]
@@ -65,16 +99,153 @@ pub struct TransactionReceipt {
 	pub transaction_type: Option<U64>,
 }
 
-#[repr(C)]
+/// JSON-RPC protocol version header
+const JSONRPC: &'static str = "2.0";
+
+/// Request for 'eth_getTransactionReceipt'
 #[derive(Serialize, Debug)]
 pub struct GetTxReceiptRequest {
 	#[serde(rename = "jsonrpc")]
 	/// The version of the JSON RPC spec
-	pub json_rpc: String,
+	pub json_rpc: &'static str,
 	/// The method which is called
-	pub method: String,
+	pub method: &'static str,
 	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: Vec<H256>,
+	pub params: [H256; 1],
 	/// The id for the request
 	pub id: usize,
+}
+
+/// JSON-RPC method name for the request
+const METHOD_TX: &'static str = "eth_get_transactionReceipt";
+impl GetTxReceiptRequest {
+	pub fn new(tx_hash: H256) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_TX,
+			params: [tx_hash],
+			id: 1,
+		}
+	}
+}
+
+/// Request for 'eth_blockNumber'
+#[derive(Serialize, Debug)]
+pub struct GetBlockNumberRequest {
+	#[serde(rename = "jsonrpc")]
+	/// The version of the JSON RPC spec
+	pub json_rpc: &'static str,
+	/// The method which is called
+	pub method: &'static str,
+	/// Arguments supplied to the method. Can be an empty Vec.
+	pub params: (),
+	/// The id for the request
+	pub id: usize,
+}
+
+/// JSON-RPC method name for the request
+const METHOD_BLOCK: &'static str = "eth_get_transactionReceipt";
+impl GetBlockNumberRequest {
+	pub fn new() -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_BLOCK,
+			params: (),
+			id: 1,
+		}
+	}
+}
+
+// Serializable wrapper around vector of bytes
+/// Wrapper structure around vector of bytes.
+#[derive(Debug, PartialEq, Eq, Default, Hash, Clone)]
+pub struct Bytes(pub Vec<u8>);
+
+impl Bytes {
+	/// Simple constructor.
+	pub fn new(bytes: Vec<u8>) -> Bytes {
+		Bytes(bytes)
+	}
+	pub fn into_vec(self) -> Vec<u8> {
+		self.0
+	}
+}
+
+impl From<Vec<u8>> for Bytes {
+	fn from(bytes: Vec<u8>) -> Bytes {
+		Bytes(bytes)
+	}
+}
+
+impl Into<Vec<u8>> for Bytes {
+	fn into(self) -> Vec<u8> {
+		self.0
+	}
+}
+
+impl<'a> Deserialize<'a> for Bytes {
+	fn deserialize<D>(deserializer: D) -> Result<Bytes, D::Error>
+	where
+		D: Deserializer<'a>,
+	{
+		deserializer.deserialize_any(BytesVisitor)
+	}
+}
+
+struct BytesVisitor;
+
+impl<'a> Visitor<'a> for BytesVisitor {
+	type Value = Bytes;
+
+	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		write!(formatter, "a 0x-prefixed, hex-encoded vector of bytes")
+	}
+
+	fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+	where
+		E: Error,
+	{
+		if value.len() >= 2 && value.starts_with("0x") && value.len() & 1 == 0 {
+			Ok(Bytes::new(
+				FromHex::from_hex(&value[2..]).map_err(|_| Error::custom("invalid hex"))?,
+			))
+		} else {
+			Err(Error::custom(
+				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
+			))
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use rustc_hex::FromHex;
+
+	#[test]
+	fn test_bytes_serialize() {
+		let bytes = Bytes("0123456789abcdef".from_hex().unwrap());
+		let serialized = serde_json::to_string(&bytes).unwrap();
+		assert_eq!(serialized, r#""0x0123456789abcdef""#);
+	}
+
+	#[test]
+	fn test_bytes_deserialize() {
+		let bytes0: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""∀∂""#);
+		let bytes1: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""""#);
+		let bytes2: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""0x123""#);
+		let bytes3: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""0xgg""#);
+
+		let bytes4: Bytes = serde_json::from_str(r#""0x""#).unwrap();
+		let bytes5: Bytes = serde_json::from_str(r#""0x12""#).unwrap();
+		let bytes6: Bytes = serde_json::from_str(r#""0x0123""#).unwrap();
+
+		assert!(bytes0.is_err());
+		assert!(bytes1.is_err());
+		assert!(bytes2.is_err());
+		assert!(bytes3.is_err());
+		assert_eq!(bytes4, Bytes(vec![]));
+		assert_eq!(bytes5, Bytes(vec![0x12]));
+		assert_eq!(bytes6, Bytes(vec![0x1, 0x23]));
+	}
 }

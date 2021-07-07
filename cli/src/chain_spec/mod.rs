@@ -151,11 +151,11 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	});
 
 	GenesisConfig {
-		frame_system: SystemConfig {
+		system: SystemConfig {
 			code: WASM_BINARY.expect("wasm binary not available").to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_session: SessionConfig {
+		session: SessionConfig {
 			keys: initial_authorities
 				.iter()
 				.map(|x| {
@@ -167,7 +167,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				})
 				.collect::<Vec<_>>(),
 		},
-		crml_staking: StakingConfig {
+		staking: StakingConfig {
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
@@ -179,15 +179,15 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},
-		pallet_sudo: SudoConfig { key: root_key.clone() },
-		pallet_babe: BabeConfig {
+		sudo: SudoConfig { key: root_key.clone() },
+		babe: BabeConfig {
 			authorities: vec![],
 			epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
 		},
-		pallet_im_online: ImOnlineConfig { keys: vec![] },
-		pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
-		pallet_grandpa: GrandpaConfig { authorities: vec![] },
-		crml_generic_asset: GenericAssetConfig {
+		im_online: ImOnlineConfig { keys: vec![] },
+		authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+		grandpa: GrandpaConfig { authorities: vec![] },
+		generic_asset: GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CPAY_ASSET_ID, root_key.clone())],
@@ -201,12 +201,12 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				(CPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4, 1)),
 			],
 		},
-		crml_cennzx: CennzxConfig {
+		cennzx: CennzxConfig {
 			// 0.003%
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CPAY_ASSET_ID,
 		},
-		crml_staking_rewards: RewardsConfig {
+		rewards: RewardsConfig {
 			// 20% of all fees
 			development_fund_take: Perbill::from_percent(20),
 			// 80% APY

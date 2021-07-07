@@ -151,7 +151,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Codec, Decode, Encode, FullCodec};
+use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 
 use sp_runtime::traits::{
 	AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, One, UniqueSaturatedInto,
@@ -198,7 +198,8 @@ pub trait Config: frame_system::Config {
 		+ Copy
 		+ MaybeSerializeDeserialize
 		+ Debug
-		+ FullCodec;
+		+ FullCodec
+		+ MaxEncodedLen;
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 

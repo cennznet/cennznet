@@ -7,10 +7,10 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "14fcad989c168e34c494ac752a7f40ff8f627dcc" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7" }
 
 [features]
 default = ["std"]
