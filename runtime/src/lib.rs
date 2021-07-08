@@ -23,6 +23,7 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
+use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -403,6 +404,7 @@ impl_opaque_keys! {
 		pub grandpa: Grandpa,
 		pub babe: Babe,
 		pub im_online: ImOnline,
+		pub eth_bridge: EthBridge,
 		pub authority_discovery: AuthorityDiscovery,
 	}
 }
@@ -642,12 +644,12 @@ parameter_types! {
 	/// The eth bridge contract address
 	// 0x87015d61b82a3808d9720a79573bf75deb8a1e90
 	pub const BridgeContractAddress: [u8; 20] = [
-		0x87, 0x01, 0x5d, 0x61, 0xb8, 0x2a, 0x38, 0x08, 0xd9, 0x72, 0x0a, 0x79, 0x57, 0x3b, 0xf7, 0x5d, 0xeb, 0x8a, 0x1e, 0x90
+		0xbe,0x4d,0x35,0x6d,0x1C,0x68,0xE2,0x2a,0xFe,0xE7,0x0B,0x45,0x10,0xec,0x8b,0x31,0xe3,0x89,0xc7,0x59
 	];
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	pub const RequiredConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit
-	// pub const DepositApprovalThreshold: Percent = Percent::from_rational(51_u8, 100_u8);
+	pub const DepositApprovalThreshold: Percent = Percent::from_percent(66_u8);
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	pub const DepositClaimPeriod: u32 = 1_000;
 }
@@ -659,15 +661,17 @@ impl crml_eth_bridge::Config for Runtime {
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	type RequiredConfirmations = RequiredConfirmations;
 	/// The threshold of notarizations required to approve an Eth deposit
-	// type DepositApprovalThreshold = DepositApprovalThreshold;
+	type DepositApprovalThreshold = DepositApprovalThreshold;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	type DepositClaimPeriod = DepositClaimPeriod;
 	/// The identifier type for an offchain worker.
-	type AuthorityId = ImOnlineId;
+	type AuthorityId = EthBridgeId;
 	/// The overarching dispatch call type.
 	type Call = Call;
 	/// The overarching event type.
 	type Event = Event;
+	/// Reports the current validator / notary set
+	type NotarySet = Historical;
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
@@ -758,7 +762,7 @@ construct_runtime!(
 		Attestation: crml_attestation::{Pallet, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
-		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 31,
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned} = 31,
 	}
 );
 

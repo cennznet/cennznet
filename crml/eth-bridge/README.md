@@ -3,7 +3,10 @@
 # TODO:
 - Retrieve full validator set
 - Implement token create + mint protocol
-- [] Replay protection and claims time window
+- Replay protection and claims time window
+- Pass Eth host + API config to the OCW from commandline flags
+- Test!!!
+- Develop Eth-JSON-RPC api proxy service
 - (maybe): allow notarization vote to include a 'failure' reason rather than false e..g not enough re-orgs or differing amounts
 
 ## Structure

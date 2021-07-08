@@ -31,26 +31,47 @@ mod tests;
 mod types;
 use types::*;
 
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::DispatchResult,
 	log,
-	traits::{Get, OneSessionHandler},
+	traits::{Get, OneSessionHandler, ValidatorSet},
 	Parameter,
 };
 use frame_system::{
 	ensure_none, ensure_signed,
-	offchain::{CreateSignedTransaction, SignedPayload, SigningTypes, SubmitTransaction},
+	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_core::H256;
 use sp_runtime::{
 	offchain as rt_offchain,
 	traits::{MaybeSerializeDeserialize, Member, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-	Percent, RuntimeAppPublic, RuntimeDebug,
+	KeyTypeId, Percent, RuntimeAppPublic, RuntimeDebug,
 };
 use sp_std::prelude::*;
+
+pub const ETH_BRIDGE: KeyTypeId = KeyTypeId(*b"eth-");
+
+pub mod crypto {
+	mod app_crypto {
+		use crate::ETH_BRIDGE;
+		use sp_application_crypto::{app_crypto, ed25519};
+		app_crypto!(ed25519, ETH_BRIDGE);
+	}
+
+	sp_application_crypto::with_pair! {
+		/// An i'm online keypair using ed25519 as its crypto.
+		pub type AuthorityPair = app_crypto::Pair;
+	}
+
+	/// An i'm online signature using ed25519 as its crypto.
+	pub type AuthoritySignature = app_crypto::Signature;
+
+	/// An i'm online identifier using ed25519 as its crypto.
+	pub type AuthorityId = app_crypto::Public;
+}
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -84,19 +105,14 @@ pub enum NotarizationResult {
 /// An independent notarization vote on a claim
 /// This is signed and shared with the runtime after verification by a particular validator
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-pub struct NotarizationPayload<Public: Codec> {
+pub struct NotarizationPayload {
 	/// The claim Id being notarized
 	claim_id: ClaimId,
-	/// The public key of the authority that will sign this
-	public: Public,
+	/// The ordinal index of the signer in the notary set
+	/// It may be used with chain storage to lookup the public key of the notary
+	authority_index: u16,
 	/// Whether the claim was validated or not
 	is_valid: bool,
-}
-
-impl<T: SigningTypes> SignedPayload<T> for NotarizationPayload<T::Public> {
-	fn public(&self) -> T::Public {
-		self.public.clone()
-	}
 }
 
 /// This is the pallet's configuration trait
@@ -108,16 +124,17 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	type RequiredConfirmations: Get<u16>;
 	/// The threshold of notarizations required to approve an Eth deposit
-	// TODO: enable this
-	// type DepositApprovalThreshold: Get<Percent>;
+	type DepositApprovalThreshold: Get<Percent>;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	type DepositClaimPeriod: Get<u32>;
 	/// The identifier type for an authority.
 	type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	/// Active notaries
+	type NotarySet: ValidatorSet<Self::AccountId>;
 	/// The overarching dispatch call type.
 	type Call: From<Call<Self>>;
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 }
 
 decl_storage! {
@@ -137,14 +154,9 @@ decl_storage! {
 }
 
 decl_event! {
-	pub enum Event<T> where
-		<T as frame_system::Config>::AccountId,
-		ClaimId = ClaimId,
-	{
+	pub enum Event {
 		/// A bridge token claim succeeded (claim id)
 		TokenClaim(ClaimId),
-		// TODO: unused, just make compiler happy
-		Dummy(AccountId),
 	}
 }
 
@@ -154,6 +166,8 @@ decl_error! {
 		NoLocalSigningAccount,
 		// Error returned when making unsigned transactions with signed payloads in off-chain worker
 		OffchainUnsignedTxSignedPayloadError,
+		/// A notarization was invalid
+		InvalidNotarization,
 		// Error returned when fetching github info
 		HttpFetch,
 	}
@@ -174,6 +188,8 @@ decl_module! {
 			// TODO: need replay protection:
 			// 1) check / store successfully claimed txHashes
 			// 2) claims older than some time period should be invalid, allowing us to release claimed txHashes from storage at regular intervals
+
+			// TODO: need to check eth address??
 			let _ = ensure_signed(origin)?;
 			let claim_id = Self::next_claim_id();
 			ClaimInfo::insert(claim_id, deposit_event);
@@ -184,19 +200,22 @@ decl_module! {
 		#[weight = 100_000]
 		/// Internal only
 		/// Validators will call this with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload<T::AuthorityId>, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
+		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
 			//`validate_unsigned` function when sending out the unsigned tx.
-			<ClaimNotarizations<T>>::insert::<ClaimId, T::AuthorityId, bool>(payload.claim_id, payload.public, payload.is_valid);
+			let notary_keys = Self::notary_keys();
+			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
+				Some(id) => id,
+				None => return Err(Error::<T>::InvalidNotarization.into()),
+			};
+			<ClaimNotarizations<T>>::insert::<ClaimId, T::AuthorityId, bool>(payload.claim_id, notary_public_key.clone(), payload.is_valid);
 			// - check if threshold reached for or against
-			let notarizations = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
+			let notaries_count = notary_keys.len() as u32;
+			let notarizations_count = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
 
-			// TODO: Keys::<T>::decode_len().unwrap_or_default() as u32
-			// TODO: T::DepositApprovalThreshold::get()
-			let validators_len = 1_u32;
-			if Percent::from_rational(notarizations, validators_len) >= Percent::from_rational(51_u32, 100_u32) {
+			if Percent::from_rational(notarizations_count, notaries_count) >= T::DepositApprovalThreshold::get() {
 				// no need to track info on this claim any more since it's approved
 				PendingClaims::remove(payload.claim_id);
 				let claim_info = ClaimInfo::take(payload.claim_id);
@@ -204,7 +223,7 @@ decl_module! {
 				// TODO:
 				// 1) maybe mint new asset (check first)
 				// 2) release tokens
-				Self::deposit_event(RawEvent::TokenClaim(payload.claim_id));
+				// Self::deposit_event(RawEvent::TokenClaim(payload.claim_id));
 			}
 
 			Ok(())
@@ -215,13 +234,13 @@ decl_module! {
 
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
-				log!(error, "💎 not an active notary this session, exiting");
+				log!(error, "💎 not an active notary, exiting");
 				return
 			}
 
-			// Get all signing keys for this protocol e.g. we piggyback the 'imon' key
+			// Get all signing keys for this protocol 'KeyTypeId'
 			let keys = T::AuthorityId::all();
-			// We only expect one key to be present
+			// Only expect one key to be present
 			if keys.iter().count() > 1 {
 				log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
 				return
@@ -229,7 +248,7 @@ decl_module! {
 			let key = match keys.first() {
 				Some(key) => key,
 				None => {
-					log!(error, "💎 no signing keys for: {:?}, will not participate in notarization!", T::AuthorityId::ID);
+					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::AuthorityId::ID);
 					return
 				}
 			};
@@ -240,9 +259,6 @@ decl_module! {
 			let mut budget = CLAIMS_PER_BLOCK;
 			for (claim_id, tx_hash) in PendingClaims::iter() {
 				// if we haven't voted on this claim yet, then try!
-				// TODO: need to track local in-flight claims
-				// - don't modify state until consensus
-				// - allow notarization to continue in event of a restart
 				if !<ClaimNotarizations<T>>::contains_key::<ClaimId, T::AuthorityId>(claim_id, key.clone()) {
 					if let Some(claim_info) = Self::claim_info(claim_id) {
 						let is_valid = Self::offchain_verify_claim(tx_hash, claim_info);
@@ -279,23 +295,27 @@ impl<T: Config> Pallet<T> {
 	/// - check for log with deposited amount and token type
 	/// - confirmations >= T::RequiredConfirmations
 	fn offchain_verify_claim(tx_hash: H256, reported_claim_event: EthDepositEvent) -> bool {
+		// TODO: make enum return type for the cases
 		let result = Self::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
-			log!(error, "💎 get tx receipt: {:?}, failed: {:?}", tx_hash, err);
+			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
 			return false;
 		}
 
 		let tx_receipt = result.unwrap(); // error handled above qed.
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
+			log!(trace, "💎 status failed {:?}", tx_hash);
 			return false;
 		}
 
 		if tx_receipt.to != Some(T::BridgeContractAddress::get().into()) {
+			log!(trace, "💎 not bridge contract address {:?}", tx_hash);
 			return false;
 		}
 
 		let topic: H256 = T::DepositEventSignature::get().into();
+		// search for a bridge deposit event in this tx receipt
 		let matching_log = tx_receipt
 			.logs
 			.iter()
@@ -304,22 +324,36 @@ impl<T: Config> Pallet<T> {
 		if let Some(log) = matching_log {
 			match EthDepositEvent::try_decode_from_log(log) {
 				Some(event) => {
-					// this checks if the ethereum deposit event matches
-					// what was reported in the claim
+					// check if the ethereum deposit event matches what was reported
+					// in the original claim
 					if reported_claim_event != event {
+						log!(
+							trace,
+							"💎 mismatch in claim vs. event: reported: {:?} real: {:?}",
+							reported_claim_event,
+							event
+						);
 						return false;
 					}
 				}
-				None => return false,
+				None => {
+					log!(trace, "💎 could not find event in tx logs {:?}", tx_hash);
+					return false;
+				}
 			}
 
-			// finally, have we got enough block confirmations to be re-org safe?
-			let latest_block_number = Self::get_block_number().unwrap_or_default();
-			let tx_block_number = tx_receipt.block_number;
-			return latest_block_number.as_u64().saturating_sub(tx_block_number.as_u64())
+			// lastly, have we got enough block confirmations to be re-org safe?
+			let result = Self::get_block_number();
+			if let Err(err) = result {
+				log!(error, "💎 eth_getBlock failed: {:?}", err);
+				return false;
+			}
+			let latest_block_number = result.unwrap().as_u64();
+			return latest_block_number.saturating_sub(tx_receipt.block_number.as_u64())
 				>= T::RequiredConfirmations::get() as u64;
 		}
 
+		log!(trace, "💎 no logs found {:?}", tx_hash);
 		return false;
 	}
 
@@ -332,8 +366,8 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// Deserialize JSON to struct
-		serde_json_core::from_slice(&resp_bytes)
-			.map(|resp: EthResponse<TransactionReceipt>| resp.result)
+		serde_json_core::from_slice::<EthResponse<TransactionReceipt>>(&resp_bytes)
+			.map(|(resp, _)| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
 				<Error<T>>::HttpFetch
@@ -349,8 +383,8 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// Deserialize JSON to struct
-		serde_json_core::from_slice(&resp_bytes)
-			.map(|resp: EthResponse<EthBlockNumber>| resp.result)
+		serde_json_core::from_slice::<EthResponse<EthBlockNumber>>(&resp_bytes)
+			.map(|(resp, _)| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
 				<Error<T>>::HttpFetch
@@ -364,7 +398,7 @@ impl<T: Config> Pallet<T> {
 		const ETH_HOST: &str = "http://localhost:8545";
 		const HEADER_CONTENT_TYPE: &str = "application/json";
 		log!(info, "💎 sending request to: {}", ETH_HOST);
-		let body = serde_json_core::to_string::<serde_json_core::consts::U512, R>(&request_body).unwrap();
+		let body = serde_json_core::to_string::<R, 512>(&request_body).unwrap();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
 		let request = rt_offchain::http::Request::post(ETH_HOST, vec![body.as_bytes()]);
 		log!(trace, "💎 request: {:?}", request);
@@ -407,9 +441,16 @@ impl<T: Config> Pallet<T> {
 
 	/// Send a notarization for the given claim
 	fn offchain_send_notarization(key: &T::AuthorityId, claim_id: ClaimId, is_valid: bool) -> Result<(), Error<T>> {
+		let authority_index = Self::notary_keys()
+			.binary_search(key)
+			.map(|pos| pos as u16)
+			.map_err(|_| {
+				log!(error, "💎 not found in authority set, this is a bug");
+				return <Error<T>>::OffchainUnsignedTxSignedPayloadError;
+			})?;
 		let payload = NotarizationPayload {
 			claim_id,
-			public: key.clone(),
+			authority_index,
 			is_valid,
 		};
 		let signature = key
@@ -429,14 +470,28 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_notarization(ref payload, ref signature) = call {
-			// TODO: !check `payload.public` is a valid authority
-			// TODO: check `payload.public` has not voted already
-			if !(payload.public.verify(&payload.encode(), signature)) {
+			// notarization must be from an active notary
+			let notary_keys = Self::notary_keys();
+			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
+				Some(id) => id,
+				None => return InvalidTransaction::BadProof.into(),
+			};
+			// notarization must not be a duplicate/equivocation
+			if <ClaimNotarizations<T>>::contains_key(payload.claim_id, &notary_public_key) {
+				log!(
+					error,
+					"💎 received equivocation from: {:?} on {:?}",
+					notary_public_key,
+					payload.claim_id
+				);
 				return InvalidTransaction::BadProof.into();
 			}
-
+			// notarization is signed correctly
+			if !(notary_public_key.verify(&payload.encode(), signature)) {
+				return InvalidTransaction::BadProof.into();
+			}
 			// TODO: does 'provides' need to be unique for all validators?
-			// Error submitting a transaction to the pool: Pool(TooLowPriority { old: 100100, new: 100100 })
+			// txs with the same 'provides' produce: Error submitting a transaction to the pool: Pool(TooLowPriority { old: 100100, new: 100100 })
 			ValidTransaction::with_tag_prefix("eth-bridge")
 				.priority(UNSIGNED_TXS_PRIORITY)
 				.and_provides([&b"notarize", &payload.claim_id.to_be_bytes()])
@@ -447,4 +502,37 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 			InvalidTransaction::Call.into()
 		}
 	}
+}
+
+impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+	type Public = T::AuthorityId;
+}
+
+impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
+	type Key = T::AuthorityId;
+
+	fn on_genesis_session<'a, I: 'a>(validators: I)
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+	{
+		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
+		if !keys.is_empty() {
+			assert!(
+				NotaryKeys::<T>::decode_len().is_none(),
+				"NotaryKeys are already initialized!"
+			);
+			NotaryKeys::<T>::put(keys);
+		}
+	}
+
+	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, _queued_validators: I)
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+	{
+		// Record authorities for the new session.
+		NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+	}
+
+	fn on_before_session_ending() {}
+	fn on_disabled(_i: usize) {}
 }

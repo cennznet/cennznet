@@ -24,6 +24,7 @@ use cennznet_runtime::{
 	SudoConfig, SystemConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use core::convert::TryFrom;
+use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use serde::{Deserialize, Serialize};
@@ -51,14 +52,11 @@ pub type AuthorityKeys = (
 	AccountId,
 	// controller account ID
 	AccountId,
-	// Grandpa ID
 	GrandpaId,
-	// Babe ID
 	BabeId,
-	// ImOnline ID
 	ImOnlineId,
-	// Authority Discovery ID
 	AuthorityDiscoveryId,
+	EthBridgeId,
 );
 
 /// A type to hold keys used in CENNZnet node in SS58 format.
@@ -112,6 +110,7 @@ pub fn get_authority_keys_from_seed(
 	BabeId,
 	ImOnlineId,
 	AuthorityDiscoveryId,
+	EthBridgeId,
 ) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
@@ -120,6 +119,7 @@ pub fn get_authority_keys_from_seed(
 		get_from_seed::<BabeId>(seed),
 		get_from_seed::<ImOnlineId>(seed),
 		get_from_seed::<AuthorityDiscoveryId>(seed),
+		get_from_seed::<EthBridgeId>(seed),
 	)
 }
 
@@ -129,12 +129,14 @@ pub fn session_keys(
 	babe: BabeId,
 	im_online: ImOnlineId,
 	authority_discovery: AuthorityDiscoveryId,
+	eth_bridge: EthBridgeId,
 ) -> SessionKeys {
 	SessionKeys {
 		grandpa,
 		babe,
 		im_online,
 		authority_discovery,
+		eth_bridge,
 	}
 }
 
@@ -162,7 +164,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 					(
 						x.0.clone(),
 						x.0.clone(),
-						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone(), x.6.clone()),
 					)
 				})
 				.collect::<Vec<_>>(),
