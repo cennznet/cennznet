@@ -635,9 +635,15 @@ impl crml_attestation::Config for Runtime {
 }
 
 parameter_types! {
-	// pub const EthDepositContractTopic: sp_core::H256 = Default::default();
-	/// The Eth deposit contract address
-	// pub const EthDepositContractAddress: sp_core::H160 = Default::default();
+	// transaction must have an event/log of the deposit
+	// i.e. keccack256("Deposit(address,address,uint256,bytes32")
+	/// The eth bridge contract deposit event
+	pub const DepositEventSignature: [u8; 32] = [0x76,0xbb,0x91,0x1c,0x36,0x2d,0x5b,0x1f,0xeb,0x30,0x58,0xbc,0x7d,0xc9,0x35,0x47,0x03,0xe4,0xb6,0xeb,0x9c,0x61,0xcc,0x84,0x5f,0x73,0xda,0x88,0x0c,0xf6,0x2f,0x61];
+	/// The eth bridge contract address
+	// 0x87015d61b82a3808d9720a79573bf75deb8a1e90
+	pub const BridgeContractAddress: [u8; 20] = [
+		0x87, 0x01, 0x5d, 0x61, 0xb8, 0x2a, 0x38, 0x08, 0xd9, 0x72, 0x0a, 0x79, 0x57, 0x3b, 0xf7, 0x5d, 0xeb, 0x8a, 0x1e, 0x90
+	];
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	pub const RequiredConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit
@@ -646,10 +652,10 @@ parameter_types! {
 	pub const DepositClaimPeriod: u32 = 1_000;
 }
 impl crml_eth_bridge::Config for Runtime {
-	/// The deposited event topic of a deposit on Ethereum
-	// type EthDepositContractTopic = EthDepositContractTopic;
-	/// The Eth deposit contract address
-	// type EthDepositContractAddress = EthDepositContractAddress;
+	/// The deposit event signature
+	type DepositEventSignature = DepositEventSignature;
+	/// The bridge contract address
+	type BridgeContractAddress = BridgeContractAddress;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	type RequiredConfirmations = RequiredConfirmations;
 	/// The threshold of notarizations required to approve an Eth deposit

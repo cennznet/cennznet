@@ -14,11 +14,9 @@ serde = { version = "1.0.126", default-features = false, features = ["derive"] }
 # TODO: needs pr to main repo
 # serde-json-core = { git = "https://github.com/holygits/serde-json-core", branch = "master" }
 serde-json-core = { path = "../../../serde-json-core" }
-ethereum-types = { version = "0.12", default-features = false, features = ["serialize"] }
-rustc-hex = { version = "2.1.0", default-features = false }
+ethereum-types = { version = "0.12", default-features = false, features = ["serialize", "rlp"] }
 
 # Substrate packages
-pallet-im-online = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
@@ -30,9 +28,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b0
 default = ["std"]
 std = [
 	"codec/std",
-	"rustc-hex/std",
 	"ethereum-types/std",
-	"pallet-im-online/std",
 	"frame-support/std",
 	"frame-system/std",
 	"sp-core/std",

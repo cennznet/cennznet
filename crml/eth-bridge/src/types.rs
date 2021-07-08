@@ -15,6 +15,7 @@
 
 //! CENNZnet Eth Bridge Types
 
+use codec::{Decode, Encode};
 use core::fmt;
 use ethereum_types::{Address, Bloom as H2048, H256, U256, U64};
 use serde::de::{Error, Visitor};
@@ -213,13 +214,158 @@ impl<'a> Visitor<'a> for BytesVisitor {
 		E: Error,
 	{
 		if value.len() >= 2 && value.starts_with("0x") && value.len() & 1 == 0 {
-			Ok(Bytes::new(
-				decode_hex(&value[2..]).expect("it is hex")
-			))
+			Ok(Bytes::new(decode_hex(&value[2..]).expect("it is hex")))
 		} else {
 			Err(Error::custom(
 				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
 			))
 		}
+	}
+}
+
+/// A bridge claim id
+pub type ClaimId = u64;
+
+/// A deposit event made by the CENNZnet bridge contract on Ethereum
+#[derive(Debug, Clone, PartialEq, Decode, Encode)]
+pub struct EthDepositEvent {
+	/// The ERC20 token address / type deposited
+	token_type: Address,
+	/// The amount (in 'wei') of the deposit
+	amount: U256,
+	/// The CENNZnet beneficiary address
+	beneficiary: H256,
+}
+
+impl EthDepositEvent {
+	/// Take some bytes e.g. Ethereum log data and attempt to
+	/// decode a deposit event
+	/// the deposit event matches the one emitted by the Solidity bridge contract ('Deposit')
+	/// Returns `None` on failure
+	pub fn try_decode_from_log(log: &Log) -> Option<Self> {
+		let data = &log.data.0;
+
+		// we're expecting 3 fields in the log.data represented as a single &[u8] of
+		// concatenated `bytes32` / `U256`
+		// 32 + 32 + 32
+		if data.len() != 96 {
+			return None;
+		}
+		// Eth addresses are 20 bytes, the first 12 bytes are empty when encoded to log.data as a U256
+		let token_type = Address::from_slice(&data[12..32]);
+		let amount = U256::from(&data[32..64]);
+		let beneficiary = H256::from_slice(&data[64..]);
+
+		Some(Self {
+			token_type,
+			amount,
+			beneficiary,
+		})
+	}
+}
+
+#[cfg(test)]
+mod tests2 {
+	use crate::{
+		decode_hex,
+		types::{EthBlockNumber, EthResponse, GetBlockNumberRequest, GetTxReceiptRequest, TransactionReceipt},
+	};
+	use ethereum_types::{Address, H256, U256};
+	use std::str::FromStr;
+
+	#[test]
+	fn serialize_eth_block_number_request() {
+		let result =
+			serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetBlockNumberRequest::new()).unwrap();
+		assert_eq!(
+			result,
+			r#"{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}"#
+		)
+	}
+
+	#[test]
+	fn serialize_eth_tx_receipt_request() {
+		let result = serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetTxReceiptRequest::new(
+			H256::from_str("0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303").unwrap(),
+		))
+		.unwrap();
+		assert_eq!(
+			result,
+			r#"{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303"],"id":1}"#
+		)
+	}
+
+	#[test]
+	fn deserialize_eth_block_number() {
+		let response = r#"
+		{
+			"jsonrpc":"2.0",
+			"id":1,
+  			"result": "0x65a8db"
+		}
+		"#;
+
+		let _result: EthResponse<EthBlockNumber> = serde_json_core::from_str(response).expect("it deserializes");
+	}
+
+	#[test]
+	fn deserialize_eth_transaction_receipt() {
+		let response = r#"
+			{
+				"jsonrpc":"2.0",
+				"id":1,
+				"result":{
+					"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1",
+					"blockNumber":"0x5",
+					"contractAddress":null,
+					"cumulativeGasUsed":"0x1685c",
+					"effectiveGasPrice":"0x30cb962f",
+					"from":"0xec2c80a819ee8e42c624f6a5de930e8184c0801f",
+					"gasUsed":"0x1685c",
+					"logs":[
+						{"address":"0x17c54edee4d6bccf2379daa328dcc0fbd9c6ce2b",
+						"topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f","0x00000000000000000000000087015d61b82a3808d9720a79573bf75deb8a1e90"],
+						"data":"0x000000000000000000000000000000000000000000000000000000000000007b","blockNumber":"0x5","transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303","transactionIndex":"0x0",
+						"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1","logIndex":"0x0","removed":false},{"address":"0x17c54edee4d6bccf2379daa328dcc0fbd9c6ce2b",
+						"topics":["0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f","0x00000000000000000000000087015d61b82a3808d9720a79573bf75deb8a1e90"],
+						"data":"0x000000000000000000000000000000000000000000000000000000000001e1c5",
+						"blockNumber":"0x5",
+						"transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303",
+						"transactionIndex":"0x0",
+						"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1",
+						"logIndex":"0x1",
+						"removed":false},
+						{"address":"0x87015d61b82a3808d9720a79573bf75deb8a1e90",
+						"topics":["0x76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f"],
+						"data":"0x00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10","blockNumber":"0x5","transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303","transactionIndex":"0x0","blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1","logIndex":"0x2","removed":false}],
+						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000010000000200200000000000000000000000008000000000000000000000000000000000000000000000000000000001000000000000000000000000010000000000010000000800000000000000000000000000002000000000000000000000000000040000000020000000000000000000010000000000000000000000000000000000000000000000002000000000000000000000000200000000000008000000004000000000010001000000000000000020000000000000000000000000000001000000000",
+						"status":"0x1",
+						"to":"0x87015d61b82a3808d9720a79573bf75deb8a1e90",
+						"transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303",
+						"transactionIndex":"0x0",
+						"type":"0x0"
+				}
+			}
+		"#;
+
+		let _result: EthResponse<TransactionReceipt> = serde_json_core::from_str(response).expect("it deserializes");
+	}
+
+	#[test]
+	fn deserialize_log_data() {
+		// 00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b // bytes32
+		// 000000000000000000000000000000000000000000000000000000000000007b // bytes32
+		// bytes32
+
+		let buf = decode_hex("00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
+		let token_address = Address::from_slice(&buf[12..32]);
+		let amount = U256::from(&buf[32..64]);
+		let cennznet_address = H256::from_slice(&buf[64..]);
+		println!("{:?} {:?} {:?}", token_address, amount, cennznet_address);
+
+		// let _ = DepositClaimEvent::decode(&rlp::Rlp::new(&buf)).unwrap();
+
+		// println!("{:?}, {:?}, {:?}", address1, address2, amount);
+		assert!(false);
 	}
 }

@@ -1,5 +1,11 @@
 # CENNZnet-Eth bridge
 
+# TODO:
+- Retrieve full validator set
+- Implement token create + mint protocol
+- [] Replay protection and claims time window
+- (maybe): allow notarization vote to include a 'failure' reason rather than false e..g not enough re-orgs or differing amounts
+
 ## Structure
 ```bash
 #  solidity contract

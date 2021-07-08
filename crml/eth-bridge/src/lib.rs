@@ -14,7 +14,15 @@
 */
 
 //! CENNZnet Eth Bridge
-
+//!
+//! Deposits Overview:
+//!
+//! 1) Claimants deposit ERC20 tokens to a paired bridging contract on Ethereum.
+//! 2) After waiting for block confirmations, claimants submit the Ethereum transaction hash and deposit event info using `deposit_claim`
+//! 3) Validators aka 'Notaries' in this context, run an OCW protocol using Ethereum full nodes to verify
+//! the deposit has occurred
+//! 4) after a threshold of notarizations have been received for a claim, the tokens are released to the beneficiary account
+//!
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
@@ -38,7 +46,7 @@ use frame_system::{
 use sp_core::H256;
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member},
+	traits::{MaybeSerializeDeserialize, Member, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	Percent, RuntimeAppPublic, RuntimeDebug,
 };
@@ -46,6 +54,10 @@ use sp_std::prelude::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
+/// Max notarization claims to attempt per block/OCW invocation
+const CLAIMS_PER_BLOCK: u64 = 3;
+/// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
+const REQUEST_TTL_MS: u64 = 1_500;
 
 pub(crate) const LOG_TARGET: &'static str = "eth-bridge";
 
@@ -60,16 +72,24 @@ macro_rules! log {
 	};
 }
 
+pub enum NotarizationResult {
+	/// The notarization was invalid
+	Valid,
+	/// The notarization was invalid
+	Invalid,
+	/// Checking the notarization failed
+	Failed,
+}
+
 /// An independent notarization vote on a claim
 /// This is signed and shared with the runtime after verification by a particular validator
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct NotarizationPayload<Public: Codec> {
 	/// The claim Id being notarized
-	claim_id: u64,
+	claim_id: ClaimId,
 	/// The public key of the authority that will sign this
 	public: Public,
 	/// Whether the claim was validated or not
-	// TODO: status enum instead of bool
 	is_valid: bool,
 }
 
@@ -81,19 +101,17 @@ impl<T: SigningTypes> SignedPayload<T> for NotarizationPayload<T::Public> {
 
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
-	// config values
-	/// The deposited event topic of a deposit on Ethereum
-	// type EthDepositContractTopic: Get<H256>;
-	/// The Eth deposit contract address
-	// type EthDepositContractAddress: Get<H160>;
+	/// Event signature of a deposit on the Ethereum bridge contract
+	type DepositEventSignature: Get<[u8; 32]>;
+	/// Eth bridge contract address
+	type BridgeContractAddress: Get<[u8; 20]>;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	type RequiredConfirmations: Get<u16>;
 	/// The threshold of notarizations required to approve an Eth deposit
+	// TODO: enable this
 	// type DepositApprovalThreshold: Get<Percent>;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	type DepositClaimPeriod: Get<u32>;
-
-	// config types
 	/// The identifier type for an authority.
 	type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// The overarching dispatch call type.
@@ -105,13 +123,15 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 decl_storage! {
 	trait Store for Pallet<T: Config> as EthBridge {
 		/// Id of a token claim
-		NextClaimId get(fn next_claim_id): u64;
+		NextClaimId get(fn next_claim_id): ClaimId;
+		/// Info of a claim
+		ClaimInfo get(fn claim_info): map hasher(twox_64_concat) ClaimId => Option<EthDepositEvent>;
 		/// Pending claims
-		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) u64 => H256;
+		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) ClaimId => H256;
 		/// Notarizations for pending claims
-		/// None, no notarization or Some(yay/nay)
-		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
-		/// Active notary (Validator) public keys
+		/// Either: None = no notarization exist OR Some(yay/nay)
+		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) ClaimId, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
+		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
 	}
 }
@@ -119,9 +139,12 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where
 		<T as frame_system::Config>::AccountId,
+		ClaimId = ClaimId,
 	{
-		/// A bridge token claim succeeded (address, claim id)
-		TokenClaim(AccountId, u64),
+		/// A bridge token claim succeeded (claim id)
+		TokenClaim(ClaimId),
+		// TODO: unused, just make compiler happy
+		Dummy(AccountId),
 	}
 }
 
@@ -141,13 +164,19 @@ decl_module! {
 		fn deposit_event() = default;
 
 		#[weight = 100_000_000]
-		// TODO: weight here should reflect the offchain work which is triggered as a result
 		/// Submit a bridge deposit claim for an ethereum tx hash
-		pub fn deposit_claim(origin, tx_hash: H256) {
-			// TODO: need replay protection
-			// check / store claimed txHashes
+		/// The deposit details must be provided for cross-checking by notaries
+		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
+		pub fn deposit_claim(origin, tx_hash: H256, deposit_event: EthDepositEvent) {
+			// Note: require caller to provide the `deposit_event` so we don't need to handle the-
+			// complexities of notaries reporting differing deposit events
+			// TODO: weight here should reflect the full amount of offchain work which is triggered as a result
+			// TODO: need replay protection:
+			// 1) check / store successfully claimed txHashes
+			// 2) claims older than some time period should be invalid, allowing us to release claimed txHashes from storage at regular intervals
 			let _ = ensure_signed(origin)?;
 			let claim_id = Self::next_claim_id();
+			ClaimInfo::insert(claim_id, deposit_event);
 			PendingClaims::insert(claim_id, tx_hash);
 			NextClaimId::put(claim_id.wrapping_add(1));
 		}
@@ -160,18 +189,22 @@ decl_module! {
 
 			// we don't need to verify the signature here because it has been verified in
 			//`validate_unsigned` function when sending out the unsigned tx.
-			<ClaimNotarizations<T>>::insert::<u64, T::AuthorityId, bool>(payload.claim_id, payload.public, payload.is_valid);
+			<ClaimNotarizations<T>>::insert::<ClaimId, T::AuthorityId, bool>(payload.claim_id, payload.public, payload.is_valid);
 			// - check if threshold reached for or against
 			let notarizations = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
 
 			// TODO: Keys::<T>::decode_len().unwrap_or_default() as u32
+			// TODO: T::DepositApprovalThreshold::get()
 			let validators_len = 1_u32;
 			if Percent::from_rational(notarizations, validators_len) >= Percent::from_rational(51_u32, 100_u32) {
+				// no need to track info on this claim any more since it's approved
+				PendingClaims::remove(payload.claim_id);
+				let claim_info = ClaimInfo::take(payload.claim_id);
+				<ClaimNotarizations<T>>::remove_prefix(payload.claim_id, None);
 				// TODO:
-				// - clean up + release tokens
-				// - if token doesn't exist we need to mint it now also
-				// - find token name/symbol from the eth client
-				// Self::deposit_event(RawEvent::TokenClaim(claim_id));
+				// 1) maybe mint new asset (check first)
+				// 2) release tokens
+				Self::deposit_event(RawEvent::TokenClaim(payload.claim_id));
 			}
 
 			Ok(())
@@ -179,6 +212,12 @@ decl_module! {
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			log!(info, "💎 entering off-chain worker");
+
+			// check local `key` is a valid bridge notary
+			if !sp_io::offchain::is_validator() {
+				log!(error, "💎 not an active notary this session, exiting");
+				return
+			}
 
 			// Get all signing keys for this protocol e.g. we piggyback the 'imon' key
 			let keys = T::AuthorityId::all();
@@ -195,28 +234,35 @@ decl_module! {
 				}
 			};
 
-			// check local `key` is a valid bridge notary
-			if !sp_io::offchain::is_validator() {
-				log!(error, "💎 not an active notary this session, exiting: {:?}", key);
-				return
-			}
-
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
-
-			// TODO: need to track local in-flight claims
-			// - don't modify state until consensus
-			// - allow notarization to continue in event of a restart
+			// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
+			let mut budget = CLAIMS_PER_BLOCK;
 			for (claim_id, tx_hash) in PendingClaims::iter() {
-				if !<ClaimNotarizations<T>>::contains_key::<u64, T::AuthorityId>(claim_id, key.clone()) {
-					let is_valid = Self::offchain_verify_claim(tx_hash);
-					let _ = Self::offchain_send_notarization(key, claim_id, is_valid)
-						.map_err(|err| {
-							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
-						})
-						.map(|_| {
-							log!(info, "💎 signed notarization: '{:?}' for claim: {:?}", is_valid, claim_id);
-						});
+				// if we haven't voted on this claim yet, then try!
+				// TODO: need to track local in-flight claims
+				// - don't modify state until consensus
+				// - allow notarization to continue in event of a restart
+				if !<ClaimNotarizations<T>>::contains_key::<ClaimId, T::AuthorityId>(claim_id, key.clone()) {
+					if let Some(claim_info) = Self::claim_info(claim_id) {
+						let is_valid = Self::offchain_verify_claim(tx_hash, claim_info);
+						let _ = Self::offchain_send_notarization(key, claim_id, is_valid)
+							.map_err(|err| {
+								log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+							})
+							.map(|_| {
+								log!(info, "💎 signed notarization: '{:?}' for claim: {:?}", is_valid, claim_id);
+							});
+						}
+						budget = budget.saturating_sub(1);
+					} else {
+						// this should not happen, just handling the case
+						log!(error, "💎 cannot notarize empty claim {:?}", claim_id);
+					}
+
+				if budget.is_zero() {
+					log!(info, "💎 met claims budget exiting...");
+					return
 				}
 			}
 
@@ -232,53 +278,49 @@ impl<T: Config> Pallet<T> {
 	/// - tx sent to deposit contract address
 	/// - check for log with deposited amount and token type
 	/// - confirmations >= T::RequiredConfirmations
-	fn offchain_verify_claim(tx_hash: H256) -> bool {
+	fn offchain_verify_claim(tx_hash: H256, reported_claim_event: EthDepositEvent) -> bool {
 		let result = Self::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 get tx receipt: {:?}, failed: {:?}", tx_hash, err);
 			return false;
 		}
 
-		let tx_receipt = result.unwrap();
+		let tx_receipt = result.unwrap(); // error handled above qed.
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
 			return false;
 		}
 
-		// transaction must be to the configured bridge contract
-		// 0x87015d61b82a3808d9720a79573bf75deb8a1e90
-		let contract_address: [u8; 20] = [
-			0x87, 0x01, 0x5d, 0x61, 0xb8, 0x2a, 0x38, 0x08, 0xd9, 0x72, 0x0a, 0x79, 0x57, 0x3b, 0xf7, 0x5d, 0xeb, 0x8a, 0x1e, 0x90
-		];
-		if tx_receipt.to != Some(contract_address.into()) {
+		if tx_receipt.to != Some(T::BridgeContractAddress::get().into()) {
 			return false;
 		}
 
-		// transaction must have event/log of the deposit
-		let topic: [u8; 32] = [
-			0x76,0xbb,0x91,0x1c,0x36,0x2d,0x5b,0x1f,0xeb,0x30,0x58,0xbc,0x7d,0xc9,0x35,0x47,0x03,0xe4,0xb6,0xeb,0x9c,0x61,0xcc,0x84,0x5f,0x73,0xda,0x88,0x0c,0xf6,0x2f,0x61
-		];
-		let matching_log = tx_receipt.logs
+		let topic: H256 = T::DepositEventSignature::get().into();
+		let matching_log = tx_receipt
+			.logs
 			.iter()
 			.find(|log| log.transaction_hash == Some(tx_hash) && log.topics.contains(&topic.into()));
 
 		if let Some(log) = matching_log {
-			// TODO: check `target_log.data`
-			// T::DepositEventTopic::get() == keccack256("Deposit(address,address,uint256,bytes32")
-			// https://ethereum.stackexchange.com/questions/7835/what-is-topics0-in-event-logs
-			// 2) log.data == our expected data
-			// rlp crate: https://github.com/paritytech/frontier/blob/1b810cf8143bc545955459ae1e788ef23e627050/frame/ethereum/Cargo.toml#L25
-			// https://docs.rs/rlp/0.3.0/src/rlp/lib.rs.html#77-80
-			// rlp::decode_list()
-			// e.g. MyEventType::rlp_decode(log.data)
+			match EthDepositEvent::try_decode_from_log(log) {
+				Some(event) => {
+					// this checks if the ethereum deposit event matches
+					// what was reported in the claim
+					if reported_claim_event != event {
+						return false;
+					}
+				}
+				None => return false,
+			}
 
 			// finally, have we got enough block confirmations to be re-org safe?
 			let latest_block_number = Self::get_block_number().unwrap_or_default();
 			let tx_block_number = tx_receipt.block_number;
-			return latest_block_number.as_u64().saturating_sub(tx_block_number.as_u64()) >= T::RequiredConfirmations::get() as u64;
+			return latest_block_number.as_u64().saturating_sub(tx_block_number.as_u64())
+				>= T::RequiredConfirmations::get() as u64;
 		}
 
-		return false
+		return false;
 	}
 
 	/// Get transaction receipt from eth client
@@ -321,18 +363,14 @@ impl<T: Config> Pallet<T> {
 		// TODO: load this info from some client config.e.g. offchain indexed
 		const ETH_HOST: &str = "http://localhost:8545";
 		const HEADER_CONTENT_TYPE: &str = "application/json";
-		const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
 		log!(info, "💎 sending request to: {}", ETH_HOST);
 		let body = serde_json_core::to_string::<serde_json_core::consts::U512, R>(&request_body).unwrap();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(
-			ETH_HOST,
-			vec![body.as_bytes()]
-		);
+		let request = rt_offchain::http::Request::post(ETH_HOST, vec![body.as_bytes()]);
 		log!(trace, "💎 request: {:?}", request);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
 		let pending = request
 			.add_header("Content-Type", HEADER_CONTENT_TYPE)
 			.deadline(timeout) // Setting the timeout time
@@ -368,7 +406,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(key: &T::AuthorityId, claim_id: u64, is_valid: bool) -> Result<(), Error<T>> {
+	fn offchain_send_notarization(key: &T::AuthorityId, claim_id: ClaimId, is_valid: bool) -> Result<(), Error<T>> {
 		let payload = NotarizationPayload {
 			claim_id,
 			public: key.clone(),
@@ -408,86 +446,5 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 		} else {
 			InvalidTransaction::Call.into()
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests2 {
-	use std::str::FromStr;
-	use ethereum_types::H256;
-	use crate::types::{EthBlockNumber, EthResponse, GetBlockNumberRequest, GetTxReceiptRequest, TransactionReceipt};
-
-	#[test]
-	fn serialize_eth_block_number_request() {
-		let result = serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetBlockNumberRequest::new()).unwrap();
-		assert_eq!(
-			result,
-			r#"{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}"#
-		)
-	}
-
-	#[test]
-	fn serialize_eth_tx_receipt_request() {
-		let result = serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetTxReceiptRequest::new(H256::from_str("0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303").unwrap())).unwrap();
-		assert_eq!(
-			result,
-			r#"{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303"],"id":1}"#
-		)
-	}
-
-	#[test]
-	fn deserialize_eth_block_number() {
-		let response = r#"
-		{
-			"jsonrpc":"2.0",
-			"id":1,
-  			"result": "0x65a8db"
-		}
-		"#;
-
-		let _result: EthResponse<EthBlockNumber> = serde_json_core::from_str(response).expect("it deserializes");
-	}
-
-	#[test]
-	fn deserialize_eth_transaction_receipt() {
-		let response = r#"
-			{
-				"jsonrpc":"2.0",
-				"id":1,
-				"result":{
-					"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1",
-					"blockNumber":"0x5",
-					"contractAddress":null,
-					"cumulativeGasUsed":"0x1685c",
-					"effectiveGasPrice":"0x30cb962f",
-					"from":"0xec2c80a819ee8e42c624f6a5de930e8184c0801f",
-					"gasUsed":"0x1685c",
-					"logs":[
-						{"address":"0x17c54edee4d6bccf2379daa328dcc0fbd9c6ce2b",
-						"topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f","0x00000000000000000000000087015d61b82a3808d9720a79573bf75deb8a1e90"],
-						"data":"0x000000000000000000000000000000000000000000000000000000000000007b","blockNumber":"0x5","transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303","transactionIndex":"0x0",
-						"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1","logIndex":"0x0","removed":false},{"address":"0x17c54edee4d6bccf2379daa328dcc0fbd9c6ce2b",
-						"topics":["0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f","0x00000000000000000000000087015d61b82a3808d9720a79573bf75deb8a1e90"],
-						"data":"0x000000000000000000000000000000000000000000000000000000000001e1c5",
-						"blockNumber":"0x5",
-						"transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303",
-						"transactionIndex":"0x0",
-						"blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1",
-						"logIndex":"0x1",
-						"removed":false},
-						{"address":"0x87015d61b82a3808d9720a79573bf75deb8a1e90",
-						"topics":["0x76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61","0x000000000000000000000000ec2c80a819ee8e42c624f6a5de930e8184c0801f"],
-						"data":"0x00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10","blockNumber":"0x5","transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303","transactionIndex":"0x0","blockHash":"0xa97fa85e0f38526be39a29eb77c07ad9f18c315f8eb6ab7d44028581c1518ec1","logIndex":"0x2","removed":false}],
-						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000010000000200200000000000000000000000008000000000000000000000000000000000000000000000000000000001000000000000000000000000010000000000010000000800000000000000000000000000002000000000000000000000000000040000000020000000000000000000010000000000000000000000000000000000000000000000002000000000000000000000000200000000000008000000004000000000010001000000000000000020000000000000000000000000000001000000000",
-						"status":"0x1",
-						"to":"0x87015d61b82a3808d9720a79573bf75deb8a1e90",
-						"transactionHash":"0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303",
-						"transactionIndex":"0x0",
-						"type":"0x0"
-				}
-			}
-		"#;
-
-		let _result: EthResponse<TransactionReceipt> = serde_json_core::from_str(response).expect("it deserializes");
 	}
 }
