@@ -10,10 +10,11 @@ license = "GPL-3.0"
 parking_lot = "0.11"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 serde = { version = "1.0.126", default-features = false, features = ["derive"] }
-# TODO: needs pr to main repo
-# serde-json-core = { git = "https://github.com/holygits/serde-json-core", branch = "master" }
-serde-json-core = { path = "../../../serde-json-core", features = ["heapless"] }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 ethereum-types = { version = "0.12", default-features = false, features = ["serialize"] }
+
+cennznet-primitives = { path = "../../primitives", default-features = false }
+crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
 frame-support = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
@@ -24,12 +25,14 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "6944c0c90
 sp-std = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", default-features = false }
 
-
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"serde_json/std",
 	"ethereum-types/std",
+	"cennznet-primitives/std",
+	"crml-support/std",
 	"frame-support/std",
 	"frame-system/std",
 	"sp-application-crypto/std",

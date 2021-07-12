@@ -652,8 +652,12 @@ parameter_types! {
 	pub const DepositApprovalThreshold: Percent = Percent::from_percent(66_u8);
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	pub const DepositClaimPeriod: u32 = 1_000;
+	/// The Eth bridge address
+	pub const BridgePalletId: PalletId = PalletId(*b"ethbridg");
 }
 impl crml_eth_bridge::Config for Runtime {
+	type MultiCurrency = GenericAsset;
+	type BridgePalletId = BridgePalletId;
 	/// The deposit event signature
 	type DepositEventSignature = DepositEventSignature;
 	/// The bridge contract address

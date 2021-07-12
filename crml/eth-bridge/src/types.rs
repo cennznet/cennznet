@@ -23,7 +23,12 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sp_std::vec::Vec;
 
 type Index = U64;
+/// The ethereum block number data type
 pub type EthBlockNumber = U64;
+/// The ethereum address data type
+pub type EthAddress = Address;
+/// The ethereum transaction hash type
+pub type EthTxHash = H256;
 
 /// Log
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]
@@ -230,11 +235,11 @@ pub type ClaimId = u64;
 #[derive(Debug, Clone, PartialEq, Decode, Encode)]
 pub struct EthDepositEvent {
 	/// The ERC20 token address / type deposited
-	token_type: Address,
+	pub token_type: Address,
 	/// The amount (in 'wei') of the deposit
-	amount: U256,
+	pub amount: U256,
 	/// The CENNZnet beneficiary address
-	beneficiary: H256,
+	pub beneficiary: H256,
 }
 
 impl EthDepositEvent {

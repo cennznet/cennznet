@@ -32,12 +32,12 @@ mod types;
 use types::*;
 
 use codec::{Decode, Encode};
+use cennznet_primitives::types::{AssetId, Balance};
+use crml_support::MultiCurrency;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::DispatchResult,
-	log,
-	traits::{Get, OneSessionHandler, ValidatorSet},
-	Parameter,
+	ensure, decl_error, decl_event, decl_module, decl_storage,
+	log, traits::{Get, OneSessionHandler, ValidatorSet},
+	PalletId, Parameter,
 };
 use frame_system::{
 	ensure_none, ensure_signed,
@@ -46,7 +46,7 @@ use frame_system::{
 use sp_core::H256;
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member, Zero},
+	traits::{AccountIdConversion, MaybeSerializeDeserialize, Member, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	KeyTypeId, Percent, RuntimeAppPublic, RuntimeDebug,
 };
@@ -57,19 +57,19 @@ pub const ETH_BRIDGE: KeyTypeId = KeyTypeId(*b"eth-");
 pub mod crypto {
 	mod app_crypto {
 		use crate::ETH_BRIDGE;
-		use sp_application_crypto::{app_crypto, ed25519};
-		app_crypto!(ed25519, ETH_BRIDGE);
+		use sp_application_crypto::{app_crypto, ecdsa};
+		app_crypto!(ecdsa, ETH_BRIDGE);
 	}
 
 	sp_application_crypto::with_pair! {
-		/// An i'm online keypair using ed25519 as its crypto.
+		/// An i'm online keypair using ecdsa as its crypto.
 		pub type AuthorityPair = app_crypto::Pair;
 	}
 
-	/// An i'm online signature using ed25519 as its crypto.
+	/// An i'm online signature using ecdsa as its crypto.
 	pub type AuthoritySignature = app_crypto::Signature;
 
-	/// An i'm online identifier using ed25519 as its crypto.
+	/// An i'm online identifier using ecdsa as its crypto.
 	pub type AuthorityId = app_crypto::Public;
 }
 
@@ -117,6 +117,10 @@ pub struct NotarizationPayload {
 
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+	/// An onchain address for this pallet
+	type BridgePalletId: Get<PalletId>;
+	/// Currency functions
+	type MultiCurrency: MultiCurrency<AccountId=Self::AccountId, Balance=Balance, CurrencyId=AssetId>;
 	/// Event signature of a deposit on the Ethereum bridge contract
 	type DepositEventSignature: Get<[u8; 32]>;
 	/// Eth bridge contract address
@@ -144,12 +148,14 @@ decl_storage! {
 		/// Info of a claim
 		ClaimInfo get(fn claim_info): map hasher(twox_64_concat) ClaimId => Option<EthDepositEvent>;
 		/// Pending claims
-		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) ClaimId => H256;
+		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) ClaimId => EthTxHash;
 		/// Notarizations for pending claims
 		/// Either: None = no notarization exist OR Some(yay/nay)
 		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) ClaimId, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		/// Map ERC20 address to GA asset Id
+		ERC20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 	}
 }
 
@@ -170,6 +176,10 @@ decl_error! {
 		InvalidNotarization,
 		// Error returned when fetching github info
 		HttpFetch,
+		/// Could not create the bridged asset
+		CreateAssetFailed,
+		/// Claim was invalid
+		InvalidClaim
 	}
 }
 
@@ -188,10 +198,12 @@ decl_module! {
 			// TODO: need replay protection:
 			// 1) check / store successfully claimed txHashes
 			// 2) claims older than some time period should be invalid, allowing us to release claimed txHashes from storage at regular intervals
-
-			// TODO: need to check eth address??
 			let _ = ensure_signed(origin)?;
 			let claim_id = Self::next_claim_id();
+			// fail a claim early for an amount that is too large
+			ensure!(deposit_event.amount < ethereum_types::U256::from(u128::max_value()), Error::<T>::InvalidClaim);
+			// fail a claim if beneficiary is not a valid CENNZnet address
+			ensure!(T::AccountId::decode(&mut &deposit_event.beneficiary.0[..]).is_ok(), Error::<T>::InvalidClaim);
 			ClaimInfo::insert(claim_id, deposit_event);
 			PendingClaims::insert(claim_id, tx_hash);
 			NextClaimId::put(claim_id.wrapping_add(1));
@@ -200,7 +212,7 @@ decl_module! {
 		#[weight = 100_000]
 		/// Internal only
 		/// Validators will call this with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
+		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
@@ -220,13 +232,34 @@ decl_module! {
 				PendingClaims::remove(payload.claim_id);
 				let claim_info = ClaimInfo::take(payload.claim_id);
 				<ClaimNotarizations<T>>::remove_prefix(payload.claim_id, None);
-				// TODO:
-				// 1) maybe mint new asset (check first)
-				// 2) release tokens
-				// Self::deposit_event(RawEvent::TokenClaim(payload.claim_id));
-			}
 
-			Ok(())
+				if claim_info.is_none() {
+					// this should never happen
+					log!(error, "💎 not an active notary, exiting");
+					return Err(Error::<T>::InvalidClaim.into())
+				}
+
+				let claim_info = claim_info.unwrap();
+				let asset_id = match Self::erc20_to_asset(claim_info.token_type) {
+					None => T::MultiCurrency::create(
+						&T::BridgePalletId::get().into_account(),
+						Zero::zero(),
+						18,
+						1
+					).map_err(|_| Error::<T>::CreateAssetFailed)?,
+					Some(asset_id) => asset_id,
+				};
+
+				// checked prior that beneficiary value is valid and this op will not fail
+				let beneficiary: T::AccountId = T::AccountId::decode(&mut &claim_info.beneficiary.0[..]).unwrap();
+				let _imbalance = T::MultiCurrency::deposit_creating(
+					&beneficiary,
+					asset_id,
+					claim_info.amount.as_u128()
+				);
+
+				Self::deposit_event(Event::TokenClaim(payload.claim_id));
+			}
 		}
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
@@ -261,13 +294,14 @@ decl_module! {
 				// if we haven't voted on this claim yet, then try!
 				if !<ClaimNotarizations<T>>::contains_key::<ClaimId, T::AuthorityId>(claim_id, key.clone()) {
 					if let Some(claim_info) = Self::claim_info(claim_id) {
-						let is_valid = Self::offchain_verify_claim(tx_hash, claim_info);
-						let _ = Self::offchain_send_notarization(key, claim_id, is_valid)
+						let result = Self::offchain_verify_claim(tx_hash, claim_info);
+						log!(trace, "💎 claim verification status: {:?}", result);
+						let _ = Self::offchain_send_notarization(key, claim_id, result.is_ok())
 							.map_err(|err| {
 								log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 							})
 							.map(|_| {
-								log!(info, "💎 signed notarization: '{:?}' for claim: {:?}", is_valid, claim_id);
+								log!(info, "💎 signed notarization: '{:?}' for claim: {:?}", result.is_ok(), claim_id);
 							});
 						}
 						budget = budget.saturating_sub(1);
@@ -287,6 +321,23 @@ decl_module! {
 	}
 }
 
+/// POssible failure outcomes from attempting to verify eth deposit claims
+#[derive(Debug, PartialEq, Clone)]
+enum ClaimFailReason {
+	/// Couldn't request data from the Eth client
+	DataProvider,
+	/// The eth tx is marked failed
+	TxStatusFailed,
+	/// The transaction recipient was not the bridge contract
+	InvalidBridgeAddress,
+	/// The expected tx logs were not present
+	NoTxLogs,
+	/// Not enough block confirmations yet
+	NotEnoughConfirmations,
+	/// Tx event logs indicated this claim does not match the event
+	ProvenInvalid,
+}
+
 impl<T: Config> Pallet<T> {
 	/// Verify a claim
 	/// - check Eth full node for transaction status
@@ -294,24 +345,21 @@ impl<T: Config> Pallet<T> {
 	/// - tx sent to deposit contract address
 	/// - check for log with deposited amount and token type
 	/// - confirmations >= T::RequiredConfirmations
-	fn offchain_verify_claim(tx_hash: H256, reported_claim_event: EthDepositEvent) -> bool {
-		// TODO: make enum return type for the cases
+	fn offchain_verify_claim(tx_hash: EthTxHash, reported_claim_event: EthDepositEvent) -> Result<(), ClaimFailReason> {
 		let result = Self::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
-			return false;
+			return Err(ClaimFailReason::DataProvider);
 		}
 
 		let tx_receipt = result.unwrap(); // error handled above qed.
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
-			log!(trace, "💎 status failed {:?}", tx_hash);
-			return false;
+			return Err(ClaimFailReason::TxStatusFailed);
 		}
 
 		if tx_receipt.to != Some(T::BridgeContractAddress::get().into()) {
-			log!(trace, "💎 not bridge contract address {:?}", tx_hash);
-			return false;
+			return Err(ClaimFailReason::InvalidBridgeAddress);
 		}
 
 		let topic: H256 = T::DepositEventSignature::get().into();
@@ -333,12 +381,11 @@ impl<T: Config> Pallet<T> {
 							reported_claim_event,
 							event
 						);
-						return false;
+						return Err(ClaimFailReason::ProvenInvalid);
 					}
 				}
 				None => {
-					log!(trace, "💎 could not find event in tx logs {:?}", tx_hash);
-					return false;
+					return Err(ClaimFailReason::NoTxLogs);
 				}
 			}
 
@@ -346,28 +393,39 @@ impl<T: Config> Pallet<T> {
 			let result = Self::get_block_number();
 			if let Err(err) = result {
 				log!(error, "💎 eth_getBlock failed: {:?}", err);
-				return false;
+				return Err(ClaimFailReason::DataProvider);
 			}
 			let latest_block_number = result.unwrap().as_u64();
-			return latest_block_number.saturating_sub(tx_receipt.block_number.as_u64())
-				>= T::RequiredConfirmations::get() as u64;
+			if latest_block_number.saturating_sub(tx_receipt.block_number.as_u64())
+				< T::RequiredConfirmations::get() as u64
+			{
+				return Err(ClaimFailReason::NotEnoughConfirmations);
+			}
+
+			// it's ok!
+			return Ok(());
 		}
 
-		log!(trace, "💎 no logs found {:?}", tx_hash);
-		return false;
+		return Err(ClaimFailReason::NoTxLogs);
 	}
 
 	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: H256) -> Result<TransactionReceipt, Error<T>> {
+	fn get_transaction_receipt(tx_hash: EthTxHash) -> Result<TransactionReceipt, Error<T>> {
 		let request = GetTxReceiptRequest::new(tx_hash);
 		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
 		})?;
 
+		let resp_str = core::str::from_utf8(&resp_bytes)
+		.map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			<Error<T>>::HttpFetch
+		})?;
+
 		// Deserialize JSON to struct
-		serde_json_core::from_slice::<EthResponse<TransactionReceipt>>(&resp_bytes)
-			.map(|(resp, _)| resp.result)
+		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
+			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
 				<Error<T>>::HttpFetch
@@ -382,9 +440,15 @@ impl<T: Config> Pallet<T> {
 			<Error<T>>::HttpFetch
 		})?;
 
+		let resp_str = core::str::from_utf8(&resp_bytes)
+		.map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			<Error<T>>::HttpFetch
+		})?;
+
 		// Deserialize JSON to struct
-		serde_json_core::from_slice::<EthResponse<EthBlockNumber>>(&resp_bytes)
-			.map(|(resp, _)| resp.result)
+		serde_json::from_str::<EthResponse<EthBlockNumber>>(resp_str)
+			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
 				<Error<T>>::HttpFetch
@@ -398,7 +462,7 @@ impl<T: Config> Pallet<T> {
 		const ETH_HOST: &str = "http://localhost:8545";
 		const HEADER_CONTENT_TYPE: &str = "application/json";
 		log!(info, "💎 sending request to: {}", ETH_HOST);
-		let body = serde_json_core::to_string::<R, 512>(&request_body).unwrap();
+		let body = serde_json::to_string::<R>(&request_body).unwrap();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
 		let request = rt_offchain::http::Request::post(ETH_HOST, vec![body.as_bytes()]);
 		log!(trace, "💎 request: {:?}", request);
@@ -435,7 +499,7 @@ impl<T: Config> Pallet<T> {
 			return Err(<Error<T>>::HttpFetch);
 		}
 
-		// Next we fully read the response body and collect it to a vector of bytes.
+		// Read the response body and check it's valid utf-8
 		Ok(response.body().collect::<Vec<u8>>())
 	}
 

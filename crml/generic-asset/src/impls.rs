@@ -16,12 +16,13 @@
 
 //! Extra trait implementations for the `GenericAsset` module
 
-use crate::{CheckedImbalance, Config, Error, NegativeImbalance, Pallet, PositiveImbalance, SpendingAssetIdAuthority};
+use crate::{AssetOptions, CheckedImbalance, Config, Error, NegativeImbalance, Pallet, PositiveImbalance, SpendingAssetIdAuthority};
 use crml_support::{AssetIdAuthority, MultiCurrency};
 use frame_support::{
 	traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons},
 	PalletId,
 };
+use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedSub, Saturating, UniqueSaturatedInto, Zero},
 	DispatchError, DispatchResult,
@@ -165,6 +166,33 @@ impl<T: Config> MultiCurrency for Pallet<T> {
 		}
 
 		<Pallet<T>>::unreserve(currency, who, amount)
+	}
+
+	/// Bring a new currency into existence
+	/// Returns the new currency Id on success
+	fn create(owner: &Self::AccountId, initial_supply: Self::Balance, decimal_places: u8, minimum_balance: u64) -> Result<Self::CurrencyId, ()> {
+		let asset_id = <Pallet<T>>::next_asset_id();
+		let _ = <Pallet<T>>::create_asset(
+			None,
+			Some(owner.clone()),
+			AssetOptions {
+				initial_issuance: initial_supply,
+				permissions: crate::types::PermissionLatest {
+					update: crate::types::Owner::Address(owner.clone()),
+					mint: crate::types::Owner::Address(owner.clone()),
+					burn: crate::types::Owner::Address(owner.clone()),
+				}
+			},
+		crate::types::AssetInfo::new(
+				// TODO: read the asset name here...
+				Default::default(),
+				// TODO: read the dp values...
+				decimal_places,
+				minimum_balance,
+			)
+		).map_err(|_err|())?;
+
+		Ok(asset_id)
 	}
 }
 
