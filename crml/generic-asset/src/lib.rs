@@ -510,7 +510,7 @@ decl_storage! {
 		pub SpendingAssetId get(fn spending_asset_id) config(): T::AssetId;
 
 		/// The info for assets
-		pub AssetMeta get(fn asset_meta) config(): map hasher(twox_64_concat) T::AssetId => AssetInfo;
+		pub AssetMeta get(fn asset_meta): map hasher(twox_64_concat) T::AssetId => AssetInfo;
 
 		/// Storage version of the pallet.
 		///
@@ -518,14 +518,14 @@ decl_storage! {
 		StorageVersion build(|_: &GenesisConfig<T>| Releases::V0 as u32): u32;
 	}
 	add_extra_genesis {
-		config(assets): Vec<T::AssetId>;
+		config(assets): Vec<(T::AssetId, AssetInfo)>;
 		config(initial_balance): T::Balance;
 		config(endowed_accounts): Vec<T::AccountId>;
 		config(permissions): Vec<(T::AssetId, T::AccountId)>;
 
 		build(|config: &GenesisConfig<T>| {
-			config.assets.iter().for_each(|asset_id| {
-				<AssetMeta<T>>::insert(asset_id, <AssetInfo>::default());
+			config.assets.iter().for_each(|(asset_id, asset_info)| {
+				<AssetMeta<T>>::insert(asset_id, asset_info);
 				config.endowed_accounts.iter().for_each(|account_id| {
 					Pallet::<T>::set_free_balance(*asset_id, account_id, config.initial_balance);
 				});

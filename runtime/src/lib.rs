@@ -766,7 +766,7 @@ construct_runtime!(
 		Attestation: crml_attestation::{Pallet, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
-		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned} = 31,
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 31,
 	}
 );
 

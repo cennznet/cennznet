@@ -27,7 +27,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Saturating},
 	DispatchError, DispatchResult,
 };
-use sp_std::{fmt::Debug, result};
+use sp_std::{fmt::Debug, prelude::*, result};
 
 /// Something which provides an ID with authority from chain storage
 pub trait AssetIdAuthority {
@@ -175,5 +175,12 @@ pub trait MultiCurrency {
 	/// `total_supply` - number of whole tokens to mint to `owner`
 	/// `decimal_places` - metadata denoting the decimal places for balances of the asset
 	/// `minimum_balance` - a minimum balance for an account to exist
-	fn create(owner: &Self::AccountId, initial_supply: Self::Balance, decimal_places: u8, minimum_balance: u64) -> Result<Self::CurrencyId, ()>;
+	/// `symbol` - ticker for the asset
+	fn create(
+		owner: &Self::AccountId,
+		initial_supply: Self::Balance,
+		decimal_places: u8,
+		minimum_balance: u64,
+		symbol: Vec<u8>,
+	) -> Result<Self::CurrencyId, ()>;
 }

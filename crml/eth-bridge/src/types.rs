@@ -20,7 +20,7 @@ use core::fmt;
 use ethereum_types::{Address, Bloom as H2048, H256, U256, U64};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use sp_std::vec::Vec;
+use sp_std::{prelude::*, vec::Vec};
 
 type Index = U64;
 /// The ethereum block number data type
@@ -157,6 +157,59 @@ impl GetBlockNumberRequest {
 			json_rpc: JSONRPC,
 			method: METHOD_BLOCK,
 			params: Default::default(),
+			id: 1,
+		}
+	}
+}
+
+#[derive(Serialize, Debug)]
+pub struct EthCallParams {
+	/// The receiving contract
+	to: EthAddress,
+	/// The data to receive
+	data: Vec<u8>,
+}
+
+/// Request for 'eth_call'
+#[derive(Serialize, Debug)]
+pub struct EthCallRequest {
+	#[serde(rename = "jsonrpc")]
+	/// The version of the JSON RPC spec
+	pub json_rpc: &'static str,
+	/// The method which is called
+	pub method: &'static str,
+	/// Arguments supplied to the method. Can be an empty Vec.
+	pub params: EthCallParams,
+	/// The id for the request
+	pub id: usize,
+}
+
+/// JSON-RPC method name for the request
+const METHOD_ETH_CALL: &'static str = "eth_call";
+impl EthCallRequest {
+	/// Eth call to `address` with function `decimals()`
+	pub fn erc20_decimals(address: EthAddress) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_ETH_CALL,
+			params: EthCallParams {
+				to: address,
+				// EVM selector code: 313ce567 (decimals)
+				data: vec![0x31, 0x3c, 0xe5, 0x67],
+			},
+			id: 1,
+		}
+	}
+	/// Eth call to `address` with function `symbol()`
+	pub fn erc20_symbol(address: EthAddress) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_ETH_CALL,
+			params: EthCallParams {
+				to: address,
+				// EVM selector code: 95d89b41 (symbol)
+				data: vec![0x95, 0xd8, 0x9b, 0x41],
+			},
 			id: 1,
 		}
 	}

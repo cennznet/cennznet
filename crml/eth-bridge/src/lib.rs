@@ -31,16 +31,16 @@ mod tests;
 mod types;
 use types::*;
 
-use codec::{Decode, Encode};
 use cennznet_primitives::types::{AssetId, Balance};
+use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use frame_support::{
-	ensure, decl_error, decl_event, decl_module, decl_storage,
-	log, traits::{Get, OneSessionHandler, ValidatorSet},
+	decl_error, decl_event, decl_module, decl_storage, ensure, log,
+	traits::{Get, OneSessionHandler, ValidatorSet},
 	PalletId, Parameter,
 };
 use frame_system::{
-	ensure_none, ensure_signed,
+	ensure_none, ensure_root, ensure_signed,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_core::H256;
@@ -120,7 +120,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// An onchain address for this pallet
 	type BridgePalletId: Get<PalletId>;
 	/// Currency functions
-	type MultiCurrency: MultiCurrency<AccountId=Self::AccountId, Balance=Balance, CurrencyId=AssetId>;
+	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
 	/// Event signature of a deposit on the Ethereum bridge contract
 	type DepositEventSignature: Get<[u8; 32]>;
 	/// Eth bridge contract address
@@ -155,7 +155,22 @@ decl_storage! {
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
 		/// Map ERC20 address to GA asset Id
-		ERC20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
+		pub Erc20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
+		/// Map GA asset Id to ERC20 address
+		pub AssetToErc20 get(fn asset_do_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
+		/// Metadata for well-known erc20 tokens
+		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
+		// Track completed claims, keyed by era id
+		// it is pruned after claims period expires
+		// CompleteClaims get(fn complete_claims): double_map hasher(twox_64_concat) u64, hasher(blake2_128_concat) EthTxHash => ();
+	}
+	add_extra_genesis {
+		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
+		build(|config: &GenesisConfig| {
+			for (address, symbol, decimals) in config.erc20s.iter() {
+				Erc20Meta::insert(address, (symbol, decimals));
+			}
+		});
 	}
 }
 
@@ -191,25 +206,26 @@ decl_module! {
 		/// Submit a bridge deposit claim for an ethereum tx hash
 		/// The deposit details must be provided for cross-checking by notaries
 		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
-		pub fn deposit_claim(origin, tx_hash: H256, deposit_event: EthDepositEvent) {
-			// Note: require caller to provide the `deposit_event` so we don't need to handle the-
+		pub fn deposit_claim(origin, eth_tx_hash: H256, eth_deposit_event: EthDepositEvent) {
+			// Note: require caller to provide the `eth_deposit_event` so we don't need to handle the-
 			// complexities of notaries reporting differing deposit events
 			// TODO: weight here should reflect the full amount of offchain work which is triggered as a result
 			// TODO: need replay protection:
 			// 1) check / store successfully claimed txHashes
 			// 2) claims older than some time period should be invalid, allowing us to release claimed txHashes from storage at regular intervals
 			let _ = ensure_signed(origin)?;
+			// ensure!(!CompleteClaims::<T>::contains_key(eth_tx_hash), Error::<T>::AlreadyClaimed);
 			let claim_id = Self::next_claim_id();
 			// fail a claim early for an amount that is too large
-			ensure!(deposit_event.amount < ethereum_types::U256::from(u128::max_value()), Error::<T>::InvalidClaim);
+			ensure!(eth_deposit_event.amount < ethereum_types::U256::from(u128::max_value()), Error::<T>::InvalidClaim);
 			// fail a claim if beneficiary is not a valid CENNZnet address
-			ensure!(T::AccountId::decode(&mut &deposit_event.beneficiary.0[..]).is_ok(), Error::<T>::InvalidClaim);
-			ClaimInfo::insert(claim_id, deposit_event);
-			PendingClaims::insert(claim_id, tx_hash);
+			ensure!(T::AccountId::decode(&mut &eth_deposit_event.beneficiary.0[..]).is_ok(), Error::<T>::InvalidClaim);
+			ClaimInfo::insert(claim_id, eth_deposit_event);
+			PendingClaims::insert(claim_id, eth_tx_hash);
 			NextClaimId::put(claim_id.wrapping_add(1));
 		}
 
-		#[weight = 100_000]
+		#[weight = 1_000_000]
 		/// Internal only
 		/// Validators will call this with their notarization vote for a given claim
 		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) {
@@ -241,16 +257,27 @@ decl_module! {
 
 				let claim_info = claim_info.unwrap();
 				let asset_id = match Self::erc20_to_asset(claim_info.token_type) {
-					None => T::MultiCurrency::create(
-						&T::BridgePalletId::get().into_account(),
-						Zero::zero(),
-						18,
-						1
-					).map_err(|_| Error::<T>::CreateAssetFailed)?,
+					None => {
+						// create asset with known values from `Erc20Meta`
+						// asset will be created with `0` decimal places and "" for symbol if the asset is unknown
+						// dapps can also use `AssetToERC20` to retrieve the appropriate decimal places from ethereum
+						let (symbol, decimals) = Erc20Meta::get(claim_info.token_type).unwrap_or_default();
+						let asset_id = T::MultiCurrency::create(
+							&T::BridgePalletId::get().into_account(),
+							Zero::zero(), // 0 supply
+							decimals,
+							1, // minimum balance
+							symbol,
+						).map_err(|_| Error::<T>::CreateAssetFailed)?;
+						Erc20ToAsset::insert(claim_info.token_type, asset_id);
+						AssetToErc20::insert(asset_id, claim_info.token_type);
+
+						asset_id
+					},
 					Some(asset_id) => asset_id,
 				};
 
-				// checked prior that beneficiary value is valid and this op will not fail
+				// checked at the time of initiating the claim that beneficiary value is valid and this op will not fail qed.
 				let beneficiary: T::AccountId = T::AccountId::decode(&mut &claim_info.beneficiary.0[..]).unwrap();
 				let _imbalance = T::MultiCurrency::deposit_creating(
 					&beneficiary,
@@ -417,8 +444,7 @@ impl<T: Config> Pallet<T> {
 			<Error<T>>::HttpFetch
 		})?;
 
-		let resp_str = core::str::from_utf8(&resp_bytes)
-		.map_err(|_| {
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
 			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
 			<Error<T>>::HttpFetch
 		})?;
@@ -440,8 +466,7 @@ impl<T: Config> Pallet<T> {
 			<Error<T>>::HttpFetch
 		})?;
 
-		let resp_str = core::str::from_utf8(&resp_bytes)
-		.map_err(|_| {
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
 			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
 			<Error<T>>::HttpFetch
 		})?;
