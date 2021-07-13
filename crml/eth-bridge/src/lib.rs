@@ -40,12 +40,13 @@ use frame_support::{
 	PalletId, Parameter,
 };
 use frame_system::{
-	ensure_none, ensure_root, ensure_signed,
+	ensure_none, ensure_signed,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_core::H256;
 use sp_runtime::{
 	offchain as rt_offchain,
+	offchain::StorageKind,
 	traits::{AccountIdConversion, MaybeSerializeDeserialize, Member, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	KeyTypeId, Percent, RuntimeAppPublic, RuntimeDebug,
@@ -194,7 +195,9 @@ decl_error! {
 		/// Could not create the bridged asset
 		CreateAssetFailed,
 		/// Claim was invalid
-		InvalidClaim
+		InvalidClaim,
+		/// offchain worker not configured properly
+		OcwConfig
 	}
 }
 
@@ -483,13 +486,26 @@ impl<T: Config> Pallet<T> {
 	/// This function uses the `offchain::http` API to query the remote github information,
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
-		// TODO: load this info from some client config.e.g. offchain indexed
-		const ETH_HOST: &str = "http://localhost:8545";
+		// Load eth http URI from offchain storage
+		// this should ahve been configured on start up by passing e.g. `--eth-http`
+		// e.g. `--eth-http=http://localhost:8545`
+		let eth_http_uri =
+			if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP") {
+				value
+			} else {
+				log!(
+					error,
+					"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
+				);
+				return Err(Error::<T>::OcwConfig.into());
+			};
+		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
+
 		const HEADER_CONTENT_TYPE: &str = "application/json";
-		log!(info, "💎 sending request to: {}", ETH_HOST);
+		log!(info, "💎 sending request to: {}", eth_http_uri);
 		let body = serde_json::to_string::<R>(&request_body).unwrap();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(ETH_HOST, vec![body.as_bytes()]);
+		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body.as_bytes()]);
 		log!(trace, "💎 request: {:?}", request);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.

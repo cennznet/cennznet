@@ -472,7 +472,7 @@ decl_storage! {
 		/// TWOX-NOTE: `AssetId` is trusted.
 		pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
 			let issuance = config.initial_balance * (config.endowed_accounts.len() as u32).into();
-			config.assets.iter().map(|id| (id.clone(), issuance)).collect::<Vec<_>>()
+			config.assets.iter().map(|(id, _)| (id.clone(), issuance)).collect::<Vec<_>>()
 		}): map hasher(twox_64_concat) T::AssetId => T::Balance;
 
 		/// The free balance of a given asset under an account.
