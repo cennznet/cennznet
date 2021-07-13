@@ -63,14 +63,14 @@ pub mod crypto {
 	}
 
 	sp_application_crypto::with_pair! {
-		/// An i'm online keypair using ecdsa as its crypto.
+		/// An eth bridge keypair using ecdsa as its crypto.
 		pub type AuthorityPair = app_crypto::Pair;
 	}
 
-	/// An i'm online signature using ecdsa as its crypto.
+	/// An eth bridge signature using ecdsa as its crypto.
 	pub type AuthoritySignature = app_crypto::Signature;
 
-	/// An i'm online identifier using ecdsa as its crypto.
+	/// An eth bridge identifier using ecdsa as its crypto.
 	pub type AuthorityId = app_crypto::Public;
 }
 
@@ -133,7 +133,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Deposits cannot be claimed after this time # of Eth blocks)
 	type DepositClaimPeriod: Get<u32>;
 	/// The identifier type for an authority.
-	type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Active notaries
 	type NotarySet: ValidatorSet<Self::AccountId>;
 	/// The overarching dispatch call type.
@@ -187,7 +187,7 @@ decl_error! {
 		// Error returned when making signed transactions in off-chain worker
 		NoLocalSigningAccount,
 		// Error returned when making unsigned transactions with signed payloads in off-chain worker
-		OffchainUnsignedTxSignedPayloadError,
+		OffchainUnsignedTxSignedPayload,
 		/// A notarization was invalid
 		InvalidNotarization,
 		// Error returned when fetching github info
@@ -293,11 +293,13 @@ decl_module! {
 		}
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			log!(info, "💎 entering off-chain worker");
+			log!(trace, "💎 entering off-chain worker");
 
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
-				log!(error, "💎 not an active notary, exiting");
+				// this passes if flag `--validator` set not necessarily
+				// in the active set
+				log!(info, "💎 not a validator, exiting");
 				return
 			}
 
@@ -315,6 +317,12 @@ decl_module! {
 					return
 				}
 			};
+
+			// check if locally known keys are in the active validator set
+			if Self::notary_keys().binary_search(key).is_err() {
+				log!(error, "💎 no active validator keys, exiting");
+				return;
+			}
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
@@ -346,7 +354,7 @@ decl_module! {
 				}
 			}
 
-			log!(info, "💎 exiting off-chain worker");
+			log!(trace, "💎 exiting off-chain worker");
 		}
 	}
 }
@@ -551,8 +559,10 @@ impl<T: Config> Pallet<T> {
 			.map(|pos| pos as u16)
 			.map_err(|_| {
 				log!(error, "💎 not found in authority set, this is a bug");
-				return <Error<T>>::OffchainUnsignedTxSignedPayloadError;
+				return <Error<T>>::OffchainUnsignedTxSignedPayload;
 			})?;
+
+		log!(trace, "💎 authority index: {:?}", authority_index);
 		let payload = NotarizationPayload {
 			claim_id,
 			authority_index,
@@ -560,11 +570,14 @@ impl<T: Config> Pallet<T> {
 		};
 		let signature = key
 			.sign(&payload.encode())
-			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayloadError)?;
+			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
+
+		// process the local vote immediately
 		let call = Call::submit_notarization(payload, signature);
+
 		// Retrieve the signer to sign the payload
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayloadError)?;
+			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)?;
 
 		Ok(())
 	}
@@ -595,11 +608,10 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 			if !(notary_public_key.verify(&payload.encode(), signature)) {
 				return InvalidTransaction::BadProof.into();
 			}
-			// TODO: does 'provides' need to be unique for all validators?
-			// txs with the same 'provides' produce: Error submitting a transaction to the pool: Pool(TooLowPriority { old: 100100, new: 100100 })
 			ValidTransaction::with_tag_prefix("eth-bridge")
 				.priority(UNSIGNED_TXS_PRIORITY)
-				.and_provides([&b"notarize", &payload.claim_id.to_be_bytes()])
+				// 'provides' must be unique for each submission on the network (i.e. unique for each claim id and validator)
+				.and_provides([b"notarize", &payload.claim_id.to_be_bytes(), &(payload.authority_index as u64).to_be_bytes()])
 				.longevity(3)
 				.propagate(true)
 				.build()
