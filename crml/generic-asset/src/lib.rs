@@ -183,6 +183,7 @@ mod weights;
 
 // Export GA types/traits
 pub use self::imbalances::{CheckedImbalance, NegativeImbalance, OffsetResult, PositiveImbalance};
+use frame_support::sp_runtime::sp_std::iter::Sum;
 use frame_support::traits::OnUnbalanced;
 pub use types::*;
 use weights::WeightInfo;
@@ -931,6 +932,24 @@ impl<T: Config> Module<T> {
 	/// Return registered asset metadata
 	pub fn registered_assets() -> Vec<(T::AssetId, AssetInfo)> {
 		AssetMeta::<T>::iter().collect()
+	}
+
+	/// Return total balance stored under an account
+	/// Include reserved, locked and free balance
+	pub fn get_total_balance(account_id: T::AccountId, asset_id: T::AssetId) -> T::Balance
+	where
+		T::Balance: Sum,
+	{
+		let available = <FreeBalance<T>>::get(&asset_id, &account_id);
+		let reserved = <ReservedBalance<T>>::get(&asset_id, &account_id);
+		let locks = Self::locks(&asset_id, &account_id);
+
+		if !locks.is_empty() {
+			let staked: T::Balance = locks.iter().map(|l| l.amount).sum();
+			reserved + available + staked
+		} else {
+			reserved + available
+		}
 	}
 
 	/// Reclaim asset storage items for an account

@@ -1241,6 +1241,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",
@@ -1254,6 +1255,7 @@ dependencies = [
  "crml-generic-asset",
  "parity-scale-codec",
  "sp-api",
+ "sp-arithmetic",
  "sp-std",
 ]
 

@@ -322,10 +322,12 @@ fn lock_storage_is_freed_when_empty() {
 		let alice_locks = vec![lock_1];
 		<Locks<Test>>::insert(STAKING_ASSET_ID, ALICE, &alice_locks);
 
+		assert_eq!(GenericAsset::get_total_balance(ALICE, STAKING_ASSET_ID), 103);
 		GenericAsset::remove_lock(ID_1, STAKING_ASSET_ID, &ALICE);
 
 		// lock storage released
 		assert!(!Locks::<Test>::contains_key(STAKING_ASSET_ID, &ALICE));
+		assert_eq!(GenericAsset::get_total_balance(ALICE, STAKING_ASSET_ID), 100);
 	});
 }
 

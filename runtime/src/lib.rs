@@ -857,9 +857,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+	impl crml_generic_asset_rpc_runtime_api::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId> for Runtime {
 		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
 			GenericAsset::registered_assets()
+		}
+		fn get_balance(account_id: AccountId, asset_id: AssetId) -> Balance {
+			GenericAsset::get_total_balance(account_id, asset_id)
 		}
 	}
 
