@@ -20,7 +20,6 @@ sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
 crml-generic-asset = { path = "../" }
 crml-generic-asset-rpc-runtime-api = { path = "runtime-api" }
-sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 
 [dev-dependencies]
 substrate-test-runtime-client = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }

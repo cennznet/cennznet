@@ -1241,7 +1241,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-arithmetic",
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",

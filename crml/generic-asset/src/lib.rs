@@ -152,26 +152,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode, FullCodec};
-
-use sp_runtime::traits::{
-	AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, One, UniqueSaturatedInto,
-	Zero,
-};
-use sp_runtime::{DispatchError, DispatchResult, RuntimeDebug, SaturatedConversion};
-
 use crml_support::AssetIdAuthority;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
+		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
 		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	IterableStorageDoubleMap, IterableStorageMap, Parameter, StorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::traits::CheckedMul;
-use sp_std::prelude::*;
-use sp_std::{cmp, fmt::Debug, result};
+use sp_runtime::{
+	traits::{
+		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Member, One,
+		UniqueSaturatedInto, Zero,
+	},
+	DispatchError, DispatchResult, RuntimeDebug, SaturatedConversion,
+};
+use sp_std::{cmp, fmt::Debug, iter::Sum, prelude::*, result};
 
 mod benchmarking;
 mod imbalances;
@@ -183,8 +181,6 @@ mod weights;
 
 // Export GA types/traits
 pub use self::imbalances::{CheckedImbalance, NegativeImbalance, OffsetResult, PositiveImbalance};
-use frame_support::sp_runtime::sp_std::iter::Sum;
-use frame_support::traits::OnUnbalanced;
 pub use types::*;
 use weights::WeightInfo;
 

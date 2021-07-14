@@ -24,7 +24,6 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::traits::BaseArithmetic;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{fmt::Display, str::FromStr, sync::Arc};
@@ -105,7 +104,7 @@ where
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
 	AssetId: Decode + Encode + Send + Sync + 'static,
-	Balance: Codec + BaseArithmetic + Sync + std::marker::Send + 'static + Display + FromStr,
+	Balance: Codec + Sync + std::marker::Send + 'static + Display + FromStr,
 	AccountId: Codec + Sync + std::marker::Send + 'static,
 {
 	fn asset_meta(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<(AssetId, AssetInfo)>> {
