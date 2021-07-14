@@ -348,7 +348,7 @@ fn get_balance_reads_all_balance_types() {
 		<Locks<Test>>::insert(STAKING_ASSET_ID, &ALICE, &alice_locks);
 		assert_ok!(GenericAsset::reserve(STAKING_ASSET_ID, &ALICE, reserved_amount));
 
-		let balances: AllBalances<u64> = GenericAsset::get_all_balances(ALICE, STAKING_ASSET_ID);
+		let balances: AllBalances<u64> = GenericAsset::get_all_balances(&ALICE, STAKING_ASSET_ID);
 
 		assert_eq!(balances.available, 20);
 		assert_eq!(balances.staked, 30);
