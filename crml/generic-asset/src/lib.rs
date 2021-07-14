@@ -934,21 +934,21 @@ impl<T: Config> Module<T> {
 		AssetMeta::<T>::iter().collect()
 	}
 
-	/// Return total balance stored under an account
+	/// Return all types of balance stored under an account
 	/// Include reserved, locked and free balance
-	pub fn get_total_balance(account_id: T::AccountId, asset_id: T::AssetId) -> T::Balance
+	pub fn get_all_balances(account_id: T::AccountId, asset_id: T::AssetId) -> AllBalances<T::Balance>
 	where
 		T::Balance: Sum,
 	{
-		let available = <FreeBalance<T>>::get(&asset_id, &account_id);
 		let reserved = <ReservedBalance<T>>::get(&asset_id, &account_id);
 		let locks = Self::locks(&asset_id, &account_id);
+		let staked: T::Balance = locks.iter().map(|l| l.amount).sum();
+		let available = <FreeBalance<T>>::get(&asset_id, &account_id) - staked;
 
-		if !locks.is_empty() {
-			let staked: T::Balance = locks.iter().map(|l| l.amount).sum();
-			reserved + available + staked
-		} else {
-			reserved + available
+		AllBalances {
+			reserved,
+			staked,
+			available,
 		}
 	}
 

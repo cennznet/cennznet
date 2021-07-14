@@ -79,6 +79,17 @@ impl<AccountId> Default for Owner<AccountId> {
 	}
 }
 
+//All balances belonging to account
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+pub struct AllBalances<Balance> {
+	/// Reserved balance
+	pub reserved: Balance,
+	///Staked balance (Locked)
+	pub staked: Balance,
+	/// Available balance (Free - staked)
+	pub available: Balance,
+}
+
 /// Asset permissions
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
 pub struct PermissionsV1<AccountId> {

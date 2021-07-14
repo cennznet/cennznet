@@ -68,7 +68,11 @@ impl<C, P> GenericAsset<C, P> {
 #[serde(bound(deserialize = "Balance: std::str::FromStr"))]
 pub struct BalanceInformation<Balance> {
 	#[serde(with = "serde_balance")]
-	total_balance: Balance,
+	reserved: Balance,
+	#[serde(with = "serde_balance")]
+	staked: Balance,
+	#[serde(with = "serde_balance")]
+	available: Balance,
 }
 
 mod serde_balance {
@@ -129,11 +133,15 @@ where
 
 		let result = api.get_balance(&at, account_id, asset_id).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError as i64),
-			message: "Unable to query balance.".into(),
+			message: "Unable to query balances.".into(),
 			data: Some(format!("{:?}", e).into()),
 		})?;
 
-		Ok(BalanceInformation { total_balance: result })
+		Ok(BalanceInformation {
+			reserved: result.reserved,
+			staked: result.staked,
+			available: result.available,
+		})
 	}
 }
 
