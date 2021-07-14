@@ -26,14 +26,13 @@
 
 use codec::Codec;
 use crml_generic_asset::{AllBalances, AssetInfo};
-use sp_arithmetic::traits::BaseArithmetic;
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	/// The API to query asset meta information.
 	pub trait GenericAssetRuntimeApi<AssetId, Balance, AccountId> where
 		AssetId: Codec,
-		Balance: Codec + BaseArithmetic,
+		Balance: Codec,
 		AccountId: Codec,
 	{
 		/// Get all assets data paired with their ids.

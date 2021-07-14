@@ -936,7 +936,7 @@ impl<T: Config> Module<T> {
 
 	/// Return all types of balance stored under an account
 	/// Include reserved, locked and free balance
-	pub fn get_all_balances(account_id: T::AccountId, asset_id: T::AssetId) -> AllBalances<T::Balance>
+	pub fn get_all_balances(account_id: &T::AccountId, asset_id: T::AssetId) -> AllBalances<T::Balance>
 	where
 		T::Balance: Sum,
 	{

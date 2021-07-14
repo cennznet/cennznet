@@ -1255,7 +1255,6 @@ dependencies = [
  "crml-generic-asset",
  "parity-scale-codec",
  "sp-api",
- "sp-arithmetic",
  "sp-std",
 ]
 

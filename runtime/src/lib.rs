@@ -863,7 +863,7 @@ impl_runtime_apis! {
 			GenericAsset::registered_assets()
 		}
 		fn get_balance(account_id: AccountId, asset_id: AssetId) -> AllBalances<Balance> {
-			GenericAsset::get_all_balances(account_id, asset_id)
+			GenericAsset::get_all_balances(&account_id, asset_id)
 		}
 	}
 
