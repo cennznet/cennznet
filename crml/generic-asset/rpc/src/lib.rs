@@ -17,21 +17,33 @@
 //! RPC interface for the generic asset module.
 
 pub use self::gen_client::Client as GenericAssetClient;
-use codec::{Decode, Encode};
+use codec::{Codec, Decode, Encode};
 use crml_generic_asset::AssetInfo;
-pub use crml_generic_asset_rpc_runtime_api::AssetMetaApi;
+pub use crml_generic_asset_rpc_runtime_api::GenericAssetRuntimeApi;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::sync::Arc;
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 #[rpc]
-pub trait GenericAssetApi<BlockHash, ResponseType> {
+pub trait GenericAssetApi<AssetId, Balance, AccountId, BlockHash, ResponseType>
+where
+	Balance: FromStr + Display,
+{
 	/// Get all assets data paired with their ids.
 	#[rpc(name = "genericAsset_registeredAssets")]
 	fn asset_meta(&self, at: Option<BlockHash>) -> Result<ResponseType>;
+
+	#[rpc(name = "genericAsset_getBalance")]
+	fn get_balance(
+		&self,
+		account_id: AccountId,
+		asset_id: AssetId,
+		at: Option<BlockHash>,
+	) -> Result<BalanceInformation<Balance>>;
 }
 
 /// A struct that implements the [`GenericAssetApi`].
@@ -50,19 +62,50 @@ impl<C, P> GenericAsset<C, P> {
 	}
 }
 
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "Balance: std::fmt::Display"))]
+#[serde(bound(deserialize = "Balance: std::str::FromStr"))]
+pub struct BalanceInformation<Balance> {
+	#[serde(with = "serde_balance")]
+	reserved: Balance,
+	#[serde(with = "serde_balance")]
+	staked: Balance,
+	#[serde(with = "serde_balance")]
+	available: Balance,
+}
+
+mod serde_balance {
+	use serde::{Deserialize, Deserializer, Serializer};
+
+	pub fn serialize<S: Serializer, Balance: std::fmt::Display>(t: &Balance, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_str(&t.to_string())
+	}
+
+	pub fn deserialize<'de, D: Deserializer<'de>, Balance: std::str::FromStr>(
+		deserializer: D,
+	) -> Result<Balance, D::Error> {
+		let s = String::deserialize(deserializer)?;
+		s.parse::<Balance>()
+			.map_err(|_| serde::de::Error::custom("Parse from string failed"))
+	}
+}
+
 /// Error type of this RPC api.
 pub enum Error {
 	/// The call to runtime failed.
 	RuntimeError,
 }
 
-impl<C, Block, AssetId> GenericAssetApi<<Block as BlockT>::Hash, Vec<(AssetId, AssetInfo)>>
-	for GenericAsset<C, (Block, AssetId)>
+impl<C, Block, AssetId, Balance, AccountId>
+	GenericAssetApi<AssetId, Balance, AccountId, <Block as BlockT>::Hash, Vec<(AssetId, AssetInfo)>>
+	for GenericAsset<C, (Block, AssetId, Balance, AccountId)>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: AssetMetaApi<Block, AssetId>,
+	C::Api: GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
 	AssetId: Decode + Encode + Send + Sync + 'static,
+	Balance: Codec + Sync + std::marker::Send + 'static + Display + FromStr,
+	AccountId: Codec + Sync + std::marker::Send + 'static,
 {
 	fn asset_meta(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<(AssetId, AssetInfo)>> {
 		let at = BlockId::hash(at.unwrap_or_else(||
@@ -73,6 +116,30 @@ where
 			code: ErrorCode::ServerError(Error::RuntimeError as i64),
 			message: "Unable to query asset meta data.".into(),
 			data: Some(format!("{:?}", e).into()),
+		})
+	}
+
+	fn get_balance(
+		&self,
+		account_id: AccountId,
+		asset_id: AssetId,
+		at: Option<<Block as BlockT>::Hash>,
+	) -> Result<BalanceInformation<Balance>> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(at.unwrap_or_else(||
+			// If the block hash is not supplied assume the best block.
+			self.client.info().best_hash));
+
+		let result = api.get_balance(&at, account_id, asset_id).map_err(|e| RpcError {
+			code: ErrorCode::ServerError(Error::RuntimeError as i64),
+			message: "Unable to query balances.".into(),
+			data: Some(format!("{:?}", e).into()),
+		})?;
+
+		Ok(BalanceInformation {
+			reserved: result.reserved,
+			staked: result.staked,
+			available: result.available,
 		})
 	}
 }

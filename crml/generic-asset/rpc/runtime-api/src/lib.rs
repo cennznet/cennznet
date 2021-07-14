@@ -24,15 +24,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-use crml_generic_asset::AssetInfo;
+use codec::Codec;
+use crml_generic_asset::{AllBalances, AssetInfo};
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	/// The API to query asset meta information.
-	pub trait AssetMetaApi<AssetId: Decode + Encode>
+	pub trait GenericAssetRuntimeApi<AssetId, Balance, AccountId> where
+		AssetId: Codec,
+		Balance: Codec,
+		AccountId: Codec,
 	{
 		/// Get all assets data paired with their ids.
 		fn asset_meta() -> Vec<(AssetId, AssetInfo)>;
+		/// Get total balance of an account including free, locked and reserved
+		fn get_balance(account: AccountId, asset_id: AssetId) -> AllBalances<Balance>;
 	}
 }

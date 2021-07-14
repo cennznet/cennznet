@@ -77,7 +77,8 @@ use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash,
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 pub use crml_generic_asset::{
-	impls::TransferDustImbalance, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency, StakingAssetCurrency,
+	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
+	StakingAssetCurrency,
 };
 use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
@@ -857,9 +858,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crml_generic_asset_rpc_runtime_api::AssetMetaApi<Block, AssetId> for Runtime {
+	impl crml_generic_asset_rpc_runtime_api::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId> for Runtime {
 		fn asset_meta() -> Vec<(AssetId, AssetInfo)> {
 			GenericAsset::registered_assets()
+		}
+		fn get_balance(account_id: AccountId, asset_id: AssetId) -> AllBalances<Balance> {
+			GenericAsset::get_all_balances(&account_id, asset_id)
 		}
 	}
 

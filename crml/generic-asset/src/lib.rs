@@ -152,26 +152,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode, FullCodec};
-
-use sp_runtime::traits::{
-	AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, One, UniqueSaturatedInto,
-	Zero,
-};
-use sp_runtime::{DispatchError, DispatchResult, RuntimeDebug, SaturatedConversion};
-
 use crml_support::AssetIdAuthority;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
+		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
 		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	IterableStorageDoubleMap, IterableStorageMap, Parameter, StorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::traits::CheckedMul;
-use sp_std::prelude::*;
-use sp_std::{cmp, fmt::Debug, result};
+use sp_runtime::{
+	traits::{
+		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Member, One,
+		UniqueSaturatedInto, Zero,
+	},
+	DispatchError, DispatchResult, RuntimeDebug, SaturatedConversion,
+};
+use sp_std::{cmp, fmt::Debug, iter::Sum, prelude::*, result};
 
 mod benchmarking;
 mod imbalances;
@@ -183,7 +181,6 @@ mod weights;
 
 // Export GA types/traits
 pub use self::imbalances::{CheckedImbalance, NegativeImbalance, OffsetResult, PositiveImbalance};
-use frame_support::traits::OnUnbalanced;
 pub use types::*;
 use weights::WeightInfo;
 
@@ -931,6 +928,24 @@ impl<T: Config> Module<T> {
 	/// Return registered asset metadata
 	pub fn registered_assets() -> Vec<(T::AssetId, AssetInfo)> {
 		AssetMeta::<T>::iter().collect()
+	}
+
+	/// Return all types of balance stored under an account
+	/// Include reserved, locked and free balance
+	pub fn get_all_balances(account_id: &T::AccountId, asset_id: T::AssetId) -> AllBalances<T::Balance>
+	where
+		T::Balance: Sum,
+	{
+		let reserved = <ReservedBalance<T>>::get(&asset_id, &account_id);
+		let locks = Self::locks(&asset_id, &account_id);
+		let staked: T::Balance = locks.iter().map(|l| l.amount).sum();
+		let available = <FreeBalance<T>>::get(&asset_id, &account_id) - staked;
+
+		AllBalances {
+			reserved,
+			staked,
+			available,
+		}
 	}
 
 	/// Reclaim asset storage items for an account

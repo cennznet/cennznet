@@ -118,7 +118,7 @@ where
 	C::Api: crml_nft_rpc::NftRuntimeApi<Block, AccountId>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: crml_generic_asset_rpc::AssetMetaApi<Block, AssetId>,
+	C::Api: crml_generic_asset_rpc::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,

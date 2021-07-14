@@ -330,6 +330,33 @@ fn lock_storage_is_freed_when_empty() {
 }
 
 #[test]
+fn get_balance_reads_all_balance_types() {
+	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
+		let lock_1 = BalanceLock {
+			id: ID_1,
+			amount: 10u64,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+		};
+		let lock_2 = BalanceLock {
+			id: ID_2,
+			amount: 20u64,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+		};
+		let reserved_amount = 50;
+		let alice_locks = vec![lock_1, lock_2];
+
+		<Locks<Test>>::insert(STAKING_ASSET_ID, &ALICE, &alice_locks);
+		assert_ok!(GenericAsset::reserve(STAKING_ASSET_ID, &ALICE, reserved_amount));
+
+		let balances: AllBalances<u64> = GenericAsset::get_all_balances(&ALICE, STAKING_ASSET_ID);
+
+		assert_eq!(balances.available, 20);
+		assert_eq!(balances.staked, 30);
+		assert_eq!(balances.reserved, 50);
+	});
+}
+
+#[test]
 fn balance_falls_below_a_non_default_existential_deposit() {
 	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
 		// Create an asset with ED = 11
