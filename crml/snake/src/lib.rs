@@ -21,16 +21,16 @@ mod types;
 use byteorder::{BigEndian, ByteOrder};
 use codec::Encode;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, traits::Randomness, weights::Weight, IterableStorageMap,
-	StorageMap,
+	decl_error, decl_event, decl_module, decl_storage, ensure, traits::Randomness, IterableStorageMap, StorageMap,
 };
 use frame_system::{ensure_signed, WeightInfo};
 use sp_core::hash::H256;
 use sp_runtime::DispatchResult;
-use sp_std::cmp::{max, min};
-use sp_std::vec;
+use sp_std::{
+	cmp::{max, min},
+	vec,
+};
 pub use types::*;
-pub use types::{Direction, Food, Snake, WindowSize, MAX_WINDOW_SIZE, MIN_WINDOW_SIZE};
 
 // Runtime Configuration Trait
 // All of the runtime types and consts go in here. If the module
@@ -66,11 +66,10 @@ decl_module! {
 		fn deposit_event() = default;
 
 		//Called on every block update. Use to move the position of the snake
-		fn on_initialize(_block: T::BlockNumber) -> Weight {
+		fn on_finalize() {
 			for game in WindowMeta::<T>::iter() {
 				let _ = Self::update_snake_position(game.0, game.1);
 			}
-			0
 		}
 
 		/// Start the game of snake and create a new snake
