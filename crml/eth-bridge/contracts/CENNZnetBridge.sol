@@ -9,9 +9,10 @@ contract CENNZnetBridge is Ownable {
     using SafeMath for uint256;
 
     bool isBridgeActive;
+    uint32 nonce;
     mapping (address => mapping(address => uint)) public balances;
 
-    event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress);
+    event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress, uint256 timestamp);
 
     // Deposit amount of tokenType
     // the pegged version of the token will be claim-able on CENNZnet
@@ -21,7 +22,7 @@ contract CENNZnetBridge is Ownable {
         require(IERC20(tokenType).transferFrom(msg.sender, address(this), amount), "deposit failed");
         balances[msg.sender][tokenType] = balances[msg.sender][tokenType].add(amount);
 
-        emit Deposit(msg.sender, tokenType, amount, cennznetAddress);
+        emit Deposit(msg.sender, tokenType, amount, cennznetAddress, block.timestamp);
     }
 
     function activateDeposits() external onlyOwner {

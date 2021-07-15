@@ -638,25 +638,26 @@ impl crml_attestation::Config for Runtime {
 
 parameter_types! {
 	// transaction must have an event/log of the deposit
-	// i.e. keccack256("Deposit(address,address,uint256,bytes32")
+	// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
 	/// The eth bridge contract deposit event
-	pub const DepositEventSignature: [u8; 32] = [0x76,0xbb,0x91,0x1c,0x36,0x2d,0x5b,0x1f,0xeb,0x30,0x58,0xbc,0x7d,0xc9,0x35,0x47,0x03,0xe4,0xb6,0xeb,0x9c,0x61,0xcc,0x84,0x5f,0x73,0xda,0x88,0x0c,0xf6,0x2f,0x61];
+	pub const DepositEventSignature: [u8; 32] = [
+		0x0b, 0xc9, 0x6d, 0x65, 0x78, 0x33, 0x34, 0xbd, 0x24, 0x9e, 0xf6,0x0e,0x1d,0xbe,0xdb,0xf9,0x56,0xe1,0x46,0x31,0xea,0x70,0xcb,0x5f,0x85,0x96,0x7d,0x31,0x21,0xfd,0xf6,0x8d
+	];
 	/// The eth bridge contract address
 	// 0x87015d61b82a3808d9720a79573bf75deb8a1e90
 	pub const BridgeContractAddress: [u8; 20] = [
-		0xbe,0x4d,0x35,0x6d,0x1C,0x68,0xE2,0x2a,0xFe,0xE7,0x0B,0x45,0x10,0xec,0x8b,0x31,0xe3,0x89,0xc7,0x59
+		0xd9,0x14,0x5C,0xCE,0x52,0xD3,0x86,0xf2,0x54,0x91,0x7e,0x48,0x1e,0xB4,0x4e,0x99,0x43,0xF3,0x91,0x38
 	];
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	pub const RequiredConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit
 	pub const DepositApprovalThreshold: Percent = Percent::from_percent(66_u8);
-	/// Deposits cannot be claimed after this time # of Eth blocks)
-	pub const DepositClaimPeriod: u32 = 1_000;
+	/// Deposit expiration deadline in seconds (1 week)
+	pub const DepositDeadline: u32 = 604_800;
 	/// The Eth bridge address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethbridg");
 }
 impl crml_eth_bridge::Config for Runtime {
-	type MultiCurrency = GenericAsset;
 	type BridgePalletId = BridgePalletId;
 	/// The deposit event signature
 	type DepositEventSignature = DepositEventSignature;
@@ -667,7 +668,7 @@ impl crml_eth_bridge::Config for Runtime {
 	/// The threshold of notarizations required to approve an Eth deposit
 	type DepositApprovalThreshold = DepositApprovalThreshold;
 	/// Deposits cannot be claimed after this time # of Eth blocks)
-	type DepositClaimPeriod = DepositClaimPeriod;
+	type DepositDeadline = DepositDeadline;
 	/// The identifier type for an offchain worker.
 	type AuthorityId = EthBridgeId;
 	/// The overarching dispatch call type.
@@ -676,6 +677,8 @@ impl crml_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// Reports the current validator / notary set
 	type NotarySet = Historical;
+	type MultiCurrency = GenericAsset;
+	type UnixTime = Timestamp;
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension

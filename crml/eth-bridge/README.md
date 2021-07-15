@@ -5,10 +5,11 @@
 - Implement token create + mint protocol ✅
 - Replay protection and claims time window
 - Pass Eth host + API config to the OCW from command-line flags ✅ (could do some optimization here)
-- Write up design docs
 - Develop withdrawal process
+- Develop delayed activation device
+- Write up design docs
 - Test!!!
-- Develop Eth-JSON-RPC api proxy service
+- Develop Eth-JSON-RPC api proxy service ❌ (rollout plan, let validators choose their own full node endpoints)
 - (maybe): allow notarization vote to include a 'failure' reason rather than false e..g not enough re-orgs or differing amounts
 
 ## Run Bridged Validator

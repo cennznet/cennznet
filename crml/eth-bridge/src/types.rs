@@ -293,6 +293,8 @@ pub struct EthDepositEvent {
 	pub amount: U256,
 	/// The CENNZnet beneficiary address
 	pub beneficiary: H256,
+	/// The reported timestamp of the claim
+	pub timestamp: U256,
 }
 
 impl EthDepositEvent {
@@ -303,21 +305,23 @@ impl EthDepositEvent {
 	pub fn try_decode_from_log(log: &Log) -> Option<Self> {
 		let data = &log.data.0;
 
-		// we're expecting 3 fields in the log.data represented as a single &[u8] of
+		// we're expecting 4 fields in the log.data represented as a single &[u8] of
 		// concatenated `bytes32` / `U256`
-		// 32 + 32 + 32
-		if data.len() != 96 {
+		// 32 * 4
+		if data.len() != 128 {
 			return None;
 		}
 		// Eth addresses are 20 bytes, the first 12 bytes are empty when encoded to log.data as a U256
 		let token_type = Address::from_slice(&data[12..32]);
 		let amount = U256::from(&data[32..64]);
-		let beneficiary = H256::from_slice(&data[64..]);
+		let beneficiary = H256::from_slice(&data[64..96]);
+		let timestamp = U256::from(&data[96..]);
 
 		Some(Self {
 			token_type,
 			amount,
 			beneficiary,
+			timestamp,
 		})
 	}
 }
@@ -418,12 +422,13 @@ mod tests2 {
 		let buf = decode_hex("00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
 		let token_address = Address::from_slice(&buf[12..32]);
 		let amount = U256::from(&buf[32..64]);
-		let cennznet_address = H256::from_slice(&buf[64..]);
-		println!("{:?} {:?} {:?}", token_address, amount, cennznet_address);
+		let cennznet_address = H256::from_slice(&buf[64..96]);
+		let timestamp = U256::from_slice(&buf[96..]);
+		println!(
+			"{:?} {:?} {:?} {:?}",
+			token_address, amount, cennznet_address, timestamp
+		);
 
-		// let _ = DepositClaimEvent::decode(&rlp::Rlp::new(&buf)).unwrap();
-
-		// println!("{:?}, {:?}, {:?}", address1, address2, amount);
 		assert!(false);
 	}
 }

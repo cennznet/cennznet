@@ -31,12 +31,13 @@ mod tests;
 mod types;
 use types::*;
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber, Moment};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{Get, OneSessionHandler, ValidatorSet},
+	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet},
+	weights::{constants::RocksDbWeight, Weight},
 	PalletId, Parameter,
 };
 use frame_system::{
@@ -44,10 +45,11 @@ use frame_system::{
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_core::H256;
+use sp_io::KillStorageResult;
 use sp_runtime::{
 	offchain as rt_offchain,
 	offchain::StorageKind,
-	traits::{AccountIdConversion, MaybeSerializeDeserialize, Member, Zero},
+	traits::{AccountIdConversion, MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	KeyTypeId, Percent, RuntimeAppPublic, RuntimeDebug,
 };
@@ -80,6 +82,10 @@ const UNSIGNED_TXS_PRIORITY: u64 = 100;
 const CLAIMS_PER_BLOCK: u64 = 3;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
 const REQUEST_TTL_MS: u64 = 1_500;
+/// Bucket claims in intervals of this factor (seconds)
+const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
+/// Number of blocks between claim pruning
+const CLAIM_PRUNING_INTERVAL: BlockNumber = BUCKET_FACTOR_S as u32 / 5_u32;
 
 pub(crate) const LOG_TARGET: &'static str = "eth-bridge";
 
@@ -120,6 +126,8 @@ pub struct NotarizationPayload {
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// An onchain address for this pallet
 	type BridgePalletId: Get<PalletId>;
+	/// Returns the block timestamp
+	type UnixTime: UnixTime;
 	/// Currency functions
 	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
 	/// Event signature of a deposit on the Ethereum bridge contract
@@ -130,8 +138,8 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type RequiredConfirmations: Get<u16>;
 	/// The threshold of notarizations required to approve an Eth deposit
 	type DepositApprovalThreshold: Get<Percent>;
-	/// Deposits cannot be claimed after this time # of Eth blocks)
-	type DepositClaimPeriod: Get<u32>;
+	/// Deposits cannot be claimed after this time (seconds)
+	type DepositDeadline: Get<u64>;
 	/// The identifier type for an authority.
 	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Active notaries
@@ -146,6 +154,15 @@ decl_storage! {
 	trait Store for Pallet<T: Config> as EthBridge {
 		/// Id of a token claim
 		NextClaimId get(fn next_claim_id): ClaimId;
+		/// Active notary (validator) public keys
+		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		/// Map ERC20 address to GA asset Id
+		Erc20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
+		/// Map GA asset Id to ERC20 address
+		AssetToErc20 get(fn asset_do_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
+		/// Metadata for well-known erc20 tokens
+		// TODO: put this info into offchain storage or build into client as constant (not onchain)
+		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Info of a claim
 		ClaimInfo get(fn claim_info): map hasher(twox_64_concat) ClaimId => Option<EthDepositEvent>;
 		/// Pending claims
@@ -153,17 +170,11 @@ decl_storage! {
 		/// Notarizations for pending claims
 		/// Either: None = no notarization exist OR Some(yay/nay)
 		ClaimNotarizations get(fn claim_notarizations): double_map hasher(twox_64_concat) ClaimId, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
-		/// Active notary (validator) public keys
-		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
-		/// Map ERC20 address to GA asset Id
-		pub Erc20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
-		/// Map GA asset Id to ERC20 address
-		pub AssetToErc20 get(fn asset_do_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
-		/// Metadata for well-known erc20 tokens
-		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
-		// Track completed claims, keyed by era id
-		// it is pruned after claims period expires
-		// CompleteClaims get(fn complete_claims): double_map hasher(twox_64_concat) u64, hasher(blake2_128_concat) EthTxHash => ();
+		/// Completed claims bucketed by unix timestamp of the most recent hour
+		// Used in conjunction with `DepositDeadline` to prevent double spends.
+		// After a bucket is older than the deadline, any deposits prior are considered expired.
+		// This allows the record of claimed transactions to be pruned from state regularly
+		CompleteClaimBuckets get(fn complete_claims): double_map hasher(twox_64_concat) u64, hasher(identity) EthTxHash => ();
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -197,7 +208,9 @@ decl_error! {
 		/// Claim was invalid
 		InvalidClaim,
 		/// offchain worker not configured properly
-		OcwConfig
+		OcwConfig,
+		/// This deposit was already claimed
+		AlreadyClaimed
 	}
 }
 
@@ -205,25 +218,44 @@ decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		fn deposit_event() = default;
 
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
+			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
+				// Find the bucket to expire
+				let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+				let expired_bucket_index = (now - T::DepositDeadline::get()) % BUCKET_FACTOR_S;
+				// TODO: make sure this is a no-op when bucket index is empty
+				match CompleteClaimBuckets::remove_prefix(expired_bucket_index, None) {
+					KillStorageResult::AllRemoved(count) => RocksDbWeight::get().reads(count as Weight),
+					// this won't happen, just handling the case
+					KillStorageResult::SomeRemaining(count) => RocksDbWeight::get().reads(count as Weight),
+				}
+			} else {
+				Zero::zero()
+			}
+		}
+
 		#[weight = 100_000_000]
 		/// Submit a bridge deposit claim for an ethereum tx hash
 		/// The deposit details must be provided for cross-checking by notaries
 		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
-		pub fn deposit_claim(origin, eth_tx_hash: H256, eth_deposit_event: EthDepositEvent) {
-			// Note: require caller to provide the `eth_deposit_event` so we don't need to handle the-
+		// TODO: weight here should reflect the full amount of offchain work which is triggered as a result
+		pub fn deposit_claim(origin, eth_tx_hash: EthTxHash, claim: EthDepositEvent) {
+			// Note: require caller to provide the `claim` so we don't need to handle the-
 			// complexities of notaries reporting differing deposit events
-			// TODO: weight here should reflect the full amount of offchain work which is triggered as a result
-			// TODO: need replay protection:
-			// 1) check / store successfully claimed txHashes
-			// 2) claims older than some time period should be invalid, allowing us to release claimed txHashes from storage at regular intervals
 			let _ = ensure_signed(origin)?;
-			// ensure!(!CompleteClaims::<T>::contains_key(eth_tx_hash), Error::<T>::AlreadyClaimed);
-			let claim_id = Self::next_claim_id();
 			// fail a claim early for an amount that is too large
-			ensure!(eth_deposit_event.amount < ethereum_types::U256::from(u128::max_value()), Error::<T>::InvalidClaim);
+			ensure!(claim.amount < ethereum_types::U256::from(u128::max_value()), Error::<T>::InvalidClaim);
+			// fail a claim early for a timestamp that is too large
+			ensure!(claim.timestamp < ethereum_types::U256::from(u64::max_value()), Error::<T>::InvalidClaim);
+			// fail a claim if it's already been claimed
+			let bucket_index = claim.timestamp.as_u64() % BUCKET_FACTOR_S; // checked timestamp < u64
+			ensure!(!CompleteClaimBuckets::contains_key(bucket_index, eth_tx_hash), Error::<T>::AlreadyClaimed);
 			// fail a claim if beneficiary is not a valid CENNZnet address
-			ensure!(T::AccountId::decode(&mut &eth_deposit_event.beneficiary.0[..]).is_ok(), Error::<T>::InvalidClaim);
-			ClaimInfo::insert(claim_id, eth_deposit_event);
+			ensure!(T::AccountId::decode(&mut &claim.beneficiary.0[..]).is_ok(), Error::<T>::InvalidClaim);
+
+			let claim_id = Self::next_claim_id();
+			ClaimInfo::insert(claim_id, claim);
 			PendingClaims::insert(claim_id, eth_tx_hash);
 			NextClaimId::put(claim_id.wrapping_add(1));
 		}
@@ -244,21 +276,26 @@ decl_module! {
 			<ClaimNotarizations<T>>::insert::<ClaimId, T::AuthorityId, bool>(payload.claim_id, notary_public_key.clone(), payload.is_valid);
 			// - check if threshold reached for or against
 			let notaries_count = notary_keys.len() as u32;
-			let notarizations_count = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).count() as u32;
+			let yay_count = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).filter(|(_id, is_valid)| *is_valid).count() as u32;
 
-			if Percent::from_rational(notarizations_count, notaries_count) >= T::DepositApprovalThreshold::get() {
-				// no need to track info on this claim any more since it's approved
-				PendingClaims::remove(payload.claim_id);
-				let claim_info = ClaimInfo::take(payload.claim_id);
-				<ClaimNotarizations<T>>::remove_prefix(payload.claim_id, None);
+			// TODO: what happens if a claim gets stuck?
 
+			if Percent::from_rational(yay_count, notaries_count) >= T::DepositApprovalThreshold::get() {
+				let claim_info = Self::claim_info(payload.claim_id);
 				if claim_info.is_none() {
 					// this should never happen
-					log!(error, "💎 not an active notary, exiting");
+					log!(error, "💎 unexpected empty claim");
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 
+				<ClaimNotarizations<T>>::remove_prefix(payload.claim_id, None);
+				let eth_tx_hash = PendingClaims::take(payload.claim_id);
 				let claim_info = claim_info.unwrap();
+				// note this tx as complete
+				let bucket_index = claim_info.timestamp.as_u64() % BUCKET_FACTOR_S;  // checked amount < u64 in `deposit_claim`
+				// no need to track info on this claim any more since it's approved
+				CompleteClaimBuckets::insert(bucket_index, eth_tx_hash, ());
+
 				let asset_id = match Self::erc20_to_asset(claim_info.token_type) {
 					None => {
 						// create asset with known values from `Erc20Meta`
@@ -285,15 +322,15 @@ decl_module! {
 				let _imbalance = T::MultiCurrency::deposit_creating(
 					&beneficiary,
 					asset_id,
-					claim_info.amount.as_u128()
+					claim_info.amount.as_u128() // checked amount < u128 in `deposit_claim`
 				);
 
 				Self::deposit_event(Event::TokenClaim(payload.claim_id));
 			}
 		}
 
-		fn offchain_worker(_block_number: T::BlockNumber) {
-			log!(trace, "💎 entering off-chain worker");
+		fn offchain_worker(block_number: T::BlockNumber) {
+			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
@@ -305,21 +342,21 @@ decl_module! {
 
 			// Get all signing keys for this protocol 'KeyTypeId'
 			let keys = T::AuthorityId::all();
-			// Only expect one key to be present
-			if keys.iter().count() > 1 {
-				log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
-				return
-			}
-			let key = match keys.first() {
-				Some(key) => key,
-				None => {
+			let key = match keys.len() {
+				0 => {
 					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::AuthorityId::ID);
 					return
-				}
+				},
+				1 => keys[0].clone(),
+				_ => {
+					// expect at most one key to be present
+					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
+					return
+				},
 			};
 
 			// check if locally known keys are in the active validator set
-			if Self::notary_keys().binary_search(key).is_err() {
+			if Self::notary_keys().binary_search(&key).is_err() {
 				log!(error, "💎 no active validator keys, exiting");
 				return;
 			}
@@ -334,7 +371,7 @@ decl_module! {
 					if let Some(claim_info) = Self::claim_info(claim_id) {
 						let result = Self::offchain_verify_claim(tx_hash, claim_info);
 						log!(trace, "💎 claim verification status: {:?}", result);
-						let _ = Self::offchain_send_notarization(key, claim_id, result.is_ok())
+						let _ = Self::offchain_send_notarization(&key, claim_id, result.is_ok())
 							.map_err(|err| {
 								log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 							})
@@ -374,6 +411,8 @@ enum ClaimFailReason {
 	NotEnoughConfirmations,
 	/// Tx event logs indicated this claim does not match the event
 	ProvenInvalid,
+	/// The deposit tx is past the expiration deadline
+	Expired,
 }
 
 impl<T: Config> Pallet<T> {
@@ -405,7 +444,7 @@ impl<T: Config> Pallet<T> {
 		let matching_log = tx_receipt
 			.logs
 			.iter()
-			.find(|log| log.transaction_hash == Some(tx_hash) && log.topics.contains(&topic.into()));
+			.find(|log| log.transaction_hash == Some(tx_hash) && log.topics.contains(&topic));
 
 		if let Some(log) = matching_log {
 			match EthDepositEvent::try_decode_from_log(log) {
@@ -421,6 +460,13 @@ impl<T: Config> Pallet<T> {
 						);
 						return Err(ClaimFailReason::ProvenInvalid);
 					}
+					// claim is past the expiration deadline
+					// ` reported_claim_event.timestamp` < u64 checked in `deposit_claim`
+					if T::UnixTime::now().as_millis().saturated_into::<u64>() - reported_claim_event.timestamp.as_u64()
+						> T::DepositDeadline::get()
+					{
+						return Err(ClaimFailReason::Expired);
+					}
 				}
 				None => {
 					return Err(ClaimFailReason::NoTxLogs);
@@ -434,9 +480,8 @@ impl<T: Config> Pallet<T> {
 				return Err(ClaimFailReason::DataProvider);
 			}
 			let latest_block_number = result.unwrap().as_u64();
-			if latest_block_number.saturating_sub(tx_receipt.block_number.as_u64())
-				< T::RequiredConfirmations::get() as u64
-			{
+			let block_confirmations = latest_block_number.saturating_sub(tx_receipt.block_number.as_u64());
+			if block_confirmations < T::RequiredConfirmations::get() as u64 {
 				return Err(ClaimFailReason::NotEnoughConfirmations);
 			}
 
@@ -497,16 +542,16 @@ impl<T: Config> Pallet<T> {
 		// Load eth http URI from offchain storage
 		// this should ahve been configured on start up by passing e.g. `--eth-http`
 		// e.g. `--eth-http=http://localhost:8545`
-		let eth_http_uri =
-			if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP") {
-				value
-			} else {
-				log!(
-					error,
-					"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
-				);
-				return Err(Error::<T>::OcwConfig.into());
-			};
+		let eth_http_uri = if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP")
+		{
+			value
+		} else {
+			log!(
+				error,
+				"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
+			);
+			return Err(Error::<T>::OcwConfig.into());
+		};
 		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
 
 		const HEADER_CONTENT_TYPE: &str = "application/json";
@@ -611,7 +656,11 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 			ValidTransaction::with_tag_prefix("eth-bridge")
 				.priority(UNSIGNED_TXS_PRIORITY)
 				// 'provides' must be unique for each submission on the network (i.e. unique for each claim id and validator)
-				.and_provides([b"notarize", &payload.claim_id.to_be_bytes(), &(payload.authority_index as u64).to_be_bytes()])
+				.and_provides([
+					b"notarize",
+					&payload.claim_id.to_be_bytes(),
+					&(payload.authority_index as u64).to_be_bytes(),
+				])
 				.longevity(3)
 				.propagate(true)
 				.build()
@@ -642,12 +691,20 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, _queued_validators: I)
+	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, _queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 	{
 		// Record authorities for the new session.
-		NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+		if changed {
+			NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+		}
+		// `changed` informs us the current `validators` has changed in some way as of right now
+		// `queued_validators` will update the reflected set one session prior to activation
+		// this gives us one session to notarize a proof of ancestry for the next set.
+		// TODO: how does this interplay function with the election window?
+		// e.g. PendingAncestryClaim::insert(queued_validators)
+		// next block should trigger voting asap
 	}
 
 	fn on_before_session_ending() {}
