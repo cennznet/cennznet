@@ -695,7 +695,9 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 					&payload.claim_id.to_be_bytes(),
 					&(payload.authority_index as u64).to_be_bytes(),
 				])
-				.longevity(3)
+				// keep the transaction alive for at least this many blocks
+				// gives time to ensure every notarization tx is included in a block
+				.longevity(notary_keys.len() as u64 + 50)
 				.propagate(true)
 				.build()
 		} else {
