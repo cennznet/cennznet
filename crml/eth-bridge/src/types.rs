@@ -70,7 +70,7 @@ pub struct TransactionReceipt {
 	pub contract_address: Option<Address>,
 	/// Cumulative gas used within the block after this was executed.
 	pub cumulative_gas_used: U256,
-	pub effective_gas_price: U256,
+	pub effective_gas_price: Option<U256>,
 	/// Address of the sender.
 	pub from: Address,
 	/// Gas used by this transaction alone.
@@ -125,12 +125,12 @@ pub struct GetTxReceiptRequest {
 /// JSON-RPC method name for the request
 const METHOD_TX: &'static str = "eth_getTransactionReceipt";
 impl GetTxReceiptRequest {
-	pub fn new(tx_hash: H256) -> Self {
+	pub fn new(tx_hash: H256, id: usize) -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_TX,
 			params: [tx_hash],
-			id: 1,
+			id,
 		}
 	}
 }
@@ -152,12 +152,12 @@ pub struct GetBlockNumberRequest {
 /// JSON-RPC method name for the request
 const METHOD_BLOCK: &'static str = "eth_blockNumber";
 impl GetBlockNumberRequest {
-	pub fn new() -> Self {
+	pub fn new(id: usize) -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_BLOCK,
 			params: Default::default(),
-			id: 1,
+			id,
 		}
 	}
 }

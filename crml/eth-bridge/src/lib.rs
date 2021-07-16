@@ -53,7 +53,10 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	KeyTypeId, Percent, RuntimeAppPublic, RuntimeDebug,
 };
-use sp_std::prelude::*;
+use sp_std::{
+	convert::TryInto,
+	prelude::*,
+};
 
 pub const ETH_BRIDGE: KeyTypeId = KeyTypeId(*b"eth-");
 
@@ -355,6 +358,7 @@ decl_module! {
 
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
+			log!(info, "💎 active notaries: {:?}", Self::notary_keys());
 
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
@@ -392,38 +396,42 @@ decl_module! {
 			// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
 			let mut budget = CLAIMS_PER_BLOCK;
 			for (claim_id, tx_hash) in PendingClaims::iter() {
-				// if we haven't voted on this claim yet, then try!
-				if !<ClaimNotarizations<T>>::contains_key::<ClaimId, T::AuthorityId>(claim_id, key.clone()) {
-					if let Some(claim_info) = Self::claim_info(claim_id) {
-						let result = Self::offchain_verify_claim(tx_hash, claim_info);
-						log!(trace, "💎 claim verification status: {:?}", result);
-						let payload = NotarizationPayload {
-							claim_id,
-							authority_index,
-							is_valid: result.is_ok()
-						};
-						let _ = Self::offchain_send_notarization(&key, payload)
-							.map_err(|err| {
-								log!(error, "💎 sending notarization failed 🙈, {:?}", err);
-							})
-							.map(|_| {
-								log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result.is_ok(), claim_id);
-							});
-						}
-						budget = budget.saturating_sub(1);
-					} else {
-						// this should never happen, just handling the case
-						log!(error, "💎 cannot notarize empty claim {:?}", claim_id);
-					}
 
 				if budget.is_zero() {
-					log!(info, "💎 met claims budget exiting...");
+					log!(info, "💎 claims budget exceeded, exiting...");
 					return
+				}
+
+				// check we haven't notarized this already
+				if <ClaimNotarizations<T>>::contains_key::<ClaimId, T::AuthorityId>(claim_id, key.clone()) {
+					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", claim_id);
+				}
+
+				if let Some(claim_info) = Self::claim_info(claim_id) {
+					let result = Self::offchain_verify_claim(tx_hash, claim_info);
+					log!(trace, "💎 claim verification status: {:?}", result);
+					let payload = NotarizationPayload {
+						claim_id,
+						authority_index,
+						is_valid: result.is_ok()
+					};
+					let _ = Self::offchain_send_notarization(&key, payload)
+						.map_err(|err| {
+							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+						})
+						.map(|_| {
+							log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result.is_ok(), claim_id);
+						});
+					budget = budget.saturating_sub(1);
+				} else {
+					// should not happen, defensive only
+					log!(error, "💎 empty claim data for: {:?}", claim_id);
 				}
 			}
 
 			log!(trace, "💎 exiting off-chain worker");
 		}
+
 	}
 }
 
@@ -533,7 +541,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Get transaction receipt from eth client
 	fn get_transaction_receipt(tx_hash: EthTxHash) -> Result<Option<TransactionReceipt>, Error<T>> {
-		let request = GetTxReceiptRequest::new(tx_hash);
+		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
 		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
@@ -555,7 +564,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Get latest block number from eth client
 	fn get_block_number() -> Result<Option<EthBlockNumber>, Error<T>> {
-		let request = GetBlockNumberRequest::new();
+		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+		let request = GetBlockNumberRequest::new(random_request_id as usize);
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
@@ -579,7 +589,7 @@ impl<T: Config> Pallet<T> {
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
 		// Load eth http URI from offchain storage
-		// this should ahve been configured on start up by passing e.g. `--eth-http`
+		// this should have been configured on start up by passing e.g. `--eth-http`
 		// e.g. `--eth-http=http://localhost:8545`
 		let eth_http_uri = if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP")
 		{
@@ -642,7 +652,6 @@ impl<T: Config> Pallet<T> {
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
 
-		// process the local vote immediately
 		let call = Call::submit_notarization(payload, signature);
 
 		// Retrieve the signer to sign the payload
