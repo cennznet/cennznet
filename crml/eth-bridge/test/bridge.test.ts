@@ -1,8 +1,8 @@
 import { expect, use } from 'chai';
 import { Contract } from 'ethers';
 import { deployContract, MockProvider, solidity } from 'ethereum-waffle';
-import CENNZnetBridge from '../build/CENNZnetBridge.json';
-import TestToken from '../build/TestToken.json';
+import CENNZnetBridge from '../artifacts/contracts/CENNZnetBridge.sol/CENNZnetBridge.json';
+import TestToken from '../artifacts/contracts/TestToken.sol/TestToken.json';
 
 use(solidity);
 
@@ -34,9 +34,12 @@ describe('CENNZnetBridge', () => {
     await bridge.activateDeposits();
     await testToken.approve(bridge.address, depositAmount);
 
+    // best-effort guess at block timestamp
+    let timestamp = Math.floor(new Date().getTime() / 1000);
+
     await expect(
       bridge.deposit(testToken.address, depositAmount, cennznetAddress)
-    ).to.emit(bridge, 'Deposit').withArgs(wallet.address, testToken.address, depositAmount, cennznetAddress);
+    ).to.emit(bridge, 'Deposit').withArgs(wallet.address, testToken.address, depositAmount, cennznetAddress, timestamp);
 
     expect(await bridge.balances(wallet.address, testToken.address)).to.equal(depositAmount);
   });

@@ -98,11 +98,11 @@ pub struct TransactionReceipt {
 	pub removed: bool,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
-pub struct EthResponse<'a, D> {
+#[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize)]
+pub struct EthResponse<'a, D>{
 	jsonrpc: &'a str,
 	id: u32,
-	pub result: D,
+	pub result: Option<D>,
 }
 
 /// JSON-RPC protocol version header
@@ -338,7 +338,7 @@ mod tests2 {
 	#[test]
 	fn serialize_eth_block_number_request() {
 		let result =
-			serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetBlockNumberRequest::new()).unwrap();
+			serde_json::to_string(&GetBlockNumberRequest::new()).unwrap();
 		assert_eq!(
 			result,
 			r#"{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}"#
@@ -347,7 +347,7 @@ mod tests2 {
 
 	#[test]
 	fn serialize_eth_tx_receipt_request() {
-		let result = serde_json_core::to_string::<serde_json_core::consts::U512, _>(&GetTxReceiptRequest::new(
+		let result = serde_json::to_string(&GetTxReceiptRequest::new(
 			H256::from_str("0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303").unwrap(),
 		))
 		.unwrap();
@@ -367,7 +367,7 @@ mod tests2 {
 		}
 		"#;
 
-		let _result: EthResponse<EthBlockNumber> = serde_json_core::from_str(response).expect("it deserializes");
+		let _result: EthResponse<EthBlockNumber> = serde_json::from_str(response).expect("it deserializes");
 	}
 
 	#[test]
@@ -410,25 +410,34 @@ mod tests2 {
 			}
 		"#;
 
-		let _result: EthResponse<TransactionReceipt> = serde_json_core::from_str(response).expect("it deserializes");
+		let _result: EthResponse<TransactionReceipt> = serde_json::from_str(response).expect("it deserializes");
 	}
 
 	#[test]
 	fn deserialize_log_data() {
-		// 00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b // bytes32
-		// 000000000000000000000000000000000000000000000000000000000000007b // bytes32
-		// bytes32
+		let log_data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
+		let token_address = Address::from_slice(&log_data[12..32]);
+		let amount = U256::from(&log_data[32..64]);
+		let cennznet_address = H256::from_slice(&log_data[64..96]);
+		let timestamp = U256::from(&log_data[96..]);
 
-		let buf = decode_hex("00000000000000000000000017c54edee4d6bccf2379daa328dcc0fbd9c6ce2b000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
-		let token_address = Address::from_slice(&buf[12..32]);
-		let amount = U256::from(&buf[32..64]);
-		let cennznet_address = H256::from_slice(&buf[64..96]);
-		let timestamp = U256::from_slice(&buf[96..]);
 		println!(
 			"{:?} {:?} {:?} {:?}",
 			token_address, amount, cennznet_address, timestamp
 		);
 
 		assert!(false);
+	}
+
+	#[test]
+	fn deserialize_null_response_as_none() {
+		assert_eq!(
+			serde_json::from_str::<EthResponse<EthBlockNumber>>(r#"{"jsonrpc":"2.0","id":1,"result":null}"#).unwrap(),
+			EthResponse {
+				id: 1,
+				jsonrpc: "2.0",
+				result: None,
+			}
+		);
 	}
 }

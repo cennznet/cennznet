@@ -3,14 +3,13 @@
 # Steps to go live:
 - Retrieve full validator set ✅
 - Implement token create + mint protocol ✅
-- Replay protection and claims time window
+- Replay protection and claims time window  ✅
 - Pass Eth host + API config to the OCW from command-line flags ✅ (could do some optimization here)
 - Develop withdrawal process
 - Develop delayed activation device
 - Write up design docs
 - Test!!!
-- Develop Eth-JSON-RPC api proxy service ❌ (rollout plan, let validators choose their own full node endpoints)
-- (maybe): allow notarization vote to include a 'failure' reason rather than false e..g not enough re-orgs or differing amounts
+- (maybe): allow notarization vote to include the 'failure' reason rather than false e..g not enough re-orgs or differing amounts
 
 ## Run Bridged Validator
 ```bash
@@ -27,8 +26,6 @@
 ```bash
 #  solidity contract
 contracts/
-interfaces/
-libraries/
 # rust crate
 src/
 ```
@@ -43,12 +40,16 @@ yarn build
 yarn test
 ```
 
-## Geth setup
-
+## Run
+deploy bridge contract locally
 ```bash
-./geth-up.sh
+# start local Eth node
+npx hardhat node
+# deploy contracts and issue a test deposit
+yarn deploy
 ```
 
+## Other
 Example CENNZnet account for accepting deposits
 ```
 subkey inspect //BridgeTest

@@ -71,7 +71,7 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 # Used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", optional = true }
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "6944c0c9004b020d7f5d1d143afeceb753dfe3d7", optional = true }
-hex-literal = { version = "0.3.1", optional = true }
+hex-literal = { version = "0.3.1", default-features = false }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
 crml-attestation = { path = "../crml/attestation", default-features = false}
@@ -176,7 +176,6 @@ try-runtime = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"hex-literal",
 	"frame-system-benchmarking",
 	"sp-runtime/runtime-benchmarks",
 	"crml-cennzx/runtime-benchmarks",

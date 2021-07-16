@@ -4,7 +4,8 @@
   "description": "CENNZnet <> Eth Bridge",
   "main": "index.js",
   "scripts": {
-    "build": "waffle",
+    "build": "rm -rf artifacts & hardhat compile",
+    "deploy": "hardhat run deploy.js",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\", \"esModuleInterop\": true, \"resolveJsonModule\": true, \"types\": [\"@types/mocha\"] }' mocha -r ts-node/register 'test/**/*.ts'"
   },
   "repository": {
@@ -28,8 +29,11 @@
     "ethereum-waffle": "^3.4.0"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^4.2.0",
     "chai": "^4.3.4",
+    "hardhat": "^2.4.3",
     "mocha": "^9.0.2",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.5"

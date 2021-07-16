@@ -135,6 +135,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
+		// TODO: combine duplicate entries
 		self.entitlements.is_empty()
 			|| self.entitlements.len() <= MAX_ENTITLEMENTS
 				&& self

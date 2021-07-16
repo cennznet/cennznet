@@ -636,18 +636,15 @@ impl crml_attestation::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// transaction must have an event/log of the deposit
+// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
+const DEPOSIT_EVENT_SIGNATURE: [u8; 32] = hex_literal::hex!("0bc96d65783334bd249ef60e1dbedbf956e14631ea70cb5f85967d3121fdf68d");
+const BRIDGE_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
-	// transaction must have an event/log of the deposit
-	// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
 	/// The eth bridge contract deposit event
-	pub const DepositEventSignature: [u8; 32] = [
-		0x0b, 0xc9, 0x6d, 0x65, 0x78, 0x33, 0x34, 0xbd, 0x24, 0x9e, 0xf6,0x0e,0x1d,0xbe,0xdb,0xf9,0x56,0xe1,0x46,0x31,0xea,0x70,0xcb,0x5f,0x85,0x96,0x7d,0x31,0x21,0xfd,0xf6,0x8d
-	];
+	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
 	/// The eth bridge contract address
-	// 0x87015d61b82a3808d9720a79573bf75deb8a1e90
-	pub const BridgeContractAddress: [u8; 20] = [
-		0xd9,0x14,0x5C,0xCE,0x52,0xD3,0x86,0xf2,0x54,0x91,0x7e,0x48,0x1e,0xB4,0x4e,0x99,0x43,0xF3,0x91,0x38
-	];
+	pub const BridgeContractAddress: [u8; 20] = BRIDGE_CONTRACT_ADDRESS;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
 	pub const RequiredConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit

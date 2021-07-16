@@ -31,7 +31,7 @@ mod tests;
 mod types;
 use types::*;
 
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber, Moment};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use frame_support::{
@@ -188,8 +188,10 @@ decl_storage! {
 
 decl_event! {
 	pub enum Event {
-		/// A bridge token claim succeeded (claim id)
+		/// A bridge token claim succeeded
 		TokenClaim(ClaimId),
+		/// A bridge token claim failed
+		TokenClaimFail(ClaimId),
 	}
 }
 
@@ -224,7 +226,6 @@ decl_module! {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
 				let expired_bucket_index = (now - T::DepositDeadline::get()) % BUCKET_FACTOR_S;
-				// TODO: make sure this is a no-op when bucket index is empty
 				match CompleteClaimBuckets::remove_prefix(expired_bucket_index, None) {
 					KillStorageResult::AllRemoved(count) => RocksDbWeight::get().reads(count as Weight),
 					// this won't happen, just handling the case
@@ -235,7 +236,7 @@ decl_module! {
 			}
 		}
 
-		#[weight = 100_000_000]
+		#[weight = 50_000_000]
 		/// Submit a bridge deposit claim for an ethereum tx hash
 		/// The deposit details must be provided for cross-checking by notaries
 		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
@@ -262,7 +263,7 @@ decl_module! {
 
 		#[weight = 1_000_000]
 		/// Internal only
-		/// Validators will call this with their notarization vote for a given claim
+		/// Validators will submit inherents with their notarization vote for a given claim
 		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) {
 			let _ = ensure_none(origin)?;
 
@@ -274,12 +275,35 @@ decl_module! {
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
 			<ClaimNotarizations<T>>::insert::<ClaimId, T::AuthorityId, bool>(payload.claim_id, notary_public_key.clone(), payload.is_valid);
-			// - check if threshold reached for or against
+
+			// Count notarization votes
 			let notaries_count = notary_keys.len() as u32;
-			let yay_count = <ClaimNotarizations<T>>::iter_prefix(payload.claim_id).filter(|(_id, is_valid)| *is_valid).count() as u32;
+			let mut yay_count = 0_u32;
+			let mut nay_count = 0_u32;
+			for (_id, is_valid) in <ClaimNotarizations<T>>::iter_prefix(payload.claim_id) {
+				match is_valid {
+					true => yay_count += 1,
+					false => nay_count += 1,
+				}
+			}
 
-			// TODO: what happens if a claim gets stuck?
+			// Claim is invalid (nays > 100% - DepositApprovalThreshold)
+			if Percent::from_rational(nay_count, notaries_count) > (Percent::from_parts(100_u8 - T::DepositApprovalThreshold::get().deconstruct())) {
+				let claim_info = Self::claim_info(payload.claim_id);
+				if claim_info.is_none() {
+					// this should never happen
+					log!(error, "💎 unexpected empty claim");
+					return Err(Error::<T>::InvalidClaim.into())
+				}
 
+				// free temporary storage
+				<ClaimNotarizations<T>>::remove_prefix(payload.claim_id, None);
+				PendingClaims::remove(payload.claim_id);
+				Self::deposit_event(Event::TokenClaimFail(payload.claim_id));
+				return Ok(());
+			}
+
+			// Claim is valid
 			if Percent::from_rational(yay_count, notaries_count) >= T::DepositApprovalThreshold::get() {
 				let claim_info = Self::claim_info(payload.claim_id);
 				if claim_info.is_none() {
@@ -356,10 +380,12 @@ decl_module! {
 			};
 
 			// check if locally known keys are in the active validator set
-			if Self::notary_keys().binary_search(&key).is_err() {
+			let authority_index = Self::notary_keys().iter().position(|k| k == &key);
+			if authority_index.is_none() {
 				log!(error, "💎 no active validator keys, exiting");
 				return;
 			}
+			let authority_index = authority_index.unwrap() as u16;
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
@@ -371,17 +397,22 @@ decl_module! {
 					if let Some(claim_info) = Self::claim_info(claim_id) {
 						let result = Self::offchain_verify_claim(tx_hash, claim_info);
 						log!(trace, "💎 claim verification status: {:?}", result);
-						let _ = Self::offchain_send_notarization(&key, claim_id, result.is_ok())
+						let payload = NotarizationPayload {
+							claim_id,
+							authority_index,
+							is_valid: result.is_ok()
+						};
+						let _ = Self::offchain_send_notarization(&key, payload)
 							.map_err(|err| {
 								log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 							})
 							.map(|_| {
-								log!(info, "💎 signed notarization: '{:?}' for claim: {:?}", result.is_ok(), claim_id);
+								log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result.is_ok(), claim_id);
 							});
 						}
 						budget = budget.saturating_sub(1);
 					} else {
-						// this should not happen, just handling the case
+						// this should never happen, just handling the case
 						log!(error, "💎 cannot notarize empty claim {:?}", claim_id);
 					}
 
@@ -429,7 +460,11 @@ impl<T: Config> Pallet<T> {
 			return Err(ClaimFailReason::DataProvider);
 		}
 
-		let tx_receipt = result.unwrap(); // error handled above qed.
+		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
+		let tx_receipt = match maybe_tx_receipt {
+			Some(tx_receipt) => tx_receipt,
+			None => return Err(ClaimFailReason::NoTxLogs),
+		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
 			return Err(ClaimFailReason::TxStatusFailed);
@@ -479,7 +514,11 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 eth_getBlock failed: {:?}", err);
 				return Err(ClaimFailReason::DataProvider);
 			}
-			let latest_block_number = result.unwrap().as_u64();
+			let maybe_block_number = result.unwrap();
+			if maybe_block_number.is_none() {
+				return Err(ClaimFailReason::DataProvider);
+			}
+			let latest_block_number = maybe_block_number.unwrap().as_u64();
 			let block_confirmations = latest_block_number.saturating_sub(tx_receipt.block_number.as_u64());
 			if block_confirmations < T::RequiredConfirmations::get() as u64 {
 				return Err(ClaimFailReason::NotEnoughConfirmations);
@@ -493,7 +532,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthTxHash) -> Result<TransactionReceipt, Error<T>> {
+	fn get_transaction_receipt(tx_hash: EthTxHash) -> Result<Option<TransactionReceipt>, Error<T>> {
 		let request = GetTxReceiptRequest::new(tx_hash);
 		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
@@ -515,7 +554,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get latest block number from eth client
-	fn get_block_number() -> Result<EthBlockNumber, Error<T>> {
+	fn get_block_number() -> Result<Option<EthBlockNumber>, Error<T>> {
 		let request = GetBlockNumberRequest::new();
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
@@ -598,21 +637,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(key: &T::AuthorityId, claim_id: ClaimId, is_valid: bool) -> Result<(), Error<T>> {
-		let authority_index = Self::notary_keys()
-			.binary_search(key)
-			.map(|pos| pos as u16)
-			.map_err(|_| {
-				log!(error, "💎 not found in authority set, this is a bug");
-				return <Error<T>>::OffchainUnsignedTxSignedPayload;
-			})?;
-
-		log!(trace, "💎 authority index: {:?}", authority_index);
-		let payload = NotarizationPayload {
-			claim_id,
-			authority_index,
-			is_valid,
-		};
+	fn offchain_send_notarization(key: &T::AuthorityId, payload: NotarizationPayload) -> Result<(), Error<T>> {
 		let signature = key
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
