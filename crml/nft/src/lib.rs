@@ -824,6 +824,16 @@ impl<T: Config> Module<T> {
 
 		return owned_tokens;
 	}
+	/// Find the attributes and owner from a series
+	pub fn token_info<AccountId>(
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+	) -> TokenInformation<AccountId> {
+		let attributes = Self::series_attributes(collection_id, series_id);
+		let owner = Self::token_owner(collection_id, series_id, serial_number);
+		TokenInformation { attributes, owner }
+	}
 	/// Remove a single fixed price listing and all it's metadata
 	fn remove_fixed_price_listing(listing_id: ListingId) {
 		let listing_type = Listings::<T>::take(listing_id);

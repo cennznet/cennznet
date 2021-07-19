@@ -123,6 +123,12 @@ pub enum AuctionClosureReason {
 	VendorCancelled,
 }
 
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, Serialize, Deserialize)]
+pub struct TokenInformation<AccountId> {
+	attributes: Vec<NFTAttributeValue>,
+	owner: AccountId,
+}
+
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
 #[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct RoyaltiesSchedule<AccountId> {

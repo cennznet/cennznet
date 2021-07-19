@@ -886,6 +886,13 @@ impl_runtime_apis! {
 		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
 			Nft::collected_tokens(collection_id, &who)
 		}
+		fn token_info(
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			serial_number: SerialNumber,
+		) -> Result<TokenInformation<AccountId>> {
+			Nft::token_info(collection_id, series_id, serial_number)
+		}
 	}
 
 	impl crml_cennzx_rpc_runtime_api::CennzxApi<

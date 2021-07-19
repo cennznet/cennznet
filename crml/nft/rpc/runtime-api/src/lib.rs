@@ -24,7 +24,9 @@ use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
-	pub trait NftApi<AccountId> where
+	pub trait NftApi<CollectionId, TokenId, AccountId> where
+		CollectionId: Codec,
+		TokenId: Codec,
 		AccountId: Codec,
 	{
 		/// Find all the tokens owned by `who` in a given collection
@@ -32,5 +34,12 @@ sp_api::decl_runtime_apis! {
 			collection_id: CollectionId,
 			who: AccountId,
 		) -> Vec<TokenId>;
+
+		/// Get information of given token
+		fn token_info(
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			serial_number: SerialNumber,
+		) -> Result<TokenInformation<AccountId>>;
 	}
 }
