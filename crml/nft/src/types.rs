@@ -18,6 +18,7 @@
 use crate::Config;
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
+use serde::{Serialize, Deserialize};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
@@ -42,6 +43,14 @@ pub type NFTAttributeTypeId = u8;
 
 /// Describes the data structure of an NFT class (attribute name, attribute type)
 pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
+
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Serialize, Deserialize)]
+pub struct CollectionInfo<AccountId> {
+	pub name: CollectionNameType,
+	pub owner: AccountId,
+	pub royalties: Vec<(AccountId, Permill)>,// 1 permill = 0.000001
+	pub metadata_uri: Vec<u8>,
+}
 
 /// The supported attribute data types for an NFT
 #[derive(Decode, Encode, Debug, Clone, PartialEq, VariantCount)]

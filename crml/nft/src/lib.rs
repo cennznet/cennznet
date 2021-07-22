@@ -47,6 +47,7 @@ use frame_system::ensure_signed;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult,
+	Permill,
 };
 use sp_std::prelude::*;
 
@@ -152,6 +153,8 @@ decl_error! {
 		AddToUniqueIssue,
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
+		/// No Owner exists for the collection
+		NoCollectionOwner,
 	}
 }
 
@@ -929,5 +932,26 @@ impl<T: Config> Module<T> {
 		Self::do_transfer_unchecked(&listing.tokens, winner);
 
 		Ok(())
+	}
+
+	/// Get collection information from given collection_id
+	fn get_collection_info<AccountId>(&self, collection_id: CollectionId) -> Result<CollectionInfo<T::AccountId>, Error<T>> {
+		let name = Self::collection_name(&collection_id);
+		let owner = Self::collection_owner(&collection_id).unwrap();
+		let royalties = <CollectionRoyalties<T>>::get(&collection_id).unwrap().entitlements;
+		let metadata_uri = Self::collection_metadata_uri(&collection_id).unwrap();
+		let metadata_uri = vec![0,1,2,3];
+		/*
+		let owner = match Self::collection_owner(&collection_id) {
+			Some(p) => p,
+			None => Error::<T>::NoCollectionOwner,
+		}?;*/
+
+		Ok(CollectionInfo {
+			name,
+			owner,
+			royalties,
+			metadata_uri,
+		})
 	}
 }

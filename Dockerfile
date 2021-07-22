@@ -2,8 +2,8 @@ FROM  rustlang/rust:nightly AS builder
 WORKDIR /cennznet
 COPY . /cennznet
 
-ARG RUST_VERSION=1.50.0
-ARG RUST_NIGHTLY=nightly-2021-03-05
+ARG RUST_VERSION=1.53.0
+ARG RUST_NIGHTLY=nightly-2021-07-05
 RUN apt-get update && \
     apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
     rustup uninstall nightly && \
@@ -15,7 +15,7 @@ RUN apt-get update && \
     mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu && \
     mkdir -p /cennznet/.cargo
 ENV CARGO_HOME=/cennznet/.cargo
-RUN cargo build --release
+RUN cargo check
 
 FROM debian:stretch-slim
 LABEL maintainer="support@centrality.ai"

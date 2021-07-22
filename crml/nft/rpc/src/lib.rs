@@ -19,12 +19,12 @@
 use std::sync::Arc;
 
 use codec::Codec;
-use crml_nft::{CollectionId, TokenId};
+use crml_nft::{CollectionId, TokenId, CollectionInfo};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT, Permill};
 
 pub use self::gen_client::Client as NftClient;
 pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
@@ -34,6 +34,9 @@ pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi}
 pub trait NftApi<AccountId> {
 	#[rpc(name = "nft_collectedTokens")]
 	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>>;
+
+	#[rpc(name = "nft_getCollectionInfo")]
+	fn get_collection_info(&self, collection_id: CollectionId) -> Result<CollectionInfo<AccountId>>;
 }
 
 /// Error type of this RPC api.
