@@ -86,4 +86,16 @@ where
 			data: Some(format!("{:?}", e).into()),
 		})
 	}
+
+	fn get_collection_info(&self, collection_id: CollectionId) -> Result<CollectionInfo<AccountId>> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+
+		api.get_collection_info(&at, collection_id).map_err(|e| RpcError {
+			code: ErrorCode::ServerError(Error::RuntimeError.into()),
+			message: "Unable to query collection information.".into(),
+			data: Some(format!("{:?}", e).into()),
+		})
+	}
 }
