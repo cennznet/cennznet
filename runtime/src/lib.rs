@@ -80,7 +80,7 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
-use crml_nft::{CollectionId, TokenId, CollectionInfo};
+use crml_nft::{CollectionId, CollectionInfo, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;

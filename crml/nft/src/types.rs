@@ -19,7 +19,7 @@ use crate::Config;
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
@@ -53,7 +53,7 @@ pub struct CollectionInfo<AccountId> {
 	pub name: CollectionNameType,
 	pub owner: AccountId,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
-	pub royalties: Vec<(AccountId, Permill)>,// 1 permill = 0.000001 Might be able to use float, am in STD with feature guard
+	pub royalties: Vec<(AccountId, Permill)>, // 1 permill = 0.000001 Might be able to use float, am in STD with feature guard
 }
 
 #[cfg(feature = "std")]
@@ -63,11 +63,17 @@ pub fn serialize_utf8<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Erro
 }
 
 #[cfg(feature = "std")]
-pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(royalties: &Vec<(AccountId, Permill)>, s: S) -> Result<S::Ok, S::Error> {
-	let royalties: Vec<(&AccountId, String)> = royalties.iter().map(|(account_id,per_mill)| {
-		let per_mill = format!("{:.6}", per_mill.deconstruct() as f32 / 1000000f32);
-		(account_id, per_mill)
-	}).collect();
+pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
+	royalties: &Vec<(AccountId, Permill)>,
+	s: S,
+) -> Result<S::Ok, S::Error> {
+	let royalties: Vec<(&AccountId, String)> = royalties
+		.iter()
+		.map(|(account_id, per_mill)| {
+			let per_mill = format!("{:.6}", per_mill.deconstruct() as f32 / 1000000f32);
+			(account_id, per_mill)
+		})
+		.collect();
 	royalties.serialize(s)
 }
 

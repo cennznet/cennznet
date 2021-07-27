@@ -946,11 +946,7 @@ impl<T: Config> Module<T> {
 				None => Vec::new(),
 			};
 
-			Some(CollectionInfo {
-				name,
-				owner,
-				royalties,
-			})
+			Some(CollectionInfo { name, owner, royalties })
 		}
 	}
 }
