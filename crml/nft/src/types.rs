@@ -18,7 +18,8 @@
 use crate::Config;
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
-use serde::{Serialize, Deserialize};
+#[cfg(feature = "std")]
+use serde::{Serialize, Deserialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
@@ -31,7 +32,7 @@ pub enum MetadataBaseURI {
 	/// Its tokens' metdata will be available at `ipfs://<token_metadata_path>`
 	Ipfs,
 	/// Collection metadata is hosted by an HTTPS server
-	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metaata_path>`
+	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metadata_path>`
 	Https(Vec<u8>),
 }
 
@@ -44,12 +45,30 @@ pub type NFTAttributeTypeId = u8;
 /// Describes the data structure of an NFT class (attribute name, attribute type)
 pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Serialize, Deserialize)]
+/// Contains information of a collection (collection name, collection owner, royalties)
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CollectionInfo<AccountId> {
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
 	pub name: CollectionNameType,
 	pub owner: AccountId,
-	pub royalties: Vec<(AccountId, Permill)>,// 1 permill = 0.000001
-	pub metadata_uri: Vec<u8>,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
+	pub royalties: Vec<(AccountId, Permill)>,// 1 permill = 0.000001 Might be able to use float, am in STD with feature guard
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_utf8<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+	let base64_str = core::str::from_utf8(v).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
+	s.serialize_str(&base64_str)
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(royalties: &Vec<(AccountId, Permill)>, s: S) -> Result<S::Ok, S::Error> {
+	let royalties: Vec<(&AccountId, String)> = royalties.iter().map(|(account_id,per_mill)| {
+		let per_mill = format!("{:.6}", per_mill.deconstruct() as f32 / 1000000f32);
+		(account_id, per_mill)
+	}).collect();
+	royalties.serialize(s)
 }
 
 /// The supported attribute data types for an NFT

@@ -24,7 +24,7 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, Permill};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 pub use self::gen_client::Client as NftClient;
 pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
@@ -36,7 +36,7 @@ pub trait NftApi<AccountId> {
 	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>>;
 
 	#[rpc(name = "nft_getCollectionInfo")]
-	fn get_collection_info(&self, collection_id: CollectionId) -> Result<CollectionInfo<AccountId>>;
+	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
 }
 
 /// Error type of this RPC api.
@@ -87,12 +87,12 @@ where
 		})
 	}
 
-	fn get_collection_info(&self, collection_id: CollectionId) -> Result<CollectionInfo<AccountId>> {
+	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.get_collection_info(&at, collection_id).map_err(|e| RpcError {
+		api.collection_info(&at, collection_id).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection information.".into(),
 			data: Some(format!("{:?}", e).into()),

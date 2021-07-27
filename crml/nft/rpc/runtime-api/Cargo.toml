@@ -6,7 +6,6 @@ edition = "2018"
 license = "GPL-3.0"
 
 [dependencies]
-serde = { version = "1.0.102", optional = true, features = ["derive"] }
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
@@ -21,7 +20,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"crml-nft/std",
-	"serde",
 	"sp-api/std",
 	"codec/std",
 	"sp-std/std",

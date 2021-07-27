@@ -34,7 +34,7 @@ sp_api::decl_runtime_apis! {
 		) -> Vec<TokenId>;
 
 		/// Get collection info from a given collection
-		fn get_collection_info(collection_id: CollectionId) -> CollectionInfo<AccountId>;
+		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>>;
 
 	}
 }

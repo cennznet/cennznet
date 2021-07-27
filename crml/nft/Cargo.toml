@@ -8,7 +8,7 @@ description = "CENNZnet NFT module"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.102", optional = true }
+serde = { version = "1.0.102", default-features = false, features = ["derive", "alloc"], optional = true }
 log = { version = "0.4.14", default-features = false }
 variant_count = "1.0.0"
 cennznet-primitives = { path = "../../primitives", default-features = false }
@@ -30,7 +30,7 @@ std = [
 	"cennznet-primitives/std",
 	"crml-support/std",
 	"codec/std",
-	"serde",
+	"serde/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",

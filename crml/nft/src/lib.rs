@@ -47,7 +47,6 @@ use frame_system::ensure_signed;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult,
-	Permill,
 };
 use sp_std::prelude::*;
 
@@ -935,23 +934,23 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Get collection information from given collection_id
-	fn get_collection_info<AccountId>(&self, collection_id: CollectionId) -> Result<CollectionInfo<T::AccountId>, Error<T>> {
+	pub fn collection_info<AccountId>(collection_id: CollectionId) -> Option<CollectionInfo<T::AccountId>> {
 		let name = Self::collection_name(&collection_id);
-		let owner = Self::collection_owner(&collection_id).unwrap();
-		let royalties = <CollectionRoyalties<T>>::get(&collection_id).unwrap().entitlements;
-		let metadata_uri = Self::collection_metadata_uri(&collection_id).unwrap();
-		let metadata_uri = vec![0,1,2,3];
-		/*
-		let owner = match Self::collection_owner(&collection_id) {
-			Some(p) => p,
-			None => Error::<T>::NoCollectionOwner,
-		}?;*/
+		let owner = Self::collection_owner(&collection_id).unwrap_or(Default::default());
 
-		Ok(CollectionInfo {
-			name,
-			owner,
-			royalties,
-			metadata_uri,
-		})
+		if name.is_empty() {
+			None
+		} else {
+			let royalties = match <CollectionRoyalties<T>>::get(&collection_id) {
+				Some(r) => r.entitlements,
+				None => Vec::new(),
+			};
+
+			Some(CollectionInfo {
+				name,
+				owner,
+				royalties,
+			})
+		}
 	}
 }
