@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use crml_nft::{CollectionId, CollectionInfo, TokenId};
+use crml_nft::{CollectionId, CollectionInfo, TokenInfo, TokenId, SeriesId, SerialNumber};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -36,5 +36,11 @@ sp_api::decl_runtime_apis! {
 		/// Get collection info from a given collection
 		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>>;
 
+		/// Get information of given token
+		fn token_info(
+		   collection_id: CollectionId,
+		   series_id: SeriesId,
+		   serial_number: SerialNumber,
+		) -> TokenInfo<AccountId>;
 	}
 }

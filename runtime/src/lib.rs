@@ -80,7 +80,7 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
-use crml_nft::{CollectionId, CollectionInfo, TokenId};
+use crml_nft::{CollectionId, CollectionInfo, TokenId, SeriesId, SerialNumber, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -888,6 +888,13 @@ impl_runtime_apis! {
 		}
 		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>> {
 			Nft::collection_info::<AccountId>(collection_id)
+		}
+		fn token_info(
+		   collection_id: CollectionId,
+		   series_id: SeriesId,
+		   serial_number: SerialNumber,
+		) -> TokenInfo<AccountId> {
+		   Nft::token_info(collection_id, series_id, serial_number)
 		}
 	}
 

@@ -77,8 +77,17 @@ pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
 	royalties.serialize(s)
 }
 
+/// Contains information for a particular token. Returns the attributes and owner
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct TokenInfo<AccountId> {
+	pub attributes: Vec<NFTAttributeValue>,
+	pub owner: AccountId,
+}
+
 /// The supported attribute data types for an NFT
-#[derive(Decode, Encode, Debug, Clone, PartialEq, VariantCount)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum NFTAttributeValue {
 	I32(i32),
 	U8(u8),
@@ -100,6 +109,33 @@ pub enum NFTAttributeValue {
 	/// attribute is a stringified URL
 	Url(Vec<u8>),
 }
+
+#[cfg(feature = "std")]
+impl Serialize for NFTAttributeValue {
+	fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+		match self {
+			Self::I32(val) => s.serialize_i32(*val),
+			Self::U8(val) => s.serialize_u8(*val),
+			Self::U16(val) => s.serialize_u16(*val),
+			Self::U32(val) => s.serialize_u32(*val),
+			Self::U64(val) | Self::Timestamp(val) => s.serialize_u64(*val),
+			Self::U128(val) => format!("{}",*val).serialize(s),
+			Self::Bytes32(val) | Self::Hash(val) => {
+				let val_str = format!("0x{}", hex::encode(val));
+				s.serialize_str(&val_str)
+			},
+			Self::String(val) | Self::Url(val) => {
+				let val_str = core::str::from_utf8(val).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
+				s.serialize_str(&val_str)
+			},
+			Self::Bytes(val) => {
+				let val_str = format!("0x{}",hex::encode(val));
+				s.serialize_str(&val_str)
+			},
+		}
+	}
+}
+
 
 impl NFTAttributeValue {
 	/// Return the type ID of this attribute value

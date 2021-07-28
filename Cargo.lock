@@ -1269,6 +1269,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
  "log",
  "parity-scale-codec",
  "serde",

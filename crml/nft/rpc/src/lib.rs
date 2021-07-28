@@ -19,7 +19,7 @@
 use std::sync::Arc;
 
 use codec::Codec;
-use crml_nft::{CollectionId, CollectionInfo, TokenId};
+use crml_nft::{CollectionId, CollectionInfo, TokenId, TokenInfo, SeriesId, SerialNumber};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
@@ -37,6 +37,14 @@ pub trait NftApi<AccountId> {
 
 	#[rpc(name = "nft_getCollectionInfo")]
 	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
+
+	#[rpc(name = "nft_getTokenInfo")]
+	fn token_info(
+		&self,
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+	) -> Result<TokenInfo<AccountId>>;
 }
 
 /// Error type of this RPC api.
@@ -97,5 +105,22 @@ where
 			message: "Unable to query collection information.".into(),
 			data: Some(format!("{:?}", e).into()),
 		})
+	}
+
+	fn token_info(
+		&self,
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+	) -> Result<TokenInfo<AccountId>> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+		api.token_info(&at, collection_id, series_id, serial_number)
+			.map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::RuntimeError.into()),
+				message: "Unable to query token information.".into(),
+				data: Some(format!("{:?}", e).into()),
+			})
 	}
 }

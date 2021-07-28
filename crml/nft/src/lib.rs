@@ -949,4 +949,15 @@ impl<T: Config> Module<T> {
 			Some(CollectionInfo { name, owner, royalties })
 		}
 	}
+
+	/// Find the attributes and owner from a series
+	pub fn token_info(
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+	) -> TokenInfo<T::AccountId> {
+		let attributes = Self::series_attributes(collection_id, series_id);
+		let owner = Self::token_owner((collection_id, series_id), serial_number);
+		TokenInfo { attributes, owner }
+	}
 }
