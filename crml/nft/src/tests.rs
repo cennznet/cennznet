@@ -1706,3 +1706,86 @@ fn mint_additional_fails() {
 		);
 	});
 }
+
+
+#[test]
+fn get_collection_info() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		assert!(has_event(RawEvent::CreateCollection(
+			collection_id,
+			name.clone(),
+			owner
+		)));
+
+		let collection_info = CollectionInfo {
+			name,
+			owner,
+			royalties: vec![],
+		};
+		assert_eq!(Nft::collection_info::<AccountId>(collection_id), Some(collection_info));
+	});
+}
+
+#[test]
+fn get_token_info() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let token_id = first_token_id(collection_id);
+		let token_owner = 2_u64;
+		let series_id = 0;
+
+		assert_eq!(Nft::next_series_id(collection_id), series_id);
+		assert_ok!(Nft::mint_unique(
+			Some(collection_owner).into(),
+			collection_id,
+			Some(token_owner),
+			vec![
+				NFTAttributeValue::I32(-33),
+				NFTAttributeValue::U8(U8::MAX),
+				NFTAttributeValue::U16(U16::MAX),
+				NFTAttributeValue::U32(0),
+				NFTAttributeValue::U64(-33),
+				NFTAttributeValue::U128(0),
+				NFTAttributeValue::Bytes32([1_u8; 32]),
+				NFTAttributeValue::Bytes(0),
+				NFTAttributeValue::String(-33),
+				NFTAttributeValue::Hash(0),
+				NFTAttributeValue::Timestamp([1_u8; 32]),
+				NFTAttributeValue::Url([1_u8; 32]),
+
+			],
+			None,
+			None,
+		));
+		assert!(has_event(RawEvent::CreateToken(collection_id, token_id, token_owner,)));
+
+		let token_attributes = Nft::series_attributes(collection_id, series_id);
+		assert_eq!(
+			token_attributes,
+			vec![
+				NFTAttributeValue::I32(-33),
+				NFTAttributeValue::U8(Default::default()),
+				NFTAttributeValue::Bytes32([1_u8; 32])
+			],
+		);
+
+		assert_eq!(Nft::collected_tokens(collection_id, &token_owner), vec![token_id]);
+		assert_eq!(Nft::token_owner((collection_id, series_id), 0), token_owner);
+		assert!(Nft::is_single_issue(collection_id, series_id));
+		assert_eq!(Nft::next_serial_number(collection_id, series_id), 1);
+		assert_eq!(Nft::next_series_id(collection_id), series_id + 1);
+		assert_eq!(Nft::series_issuance(collection_id, series_id), 1);
+
+
+		let collection_info = CollectionInfo {
+			name,
+			owner,
+			royalties: vec![],
+		};
+		assert_eq!(Nft::collection_info::<AccountId>(collection_id), Some(collection_info));
+	});
+}

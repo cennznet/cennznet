@@ -53,7 +53,7 @@ pub struct CollectionInfo<AccountId> {
 	pub name: CollectionNameType,
 	pub owner: AccountId,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
-	pub royalties: Vec<(AccountId, Permill)>, // 1 permill = 0.000001 Might be able to use float, am in STD with feature guard
+	pub royalties: Vec<(AccountId, Permill)>,
 }
 
 #[cfg(feature = "std")]
@@ -83,6 +83,8 @@ pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
 pub struct TokenInfo<AccountId> {
 	pub attributes: Vec<NFTAttributeValue>,
 	pub owner: AccountId,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
+	pub royalties: Vec<(AccountId, Permill)>,
 }
 
 /// The supported attribute data types for an NFT
