@@ -359,7 +359,9 @@ decl_module! {
 				SeriesMetadataURI::insert(collection_id, series_id, metadata_path);
 			}
 			if let Some(royalties_schedule) = royalties_schedule {
-				<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
+				if royalties_schedule.entitlements.len() > 0 {
+					<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
+				}
 			}
 
 			// Now mint the series tokens
