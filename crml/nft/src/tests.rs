@@ -177,6 +177,7 @@ fn create_collection_royalties_invalid() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 
+		//Too big royalties should fail
 		assert_noop!(
 			Nft::create_collection(
 				Some(owner).into(),
@@ -189,7 +190,20 @@ fn create_collection_royalties_invalid() {
 					]
 				}),
 			),
-			Error::<Test>::RoyaltiesOvercommitment
+			Error::<Test>::RoyaltiesInvalid
+		);
+
+		//Empty vector should fail
+		assert_noop!(
+			Nft::create_collection(
+				Some(owner).into(),
+				b"test-collection".to_vec(),
+				None,
+				Some(RoyaltiesSchedule::<AccountId> {
+					entitlements: vec![]
+				}),
+			),
+			Error::<Test>::RoyaltiesInvalid
 		);
 	})
 }
@@ -1652,6 +1666,50 @@ fn mint_series_fails() {
 			Error::<Test>::NoToken
 		);
 	});
+}
+
+#[test]
+fn mint_series_royalties_invalid() {
+	ExtBuilder::default().build().execute_with(|| {
+		let token_owner = 1_u64;
+		let collection_id = setup_collection(token_owner);
+		let quantity = 5;
+
+		// create with royalties over 1000_000 should fail
+		assert_noop!(
+			Nft::mint_series(
+				Some(token_owner).into(),
+				collection_id,
+				quantity,
+				Some(token_owner),
+				vec![],
+				None,
+				Some(RoyaltiesSchedule::<AccountId> {
+					entitlements: vec![]
+				}),
+			),
+			Error::<Test>::RoyaltiesInvalid
+		);
+
+		// create with royalties over 1000_000 should fail
+		assert_noop!(
+			Nft::mint_series(
+				Some(token_owner).into(),
+				collection_id,
+				quantity,
+				Some(token_owner),
+				vec![],
+				None,
+				Some(RoyaltiesSchedule::<AccountId> {
+					entitlements: vec![
+						(3_u64, Permill::from_fraction(1.2)),
+						(4_u64, Permill::from_fraction(3.3))
+					]
+				}),
+			),
+			Error::<Test>::RoyaltiesInvalid
+		);
+	})
 }
 
 #[test]
