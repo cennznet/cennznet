@@ -932,7 +932,6 @@ impl<T: Config> Module<T> {
 
 		Ok(())
 	}
-
 	/// Get collection information from given collection_id
 	pub fn collection_info<AccountId>(collection_id: CollectionId) -> Option<CollectionInfo<T::AccountId>> {
 		let name = Self::collection_name(&collection_id);
@@ -945,11 +944,9 @@ impl<T: Config> Module<T> {
 				Some(r) => r.entitlements,
 				None => Vec::new(),
 			};
-
 			Some(CollectionInfo { name, owner, royalties })
 		}
 	}
-
 	/// Find the attributes and owner from a series
 	pub fn token_info(
 		collection_id: CollectionId,
@@ -958,6 +955,17 @@ impl<T: Config> Module<T> {
 	) -> TokenInfo<T::AccountId> {
 		let attributes = Self::series_attributes(collection_id, series_id);
 		let owner = Self::token_owner((collection_id, series_id), serial_number);
-		TokenInfo { attributes, owner }
+		let royalties = match <SeriesRoyalties<T>>::get(collection_id, series_id) {
+			Some(r) => r.entitlements,
+			None => match <CollectionRoyalties<T>>::get(&collection_id) {
+				Some(r) => r.entitlements,
+				None => Vec::new(),
+			},
+		};
+		TokenInfo {
+			attributes,
+			owner,
+			royalties,
+		}
 	}
 }
