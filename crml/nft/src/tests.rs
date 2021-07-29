@@ -199,9 +199,7 @@ fn create_collection_royalties_invalid() {
 				Some(owner).into(),
 				b"test-collection".to_vec(),
 				None,
-				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![]
-				}),
+				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
@@ -1684,9 +1682,7 @@ fn mint_series_royalties_invalid() {
 				Some(token_owner),
 				vec![],
 				None,
-				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![]
-				}),
+				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
