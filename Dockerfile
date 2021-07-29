@@ -15,7 +15,7 @@ RUN apt-get update && \
     mv /usr/local/rustup/toolchains/nightly* /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu && \
     mkdir -p /cennznet/.cargo
 ENV CARGO_HOME=/cennznet/.cargo
-RUN cargo check
+RUN cargo build --release
 
 FROM debian:stretch-slim
 LABEL maintainer="support@centrality.ai"
