@@ -142,8 +142,8 @@ decl_error! {
 		TokenListingProtection,
 		/// Internal error during payment
 		InternalPayment,
-		/// Total royalties would exceed 100% of sale
-		RoyaltiesOvercommitment,
+		/// Total royalties would exceed 100% of sale or an empty vec is supplied
+		RoyaltiesInvalid,
 		/// Auction bid was lower than reserve or current highest bid
 		BidTooLow,
 		/// Selling tokens from different collections is not allowed
@@ -270,7 +270,7 @@ decl_module! {
 
 			// Create the collection, update ownership, and bookkeeping
 			if let Some(royalties_schedule) = royalties_schedule {
-				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesOvercommitment);
+				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 				<CollectionRoyalties<T>>::insert(collection_id, royalties_schedule);
 			}
 			if let Some(metadata_base_uri) = metadata_base_uri {
@@ -359,6 +359,7 @@ decl_module! {
 				SeriesMetadataURI::insert(collection_id, series_id, metadata_path);
 			}
 			if let Some(royalties_schedule) = royalties_schedule {
+				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 				<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
 			}
 
