@@ -449,7 +449,7 @@ fn burn() {
 			Some(token_owner),
 			vec![NFTAttributeValue::I32(500)],
 			None,
-			Some(RoyaltiesSchedule::<AccountId>::default()),
+			None,
 		));
 
 		// test
