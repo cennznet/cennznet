@@ -18,7 +18,7 @@ sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", defaul
 cennznet-runtime = { path = ".", features = ["integration_config"] }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.102", optional = true, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 smallvec = "1.6.1"
@@ -69,12 +69,13 @@ frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-b
 # Used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", optional = true }
 frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7", optional = true }
-hex-literal = { version = "0.3.1", optional = true }
+hex-literal = { version = "0.3.1", default-features = false }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
 crml-attestation = { path = "../crml/attestation", default-features = false}
 crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
+crml-eth-bridge = { path = "../crml/eth-bridge", default-features = false }
 crml-generic-asset = { path = "../crml/generic-asset", default-features = false }
 crml-generic-asset-rpc-runtime-api = { path = "../crml/generic-asset/rpc/runtime-api", default-features = false }
 crml-governance = { path = "../crml/governance", default-features = false }
@@ -133,6 +134,7 @@ std = [
 	"crml-attestation/std",
 	"crml-cennzx/std",
 	"crml-cennzx-rpc-runtime-api/std",
+	"crml-eth-bridge/std",
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",
 	"crml-governance/std",
@@ -171,7 +173,6 @@ try-runtime = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"hex-literal",
 	"frame-system-benchmarking",
 	"sp-runtime/runtime-benchmarks",
 	"crml-cennzx/runtime-benchmarks",

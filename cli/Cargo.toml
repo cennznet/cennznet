@@ -61,6 +61,7 @@ frame-benchmarking-cli = { rev = "v3.0.0-rc7", git = "https://github.com/plugblo
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
+crml-eth-bridge = { path = "../crml/eth-bridge" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 crml-generic-asset = { path = "../crml/generic-asset" }

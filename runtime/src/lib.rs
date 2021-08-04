@@ -23,6 +23,7 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
+use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -342,6 +343,7 @@ impl_opaque_keys! {
 		pub babe: Babe,
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
+		pub eth_bridge: EthBridge,
 	}
 }
 
@@ -589,6 +591,50 @@ impl crml_attestation::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// transaction must have an event/log of the deposit
+// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
+// TODO: config via storage
+const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
+	hex_literal::hex!("0bc96d65783334bd249ef60e1dbedbf956e14631ea70cb5f85967d3121fdf68d");
+const BRIDGE_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
+parameter_types! {
+	/// The eth bridge contract deposit event
+	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
+	/// The eth bridge contract address
+	pub const BridgeContractAddress: [u8; 20] = BRIDGE_CONTRACT_ADDRESS;
+	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	pub const RequiredConfirmations: u16 = 0;
+	/// The threshold of notarizations required to approve an Eth deposit
+	pub const DepositApprovalThreshold: Percent = Percent::from_percent(66_u8);
+	/// Deposit expiration deadline in seconds (1 week)
+	pub const DepositDeadline: u32 = 604_800;
+	/// The Eth bridge address
+	pub const BridgeModuleId: ModuleId = ModuleId(*b"ethbridg");
+}
+impl crml_eth_bridge::Config for Runtime {
+	type BridgeModuleId = BridgeModuleId;
+	/// The deposit event signature
+	type DepositEventSignature = DepositEventSignature;
+	/// The bridge contract address
+	type BridgeContractAddress = BridgeContractAddress;
+	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	type RequiredConfirmations = RequiredConfirmations;
+	/// The threshold of notarizations required to approve an Eth deposit
+	type DepositApprovalThreshold = DepositApprovalThreshold;
+	/// Deposits cannot be claimed after this time # of Eth blocks)
+	type DepositDeadline = DepositDeadline;
+	/// The identifier type for an offchain worker.
+	type AuthorityId = EthBridgeId;
+	/// The overarching dispatch call type.
+	type Call = Call;
+	/// The overarching event type.
+	type Event = Event;
+	/// Reports the current validator / notary set
+	type NotarySet = Historical;
+	type MultiCurrency = GenericAsset;
+	type UnixTime = Timestamp;
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -672,6 +718,7 @@ construct_runtime!(
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
+		EthBridge: crml_eth_bridge::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 32,
 	}
 );
 
