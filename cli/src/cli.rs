@@ -1,11 +1,17 @@
 pub use sc_cli::Result;
-use sc_cli::RunCmd;
+use sc_cli::{Error, RunCmd};
 use structopt::StructOpt;
+
+/// Parse `uri`
+fn parse_uri(uri: &str) -> Result<String> {
+	let _ = url::Url::parse(uri).map_err(|_| Error::Input("invalid eth http URI".into()))?;
+	Ok(uri.into())
+}
 
 #[derive(Debug, StructOpt)]
 pub struct EthClientOpts {
 	/// Ethereum JSON-RPC client endpoint
-	#[structopt(long = "eth-http", about = "Ethereum client JSON-RPC endpoint")]
+	#[structopt(parse(try_from_str = parse_uri), long = "eth-http", about = "Ethereum client JSON-RPC endpoint")]
 	pub eth_http: Option<String>,
 }
 
