@@ -43,6 +43,19 @@ fn asset_options(permissions: PermissionLatest<u64>, decimal_place: u8) -> Asset
 }
 
 #[test]
+fn asset_meta_configured_on_genesis() {
+	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
+		assert_eq!(
+			GenericAsset::registered_assets(),
+			vec![
+				(TEST1_ASSET_ID, AssetInfo::new(b"TST1".to_vec(), 1, 3)),
+				(TEST2_ASSET_ID, AssetInfo::new(b"TST 2".to_vec(), 2, 5)),
+			]
+		);
+	});
+}
+
+#[test]
 fn issuing_asset_units_to_issuer_should_work() {
 	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
 		let permissions = PermissionLatest::new(ALICE);
