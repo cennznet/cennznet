@@ -1957,20 +1957,6 @@ fn total_issuance_should_update_after_negative_imbalance_dropped() {
 }
 
 #[test]
-fn query_pre_existing_asset_info() {
-	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
-		assert_eq!(
-			GenericAsset::registered_assets(),
-			vec![
-				(TEST1_ASSET_ID, AssetInfo::new(b"TST1".to_vec(), 1, 3)),
-				(TEST2_ASSET_ID, AssetInfo::new(b"TST 2".to_vec(), 2, 5)),
-				(STAKING_ASSET_ID, AssetInfo::default()),
-			]
-		);
-	});
-}
-
-#[test]
 fn no_asset_info() {
 	new_test_ext_with_balance(STAKING_ASSET_ID, ALICE, INITIAL_BALANCE).execute_with(|| {
 		// Asset STAKING_ASSET_ID exists but no info is stored for that
