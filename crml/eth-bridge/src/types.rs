@@ -17,22 +17,22 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
-use ethereum_types::Bloom as H2048;
+use ethereum_types::{Bloom as H2048, U64};
 use primitive_types::{H160, H256, U256};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
-type Index = u64;
+type Index = U64;
 /// The ethereum block number data type
-pub type EthBlockNumber = u64;
+pub type EthBlockNumber = U64;
 /// The ethereum address data type
 pub type EthAddress = H160;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 
 /// Log
-#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Log {
 	/// address
@@ -40,15 +40,16 @@ pub struct Log {
 	/// Topics
 	pub topics: Vec<H256>,
 	/// Data
-	pub data: Bytes,
+	#[serde(deserialize_with = "deserialize_hex")]
+	pub data: Vec<u8>,
 	/// Block Hash
 	pub block_hash: H256,
 	/// Block Number
-	pub block_number: u64,
+	pub block_number: EthBlockNumber,
 	/// Transaction Hash
 	pub transaction_hash: Option<H256>,
 	/// Transaction Index
-	pub transaction_index: u64,
+	pub transaction_index: U64,
 	/// Log Index in Block
 	pub log_index: U256,
 	/// Whether Log Type is Removed (Geth Compatibility Field)
@@ -66,7 +67,7 @@ pub struct TransactionReceipt {
 	/// Hash of the block this transaction was included within.
 	pub block_hash: H256,
 	/// Number of the block this transaction was included within.
-	pub block_number: u64,
+	pub block_number: EthBlockNumber,
 	/// Contract address created, or `None` if not a deployment.
 	pub contract_address: Option<EthAddress>,
 	/// Cumulative gas used within the block after this was executed.
@@ -81,7 +82,7 @@ pub struct TransactionReceipt {
 	/// Logs generated within this transaction.
 	pub logs: Vec<Log>,
 	/// Status: either 1 (success) or 0 (failure).
-	pub status: Option<u64>,
+	pub status: Option<U64>,
 	/// Address of the receiver, or `None` if a contract deployment
 	pub to: Option<EthAddress>,
 	/// Transaction hash.
@@ -94,7 +95,7 @@ pub struct TransactionReceipt {
 	pub logs_bloom: H2048,
 	/// Transaction type, Some(1) for AccessList transaction, None for Legacy
 	#[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-	pub transaction_type: Option<u64>,
+	pub transaction_type: Option<U64>,
 	#[serde(default)]
 	pub removed: bool,
 }
@@ -163,106 +164,15 @@ impl GetBlockNumberRequest {
 	}
 }
 
-#[derive(Serialize, Debug)]
-pub struct EthCallParams {
-	/// The receiving contract
-	to: EthAddress,
-	/// The data to receive
-	data: Vec<u8>,
+// Serde deserialize hex string, expects prefix '0x'
+pub fn deserialize_hex<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+	deserializer.deserialize_str(BytesVisitor)
 }
 
-/// Request for 'eth_call'
-#[derive(Serialize, Debug)]
-pub struct EthCallRequest {
-	#[serde(rename = "jsonrpc")]
-	/// The version of the JSON RPC spec
-	pub json_rpc: &'static str,
-	/// The method which is called
-	pub method: &'static str,
-	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: EthCallParams,
-	/// The id for the request
-	pub id: usize,
-}
-
-/// JSON-RPC method name for the request
-const METHOD_ETH_CALL: &'static str = "eth_call";
-impl EthCallRequest {
-	/// Eth call to `address` with function `decimals()`
-	pub fn erc20_decimals(address: EthAddress) -> Self {
-		Self {
-			json_rpc: JSONRPC,
-			method: METHOD_ETH_CALL,
-			params: EthCallParams {
-				to: address,
-				// EVM selector code: 313ce567 (decimals)
-				data: vec![0x31, 0x3c, 0xe5, 0x67],
-			},
-			id: 1,
-		}
-	}
-	/// Eth call to `address` with function `symbol()`
-	pub fn erc20_symbol(address: EthAddress) -> Self {
-		Self {
-			json_rpc: JSONRPC,
-			method: METHOD_ETH_CALL,
-			params: EthCallParams {
-				to: address,
-				// EVM selector code: 95d89b41 (symbol)
-				data: vec![0x95, 0xd8, 0x9b, 0x41],
-			},
-			id: 1,
-		}
-	}
-}
-
-// Serializable wrapper around vector of bytes
-/// Wrapper structure around vector of bytes.
-#[derive(Debug, PartialEq, Eq, Default, Hash, Clone)]
-pub struct Bytes(pub Vec<u8>);
-
-impl Bytes {
-	/// Simple constructor.
-	pub fn new(bytes: Vec<u8>) -> Bytes {
-		Bytes(bytes)
-	}
-	pub fn into_vec(self) -> Vec<u8> {
-		self.0
-	}
-}
-
-impl From<Vec<u8>> for Bytes {
-	fn from(bytes: Vec<u8>) -> Bytes {
-		Bytes(bytes)
-	}
-}
-
-impl Into<Vec<u8>> for Bytes {
-	fn into(self) -> Vec<u8> {
-		self.0
-	}
-}
-
-impl<'a> Deserialize<'a> for Bytes {
-	fn deserialize<D>(deserializer: D) -> Result<Bytes, D::Error>
-	where
-		D: Deserializer<'a>,
-	{
-		deserializer.deserialize_any(BytesVisitor)
-	}
-}
-
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
-	(0..s.len())
-		.step_by(2)
-		.map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-		.collect()
-}
-
+/// Deserializes "0x" prefixed hex strings into Vec<u8>s
 struct BytesVisitor;
-
 impl<'a> Visitor<'a> for BytesVisitor {
-	type Value = Bytes;
+	type Value = Vec<u8>;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
 		write!(formatter, "a 0x-prefixed, hex-encoded vector of bytes")
@@ -273,13 +183,21 @@ impl<'a> Visitor<'a> for BytesVisitor {
 		E: Error,
 	{
 		if value.len() >= 2 && value.starts_with("0x") && value.len() & 1 == 0 {
-			Ok(Bytes::new(decode_hex(&value[2..]).expect("it is hex")))
+			Ok(decode_hex(&value[2..]).expect("it is hex"))
 		} else {
 			Err(Error::custom(
 				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
 			))
 		}
 	}
+}
+
+// decode a non-0x prefixed hex string into a `Vec<u8>`
+fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+	(0..s.len())
+		.step_by(2)
+		.map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+		.collect()
 }
 
 /// A bridge claim id
@@ -304,7 +222,7 @@ impl EthDepositEvent {
 	/// the deposit event matches the one emitted by the Solidity bridge contract ('Deposit')
 	/// Returns `None` on failure
 	pub fn try_decode_from_log(log: &Log) -> Option<Self> {
-		let data = &log.data.0;
+		let data = &log.data;
 
 		// we're expecting 4 fields in the log.data represented as a single &[u8] of
 		// concatenated `bytes32` / `U256`
@@ -328,17 +246,13 @@ impl EthDepositEvent {
 }
 
 #[cfg(test)]
-mod tests2 {
-	use crate::{
-		decode_hex,
-		types::{EthBlockNumber, EthResponse, GetBlockNumberRequest, GetTxReceiptRequest, TransactionReceipt},
-	};
-	use ethereum_types::{Address, H256, U256};
+mod tests {
+	use super::*;
 	use std::str::FromStr;
 
 	#[test]
 	fn serialize_eth_block_number_request() {
-		let result = serde_json::to_string(&GetBlockNumberRequest::new()).unwrap();
+		let result = serde_json::to_string(&GetBlockNumberRequest::new(1)).unwrap();
 		assert_eq!(
 			result,
 			r#"{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}"#
@@ -348,7 +262,8 @@ mod tests2 {
 	#[test]
 	fn serialize_eth_tx_receipt_request() {
 		let result = serde_json::to_string(&GetTxReceiptRequest::new(
-			H256::from_str("0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303").unwrap(),
+			EthHash::from_str("0x185e85beb3296c7339954811cc682e3f992573ad3eecd37409e0ed763448d303").unwrap(),
+			1,
 		))
 		.unwrap();
 		assert_eq!(
@@ -415,18 +330,9 @@ mod tests2 {
 
 	#[test]
 	fn deserialize_log_data() {
-		let log_data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
-		let token_address = Address::from_slice(&log_data[12..32]);
-		let amount = U256::from(&log_data[32..64]);
-		let cennznet_address = H256::from_slice(&log_data[64..96]);
-		let timestamp = U256::from(&log_data[96..]);
-
-		println!(
-			"{:?} {:?} {:?} {:?}",
-			token_address, amount, cennznet_address, timestamp
-		);
-
-		assert!(false);
+		let mut log = Log::default();
+		log.data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
+		assert!(EthDepositEvent::try_decode_from_log(&log).is_some());
 	}
 
 	#[test]

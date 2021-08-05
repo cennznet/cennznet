@@ -1899,6 +1899,7 @@ checksum = "779864b9c7f7ead1f092972c3257496c6a84b46dba2ce131dd8a282cb2cc5972"
 dependencies = [
  "crunchy",
  "fixed-hash",
+ "impl-codec",
  "impl-serde",
  "tiny-keccak",
 ]
@@ -1911,6 +1912,7 @@ checksum = "0dd6bde671199089e601e8d47e153368b893ef885f11f365a3261ec58153c211"
 dependencies = [
  "ethbloom",
  "fixed-hash",
+ "impl-codec",
  "impl-serde",
  "primitive-types 0.10.1",
  "uint",
