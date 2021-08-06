@@ -78,6 +78,7 @@ crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default
 crml-generic-asset = { path = "../crml/generic-asset", default-features = false }
 crml-generic-asset-rpc-runtime-api = { path = "../crml/generic-asset/rpc/runtime-api", default-features = false }
 crml-governance = { path = "../crml/governance", default-features = false }
+crml-governance-rpc-runtime-api = { path = "../crml/governance/rpc/runtime-api", default-features = false }
 crml-nft = { path = "../crml/nft", default-features = false}
 crml-nft-rpc-runtime-api = { path = "../crml/nft/rpc/runtime-api", default-features = false }
 crml-staking = { path = "../crml/staking", default-features = false}
@@ -136,6 +137,7 @@ std = [
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",
 	"crml-governance/std",
+	"crml-governance-rpc-runtime-api/std",
 	"crml-nft/std",
 	"crml-nft-rpc-runtime-api/std",
 	"crml-staking/std",

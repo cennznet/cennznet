@@ -80,6 +80,7 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
+use crml_governance::{ProposalId, ProposalVoteInfo};
 use crml_nft::{CollectionId, TokenId};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
@@ -874,6 +875,15 @@ impl_runtime_apis! {
 		}
 		fn get_balance(account_id: AccountId, asset_id: AssetId) -> AllBalances<Balance> {
 			GenericAsset::get_all_balances(&account_id, asset_id)
+		}
+	}
+
+	impl crml_governance_rpc_runtime_api::GovernanceRuntimeApi<Block, AccountId> for Runtime {
+		fn council() -> Vec<AccountId> {
+			Governance::get_council()
+		}
+		fn proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
+			Governance::get_proposal_votes()
 		}
 	}
 
