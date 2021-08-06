@@ -24,7 +24,7 @@ contract CENNZnetBridge is Ownable {
 
     event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress, uint256 timestamp);
     event Withdraw(address indexed, address tokenType, uint256 amount);
-    event SetValidators(address[]);
+    event SetValidators(address[], uint reward);
 
     // Deposit amount of tokenType
     // the pegged version of the token will be claim-able on CENNZnet
@@ -39,7 +39,6 @@ contract CENNZnetBridge is Ownable {
     // Requires signatures from a threshold of current CENNZnet validators
     // v,r,s are sparse arrays expected to align w public key in 'validators'
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    // TODO: make payable to offset maintenance costs..
     function withdraw(address tokenType, uint256 amount, uint nonce, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
         require(withdrawalsActive, "withdrawals paused");
         require(withdrawawlNonce[nonce] == false, "nonce replayed");
@@ -63,8 +62,8 @@ contract CENNZnetBridge is Ownable {
         }
 
         require(notarizations >= acceptanceTreshold, "not enough signatures");
-        require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
         withdrawawlNonce[nonce] = true;
+        require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
 
         emit Withdraw(msg.sender, tokenType, amount);
     }
@@ -102,7 +101,10 @@ contract CENNZnetBridge is Ownable {
             }
         }
 
-        emit SetValidators(newValidators);
+        // return any accumlated fees to the sender as a reward
+        uint reward = address(this).balance;
+        payable(msg.sender).transfer(reward);
+        emit SetValidators(newValidators, reward);
     }
 
     function activateDeposits() external onlyOwner {
@@ -121,7 +123,7 @@ contract CENNZnetBridge is Ownable {
         withdrawalsActive = false;
     }
 
-    function setWithdrawFee(uint amount) external onlyOwner {
+    function setWithdrawalFee(uint amount) external onlyOwner {
         withdrawalFee = amount;
     }
 }

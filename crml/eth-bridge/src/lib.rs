@@ -154,6 +154,8 @@ decl_storage! {
 		NextClaimId get(fn next_claim_id): ClaimId;
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		/// Require this many validators to signal readiness
+		ActivationThreshold get(fn activation_threshold) config(): u32 = 13;
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAsset get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
@@ -351,7 +353,8 @@ decl_module! {
 
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			log!(info, "💎 active notaries: {:?}", Self::notary_keys());
+			// TODO: remove this
+			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
@@ -359,6 +362,13 @@ decl_module! {
 				// in the active set
 				log!(info, "💎 not a validator, exiting");
 				return
+			}
+
+			let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+			let needed = Self::activation_threshold();
+			if NotaryKeys::<T>::decode_len().unwrap_or(0) < Self::activation_threshold() as usize {
+				log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
+				return;
 			}
 
 			// Get all signing keys for this protocol 'KeyTypeId'
