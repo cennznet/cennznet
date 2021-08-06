@@ -73,11 +73,13 @@ where
 	fn proposal_votes(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<ProposalVotes<AccountId>>> {
 		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-		let proposal_votes_info = self.client.runtime_api().proposal_votes(&at).map_err(|e| RpcError {
+		let mut proposal_votes_info = self.client.runtime_api().proposal_votes(&at).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError as i64),
 			message: "Unable to query proposal votes.".into(),
 			data: Some(format!("{:?}", e).into()),
 		})?;
+		// sort by proposal Id for the receiver
+		proposal_votes_info.sort_by(|(id_1, _), (id_2, _)| id_1.partial_cmp(id_2).expect("it's a valid id"));
 
 		let council = self.client.runtime_api().council(&at).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError as i64),
