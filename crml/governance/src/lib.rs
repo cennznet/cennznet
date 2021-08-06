@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod types;
-use types::*;
+pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
@@ -265,5 +265,16 @@ decl_module! {
 			ensure_root(origin)?;
 			ProposalBond::put(new_proposal_bond);
 		}
+	}
+}
+
+impl<T: Config> Module<T> {
+	/// Return current council members
+	pub fn get_council() -> Vec<T::AccountId> {
+		Self::council()
+	}
+	/// Return all vote information on active proposals
+	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
+		ProposalVotes::iter().collect()
 	}
 }
