@@ -8,98 +8,46 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract CENNZnetBridge is Ownable {
     using SafeMath for uint256;
 
-    // whether the bridge is accepting deposits & withdrawals
-    bool isActive;
+    // whether the bridge is accepting deposits
+    bool public depositsActive;
+    // whether the bridge is accepting withdrawals
+    bool public withdrawalsActive;
     // map from integer index to validator ECDSA address
     // this is the CENNZnet validator ECDSA session keys
     address[] public validators;
     // Nonce for validator set changes
-    uint32 validatorsNonce;
-    // withdrawal nonces
-    mapping(uint => bool) public withdrawNonce;
-    mapping(address => uint) public trustedWithdrawNonces;
-    // withdraw authority
-    address public withdrawAuthority;
+    uint32 validatorSetNonce;
+    // Global withdrawal nonces
+    mapping(uint => bool) public withdrawawlNonce;
+    // withdrawal fee, offsets bridge upkeep costs
+    uint withdrawalFee = 1e14;
 
     event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress, uint256 timestamp);
     event Withdraw(address indexed, address tokenType, uint256 amount);
+    event SetValidators(address[]);
 
     // Deposit amount of tokenType
     // the pegged version of the token will be claim-able on CENNZnet
-    function deposit(address tokenType, uint256 amount, bytes32 cennznetAddress) nonRentrant external {
-        require(isActive, "deposits paused");
+    function deposit(address tokenType, uint256 amount, bytes32 cennznetAddress) external {
+        require(depositsActive, "deposits paused");
         require(IERC20(tokenType).transferFrom(msg.sender, address(this), amount), "deposit failed");
 
         emit Deposit(msg.sender, tokenType, amount, cennznetAddress, block.timestamp);
-    }
-
-    // Withdraw must be signed by withdraw authority and owner of funds
-    // user deposits a signed ga deposit payload
-    // ecc recover to check it's message sender
-    // by publishing signed tx anyone can ensure they've actually claimed the funds by submitting themselves...
-    function trustedWithdraw(address tokenType, uint256 amount, uint nonce, uint8 v, bytes32 r, bytes32 s) {
-        require(isActive, "withdrawals paused");
-        require(trustedWithdrawNonces[msg.sender] < nonce, "old nonce");
-
-        // check sig
-        // 7769746864726177 = "withdraw"
-        bytes32 digest = keccak256(abi.encodePacked(0x7769746864726177, msg.sender, tokenType, amount, nonce));
-        require(withdrawAuthority == ecrecover(digest, v, r, s), "signature invalid");
-        trustedWithdrawNonces[msg.sender] = nonce;
-
-        IERC20(tokenType).transfer(address(this), msg.sender, amount);
     }
 
     // Withdraw tokens from this contract
     // Requires signatures from a threshold of current CENNZnet validators
     // v,r,s are sparse arrays expected to align w public key in 'validators'
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    function withdraw(address tokenType, uint256 amount, uint nonce, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) nonRentrant external {
-        require(isActive, "withdrawals paused");
-        require(withdrawNonce[nonce] == false, "nonce replayed");
+    // TODO: make payable to offset maintenance costs..
+    function withdraw(address tokenType, uint256 amount, uint nonce, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
+        require(withdrawalsActive, "withdrawals paused");
+        require(withdrawawlNonce[nonce] == false, "nonce replayed");
+        require(msg.value >= withdrawalFee, "must supply withdraw fee");
 
         // 7769746864726177 = "withdraw"
-        bytes32 digest = keccak256(abi.encodePacked(0x7769746864726177, tokenType, amount, nonce));
-        uint acceptanceTreshold = ((validators.length * 1000) * 667) / 1000000; // 2/3rds
-        uint notarizations;
-
-        for (uint i; i < validators.length; i++) {
-            // signature omitted
-            if(s[i] == bytes32(0)) continue;
-            // check signature
-            require(validators[i] == ecrecover(digest, v[i], r[i], s[i]), "signature invalid");
-            notarizations += 1;
-            // have we got proven consensus?
-            if(notariazations >= acceptanceTreshold) {
-                break;
-            }
-        }
-
-        require(notariazations >= acceptanceTreshold, "not enough signatures");
-        require(IERC20(tokenType).transfer(address(this), msg.sender, amount), "withdraw failed");
-        withdrawNonce[nonce] = true;
-
-        emit Withdraw(msg.sender, tokenType, amount);
-    }
-
-    // Update the validator set
-    // Requires signatures from a threshold of current CENNZnet validators
-    // v,r,s are sparse arrays expected to align w public key in 'validators'
-    // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    // we could only update this if the set changes in a big way
-    function updateValidators(
-        address[] memory newValidators,
-        uint32 nonce,
-        uint8[] memory v,
-        bytes32[] memory r,
-        bytes32[] memory s
-    ) nonRentrant external {
-        require(nonce > validatorsNonce, "nonce replayed");
-        // TODO: investigate gas cost to hash this
-        // 757064617465 = "update"
-        bytes32 digest = keccak256(abi.encodePacked(0x757064617465, newValidators, nonce));
-
-        uint acceptanceTreshold = ((validators.length * 1000) * 667) / 1000000; // 2/3rds
+        bytes32 digest = keccak256(abi.encodePacked(uint(0x7769746864726177), tokenType, amount, nonce));
+        uint acceptanceTreshold = ((validators.length * 1000) * 51) / 1000000; // 51%
         uint32 notarizations;
 
         for (uint i; i < validators.length; i++) {
@@ -109,20 +57,71 @@ contract CENNZnetBridge is Ownable {
             require(validators[i] == ecrecover(digest, v[i], r[i], s[i]), "signature invalid");
             notarizations += 1;
             // have we got proven consensus?
-            if(notariazations >= acceptanceTreshold) {
-                validators = newValidators;
-                validatorsNonce = nonce;
+            if(notarizations >= acceptanceTreshold) {
                 break;
             }
         }
-        // TODO: drop an event
+
+        require(notarizations >= acceptanceTreshold, "not enough signatures");
+        require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
+        withdrawawlNonce[nonce] = true;
+
+        emit Withdraw(msg.sender, tokenType, amount);
     }
 
-    function activate() external onlyOwner {
-        isActive = true;
+    // Update the validator set
+    // Requires signatures from a threshold of current CENNZnet validators
+    // v,r,s are sparse arrays expected to align w addresses / public key in 'validators'
+    // i.e. v[i], r[i], s[i] matches the i-th validator[i]
+    // 6,737,588 gas
+    function setValidators(
+        address[] memory newValidators,
+        uint32 nonce,
+        uint8[] memory v,
+        bytes32[] memory r,
+        bytes32[] memory s
+    ) external {
+        require(nonce > validatorSetNonce, "nonce replayed");
+        // 0x73657456616c696461746f7273 = "setValidators"
+        bytes32 digest = keccak256(abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, nonce));
+
+        uint acceptanceTreshold = ((validators.length * 1000) * 51) / 1000000; // 51%
+        uint32 notarizations;
+
+        for (uint i; i < validators.length; i++) {
+            // signature omitted
+            if(s[i] == bytes32(0)) continue;
+            // check signature
+            require(validators[i] == ecrecover(digest, v[i], r[i], s[i]), "signature invalid");
+            notarizations += 1;
+            // have we got proven consensus?
+            if(notarizations >= acceptanceTreshold) {
+                validators = newValidators;
+                validatorSetNonce = nonce;
+                break;
+            }
+        }
+
+        emit SetValidators(newValidators);
     }
 
-    function pause() external onlyOwner {
-        isActive = false;
+    function activateDeposits() external onlyOwner {
+        depositsActive = true;
+    }
+
+    function pauseDeposits() external onlyOwner {
+        depositsActive = false;
+    }
+
+    function activateWithdrawals() external onlyOwner {
+        withdrawalsActive = true;
+    }
+
+    function pauseWithdrawals() external onlyOwner {
+        withdrawalsActive = false;
+    }
+
+    function setWithdrawFee(uint amount) external onlyOwner {
+        withdrawalFee = amount;
     }
 }
