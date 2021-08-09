@@ -5,10 +5,13 @@
 - Implement token create + mint protocol ✅
 - Replay protection and claims time window  ✅
 - Pass Eth host + API config to the OCW from command-line flags ✅ (could do some optimization here)
-- Develop withdrawal process
-- Develop delayed activation device
-- Write up design docs
+- Develop delayed activation device (seems to exist already, rotate session keys + count active sessions keys vs. total (need to track total session keys some how..))
+- Treat ERC20 as generic message passing
+- Handle per network bridge config without recompile runtime e.g. genesis properties file
+- Handle CENNZ deposit edge case
 - Test!!!
+- Write up design docs
+- Develop withdrawal process
 - (maybe): allow notarization vote to include the 'failure' reason rather than false e..g not enough re-orgs or differing amounts
 
 ## Run Bridged Validator

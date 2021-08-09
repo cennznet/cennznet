@@ -17,11 +17,56 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
-use ethereum_types::{Bloom as H2048, U64};
+use std::fmt::Debug;
+use ethereum_types::{Bloom as H2048, BloomRef, U64};
 use primitive_types::{H160, H256, U256};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_std::{prelude::*, vec::Vec};
+use sp_runtime::RuntimeDebug;
+
+pub enum NotarizationResult {
+	/// The notarization was invalid
+	Valid,
+	/// The notarization was invalid
+	Invalid,
+	/// Checking the notarization failed
+	Failed,
+}
+
+/// An independent notarization vote on a claim
+/// This is signed and shared with the runtime after verification by a particular validator
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug)]
+pub struct NotarizationPayload {
+	/// The message Id being notarized
+	pub message_id: MessageId,
+	/// The ordinal index of the signer in the notary set
+	/// It may be used with chain storage to lookup the public key of the notary
+	pub authority_index: u16,
+	/// Whether the claim was validated or not
+	pub is_valid: bool,
+}
+
+/// Config for handling Ethereum messages
+/// Ethereum messages are simply events deposited at known contract addresses
+#[derive(Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
+pub struct HandlerConfig {
+	/// The EVM event signature of the relevant event
+	pub event_signature: [u8; 32],
+	/// The deployed Ethereum contract address that deposits the event
+	pub contract_address: [u8; 20],
+	/// The CENNZnet function to invoke with the message result
+	/// It should accept a type `T`
+	/// Encoded call type `T::Call`
+	pub encoded_callback: Vec<u8>,
+}
+
+/// A type of Ethereum message supported by the bridge
+#[derive(Encode, Decode, PartialEq, Clone)]
+pub enum MessageType {
+	/// A message for an ERC-20 deposit claim
+	Erc20Deposit,
+}
 
 type Index = U64;
 /// The ethereum block number data type
@@ -100,6 +145,49 @@ pub struct TransactionReceipt {
 	pub removed: bool,
 }
 
+/// Standard Eth block type
+///
+/// NB: for the bridge we only need the `timestamp` however the only RPCs available require fetching the whole block 
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct EthBlock {
+	pub number: Option<U64>,
+	pub hash: Option<H256>,
+	pub timestamp: U256,
+	// don't deserialize anything else
+	#[serde(rename = "parentHash", skip_deserializing)]
+	pub parent_hash: H256,
+	#[serde(skip_deserializing)]
+	pub nonce: Option<U64>,
+	#[serde(rename = "sha3Uncles", skip_deserializing)]
+	pub sha3_uncles: H256,
+	#[serde(rename = "logsBloom", skip_deserializing)]
+	pub logs_bloom: Option<H2048>,
+	#[serde(rename = "transactionsRoot", skip_deserializing)]
+	pub transactions_root: H256,
+	#[serde(rename = "stateRoot", skip_deserializing)]
+	pub state_root: H256,
+	#[serde(rename = "receiptsRoot", skip_deserializing)]
+	pub receipts_root: H256,
+	#[serde(skip_deserializing)]
+	pub miner: EthAddress,
+	#[serde(skip_deserializing)]
+	pub difficulty: U256,
+	#[serde(rename = "totalDifficulty", skip_deserializing)]
+	pub total_difficulty: U256,
+	#[serde(rename = "extraData", skip_deserializing)]
+	pub extra_data: Vec<u8>,
+	#[serde(skip_deserializing)]
+	pub size: U256,
+	#[serde(rename = "gasLimit", skip_deserializing)]
+	pub gas_limit: U256,
+	#[serde(rename = "gasUsed", skip_deserializing)]
+	pub gas_used: U256,
+	#[serde(skip_deserializing)]
+	pub transactions: Vec<H256>,
+	#[serde(skip_deserializing)]
+	pub uncles: Vec<H256>,
+}
+
 #[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize)]
 pub struct EthResponse<'a, D> {
 	jsonrpc: &'a str,
@@ -164,6 +252,34 @@ impl GetBlockNumberRequest {
 	}
 }
 
+const METHOD_GET_BLOCK_BY_NUMBER: &'static str = "eth_getBlockByNumber";
+/// Request for 'eth_blockNumber'
+#[derive(Serialize, Debug)]
+pub struct GetBlockByNumberRequest {
+	#[serde(rename = "jsonrpc")]
+	/// The version of the JSON RPC spec
+	pub json_rpc: &'static str,
+	/// The method which is called
+	pub method: &'static str,
+	/// Arguments supplied to the method. Can be an empty Vec.
+	pub params: Vec<u32>,
+	/// The id for the request
+	pub id: usize,
+}
+
+/// JSON-RPC method name for the request
+impl GetBlockByNumberRequest {
+	pub fn new(id: usize, block_number: u64) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_GET_BLOCK_BY_NUMBER,
+			params: vec![block_number],
+			id,
+		}
+	}
+}
+
+
 // Serde deserialize hex string, expects prefix '0x'
 pub fn deserialize_hex<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
 	deserializer.deserialize_str(BytesVisitor)
@@ -200,11 +316,19 @@ fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 		.collect()
 }
 
-/// A bridge claim id
-pub type ClaimId = u64;
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
+pub struct VerifyEventRequest {
+	pub tx_hash: EthHash,
+	pub timestamp: U256,
+	pub encoded_callback: Vec<u8>,
+	pub event_data: Vec<u8>,
+}
+
+/// A bridge message id
+pub type MessageId = u64;
 
 /// A deposit event made by the CENNZnet bridge contract on Ethereum
-#[derive(Debug, Clone, PartialEq, Decode, Encode)]
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
 pub struct EthDepositEvent {
 	/// The ERC20 token address / type deposited
 	pub token_type: EthAddress,
@@ -212,18 +336,17 @@ pub struct EthDepositEvent {
 	pub amount: U256,
 	/// The CENNZnet beneficiary address
 	pub beneficiary: H256,
-	/// The reported timestamp of the claim
-	pub timestamp: U256,
 }
 
-impl EthDepositEvent {
-	/// Take some bytes e.g. Ethereum log data and attempt to
-	/// decode a deposit event
-	/// the deposit event matches the one emitted by the Solidity bridge contract ('Deposit')
-	/// Returns `None` on failure
-	pub fn try_decode_from_log(log: &Log) -> Option<Self> {
-		let data = &log.data;
+/// Something that can be decoded from eth log data/ ABI
+pub trait EthAbiDecode: Sized {
+	/// Decode `Self` from Eth log data
+	fn decode(data: &[u8]) -> Option<Self>;
+}
 
+impl EthAbiDecode for EthDepositEvent {
+	/// Receives Ethereum log 'data' and decodes it
+	fn decode(data: &[u8]) -> Option<Self> {
 		// we're expecting 4 fields in the log.data represented as a single &[u8] of
 		// concatenated `bytes32` / `U256`
 		// 32 * 4
@@ -234,13 +357,11 @@ impl EthDepositEvent {
 		let token_type = EthAddress::from_slice(&data[12..32]);
 		let amount = U256::from(&data[32..64]);
 		let beneficiary = H256::from_slice(&data[64..96]);
-		let timestamp = U256::from(&data[96..]);
 
 		Some(Self {
 			token_type,
 			amount,
 			beneficiary,
-			timestamp,
 		})
 	}
 }
@@ -330,9 +451,8 @@ mod tests {
 
 	#[test]
 	fn deserialize_log_data() {
-		let mut log = Log::default();
-		log.data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
-		assert!(EthDepositEvent::try_decode_from_log(&log).is_some());
+		let data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
+		assert!(EthDepositEvent::decode(&data).is_some());
 	}
 
 	#[test]

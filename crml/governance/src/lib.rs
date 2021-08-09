@@ -110,6 +110,9 @@ decl_module! {
 		#[weight = 1_000_000]
 		/// Submit a proposal for consideration by the council
 		/// Caller must be a council member
+		/// - `call` the onchain proposal payload
+		/// - `enactment_delay` delay in blocks to execute the proposal after a passing vote
+		/// - ``
 		fn submit_proposal(
 			origin,
 			call: Vec<u8>,
@@ -162,7 +165,7 @@ decl_module! {
 				if ProposalCalls::contains_key(proposal_id) {
 					if T::Scheduler::schedule_named(
 						(GOVERNANCE_ID, proposal_id).encode(),
-						DispatchTime::At(proposal.enactment_delay),
+						DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
 						None,
 						63,
 						frame_system::RawOrigin::Root.into(),
