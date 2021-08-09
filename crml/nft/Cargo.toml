@@ -24,6 +24,7 @@ frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev 
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }
+serde_json = "1.0"
 
 [features]
 default = ["std"]

@@ -121,23 +121,22 @@ impl Serialize for NFTAttributeValue {
 			Self::U16(val) => s.serialize_u16(*val),
 			Self::U32(val) => s.serialize_u32(*val),
 			Self::U64(val) | Self::Timestamp(val) => s.serialize_u64(*val),
-			Self::U128(val) => format!("{}",*val).serialize(s),
+			Self::U128(val) => format!("{}", *val).serialize(s),
 			Self::Bytes32(val) | Self::Hash(val) => {
 				let val_str = format!("0x{}", hex::encode(val));
 				s.serialize_str(&val_str)
-			},
+			}
 			Self::String(val) | Self::Url(val) => {
 				let val_str = core::str::from_utf8(val).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
 				s.serialize_str(&val_str)
-			},
+			}
 			Self::Bytes(val) => {
-				let val_str = format!("0x{}",hex::encode(val));
+				let val_str = format!("0x{}", hex::encode(val));
 				s.serialize_str(&val_str)
-			},
+			}
 		}
 	}
 }
-
 
 impl NFTAttributeValue {
 	/// Return the type ID of this attribute value
@@ -300,7 +299,10 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {
-	use super::{NFTAttributeValue, RoyaltiesSchedule};
+	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule};
+	use crate::mock::{AccountId, ExtBuilder, Nft};
+	use frame_support::assert_ok;
+	use serde_json;
 	use sp_runtime::Permill;
 
 	#[test]
@@ -344,5 +346,49 @@ mod test {
 			],
 		}
 		.validate());
+	}
+
+	#[test]
+	fn collection_info_should_serialize() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_name = b"test-collection".to_vec();
+			let collection_owner = 1_u64;
+			let royalties = RoyaltiesSchedule::<AccountId> {
+				entitlements: vec![
+					(3_u64, Permill::from_fraction(0.2)),
+					(4_u64, Permill::from_fraction(0.3)),
+				],
+			};
+			assert_ok!(Nft::create_collection(
+				Some(collection_owner).into(),
+				collection_name.clone(),
+				None,
+				Some(royalties.clone()),
+			));
+			let collection_info = CollectionInfo {
+				name: collection_name,
+				owner: collection_owner,
+				royalties: royalties.entitlements,
+			};
+			let json_str = "{\
+				\"name\":\"test-collection\",\
+				\"owner\":1,\
+				\"royalties\":[\
+					[\
+						3,\
+						\"0.200000\"\
+					],\
+					[\
+						4,\
+						\"0.300000\"\
+					]\
+				]\
+			}";
+
+			assert_eq!(serde_json::to_string(&collection_info).unwrap(), json_str);
+
+			// should not panic
+			//serde_json::to_value(&info).unwrap();
+		});
 	}
 }
