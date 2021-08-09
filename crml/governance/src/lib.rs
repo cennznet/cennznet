@@ -168,7 +168,7 @@ decl_module! {
 				if ProposalCalls::contains_key(proposal_id) {
 					if T::Scheduler::schedule_named(
 						(GOVERNANCE_ID, proposal_id).encode(),
-						DispatchTime::At(proposal.enactment_delay),
+						DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
 						None,
 						63,
 						frame_system::RawOrigin::Root.into(),
