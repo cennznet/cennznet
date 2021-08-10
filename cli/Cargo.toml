@@ -65,6 +65,7 @@ cennznet-runtime = { path = "../runtime" }
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 crml-generic-asset = { path = "../crml/generic-asset" }
 crml-generic-asset-rpc = { path = "../crml/generic-asset/rpc" }
+crml-governance-rpc = { path = "../crml/governance/rpc" }
 crml-nft-rpc = { path = "../crml/nft/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }

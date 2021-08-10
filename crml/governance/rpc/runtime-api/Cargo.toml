@@ -1,0 +1,22 @@
+[package]
+name = "crml-governance-rpc-runtime-api"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+license = "GPL-3.0"
+repository = "https://github.com/cennznet/cennznet"
+description = "Runtime API definition required by Governance RPC extensions."
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
+crml-governance = { default-features = false, path = "../../" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"sp-api/std",
+	"sp-std/std",
+]

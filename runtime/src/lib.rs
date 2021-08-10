@@ -80,7 +80,8 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
-use crml_nft::{CollectionId, CollectionInfo, TokenId, SeriesId, SerialNumber, TokenInfo};
+use crml_governance::{ProposalId, ProposalVoteInfo};
+use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -427,6 +428,20 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	/// Max. members of the council
+	pub const MaxCouncilSize: u16 = 255;
+}
+impl crml_governance::Config for Runtime {
+	type Call = Call;
+	type Currency = SpendingAssetCurrency<Self>;
+	type MaxCouncilSize = MaxCouncilSize;
+	type Scheduler = Scheduler;
+	type PalletsOrigin = OriginCaller;
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 impl pallet_utility::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
@@ -640,11 +655,6 @@ construct_runtime!(
 		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,
 		// Governance Modules (Sudo initially)
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 13,
-		// Democracy: pallet_democracy::{Module, Call, Storage, Config, Event<T>}
-		// Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
-		// TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>}
-		// Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
-		// TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>}
 		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
 		Utility: pallet_utility::{Module, Call, Event} = 15,
 		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
@@ -662,6 +672,7 @@ construct_runtime!(
 		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
+		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
 	}
 );
 
@@ -864,6 +875,15 @@ impl_runtime_apis! {
 		}
 		fn get_balance(account_id: AccountId, asset_id: AssetId) -> AllBalances<Balance> {
 			GenericAsset::get_all_balances(&account_id, asset_id)
+		}
+	}
+
+	impl crml_governance_rpc_runtime_api::GovernanceRuntimeApi<Block, AccountId> for Runtime {
+		fn council() -> Vec<AccountId> {
+			Governance::get_council()
+		}
+		fn proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
+			Governance::get_proposal_votes()
 		}
 	}
 

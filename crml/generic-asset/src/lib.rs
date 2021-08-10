@@ -521,10 +521,12 @@ decl_storage! {
 
 		build(|config: &GenesisConfig<T>| {
 			config.assets.iter().for_each(|asset_id| {
-				<AssetMeta<T>>::insert(asset_id, <AssetInfo>::default());
 				config.endowed_accounts.iter().for_each(|account_id| {
 					Module::<T>::set_free_balance(*asset_id, account_id, config.initial_balance);
 				});
+			});
+			config.asset_meta.iter().for_each(|(id, info)| {
+				<AssetMeta<T>>::insert(id, info);
 			});
 		});
 	}
