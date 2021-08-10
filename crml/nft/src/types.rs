@@ -300,8 +300,7 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 #[cfg(test)]
 mod test {
 	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule, TokenInfo};
-	use crate::mock::{AccountId, ExtBuilder, Nft};
-	use frame_support::assert_ok;
+	use crate::mock::{AccountId, ExtBuilder};
 	use serde_json;
 	use sp_runtime::Permill;
 
@@ -386,14 +385,10 @@ mod test {
 	#[test]
 	fn token_info_should_serialize() {
 		ExtBuilder::default().build().execute_with(|| {
-			let collection_name = b"test-series".to_vec();
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
 			};
-			let collection_id = Nft::next_collection_id();
-			let token_owner = 2_u64;
-			let token_id = (collection_id, 0, 0);
 			let series_attributes = vec![
 				NFTAttributeValue::I32(500),
 				NFTAttributeValue::U8(100),
