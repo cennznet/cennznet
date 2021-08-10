@@ -152,8 +152,6 @@ decl_error! {
 		AddToUniqueIssue,
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
-		/// No Owner exists for the collection
-		NoCollectionOwner,
 	}
 }
 

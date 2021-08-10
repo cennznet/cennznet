@@ -24,4 +24,3 @@ sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.
 crml-nft = { path = "../" }
 crml-nft-rpc-runtime-api = { path = "./runtime-api" }
 cennznet-primitives = { path = "../../../primitives" }
-
