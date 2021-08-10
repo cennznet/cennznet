@@ -299,7 +299,7 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {
-	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule};
+	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule, TokenInfo};
 	use crate::mock::{AccountId, ExtBuilder, Nft};
 	use frame_support::assert_ok;
 	use serde_json;
@@ -359,12 +359,6 @@ mod test {
 					(4_u64, Permill::from_fraction(0.3)),
 				],
 			};
-			assert_ok!(Nft::create_collection(
-				Some(collection_owner).into(),
-				collection_name.clone(),
-				None,
-				Some(royalties.clone()),
-			));
 			let collection_info = CollectionInfo {
 				name: collection_name,
 				owner: collection_owner,
@@ -386,9 +380,65 @@ mod test {
 			}";
 
 			assert_eq!(serde_json::to_string(&collection_info).unwrap(), json_str);
+		});
+	}
 
-			// should not panic
-			//serde_json::to_value(&info).unwrap();
+	#[test]
+	fn token_info_should_serialize() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_name = b"test-series".to_vec();
+			let collection_owner = 1_u64;
+			let royalties = RoyaltiesSchedule::<AccountId> {
+				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+			};
+			let collection_id = Nft::next_collection_id();
+			let token_owner = 2_u64;
+			let token_id = (collection_id, 0, 0);
+			let series_attributes = vec![
+				NFTAttributeValue::I32(500),
+				NFTAttributeValue::U8(100),
+				NFTAttributeValue::U16(500),
+				NFTAttributeValue::U32(500),
+				NFTAttributeValue::U64(500),
+				NFTAttributeValue::U128(500),
+				NFTAttributeValue::Bytes32([0x55; 32]),
+				NFTAttributeValue::Bytes(hex::decode("5000").unwrap()),
+				NFTAttributeValue::String(Vec::from("Test")),
+				NFTAttributeValue::Hash([0x55; 32]),
+				NFTAttributeValue::Timestamp(500),
+				NFTAttributeValue::Url(Vec::from("www.centrality.ai")),
+			];
+
+			let token_info = TokenInfo {
+				attributes: series_attributes,
+				owner: collection_owner,
+				royalties: royalties.entitlements,
+			};
+
+			let json_str = "{\
+				\"attributes\":[\
+				500,\
+				100,\
+				500,\
+				500,\
+				500,\
+				\"500\",\
+				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
+				\"0x5000\",\
+				\"Test\",\
+				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
+				500,\
+				\"www.centrality.ai\"],\
+				\"owner\":1,\
+				\"royalties\":[\
+					[\
+						3,\
+						\"0.200000\"\
+					]\
+				]\
+			}";
+
+			assert_eq!(serde_json::to_string(&token_info).unwrap(), json_str);
 		});
 	}
 }
