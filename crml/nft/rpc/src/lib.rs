@@ -19,7 +19,7 @@
 use std::sync::Arc;
 
 use codec::Codec;
-use crml_nft::{CollectionId, CollectionInfo, TokenId, TokenInfo, SeriesId, SerialNumber};
+use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;

@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use crml_nft::{CollectionId, CollectionInfo, TokenInfo, TokenId, SeriesId, SerialNumber};
+use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
