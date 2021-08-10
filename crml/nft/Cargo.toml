@@ -32,7 +32,7 @@ std = [
 	"cennznet-primitives/std",
 	"crml-support/std",
 	"codec/std",
-	"serde/std",
+	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
