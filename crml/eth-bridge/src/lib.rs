@@ -15,14 +15,14 @@
 
 //! CENNZnet Eth Bridge
 //!
-//! Deposits Overview:
+//! Module for witnessing/notarizing events on the Ethereum blockchain
 //!
-//! 1) Claimants deposit ERC20 tokens to a paired bridging contract on Ethereum.
-//! 2) After waiting for block confirmations, claimants submit the Ethereum transaction hash and deposit event info using `erc20_deposit_claim`
-//! 3) Validators aka 'Notaries' in this context, run an OCW protocol using Ethereum full nodes to verify
-//! the deposit has occurred
-//! 4) after a threshold of notarizations have been received for a claim, the tokens are released to the beneficiary account
+//! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
+//! verify and observe events happened on Ethereum.
+//! Once a threshold of validators sign a notarization having witnessed the event it is considered verified.
 //!
+//! Events are opaque to this module, other modules handle submitting "event claims" and "callbacks" to handle success
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
@@ -31,9 +31,9 @@ mod tests;
 mod types;
 use types::*;
 
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
-use codec::{Decode, Encode};
-use crml_support::MultiCurrency;
+use cennznet_primitives::types::BlockNumber;
+use codec::Encode;
+use crml_support::{EventClaimSubscriber, EventClaimVerifier};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet},
@@ -42,15 +42,16 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::{
-	ensure_none, ensure_signed,
+	ensure_none,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
+use sp_core::{H160, H256};
 use sp_runtime::{
 	offchain as rt_offchain,
 	offchain::StorageKind,
-	traits::{AccountIdConversion, MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
+	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-	KeyTypeId, DispatchResult, Percent, RuntimeAppPublic,
+	DispatchError, KeyTypeId, Percent, RuntimeAppPublic,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -83,7 +84,7 @@ const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
 const CLAIM_PRUNING_INTERVAL: BlockNumber = BUCKET_FACTOR_S as u32 / 5_u32;
 
-pub(crate) const LOG_TARGET: &'static str = "eth-bridge";
+pub(crate) const LOG_TARGET: &str = "eth-bridge";
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -102,18 +103,16 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSet<Self::AccountId>;
+	/// The minimum number of block confirmations needed to ratify an Ethereum event
+	type EventConfirmations: Get<u16>;
+	/// Events cannot be claimed after this time (seconds)
+	type EventDeadline: Get<u64>;
+	/// The threshold of notarizations required to approve an Ethereum
+	type NotarizationThreshold: Get<Percent>;
+	/// Things subscribing to event claims
+	type Subscribers: EventClaimSubscriber;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
-	/// Currency functions
-	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
-	/// The minimum number of transaction confirmations needed to ratify an Eth message
-	type MessageConfirmations: Get<u16>;
-	/// Messages cannot be claimed after this time (seconds)
-	type MessageDeadline: Get<u64>;
-	/// The threshold of notarizations required to approve an Eth message
-	type NotarizationThreshold: Get<Percent>;
-	/// 
-	type MessageCallbackRouter;
 	/// The overarching call type.
 	type Call: From<Call<Self>>;
 	/// The overarching event type.
@@ -124,33 +123,40 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
 		/// Required % of validator support to signal readiness (default: 66%)
 		ActivationThreshold get(fn activation_threshold) config(): Percent = Percent::from_parts(66);
-		/// Message data
-		MessageData get(fn message_data): map hasher(twox_64_concat) MessageId => Option<Vec<u8>>;
-		/// Map from message type to handler config
-		MessageHandlerConfig get(fn message_handler_config): map hasher(twox_64_concat) MessageType => Option<HandlerConfig>;
+		/// Queued event claims, awaiting notarization
+		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => (EthHash, EventTypeId);
+		/// Event data for a given claim
+		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
-		MessageNotarizations get(fn message_notarizations): double_map hasher(twox_64_concat) MessageId, hasher(twox_64_concat) T::AuthorityId => Option<bool>;
-		/// Queued messages, awaiting notarization
-		MessageQueue get(fn message_queue): map hasher(twox_64_concat) MessageId => EthHash;
-		/// Id of the next Eth bridge message
-		NextMessageId get(fn next_message_id): MessageId;
+		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::AuthorityId => Option<EventClaimResult>;
+		/// Maps event types seen by the bridge ((contract address, event signature)) to unique type Ids
+		EventTypeToTypeId get(fn event_type_to_type_id): map hasher(blake2_128_concat) (EthAddress, EthHash) => EventTypeId;
+		/// Maps event type ids to ((contract address, event signature))
+		TypeIdToEventType get(fn type_id_to_event_type): map hasher(blake2_128_concat) EventTypeId => (EthAddress, EthHash);
+		/// Id of the next Eth bridge event claim
+		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
+		/// Id of the next event type (internal)
+		NextEventTypeId get(fn next_event_type_id): EventTypeId;
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
-		/// Processed messages bucketed by unix timestamp of the most recent hour.
-		// Used in conjunction with `MessageDeadline` to prevent "double spends".
-		// After a bucket is older than the deadline, any messages prior are considered expired.
-		// This allows the record of processed messages to be pruned from state regularly
-		ProcessedMessageBuckets get(fn processed_message_buckets): double_map hasher(twox_64_concat) u64, hasher(identity) EthHash => ();
+		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
+		// Used in conjunction with `EventDeadline` to prevent "double spends".
+		// After a bucket is older than the deadline, any events prior are considered expired.
+		// This allows the record of processed events to be pruned from state regularly
+		ProcessedTxBuckets get(fn processed_tx_buckets): double_map hasher(twox_64_concat) u64, hasher(identity) EthHash => ();
+		/// Map from processed tx hash to status
+		/// Periodically cleared after `EventDeadline` expires
+		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
 	}
 }
 
 decl_event! {
 	pub enum Event {
 		/// Verifying an event succeeded
-		Verified(MessageId),
+		Verified(EventClaimId),
 		/// Verifying an event failed
-		Invalid(MessageId),
+		Invalid(EventClaimId),
 	}
 }
 
@@ -182,10 +188,14 @@ decl_module! {
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
-				let expired_bucket_index = (now - T::MessageDeadline::get()) % BUCKET_FACTOR_S;
-				ProcessedMessageBuckets::remove_prefix(expired_bucket_index);
+				let expired_bucket_index = (now - T::EventDeadline::get()) % BUCKET_FACTOR_S;
+				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
+					ProcessedTxHashes::remove(expired_tx_hash);
+				}
+				ProcessedTxBuckets::remove_prefix(expired_bucket_index);
+
 				// TODO: better estimate
-				50_000_000 as Weight
+				50_000_000_u64
 			} else {
 				Zero::zero()
 			}
@@ -199,63 +209,61 @@ decl_module! {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
-			//`validate_unsigned` function when sending out the unsigned tx.
+			// `validate_unsigned` function when sending out the unsigned tx.
 			let notary_keys = Self::notary_keys();
 			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
-			<MessageNotarizations<T>>::insert::<MessageId, T::AuthorityId, bool>(payload.message_id, notary_public_key.clone(), payload.is_valid);
+			<EventNotarizations<T>>::insert::<EventClaimId, T::AuthorityId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
 
 			// Count notarization votes
 			let notary_count = T::AuthoritySet::validators().len() as u32;
 			let mut yay_count = 0_u32;
 			let mut nay_count = 0_u32;
-			for (_id, is_valid) in <MessageNotarizations<T>>::iter_prefix(payload.message_id) {
-				match is_valid {
-					true => yay_count += 1,
-					false => nay_count += 1,
+			for (_id, result) in <EventNotarizations<T>>::iter_prefix(payload.event_claim_id) {
+				match result {
+					EventClaimResult::Valid => yay_count += 1,
+					_ => nay_count += 1,
 				}
 			}
 
 			// Claim is invalid (nays > (100% - NotarizationThreshold))
 			if Percent::from_rational_approximation(nay_count, notary_count) > (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct())) {
 				// event did not notarize / failed, clean up
-				let message_data = MessageData::take(payload.message_id);
-				if message_data.is_none() {
+				let event_data = EventData::take(payload.event_claim_id);
+				if event_data.is_none() {
 					// this should never happen
 					log!(error, "💎 unexpected empty claim");
 					return Err(Error::<T>::InvalidClaim.into())
 				}
-				<MessageNotarizations<T>>::remove_prefix(payload.message_id);
-				MessageQueue::remove(payload.message_id);
-				Self::deposit_event(Event::Invalid(payload.message_id));
+				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
+				EventClaims::remove(payload.event_claim_id);
+				Self::deposit_event(Event::Invalid(payload.event_claim_id));
 				return Ok(());
 			}
 
 			// Claim is valid
 			if Percent::from_rational_approximation(yay_count, notary_count) >= T::NotarizationThreshold::get() {
-				let message_data = MessageData::take(payload.message_id);
-				if message_data.is_none() {
+				let event_data = EventData::take(payload.event_claim_id);
+				if event_data.is_none() {
 					// this should never happen
 					log!(error, "💎 unexpected empty claim");
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				// no need to track info on this claim any more since it's approved
-				<MessageNotarizations<T>>::remove_prefix(payload.message_id);
-				let eth_tx_hash = MessageQueue::take(payload.message_id);
-				let message_data = message_data.unwrap();
+				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
+				let (eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_data = event_data.unwrap();
 
 				// note this tx as completed
 				let bucket_index = T::UnixTime::now().as_millis().saturated_into::<u64>() % BUCKET_FACTOR_S;
-				ProcessedMessageBuckets::insert(bucket_index, eth_tx_hash, ());
+				ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
+				ProcessedTxHashes::insert(eth_tx_hash, ());
+				Self::deposit_event(Event::Verified(payload.event_claim_id));
 
-				// TODO: dispatch callback success
-				if let Ok(call) = T::Call::decode(&mut &MessageHandlerConfig::get(message_type)[..]) {
-					let ok = call.dispatch(frame_system::RawOrigin::Root.into()).is_ok();
-				}
-
-				Self::deposit_event(Event::Verified(payload.message_id));
+				T::Subscribers::on_success(payload.event_claim_id, &contract_address, &event_signature, &event_data);
 			}
 		}
 
@@ -307,37 +315,38 @@ decl_module! {
 			// this will be invoked once every block
 			// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
 			let mut budget = CLAIMS_PER_BLOCK;
-			for (message_id, tx_hash) in MessageQueue::iter() {
+			for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
 				if budget.is_zero() {
 					log!(info, "💎 claims budget exceeded, exiting...");
 					return
 				}
 
 				// check we haven't notarized this already
-				if <MessageNotarizations<T>>::contains_key::<MessageId, T::AuthorityId>(message_id, key.clone()) {
-					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", message_id);
+				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::AuthorityId>(event_claim_id, key.clone()) {
+					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
 				}
 
-				if let Some(message_data) = Self::message_data(message_id) {
-					// TODO: pass details for this message type
-					let result = Self::offchain_verify_event(tx_hash, message_data);
-					log!(trace, "💎 claim verification status: {:?}", result);
+				if let Some(event_data) = Self::event_data(event_claim_id) {
+					let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+					let event_claim = EventClaim { tx_hash, data: event_data, contract_address, event_signature };
+					let result = Self::offchain_try_notarize_event(event_claim);
+					log!(trace, "💎 claim verification status: {:?}", &result);
 					let payload = NotarizationPayload {
-						message_id,
+						event_claim_id,
 						authority_index,
-						is_valid: result.is_ok()
+						result: result.clone(),
 					};
 					let _ = Self::offchain_send_notarization(&key, payload)
 						.map_err(|err| {
 							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 						})
 						.map(|_| {
-							log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result.is_ok(), message_id);
+							log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, event_claim_id);
 						});
 					budget = budget.saturating_sub(1);
 				} else {
 					// should not happen, defensive only
-					log!(error, "💎 empty claim data for: {:?}", message_id);
+					log!(error, "💎 empty claim data for: {:?}", event_claim_id);
 				}
 			}
 
@@ -347,74 +356,78 @@ decl_module! {
 	}
 }
 
-/// POssible failure outcomes from attempting to verify eth deposit claims
-#[derive(Debug, PartialEq, Clone)]
-enum ClaimFailReason {
-	/// Couldn't request data from the Eth client
-	DataProvider,
-	/// The eth tx is marked failed
-	TxStatusFailed,
-	/// The transaction recipient was not the bridge contract
-	InvalidBridgeAddress,
-	/// The expected tx logs were not present
-	NoTxLogs,
-	/// Not enough block confirmations yet
-	NotEnoughConfirmations,
-	/// Tx event logs indicated this claim does not match the event
-	ProvenInvalid,
-	/// The deposit tx is past the expiration deadline
-	Expired,
+impl<T: Config> EventClaimVerifier for Module<T> {
+	/// Submit an event claim against an ethereum tx hash
+	// tx hashes may only be claimed once
+	fn submit_event_claim(
+		contract_address: &H160,
+		event_signature: &H256,
+		tx_hash: &H256,
+		event_data: &[u8],
+	) -> Result<EventClaimId, DispatchError> {
+		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
+
+		// check if we've seen this event type before
+		// if not we assign it a type Id (saves us storing the (contract address, event signature) each time)
+		let event_type_id = if !EventTypeToTypeId::contains_key((contract_address, event_signature)) {
+			let next_event_type_id = Self::next_event_type_id();
+			EventTypeToTypeId::insert((contract_address, event_signature), next_event_type_id);
+			TypeIdToEventType::insert(next_event_type_id, (contract_address, event_signature));
+			NextEventTypeId::put(next_event_type_id.wrapping_add(1));
+			next_event_type_id
+		} else {
+			EventTypeToTypeId::get((contract_address, event_signature))
+		};
+
+		let event_claim_id = Self::next_event_claim_id();
+		EventData::insert(event_claim_id, event_data);
+		EventClaims::insert(event_claim_id, (tx_hash, event_type_id));
+		NextEventClaimId::put(event_claim_id.wrapping_add(1));
+
+		Ok(event_claim_id)
+	}
 }
 
 impl<T: Config> Module<T> {
-	/// Submit a bridge deposit claim for an ethereum tx hash
-	/// The deposit details must be provided for cross-checking by notaries
-	/// Any caller may initiate a claim while only the intended beneficiary will be paid.
-	pub fn verify_event(request: VerifyEventRequest) -> DispatchResult {
-		// fail a claim if it's already been claimed
-		let bucket_index = request.timestamp.as_u64() % BUCKET_FACTOR_S; // checked timestamp < u64
-		ensure!(!ProcessedMessageBuckets::contains_key(bucket_index, request.tx_hash), Error::<T>::AlreadyNotarized);
-
-		let message_id = Self::next_message_id();
-		MessageData::insert(message_id, request.event_data);
-		MessageQueue::insert(message_id, request.tx_hash);
-		NextMessageId::put(message_id.wrapping_add(1));
-
-		Ok(())
-	}
 	/// Verify a message
 	/// `tx_hash` - The ethereum tx hash
-	/// `message_data` - The claimed message data
-	/// `message_handler_config` - Details of the message
+	/// `event_data` - The claimed message data
+	/// `event_handler_config` - Details of the message
 	/// Checks:
 	/// - check Eth full node for transaction status
 	/// - tx success
 	/// - tx sent to deposit contract address
 	/// - check for log with deposited amount and token type
-	/// - confirmations `>= T::MessageConfirmations`
-	/// - message has not expired older than `T::MessageDeadline`
-	fn offchain_verify_event(tx_hash: EthHash, message_data: Vec<u8>, message_handler_config: HandlerConfig) -> Result<(), ClaimFailReason> {
+	/// - confirmations `>= T::EventConfirmations`
+	/// - message has not expired older than `T::EventDeadline`
+	fn offchain_try_notarize_event(event_claim: EventClaim) -> EventClaimResult {
+		let EventClaim {
+			tx_hash,
+			data,
+			contract_address,
+			event_signature,
+		} = event_claim;
 		let result = Self::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
-			return Err(ClaimFailReason::DataProvider);
+			return EventClaimResult::DataProviderErr;
 		}
 
 		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
 		let tx_receipt = match maybe_tx_receipt {
 			Some(tx_receipt) => tx_receipt,
-			None => return Err(ClaimFailReason::NoTxLogs),
+			None => return EventClaimResult::NoTxLogs,
 		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
-			return Err(ClaimFailReason::TxStatusFailed);
+			return EventClaimResult::TxStatusFailed;
 		}
 
-		if tx_receipt.to != Some(message_handler_config.contract_address.into()) {
-			return Err(ClaimFailReason::InvalidBridgeAddress);
+		if tx_receipt.to != Some(contract_address) {
+			return EventClaimResult::UnexpectedContractAddress;
 		}
 
-		let topic: EthHash = message_handler_config.event_signature.into();
+		let topic: EthHash = event_signature;
 		// search for a bridge deposit event in this tx receipt
 		let matching_log = tx_receipt
 			.logs
@@ -424,14 +437,14 @@ impl<T: Config> Module<T> {
 		if let Some(log) = matching_log {
 			// check if the ethereum deposit event matches what was reported
 			// in the original claim
-			if log.data != message_data {
+			if log.data != data {
 				log!(
 					trace,
-					"💎 mismatch in message vs. event. reported: {:?} observed: {:?}",
-					message_data,
+					"💎 mismatch in provided data vs. observed data. provided: {:?} observed: {:?}",
+					data,
 					log.data,
 				);
-				return Err(ClaimFailReason::ProvenInvalid);
+				return EventClaimResult::UnexpectedData;
 			}
 		}
 
@@ -440,28 +453,26 @@ impl<T: Config> Module<T> {
 		let result = Self::get_block(observed_block);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getBlockByNumber failed: {:?}", err);
-			return Err(ClaimFailReason::DataProvider);
+			return EventClaimResult::DataProviderErr;
 		}
 		let maybe_block = result.unwrap();
 		if maybe_block.is_none() {
-			return Err(ClaimFailReason::DataProvider);
+			return EventClaimResult::DataProviderErr;
 		}
 		let block = maybe_block.unwrap();
 		let latest_block_number: u64 = block.number.unwrap_or_default().as_u64();
-		let block_confirmations = latest_block_number.saturating_sub(observed_block);
-		if block_confirmations < T::MessageConfirmations::get() as u64 {
-			return Err(ClaimFailReason::NotEnoughConfirmations);
+		let block_confirmations = latest_block_number.saturating_sub(observed_block as u64);
+		if block_confirmations < T::EventConfirmations::get() as u64 {
+			return EventClaimResult::NotEnoughConfirmations;
 		}
 		// claim is past the expiration deadline
-		// ` reported_claim_event.timestamp` < u64 checked in `erc20_deposit_claim`
-		if T::UnixTime::now().as_millis().saturated_into::<u64>() - block.timestamp.as_u64()
-			> T::MessageDeadline::get()
+		if T::UnixTime::now().as_millis().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
+			> T::EventDeadline::get()
 		{
-			return Err(ClaimFailReason::Expired);
+			return EventClaimResult::Expired;
 		}
 
-		// it's ok!
-		return Ok(());
+		EventClaimResult::Valid
 	}
 
 	/// Get transaction receipt from eth client
@@ -487,34 +498,10 @@ impl<T: Config> Module<T> {
 			})
 	}
 
-		/// Get latest block number from eth client
-		fn get_block(number: u64) -> Result<Option<EthBlock>, Error<T>> {
-			// let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-			let request = GetBlockByNumberRequest::new(1_usize, number);
-			let resp_bytes = Self::query_eth_client(request).map_err(|e| {
-				log!(error, "💎 read eth-rpc API error: {:?}", e);
-				<Error<T>>::HttpFetch
-			})?;
-	
-			let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-				log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-				<Error<T>>::HttpFetch
-			})?;
-	
-			// Deserialize JSON to struct
-			serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
-				.map(|resp| resp.result)
-				.map_err(|err| {
-					log!(error, "💎 deserialize json response error: {:?}", err);
-					<Error<T>>::HttpFetch
-				})
-		}
-	
-
 	/// Get latest block number from eth client
-	fn get_block_number() -> Result<Option<EthBlockNumber>, Error<T>> {
+	fn get_block(number: u32) -> Result<Option<EthBlock>, Error<T>> {
 		// let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetBlockNumberRequest::new(1_usize);
+		let request = GetBlockByNumberRequest::new(1_usize, number);
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
@@ -526,7 +513,7 @@ impl<T: Config> Module<T> {
 		})?;
 
 		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<EthBlockNumber>>(resp_str)
+		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
@@ -548,7 +535,7 @@ impl<T: Config> Module<T> {
 				error,
 				"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
 			);
-			return Err(Error::<T>::OcwConfig.into());
+			return Err(Error::<T>::OcwConfig);
 		};
 		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
 
@@ -623,12 +610,12 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 				None => return InvalidTransaction::BadProof.into(),
 			};
 			// notarization must not be a duplicate/equivocation
-			if <MessageNotarizations<T>>::contains_key(payload.message_id, &notary_public_key) {
+			if <EventNotarizations<T>>::contains_key(payload.event_claim_id, &notary_public_key) {
 				log!(
 					error,
 					"💎 received equivocation from: {:?} on {:?}",
 					notary_public_key,
-					payload.message_id
+					payload.event_claim_id
 				);
 				return InvalidTransaction::BadProof.into();
 			}
@@ -641,7 +628,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 				// 'provides' must be unique for each submission on the network (i.e. unique for each claim id and validator)
 				.and_provides([
 					b"notarize",
-					&payload.message_id.to_be_bytes(),
+					&payload.event_claim_id.to_be_bytes(),
 					&(payload.authority_index as u64).to_be_bytes(),
 				])
 				.longevity(3)

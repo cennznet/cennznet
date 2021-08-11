@@ -596,33 +596,26 @@ impl crml_attestation::Config for Runtime {
 // TODO: config via storage
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
 	hex_literal::hex!("0bc96d65783334bd249ef60e1dbedbf956e14631ea70cb5f85967d3121fdf68d");
-const BRIDGE_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
+const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
 	/// The eth bridge contract deposit event
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
 	/// The eth bridge contract address
-	pub const BridgeContractAddress: [u8; 20] = BRIDGE_CONTRACT_ADDRESS;
+	pub const DepositContractAddress: [u8; 20] = DEPOSIT_CONTRACT_ADDRESS;
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	pub const RequiredConfirmations: u16 = 0;
+	pub const EventConfirmations: u16 = 0;
 	/// The threshold of notarizations required to approve an Eth deposit
 	pub const DepositApprovalThreshold: Percent = Percent::from_percent(66_u8);
 	/// Deposit expiration deadline in seconds (1 week)
 	pub const DepositDeadline: u32 = 604_800;
-	/// The Eth bridge address
-	pub const BridgeModuleId: ModuleId = ModuleId(*b"ethbridg");
 }
 impl crml_eth_bridge::Config for Runtime {
-	type BridgeModuleId = BridgeModuleId;
-	/// The deposit event signature
-	type DepositEventSignature = DepositEventSignature;
-	/// The bridge contract address
-	type BridgeContractAddress = BridgeContractAddress;
-	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	type RequiredConfirmations = RequiredConfirmations;
-	/// The threshold of notarizations required to approve an Eth deposit
-	type DepositApprovalThreshold = DepositApprovalThreshold;
-	/// Deposits cannot be claimed after this time # of Eth blocks)
-	type DepositDeadline = DepositDeadline;
+	/// The minimum number of block confirmations needed to secure an event claim
+	type EventConfirmations = EventConfirmations;
+	/// Events cannot be claimed after this duration
+	type EventDeadline = EventDeadline;
+	/// The threshold of positive notarizations to approve an event claim
+	type NotarizationThreshold = NotarizationThreshold;
 	/// The identifier type for an offchain worker.
 	type AuthorityId = EthBridgeId;
 	/// The overarching dispatch call type.
@@ -631,8 +624,25 @@ impl crml_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// Reports the current validator / notary set
 	type NotarySet = Historical;
-	type MultiCurrency = GenericAsset;
+	/// Timestamp provider
 	type UnixTime = Timestamp;
+}
+
+parameter_types! {
+	/// The ERC20 peg address
+	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
+}
+impl crml_erc20_peg::Config for Runtime {
+	/// Handles Ethereum events
+	type EthBridge = EthBridge;
+	type DepositContractAddress = DepositContractAddress;
+	type DepositEventSignature = DepositEventSignature;
+	/// Runtime currency system
+	type MultiCurrency = GenericAsset;
+	/// ModuleId/Account for this module
+	type PegModuleId = PegModuleId;
+	/// The overarching event type.
+	type Event = Event;
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension

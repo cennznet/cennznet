@@ -17,21 +17,32 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
-use std::fmt::Debug;
-use ethereum_types::{Bloom as H2048, BloomRef, U64};
+use ethereum_types::{Bloom as H2048, U64};
 use primitive_types::{H160, H256, U256};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use sp_std::{prelude::*, vec::Vec};
 use sp_runtime::RuntimeDebug;
+use sp_std::{prelude::*, vec::Vec};
 
-pub enum NotarizationResult {
-	/// The notarization was invalid
+/// Possible outcomes from attempting to verify an Ethereum event claim
+#[derive(Decode, Encode, Debug, PartialEq, Clone)]
+pub enum EventClaimResult {
+	/// It's valid
 	Valid,
-	/// The notarization was invalid
-	Invalid,
-	/// Checking the notarization failed
-	Failed,
+	/// Couldn't request data from the Eth client
+	DataProviderErr,
+	/// The eth tx is marked failed
+	TxStatusFailed,
+	/// The transaction recipient was not the expected contract
+	UnexpectedContractAddress,
+	/// The expected tx logs were not present
+	NoTxLogs,
+	/// Not enough block confirmations yet
+	NotEnoughConfirmations,
+	/// Tx event logs indicated this claim does not match the event
+	UnexpectedData,
+	/// The deposit tx is past the expiration deadline
+	Expired,
 }
 
 /// An independent notarization vote on a claim
@@ -39,12 +50,12 @@ pub enum NotarizationResult {
 #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug)]
 pub struct NotarizationPayload {
 	/// The message Id being notarized
-	pub message_id: MessageId,
+	pub event_claim_id: EventClaimId,
 	/// The ordinal index of the signer in the notary set
 	/// It may be used with chain storage to lookup the public key of the notary
 	pub authority_index: u16,
-	/// Whether the claim was validated or not
-	pub is_valid: bool,
+	/// Result of the notarization check by this authority
+	pub result: EventClaimResult,
 }
 
 /// Config for handling Ethereum messages
@@ -147,7 +158,7 @@ pub struct TransactionReceipt {
 
 /// Standard Eth block type
 ///
-/// NB: for the bridge we only need the `timestamp` however the only RPCs available require fetching the whole block 
+/// NB: for the bridge we only need the `timestamp` however the only RPCs available require fetching the whole block
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct EthBlock {
 	pub number: Option<U64>,
@@ -196,7 +207,7 @@ pub struct EthResponse<'a, D> {
 }
 
 /// JSON-RPC protocol version header
-const JSONRPC: &'static str = "2.0";
+const JSONRPC: &str = "2.0";
 
 /// Request for 'eth_getTransactionReceipt'
 #[derive(Serialize, Debug)]
@@ -213,7 +224,7 @@ pub struct GetTxReceiptRequest {
 }
 
 /// JSON-RPC method name for the request
-const METHOD_TX: &'static str = "eth_getTransactionReceipt";
+const METHOD_TX: &str = "eth_getTransactionReceipt";
 impl GetTxReceiptRequest {
 	pub fn new(tx_hash: H256, id: usize) -> Self {
 		Self {
@@ -240,7 +251,7 @@ pub struct GetBlockNumberRequest {
 }
 
 /// JSON-RPC method name for the request
-const METHOD_BLOCK: &'static str = "eth_blockNumber";
+const METHOD_BLOCK: &str = "eth_blockNumber";
 impl GetBlockNumberRequest {
 	pub fn new(id: usize) -> Self {
 		Self {
@@ -252,7 +263,7 @@ impl GetBlockNumberRequest {
 	}
 }
 
-const METHOD_GET_BLOCK_BY_NUMBER: &'static str = "eth_getBlockByNumber";
+const METHOD_GET_BLOCK_BY_NUMBER: &str = "eth_getBlockByNumber";
 /// Request for 'eth_blockNumber'
 #[derive(Serialize, Debug)]
 pub struct GetBlockByNumberRequest {
@@ -269,7 +280,7 @@ pub struct GetBlockByNumberRequest {
 
 /// JSON-RPC method name for the request
 impl GetBlockByNumberRequest {
-	pub fn new(id: usize, block_number: u64) -> Self {
+	pub fn new(id: usize, block_number: u32) -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_GET_BLOCK_BY_NUMBER,
@@ -278,7 +289,6 @@ impl GetBlockByNumberRequest {
 		}
 	}
 }
-
 
 // Serde deserialize hex string, expects prefix '0x'
 pub fn deserialize_hex<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
@@ -317,54 +327,22 @@ fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
-pub struct VerifyEventRequest {
+/// Info required to claim an Ethereum event happened
+pub struct EventClaim {
+	/// The ethereum transaction hash
 	pub tx_hash: EthHash,
-	pub timestamp: U256,
-	pub encoded_callback: Vec<u8>,
-	pub event_data: Vec<u8>,
+	/// The event data as logged on Ethereum
+	pub data: Vec<u8>,
+	/// Ethereum contract address
+	pub contract_address: EthAddress,
+	/// The contract event signature
+	pub event_signature: H256,
 }
 
 /// A bridge message id
-pub type MessageId = u64;
-
-/// A deposit event made by the CENNZnet bridge contract on Ethereum
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
-pub struct EthDepositEvent {
-	/// The ERC20 token address / type deposited
-	pub token_type: EthAddress,
-	/// The amount (in 'wei') of the deposit
-	pub amount: U256,
-	/// The CENNZnet beneficiary address
-	pub beneficiary: H256,
-}
-
-/// Something that can be decoded from eth log data/ ABI
-pub trait EthAbiDecode: Sized {
-	/// Decode `Self` from Eth log data
-	fn decode(data: &[u8]) -> Option<Self>;
-}
-
-impl EthAbiDecode for EthDepositEvent {
-	/// Receives Ethereum log 'data' and decodes it
-	fn decode(data: &[u8]) -> Option<Self> {
-		// we're expecting 4 fields in the log.data represented as a single &[u8] of
-		// concatenated `bytes32` / `U256`
-		// 32 * 4
-		if data.len() != 128 {
-			return None;
-		}
-		// Eth addresses are 20 bytes, the first 12 bytes are empty when encoded to log.data as a U256
-		let token_type = EthAddress::from_slice(&data[12..32]);
-		let amount = U256::from(&data[32..64]);
-		let beneficiary = H256::from_slice(&data[64..96]);
-
-		Some(Self {
-			token_type,
-			amount,
-			beneficiary,
-		})
-	}
-}
+pub type EventClaimId = u64;
+/// A bridge event type id
+pub type EventTypeId = u32;
 
 #[cfg(test)]
 mod tests {
