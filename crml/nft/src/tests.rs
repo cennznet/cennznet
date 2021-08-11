@@ -1760,3 +1760,24 @@ fn mint_additional_fails() {
 		);
 	});
 }
+
+#[test]
+fn get_collection_info() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		assert!(has_event(RawEvent::CreateCollection(
+			collection_id,
+			name.clone(),
+			owner
+		)));
+
+		let collection_info = CollectionInfo {
+			name,
+			owner,
+			royalties: vec![],
+		};
+		assert_eq!(Nft::collection_info::<AccountId>(collection_id), Some(collection_info));
+	});
+}

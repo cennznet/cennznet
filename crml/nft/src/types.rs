@@ -18,6 +18,8 @@
 use crate::Config;
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
@@ -30,7 +32,7 @@ pub enum MetadataBaseURI {
 	/// Its tokens' metdata will be available at `ipfs://<token_metadata_path>`
 	Ipfs,
 	/// Collection metadata is hosted by an HTTPS server
-	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metaata_path>`
+	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metadata_path>`
 	Https(Vec<u8>),
 }
 
@@ -43,8 +45,51 @@ pub type NFTAttributeTypeId = u8;
 /// Describes the data structure of an NFT class (attribute name, attribute type)
 pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 
+/// Contains information of a collection (collection name, collection owner, royalties)
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct CollectionInfo<AccountId> {
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
+	pub name: CollectionNameType,
+	pub owner: AccountId,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
+	pub royalties: Vec<(AccountId, Permill)>,
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_utf8<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+	let base64_str = core::str::from_utf8(v).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
+	s.serialize_str(&base64_str)
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
+	royalties: &Vec<(AccountId, Permill)>,
+	s: S,
+) -> Result<S::Ok, S::Error> {
+	let royalties: Vec<(&AccountId, String)> = royalties
+		.iter()
+		.map(|(account_id, per_mill)| {
+			let per_mill = format!("{:.6}", per_mill.deconstruct() as f32 / 1000000f32);
+			(account_id, per_mill)
+		})
+		.collect();
+	royalties.serialize(s)
+}
+
+/// Contains information for a particular token. Returns the attributes and owner
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct TokenInfo<AccountId> {
+	pub attributes: Vec<NFTAttributeValue>,
+	pub owner: AccountId,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
+	pub royalties: Vec<(AccountId, Permill)>,
+}
+
 /// The supported attribute data types for an NFT
-#[derive(Decode, Encode, Debug, Clone, PartialEq, VariantCount)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum NFTAttributeValue {
 	I32(i32),
 	U8(u8),
@@ -65,6 +110,32 @@ pub enum NFTAttributeValue {
 	Timestamp(u64),
 	/// attribute is a stringified URL
 	Url(Vec<u8>),
+}
+
+#[cfg(feature = "std")]
+impl Serialize for NFTAttributeValue {
+	fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+		match self {
+			Self::I32(val) => s.serialize_i32(*val),
+			Self::U8(val) => s.serialize_u8(*val),
+			Self::U16(val) => s.serialize_u16(*val),
+			Self::U32(val) => s.serialize_u32(*val),
+			Self::U64(val) | Self::Timestamp(val) => s.serialize_u64(*val),
+			Self::U128(val) => format!("{}", *val).serialize(s),
+			Self::Bytes32(val) | Self::Hash(val) => {
+				let val_str = format!("0x{}", hex::encode(val));
+				s.serialize_str(&val_str)
+			}
+			Self::String(val) | Self::Url(val) => {
+				let val_str = core::str::from_utf8(val).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
+				s.serialize_str(&val_str)
+			}
+			Self::Bytes(val) => {
+				let val_str = format!("0x{}", hex::encode(val));
+				s.serialize_str(&val_str)
+			}
+		}
+	}
 }
 
 impl NFTAttributeValue {
@@ -228,7 +299,9 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {
-	use super::{NFTAttributeValue, RoyaltiesSchedule};
+	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule, TokenInfo};
+	use crate::mock::{AccountId, ExtBuilder};
+	use serde_json;
 	use sp_runtime::Permill;
 
 	#[test]
@@ -272,5 +345,95 @@ mod test {
 			],
 		}
 		.validate());
+	}
+
+	#[test]
+	fn collection_info_should_serialize() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_name = b"test-collection".to_vec();
+			let collection_owner = 1_u64;
+			let royalties = RoyaltiesSchedule::<AccountId> {
+				entitlements: vec![
+					(3_u64, Permill::from_fraction(0.2)),
+					(4_u64, Permill::from_fraction(0.3)),
+				],
+			};
+			let collection_info = CollectionInfo {
+				name: collection_name,
+				owner: collection_owner,
+				royalties: royalties.entitlements,
+			};
+			let json_str = "{\
+				\"name\":\"test-collection\",\
+				\"owner\":1,\
+				\"royalties\":[\
+					[\
+						3,\
+						\"0.200000\"\
+					],\
+					[\
+						4,\
+						\"0.300000\"\
+					]\
+				]\
+			}";
+
+			assert_eq!(serde_json::to_string(&collection_info).unwrap(), json_str);
+		});
+	}
+
+	#[test]
+	fn token_info_should_serialize() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_owner = 1_u64;
+			let royalties = RoyaltiesSchedule::<AccountId> {
+				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+			};
+			let series_attributes = vec![
+				NFTAttributeValue::I32(500),
+				NFTAttributeValue::U8(100),
+				NFTAttributeValue::U16(500),
+				NFTAttributeValue::U32(500),
+				NFTAttributeValue::U64(500),
+				NFTAttributeValue::U128(500),
+				NFTAttributeValue::Bytes32([0x55; 32]),
+				NFTAttributeValue::Bytes(hex::decode("5000").unwrap()),
+				NFTAttributeValue::String(Vec::from("Test")),
+				NFTAttributeValue::Hash([0x55; 32]),
+				NFTAttributeValue::Timestamp(500),
+				NFTAttributeValue::Url(Vec::from("www.centrality.ai")),
+			];
+
+			let token_info = TokenInfo {
+				attributes: series_attributes,
+				owner: collection_owner,
+				royalties: royalties.entitlements,
+			};
+
+			let json_str = "{\
+				\"attributes\":[\
+				500,\
+				100,\
+				500,\
+				500,\
+				500,\
+				\"500\",\
+				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
+				\"0x5000\",\
+				\"Test\",\
+				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
+				500,\
+				\"www.centrality.ai\"],\
+				\"owner\":1,\
+				\"royalties\":[\
+					[\
+						3,\
+						\"0.200000\"\
+					]\
+				]\
+			}";
+
+			assert_eq!(serde_json::to_string(&token_info).unwrap(), json_str);
+		});
 	}
 }
