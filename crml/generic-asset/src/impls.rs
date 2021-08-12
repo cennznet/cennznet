@@ -175,7 +175,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		decimal_places: u8,
 		minimum_balance: u64,
 		symbol: Vec<u8>,
-	) -> Result<Self::CurrencyId, ()> {
+	) -> Result<Self::CurrencyId, DispatchError> {
 		let asset_id = <Module<T>>::next_asset_id();
 		let _ = <Module<T>>::create_asset(
 			None,
@@ -189,8 +189,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 				},
 			},
 			crate::types::AssetInfo::new(symbol, decimal_places, minimum_balance),
-		)
-		.map_err(|_err| ())?;
+		)?;
 
 		Ok(asset_id)
 	}

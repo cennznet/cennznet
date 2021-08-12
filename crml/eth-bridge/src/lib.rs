@@ -45,7 +45,6 @@ use frame_system::{
 	ensure_none,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
-use sp_core::{H160, H256};
 use sp_runtime::{
 	offchain as rt_offchain,
 	offchain::StorageKind,

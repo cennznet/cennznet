@@ -23,7 +23,7 @@
 // - 'balance' / 'value' / 'amount'
 // are used interchangeably as they make more sense in certain contexts.
 use frame_support::traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons};
-use sp_core::{H160, H256};
+pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Saturating},
 	DispatchError, DispatchResult,

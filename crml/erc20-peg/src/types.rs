@@ -13,10 +13,11 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 use codec::{Decode, Encode};
-pub use sp_core::{H160, H256, U256};
+pub use crml_support::{H160, H256, U256};
 use sp_std::convert::TryInto;
+use sp_std::prelude::*;
 
-/// Ethereum addres type
+/// Ethereum address type
 pub type EthAddress = H160;
 
 /// A deposit event made by the CENNZnet bridge contract on Ethereum
@@ -40,32 +41,29 @@ pub trait EthAbiCodec: Sized {
 // todo: could make a macro for this
 impl EthAbiCodec for Erc20DepositEvent {
 	fn encode(&self) -> Vec<u8> {
-		ethabi::encode(&[
-			ethabi::Token::Address(self.token_type),
-			ethabi::Token::Uint(self.amount),
-			ethabi::Token::FixedBytes(self.beneficiary.as_bytes().to_vec()),
-		])
+		vec![]
 	}
 	/// Receives Ethereum log 'data' and decodes it
 	fn decode(data: &[u8]) -> Option<Self> {
-		let tokens = ethabi::decode(
-			&[
-				ethabi::ParamType::Address,
-				ethabi::ParamType::Uint(256),
-				ethabi::ParamType::FixedBytes(32),
-			],
-			data,
-		)
-		.unwrap();
+		// let tokens = ethabi::decode(
+		// 	&[
+		// 		ethabi::ParamType::Address,
+		// 		ethabi::ParamType::Uint(256),
+		// 		ethabi::ParamType::FixedBytes(32),
+		// 	],
+		// 	data,
+		// )
+		// .unwrap();
 
-		let token_type = tokens[0].clone().into_address()?;
-		let amount = tokens[1].clone().into_uint()?;
-		let beneficiary: [u8; 32] = tokens[2].clone().into_fixed_bytes()?.try_into().unwrap();
+		// let token_type = tokens[0].clone().into_address()?;
+		// let amount = tokens[1].clone().into_uint()?;
+		// let beneficiary: [u8; 32] = tokens[2].clone().into_fixed_bytes()?.try_into().unwrap();
 
-		Some(Self {
-			token_type,
-			amount,
-			beneficiary: beneficiary.into(),
-		})
+		// Some(Self {
+		// 	token_type,
+		// 	amount,
+		// 	beneficiary: beneficiary.into(),
+		// })
+		None
 	}
 }

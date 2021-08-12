@@ -22,7 +22,7 @@ contract CENNZnetBridge is Ownable {
     // withdrawal fee, offsets bridge upkeep costs
     uint withdrawalFee = 1e14;
 
-    event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress, uint256 timestamp);
+    event Deposit(address indexed, address tokenType, uint256 amount, bytes32 cennznetAddress);
     event Withdraw(address indexed, address tokenType, uint256 amount);
     event SetValidators(address[], uint reward);
 
@@ -32,7 +32,7 @@ contract CENNZnetBridge is Ownable {
         require(depositsActive, "deposits paused");
         require(IERC20(tokenType).transferFrom(msg.sender, address(this), amount), "deposit failed");
 
-        emit Deposit(msg.sender, tokenType, amount, cennznetAddress, block.timestamp);
+        emit Deposit(msg.sender, tokenType, amount, cennznetAddress);
     }
 
     // Withdraw tokens from this contract

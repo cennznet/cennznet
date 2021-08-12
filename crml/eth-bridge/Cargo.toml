@@ -8,19 +8,17 @@ license = "GPL-3.0"
 
 [dependencies]
 parking_lot = "0.11"
-codec = { version = "2.2.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 ethereum-types = { version = "0.12", default-features = false, features = ["serialize", "codec"] }
 
 cennznet-primitives = { path = "../../primitives", default-features = false }
-primitive-types = { version = "0.9.0", default-features = false, features = ["impl-codec", "impl-serde"] }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
@@ -36,9 +34,7 @@ std = [
 	"crml-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"primitive-types/std",
 	"sp-application-crypto/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std"

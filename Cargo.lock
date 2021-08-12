@@ -733,6 +733,7 @@ dependencies = [
  "crml-generic-asset-rpc",
  "crml-nft-rpc",
  "crml-staking-rpc",
+ "crml-support",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc",
  "frame-benchmarking",
@@ -808,6 +809,7 @@ dependencies = [
  "crml-attestation",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-erc20-peg",
  "crml-eth-bridge",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
@@ -1221,12 +1223,9 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
- "ethabi",
- "ethereum-types 0.12.0",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "primitive-types 0.9.0",
  "serde",
  "sp-core",
  "sp-runtime",
@@ -1239,16 +1238,14 @@ version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
- "ethereum-types 0.12.0",
+ "ethereum-types",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "parking_lot 0.11.1",
- "primitive-types 0.9.0",
  "serde",
  "serde_json",
  "sp-application-crypto",
- "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -1437,10 +1434,11 @@ version = "2.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "getrandom 0.2.3",
  "impl-trait-for-tuples",
  "parity-scale-codec",
+ "primitive-types 0.10.1",
  "serde",
- "sp-core",
  "sp-runtime",
  "sp-std",
 ]
@@ -1912,22 +1910,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethabi"
-version = "14.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a01317735d563b3bad2d5f90d2e1799f414165408251abb762510f40e790e69a"
-dependencies = [
- "anyhow",
- "ethereum-types 0.11.0",
- "hex",
- "serde",
- "serde_json",
- "sha3",
- "thiserror",
- "uint",
-]
-
-[[package]]
 name = "ethbloom"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1936,23 +1918,8 @@ dependencies = [
  "crunchy",
  "fixed-hash",
  "impl-codec",
- "impl-rlp",
  "impl-serde",
  "tiny-keccak",
-]
-
-[[package]]
-name = "ethereum-types"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64b5df66a228d85e4b17e5d6c6aa43b0310898ffe8a85988c4c032357aaabfd"
-dependencies = [
- "ethbloom",
- "fixed-hash",
- "impl-rlp",
- "impl-serde",
- "primitive-types 0.9.0",
- "uint",
 ]
 
 [[package]]
@@ -2565,8 +2532,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2974,15 +2943,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "161ebdfec3c8e3b52bf61c4f3550a1eea4f9579d10dc1b936f3171ebdcd6c443"
 dependencies = [
  "parity-scale-codec",
-]
-
-[[package]]
-name = "impl-rlp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
-dependencies = [
- "rlp",
 ]
 
 [[package]]
@@ -5097,7 +5057,6 @@ checksum = "2415937401cb030a2a0a4d922483f945fa068f52a7dbb22ce0fe5f2b6f6adace"
 dependencies = [
  "fixed-hash",
  "impl-codec",
- "impl-rlp",
  "impl-serde",
  "uint",
 ]
@@ -5648,16 +5607,6 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "rlp"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "999508abb0ae792aabed2460c45b89106d97fe4adac593bdaef433c2605847b5"
-dependencies = [
- "bytes 1.0.1",
- "rustc-hex",
 ]
 
 [[package]]

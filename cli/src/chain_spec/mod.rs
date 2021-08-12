@@ -19,18 +19,19 @@
 use cennznet_primitives::types::Block;
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, EthBridgeConfig, FeeRate, GenericAssetConfig,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, Erc20PegConfig, FeeRate, GenericAssetConfig,
 	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
 use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
+use crml_support::H160;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{sr25519, Pair, Public, H160};
+use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -434,7 +435,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			// 80% APY
 			inflation_rate: FixedU128::saturating_from_rational(8, 10),
 		}),
-		crml_eth_bridge: Some(EthBridgeConfig { erc20s }),
+		crml_erc20_peg: Some(Erc20PegConfig { erc20s }),
 	}
 }
 

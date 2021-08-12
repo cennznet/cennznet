@@ -69,6 +69,7 @@ crml-generic-asset = { path = "../crml/generic-asset" }
 crml-generic-asset-rpc = { path = "../crml/generic-asset/rpc" }
 crml-nft-rpc = { path = "../crml/nft/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
+crml-support = { path = "../crml/support" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 

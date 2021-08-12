@@ -7,13 +7,10 @@ description = "Module for bridging ERC20 tokens"
 license = "GPL-3.0"
 
 [dependencies]
-codec = { version = "2.2.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.126", default-features = false, optional = true }
-ethereum-types = { version = "0.12", default-features = false, features = ["serialize", "codec"] }
-ethabi = { version = "14.1.0", default-features = false }
 
 cennznet-primitives = { path = "../../primitives", default-features = false }
-primitive-types = { version = "0.9.0", default-features = false, features = ["impl-codec", "impl-serde"] }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
@@ -28,12 +25,10 @@ default = ["std"]
 std = [
 	"codec/std",
 	"serde",
-	"ethereum-types/std",
 	"cennznet-primitives/std",
 	"crml-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"primitive-types/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std"

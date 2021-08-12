@@ -8,7 +8,7 @@ repository = "https://github.com/cennznet/cennznet"
 description = "A runtime module for managing ERC-20 like fungible assets"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
