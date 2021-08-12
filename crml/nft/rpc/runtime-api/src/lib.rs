@@ -18,19 +18,29 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Codec;
-use crml_nft::{CollectionId, TokenId};
+use codec::{Codec, Decode, Encode};
+use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
 	pub trait NftApi<AccountId> where
-		AccountId: Codec,
+		AccountId: Codec + Decode + Encode,
 	{
 		/// Find all the tokens owned by `who` in a given collection
 		fn collected_tokens(
 			collection_id: CollectionId,
 			who: AccountId,
 		) -> Vec<TokenId>;
+
+		/// Get collection info from a given collection
+		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>>;
+
+		/// Get information of given token
+		fn token_info(
+		   collection_id: CollectionId,
+		   series_id: SeriesId,
+		   serial_number: SerialNumber,
+		) -> TokenInfo<AccountId>;
 	}
 }
