@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod types;
-use types::*;
+pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
@@ -79,7 +79,9 @@ decl_error! {
 		/// Reached the min. number of elected councilors
 		MinCouncilReached,
 		/// Proposal was not found
-		ProposalMissing
+		ProposalMissing,
+		/// Cannot vote twice
+		DoubleVote
 	}
 }
 
@@ -155,7 +157,11 @@ decl_module! {
 
 			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			let mut votes = Self::proposal_votes(proposal_id);
-			votes.record_vote(voter_idx.unwrap() as u8, vote);
+
+			let voter_idx = voter_idx.unwrap() as u8;
+			ensure!(votes.get_vote(voter_idx).is_none(), Error::<T>::DoubleVote);
+
+			votes.record_vote(voter_idx, vote);
 			let tally = votes.count_votes();
 			ProposalVotes::insert(proposal_id, votes);
 
@@ -268,5 +274,16 @@ decl_module! {
 			ensure_root(origin)?;
 			ProposalBond::put(new_proposal_bond);
 		}
+	}
+}
+
+impl<T: Config> Module<T> {
+	/// Return current council members
+	pub fn get_council() -> Vec<T::AccountId> {
+		Self::council()
+	}
+	/// Return all vote information on active proposals
+	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
+		ProposalVotes::iter().collect()
 	}
 }

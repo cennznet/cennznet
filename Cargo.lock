@@ -731,6 +731,7 @@ dependencies = [
  "crml-eth-bridge",
  "crml-generic-asset",
  "crml-generic-asset-rpc",
+ "crml-governance-rpc",
  "crml-nft-rpc",
  "crml-staking-rpc",
  "crml-support",
@@ -814,6 +815,7 @@ dependencies = [
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
  "crml-governance",
+ "crml-governance-rpc-runtime-api",
  "crml-nft",
  "crml-nft-rpc-runtime-api",
  "crml-staking",
@@ -1308,6 +1310,34 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-governance-rpc"
+version = "2.0.0"
+dependencies = [
+ "crml-governance",
+ "crml-governance-rpc-runtime-api",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "sc-client-db",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "crml-governance-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "crml-governance",
+ "parity-scale-codec",
+ "sp-api",
  "sp-std",
 ]
 

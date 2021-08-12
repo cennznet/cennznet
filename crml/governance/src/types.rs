@@ -68,6 +68,24 @@ impl ProposalVoteInfo {
 	pub fn vote_bits(&self) -> (u128, u128) {
 		self.vote_bits
 	}
+	/// Return the vote of the voter at `index`
+	/// Some(vote) or None if they haven't voted
+	pub fn get_vote(&self, index: u8) -> Option<bool> {
+		match index {
+			0..=127 => {
+				if (self.active_bits.0 & (1 << index)) > 0 {
+					return Some((self.vote_bits.0 & (1 << index)) > 0);
+				}
+			}
+			128..=255 => {
+				let index = index - 128;
+				if (self.active_bits.1 & (1 << index)) > 0 {
+					return Some((self.vote_bits.1 & (1 << index)) > 0);
+				}
+			}
+		}
+		None
+	}
 	/// Record a vote for or against for council member at `index`
 	pub fn record_vote(&mut self, index: u8, vote: bool) {
 		// bitfields has max capacity for votes up to u8 / 255
@@ -187,6 +205,11 @@ mod tests {
 		assert_eq!(votes.vote_bits().0, 1_u128 << 127);
 		votes.record_vote(0, true);
 		assert_eq!(votes.vote_bits().0, (1_u128 << 127) + 1);
+
+		let mut votes = ProposalVoteInfo::default();
+		votes.record_vote(1, false);
+		println!("{}", votes.active_bits.0);
+		assert_eq!(votes.active_bits().0, (1_u128 << 1));
 	}
 
 	#[test]
@@ -220,5 +243,18 @@ mod tests {
 		votes.record_vote(1_u8, false);
 		votes.record_vote(2_u8, true);
 		assert_eq!(votes.count_votes(), CouncilVoteCount { yes: 2, no: 1 });
+	}
+
+	#[test]
+	fn get_votes() {
+		let mut votes = ProposalVoteInfo::default();
+		votes.record_vote(0_u8, true);
+		votes.record_vote(1_u8, false);
+		votes.record_vote(2_u8, true);
+
+		assert_eq!(votes.get_vote(0), Some(true));
+		assert_eq!(votes.get_vote(1), Some(false));
+		assert_eq!(votes.get_vote(2), Some(true));
+		assert_eq!(votes.get_vote(3), None);
 	}
 }
