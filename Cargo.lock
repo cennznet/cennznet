@@ -4738,7 +4738,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-util-mem-derive",
  "parking_lot 0.11.1",
- "primitive-types 0.9.0",
+ "primitive-types 0.9.1",
  "smallvec 1.6.1",
  "winapi 0.3.9",
 ]
@@ -5082,9 +5082,9 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "primitive-types"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2415937401cb030a2a0a4d922483f945fa068f52a7dbb22ce0fe5f2b6f6adace"
+checksum = "06345ee39fbccfb06ab45f3a1a5798d9dafa04cb8921a76d227040003a234b0e"
 dependencies = [
  "fixed-hash",
  "impl-codec",
@@ -7343,7 +7343,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "parking_lot 0.11.1",
- "primitive-types 0.9.0",
+ "primitive-types 0.9.1",
  "rand 0.7.3",
  "regex",
  "schnorrkel",
@@ -7565,7 +7565,7 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#c
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types 0.9.0",
+ "primitive-types 0.9.1",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
  "sp-std",
