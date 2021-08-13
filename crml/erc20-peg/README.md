@@ -42,6 +42,19 @@ npx hardhat node
 yarn deploy
 ```
 
+`yarn deploy` will send a test deposit of `123` to CENNZnet address: `0xacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10` e.g.
+
+```bash
+eth_sendTransaction
+  Contract call:       CENNZnetBridge#deposit
+  Transaction:         0xbf36caa71a9c2b6e6713e1ebfa831c870d3bc63e5db297837fbc0bd2ed2f9f89
+  From:                0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+  To:                  0x5fbdb2315678afecb367f032d93f642f64180aa3
+  Value:               0 ETH
+  Gas used:            52014 of 67048
+  Block #5:            0x6ed3fe2ccc6746012d0bd6d2f36ce5026088357f716bd48f21518a020682c217
+```
+
 ## Other
 Example CENNZnet account for accepting ERC20 deposits
 ```
@@ -126,10 +139,10 @@ yolo: 0xbe4d356d1C68E22aFeE70B4510ec8b31e389c759
 
 ## submit claim
 ```js
-    let depositTxHash = "0x18d8416388a673afec2b0b8b56f2bd47d155b1cd0a4287414a823bfeb58a6b77";
+    let depositTxHash = "0xbf36caa71a9c2b6e6713e1ebfa831c870d3bc63e5db297837fbc0bd2ed2f9f89";
     let claim = {
-         address: "0x1215b4ec8161b7959a115805bf980e57a085c3e5",
-         amount: "1234",
+         tokenAddress: "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+         amount: "123",
          beneficiary: "0xacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10"
     };
     let result = await api.tx.erc20Peg.depositClaim(depositTxHash, claim).signAndSend(toyKeyring.alice);

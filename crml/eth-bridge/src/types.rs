@@ -24,6 +24,39 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
 
+/// A bridge message id
+pub type EventClaimId = u64;
+/// A bridge event type id
+pub type EventTypeId = u32;
+
+type Index = U64;
+/// The ethereum block number data type
+pub type EthBlockNumber = U64;
+/// The ethereum address data type
+pub type EthAddress = H160;
+/// The ethereum transaction hash type
+pub type EthHash = H256;
+
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
+/// Info required to claim an Ethereum event happened
+pub struct EventClaim {
+	/// The ethereum transaction hash
+	pub tx_hash: EthHash,
+	/// The event data as logged on Ethereum
+	pub data: Vec<u8>,
+	/// Ethereum contract address
+	pub contract_address: EthAddress,
+	/// The contract event signature
+	pub event_signature: H256,
+}
+/// Something that proxies results from Ethereum RPC API
+pub trait EthereumHttpApi {
+	/// Returns an ethereum block given a block height
+	fn get_block_by_number(height: u32) -> EthBlock;
+	/// Returns an ethereum transaction receipt given a tx hash
+	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt;
+}
+
 /// Possible outcomes from attempting to verify an Ethereum event claim
 #[derive(Decode, Encode, Debug, PartialEq, Clone)]
 pub enum EventClaimResult {
@@ -71,21 +104,6 @@ pub struct HandlerConfig {
 	/// Encoded call type `T::Call`
 	pub encoded_callback: Vec<u8>,
 }
-
-/// A type of Ethereum message supported by the bridge
-#[derive(Encode, Decode, PartialEq, Clone)]
-pub enum MessageType {
-	/// A message for an ERC-20 deposit claim
-	Erc20Deposit,
-}
-
-type Index = U64;
-/// The ethereum block number data type
-pub type EthBlockNumber = U64;
-/// The ethereum address data type
-pub type EthAddress = H160;
-/// The ethereum transaction hash type
-pub type EthHash = H256;
 
 /// Log
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Default)]
@@ -236,33 +254,6 @@ impl GetTxReceiptRequest {
 	}
 }
 
-/// Request for 'eth_blockNumber'
-#[derive(Serialize, Debug)]
-pub struct GetBlockNumberRequest {
-	#[serde(rename = "jsonrpc")]
-	/// The version of the JSON RPC spec
-	pub json_rpc: &'static str,
-	/// The method which is called
-	pub method: &'static str,
-	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: Vec<u8>,
-	/// The id for the request
-	pub id: usize,
-}
-
-/// JSON-RPC method name for the request
-const METHOD_BLOCK: &str = "eth_blockNumber";
-impl GetBlockNumberRequest {
-	pub fn new(id: usize) -> Self {
-		Self {
-			json_rpc: JSONRPC,
-			method: METHOD_BLOCK,
-			params: Default::default(),
-			id,
-		}
-	}
-}
-
 const METHOD_GET_BLOCK_BY_NUMBER: &str = "eth_getBlockByNumber";
 /// Request for 'eth_blockNumber'
 #[derive(Serialize, Debug)]
@@ -272,10 +263,25 @@ pub struct GetBlockByNumberRequest {
 	pub json_rpc: &'static str,
 	/// The method which is called
 	pub method: &'static str,
-	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: Vec<u32>,
+	/// Arguments supplied to the method. (blockNumber, fullTxData?)
+	#[serde(serialize_with = "serialize_params")]
+	pub params: (u32, bool),
 	/// The id for the request
 	pub id: usize,
+}
+
+/// Serializes the parameters for `GetBlockByNumberRequest`
+pub fn serialize_params<S: serde::Serializer>(v: &(u32, bool), s: S) -> Result<S::Ok, S::Error> {
+	use core::fmt::Write;
+	use serde::ser::SerializeTuple;
+	// Ethereum JSON RPC API expects the block number as a hex string
+	let mut hex_block_number = sp_std::Writer::default();
+	write!(&mut hex_block_number, "{:#x}", v.0).expect("valid bytes");
+	let mut tup = s.serialize_tuple(2)?;
+	// this should always be valid utf8
+	tup.serialize_element(&core::str::from_utf8(hex_block_number.inner()).expect("valid bytes"))?;
+	tup.serialize_element(&v.1)?;
+	tup.end()
 }
 
 /// JSON-RPC method name for the request
@@ -284,7 +290,7 @@ impl GetBlockByNumberRequest {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_GET_BLOCK_BY_NUMBER,
-			params: vec![block_number],
+			params: (block_number, false), // `false` = return tx hashes not full tx data
 			id,
 		}
 	}
@@ -325,24 +331,6 @@ fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 		.map(|i| u8::from_str_radix(&s[i..i + 2], 16))
 		.collect()
 }
-
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
-/// Info required to claim an Ethereum event happened
-pub struct EventClaim {
-	/// The ethereum transaction hash
-	pub tx_hash: EthHash,
-	/// The event data as logged on Ethereum
-	pub data: Vec<u8>,
-	/// Ethereum contract address
-	pub contract_address: EthAddress,
-	/// The contract event signature
-	pub event_signature: H256,
-}
-
-/// A bridge message id
-pub type EventClaimId = u64;
-/// A bridge event type id
-pub type EventTypeId = u32;
 
 #[cfg(test)]
 mod tests {
@@ -428,12 +416,6 @@ mod tests {
 	}
 
 	#[test]
-	fn deserialize_log_data() {
-		let data = decode_hex("000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512000000000000000000000000000000000000000000000000000000000000007bacd6118e217e552ba801f7aa8a934ea6a300a5b394e7c3f42cd9d6dd9a457c10").expect("it's valid hex");
-		assert!(EthDepositEvent::decode(&data).is_some());
-	}
-
-	#[test]
 	fn deserialize_null_response_as_none() {
 		assert_eq!(
 			serde_json::from_str::<EthResponse<EthBlockNumber>>(r#"{"jsonrpc":"2.0","id":1,"result":null}"#).unwrap(),
@@ -443,5 +425,19 @@ mod tests {
 				result: None,
 			}
 		);
+	}
+
+	#[test]
+	fn serialize_get_block_by_number_request() {
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x37",false],"id":1}"#;
+		let result = serde_json::to_string(&GetBlockByNumberRequest::new(1, 55)).unwrap();
+		assert_eq!(expected, result);
+	}
+
+	#[test]
+	fn serialize_get_block_by_number_request_max() {
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffe",false],"id":1}"#;
+		let result = serde_json::to_string(&GetBlockByNumberRequest::new(1, u32::MAX - 1)).unwrap();
+		assert_eq!(expected, result);
 	}
 }

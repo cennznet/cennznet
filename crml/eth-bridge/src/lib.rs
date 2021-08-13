@@ -465,7 +465,9 @@ impl<T: Config> Module<T> {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
 		// claim is past the expiration deadline
-		if T::UnixTime::now().as_millis().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
+		// eth. block timestamp (seconds)
+		// deadline (seconds)
+		if T::UnixTime::now().as_secs().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
 			> T::EventDeadline::get()
 		{
 			return EventClaimResult::Expired;

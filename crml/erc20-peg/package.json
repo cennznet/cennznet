@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rm -rf artifacts & hardhat compile",
     "deploy": "hardhat run --network localhost deploy.js",
+    "deposit": "hardhat run --network localhost deposit.js",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\", \"esModuleInterop\": true, \"resolveJsonModule\": true, \"types\": [\"@types/mocha\"] }' mocha -r ts-node/register 'test/**/*.ts'"
   },
   "repository": {

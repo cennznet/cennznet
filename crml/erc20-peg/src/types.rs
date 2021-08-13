@@ -24,7 +24,7 @@ pub type EthAddress = H160;
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
 pub struct Erc20DepositEvent {
 	/// The ERC20 token address / type deposited
-	pub token_type: EthAddress,
+	pub token_address: EthAddress,
 	/// The amount (in 'wei') of the deposit
 	pub amount: U256,
 	/// The CENNZnet beneficiary address
@@ -32,38 +32,77 @@ pub struct Erc20DepositEvent {
 }
 
 /// Something that can be decoded from eth log data/ ABI
+/// TODO: ethabi crate would be better for this however none support `no_std`
 pub trait EthAbiCodec: Sized {
 	fn encode(&self) -> Vec<u8>;
 	/// Decode `Self` from Eth log data
 	fn decode(data: &[u8]) -> Option<Self>;
 }
 
-// todo: could make a macro for this
 impl EthAbiCodec for Erc20DepositEvent {
+	/// Encode `ERC20DepositEvent` into 32-byte words
+	/// https://docs.soliditylang.org/en/v0.5.3/abi-spec.html#formal-specification-of-the-encoding
 	fn encode(&self) -> Vec<u8> {
-		vec![]
+		let mut buf = [0_u8; 32 * 3];
+		buf[12..32].copy_from_slice(&self.token_address.to_fixed_bytes());
+		buf[32..64].copy_from_slice(&Into::<[u8; 32]>::into(self.amount));
+		buf[64..96].copy_from_slice(&self.beneficiary.to_fixed_bytes());
+		buf.to_vec()
 	}
 	/// Receives Ethereum log 'data' and decodes it
 	fn decode(data: &[u8]) -> Option<Self> {
-		// let tokens = ethabi::decode(
-		// 	&[
-		// 		ethabi::ParamType::Address,
-		// 		ethabi::ParamType::Uint(256),
-		// 		ethabi::ParamType::FixedBytes(32),
-		// 	],
-		// 	data,
-		// )
-		// .unwrap();
+		// Expect 3 words of data
+		if data.len() != 3 * 32 {
+			return None;
+		}
+		let token_address = H160::from(&data[12..32].try_into().expect("20 bytes decode"));
+		let amount = data[32..64].into();
+		let beneficiary = H256::from(&data[64..96].try_into().expect("32 bytes decode"));
 
-		// let token_type = tokens[0].clone().into_address()?;
-		// let amount = tokens[1].clone().into_uint()?;
-		// let beneficiary: [u8; 32] = tokens[2].clone().into_fixed_bytes()?.try_into().unwrap();
+		Some(Self {
+			token_address,
+			amount,
+			beneficiary,
+		})
+	}
+}
 
-		// Some(Self {
-		// 	token_type,
-		// 	amount,
-		// 	beneficiary: beneficiary.into(),
-		// })
-		None
+#[cfg(test)]
+mod test {
+	use super::{Erc20DepositEvent, EthAbiCodec};
+	use crml_support::{H160, H256, U256};
+
+	#[test]
+	fn deposit_event_encode() {
+		let event = Erc20DepositEvent {
+			token_address: H160::from_low_u64_be(55),
+			amount: U256::from(123),
+			beneficiary: H256::from_low_u64_be(77),
+		};
+		assert_eq!(
+			event.encode(),
+			vec![
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77
+			]
+		);
+	}
+
+	#[test]
+	fn deposit_event_decode() {
+		let raw = vec![
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77,
+		];
+		assert_eq!(
+			Erc20DepositEvent::decode(&raw).expect("it decodes"),
+			Erc20DepositEvent {
+				token_address: H160::from_low_u64_be(55),
+				amount: U256::from(123),
+				beneficiary: H256::from_low_u64_be(77),
+			}
+		);
 	}
 }

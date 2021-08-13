@@ -19,7 +19,7 @@ use cennznet_primitives::types::{AssetId, Balance};
 use codec::Decode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, log, traits::Get, weights::Weight};
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchError, ModuleId,
@@ -46,6 +46,8 @@ pub trait Config: frame_system::Config {
 
 decl_storage! {
 	trait Store for Module<T: Config> as Erc20Peg {
+		/// Wether deposit are active
+		DepositsActive get(fn deposits_active): bool;
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
@@ -86,6 +88,8 @@ decl_error! {
 		InvalidAddress,
 		/// Claim has bad amount
 		InvalidAmount,
+		/// Deposits are inactive
+		DepositsPaused
 	}
 }
 
@@ -93,6 +97,13 @@ decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
 		fn deposit_event() = default;
+
+		/// Activate/deactivate deposits (root only)
+		#[weight = 10_000_000]
+		pub fn activate_deposits(origin, activate: bool) {
+			ensure_root(origin)?;
+			DepositsActive::put(activate);
+		}
 
 		#[weight = 50_000_000]
 		/// Submit deposit claim for an ethereum tx hash
@@ -102,6 +113,7 @@ decl_module! {
 			// Note: require caller to provide the `claim` so we don't need to handle the-
 			// complexities of notaries reporting differing deposit events
 			let origin = ensure_signed(origin)?;
+			ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
 			// fail a claim early for an amount that is too large
 			ensure!(claim.amount < U256::from(u128::max_value()), Error::<T>::InvalidAmount);
 			// fail a claim if beneficiary is not a valid CENNZnet address
@@ -123,12 +135,13 @@ decl_module! {
 impl<T: Config> Module<T> {
 	/// fulfil a deposit claim for the given event
 	pub fn do_deposit(verified_event: Erc20DepositEvent) -> Result<(AssetId, Balance, T::AccountId), DispatchError> {
-		let asset_id = match Self::erc20_to_asset(verified_event.token_type) {
+		let asset_id = match Self::erc20_to_asset(verified_event.token_address) {
 			None => {
 				// create asset with known values from `Erc20Meta`
 				// asset will be created with `18` decimal places and "" for symbol if the asset is unknown
 				// dapps can also use `AssetToERC20` to retrieve the appropriate decimal places from ethereum
-				let (symbol, decimals) = Erc20Meta::get(verified_event.token_type).unwrap_or((Default::default(), 18));
+				let (symbol, decimals) =
+					Erc20Meta::get(verified_event.token_address).unwrap_or((Default::default(), 18));
 				let asset_id = T::MultiCurrency::create(
 					&T::PegModuleId::get().into_account(),
 					Zero::zero(), // 0 initial supply
@@ -137,8 +150,8 @@ impl<T: Config> Module<T> {
 					symbol,
 				)
 				.map_err(|_| Error::<T>::CreateAssetFailed)?;
-				Erc20ToAssetId::insert(verified_event.token_type, asset_id);
-				AssetIdToErc20::insert(asset_id, verified_event.token_type);
+				Erc20ToAssetId::insert(verified_event.token_address, asset_id);
+				AssetIdToErc20::insert(asset_id, verified_event.token_address);
 
 				asset_id
 			}
