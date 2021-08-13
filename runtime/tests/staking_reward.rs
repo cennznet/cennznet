@@ -167,7 +167,7 @@ fn staking_genesis_config_works() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-			for (stash, controller, _, _, _, _) in validators {
+			for (stash, controller, _, _, _, _, _) in validators {
 				// Check validator is included in current elected accounts
 				assert!(Session::validators().contains(&stash));
 				// Check that RewardDestination is Stash (default)
@@ -365,7 +365,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 			advance_session();
 
 			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
-			for (stash, _, _, _, _, _) in &validators {
+			for (stash, _, _, _, _, _, _) in &validators {
 				assert_eq!(
 					RewardCurrency::free_balance(stash),
 					initial_balance + per_validator_reward_era_1,
@@ -422,7 +422,7 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 			// skip a few blocks to ensure payouts are made
 			advance_session();
 
-			for (stash, _controller, _, _, _, _) in &validators {
+			for (stash, _controller, _, _, _, _, _) in &validators {
 				if stash == &author_stash_id {
 					assert_eq!(
 						RewardCurrency::free_balance(&stash),

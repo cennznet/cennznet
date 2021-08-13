@@ -582,6 +582,7 @@ mod tests {
 					..
 				} = new_full_base(
 					config,
+					None,
 					|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
 					 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 						setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -759,7 +760,7 @@ mod tests {
 					network,
 					transaction_pool,
 					..
-				} = new_full_base(config, |_, _| ())?;
+				} = new_full_base(config, None, |_, _| ())?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,

@@ -18,7 +18,7 @@
 use cennznet_primitives::types::{AssetId, Balance};
 use codec::Decode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, log, traits::Get, weights::Weight};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, log, traits::Get};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},

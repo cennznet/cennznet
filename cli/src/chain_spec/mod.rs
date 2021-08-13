@@ -442,9 +442,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::service::{new_full_base, new_light_base, NewFullBase};
 	use sc_service::ChainType;
-	use sc_service_test;
 	use sp_runtime::BuildStorage;
 
 	fn local_testnet_genesis_instant_single() -> GenesisConfig {
@@ -510,38 +508,6 @@ pub(crate) mod tests {
 			None,
 			Default::default(),
 		)
-	}
-
-	#[test]
-	#[ignore]
-	fn test_connectivity() {
-		sc_service_test::connectivity(
-			integration_test_config_with_two_authorities(),
-			|config| {
-				let NewFullBase {
-					task_manager,
-					client,
-					network,
-					transaction_pool,
-					..
-				} = new_full_base(config, |_, _| ())?;
-				Ok(sc_service_test::TestNetComponents::new(
-					task_manager,
-					client,
-					network,
-					transaction_pool,
-				))
-			},
-			|config| {
-				let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
-				Ok(sc_service_test::TestNetComponents::new(
-					keep_alive,
-					client,
-					network,
-					transaction_pool,
-				))
-			},
-		);
 	}
 
 	#[test]
