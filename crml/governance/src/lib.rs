@@ -112,9 +112,6 @@ decl_module! {
 		#[weight = 1_000_000]
 		/// Submit a proposal for consideration by the council
 		/// Caller must be a council member
-		/// - `call` the onchain proposal payload
-		/// - `enactment_delay` delay in blocks to execute the proposal after a passing vote
-		/// - ``
 		fn submit_proposal(
 			origin,
 			call: Vec<u8>,

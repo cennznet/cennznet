@@ -10,7 +10,7 @@ description = "Common crml types and traits"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"], optional = true}
-primitive-types = {version = "0.9.0", default-features = false, features = ["impl-codec", "impl-serde"] }
+primitive-types = {version = "0.10.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
 frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }

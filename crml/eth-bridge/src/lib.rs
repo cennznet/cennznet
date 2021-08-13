@@ -186,7 +186,7 @@ decl_module! {
 			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
-				let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
 				let expired_bucket_index = (now - T::EventDeadline::get()) % BUCKET_FACTOR_S;
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
@@ -257,7 +257,7 @@ decl_module! {
 				let event_data = event_data.unwrap();
 
 				// note this tx as completed
-				let bucket_index = T::UnixTime::now().as_millis().saturated_into::<u64>() % BUCKET_FACTOR_S;
+				let bucket_index = T::UnixTime::now().as_secs().saturated_into::<u64>() % BUCKET_FACTOR_S;
 				ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
 				ProcessedTxHashes::insert(eth_tx_hash, ());
 				Self::deposit_event(Event::Verified(payload.event_claim_id));
@@ -268,7 +268,6 @@ decl_module! {
 
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			// TODO: remove this
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
 			// check local `key` is a valid bridge notary
