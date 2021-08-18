@@ -728,11 +728,13 @@ dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
+ "crml-eth-bridge",
  "crml-generic-asset",
  "crml-generic-asset-rpc",
  "crml-governance-rpc",
  "crml-nft-rpc",
  "crml-staking-rpc",
+ "crml-support",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc",
  "frame-benchmarking",
@@ -784,6 +786,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "tempfile",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -807,6 +810,8 @@ dependencies = [
  "crml-attestation",
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
+ "crml-erc20-peg",
+ "crml-eth-bridge",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
  "crml-governance",
@@ -1215,6 +1220,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-erc20-peg"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-eth-bridge"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "ethereum-types",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "parity-scale-codec",
+ "parking_lot 0.11.1",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "crml-generic-asset"
 version = "2.0.0"
 dependencies = [
@@ -1425,7 +1465,10 @@ version = "2.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "getrandom 0.2.3",
+ "impl-trait-for-tuples",
  "parity-scale-codec",
+ "primitive-types 0.10.1",
  "serde",
  "sp-runtime",
  "sp-std",
@@ -1895,6 +1938,33 @@ checksum = "14ca354e36190500e1e1fb267c647932382b54053c50b14970856c0b00a35067"
 dependencies = [
  "gcc",
  "libc",
+]
+
+[[package]]
+name = "ethbloom"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "779864b9c7f7ead1f092972c3257496c6a84b46dba2ce131dd8a282cb2cc5972"
+dependencies = [
+ "crunchy",
+ "fixed-hash",
+ "impl-codec",
+ "impl-serde",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dd6bde671199089e601e8d47e153368b893ef885f11f365a3261ec58153c211"
+dependencies = [
+ "ethbloom",
+ "fixed-hash",
+ "impl-codec",
+ "impl-serde",
+ "primitive-types 0.10.1",
+ "uint",
 ]
 
 [[package]]
@@ -2493,8 +2563,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2897,9 +2969,9 @@ dependencies = [
 
 [[package]]
 name = "impl-codec"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df170efa359aebdd5cb7fe78edcc67107748e4737bdca8a8fb40d15ea7a877ed"
+checksum = "161ebdfec3c8e3b52bf61c4f3550a1eea4f9579d10dc1b936f3171ebdcd6c443"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -4606,24 +4678,25 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0f518afaa5a47d0d6386229b0a6e01e86427291d643aa4cabb4992219f504f8"
+checksum = "8975095a2a03bbbdc70a74ab11a4f76a6d0b84680d87c68d722531b0ac28e8a9"
 dependencies = [
  "arrayvec 0.7.1",
  "bitvec",
  "byte-slice-cast",
+ "impl-trait-for-tuples",
  "parity-scale-codec-derive",
  "serde",
 ]
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f44c5f94427bd0b5076e8f7e15ca3f60a4d8ac0077e4793884e6fdfd8915344e"
+checksum = "40dbbfef7f0a1143c5b06e0d76a6278e25dac0bc1af4be51a0fbb73f07e7ad09"
 dependencies = [
- "proc-macro-crate 0.1.5",
+ "proc-macro-crate 1.0.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -4665,7 +4738,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-util-mem-derive",
  "parking_lot 0.11.1",
- "primitive-types",
+ "primitive-types 0.9.1",
  "smallvec 1.6.1",
  "winapi 0.3.9",
 ]
@@ -5009,9 +5082,21 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "primitive-types"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2415937401cb030a2a0a4d922483f945fa068f52a7dbb22ce0fe5f2b6f6adace"
+checksum = "06345ee39fbccfb06ab45f3a1a5798d9dafa04cb8921a76d227040003a234b0e"
+dependencies = [
+ "fixed-hash",
+ "impl-codec",
+ "impl-serde",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05e4722c697a58a99d5d06a08c30821d7c082a4632198de1eaa5a6c22ef42373"
 dependencies = [
  "fixed-hash",
  "impl-codec",
@@ -7258,7 +7343,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "parking_lot 0.11.1",
- "primitive-types",
+ "primitive-types 0.9.1",
  "rand 0.7.3",
  "regex",
  "schnorrkel",
@@ -7480,7 +7565,7 @@ source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#c
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types",
+ "primitive-types 0.9.1",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
  "sp-std",

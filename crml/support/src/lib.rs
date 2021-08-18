@@ -23,11 +23,31 @@
 // - 'balance' / 'value' / 'amount'
 // are used interchangeably as they make more sense in certain contexts.
 use frame_support::traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons};
+pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Saturating},
 	DispatchError, DispatchResult,
 };
-use sp_std::{fmt::Debug, result};
+use sp_std::{fmt::Debug, prelude::*, result};
+
+/// Something that subscribes to bridge event claims
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+pub trait EventClaimSubscriber {
+	/// Notify subscriber about a successful event claim for the given event data
+	fn on_success(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+}
+
+/// Something that verifies event claims
+pub trait EventClaimVerifier {
+	/// Submit an event claim to the verifier
+	/// Returns a unique claim Id on success
+	fn submit_event_claim(
+		contract_address: &H160,
+		event_signature: &H256,
+		tx_hash: &H256,
+		event_data: &[u8],
+	) -> Result<u64, DispatchError>;
+}
 
 /// Something which provides an ID with authority from chain storage
 pub trait AssetIdAuthority {
@@ -168,4 +188,19 @@ pub trait MultiCurrency {
 	/// As many assets up to `amount` will be moved as possible. If the reserve balance of `who`
 	/// is less than `amount`, then the remaining amount will be returned.
 	fn unreserve(who: &Self::AccountId, currency: Self::CurrencyId, amount: Self::Balance) -> Self::Balance;
+
+	/// Bring a new currency into existence
+	/// Returns the new currency Id
+	/// `owner` - the asset owner address
+	/// `total_supply` - number of whole tokens to mint to `owner`
+	/// `decimal_places` - metadata denoting the decimal places for balances of the asset
+	/// `minimum_balance` - a minimum balance for an account to exist
+	/// `symbol` - ticker for the asset
+	fn create(
+		owner: &Self::AccountId,
+		initial_supply: Self::Balance,
+		decimal_places: u8,
+		minimum_balance: u64,
+		symbol: Vec<u8>,
+	) -> Result<Self::CurrencyId, DispatchError>;
 }

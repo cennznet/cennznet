@@ -128,7 +128,7 @@ impl ExtBuilder {
 					(
 						x.0.clone(),
 						x.0.clone(),
-						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone(), x.6.clone()),
 					)
 				})
 				.collect::<Vec<_>>(),

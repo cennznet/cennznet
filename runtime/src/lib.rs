@@ -23,6 +23,7 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
+use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -343,6 +344,7 @@ impl_opaque_keys! {
 		pub babe: Babe,
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
+		pub eth_bridge: EthBridge,
 	}
 }
 
@@ -590,6 +592,62 @@ impl crml_attestation::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	pub const EventConfirmations: u16 = 0;
+	/// Event expiration deadline in seconds (1 week)
+	pub const EventDeadline: u32 = 604_800;
+	/// The threshold of notarizations required to approve an Eth deposit
+	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+}
+impl crml_eth_bridge::Config for Runtime {
+	/// The minimum number of block confirmations needed to secure an event claim
+	type EventConfirmations = EventConfirmations;
+	/// Events cannot be claimed after this duration
+	type EventDeadline = EventDeadline;
+	/// The threshold of positive notarizations to approve an event claim
+	type NotarizationThreshold = NotarizationThreshold;
+	/// The identifier type for an offchain worker.
+	type AuthorityId = EthBridgeId;
+	/// Reports the current validator / notary set
+	type AuthoritySet = Historical;
+	/// Tuple of modules subscribed to bridge events
+	type Subscribers = Erc20Peg;
+	/// The overarching dispatch call type.
+	type Call = Call;
+	/// The overarching event type.
+	type Event = Event;
+	/// Timestamp provider
+	type UnixTime = Timestamp;
+}
+
+// transaction must have an event/log of the deposit
+// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
+// TODO: config via storage
+const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
+	hex_literal::hex!("0bc96d65783334bd249ef60e1dbedbf956e14631ea70cb5f85967d3121fdf68d");
+const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
+parameter_types! {
+	/// The ERC20 bridge contract deposit event
+	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
+	/// The ERC20 bridge contract address
+	pub const DepositContractAddress: [u8; 20] = DEPOSIT_CONTRACT_ADDRESS;
+	/// The ERC20 peg address
+	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
+}
+impl crml_erc20_peg::Config for Runtime {
+	/// Handles Ethereum events
+	type EthBridge = EthBridge;
+	type DepositContractAddress = DepositContractAddress;
+	type DepositEventSignature = DepositEventSignature;
+	/// Runtime currency system
+	type MultiCurrency = GenericAsset;
+	/// ModuleId/Account for this module
+	type PegModuleId = PegModuleId;
+	/// The overarching event type.
+	type Event = Event;
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -653,7 +711,6 @@ construct_runtime!(
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 10,
 		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
 		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,
-		// Governance Modules (Sudo initially)
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 13,
 		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
 		Utility: pallet_utility::{Module, Call, Event} = 15,
@@ -673,6 +730,8 @@ construct_runtime!(
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
+		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned} = 32,
+		Erc20Peg: crml_erc20_peg::{Module, Call, Storage, Config, Event<T>} = 33,
 	}
 );
 

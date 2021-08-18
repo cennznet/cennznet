@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2021 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -15,11 +15,7 @@
 
 //! Common traits used by CENNZnet node.
 
-use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
-	Parameter,
-};
-use sp_runtime::traits::{AtLeast32BitUnsigned, Member};
+use frame_support::dispatch::DispatchError;
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
@@ -40,34 +36,4 @@ pub trait BuyFeeAsset {
 		amount: Self::Balance,
 		fee_exchange: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError>;
-}
-
-/// Something that can resolve if an extrinsic call requires a gas meter or not
-pub trait IsGasMeteredCall {
-	/// The extrinsic call type
-	type Call;
-	/// Return whether this call requires a gas meter or not
-	fn is_gas_metered(call: &Self::Call) -> bool;
-}
-
-/// A simple interface to manage account balances in any asset
-/// It's only used to decouple generic-asset from CENNZ-X
-pub trait SimpleAssetSystem {
-	/// The system account identifier type
-	type AccountId: Parameter;
-	/// The asset identifier identifiers
-	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
-	/// The type for denoting asset balances
-	type Balance: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
-	/// Transfer some `amount` of assets `from` one account `to` another
-	fn transfer(
-		asset_id: Self::AssetId,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult;
-	/// Get the liquid asset balance of `account`
-	fn free_balance(asset_id: Self::AssetId, account: &Self::AccountId) -> Self::Balance;
-	/// Get the default asset/currency ID in the system
-	fn default_asset_id() -> Self::AssetId;
 }

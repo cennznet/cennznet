@@ -5,7 +5,7 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../generic-asset", default-features = false }

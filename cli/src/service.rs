@@ -21,19 +21,20 @@
 //! Service implementation. Specialized wrapper over substrate service.
 
 use futures::prelude::*;
-use sc_client_api::{ExecutorProvider, RemoteBackend};
+use sc_client_api::{Backend, ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_network::{Event, NetworkService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{TelemetryConnectionNotifier, TelemetrySpan};
+use sp_core::offchain::OffchainStorage;
 use sp_inherents::InherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 use crate::rpc as node_rpc;
 use cennznet_primitives::types::Block;
-use cennznet_runtime::RuntimeApi;
+use cennznet_runtime::{constants::config::ETH_HTTP_URI, RuntimeApi};
 
 native_executor_instance!(
 	pub Executor,
@@ -189,6 +190,7 @@ pub struct NewFullBase {
 /// Creates a full service from the configuration.
 pub fn new_full_base(
 	mut config: Configuration,
+	eth_http_config: Option<String>,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 		&sc_consensus_babe::BabeLink<Block>,
@@ -205,6 +207,17 @@ pub fn new_full_base(
 		inherent_data_providers,
 		other: (rpc_extensions_builder, import_setup, rpc_setup),
 	} = new_partial(&config)?;
+
+	// Set eth http bridge config
+	// the config is stored into the offchain context where it can
+	// be accessed later by the crml-eth-bridge offchain worker.
+	if let Some(eth_http_uri) = eth_http_config {
+		backend.offchain_storage().unwrap().set(
+			sp_core::offchain::STORAGE_PREFIX,
+			&ETH_HTTP_URI,
+			eth_http_uri.as_bytes(),
+		);
+	}
 
 	let shared_voter_state = rpc_setup;
 
@@ -381,8 +394,8 @@ pub fn new_full_base(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
-	new_full_base(config, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
+pub fn new_full(config: Configuration, eth_http_config: Option<String>) -> Result<TaskManager, ServiceError> {
+	new_full_base(config, eth_http_config, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
 }
 
 pub fn new_light_base(
@@ -569,6 +582,7 @@ mod tests {
 					..
 				} = new_full_base(
 					config,
+					None,
 					|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
 					 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 						setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -746,7 +760,7 @@ mod tests {
 					network,
 					transaction_pool,
 					..
-				} = new_full_base(config, |_, _| ())?;
+				} = new_full_base(config, None, |_, _| ())?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,
