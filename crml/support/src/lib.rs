@@ -30,6 +30,13 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*, result};
 
+/// Reward validators for notarizations
+pub trait NotarizationRewardHandler {
+	type AccountId;
+	/// Note that the given account ID witnessed an eth-bridge claim
+	fn reward_notary(notary: &Self::AccountId);
+}
+
 /// Something that subscribes to bridge event claims
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait EventClaimSubscriber {

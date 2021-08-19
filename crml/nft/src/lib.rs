@@ -195,7 +195,7 @@ decl_storage! {
 		pub OpenCollectionListings get(fn open_collection_listings): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) ListingId => bool;
 		/// Winning bids on open listings. keyed by collection id and token id
 		pub ListingWinningBid get(fn listing_winning_bid): map hasher(twox_64_concat) ListingId => Option<(T::AccountId, Balance)>;
-		/// Block numbers where listings will close. It is `Some` if at block number, (collection id, token id) is listed and scheduled to close.
+		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
 	}
 }
