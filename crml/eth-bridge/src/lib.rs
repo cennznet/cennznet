@@ -33,7 +33,7 @@ use types::*;
 
 use cennznet_primitives::types::BlockNumber;
 use codec::Encode;
-use crml_support::{EventClaimSubscriber, EventClaimVerifier};
+use crml_support::{EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet},
@@ -101,13 +101,15 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
-	type AuthoritySet: ValidatorSet<Self::AccountId>;
+	type AuthoritySet: ValidatorSet<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The minimum number of block confirmations needed to ratify an Ethereum event
 	type EventConfirmations: Get<u16>;
 	/// Events cannot be claimed after this time (seconds)
 	type EventDeadline: Get<u64>;
 	/// The threshold of notarizations required to approve an Ethereum
 	type NotarizationThreshold: Get<Percent>;
+	/// Rewards notaries for participating in claims
+	type RewardHandler: NotarizationRewardHandler<AccountId = Self::AccountId>;
 	/// Things subscribing to event claims
 	type Subscribers: EventClaimSubscriber;
 	/// Returns the block timestamp
@@ -215,6 +217,9 @@ decl_module! {
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
 			<EventNotarizations<T>>::insert::<EventClaimId, T::AuthorityId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
+
+			T::AuthoritySet::validators().get(payload.authority_index as usize)
+				.map(|v| T::RewardHandler::reward_notary(v));
 
 			// Count notarization votes
 			let notary_count = T::AuthoritySet::validators().len() as u32;

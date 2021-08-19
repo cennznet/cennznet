@@ -65,6 +65,8 @@ decl_event! {
 		SubmitProposal(ProposalId),
 		/// A proposal was enacted, success
 		EnactProposal(ProposalId, bool),
+		/// A proposal was vetoed by the council
+		ProposalVeto(ProposalId),
 	}
 }
 
@@ -183,6 +185,7 @@ decl_module! {
 				}
 			} else if tally.no > threshold {
 				// failed, clean up...
+				Self::deposit_event(Event::ProposalVeto(proposal_id));
 				let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
 				<Proposals<T>>::remove(proposal_id);
 				ProposalCalls::remove(proposal_id);
