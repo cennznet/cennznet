@@ -2,7 +2,7 @@
 Manages a Generic Asset - ERC20 peg using the CENNZnet ethereum bridge.
 
 ## CENNZnet types
-add to UI/Api session
+Add to UI/Api session
 ```json
   "EventClaimId": "u64",
   "EthAddress": "H160",

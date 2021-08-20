@@ -18,7 +18,11 @@
 use cennznet_primitives::types::{AssetId, Balance};
 use codec::Decode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, log, traits::Get};
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage, ensure, log,
+	traits::{Get, WithdrawReasons},
+	transactional,
+};
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
@@ -48,6 +52,8 @@ decl_storage! {
 	trait Store for Module<T: Config> as Erc20Peg {
 		/// Wether deposit are active
 		DepositsActive get(fn deposits_active): bool;
+		/// Whether withdrawals are active
+		WithdrawalsActive get(fn withdrawals_active): bool;
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
@@ -75,6 +81,8 @@ decl_event! {
 		Erc20Claim(u64, AccountId),
 		/// A bridged erc20 deposit succeeded.(deposit Id, asset, amount, beneficiary)
 		Erc20Deposit(u64, AssetId, Balance, AccountId),
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (withdrawal Id, asset, amount, beneficiary)
+		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
 		/// A bridged erc20 deposit failed.(deposit Id)
 		Erc20DepositFail(u64),
 	}
@@ -89,7 +97,11 @@ decl_error! {
 		/// Claim has bad amount
 		InvalidAmount,
 		/// Deposits are inactive
-		DepositsPaused
+		DepositsPaused,
+		/// Withdrawals are inactive
+		WithdrawalsPaused,
+		/// Withdrawals of this asset are not supported
+		UnsupportedAsset
 	}
 }
 
@@ -103,6 +115,13 @@ decl_module! {
 		pub fn activate_deposits(origin, activate: bool) {
 			ensure_root(origin)?;
 			DepositsActive::put(activate);
+		}
+
+		/// Activate/deactivate withdrawals (root only)
+		#[weight = 10_000_000]
+		pub fn activate_withdrawals(origin, activate: bool) {
+			ensure_root(origin)?;
+			WithdrawalsActive::put(activate);
 		}
 
 		#[weight = 50_000_000]
@@ -127,6 +146,32 @@ decl_module! {
 			)?;
 
 			Self::deposit_event(<Event<T>>::Erc20Claim(event_claim_id, origin));
+		}
+
+		#[weight = 50_000_000]
+		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
+		/// Tokens will be burnt and a proof generated to allow redemption of tokens on Ethereum
+		#[transactional]
+		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
+
+			// there should be a known ERC20 address mapped for this asset
+			// otherwise there may be no liquidity on the Ethereum side of the peg
+			let token_address = Self::asset_to_erc20(asset_id);
+			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
+
+			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::empty(), frame_support::traits::ExistenceRequirement::KeepAlive)?;
+
+			let message = WithdrawMessage {
+				token_address: token_address.unwrap(),
+				amount: amount.into(),
+				beneficiary
+			};
+			let message = message.encode();
+			let event_proof_id = T::EthBridge::generate_event_proof(message.as_ref())?;
+
+			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}
 
 	}

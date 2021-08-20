@@ -54,6 +54,9 @@ pub trait EventClaimVerifier {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<u64, DispatchError>;
+	/// Generate proof of the given message
+	/// Returns a unique proof Id on success
+	fn generate_event_proof(message: &[u8]) -> Result<u64, DispatchError>;
 }
 
 /// Something which provides an ID with authority from chain storage

@@ -31,7 +31,10 @@ mod tests;
 mod types;
 use types::*;
 
-use cennznet_primitives::types::BlockNumber;
+use cennznet_primitives::{
+	eth::{ConsensusLog, ETHY_ENGINE_ID},
+	types::BlockNumber,
+};
 use codec::Encode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
 use frame_support::{
@@ -46,31 +49,14 @@ use frame_system::{
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_runtime::{
+	generic::DigestItem,
 	offchain as rt_offchain,
 	offchain::StorageKind,
 	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-	DispatchError, KeyTypeId, Percent, RuntimeAppPublic,
+	DispatchError, Percent, RuntimeAppPublic,
 };
 use sp_std::{convert::TryInto, prelude::*};
-
-pub const ETH_BRIDGE: KeyTypeId = KeyTypeId(*b"eth-");
-
-pub mod crypto {
-	mod app_crypto {
-		use crate::ETH_BRIDGE;
-		use sp_application_crypto::{app_crypto, ecdsa};
-		app_crypto!(ecdsa, ETH_BRIDGE);
-	}
-	sp_application_crypto::with_pair! {
-		/// An eth bridge keypair using ecdsa as its crypto.
-		pub type AuthorityPair = app_crypto::Pair;
-	}
-	/// An eth bridge signature using ecdsa as its crypto.
-	pub type AuthoritySignature = app_crypto::Signature;
-	/// An eth bridge identifier using ecdsa as its crypto.
-	pub type AuthorityId = app_crypto::Public;
-}
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -139,6 +125,8 @@ decl_storage! {
 		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
 		/// Id of the next event type (internal)
 		NextEventTypeId get(fn next_event_type_id): EventTypeId;
+		/// Id of the next event proof
+		NextProofId get(fn next_proof_id): EventProofId;
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
@@ -388,6 +376,22 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		NextEventClaimId::put(event_claim_id.wrapping_add(1));
 
 		Ok(event_claim_id)
+	}
+
+	fn generate_event_proof(message: &[u8]) -> Result<u64, DispatchError> {
+		let event_proof_id = Self::next_proof_id();
+
+		// TODO: does this support multiple consensus logs in a block?
+		// save this for `on_finalize` and insert many
+		let log: DigestItem<T::Hash> = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((message.to_vec(), event_proof_id)).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+
+		NextProofId::put(event_proof_id.wrapping_add(1));
+
+		Ok(event_proof_id)
 	}
 }
 
