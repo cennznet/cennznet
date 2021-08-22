@@ -611,6 +611,8 @@ impl crml_eth_bridge::Config for Runtime {
 	type AuthorityId = EthBridgeId;
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
+	/// Handle rewards for notaries
+	type RewardHandler = Rewards;
 	/// Tuple of modules subscribed to bridge events
 	type Subscribers = Erc20Peg;
 	/// The overarching dispatch call type.

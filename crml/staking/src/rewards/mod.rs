@@ -20,6 +20,7 @@
 //! The staking module should call into this module to trigger reward payouts at the end of an era.
 
 use crate::{EraIndex, Exposure};
+use crml_support::NotarizationRewardHandler;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
@@ -155,6 +156,14 @@ decl_module! {
 
 			Zero::zero()
 		}
+	}
+}
+
+/// Reward points for bridge notaries
+impl<T: Config> NotarizationRewardHandler for Module<T> {
+	type AccountId = T::AccountId;
+	fn reward_notary(notary: &Self::AccountId) {
+		Self::reward_by_ids(vec![(notary.clone(), 8)])
 	}
 }
 
