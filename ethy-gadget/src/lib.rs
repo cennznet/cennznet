@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use log::debug;
 use prometheus::Registry;
@@ -33,7 +33,7 @@ mod error;
 mod gossip;
 mod keystore;
 mod metrics;
-mod witness;
+mod witness_record;
 mod worker;
 
 pub mod notification;
@@ -45,8 +45,12 @@ pub const ETHY_PROTOCOL_NAME: &str = "/cennznet/ethy/1";
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
 pub fn ethy_peers_set_config() -> sc_network::config::NonDefaultSetConfig {
 	// TODO: review this config
-	let mut cfg = sc_network::config::NonDefaultSetConfig::new(ETHY_PROTOCOL_NAME.into(), 1024 * 1024);
-	cfg.allow_non_reserved(25, 25);
+	let mut cfg = sc_network::config::NonDefaultSetConfig {
+		notifications_protocol: ETHY_PROTOCOL_NAME.into(),
+		max_notification_size: 1024 * 1024,
+		set_config: sc_network::config::SetConfig::default(),
+	};
+	// cfg.allow_non_reserved(25, 25);
 	cfg
 }
 
@@ -90,9 +94,10 @@ where
 	/// Gossip network
 	pub network: N,
 	/// ETHY signed witness sender
-	pub signed_witness_sender: notification::EthySignedWitnessSender<B>,
+	pub signed_witness_sender: notification::EthySignedWitnessSender,
 	/// Prometheus metric registry
 	pub prometheus_registry: Option<Registry>,
+	pub _phantom: std::marker::PhantomData<B>,
 }
 
 /// Start the ETHY gadget.
@@ -113,6 +118,7 @@ where
 		network,
 		signed_witness_sender,
 		prometheus_registry,
+		_phantom: std::marker::PhantomData,
 	} = ethy_params;
 
 	let gossip_validator = Arc::new(gossip::GossipValidator::new());

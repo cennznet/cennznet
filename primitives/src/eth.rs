@@ -88,25 +88,58 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	#[codec(index = 2)]
 	OnDisabled(AuthorityIndex),
 	/// A request to sign some data was logged
+	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN)`
 	#[codec(index = 3)]
 	OpaqueSigningRequest((Message, Nonce)),
 }
 
 /// ETHY witness message.
 ///
-/// A vote message is a direct vote created by a ETHY node on every voting round
+/// A witness message is a direct vote created by an ETHY node for a given (digest, nonce) combination
 /// and is gossiped to its peers.
-#[derive(Debug, Decode, Encode)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct Witness {
-	/// The message hash. `keccak(abi.encodePacked(message, nonce))`
+	/// The message hash: `keccak(abi.encodePacked(message, nonce))`
+	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN)`
 	pub digest: H256,
-	/// Message nonce
-	pub nonce: Nonce,
-	/// Node authority id
-	pub authority_id: AuthorityIndex,
+	/// Message/proof nonce (it is unique across all Ethy messages)
+	pub proof_nonce: Nonce,
+	/// Node public key (i.e. Ethy session key)
+	pub authority_id: crypto::AuthorityId,
 	/// Node signature
 	/// Over `keccak(abi.encodePacked(self.message, self.nonce))`
-	pub signature: sp_application_crypto::ecdsa::Signature,
+	pub signature: crypto::AuthoritySignature,
+}
+
+/// A witness with matching GRANDPA validators' signatures.
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
+pub struct SignedWitness {
+	/// The message witnessed
+	pub digest: H256,
+	/// The witness signatures are collected for.
+	pub proof_id: Nonce,
+	/// GRANDPA validators' signatures for the witness.
+	///
+	/// The length of this `Vec` must match number of validators in the current set (see
+	/// [Witness::validator_set_id]).
+	pub signatures: Vec<Option<crypto::AuthoritySignature>>,
+}
+
+impl SignedWitness {
+	/// Return the number of collected signatures.
+	pub fn signature_count(&self) -> usize {
+		self.signatures.iter().filter(|x| x.is_some()).count()
+	}
+}
+
+/// A [SignedWitness] with a version number. This variant will be appended
+/// to the block justifications for the block for which the signed witness
+/// has been generated.
+#[derive(Clone, Debug, PartialEq, Encode, Decode)]
+pub enum VersionedWitness {
+	#[codec(index = 1)]
+	/// Current active version
+	V1(SignedWitness),
 }
 
 sp_api::decl_runtime_apis! {

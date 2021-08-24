@@ -12,6 +12,8 @@ contract ERC20Peg is Ownable {
     using SafeMath for uint256;
     // whether the peg is accepting deposits
     bool public depositsActive;
+    // whether CENNZ deposists are on
+    bool public cennzDepositsActive;
     // whether the peg is accepting withdrawals
     bool public withdrawalsActive;
     // CENNZnet bridge contract address
@@ -24,6 +26,12 @@ contract ERC20Peg is Ownable {
     // the pegged version of the token will be claim-able on CENNZnet
     function deposit(address tokenType, uint256 amount, bytes32 cennznetAddress) external {
         require(depositsActive, "deposits paused");
+
+        // CENNZ deposits will require a vote to activate
+        if (address == 0x1122b6a0e00dce0563082b6e2953f3a943855c1f) {
+            require(cennzDepositsActive, "cennz deposits paused");
+        }
+
         require(IERC20(tokenType).transferFrom(msg.sender, address(this), amount), "deposit failed");
 
         emit Deposit(msg.sender, tokenType, amount, cennznetAddress);
@@ -45,6 +53,10 @@ contract ERC20Peg is Ownable {
 
     function setBridgeAddress(address newBridgeAddress) external onlyOwner {
         bridge = newBridgeAddress;
+    }
+
+    function activateCENNZDeposits() external onlyOwner {
+        cennzDepositsActive = true;
     }
 
     function activateDeposits() external onlyOwner {

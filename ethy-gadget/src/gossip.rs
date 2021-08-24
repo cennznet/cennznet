@@ -23,12 +23,12 @@ use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorCon
 
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
-use cennznet_primitives::eth::crypto::{AuthorityId as Public, AuthoritySignature as Signature};
+use cennznet_primitives::eth::{
+	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
+	Witness,
+};
 
 use crate::keystore::EthyKeystore;
-
-// Limit ETHY gossip by keeping only a bound number of voting rounds alive.
-const MAX_LIVE_GOSSIP_ROUNDS: usize = 3;
 
 /// Gossip engine messages topic
 pub(crate) fn topic<B: Block>() -> B::Hash
@@ -40,10 +40,7 @@ where
 
 /// ETHY gossip validator
 ///
-/// Validate ETHY gossip messages and limit the number of live ETHY voting rounds.
-///
-/// Allows messages from last [`MAX_LIVE_GOSSIP_ROUNDS`] to flow, everything else gets
-/// rejected/expired.
+/// Validate ETHY gossip messages
 ///
 ///All messaging is handled in a single ETHY global topic.
 pub(crate) struct GossipValidator<B>
@@ -51,7 +48,6 @@ where
 	B: Block,
 {
 	topic: B::Hash,
-	live_rounds: RwLock<Vec<NumberFor<B>>>,
 }
 
 impl<B> GossipValidator<B>
@@ -59,36 +55,7 @@ where
 	B: Block,
 {
 	pub fn new() -> GossipValidator<B> {
-		GossipValidator {
-			topic: topic::<B>(),
-			live_rounds: RwLock::new(Vec::new()),
-		}
-	}
-
-	/// Note a voting round.
-	///
-	/// Noting `round` will keep `round` live.
-	///
-	/// We retain the [`MAX_LIVE_GOSSIP_ROUNDS`] most **recent** voting rounds as live.
-	/// As long as a voting round is live, it will be gossiped to peer nodes.
-	pub(crate) fn note_round(&self, round: NumberFor<B>) {
-		trace!(target: "ethy", "💎 About to note round #{}", round);
-
-		let mut live = self.live_rounds.write();
-
-		// If `round` is not found insert it
-		if let Some(idx) = live.binary_search(&round).err() {
-			live.insert(idx, round);
-		}
-
-		// Flush the oldest round if we're more than `MAX_LIVE_GOSSIP_ROUNDS`
-		if live.len() > MAX_LIVE_GOSSIP_ROUNDS {
-			let _ = live.remove(0);
-		}
-	}
-
-	fn is_live(live_rounds: &[NumberFor<B>], round: NumberFor<B>) -> bool {
-		live_rounds.binary_search(&round).is_ok()
+		GossipValidator { topic: topic::<B>() }
 	}
 }
 
@@ -102,8 +69,12 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(msg) = VoteMessage::<MmrRootHash, NumberFor<B>, Public, Signature>::decode(&mut data) {
-			if EthyKeystore::verify(&msg.id, &msg.signature, &msg.witness.encode()) {
+		if let Ok(msg) = Witness::decode(&mut data) {
+			if EthyKeystore::verify(
+				&msg.authority_id,
+				&msg.signature,
+				&(&msg.digest, msg.proof_nonce).encode(),
+			) {
 				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
 				// TODO: report peer
@@ -114,38 +85,38 @@ where
 		ValidationResult::Discard
 	}
 
-	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
-		let live_rounds = self.live_rounds.read();
-		Box::new(move |_topic, mut data| {
-			let msg = match VoteMessage::<MmrRootHash, NumberFor<B>, Public, Signature>::decode(&mut data) {
-				Ok(vote) => vote,
-				Err(_) => return true,
-			};
+	// fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
+	// 	let live_rounds = self.live_rounds.read();
+	// 	Box::new(move |_topic, mut data| {
+	// 		let msg = match Witness::decode(&mut data) {
+	// 			Ok(vote) => vote,
+	// 			Err(_) => return true,
+	// 		};
 
-			let expired = !GossipValidator::<B>::is_live(&live_rounds, msg.witness.block_number);
+	// 		let expired = !GossipValidator::<B>::is_live(&live_rounds, msg.witness.block_number);
 
-			trace!(target: "ethy", "💎 Message for round #{} expired: {}", msg.witness.block_number, expired);
+	// 		trace!(target: "ethy", "💎 Message for round #{} expired: {}", msg.witness.block_number, expired);
 
-			expired
-		})
-	}
+	// 		expired
+	// 	})
+	// }
 
-	#[allow(clippy::type_complexity)]
-	fn message_allowed<'a>(&'a self) -> Box<dyn FnMut(&PeerId, MessageIntent, &B::Hash, &[u8]) -> bool + 'a> {
-		let live_rounds = self.live_rounds.read();
-		Box::new(move |_who, _intent, _topic, mut data| {
-			let msg = match VoteMessage::<MmrRootHash, NumberFor<B>, Public, Signature>::decode(&mut data) {
-				Ok(vote) => vote,
-				Err(_) => return true,
-			};
+	// #[allow(clippy::type_complexity)]
+	// fn message_allowed<'a>(&'a self) -> Box<dyn FnMut(&PeerId, MessageIntent, &B::Hash, &[u8]) -> bool + 'a> {
+	// 	let live_rounds = self.live_rounds.read();
+	// 	Box::new(move |_who, _intent, _topic, mut data| {
+	// 		let msg = match Witness::decode(&mut data) {
+	// 			Ok(vote) => vote,
+	// 			Err(_) => return true,
+	// 		};
 
-			let allowed = GossipValidator::<B>::is_live(&live_rounds, msg.witness.block_number);
+	// 		let allowed = GossipValidator::<B>::is_live(&live_rounds, msg.witness.block_number);
 
-			trace!(target: "ethy", "💎 Message for round #{} allowed: {}", msg.witness.block_number, allowed);
+	// 		trace!(target: "ethy", "💎 Message for round #{} allowed: {}", msg.witness.block_number, allowed);
 
-			allowed
-		})
-	}
+	// 		allowed
+	// 	})
+	// }
 }
 
 #[cfg(test)]

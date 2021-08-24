@@ -1,7 +1,7 @@
-# ETHY setup (leg-work)
+# ETHY setup
+- Make plug branch with ECDSA methods exposed
 - Connect Ethy in service.rs
-- Add ECDSA keypairs to session pallet(?) / genesis config?
-- Log signing requests from bridge module
+
 
 # Sketch
 User burns funds (ERC20 peg module)

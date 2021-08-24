@@ -14,120 +14,97 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use cennznet_primitives::eth::{crypto::Signature, witness::Witness, ValidatorSetId};
-use sp_std::{cmp, collections::HashMap, prelude::*};
+use std::{collections::HashMap, prelude::*};
+
+use cennznet_primitives::eth::{
+	crypto::{AuthorityId, AuthoritySignature as Signature},
+	Message, Nonce, ValidatorSetId, Witness,
+};
+use sp_core::H256;
 
 /// Tracks live witnesses
 ///
 /// Stores witnesses per message nonce and digest
 /// nonce -> digest -> (authority, signature)
 /// this structure allows resiliency incase different digests are witnessed, maliciously or not.
+#[derive(Default)]
 pub struct WitnessRecord {
 	record: HashMap<Nonce, HashMap<H256, Vec<(AuthorityId, Signature)>>>,
-	has_voted: HashMap<Nonce, bitvec::BitVec>,
+	has_voted: HashMap<Nonce, Vec<AuthorityId>>,
 }
 
 impl WitnessRecord {
-	fn note(&mut self, witness: Witness) {
-		// TODO: if we have something from this authority already, ignore
-		// TODO: only consider this vote if the signature checks out!
-		let has_voted = self
+	/// Return all known signatures for the witness on (digest, nonce)
+	pub fn signatures_for(&self, nonce: Nonce, digest: &H256) -> Vec<Option<Signature>> {
+		vec![None]
+	}
+	pub fn has_consensus(&self, nonce: Nonce, digest: &H256) -> bool {
+		// TODO: count validator set size
+		const threshold: usize = 1;
+		self.record
+			.get(&nonce)
+			.and_then(|x| x.get(&digest))
+			.and_then(|v| Some(v.len()))
+			.unwrap_or_default()
+			>= threshold
+	}
+	/// Note a witness if we haven't seen it before
+	pub fn note(&mut self, witness: &Witness) {
+		if self
 			.has_voted
-			.get(witness.nonce)
-			.get(witness.authority_id)
-			.unwrap_or(false);
-
-		if has_voted {
+			.get(&witness.proof_nonce)
+			.map(|votes| votes.binary_search(&witness.authority_id).is_ok())
+			.unwrap_or_default()
+		{
 			// TODO: log/ return something useful
 			return;
 		}
 
-		if !self.record.contains_key(&witness.nonce) {
-			// first witness for this nonce
+		if !self.record.contains_key(&witness.proof_nonce) {
+			// first witness for this proof_nonce
 			let mut digest_signatures = HashMap::<H256, Vec<(AuthorityId, Signature)>>::default();
-			digest_signatures.insert(witness.digest, vec![(witness.authority_id, witness.signature)]);
-			self.record.insert(&witness.nonce, digest_signatures);
-		} else if !self.record.get(&witness.nonce).contains_key(&witness.digest) {
+			digest_signatures.insert(
+				witness.digest,
+				vec![(witness.authority_id.clone(), witness.signature.clone())],
+			);
+			self.record.insert(witness.proof_nonce, digest_signatures);
+		} else if !self
+			.record
+			.get(&witness.proof_nonce)
+			.map(|x| x.contains_key(&witness.digest))
+			.unwrap_or(false)
+		{
 			// first witness for this digest
-			let digest_signatures = vec![(witness.authority_id, witness.signature)];
+			let digest_signatures = vec![(witness.authority_id.clone(), witness.signature.clone())];
 			self.record
-				.get_mut(&witness.nonce)
-				.insert(&witness.digest, digest_signatures);
+				.get_mut(&witness.proof_nonce)
+				.unwrap()
+				.insert(witness.digest, digest_signatures);
 		} else {
-			// add witness to known (nonce, digest)
-			let mut signatures = self.record.get(&witness.nonce).get_mut(&witness.digest);
-			signatures.push((witness.authority_id, witness.signature));
-			self.record.get_mut(&witness.nonce).insert(&witness.digest, signatures);
+			// add witness to known (proof_nonce, digest)
+			self.record
+				.get_mut(&witness.proof_nonce)
+				.unwrap()
+				.get_mut(&witness.digest)
+				.unwrap()
+				.push((witness.authority_id.clone(), witness.signature.clone()));
 		}
 
-		self.has_voted.get(witness.nonce).set(witness.authority_id, true);
+		// Mark authority as voted
+		match self.has_voted.get_mut(&witness.proof_nonce) {
+			None => {
+				// first vote for this nonce we've seen
+				self.has_voted
+					.insert(witness.proof_nonce, vec![witness.authority_id.clone()]);
+			}
+			Some(votes) => {
+				// subsequent vote for a known nonce
+				if let Err(idx) = votes.binary_search(&witness.authority_id) {
+					votes.insert(idx, witness.authority_id.clone());
+				}
+			}
+		}
 	}
-}
-
-/// A witness signed by GRANDPA validators as part of ETHY protocol.
-///
-/// The witness contains a [payload] extracted from the finalized block at height [block_number].
-/// GRANDPA validators collect signatures on witnesss and a stream of such signed witnesss
-/// (see [SignedWitness]) forms the ETHY protocol.
-#[derive(Clone, Debug, PartialEq, Eq, codec::Encode, codec::Decode)]
-pub struct Witness<TBlockNumber, TPayload> {
-	/// The payload being signed.
-	pub payload: TPayload,
-	/// Validator set is changing once per epoch. The Light Client must be provided by details about
-	/// the validator set whenever it's importing first witness with a new `validator_set_id`.
-	/// Validator set data MUST be verifiable, for instance using [payload] information.
-	pub validator_set_id: ValidatorSetId,
-}
-
-impl<TBlockNumber, TPayload> cmp::PartialOrd for Witness<TBlockNumber, TPayload>
-where
-	TBlockNumber: cmp::Ord,
-	TPayload: cmp::Eq,
-{
-	fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl<TBlockNumber, TPayload> cmp::Ord for Witness<TBlockNumber, TPayload>
-where
-	TBlockNumber: cmp::Ord,
-	TPayload: cmp::Eq,
-{
-	fn cmp(&self, other: &Self) -> cmp::Ordering {
-		self.validator_set_id
-			.cmp(&other.validator_set_id)
-			.then_with(|| self.block_number.cmp(&other.block_number))
-	}
-}
-
-/// A witness with matching GRANDPA validators' signatures.
-#[derive(Clone, Debug, PartialEq, Eq, codec::Encode, codec::Decode)]
-pub struct SignedWitness<TBlockNumber, TPayload> {
-	/// The witness signatures are collected for.
-	pub witness: Witness<TBlockNumber, TPayload>,
-	/// GRANDPA validators' signatures for the witness.
-	///
-	/// The length of this `Vec` must match number of validators in the current set (see
-	/// [Witness::validator_set_id]).
-	pub signatures: Vec<Option<Signature>>,
-}
-
-impl<TBlockNumber, TPayload> SignedWitness<TBlockNumber, TPayload> {
-	/// Return the number of collected signatures.
-	pub fn no_of_signatures(&self) -> usize {
-		self.signatures.iter().filter(|x| x.is_some()).count()
-	}
-}
-
-/// A [SignedWitness] with a version number. This variant will be appended
-/// to the block justifications for the block for which the signed witness
-/// has been generated.
-#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
-pub enum VersionedWitness<N, P> {
-	#[codec(index = 1)]
-	/// Current active version
-	V1(SignedWitness<N, P>),
 }
 
 #[cfg(test)]
@@ -229,13 +206,13 @@ mod tests {
 			witness,
 			signatures: vec![None, None, Some(sigs.0), Some(sigs.1)],
 		};
-		assert_eq!(signed.no_of_signatures(), 2);
+		assert_eq!(signed.signature_count(), 2);
 
 		// when
 		signed.signatures[2] = None;
 
 		// then
-		assert_eq!(signed.no_of_signatures(), 1);
+		assert_eq!(signed.signature_count(), 1);
 	}
 
 	#[test]

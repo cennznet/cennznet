@@ -226,6 +226,8 @@ pub fn new_full_base(
 		.extra_sets
 		.push(sc_finality_grandpa::grandpa_peers_set_config());
 
+	config.network.extra_sets.push(ethy_gadget::ethy_peers_set_config());
+
 	#[cfg(feature = "cli")]
 	config
 		.network
@@ -267,6 +269,29 @@ pub fn new_full_base(
 
 	let telemetry_span = TelemetrySpan::new();
 	let _telemetry_span_entered = telemetry_span.enter();
+
+	// TODO: rig up Ethy RPC subscriptions
+	let (signed_witness_sender, signed_witness_stream) = ethy_gadget::notification::EthySignedWitnessStream::channel();
+	// let rpc_extensions_builder = {
+	// 	let client = client.clone();
+	// 	let pool = transaction_pool.clone();
+
+	// 	Box::new(move |deny_unsafe, subscription_executor| {
+	// 		let beefy = crate::rpc::EthyDeps {
+	// 			signed_witness_stream: signed_witness_stream.clone(),
+	// 			subscription_executor,
+	// 		};
+
+	// 		let deps = crate::rpc::FullDeps {
+	// 			client: client.clone(),
+	// 			pool: pool.clone(),
+	// 			deny_unsafe,
+	// 			beefy,
+	// 		};
+
+	// 		Ok(crate::rpc::create_full(deps))
+	// 	})
+	// };
 
 	let (_rpc_handlers, telemetry_connection_notifier) = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
@@ -347,6 +372,21 @@ pub fn new_full_base(
 	} else {
 		None
 	};
+
+	let ethy_params = ethy_gadget::EthyParams {
+		client: client.clone(),
+		backend,
+		key_store: keystore.clone(),
+		network: network.clone(),
+		signed_witness_sender,
+		prometheus_registry: prometheus_registry.clone(),
+		_phantom: std::marker::PhantomData,
+	};
+
+	// Start the ETHY bridge gadget.
+	task_manager
+		.spawn_essential_handle()
+		.spawn_blocking("ethy-gadget", ethy_gadget::start_ethy_gadget::<_, _, _, _>(ethy_params));
 
 	let config = sc_finality_grandpa::Config {
 		// FIXME #1578 make this available through chainspec

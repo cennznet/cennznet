@@ -18,7 +18,7 @@ use sp_core::keccak_256;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 
 use cennznet_primitives::eth::{
-	crypto::{Public, Signature},
+	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
 	ETH_BRIDGE_KEY_TYPE,
 };
 
@@ -60,9 +60,11 @@ impl EthyKeystore {
 			return Err(error::Error::Keystore("no Keystore".to_string()));
 		};
 
-		let msg = keccak_256(message);
 		let public = public.as_ref();
+		let msg = keccak_256(message);
 
+		// We want to sign the keccak hash of the message
+		// current plug `ecdsa::sign_with` will use blake2 by default
 		let sig = SyncCryptoStore::ecdsa_sign_prehashed(&*store, ETH_BRIDGE_KEY_TYPE, public, &msg)
 			.map_err(|e| error::Error::Keystore(e.to_string()))?
 			.ok_or_else(|| error::Error::Signature("ecdsa_sign_prehashed() failed".to_string()))?;

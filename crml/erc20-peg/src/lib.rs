@@ -205,7 +205,8 @@ impl<T: Config> Module<T> {
 
 		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
 		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
-		// CENNZ is a special case since the supply is already 100% minted
+
+		// TODO (Governance): CENNZ is a special case since the supply is already 100% minted
 		// it must be transferred from the unclaimed wallet
 		// if symbol == b"CENNZ" {
 		// 	let _result = T::MultiCurrency::transfer(

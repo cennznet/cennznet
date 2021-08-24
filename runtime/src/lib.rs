@@ -926,6 +926,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cennznet_primitives::eth::EthyApi<Block> for Runtime {
+		fn validator_set() -> cennznet_primitives::eth::ValidatorSet<EthBridgeId> {
+			EthBridge::validator_set()
+		}
+	}
+
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {
 			System::account_nonce(account)

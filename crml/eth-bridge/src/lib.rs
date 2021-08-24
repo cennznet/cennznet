@@ -32,14 +32,14 @@ mod types;
 use types::*;
 
 use cennznet_primitives::{
-	eth::{ConsensusLog, ETHY_ENGINE_ID},
+	eth::{ConsensusLog, ValidatorSet, ETHY_ENGINE_ID},
 	types::BlockNumber,
 };
 use codec::Encode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet},
+	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::Weight,
 	Parameter,
@@ -87,7 +87,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
-	type AuthoritySet: ValidatorSet<Self::AccountId, ValidatorId = Self::AccountId>;
+	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The minimum number of block confirmations needed to ratify an Ethereum event
 	type EventConfirmations: Get<u16>;
 	/// Events cannot be claimed after this time (seconds)
@@ -129,6 +129,8 @@ decl_storage! {
 		NextProofId get(fn next_proof_id): EventProofId;
 		/// Active notary (validator) public keys
 		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		/// Scheduled notary (validator) public keys for the next session
+		NextNotaryKeys get(fn next_notary_keys): Vec<T::AuthorityId>;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
 		// Used in conjunction with `EventDeadline` to prevent "double spends".
 		// After a bucket is older than the deadline, any events prior are considered expired.
@@ -137,6 +139,8 @@ decl_storage! {
 		/// Map from processed tx hash to status
 		/// Periodically cleared after `EventDeadline` expires
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
+		/// The current validator set id
+		NotarySetId get(fn notary_set_id): u64;
 	}
 }
 
@@ -605,6 +609,50 @@ impl<T: Config> Module<T> {
 
 		Ok(())
 	}
+
+	/// Return the active Ethy validator set.
+	pub fn validator_set() -> ValidatorSet<T::AuthorityId> {
+		ValidatorSet::<T::AuthorityId> {
+			validators: Self::notary_keys(),
+			id: Self::notary_set_id(),
+		}
+	}
+
+	fn change_authorities(new: Vec<T::AuthorityId>, queued: Vec<T::AuthorityId>) {
+		// As in GRANDPA, we trigger a validator set change only if the the validator
+		// set has actually changed.
+		if new != Self::notary_keys() {
+			<NotaryKeys<T>>::put(&new);
+
+			let next_id = Self::notary_set_id().wrapping_add(1);
+			NotarySetId::put(next_id);
+
+			let log: DigestItem<T::Hash> = DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: new,
+					id: next_id,
+				})
+				.encode(),
+			);
+			<frame_system::Pallet<T>>::deposit_log(log);
+		}
+
+		<NextNotaryKeys<T>>::put(&queued);
+	}
+
+	fn initialize_authorities(authorities: &[T::AuthorityId]) {
+		if authorities.is_empty() {
+			return;
+		}
+
+		assert!(<NotaryKeys<T>>::get().is_empty(), "NotaryKeys are already initialized!");
+
+		<NotaryKeys<T>>::put(authorities);
+		NotarySetId::put(0);
+		// Like `pallet_session`, initialize the next validator set as well.
+		<NextNotaryKeys<T>>::put(authorities);
+	}
 }
 
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
@@ -670,13 +718,16 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, _queued_validators: I)
+	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 	{
 		// Record authorities for the new session.
 		if changed {
-			NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+
+			Self::change_authorities(next_authorities, next_queued_authorities);
 		}
 		// `changed` informs us the current `validators` has changed in some way as of right now
 		// `queued_validators` will update the reflected set one session prior to activation

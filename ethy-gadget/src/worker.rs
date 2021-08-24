@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investment Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,28 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use codec::{Codec, Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use parking_lot::Mutex;
 
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{AuxStore, Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 
 use sp_api::BlockId;
-use sp_arithmetic::traits::AtLeast32Bit;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
 	traits::{Block, Header, NumberFor},
-	SaturatedConversion,
-};
-
-use cennznet_primitives::eth::{
-	crypto::{Public, Signature},
-	ConsensusLog, EthyApi, MmrRootHash, SignedWitness, ValidatorSet, VersionedWitness, VoteMessage, Witness,
-	ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 use crate::{
@@ -43,7 +35,14 @@ use crate::{
 	keystore::EthyKeystore,
 	metric_inc, metric_set,
 	metrics::Metrics,
-	notification, Client,
+	notification,
+	witness_record::WitnessRecord,
+	Client,
+};
+use cennznet_primitives::eth::{
+	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
+	ConsensusLog, EthyApi, Message, Nonce, SignedWitness, ValidatorSet, VersionedWitness, Witness, ETHY_ENGINE_ID,
+	GENESIS_AUTHORITY_SET_ID,
 };
 
 pub(crate) struct WorkerParams<B, BE, C>
@@ -53,7 +52,7 @@ where
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
 	pub key_store: EthyKeystore,
-	pub signed_witness_sender: notification::EthySignedWitnessSender<B>,
+	pub signed_witness_sender: notification::EthySignedWitnessSender,
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub metrics: Option<Metrics>,
@@ -69,17 +68,18 @@ where
 	client: Arc<C>,
 	backend: Arc<BE>,
 	key_store: EthyKeystore,
-	signed_witness_sender: notification::EthySignedWitnessSender<B>,
+	signed_witness_sender: notification::EthySignedWitnessSender,
 	gossip_engine: Arc<Mutex<GossipEngine<B>>>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	metrics: Option<Metrics>,
 	finality_notifications: FinalityNotifications<B>,
+	witness_record: WitnessRecord,
 	/// Best block we received a GRANDPA notification for
 	best_grandpa_block: NumberFor<B>,
+	/// Current validator set
+	validator_set: ValidatorSet<Public>,
 	/// Validator set id for the last signed witness
 	last_signed_id: u64,
-	// keep rustc happy
-	_backend: PhantomData<BE>,
 }
 
 impl<B, C, BE> EthyWorker<B, C, BE>
@@ -117,7 +117,11 @@ where
 			finality_notifications: client.finality_notification_stream(),
 			best_grandpa_block: client.info().finalized_number,
 			last_signed_id: 0,
-			_backend: PhantomData,
+			validator_set: ValidatorSet {
+				id: 0,
+				validators: Default::default(),
+			},
+			witness_record: Default::default(),
 		}
 	}
 }
@@ -142,7 +146,7 @@ where
 		} else {
 			let at = BlockId::hash(header.hash());
 			// queries the BEEFY pallet to get the active validator set public keys
-			self.client.runtime_api().validator_set(&at).ok();
+			self.client.runtime_api().validator_set(&at).ok()
 		};
 
 		trace!(target: "ethy", "💎 active validator set: {:?}", new);
@@ -166,14 +170,16 @@ where
 
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if active.id != self.rounds.validator_set_id() || (active.id == GENESIS_AUTHORITY_SET_ID) {
-				// TODO: validator set has changed
-				debug!(target: "ethy", "💎 New active validator set id: {:?}", active);
-				metric_set!(self, ethy_validator_set_id, active.id);
-			}
+			// TODO:
+			// if active.id != self.rounds.validator_set_id() || (active.id == GENESIS_AUTHORITY_SET_ID) {
+			// 	// TODO: validator set has changed
+			debug!(target: "ethy", "💎 New active validator set id: {:?}", active);
+			// 	metric_set!(self, ethy_validator_set_id, active.id);
+			// }
+			self.validator_set = active;
 		}
 
-		let authority_id = if let Some(id) = self.key_store.authority_id(self.rounds.validators().as_slice()) {
+		let authority_id = if let Some(id) = self.key_store.authority_id(self.validator_set.validators.as_slice()) {
 			trace!(target: "ethy", "💎 Local authority id: {:?}", id);
 			id
 		} else {
@@ -183,11 +189,10 @@ where
 
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
-		while let Some(signing_request) =
-			extract_signing_requests::<B, Public>(self.best_grandpa_block, &notification.header)
-		{
+		while let Some(signing_request) = extract_signing_requests::<B, Public>(&notification.header) {
 			// TODO: ensure this is encoded properly & hashed as the contract expects
-			let digest = sp_io::hash::keccak_256(signing_request.to_payload());
+			// TODO: SCALE encode here is invalid, we want abi encode
+			let digest = sp_core::keccak_256(&signing_request.encode());
 			let signature = match self.key_store.sign(&authority_id, digest.as_ref()) {
 				Ok(sig) => sig,
 				Err(err) => {
@@ -196,9 +201,9 @@ where
 				}
 			};
 			let witness = Witness {
-				digest,
-				nonce: signing_request.nonce,
-				authority_id,
+				digest: digest.into(),
+				proof_nonce: signing_request.1,
+				authority_id: authority_id.clone(), // TODO: lookup pubkey
 				signature,
 			};
 			let broadcast_witness = witness.encode();
@@ -224,28 +229,42 @@ where
 	/// 2) Add justification in DB
 	/// 3) Broadcast the witness to listeners
 	fn handle_witness(&mut self, witness: Witness) {
-		self.gossip_validator.note_round(round.1);
+		// self.gossip_validator.note_round(round.1);
 
 		// The aggregated signed witness here could be different to another validators.
 		// As long as we have threshold of signatures the proof is valid.
 
 		// TODO: Track witnesses
-		self.witness_record.note(witness);
+		self.witness_record.note(&witness);
 
 		// metric_set!(self, ethy_round_concluded, round.1);
 		// info!(target: "ethy", "💎 Round #{} concluded, committed: {:?}.", round.1, signed_witness);
 
-		if self.witness_record.has_consensus(witness.nonce) {
-			let signed_witness = SignedWitness { witness, signatures };
+		if self.witness_record.has_consensus(witness.proof_nonce, &witness.digest) {
+			// TODO: iterate signatures and order with validator set for valid proof!
+			let signatures = self.witness_record.signatures_for(witness.proof_nonce, &witness.digest);
+			warn!(target: "ethy", "💎 adding signatures: {:?}", signatures);
+			let signed_witness = SignedWitness {
+				digest: witness.digest,
+				proof_id: witness.proof_nonce,
+				signatures,
+			};
 			// We can add proof to the DB that this block has been finalized specifically by the
 			// given threshold of validators
-			if self
-				.backend
-				.append_justification(
-					BlockId::Number(round.1),
-					(ETHY_ENGINE_ID, VersionedWitness::V1(signed_witness.clone()).encode()),
-				)
-				.is_err()
+			if Backend::insert_aux(
+				self.backend.as_ref(),
+				&[
+					// DB key is (engine_id + proof_id)
+					(
+						[&ETHY_ENGINE_ID[..], &signed_witness.proof_id.to_be_bytes()[..]]
+							.concat()
+							.as_ref(),
+						VersionedWitness::V1(signed_witness.clone()).encode().as_ref(),
+					),
+				],
+				&[],
+			)
+			.is_err()
 			{
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
@@ -254,7 +273,8 @@ where
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
 			self.signed_witness_sender.notify(signed_witness);
 			// Remove from memory
-			self.witness_record.clear(witness.nonce);
+			// TODO:
+			// self.witness_record.clear(witness.nonce);
 		}
 	}
 
@@ -272,8 +292,12 @@ where
 			let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
 
 			futures::select! {
-				notification = self.finality_notifications.next().fuse() => notification.map(|n| self.handle_finality_notification(n)),
-				witness = witness.next().fuse() => witness.map(|w| self.handle_witness(w)),
+				notification = self.finality_notifications.next().fuse() => {
+					notification.map(|n| self.handle_finality_notification(n));
+				},
+				witness = witnesses.next().fuse() => {
+					witness.map(|w| self.handle_witness(w));
+				},
 				_ = gossip_engine.fuse() => {
 					error!(target: "ethy", "💎 Gossip engine has terminated.");
 					return;
@@ -284,7 +308,7 @@ where
 }
 
 /// Extract a signing request from a digest in the given header, if it exists.
-fn extract_signing_requests<B, Id>(header: &B::Header) -> Option<Message>
+fn extract_signing_requests<B, Id>(header: &B::Header) -> Option<(Message, Nonce)>
 where
 	B: Block,
 	Id: Codec,
@@ -292,7 +316,7 @@ where
 	// TODO: logs should be an array? extract the whole array here and return a vec/iterator
 	header.digest().logs().iter().find_map(|log| {
 		match log.try_to::<ConsensusLog<Id>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
-			Some(ConsensusLog::OpaqueSigningRequest(message)) => Some(message),
+			Some(ConsensusLog::OpaqueSigningRequest((message, nonce))) => Some((message, nonce)),
 			_ => None,
 		}
 	})

@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -16,47 +16,38 @@
 
 use std::sync::Arc;
 
-use sp_runtime::traits::{Block, NumberFor};
+use cennznet_primitives::eth::{Message, SignedWitness};
 use sp_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 use parking_lot::Mutex;
 
 /// Stream of signed witness' returned when subscribing.
-pub type SignedWitness<Block> = ethy_primitives::SignedWitness<NumberFor<Block>, ethy_primitives::MmrRootHash>;
-
-/// Stream of signed witness' returned when subscribing.
-type SignedWitnessStream<Block> = TracingUnboundedReceiver<SignedWitness<Block>>;
+type SignedWitnessStream = TracingUnboundedReceiver<SignedWitness>;
 
 /// Sending endpoint for notifying about signed witness'.
-type SignedWitnessSender<Block> = TracingUnboundedSender<SignedWitness<Block>>;
+type SignedWitnessSender = TracingUnboundedSender<SignedWitness>;
 
 /// Collection of channel sending endpoints shared with the receiver side so they can register
 /// themselves.
-type SharedSignedWitnessSenders<Block> = Arc<Mutex<Vec<SignedWitnessSender<Block>>>>;
+type SharedSignedWitnessSenders = Arc<Mutex<Vec<SignedWitnessSender>>>;
 
 /// The sending half of the signed witness channel(s).
 ///
 /// Used to send notifications about signed witness' generated at the end of an ETHY round.
 #[derive(Clone)]
-pub struct EthySignedWitnessSender<B>
-where
-	B: Block,
-{
-	subscribers: SharedSignedWitnessSenders<B>,
+pub struct EthySignedWitnessSender {
+	subscribers: SharedSignedWitnessSenders,
 }
 
-impl<B> EthySignedWitnessSender<B>
-where
-	B: Block,
-{
+impl EthySignedWitnessSender {
 	/// The `subscribers` should be shared with a corresponding `SignedWitnessSender`.
-	fn new(subscribers: SharedSignedWitnessSenders<B>) -> Self {
+	fn new(subscribers: SharedSignedWitnessSenders) -> Self {
 		Self { subscribers }
 	}
 
 	/// Send out a notification to all subscribers that a new signed witness is available for a
 	/// block.
-	pub fn notify(&self, signed_witness: SignedWitness<B>) {
+	pub fn notify(&self, signed_witness: SignedWitness) {
 		let mut subscribers = self.subscribers.lock();
 
 		// do an initial prune on closed subscriptions
@@ -74,19 +65,13 @@ where
 /// The `EthySignedWitnessStream` entity stores the `SharedSignedWitnessSenders` so it can be
 /// used to add more subscriptions.
 #[derive(Clone)]
-pub struct EthySignedWitnessStream<B>
-where
-	B: Block,
-{
-	subscribers: SharedSignedWitnessSenders<B>,
+pub struct EthySignedWitnessStream {
+	subscribers: SharedSignedWitnessSenders,
 }
 
-impl<B> EthySignedWitnessStream<B>
-where
-	B: Block,
-{
+impl EthySignedWitnessStream {
 	/// Creates a new pair of receiver and sender of signed witness notifications.
-	pub fn channel() -> (EthySignedWitnessSender<B>, Self) {
+	pub fn channel() -> (EthySignedWitnessSender, Self) {
 		let subscribers = Arc::new(Mutex::new(vec![]));
 		let receiver = EthySignedWitnessStream::new(subscribers.clone());
 		let sender = EthySignedWitnessSender::new(subscribers);
@@ -96,13 +81,13 @@ where
 	/// Create a new receiver of signed witness notifications.
 	///
 	/// The `subscribers` should be shared with a corresponding `EthySignedWitnessSender`.
-	fn new(subscribers: SharedSignedWitnessSenders<B>) -> Self {
+	fn new(subscribers: SharedSignedWitnessSenders) -> Self {
 		Self { subscribers }
 	}
 
 	/// Subscribe to a channel through which signed witnesss are sent at the end of each ETHY
 	/// voting round.
-	pub fn subscribe(&self) -> SignedWitnessStream<B> {
+	pub fn subscribe(&self) -> SignedWitnessStream {
 		let (sender, receiver) = tracing_unbounded("mpsc_signed_witnesss_notification_stream");
 		self.subscribers.lock().push(sender);
 		receiver
