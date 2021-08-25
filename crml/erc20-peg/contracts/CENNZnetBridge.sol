@@ -10,11 +10,11 @@ contract CENNZnetBridge is Ownable {
     // signatures from a threshold of these addresses are considered approved by the CENNZnet protocol
     mapping(uint => address[]) public validators;
     // Nonce for validator set changes
-    uint32 validatorSetNonce;
+    uint32 validatorSetId;
     // Message nonces.
     // CENNZnet will only validate one message per nonce.
     // Claiming out of order is ok.
-    mapping(uint => bool) public messageNonces;
+    mapping(uint => bool) public eventIds;
     // Fee for CENNZnet message verification
     // Offsets bridge upkeep costs i.e updating the validator set
     uint verificationFee = 1e15;
@@ -32,19 +32,19 @@ contract CENNZnetBridge is Ownable {
     // - nonce: the message nonce as given by CENNZnet
     // - v,r,s are sparse arrays expected to align w public key in 'validators'
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    function verifyMessage(bytes memory message, uint256 nonce, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
-        require(!messageNonces[nonce], "nonce replayed");
+    function verifyMessage(bytes memory message, uint256 event_id, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
+        require(!eventIds[event_id], "event_id replayed");
         require(msg.value >= verificationFee || msg.sender == address(this), "must supply withdraw fee");
 
-        bytes32 digest = keccak256(abi.encodePacked(message, nonce));
-        uint acceptanceTreshold = ((validators[nonce].length * 1000) * 51) / 1000000; // 51%
+        bytes32 digest = keccak256(abi.encodePacked(message, event_id));
+        uint acceptanceTreshold = ((validators[event_id].length * 1000) * 51) / 1000000; // 51%
         uint32 notarizations;
 
-        for (uint i; i < validators[nonce].length; i++) {
+        for (uint i; i < validators[event_id].length; i++) {
             // signature omitted
             if(s[i] == bytes32(0)) continue;
             // check signature
-            require(validators[nonce][i] == ecrecover(digest, v[i], r[i], s[i]), "signature invalid");
+            require(validators[event_id][i] == ecrecover(digest, v[i], r[i], s[i]), "signature invalid");
             notarizations += 1;
             // have we got proven consensus?
             if(notarizations >= acceptanceTreshold) {
@@ -53,7 +53,7 @@ contract CENNZnetBridge is Ownable {
         }
 
         require(notarizations >= acceptanceTreshold, "not enough signatures");
-        messageNonces[nonce] = true;
+        eventIds[event_id] = true;
     }
 
     // Update the known CENNZnet validator set
@@ -64,21 +64,21 @@ contract CENNZnetBridge is Ownable {
     // ~6,737,588 gas
     function setValidators(
         address[] memory newValidators,
-        uint32 validatorSetNonce,
-        uint nonce,
+        uint32 validatorSetId,
+        uint event_id,
         uint8[] memory v,
         bytes32[] memory r,
         bytes32[] memory s
     ) external {
-        require(validatorSetNonce > validatorSetNonce, "validator set nonce replayed");
+        require(validatorSetId > validatorSetId, "validator set id replayed");
 
         // 0x73657456616c696461746f7273 = "setValidators"
-        bytes message = abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, validatorSetNonce);
-        verifyMessage(message, nonce, v, r, s);
+        bytes message = abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, validatorSetId);
+        verifyMessage(message, event_id, v, r, s);
 
         // update
-        validators[validatorSetNonce] = newValidators;
-        validatorSetNonce = validatorSetNonce;
+        validators[validatorSetId] = newValidators;
+        validatorSetId = validatorSetId;
 
         // return any accumlated fees to the sender as a reward
         uint reward = address(this).balance;

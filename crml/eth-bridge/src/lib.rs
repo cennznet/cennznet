@@ -36,7 +36,7 @@ use cennznet_primitives::{
 	types::BlockNumber,
 };
 use codec::Encode;
-use crml_support::{EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
+use crml_support::{EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
@@ -382,14 +382,15 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		Ok(event_claim_id)
 	}
 
-	fn generate_event_proof(message: &[u8]) -> Result<u64, DispatchError> {
+	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
 		let event_proof_id = Self::next_proof_id();
 
 		// TODO: does this support multiple consensus logs in a block?
 		// save this for `on_finalize` and insert many
+		let packed_event_with_id = [&event.encode()[..], &EthAbiCodec::encode(&event_proof_id)[..]].concat();
 		let log: DigestItem<T::Hash> = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((message.to_vec(), event_proof_id)).encode(),
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 
@@ -457,6 +458,8 @@ impl<T: Config> Module<T> {
 				);
 				return EventClaimResult::UnexpectedData;
 			}
+		} else {
+			return EventClaimResult::NoTxLogs
 		}
 
 		// lastly, have we got enough block confirmations to be re-org safe?

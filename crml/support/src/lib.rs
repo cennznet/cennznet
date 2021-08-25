@@ -30,6 +30,25 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*, result};
 
+/// Something that can be decoded from eth log data/ ABI
+/// TODO: ethabi crate would be better for this however no support for `no_std`
+pub trait EthAbiCodec: Sized {
+	fn encode(&self) -> Vec<u8>;
+	/// Decode `Self` from Eth log data
+	fn decode(data: &[u8]) -> Option<Self>;
+}
+
+impl EthAbiCodec for u64 {
+	fn encode(&self) -> Vec<u8> {
+		let uint = U256::from(*self);
+		Into::<[u8; 32]>::into(uint).to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
+	}
+}
+
 /// Reward validators for notarizations
 pub trait NotarizationRewardHandler {
 	type AccountId;
@@ -56,7 +75,7 @@ pub trait EventClaimVerifier {
 	) -> Result<u64, DispatchError>;
 	/// Generate proof of the given message
 	/// Returns a unique proof Id on success
-	fn generate_event_proof(message: &[u8]) -> Result<u64, DispatchError>;
+	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
 }
 
 /// Something which provides an ID with authority from chain storage

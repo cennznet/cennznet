@@ -13,7 +13,8 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 use codec::{Decode, Encode};
-pub use crml_support::{H160, H256, U256};
+use crate::log;
+pub use crml_support::{EthAbiCodec, H160, H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
@@ -57,14 +58,6 @@ impl EthAbiCodec for WithdrawMessage {
 	fn decode(_data: &[u8]) -> Option<Self> {
 		unimplemented!();
 	}
-}
-
-/// Something that can be decoded from eth log data/ ABI
-/// TODO: ethabi crate would be better for this however none support `no_std`
-pub trait EthAbiCodec: Sized {
-	fn encode(&self) -> Vec<u8>;
-	/// Decode `Self` from Eth log data
-	fn decode(data: &[u8]) -> Option<Self>;
 }
 
 impl EthAbiCodec for Erc20DepositEvent {

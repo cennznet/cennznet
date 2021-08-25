@@ -73,6 +73,7 @@ where
 	gossip_validator: Arc<GossipValidator<B>>,
 	metrics: Option<Metrics>,
 	finality_notifications: FinalityNotifications<B>,
+	/// Tracks on-going witnesses
 	witness_record: WitnessRecord,
 	/// Best block we received a GRANDPA notification for
 	best_grandpa_block: NumberFor<B>,
@@ -189,10 +190,10 @@ where
 
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
-		while let Some(signing_request) = extract_signing_requests::<B, Public>(&notification.header) {
+		for (message, event_id) in extract_proof_requests::<B, Public>(&notification.header).iter().fuse() {
+			warn!(target: "ethy", "💎 got proof request id: {:?}, message: {:?}", proof_request.1, proof_request.0);
 			// TODO: ensure this is encoded properly & hashed as the contract expects
-			// TODO: SCALE encode here is invalid, we want abi encode
-			let digest = sp_core::keccak_256(&signing_request.encode());
+			// `message = abi.encodePacked(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, digest.as_ref()) {
 				Ok(sig) => sig,
 				Err(err) => {
@@ -202,8 +203,8 @@ where
 			};
 			let witness = Witness {
 				digest: digest.into(),
-				proof_nonce: signing_request.1,
-				authority_id: authority_id.clone(), // TODO: lookup pubkey
+				proof_nonce: proof_request.1,
+				authority_id: authority_id.clone(),
 				signature,
 			};
 			let broadcast_witness = witness.encode();
@@ -229,12 +230,8 @@ where
 	/// 2) Add justification in DB
 	/// 3) Broadcast the witness to listeners
 	fn handle_witness(&mut self, witness: Witness) {
-		// self.gossip_validator.note_round(round.1);
-
 		// The aggregated signed witness here could be different to another validators.
 		// As long as we have threshold of signatures the proof is valid.
-
-		// TODO: Track witnesses
 		self.witness_record.note(&witness);
 
 		// metric_set!(self, ethy_round_concluded, round.1);
@@ -243,7 +240,7 @@ where
 		if self.witness_record.has_consensus(witness.proof_nonce, &witness.digest) {
 			// TODO: iterate signatures and order with validator set for valid proof!
 			let signatures = self.witness_record.signatures_for(witness.proof_nonce, &witness.digest);
-			warn!(target: "ethy", "💎 adding signatures: {:?}", signatures);
+			warn!(target: "ethy", "💎 adding signatures for claim: {:?}, signatures: {:?}", witness.proof_nonce, signatures);
 			let signed_witness = SignedWitness {
 				digest: witness.digest,
 				proof_id: witness.proof_nonce,
@@ -268,13 +265,13 @@ where
 			{
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
-				warn!(target: "ethy", "💎 Failed to append justification: {:?}", signed_witness);
+				warn!(target: "ethy", "💎 failed to store witness: {:?}", signed_witness);
 			}
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
 			self.signed_witness_sender.notify(signed_witness);
 			// Remove from memory
-			// TODO:
-			// self.witness_record.clear(witness.nonce);
+			self.witness_record.clear(witness.proof_nonce);
+			self.gossip_validator.mark_complete(witness.proof_nonce);
 		}
 	}
 
@@ -308,7 +305,7 @@ where
 }
 
 /// Extract a signing request from a digest in the given header, if it exists.
-fn extract_signing_requests<B, Id>(header: &B::Header) -> Option<(Message, Nonce)>
+fn extract_proof_requests<B, Id>(header: &B::Header) -> Option<(Message, Nonce)>
 where
 	B: Block,
 	Id: Codec,

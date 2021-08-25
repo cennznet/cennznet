@@ -34,8 +34,13 @@ pub struct WitnessRecord {
 }
 
 impl WitnessRecord {
+	/// Remove a witness record
+	pub fn clear(&mut self, nonce: Nonce) {
+		self.record.remove(&nonce);
+	}
 	/// Return all known signatures for the witness on (digest, nonce)
 	pub fn signatures_for(&self, nonce: Nonce, digest: &H256) -> Vec<Option<Signature>> {
+		// TODO: make sparse array
 		vec![None]
 	}
 	pub fn has_consensus(&self, nonce: Nonce, digest: &H256) -> bool {

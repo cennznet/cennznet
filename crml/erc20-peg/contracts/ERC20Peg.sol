@@ -41,10 +41,10 @@ contract ERC20Peg is Ownable {
     // Requires signatures from a threshold of current CENNZnet validators
     // v,r,s are sparse arrays expected to align w public key in 'validators'
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    function withdraw(address tokenType, uint256 amount, uint256 nonce, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
+    function withdraw(address tokenType, uint256 amount, uint256 event_id, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
         require(withdrawalsActive, "withdrawals paused");
         bytes32 message = abi.encodePacked(tokenType, amount, msg.sender);
-        bridge.call(bytes4(keccak256("verifyMessage(bytes,uint256,uint8[],bytes32[],bytes32[])")), message, nonce, v, r, s); 
+        bridge.call(bytes4(keccak256("verifyMessage(bytes,uint256,uint8[],bytes32[],bytes32[])")), message, event_id, v, r, s); 
 
         require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
 

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use codec::{Decode, Encode};
 use log::{debug, trace};
 use parking_lot::RwLock;
@@ -25,10 +26,10 @@ use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 use cennznet_primitives::eth::{
 	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
-	Witness,
+	Nonce, Witness,
 };
 
-use crate::keystore::EthyKeystore;
+use crate::{keystore::EthyKeystore, witness_record::WitnessRecord};
 
 /// Gossip engine messages topic
 pub(crate) fn topic<B: Block>() -> B::Hash
@@ -48,6 +49,7 @@ where
 	B: Block,
 {
 	topic: B::Hash,
+	known_votes: RwLock<BTreeMap<Nonce, Vec<Public>>>,
 }
 
 impl<B> GossipValidator<B>
@@ -55,7 +57,16 @@ where
 	B: Block,
 {
 	pub fn new() -> GossipValidator<B> {
-		GossipValidator { topic: topic::<B>() }
+		GossipValidator { 
+			topic: topic::<B>(),
+			known_votes: RwLock::new(Default::default()),
+		}
+	}
+
+	/// Make a vote for nonce as complete
+	pub fn mark_complete(&self, nonce: Nonce) {
+		let mut known_votes = self.known_votes.write();
+		known_votes.remove(&nonce);
 	}
 }
 
@@ -70,11 +81,35 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		if let Ok(msg) = Witness::decode(&mut data) {
+
+			let known_votes = self.known_votes.read();
+			let maybe_known = known_votes.get(&msg.proof_nonce).map(|v| v.binary_search(&msg.authority_id));
+			if maybe_known.is_some() && maybe_known.unwrap().is_ok() {
+				return ValidationResult::Discard
+			}
+
+			// TODO: vote must be from a valid authority
+
 			if EthyKeystore::verify(
 				&msg.authority_id,
 				&msg.signature,
 				&(&msg.digest, msg.proof_nonce).encode(),
 			) {
+				// Make the vote as seen
+				let mut known_votes = self.known_votes.write();
+				match maybe_known {
+					Some(insert_index) => {
+						// we've seen this nonce and need to add the new vote
+						// insert_index is guaranteed to be `Err` as it has not been recorded yet
+						let index = insert_index.err().unwrap();
+						known_votes.get_mut(&msg.proof_nonce).map(|v| v.insert(index, msg.authority_id));
+					}
+					None => {
+					// we haven't seen this nonce yet
+						known_votes.insert(msg.proof_nonce, vec![msg.authority_id]);
+					}
+				}
+
 				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
 				// TODO: report peer

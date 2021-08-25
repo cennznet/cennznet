@@ -85,6 +85,8 @@ decl_event! {
 		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
 		/// A bridged erc20 deposit failed.(deposit Id)
 		Erc20DepositFail(u64),
+		/// Mock withdraw
+		Erc20MockWithdraw(u64),
 	}
 }
 
@@ -168,10 +170,18 @@ decl_module! {
 				amount: amount.into(),
 				beneficiary
 			};
-			let message = message.encode();
-			let event_proof_id = T::EthBridge::generate_event_proof(message.as_ref())?;
+			let event_proof_id = T::EthBridge::generate_event_proof(&message)?;
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
+		}
+
+		#[weight = 1]
+		#[transactional]
+		/// A mock withdraw for easy testing
+		pub fn mock_withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
+			let origin = ensure_signed(origin)?;
+			let event_proof_id = T::EthBridge::generate_event_proof(&[0x01, 0x02, 0x03])?;
+			Self::deposit_event(<Event<T>>::Erc20MockWithdraw(event_proof_id));
 		}
 
 	}
