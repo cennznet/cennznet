@@ -624,10 +624,10 @@ impl crml_eth_bridge::Config for Runtime {
 }
 
 // transaction must have an event/log of the deposit
-// i.e. keccack256("Deposit(address,address,uint256,bytes32,uint256)")
+// i.e. keccack256("Deposit(address,address,uint256,bytes32)")
 // TODO: config via storage
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
-	hex_literal::hex!("0bc96d65783334bd249ef60e1dbedbf956e14631ea70cb5f85967d3121fdf68d");
+	hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
 const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
 	/// The ERC20 bridge contract deposit event
