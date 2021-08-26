@@ -16,38 +16,38 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::eth::{Message, SignedWitness};
+use cennznet_primitives::eth::EventProof;
 use sp_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 use parking_lot::Mutex;
 
-/// Stream of signed witness' returned when subscribing.
-type SignedWitnessStream = TracingUnboundedReceiver<SignedWitness>;
+/// Stream of event proof' returned when subscribing.
+type EventProofStream = TracingUnboundedReceiver<EventProof>;
 
-/// Sending endpoint for notifying about signed witness'.
-type SignedWitnessSender = TracingUnboundedSender<SignedWitness>;
+/// Sending endpoint for notifying about event proof'.
+type EventProofSender = TracingUnboundedSender<EventProof>;
 
 /// Collection of channel sending endpoints shared with the receiver side so they can register
 /// themselves.
-type SharedSignedWitnessSenders = Arc<Mutex<Vec<SignedWitnessSender>>>;
+type SharedEventProofSenders = Arc<Mutex<Vec<EventProofSender>>>;
 
-/// The sending half of the signed witness channel(s).
+/// The sending half of the event proof channel(s).
 ///
-/// Used to send notifications about signed witness' generated at the end of an ETHY round.
+/// Used to send notifications about event proof' generated at the end of an ETHY round.
 #[derive(Clone)]
-pub struct EthySignedWitnessSender {
-	subscribers: SharedSignedWitnessSenders,
+pub struct EthyEventProofSender {
+	subscribers: SharedEventProofSenders,
 }
 
-impl EthySignedWitnessSender {
-	/// The `subscribers` should be shared with a corresponding `SignedWitnessSender`.
-	fn new(subscribers: SharedSignedWitnessSenders) -> Self {
+impl EthyEventProofSender {
+	/// The `subscribers` should be shared with a corresponding `EventProofSender`.
+	fn new(subscribers: SharedEventProofSenders) -> Self {
 		Self { subscribers }
 	}
 
-	/// Send out a notification to all subscribers that a new signed witness is available for a
+	/// Send out a notification to all subscribers that a new event proof is available for a
 	/// block.
-	pub fn notify(&self, signed_witness: SignedWitness) {
+	pub fn notify(&self, signed_witness: EventProof) {
 		let mut subscribers = self.subscribers.lock();
 
 		// do an initial prune on closed subscriptions
@@ -59,35 +59,35 @@ impl EthySignedWitnessSender {
 	}
 }
 
-/// The receiving half of the signed witnesss channel.
+/// The receiving half of the event proof channel.
 ///
-/// Used to receive notifications about signed witnesss generated at the end of a ETHY round.
-/// The `EthySignedWitnessStream` entity stores the `SharedSignedWitnessSenders` so it can be
+/// Used to receive notifications about event proofs generated at the end of a ETHY round.
+/// The `EthyEventProofStream` entity stores the `SharedEventProofSenders` so it can be
 /// used to add more subscriptions.
 #[derive(Clone)]
-pub struct EthySignedWitnessStream {
-	subscribers: SharedSignedWitnessSenders,
+pub struct EthyEventProofStream {
+	subscribers: SharedEventProofSenders,
 }
 
-impl EthySignedWitnessStream {
-	/// Creates a new pair of receiver and sender of signed witness notifications.
-	pub fn channel() -> (EthySignedWitnessSender, Self) {
+impl EthyEventProofStream {
+	/// Creates a new pair of receiver and sender of event proof notifications.
+	pub fn channel() -> (EthyEventProofSender, Self) {
 		let subscribers = Arc::new(Mutex::new(vec![]));
-		let receiver = EthySignedWitnessStream::new(subscribers.clone());
-		let sender = EthySignedWitnessSender::new(subscribers);
+		let receiver = EthyEventProofStream::new(subscribers.clone());
+		let sender = EthyEventProofSender::new(subscribers);
 		(sender, receiver)
 	}
 
-	/// Create a new receiver of signed witness notifications.
+	/// Create a new receiver of event proof notifications.
 	///
-	/// The `subscribers` should be shared with a corresponding `EthySignedWitnessSender`.
-	fn new(subscribers: SharedSignedWitnessSenders) -> Self {
+	/// The `subscribers` should be shared with a corresponding `EthyEventProofSender`.
+	fn new(subscribers: SharedEventProofSenders) -> Self {
 		Self { subscribers }
 	}
 
-	/// Subscribe to a channel through which signed witnesss are sent at the end of each ETHY
+	/// Subscribe to a channel through which event proofs are sent at the end of each ETHY
 	/// voting round.
-	pub fn subscribe(&self) -> SignedWitnessStream {
+	pub fn subscribe(&self) -> EventProofStream {
 		let (sender, receiver) = tracing_unbounded("mpsc_signed_witnesss_notification_stream");
 		self.subscribers.lock().push(sender);
 		receiver

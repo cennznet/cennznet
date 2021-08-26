@@ -14,41 +14,48 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::HashMap, prelude::*};
-
 use cennznet_primitives::eth::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	Message, Nonce, ValidatorSetId, Witness,
+	EventId, Witness,
 };
-use sp_core::H256;
+use log::{debug, error, info, trace, warn};
+use std::{collections::HashMap, prelude::*};
 
 /// Tracks live witnesses
 ///
-/// Stores witnesses per message nonce and digest
-/// nonce -> digest -> (authority, signature)
+/// Stores witnesses per message event_id and digest
+/// event_id -> digest -> [](authority, signature)
 /// this structure allows resiliency incase different digests are witnessed, maliciously or not.
 #[derive(Default)]
 pub struct WitnessRecord {
-	record: HashMap<Nonce, HashMap<H256, Vec<(AuthorityId, Signature)>>>,
-	has_voted: HashMap<Nonce, Vec<AuthorityId>>,
+	record: HashMap<EventId, HashMap<[u8; 32], Vec<(AuthorityId, Signature)>>>,
+	has_voted: HashMap<EventId, Vec<AuthorityId>>,
 }
 
 impl WitnessRecord {
-	/// Remove a witness record
-	pub fn clear(&mut self, nonce: Nonce) {
-		self.record.remove(&nonce);
+	/// Remove a witness record from memory
+	pub fn clear(&mut self, event_id: EventId) {
+		self.record.remove(&event_id);
 	}
-	/// Return all known signatures for the witness on (digest, nonce)
-	pub fn signatures_for(&self, nonce: Nonce, digest: &H256) -> Vec<Option<Signature>> {
-		// TODO: make sparse array
-		vec![None]
+	/// Return all known signatures for the witness on (event_id, digest)
+	pub fn signatures_for(
+		&self,
+		event_id: EventId,
+		digest: &[u8; 32],
+		validators: Vec<AuthorityId>,
+	) -> Vec<Option<Signature>> {
+		// TODO: can probably do better by storing this in sorted order to begin with...
+		let proofs = self.record.get(&event_id).unwrap().get(digest).unwrap();
+		validators
+			.iter()
+			.map(|v| proofs.iter().find(|(id, _sig)| v == id).map(|(_id, sig)| sig.clone()))
+			.collect()
 	}
-	pub fn has_consensus(&self, nonce: Nonce, digest: &H256) -> bool {
-		// TODO: count validator set size
-		const threshold: usize = 1;
+	/// Does the event identified by `event_id` `digest` have >= `threshold` support
+	pub fn has_consensus(&self, event_id: EventId, digest: &[u8; 32], threshold: usize) -> bool {
 		self.record
-			.get(&nonce)
-			.and_then(|x| x.get(&digest))
+			.get(&event_id)
+			.and_then(|x| x.get(digest))
 			.and_then(|v| Some(v.len()))
 			.unwrap_or_default()
 			>= threshold
@@ -57,53 +64,55 @@ impl WitnessRecord {
 	pub fn note(&mut self, witness: &Witness) {
 		if self
 			.has_voted
-			.get(&witness.proof_nonce)
+			.get(&witness.event_id)
 			.map(|votes| votes.binary_search(&witness.authority_id).is_ok())
 			.unwrap_or_default()
 		{
 			// TODO: log/ return something useful
+			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
 			return;
 		}
 
-		if !self.record.contains_key(&witness.proof_nonce) {
-			// first witness for this proof_nonce
-			let mut digest_signatures = HashMap::<H256, Vec<(AuthorityId, Signature)>>::default();
+		if !self.record.contains_key(&witness.event_id) {
+			// first witness for this event_id
+			let mut digest_signatures = HashMap::<[u8; 32], Vec<(AuthorityId, Signature)>>::default();
 			digest_signatures.insert(
 				witness.digest,
 				vec![(witness.authority_id.clone(), witness.signature.clone())],
 			);
-			self.record.insert(witness.proof_nonce, digest_signatures);
+			self.record.insert(witness.event_id, digest_signatures);
 		} else if !self
 			.record
-			.get(&witness.proof_nonce)
+			.get(&witness.event_id)
 			.map(|x| x.contains_key(&witness.digest))
 			.unwrap_or(false)
 		{
 			// first witness for this digest
 			let digest_signatures = vec![(witness.authority_id.clone(), witness.signature.clone())];
 			self.record
-				.get_mut(&witness.proof_nonce)
+				.get_mut(&witness.event_id)
 				.unwrap()
 				.insert(witness.digest, digest_signatures);
 		} else {
-			// add witness to known (proof_nonce, digest)
+			// add witness to known (event_id, digest)
 			self.record
-				.get_mut(&witness.proof_nonce)
+				.get_mut(&witness.event_id)
 				.unwrap()
 				.get_mut(&witness.digest)
 				.unwrap()
 				.push((witness.authority_id.clone(), witness.signature.clone()));
 		}
+		trace!(target: "ethy", "💎 witness recorded: {:?}", witness.event_id);
 
 		// Mark authority as voted
-		match self.has_voted.get_mut(&witness.proof_nonce) {
+		match self.has_voted.get_mut(&witness.event_id) {
 			None => {
-				// first vote for this nonce we've seen
+				// first vote for this event_id we've seen
 				self.has_voted
-					.insert(witness.proof_nonce, vec![witness.authority_id.clone()]);
+					.insert(witness.event_id, vec![witness.authority_id.clone()]);
 			}
 			Some(votes) => {
-				// subsequent vote for a known nonce
+				// subsequent vote for a known event_id
 				if let Err(idx) = votes.binary_search(&witness.authority_id) {
 					votes.insert(idx, witness.authority_id.clone());
 				}

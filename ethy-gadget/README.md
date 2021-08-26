@@ -1,7 +1,9 @@
 # ETHY setup
-- Make plug branch with ECDSA methods exposed
-- Connect Ethy in service.rs
-
+- Try RPC subscription
+- Allow vote messages only from elected authority_ids
+- Generate proofs on validator set changes
+- How to manage proofs that were in flight?
+- How to manage persistence on restart? (e.g. rebroadcast)
 
 # Sketch
 User burns funds (ERC20 peg module)

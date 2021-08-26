@@ -459,7 +459,7 @@ impl<T: Config> Module<T> {
 				return EventClaimResult::UnexpectedData;
 			}
 		} else {
-			return EventClaimResult::NoTxLogs
+			return EventClaimResult::NoTxLogs;
 		}
 
 		// lastly, have we got enough block confirmations to be re-org safe?

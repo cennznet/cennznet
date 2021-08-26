@@ -271,14 +271,14 @@ pub fn new_full_base(
 	let _telemetry_span_entered = telemetry_span.enter();
 
 	// TODO: rig up Ethy RPC subscriptions
-	let (signed_witness_sender, signed_witness_stream) = ethy_gadget::notification::EthySignedWitnessStream::channel();
+	let (event_proof_sender, event_proof_stream) = ethy_gadget::notification::EthyEventProofStream::channel();
 	// let rpc_extensions_builder = {
 	// 	let client = client.clone();
 	// 	let pool = transaction_pool.clone();
 
 	// 	Box::new(move |deny_unsafe, subscription_executor| {
 	// 		let beefy = crate::rpc::EthyDeps {
-	// 			signed_witness_stream: signed_witness_stream.clone(),
+	// 			event_proof_stream: event_proof_stream.clone(),
 	// 			subscription_executor,
 	// 		};
 
@@ -378,7 +378,7 @@ pub fn new_full_base(
 		backend,
 		key_store: keystore.clone(),
 		network: network.clone(),
-		signed_witness_sender,
+		event_proof_sender,
 		prometheus_registry: prometheus_registry.clone(),
 		_phantom: std::marker::PhantomData,
 	};

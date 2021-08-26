@@ -17,7 +17,6 @@
 //! shared between crml/eth-bridge runtime & ethy-gadget client
 
 use codec::{Decode, Encode};
-use sp_core::H256;
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
@@ -50,11 +49,11 @@ pub mod crypto {
 /// The index of an authority.
 pub type AuthorityIndex = u32;
 
-/// A message for signing
+/// An event message for signing
 pub type Message = Vec<u8>;
 
-/// Unique nonce for signed message requests
-pub type Nonce = u64;
+/// Unique nonce for event proof requests
+pub type EventId = u64;
 
 /// A typedef for validator set id.
 pub type ValidatorSetId = u64;
@@ -88,22 +87,21 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	#[codec(index = 2)]
 	OnDisabled(AuthorityIndex),
 	/// A request to sign some data was logged
-	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN)`
+	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, event_id)`
 	#[codec(index = 3)]
-	OpaqueSigningRequest((Message, Nonce)),
+	OpaqueSigningRequest((Message, EventId)),
 }
 
 /// ETHY witness message.
 ///
-/// A witness message is a direct vote created by an ETHY node for a given (digest, nonce) combination
+/// A witness message is a vote created by an ETHY node for a given 'event' combination
 /// and is gossiped to its peers.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct Witness {
-	/// The message hash: `keccak(abi.encodePacked(message, nonce))`
-	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN)`
-	pub digest: H256,
-	/// Message/proof nonce (it is unique across all Ethy messages)
-	pub proof_nonce: Nonce,
+	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, event_id))`
+	pub digest: [u8; 32],
+	/// Event nonce (it is unique across all Ethy event proofs)
+	pub event_id: EventId,
 	/// Node public key (i.e. Ethy session key)
 	pub authority_id: crypto::AuthorityId,
 	/// Node signature
@@ -113,11 +111,12 @@ pub struct Witness {
 
 /// A witness with matching GRANDPA validators' signatures.
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub struct SignedWitness {
-	/// The message witnessed
-	pub digest: H256,
-	/// The witness signatures are collected for.
-	pub proof_id: Nonce,
+pub struct EventProof {
+	/// The event witnessed
+	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, event_id))`
+	pub digest: [u8; 32],
+	/// The witness signatures are collected for this event.
+	pub event_id: EventId,
 	/// GRANDPA validators' signatures for the witness.
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
@@ -125,21 +124,21 @@ pub struct SignedWitness {
 	pub signatures: Vec<Option<crypto::AuthoritySignature>>,
 }
 
-impl SignedWitness {
+impl EventProof {
 	/// Return the number of collected signatures.
 	pub fn signature_count(&self) -> usize {
 		self.signatures.iter().filter(|x| x.is_some()).count()
 	}
 }
 
-/// A [SignedWitness] with a version number. This variant will be appended
+/// A [EventProof] with a version number. This variant will be appended
 /// to the block justifications for the block for which the signed witness
 /// has been generated.
 #[derive(Clone, Debug, PartialEq, Encode, Decode)]
-pub enum VersionedWitness {
+pub enum VersionedEventProof {
 	#[codec(index = 1)]
 	/// Current active version
-	V1(SignedWitness),
+	V1(EventProof),
 }
 
 sp_api::decl_runtime_apis! {

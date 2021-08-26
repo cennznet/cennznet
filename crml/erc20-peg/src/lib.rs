@@ -178,9 +178,9 @@ decl_module! {
 		#[weight = 1]
 		#[transactional]
 		/// A mock withdraw for easy testing
-		pub fn mock_withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
+		pub fn mock_withdraw(origin) {
 			let origin = ensure_signed(origin)?;
-			let event_proof_id = T::EthBridge::generate_event_proof(&[0x01, 0x02, 0x03])?;
+			let event_proof_id = T::EthBridge::generate_event_proof(&123_u64)?;
 			Self::deposit_event(<Event<T>>::Erc20MockWithdraw(event_proof_id));
 		}
 

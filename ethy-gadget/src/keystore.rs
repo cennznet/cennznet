@@ -88,6 +88,16 @@ impl EthyKeystore {
 
 		sp_core::ecdsa::Pair::verify_prehashed(sig, &msg, public)
 	}
+
+	/// Use the `public` key to verify that `sig` is a valid signature for `digest`.
+	///
+	/// Return `true` if the signature is authentic, `false` otherwise.
+	pub fn verify_prehashed(public: &Public, sig: &Signature, digest: &[u8; 32]) -> bool {
+		let sig = sig.as_ref();
+		let public = public.as_ref();
+
+		sp_core::ecdsa::Pair::verify_prehashed(sig, digest, public)
+	}
 }
 
 impl From<Option<SyncCryptoStorePtr>> for EthyKeystore {

@@ -39,19 +39,21 @@ mod worker;
 pub mod notification;
 
 /// The p2p protocol name for Eth bridge messages
-pub const ETHY_PROTOCOL_NAME: &str = "/cennznet/ethy/1";
+pub const ETHY_PROTOCOL_NAME: &'static str = "/cennznet/ethy/1";
 
 /// Returns the configuration value to put in
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
 pub fn ethy_peers_set_config() -> sc_network::config::NonDefaultSetConfig {
-	// TODO: review this config
-	let mut cfg = sc_network::config::NonDefaultSetConfig {
+	sc_network::config::NonDefaultSetConfig {
 		notifications_protocol: ETHY_PROTOCOL_NAME.into(),
 		max_notification_size: 1024 * 1024,
-		set_config: sc_network::config::SetConfig::default(),
-	};
-	// cfg.allow_non_reserved(25, 25);
-	cfg
+		set_config: sc_network::config::SetConfig {
+			in_peers: 25,
+			out_peers: 25,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
+		},
+	}
 }
 
 /// A convenience ETHY client trait that defines all the type bounds a ETHY client
@@ -94,7 +96,7 @@ where
 	/// Gossip network
 	pub network: N,
 	/// ETHY signed witness sender
-	pub signed_witness_sender: notification::EthySignedWitnessSender,
+	pub event_proof_sender: notification::EthyEventProofSender,
 	/// Prometheus metric registry
 	pub prometheus_registry: Option<Registry>,
 	pub _phantom: std::marker::PhantomData<B>,
@@ -116,12 +118,12 @@ where
 		backend,
 		key_store,
 		network,
-		signed_witness_sender,
+		event_proof_sender,
 		prometheus_registry,
 		_phantom: std::marker::PhantomData,
 	} = ethy_params;
 
-	let gossip_validator = Arc::new(gossip::GossipValidator::new());
+	let gossip_validator = Arc::new(gossip::GossipValidator::new(Default::default()));
 	let gossip_engine = GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
 
 	let metrics = prometheus_registry
@@ -142,7 +144,7 @@ where
 		client,
 		backend,
 		key_store: key_store.into(),
-		signed_witness_sender,
+		event_proof_sender,
 		gossip_engine,
 		gossip_validator,
 		metrics,

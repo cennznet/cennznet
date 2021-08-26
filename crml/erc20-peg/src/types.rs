@@ -13,7 +13,6 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 use codec::{Decode, Encode};
-use crate::log;
 pub use crml_support::{EthAbiCodec, H160, H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
