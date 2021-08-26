@@ -183,7 +183,6 @@ decl_module! {
 			let event_proof_id = T::EthBridge::generate_event_proof(&123_u64)?;
 			Self::deposit_event(<Event<T>>::Erc20MockWithdraw(event_proof_id));
 		}
-
 	}
 }
 

@@ -20,11 +20,13 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use ethy_gadget::notification::EthyEventProofSender;
 use futures::prelude::*;
 use sc_client_api::{Backend, ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_network::{Event, NetworkService};
+use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{TelemetryConnectionNotifier, TelemetrySpan};
 use sp_core::offchain::OffchainStorage;
@@ -69,6 +71,7 @@ pub fn new_partial(
 				sc_consensus_babe::BabeLink<Block>,
 			),
 			sc_finality_grandpa::SharedVoterState,
+			EthyEventProofSender,
 		),
 	>,
 	ServiceError,
@@ -86,6 +89,8 @@ pub fn new_partial(
 		task_manager.spawn_handle(),
 		client.clone(),
 	);
+
+	let (event_proof_sender, event_proof_stream) = ethy_gadget::notification::EthyEventProofStream::channel();
 
 	let (grandpa_block_import, grandpa_link) =
 		sc_finality_grandpa::block_import(client.clone(), &(client.clone() as Arc<_>), select_chain.clone())?;
@@ -137,7 +142,7 @@ pub fn new_partial(
 		let keystore = keystore_container.sync_keystore();
 		let chain_spec = config.chain_spec.cloned_box();
 
-		let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
+		let rpc_extensions_builder = move |deny_unsafe, subscription_executor: SubscriptionTaskExecutor| {
 			let deps = node_rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
@@ -148,6 +153,10 @@ pub fn new_partial(
 					babe_config: babe_config.clone(),
 					shared_epoch_changes: shared_epoch_changes.clone(),
 					keystore: keystore.clone(),
+				},
+				ethy: node_rpc::EthyDeps {
+					event_proof_stream: event_proof_stream.clone(),
+					subscription_executor: subscription_executor.clone(),
 				},
 				grandpa: node_rpc::GrandpaDeps {
 					shared_voter_state: shared_voter_state.clone(),
@@ -174,7 +183,7 @@ pub fn new_partial(
 		import_queue,
 		transaction_pool,
 		inherent_data_providers,
-		other: (rpc_extensions_builder, import_setup, rpc_setup),
+		other: (rpc_extensions_builder, import_setup, rpc_setup, event_proof_sender),
 	})
 }
 
@@ -205,7 +214,7 @@ pub fn new_full_base(
 		select_chain,
 		transaction_pool,
 		inherent_data_providers,
-		other: (rpc_extensions_builder, import_setup, rpc_setup),
+		other: (rpc_extensions_builder, import_setup, rpc_setup, event_proof_sender),
 	} = new_partial(&config)?;
 
 	// Set eth http bridge config
@@ -269,29 +278,6 @@ pub fn new_full_base(
 
 	let telemetry_span = TelemetrySpan::new();
 	let _telemetry_span_entered = telemetry_span.enter();
-
-	// TODO: rig up Ethy RPC subscriptions
-	let (event_proof_sender, event_proof_stream) = ethy_gadget::notification::EthyEventProofStream::channel();
-	// let rpc_extensions_builder = {
-	// 	let client = client.clone();
-	// 	let pool = transaction_pool.clone();
-
-	// 	Box::new(move |deny_unsafe, subscription_executor| {
-	// 		let beefy = crate::rpc::EthyDeps {
-	// 			event_proof_stream: event_proof_stream.clone(),
-	// 			subscription_executor,
-	// 		};
-
-	// 		let deps = crate::rpc::FullDeps {
-	// 			client: client.clone(),
-	// 			pool: pool.clone(),
-	// 			deny_unsafe,
-	// 			beefy,
-	// 		};
-
-	// 		Ok(crate::rpc::create_full(deps))
-	// 	})
-	// };
 
 	let (_rpc_handlers, telemetry_connection_notifier) = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,

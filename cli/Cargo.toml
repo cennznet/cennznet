@@ -38,7 +38,7 @@ sc-client-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockc
 sp-runtime = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
-jsonrpc-core = "15.0.0"
+jsonrpc-core = "15.1.0"
 sc-rpc = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
 sp-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-rpc-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -74,6 +74,7 @@ crml-support = { path = "../crml/support" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 ethy-gadget = { path = "../ethy-gadget" }
+ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
 pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
 

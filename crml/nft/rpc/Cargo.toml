@@ -8,9 +8,9 @@ license = "GPL-3.0"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-jsonrpc-core = "15.0.0"
-jsonrpc-core-client = "15.0.0"
-jsonrpc-derive = "15.0.0"
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
 
 sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
 sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }

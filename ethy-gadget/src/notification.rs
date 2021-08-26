@@ -21,10 +21,10 @@ use sp_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 
 use parking_lot::Mutex;
 
-/// Stream of event proof' returned when subscribing.
+/// Stream of event proofs returned when subscribing.
 type EventProofStream = TracingUnboundedReceiver<EventProof>;
 
-/// Sending endpoint for notifying about event proof'.
+/// Sending endpoint for notifying about event proofs.
 type EventProofSender = TracingUnboundedSender<EventProof>;
 
 /// Collection of channel sending endpoints shared with the receiver side so they can register
@@ -33,7 +33,7 @@ type SharedEventProofSenders = Arc<Mutex<Vec<EventProofSender>>>;
 
 /// The sending half of the event proof channel(s).
 ///
-/// Used to send notifications about event proof' generated at the end of an ETHY round.
+/// Used to send notifications about event proofs generated after a majority of validators have witnessed the event
 #[derive(Clone)]
 pub struct EthyEventProofSender {
 	subscribers: SharedEventProofSenders,
@@ -47,14 +47,14 @@ impl EthyEventProofSender {
 
 	/// Send out a notification to all subscribers that a new event proof is available for a
 	/// block.
-	pub fn notify(&self, signed_witness: EventProof) {
+	pub fn notify(&self, event_proof: EventProof) {
 		let mut subscribers = self.subscribers.lock();
 
 		// do an initial prune on closed subscriptions
 		subscribers.retain(|n| !n.is_closed());
 
 		if !subscribers.is_empty() {
-			subscribers.retain(|n| n.unbounded_send(signed_witness.clone()).is_ok());
+			subscribers.retain(|n| n.unbounded_send(event_proof.clone()).is_ok());
 		}
 	}
 }
@@ -88,7 +88,7 @@ impl EthyEventProofStream {
 	/// Subscribe to a channel through which event proofs are sent at the end of each ETHY
 	/// voting round.
 	pub fn subscribe(&self) -> EventProofStream {
-		let (sender, receiver) = tracing_unbounded("mpsc_signed_witnesss_notification_stream");
+		let (sender, receiver) = tracing_unbounded("mpsc_event_proofs_notification_stream");
 		self.subscribers.lock().push(sender);
 		receiver
 	}

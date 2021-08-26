@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. & Centrality Investments Ltd
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{marker::PhantomData, sync::Arc};
+//! 'Ethy' is the CENNZnet event proving protocol
+//! It is based on the same architecture as substrate's 'BEEFY' protocol.
+//!
+//! Active validators receive requests to witness events from runtime messages added to blocks.
+//! Validators then sign the event and share with peers
+//! Once a threshold hold of votes have been assembled a proof is generated, stored in auxiliary db storage and
+// shared over RPC to subscribers.
+//!
+//! The current implementation simply assembles signatures from individual validators.
+//!
+
+use std::sync::Arc;
 
 use log::debug;
 use prometheus::Registry;

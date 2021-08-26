@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. & Centrality Investments Ltd
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -104,12 +104,17 @@ where
 				return ValidationResult::Discard;
 			}
 
-			if self.active_validators.read().iter().find(|v| *v == &authority_id).is_none() {
+			if self
+				.active_validators
+				.read()
+				.iter()
+				.find(|v| *v == &authority_id)
+				.is_none()
+			{
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is not an active authority", &authority_id, event_id);
 				return ValidationResult::Discard;
 			}
 
-			// TODO: vote must be from a valid authority
 			trace!(target: "ethy", "💎 verify prehashed: {:?}, event: {:?}", &authority_id, event_id);
 			if EthyKeystore::verify_prehashed(&authority_id, &signature, &digest) {
 				// Make the vote as seen

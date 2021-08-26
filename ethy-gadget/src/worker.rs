@@ -163,7 +163,7 @@ where
 		// TODO: this will only be called when grandpa finalizes at a new block/checkpoint
 		// grandpa does not finalize individual blocks.
 		// we need to backtrack to find requests in all blocks since the last finalization and start signing them
-		// trace!(target: "ethy", "💎 Finality notification: {:?}", notification);
+		trace!(target: "ethy", "💎 finality notification for block #{:?}", &notification.header.number());
 
 		if let Some(active) = self.validator_set(&notification.header) {
 			// Authority set change or genesis set id triggers new voting rounds
@@ -174,7 +174,9 @@ where
 
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if active.id != self.validator_set.id || (active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.validators.is_empty()) {
+			if active.id != self.validator_set.id
+				|| (active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.validators.is_empty())
+			{
 				debug!(target: "ethy", "💎 new active validator set id: {:?}", active);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
@@ -251,7 +253,7 @@ where
 				&witness.digest,
 				self.validator_set.validators.clone(),
 			);
-			warn!(target: "ethy", "💎 adding signatures for claim: {:?}, signatures: {:?}", witness.event_id, signatures);
+			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}", witness.event_id, signatures);
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,
@@ -331,7 +333,6 @@ where
 	B: Block,
 	Id: Codec,
 {
-	// TODO: logs should be an array? extract the whole array here and return a vec/iterator
 	header.digest().logs().iter().find_map(|log| {
 		match log.try_to::<ConsensusLog<Id>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
 			Some(ConsensusLog::OpaqueSigningRequest((message, nonce))) => Some((message, nonce)),

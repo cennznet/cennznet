@@ -1,9 +1,14 @@
 # ETHY setup
-- Try RPC subscription
-- Allow vote messages only from elected authority_ids
-- Generate proofs on validator set changes
-- How to manage proofs that were in flight?
+Essential:
+- Implement RPC subscription
+    - Implement RPC subscription for deposits too?
+- Generate proofs on validator set changes (Runtime log + Handler)
+    - Distinguish validator set proof change (runtime log event w Id when proof requested)
+    - How to manage proofs that were in flight on change?
+
+QoL/Stability:
 - How to manage persistence on restart? (e.g. rebroadcast)
+- Add rebroadcast behaviour
 
 # Sketch
 User burns funds (ERC20 peg module)
