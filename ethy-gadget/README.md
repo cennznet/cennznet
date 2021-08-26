@@ -1,7 +1,5 @@
 # ETHY setup
 Essential:
-- Implement RPC subscription
-    - Implement RPC subscription for deposits too?
 - Generate proofs on validator set changes (Runtime log + Handler)
     - Distinguish validator set proof change (runtime log event w Id when proof requested)
     - How to manage proofs that were in flight on change?
@@ -23,7 +21,7 @@ ethy gadget observes event and
 once a threshold of witnesses have been observed, store the witness in the db
 broadcast the witness over RPC
 
-# TODO:
+# TODO:✅
 - Receive withdraw signals from runtime after user initiates withdraw
 - Receive validator set changes from runtime
 https://github.com/paritytech/grandpa-bridge-gadget/blob/master/beefy-pallet/src/lib.rs
