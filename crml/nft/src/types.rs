@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use variant_count::VariantCount;
 
 /// A base metadata URI string for a collection
@@ -195,7 +196,7 @@ pub enum AuctionClosureReason {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: Vec<(AccountId, Permill)>,
@@ -230,15 +231,58 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	}
 }
 
+/// The listing response and cursor returned with the RPC getCollectionListing
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ListingResponseWrapper<AccountId> {
+	// List of listings to be returned
+	pub listings: Vec<ListingResponse<AccountId>>,
+	// Cursor pointing to next listing in the series
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128_option"))]
+	pub new_cursor: Option<u128>,
+}
+
+/// A type to encapsulate both auction listings and fixed price listings for RPC getCollectionListing
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ListingResponse<AccountId> {
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128"))]
+	pub id: ListingId,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
+	pub listing_type: Vec<u8>,
+	pub payment_asset: AssetId,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128"))]
+	pub price: Balance,
+	pub end_block: BlockNumber,
+	pub buyer: Option<AccountId>,
+	pub seller: AccountId,
+	pub token_ids: Vec<TokenId>,
+	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
+	pub royalties: Vec<(AccountId, Permill)>,
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_u128<S: Serializer>(val: &u128, s: S) -> Result<S::Ok, S::Error> {
+	format!("{}", *val).serialize(s)
+}
+
+#[cfg(feature = "std")]
+pub fn serialize_u128_option<S: Serializer>(val: &Option<u128>, s: S) -> Result<S::Ok, S::Error> {
+	match val {
+		Some(v) => format!("{}", *v).serialize(s),
+		None => s.serialize_unit(),
+	}
+}
+
 /// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
 	Auction(AuctionListing<T>),
 }
 
 /// Information about an auction listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
@@ -255,7 +299,7 @@ pub struct AuctionListing<T: Config> {
 }
 
 /// Information about a fixed price listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
@@ -299,7 +343,7 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
 #[cfg(test)]
 mod test {
-	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule, TokenInfo};
+	use super::{CollectionInfo, ListingResponse, NFTAttributeValue, RoyaltiesSchedule, TokenId, TokenInfo};
 	use crate::mock::{AccountId, ExtBuilder};
 	use serde_json;
 	use sp_runtime::Permill;
@@ -434,6 +478,44 @@ mod test {
 			}";
 
 			assert_eq!(serde_json::to_string(&token_info).unwrap(), json_str);
+		});
+	}
+
+	#[test]
+	fn collection_listings_should_serialize() {
+		ExtBuilder::default().build().execute_with(|| {
+			let collection_owner = 1_u64;
+			let buyer = 2_u64;
+			let royalties = RoyaltiesSchedule::<AccountId> {
+				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+			};
+			let token_id: TokenId = (0, 0, 0);
+
+			let listing_response = ListingResponse {
+				id: 10,
+				listing_type: "fixedPrice".as_bytes().to_vec(),
+				payment_asset: 10,
+				price: 10,
+				end_block: 10,
+				buyer: Some(buyer),
+				seller: collection_owner,
+				royalties: royalties.entitlements,
+				token_ids: vec![token_id],
+			};
+
+			let json_str = "{\
+			\"id\":\"10\",\
+			\"listing_type\":\"fixedPrice\",\
+			\"payment_asset\":10,\
+			\"price\":\"10\",\
+			\"end_block\":10,\
+			\"buyer\":2,\
+			\"seller\":1,\
+			\"token_ids\":[[0,0,0]],\
+			\"royalties\":[[3,\"0.200000\"]]}\
+			";
+
+			assert_eq!(serde_json::to_string(&listing_response).unwrap(), json_str);
 		});
 	}
 }
