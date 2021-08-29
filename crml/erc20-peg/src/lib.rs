@@ -50,7 +50,7 @@ pub trait Config: frame_system::Config {
 
 decl_storage! {
 	trait Store for Module<T: Config> as Erc20Peg {
-		/// Wether deposit are active
+		/// Whether deposit are active
 		DepositsActive get(fn deposits_active): bool;
 		/// Whether withdrawals are active
 		WithdrawalsActive get(fn withdrawals_active): bool;

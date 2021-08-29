@@ -28,7 +28,7 @@ contract ERC20Peg is Ownable {
         require(depositsActive, "deposits paused");
 
         // CENNZ deposits will require a vote to activate
-        if (address == 0x1122b6a0e00dce0563082b6e2953f3a943855c1f) {
+        if (address(0) == 0x1122B6a0E00DCe0563082b6e2953f3A943855c1F) {
             require(cennzDepositsActive, "cennz deposits paused");
         }
 
@@ -44,7 +44,7 @@ contract ERC20Peg is Ownable {
     function withdraw(address tokenType, uint256 amount, uint256 event_id, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
         require(withdrawalsActive, "withdrawals paused");
         bytes32 message = abi.encodePacked(tokenType, amount, msg.sender);
-        bridge.call(bytes4(keccak256("verifyMessage(bytes,uint256,uint8[],bytes32[],bytes32[])")), message, event_id, v, r, s); 
+        bridge.call(bytes4(keccak256("verifyMessage(bytes,uint256,uint8[],bytes32[],bytes32[])")), message, event_id, v, r, s);
 
         require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
 

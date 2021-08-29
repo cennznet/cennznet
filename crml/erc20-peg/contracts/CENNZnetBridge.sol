@@ -73,7 +73,7 @@ contract CENNZnetBridge is Ownable {
         require(validatorSetId > validatorSetId, "validator set id replayed");
 
         // 0x73657456616c696461746f7273 = "setValidators"
-        bytes message = abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, validatorSetId);
+        bytes memory message = abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, validatorSetId);
         verifyMessage(message, event_id, v, r, s);
 
         // update
