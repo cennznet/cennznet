@@ -44,7 +44,7 @@ contract ERC20Peg is Ownable {
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
     function withdraw(address tokenType, uint256 amount, CENNZnetEventProof memory proof) payable external {
         require(withdrawalsActive, "withdrawals paused");
-        bytes32 message = keccak256(abi.encodePacked(tokenType, amount, msg.sender));
+        bytes memory message = abi.encodePacked(tokenType, amount, msg.sender);
         bridge.call(abi.encodeWithSignature("verifyMessage(bytes,CENNZnetEventProof)", message, proof));
         require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
 
