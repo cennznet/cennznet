@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import "./CENNZnetBridge.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -28,7 +29,7 @@ contract ERC20Peg is Ownable {
         require(depositsActive, "deposits paused");
 
         // CENNZ deposits will require a vote to activate
-        if (address(0) == 0x1122B6a0E00DCe0563082b6e2953f3A943855c1F) {
+        if (address(tokenType) == 0x1122B6a0E00DCe0563082b6e2953f3A943855c1F) {
             require(cennzDepositsActive, "cennz deposits paused");
         }
 
@@ -41,10 +42,10 @@ contract ERC20Peg is Ownable {
     // Requires signatures from a threshold of current CENNZnet validators
     // v,r,s are sparse arrays expected to align w public key in 'validators'
     // i.e. v[i], r[i], s[i] matches the i-th validator[i]
-    function withdraw(address tokenType, uint256 amount, uint256 event_id, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) payable external {
+    function withdraw(address tokenType, uint256 amount, CENNZnetEventProof memory proof) payable external {
         require(withdrawalsActive, "withdrawals paused");
-        bytes32 message = keccak256(abi.encodePacked(tokenType, amount, msg.sender));
-        bridge.call(abi.encodeWithSignature("verifyMessage(bytes,uint256,uint8[],bytes32[],bytes32[])", message, event_id, v, r, s));
+        bytes32 message = abi.encodePacked(tokenType, amount, msg.sender);
+        bridge.call(abi.encodeWithSignature("verifyMessage(bytes,CENNZnetEventProof)", message, proof));
         require(IERC20(tokenType).transfer(msg.sender, amount), "withdraw failed");
 
         emit Withdraw(msg.sender, tokenType, amount);
