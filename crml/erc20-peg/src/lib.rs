@@ -130,6 +130,7 @@ decl_module! {
 		/// Submit deposit claim for an ethereum tx hash
 		/// The deposit details must be provided for cross-checking by notaries
 		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
+		#[transactional]
 		pub fn deposit_claim(origin, tx_hash: H256, claim: Erc20DepositEvent) {
 			// Note: require caller to provide the `claim` so we don't need to handle the-
 			// complexities of notaries reporting differing deposit events

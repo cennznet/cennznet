@@ -30,6 +30,16 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*, result};
 
+/// Tracks the status of sessions in an era
+pub trait FinalSessionTracker {
+	/// Is the current session the 2nd to last i.e `final_session - 1`
+	/// This session is where the new validator set is queued
+	fn is_pre_final_session() -> bool;
+	/// Is the current session the final session
+	/// This session is where the new validator set is activated
+	fn is_final_session() -> bool;
+}
+
 /// Something that can be decoded from eth log data/ ABI
 /// TODO: ethabi crate would be better for this however no support for `no_std`
 pub trait EthAbiCodec: Sized {

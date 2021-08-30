@@ -19,6 +19,7 @@ use std::convert::TryInto;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::keccak_256;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_runtime::traits::Convert;
 
 use cennznet_primitives::eth::{
 	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
@@ -106,6 +107,25 @@ impl EthyKeystore {
 impl From<Option<SyncCryptoStorePtr>> for EthyKeystore {
 	fn from(store: Option<SyncCryptoStorePtr>) -> EthyKeystore {
 		EthyKeystore(store)
+	}
+}
+
+/// Convert an Ethy secp256k1 public key into an Ethereum addresses
+pub struct EthyEcdsaToEthereum;
+impl Convert<Public, [u8; 20]> for EthyEcdsaToEthereum {
+	fn convert(a: Public) -> [u8; 20] {
+		use sp_core::crypto::Public;
+		let compressed_key = a.as_slice();
+
+		libsecp256k1::PublicKey::parse_slice(compressed_key, Some(libsecp256k1::PublicKeyFormat::Compressed))
+			// uncompress the key
+			.map(|pub_key| pub_key.serialize().to_vec())
+			// now convert to ETH address
+			.map(|uncompressed| sp_core::keccak_256(&uncompressed[1..])[12..].to_vec())
+			.map_err(|_| {
+				log::error!(target: "runtime::ethy", "Invalid Ethy PublicKey format!");
+			})
+			.unwrap_or_default()
 	}
 }
 

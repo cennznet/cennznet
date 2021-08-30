@@ -32,7 +32,7 @@ use sp_runtime::{
 
 use crate::{
 	gossip::{topic, GossipValidator},
-	keystore::EthyKeystore,
+	keystore::{EthyKeystore, EthyEcdsaToEthereum},
 	metric_inc, metric_set,
 	metrics::Metrics,
 	notification,
@@ -44,6 +44,7 @@ use cennznet_primitives::eth::{
 	ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
 	GENESIS_AUTHORITY_SET_ID,
 };
+use crml_support::EthAbiCodec;
 
 /// % signature to generate a proof
 const PROOF_THRESHOLD: f32 = 0.6;
@@ -194,7 +195,7 @@ where
 
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
-		for (message, event_id) in extract_proof_requests::<B, Public>(&notification.header).iter().fuse() {
+		for (message, event_id) in extract_proof_requests::<B>(&notification.header).iter() {
 			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, message);
 			// `message = abi.encodePacked(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
@@ -247,7 +248,6 @@ where
 			.witness_record
 			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
 		{
-			// TODO: iterate signatures and order with validator set for valid proof!
 			let signatures = self.witness_record.signatures_for(
 				witness.event_id,
 				&witness.digest,
@@ -327,18 +327,39 @@ where
 	}
 }
 
-/// Extract a signing request from a digest in the given header, if it exists.
-fn extract_proof_requests<B, Id>(header: &B::Header) -> Option<(Message, EventId)>
+/// Extract event proof requests from a digest in the given header, if any.
+fn extract_proof_requests<B>(header: &B::Header) -> Vec<(Message, EventId)>
 where
 	B: Block,
-	Id: Codec,
 {
-	header.digest().logs().iter().find_map(|log| {
-		match log.try_to::<ConsensusLog<Id>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
-			Some(ConsensusLog::OpaqueSigningRequest((message, nonce))) => Some((message, nonce)),
-			_ => None,
-		}
-	})
+	header
+		.digest()
+		.logs()
+		.iter()
+		.flat_map(|log| {
+			let res: Option<(Vec<u8>, EventId)> = match log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
+				Some(ConsensusLog::OpaqueSigningRequest(r)) => Some(r),
+				// Note: we also handle this in `find_authorities_change` to update the validator set
+				// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
+				// we must do this before the validators officially change next session (~10 minutes)
+				Some(ConsensusLog::PendingAuthoritiesChange((validator_set, event_id))) => {
+					use sp_runtime::traits::Convert;
+					// Convert the validator ECDSA pub keys to addresses and `abi.encodePacked()` them
+					// + the `event_id`
+					let mut message = Vec::with_capacity(32 * (validator_set.validators.len() + 1));
+					for (idx, ecda_pubkey ) in validator_set.validators.into_iter().enumerate() {
+						message[(idx * 32) + 12..].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
+						message
+					}
+					message[32 * (validator_set.validators.len())].copy_from_slice(abi_encoded);
+
+					Some((message, event_id))
+				},
+				_ => None
+			};
+			res
+		})
+		.collect()
 }
 
 /// Scan the `header` digest log for a ETHY validator set change. Return either the new

@@ -89,7 +89,11 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	/// A request to sign some data was logged
 	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, event_id)`
 	#[codec(index = 3)]
-	OpaqueSigningRequest((Message, EventId)),
+	OpaqueSigningRequest((Message, EventId)),	
+	#[codec(index = 4)]
+	/// Signal an `AuthoritiesChange` is scheduled for next session
+	/// Generate a proof that the current validator set has witnessed the new authority set
+	PendingAuthoritiesChange((ValidatorSet<AuthorityId>, EventId)),
 }
 
 /// ETHY witness message.

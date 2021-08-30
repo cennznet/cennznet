@@ -17,7 +17,7 @@ TODO:
 - Develop withdrawal process
 - Move Eth contracts to standalone repo
 - Handle per network bridge config without recompile runtime e.g. genesis properties file
-- Handle CENNZ deposit edge case
+- Handle CENNZ deposit edge case (leave to governance)
 - Test!!!
 - Write up design docs
 

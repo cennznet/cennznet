@@ -1,10 +1,12 @@
 # ETHY setup
 Essential:
-- Generate proofs on validator set changes (Runtime log + Handler)
-    - Distinguish validator set proof change (runtime log event w Id when proof requested)
-    - How to manage proofs that were in flight on change?
+- Check multiple claims in a block are supported
+- Check the double spend 'bucketing' solution works
+- Only update validator set proofs on a new era, not just session key changes
+- Manage proofs in-flight on change? i.e pause proof requests for 1 session ~10 minutes ✅
+- Distinguish validator set proof change (runtime log event w Id when proof requested)(?) ✅
 
-QoL/Stability:
+QoL/Stability:x
 - How to manage persistence on restart? (e.g. rebroadcast)
 - Add rebroadcast behaviour
 

@@ -36,7 +36,7 @@ use cennznet_primitives::{
 	types::BlockNumber,
 };
 use codec::Encode;
-use crml_support::{EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
+use crml_support::{EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker NotarizationRewardHandler};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
@@ -104,6 +104,8 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type Call: From<Call<Self>>;
 	/// The overarching event type.
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+	/// Tracks the status of sessions/eras
+	type FinalSessionTracker: ShouldEndSession;
 }
 
 decl_storage! {
@@ -141,6 +143,8 @@ decl_storage! {
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
 		/// The current validator set id
 		NotarySetId get(fn notary_set_id): u64;
+		/// Whether the bridge is paused
+		BridgePaused get(fn bridge_paused): bool;
 	}
 }
 
@@ -150,6 +154,9 @@ decl_event! {
 		Verified(EventClaimId),
 		/// Verifying an event failed
 		Invalid(EventClaimId),
+		/// A notary (validator) set change is in motion
+		/// A proof for the change will be generated with the given `event_id`
+		NotarySetChange(EventProofId),
 	}
 }
 
@@ -168,7 +175,10 @@ decl_error! {
 		/// offchain worker not configured properly
 		OcwConfig,
 		/// This message has already been notarized
-		AlreadyNotarized
+		AlreadyNotarized,
+		/// The bridge is paused pending validator set changes (once every era / 24 hours)
+		/// It will reactive after ~10 minutes
+		BridgePaused,
 	}
 }
 
@@ -360,6 +370,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError> {
+		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
 
 		// check if we've seen this event type before
@@ -383,6 +394,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 	}
 
 	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
+		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		let event_proof_id = Self::next_proof_id();
 
 		// TODO: does this support multiple consensus logs in a block?
@@ -622,26 +634,43 @@ impl<T: Config> Module<T> {
 	}
 
 	fn change_authorities(new: Vec<T::AuthorityId>, queued: Vec<T::AuthorityId>) {
-		// As in GRANDPA, we trigger a validator set change only if the the validator
-		// set has actually changed.
-		if new != Self::notary_keys() {
-			<NotaryKeys<T>>::put(&new);
+		// This maybe called when validators rotate their keys, we don't want to
+		// change this until
 
-			let next_id = Self::notary_set_id().wrapping_add(1);
-			NotarySetId::put(next_id);
+		// end session (n) 0 1
+		// start session (n + 1) 1 2
+		// new session (n + 2) 2 3
+
+		// signal 1 session early about the `queued` validator set change so there's time to generate a proof
+		if T::FinalSessionTracker::is_pre_final_session() {
+			// Pause bridge claim/proofs
+			// Prevents claims/proofs being partially processed and failing if the validator set changes
+			// significantly
+			BridgePaused::put(true);
+			<NextNotaryKeys<T>>::put(&queued);
+
+			// Signal the Event Id that will be used for the proof of validator set change.
+			// Any observer can subscribe to this event and submit the resulting proof to keep the
+			// validator set on the Ethereum bridge contract updated.
+			NextProofId::mutate(|event_proof_id| {
+				Self::deposit_event(Event::NotarySetChange(event_proof_id));
+				event_proof_id.wrapping_add(1))
+			});
 
 			let log: DigestItem<T::Hash> = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: new,
-					id: next_id,
-				})
-				.encode(),
+				ConsensusLog::AuthoritiesChange(ValidatorSet { validators: queued, id: next_set_id }).encode(),
 			);
 			<frame_system::Pallet<T>>::deposit_log(log);
-		}
+		} else if T::FinalSessionTracker::is_final_session() {
+			// Time to update the bridge validator keys.
+			// Store the new keys and increment the validator set id
+			<NotaryKeys<T>>::put(&Self::next_notary_keys());
+			NotarySetId::mutate(|next_set_id| next_set_id.wrapping_add(1));
 
-		<NextNotaryKeys<T>>::put(&queued);
+			// Re-activate the bridge, allowing claims & proofs again
+			BridgePaused::remove();
+		}
 	}
 
 	fn initialize_authorities(authorities: &[T::AuthorityId]) {
@@ -732,14 +761,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 			Self::change_authorities(next_authorities, next_queued_authorities);
 		}
-		// `changed` informs us the current `validators` has changed in some way as of right now
-		// `queued_validators` will update the reflected set one session prior to activation
-		// this gives us one session to notarize a proof of ancestry for the next set.
-		// TODO: how does this interplay function with the election window?
-		// e.g. PendingAncestryClaim::insert(queued_validators)
-		// next block should trigger voting asap
 	}
 
-	fn on_before_session_ending() {}
-	fn on_disabled(_i: usize) {}
+	fn on_disabled(_i: usize) {
+		// TODO: remove disabled validator from claim voting?
+	}
 }
