@@ -36,7 +36,10 @@ use cennznet_primitives::{
 	types::BlockNumber,
 };
 use codec::Encode;
-use crml_support::{EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker NotarizationRewardHandler};
+use crml_support::{
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	NotarizationRewardHandler,
+};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
@@ -105,7 +108,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The overarching event type.
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 	/// Tracks the status of sessions/eras
-	type FinalSessionTracker: ShouldEndSession;
+	type FinalSessionTracker: FinalSessionTrackerT;
 }
 
 decl_storage! {
@@ -156,7 +159,7 @@ decl_event! {
 		Invalid(EventClaimId),
 		/// A notary (validator) set change is in motion
 		/// A proof for the change will be generated with the given `event_id`
-		NotarySetChange(EventProofId),
+		AuthoritySetChange(EventProofId),
 	}
 }
 
@@ -399,7 +402,12 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 
 		// TODO: does this support multiple consensus logs in a block?
 		// save this for `on_finalize` and insert many
-		let packed_event_with_id = [&event.encode()[..], &EthAbiCodec::encode(&event_proof_id)[..]].concat();
+		let packed_event_with_id = [
+			&event.encode()[..],
+			&EthAbiCodec::encode(&Self::validator_set().id)[..],
+			&EthAbiCodec::encode(&event_proof_id)[..],
+		]
+		.concat();
 		let log: DigestItem<T::Hash> = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
@@ -439,7 +447,7 @@ impl<T: Config> Module<T> {
 
 		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
 		let tx_receipt = match maybe_tx_receipt {
-			Some(tx_receipt) => tx_receipt,
+			Some(t) => t,
 			None => return EventClaimResult::NoTxLogs,
 		};
 		let status = tx_receipt.status.unwrap_or_default();
@@ -633,43 +641,51 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	fn change_authorities(new: Vec<T::AuthorityId>, queued: Vec<T::AuthorityId>) {
-		// This maybe called when validators rotate their keys, we don't want to
-		// change this until
+	/// Handle changes to the authority set
+	/// This could be called when validators rotate their keys, we don't want to
+	/// change this until the era has changed to avoid generating proofs for small set changes or too frequently
+	/// - `new`: The validator set that is active right now
+	/// - `queued`: The validator set that will activate next session
+	fn handle_authorities_change(new: Vec<T::AuthorityId>, queued: Vec<T::AuthorityId>) {
+		// ### Session life cycle
+		// block on_initialize if ShouldEndSession(n)
+		//  rotate_session
+		//    before_end_session
+		//    end_session (end just been)
+		//    start_session (start now)
+		//    new_session (start now + 1)
+		//   -> on_new_session <- this function is CALLED here
 
-		// end session (n) 0 1
-		// start session (n + 1) 1 2
-		// new session (n + 2) 2 3
-
-		// signal 1 session early about the `queued` validator set change so there's time to generate a proof
-		if T::FinalSessionTracker::is_pre_final_session() {
-			// Pause bridge claim/proofs
-			// Prevents claims/proofs being partially processed and failing if the validator set changes
-			// significantly
-			BridgePaused::put(true);
+		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
+		if T::FinalSessionTracker::is_planned_session_final() {
+			// Store the keys for usage next session
 			<NextNotaryKeys<T>>::put(&queued);
-
 			// Signal the Event Id that will be used for the proof of validator set change.
 			// Any observer can subscribe to this event and submit the resulting proof to keep the
 			// validator set on the Ethereum bridge contract updated.
 			NextProofId::mutate(|event_proof_id| {
-				Self::deposit_event(Event::NotarySetChange(event_proof_id));
-				event_proof_id.wrapping_add(1))
+				Self::deposit_event(Event::AuthoritySetChange(*event_proof_id));
+				event_proof_id.wrapping_add(1)
 			});
-
 			let log: DigestItem<T::Hash> = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet { validators: queued, id: next_set_id }).encode(),
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: queued,
+					id: Self::notary_set_id().wrapping_add(1),
+				})
+				.encode(),
 			);
 			<frame_system::Pallet<T>>::deposit_log(log);
-		} else if T::FinalSessionTracker::is_final_session() {
+		} else if T::FinalSessionTracker::is_current_session_final().0 {
+			// Pause bridge claim/proofs
+			// Prevents claims/proofs being partially processed and failing if the validator set changes
+			// significantly
+			BridgePaused::put(true);
 			// Time to update the bridge validator keys.
 			// Store the new keys and increment the validator set id
 			<NotaryKeys<T>>::put(&Self::next_notary_keys());
 			NotarySetId::mutate(|next_set_id| next_set_id.wrapping_add(1));
-
-			// Re-activate the bridge, allowing claims & proofs again
-			BridgePaused::remove();
+			// Note: the bridge will be reactivated at the end of the session
 		}
 	}
 
@@ -759,7 +775,19 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
 
-			Self::change_authorities(next_authorities, next_queued_authorities);
+			Self::handle_authorities_change(next_authorities, next_queued_authorities);
+		}
+	}
+
+	/// A notification for end of the session.
+	///
+	/// Note it is triggered before any [`SessionManager::end_session`] handlers,
+	/// so we can still affect the validator set.
+	fn on_before_session_ending() {
+		// Re-activate the bridge, allowing claims & proofs again
+		if T::FinalSessionTracker::is_current_session_final().0 {
+			// A proof should've been generated now so we can reactivate the bridge with the new validator set
+			BridgePaused::kill();
 		}
 	}
 

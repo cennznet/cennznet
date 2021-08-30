@@ -121,7 +121,11 @@ impl Convert<Public, [u8; 20]> for EthyEcdsaToEthereum {
 			// uncompress the key
 			.map(|pub_key| pub_key.serialize().to_vec())
 			// now convert to ETH address
-			.map(|uncompressed| sp_core::keccak_256(&uncompressed[1..])[12..].to_vec())
+			.map(|uncompressed| {
+				sp_core::keccak_256(&uncompressed[1..])[12..]
+					.try_into()
+					.expect("32 byte digest")
+			})
 			.map_err(|_| {
 				log::error!(target: "runtime::ethy", "Invalid Ethy PublicKey format!");
 			})

@@ -32,7 +32,7 @@ use sp_runtime::{
 
 use crate::{
 	gossip::{topic, GossipValidator},
-	keystore::{EthyKeystore, EthyEcdsaToEthereum},
+	keystore::{EthyEcdsaToEthereum, EthyKeystore},
 	metric_inc, metric_set,
 	metrics::Metrics,
 	notification,
@@ -178,7 +178,8 @@ where
 			if active.id != self.validator_set.id
 				|| (active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.validators.is_empty())
 			{
-				debug!(target: "ethy", "💎 new active validator set id: {:?}", active);
+				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
+				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
 				self.validator_set = active;
@@ -337,26 +338,29 @@ where
 		.logs()
 		.iter()
 		.flat_map(|log| {
-			let res: Option<(Vec<u8>, EventId)> = match log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
-				Some(ConsensusLog::OpaqueSigningRequest(r)) => Some(r),
-				// Note: we also handle this in `find_authorities_change` to update the validator set
-				// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
-				// we must do this before the validators officially change next session (~10 minutes)
-				Some(ConsensusLog::PendingAuthoritiesChange((validator_set, event_id))) => {
-					use sp_runtime::traits::Convert;
-					// Convert the validator ECDSA pub keys to addresses and `abi.encodePacked()` them
-					// + the `event_id`
-					let mut message = Vec::with_capacity(32 * (validator_set.validators.len() + 1));
-					for (idx, ecda_pubkey ) in validator_set.validators.into_iter().enumerate() {
-						message[(idx * 32) + 12..].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
-						message
-					}
-					message[32 * (validator_set.validators.len())].copy_from_slice(abi_encoded);
+			let res: Option<(Vec<u8>, EventId)> =
+				match log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
+					Some(ConsensusLog::OpaqueSigningRequest(r)) => Some(r),
+					// Note: we also handle this in `find_authorities_change` to update the validator set
+					// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
+					// we must do this before the validators officially change next session (~10 minutes)
+					Some(ConsensusLog::PendingAuthoritiesChange((validator_set, event_id))) => {
+						use sp_runtime::traits::Convert;
+						// Convert the validator ECDSA pub keys to addresses and `abi.encodePacked()` them
+						// + the `event_id`
+						let mut message = Vec::with_capacity(32 * (validator_set.validators.len() + 2));
+						let extra_idx = 32 * (validator_set.validators.len());
+						for (idx, ecda_pubkey) in validator_set.validators.into_iter().enumerate() {
+							message[(idx * 32) + 12..].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
+						}
+						message[extra_idx..extra_idx + 32]
+							.copy_from_slice(EthAbiCodec::encode(&validator_set.id).as_slice());
+						message[extra_idx + 32..].copy_from_slice(EthAbiCodec::encode(&event_id).as_slice());
 
-					Some((message, event_id))
-				},
-				_ => None
-			};
+						Some((message, event_id))
+					}
+					_ => None,
+				};
 			res
 		})
 		.collect()

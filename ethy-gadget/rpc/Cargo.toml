@@ -25,3 +25,4 @@ sp-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch =
 
 ethy-gadget = { path = "../." }
 cennznet-primitives = { path = "../../primitives" }
+crml-support = { path = "../../crml/support" }

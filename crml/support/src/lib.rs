@@ -34,10 +34,10 @@ use sp_std::{fmt::Debug, prelude::*, result};
 pub trait FinalSessionTracker {
 	/// Is the current session the 2nd to last i.e `final_session - 1`
 	/// This session is where the new validator set is queued
-	fn is_pre_final_session() -> bool;
-	/// Is the current session the final session
-	/// This session is where the new validator set is activated
-	fn is_final_session() -> bool;
+	fn is_planned_session_final() -> bool;
+	/// Is the current session the final session.
+	/// Immediately after this a new validator set is activated
+	fn is_current_session_final() -> (bool, bool);
 }
 
 /// Something that can be decoded from eth log data/ ABI

@@ -623,6 +623,8 @@ impl crml_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
+	/// Reports final session status of an era
+	type FinalSessionTracker = Staking;
 }
 
 // transaction must have an event/log of the deposit

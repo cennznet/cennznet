@@ -976,8 +976,12 @@ decl_storage! {
 		/// solutions to be submitted.
 		pub EraElectionStatus get(fn era_election_status): ElectionStatus<T::BlockNumber>;
 
-		/// True if the current **planned** session is final. Note that this does not take era
+		/// True if the next **planned** session is final (last in the era). Note that this does not take era
 		/// forcing into account.
+		pub IsPlannedSessionFinal get(fn is_planned_session_final): bool = false;
+
+		/// True if the active session is final (last in the era). Note that this does not take era
+		/// forcing into account
 		pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
 		/// Same as `will_era_be_forced()` but persists to `end_era`
@@ -2131,9 +2135,11 @@ impl<T: Config> Module<T> {
 				0
 			});
 
+			// `session_index` here is current + 1
+			// i.e it will start next session
 			let era_length = session_index.checked_sub(current_era_start_session_index).unwrap_or(0); // Must never happen.
 
-			// forcing a new era, means forcing an era end for the active era
+			// forcing a new era, means forcing an era end for the next active era
 			if Self::will_era_be_forced() {
 				WasEndEraForced::put(true)
 			}
@@ -2141,15 +2147,29 @@ impl<T: Config> Module<T> {
 			match ForceEra::get() {
 				Forcing::ForceNew => ForceEra::kill(),
 				Forcing::ForceAlways => (),
-				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
-				_ => {
+				Forcing::NotForcing => {
+					if era_length + 1 == T::SessionsPerEra::get() {
+						IsPlannedSessionFinal::put(true);
+					} else if era_length >= T::SessionsPerEra::get() {
+						IsPlannedSessionFinal::kill();
+						IsCurrentSessionFinal::put(true);
+					} else if era_length <= 1 {
+						IsCurrentSessionFinal::kill()
+					}
+				}
+				Forcing::ForceNone => {
 					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
 					if era_length + 1 == T::SessionsPerEra::get() {
-						IsCurrentSessionFinal::put(true);
+						IsPlannedSessionFinal::put(true);
+					// Mark the started/currently executing session as final (session_index - 1)
 					} else if era_length >= T::SessionsPerEra::get() {
+						IsPlannedSessionFinal::kill();
+						IsCurrentSessionFinal::put(true);
 						// Should only happen when we are ready to trigger an era but we have ForceNone,
 						// otherwise previous arm would short circuit.
 						Self::close_election_window();
+					} else if era_length <= 1 {
+						IsCurrentSessionFinal::kill()
 					}
 					return None;
 				}
@@ -2606,8 +2626,6 @@ impl<T: Config> Module<T> {
 		<EraElectionStatus<T>>::put(ElectionStatus::Closed);
 		// Kill snapshots.
 		Self::kill_stakers_snapshot();
-		// Don't track final session.
-		IsCurrentSessionFinal::put(false);
 	}
 
 	/// Select the new validator set at the end of the era.
@@ -2672,6 +2690,7 @@ impl<T: Config> Module<T> {
 
 			Some(elected_stashes)
 		} else {
+			Self::close_election_window();
 			None
 		}
 	}
@@ -3141,4 +3160,17 @@ fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransac
 		_ => 0,
 	};
 	InvalidTransaction::Custom(error_number)
+}
+
+impl<T: Config> crml_support::FinalSessionTracker for Module<T> {
+	/// True if the next session is final in an era
+	fn is_planned_session_final() -> bool {
+		Self::is_planned_session_final()
+	}
+	/// True if the current session is final in an era
+	/// True if the era was forced
+	fn is_current_session_final() -> (bool, bool) {
+		// TODO: forced hard-coded to false
+		(Self::is_current_session_final(), false)
+	}
 }

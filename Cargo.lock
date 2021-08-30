@@ -1980,6 +1980,7 @@ version = "0.1.0"
 dependencies = [
  "bitvec 0.20.4",
  "cennznet-primitives",
+ "crml-support",
  "futures 0.3.16",
  "hex",
  "libsecp256k1 0.6.0",
@@ -2009,6 +2010,7 @@ name = "ethy-gadget-rpc"
 version = "0.1.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-support",
  "ethy-gadget",
  "futures 0.3.16",
  "jsonrpc-core",

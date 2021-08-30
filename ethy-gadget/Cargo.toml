@@ -18,7 +18,7 @@ libsecp256k1 = { version = "0.6.0" }
 prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing"}
 
 cennznet-primitives = { path = "../primitives" }
-crml_support = { path = "../crml/support" }
+crml-support = { path = "../crml/support" }
 sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
 sp-application-crypto = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
 sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
