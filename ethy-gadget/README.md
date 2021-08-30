@@ -1,10 +1,10 @@
 # ETHY setup
 Essential:
-- Check multiple claims in a block are supported
+- handle validator set force era
 - Check the double spend 'bucketing' solution works
-- Only update validator set proofs on a new era, not just session key changes
-- TODO: what happens to validator set IDs on force era?
-    - easy way is to suspend bridge until next true era
+- Test we can query proofs from fullnodes ✅
+- Check multiple claims in a block are supported  ✅
+- Only update validator set proofs on a new era, not just session key changes  ✅
 - Manage proofs in-flight on change? i.e pause proof requests for 1 session ~10 minutes ✅
 - Distinguish validator set proof change (runtime log event w Id when proof requested)(?) ✅
 
