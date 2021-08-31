@@ -168,11 +168,6 @@ where
 
 		if let Some(active) = self.validator_set(&notification.header) {
 			// Authority set change or genesis set id triggers new voting rounds
-
-			// TODO:
-			// Changing validator set mid-way through an active vote will cause issues.
-			// Need to handle this e.g. re-trigger voting
-
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
 			if active.id != self.validator_set.id
@@ -258,6 +253,7 @@ where
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,
+				validator_set_id: self.validator_set.id,
 				signatures,
 			};
 			// We can add proof to the DB that this block has been finalized specifically by the

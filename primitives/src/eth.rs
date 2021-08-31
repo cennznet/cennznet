@@ -121,6 +121,8 @@ pub struct EventProof {
 	pub digest: [u8; 32],
 	/// The witness signatures are collected for this event.
 	pub event_id: EventId,
+	/// The validators set Id that signed the proof
+	pub validator_set_id: ValidatorSetId,
 	/// GRANDPA validators' signatures for the witness.
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
