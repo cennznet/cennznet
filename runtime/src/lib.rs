@@ -607,10 +607,10 @@ impl crml_eth_bridge::Config for Runtime {
 	type EventConfirmations = EventConfirmations;
 	/// Events cannot be claimed after this duration
 	type EventDeadline = EventDeadline;
+	/// The identifier type for an offchain worker.
+	type EthyId = EthBridgeId;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
-	/// The identifier type for an offchain worker.
-	type AuthorityId = EthBridgeId;
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
 	/// Handle rewards for notaries

@@ -88,7 +88,8 @@ macro_rules! log {
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
-	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	/// 33 byte ECDSA public key
+	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The minimum number of block confirmations needed to ratify an Ethereum event
@@ -121,7 +122,7 @@ decl_storage! {
 		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
-		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::AuthorityId => Option<EventClaimResult>;
+		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
 		/// Maps event types seen by the bridge ((contract address, event signature)) to unique type Ids
 		EventTypeToTypeId get(fn event_type_to_type_id): map hasher(blake2_128_concat) (EthAddress, EthHash) => EventTypeId;
 		/// Maps event type ids to ((contract address, event signature))
@@ -133,9 +134,9 @@ decl_storage! {
 		/// Id of the next event proof
 		NextProofId get(fn next_proof_id): EventProofId;
 		/// Active notary (validator) public keys
-		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		NotaryKeys get(fn notary_keys): Vec<T::EthyId>;
 		/// Scheduled notary (validator) public keys for the next session
-		NextNotaryKeys get(fn next_notary_keys): Vec<T::AuthorityId>;
+		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
 		// Used in conjunction with `EventDeadline` to prevent "double spends".
 		// After a bucket is older than the deadline, any events prior are considered expired.
@@ -211,7 +212,7 @@ decl_module! {
 		#[transactional]
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) {
+		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::EthyId as RuntimeAppPublic>::Signature) {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
@@ -221,7 +222,7 @@ decl_module! {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
-			<EventNotarizations<T>>::insert::<EventClaimId, T::AuthorityId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
+			<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
 
 			T::AuthoritySet::validators().get(payload.authority_index as usize)
 				.map(|v| T::RewardHandler::reward_notary(v));
@@ -297,16 +298,16 @@ decl_module! {
 			}
 
 			// Get all signing keys for this protocol 'KeyTypeId'
-			let keys = T::AuthorityId::all();
+			let keys = T::EthyId::all();
 			let key = match keys.len() {
 				0 => {
-					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::AuthorityId::ID);
+					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
 					return
 				},
 				1 => keys[0].clone(),
 				_ => {
 					// expect at most one key to be present
-					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
+					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::EthyId::ID);
 					return
 				},
 			};
@@ -330,7 +331,7 @@ decl_module! {
 				}
 
 				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::AuthorityId>(event_claim_id, key.clone()) {
+				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, key.clone()) {
 					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
 				}
 
@@ -619,7 +620,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(key: &T::AuthorityId, payload: NotarizationPayload) -> Result<(), Error<T>> {
+	fn offchain_send_notarization(key: &T::EthyId, payload: NotarizationPayload) -> Result<(), Error<T>> {
 		let signature = key
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
@@ -634,8 +635,8 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Return the active Ethy validator set.
-	pub fn validator_set() -> ValidatorSet<T::AuthorityId> {
-		ValidatorSet::<T::AuthorityId> {
+	pub fn validator_set() -> ValidatorSet<T::EthyId> {
+		ValidatorSet::<T::EthyId> {
 			validators: Self::notary_keys(),
 			id: Self::notary_set_id(),
 		}
@@ -646,7 +647,7 @@ impl<T: Config> Module<T> {
 	/// change this until the era has changed to avoid generating proofs for small set changes or too frequently
 	/// - `new`: The validator set that is active right now
 	/// - `queued`: The validator set that will activate next session
-	fn handle_authorities_change(new: Vec<T::AuthorityId>, queued: Vec<T::AuthorityId>) {
+	fn handle_authorities_change(new: Vec<T::EthyId>, queued: Vec<T::EthyId>) {
 		// ### Session life cycle
 		// block on_initialize if ShouldEndSession(n)
 		//  rotate_session
@@ -689,7 +690,7 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	fn initialize_authorities(authorities: &[T::AuthorityId]) {
+	fn initialize_authorities(authorities: &[T::EthyId]) {
 		if authorities.is_empty() {
 			return;
 		}
@@ -746,15 +747,15 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Module<T> {
-	type Public = T::AuthorityId;
+	type Public = T::EthyId;
 }
 
 impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
-	type Key = T::AuthorityId;
+	type Key = T::EthyId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
@@ -768,7 +769,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued_validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// Record authorities for the new session.
 		if changed {
