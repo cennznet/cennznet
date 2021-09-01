@@ -110,6 +110,7 @@ pub struct Witness {
 	pub authority_id: crypto::AuthorityId,
 	/// Node signature
 	/// Over `keccak(abi.encodePacked(self.message, self.nonce))`
+	/// a 512-bit value, plus 8 bits for recovery ID.
 	pub signature: crypto::AuthoritySignature,
 }
 

@@ -16,9 +16,9 @@ After a threshold of notarizations for an event are reached, the bridge applicat
 TODO:
 - Develop withdrawal process ✅
 - Move Eth contracts to standalone repo ✅
+- Handle CENNZ deposit edge case (leave to governance) ✅
 - Handle per network bridge config without recompile runtime e.g. genesis properties file
-- Handle CENNZ deposit edge case (leave to governance)
-- Test!!!
+- Write integration tests!
     - Test replay protection and pruning
     - Mock eth bridge query functions
     - Test deposit confirmations and deadline expiry
