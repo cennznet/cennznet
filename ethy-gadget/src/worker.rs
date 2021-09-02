@@ -193,7 +193,7 @@ where
 		// Sign and broadcast a witness
 		for (message, event_id) in extract_proof_requests::<B>(&notification.header).iter() {
 			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, message);
-			// `message = abi.encodePacked(param0, param1,.., paramN, nonce)`
+			// `message = abi.encode(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
 				Ok(sig) => sig,
 				Err(err) => {

@@ -69,21 +69,21 @@ contract CENNZnetBridge is Ownable {
     // ~6,737,588 gas
     function setValidators(
         address[] memory newValidators,
-        uint32 validatorSetId,
+        uint32 _validatorSetId,
         uint event_id,
         uint8[] memory v,
         bytes32[] memory r,
         bytes32[] memory s
     ) external {
-        require(validatorSetId > validatorSetId, "validator set id replayed");
+        require(_validatorSetId > validatorSetId, "validator set id replayed");
 
         // 0x73657456616c696461746f7273 = "setValidators"
         bytes message = abi.encodePacked(uint(0x73657456616c696461746f7273), newValidators, validatorSetId);
         verifyMessage(message, event_id, v, r, s);
 
         // update
-        validators[validatorSetId] = newValidators;
-        validatorSetId = validatorSetId;
+        validators[_validatorSetId] = newValidators;
+        validatorSetId = _validatorSetId;
 
         // return any accumlated fees to the sender as a reward
         uint reward = address(this).balance;
