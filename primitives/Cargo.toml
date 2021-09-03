@@ -7,12 +7,12 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa_testing" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-sp-application-crypto = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa_testing" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa_testing" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa_testing" }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-application-crypto = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
 
 [features]
 default = ["std"]

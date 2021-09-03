@@ -14,11 +14,11 @@ cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
 
 [features]
 default = ["std"]

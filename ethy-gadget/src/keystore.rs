@@ -135,26 +135,47 @@ impl Convert<Public, [u8; 20]> for EthyEcdsaToEthereum {
 
 #[cfg(test)]
 mod tests {
-	#![allow(clippy::unit_cmp)]
-
 	use sp_core::{keccak_256, Pair};
 	use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 
-	use ethy_primitives::{crypto, ETH_BRIDGE_KEY_TYPE};
+	use cennznet_primitives::eth::{crypto, ETH_BRIDGE_KEY_TYPE};
 
 	use super::EthyKeystore;
 	use crate::error::Error;
+
+	use hex_literal::hex;
+
+	#[test]
+	fn simple_signing() {
+		let store: SyncCryptoStorePtr = KeyStore::new().into();
+
+		let suri = "//Alice";
+		let pair = sp_core::ecdsa::Pair::from_string(suri, None).unwrap();
+		let res = SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, suri, pair.public().as_ref()).unwrap();
+		assert_eq!((), res);
+
+		let ethy_store: EthyKeystore = Some(store.clone()).into();
+
+		let sig = ethy_store.sign(&pair.public().into(), &hex!("0000000000000000000000000000007B0000000000000000000000000000000000000000000000000000000000000000")).unwrap();
+
+		println!("{:?}", hex::encode(sig.clone()));
+
+		assert_eq!(
+			sig.as_ref(),
+			hex!("3903f4c93c00cd1923a99c7d3304a3a6ee82e19d946fbab6d162a53f1e0baf9b086d18676f710ff0c66a236f0a5e75644a5274229bb11e61393df2540a60048f01")
+		);
+	}
 
 	#[test]
 	fn authority_id_works() {
 		let store: SyncCryptoStorePtr = KeyStore::new().into();
 
-		let alice = crypto::Pair::from_string("//Alice", None).unwrap();
+		let alice = crypto::AuthorityPair::from_string("//Alice", None).unwrap();
 		let _ =
 			SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, "//Alice", alice.public().as_ref()).unwrap();
 
-		let bob = crypto::Pair::from_string("//Bob", None).unwrap();
-		let charlie = crypto::Pair::from_string("//Charlie", None).unwrap();
+		let bob = crypto::AuthorityPair::from_string("//Bob", None).unwrap();
+		let charlie = crypto::AuthorityPair::from_string("//Charlie", None).unwrap();
 
 		let store: EthyKeystore = Some(store).into();
 
@@ -196,12 +217,12 @@ mod tests {
 	fn sign_error() {
 		let store: SyncCryptoStorePtr = KeyStore::new().into();
 
-		let bob = crypto::Pair::from_string("//Bob", None).unwrap();
+		let bob = crypto::AuthorityPair::from_string("//Bob", None).unwrap();
 		let res =
 			SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, "//Bob", bob.public().as_ref()).unwrap();
 		assert_eq!((), res);
 
-		let alice = crypto::Pair::from_string("//Alice", None).unwrap();
+		let alice = crypto::AuthorityPair::from_string("//Alice", None).unwrap();
 
 		let store: EthyKeystore = Some(store).into();
 
@@ -215,7 +236,7 @@ mod tests {
 	fn sign_no_keystore() {
 		let store: EthyKeystore = None.into();
 
-		let alice = crypto::Pair::from_string("//Alice", None).unwrap();
+		let alice = crypto::AuthorityPair::from_string("//Alice", None).unwrap();
 		let msg = b"are you involved or commited";
 
 		let sig = store.sign(&alice.public(), msg).err().unwrap();
@@ -228,7 +249,7 @@ mod tests {
 		let store: SyncCryptoStorePtr = KeyStore::new().into();
 
 		let suri = "//Alice";
-		let pair = crypto::Pair::from_string(suri, None).unwrap();
+		let pair = crypto::AuthorityPair::from_string(suri, None).unwrap();
 
 		let res = SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, suri, pair.public().as_ref()).unwrap();
 		assert_eq!((), res);

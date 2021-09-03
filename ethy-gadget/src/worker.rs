@@ -192,7 +192,7 @@ where
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
 		for (message, event_id) in extract_proof_requests::<B>(&notification.header).iter() {
-			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:X?}", event_id, message);
+			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, hex::encode(message));
 			// `message = abi.encode(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
 				Ok(sig) => sig,
@@ -201,6 +201,7 @@ where
 					return;
 				}
 			};
+			warn!(target: "ethy", "💎 signed event id: {:?}, signature: {:?}", event_id, hex::encode(&signature));
 			let witness = Witness {
 				digest: sp_core::keccak_256(message.as_ref()),
 				event_id: *event_id,

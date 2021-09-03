@@ -16,48 +16,48 @@ serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
 url = "2.2.2"
 
-sc-authority-discovery = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-chain-spec = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-cli = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-core = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-executor = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sc-service = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
-sp-inherents = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-transaction-pool = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-transaction-pool = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-authority-discovery = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus-babe = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-epochs = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-consensus = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-network = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-finality-grandpa = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-client-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-runtime = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-authority-discovery = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-chain-spec = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-cli = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-core = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-executor = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sc-service = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain", features = ["wasmtime"] }
+sp-inherents = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-transaction-pool = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-transaction-pool = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-authority-discovery = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus-babe = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-epochs = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-consensus = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-network = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-finality-grandpa = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-client-api = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-runtime = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.1.0"
-sc-rpc = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-rpc-api = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-blockchain = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-block-builder = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-keystore = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-utils = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-basic-authorship = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-slots = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-telemetry = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-sync-state-rpc = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-substrate-frame-rpc-system = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-consensus-babe-rpc = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-finality-grandpa-rpc = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-keystore = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-api = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-rpc-api = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-blockchain = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-block-builder = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keystore = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-utils = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-basic-authorship = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-slots = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-telemetry = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-sync-state-rpc = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-frame-rpc-system = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-consensus-babe-rpc = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-finality-grandpa-rpc = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-keystore = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-benchmarking-cli = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-benchmarking-cli = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
@@ -76,18 +76,18 @@ crml-transaction-payment = { path = "../crml/transaction-payment" }
 ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
+pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
-sp-keyring = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sp-timestamp = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-sc-service-test = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
-frame-system = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-keyring = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sp-timestamp = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+sc-service-test = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
+frame-system = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { branch = "ecdsa_testing", git = "https://github.com/plugblockchain/plug-blockchain" }
+substrate-build-script-utils = { branch = "ecdsa-testing-2", git = "https://github.com/plugblockchain/plug-blockchain" }
 
 [features]
 default = []

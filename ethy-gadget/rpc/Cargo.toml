@@ -18,10 +18,10 @@ jsonrpc-pubsub = "15.1.0"
 
 codec = { version = "2.0.0", package = "parity-scale-codec", features = ["derive"] }
 
-sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
-sp-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa_testing" }
+sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 
 ethy-gadget = { path = "../." }
 cennznet-primitives = { path = "../../primitives" }
