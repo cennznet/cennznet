@@ -14,22 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use log::{debug, trace};
-use parking_lot::{RwLock, RwLockUpgradableReadGuard};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use parking_lot::RwLock;
+use std::collections::BTreeMap;
 
 use sc_network::PeerId;
-use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
 
-use sp_runtime::traits::{Block, Hash, Header, NumberFor};
+use sp_runtime::traits::{Block, Hash, Header};
 
-use cennznet_primitives::eth::{
-	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
-	EventId, Witness,
-};
+use cennznet_primitives::eth::{crypto::AuthorityId as Public, EventId, Witness};
 
-use crate::{keystore::EthyKeystore, witness_record::WitnessRecord};
+use crate::keystore::EthyKeystore;
 
 /// Gossip engine messages topic
 pub(crate) fn topic<B: Block>() -> B::Hash

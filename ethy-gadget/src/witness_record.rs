@@ -18,7 +18,7 @@ use cennznet_primitives::eth::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	EventId, Witness,
 };
-use log::{debug, error, info, trace, warn};
+use log::trace;
 use std::{collections::HashMap, prelude::*};
 
 /// Tracks live witnesses

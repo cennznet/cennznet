@@ -657,10 +657,9 @@ impl<T: Config> Module<T> {
 		//    new_session (start now + 1)
 		//   -> on_new_session <- this function is CALLED here
 
-		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
-		if T::FinalSessionTracker::is_planned_session_final() {
+		let log_notary_change = |next_keys: &[T::EthyId]| {
 			// Store the keys for usage next session
-			<NextNotaryKeys<T>>::put(&queued);
+			<NextNotaryKeys<T>>::put(next_keys);
 			// Signal the Event Id that will be used for the proof of validator set change.
 			// Any observer can subscribe to this event and submit the resulting proof to keep the
 			// validator set on the Ethereum bridge contract updated.
@@ -671,36 +670,34 @@ impl<T: Config> Module<T> {
 			let log: DigestItem<T::Hash> = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: queued,
+					validators: next_keys.to_vec(),
 					id: Self::notary_set_id().wrapping_add(1),
 				})
 				.encode(),
 			);
 			<frame_system::Pallet<T>>::deposit_log(log);
+		};
+
+		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
+		if T::FinalSessionTracker::is_planned_session_final() {
+			log_notary_change(queued.as_ref());
 		} else if T::FinalSessionTracker::is_current_session_final().0 {
 			// Pause bridge claim/proofs
 			// Prevents claims/proofs being partially processed and failing if the validator set changes
 			// significantly
 			BridgePaused::put(true);
+
+			if Self::next_notary_keys().is_empty() {
+				// if we're here the era was forced, we need to generate a proof asap
+				log_notary_change(new.as_ref());
+			}
+
 			// Time to update the bridge validator keys.
 			// Store the new keys and increment the validator set id
 			<NotaryKeys<T>>::put(&Self::next_notary_keys());
 			NotarySetId::mutate(|next_set_id| next_set_id.wrapping_add(1));
 			// Note: the bridge will be reactivated at the end of the session
 		}
-	}
-
-	fn initialize_authorities(authorities: &[T::EthyId]) {
-		if authorities.is_empty() {
-			return;
-		}
-
-		assert!(<NotaryKeys<T>>::get().is_empty(), "NotaryKeys are already initialized!");
-
-		<NotaryKeys<T>>::put(authorities);
-		NotarySetId::put(0);
-		// Like `pallet_session`, initialize the next validator set as well.
-		<NextNotaryKeys<T>>::put(authorities);
 	}
 }
 
@@ -789,6 +786,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if T::FinalSessionTracker::is_current_session_final().0 {
 			// A proof should've been generated now so we can reactivate the bridge with the new validator set
 			BridgePaused::kill();
+			// Next notary keys should be unset, until populated by new session logic
+			NextNotaryKeys::<T>::kill();
 		}
 	}
 

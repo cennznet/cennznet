@@ -156,7 +156,14 @@ mod tests {
 
 		let ethy_store: EthyKeystore = Some(store.clone()).into();
 
-		let sig = ethy_store.sign(&pair.public().into(), &hex!("0000000000000000000000000000007B0000000000000000000000000000000000000000000000000000000000000000")).unwrap();
+		let sig = ethy_store
+			.sign(
+				&pair.public().into(),
+				&hex!(
+					"0000000000000000000000000000007B0000000000000000000000000000000000000000000000000000000000000000"
+				),
+			)
+			.unwrap();
 
 		println!("{:?}", hex::encode(sig.clone()));
 

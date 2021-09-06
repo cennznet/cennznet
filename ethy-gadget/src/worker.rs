@@ -83,8 +83,6 @@ where
 	best_grandpa_block: NumberFor<B>,
 	/// Current validator set
 	validator_set: ValidatorSet<Public>,
-	/// Validator set id for the last signed witness
-	last_signed_id: u64,
 }
 
 impl<B, C, BE> EthyWorker<B, C, BE>
@@ -121,7 +119,6 @@ where
 			metrics,
 			finality_notifications: client.finality_notification_stream(),
 			best_grandpa_block: client.info().finalized_number,
-			last_signed_id: 0,
 			validator_set: ValidatorSet {
 				id: 0,
 				validators: Default::default(),
@@ -213,7 +210,7 @@ where
 			metric_inc!(self, ethy_votes_sent);
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
-				// process the witness
+			// process the witness
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness

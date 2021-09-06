@@ -18,7 +18,7 @@
 
 use crate::{
 	AssetOptions, CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance,
-	SpendingAssetIdAuthority,
+	SpendingAssetIdAuthority, StakingAssetIdAuthority,
 };
 use crml_support::{AssetIdAuthority, MultiCurrency};
 use frame_support::traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons};
@@ -37,6 +37,10 @@ impl<T: Config> MultiCurrency for Module<T> {
 
 	fn fee_currency() -> Self::CurrencyId {
 		<SpendingAssetIdAuthority<T> as AssetIdAuthority>::asset_id()
+	}
+
+	fn staking_currency() -> Self::CurrencyId {
+		<StakingAssetIdAuthority<T> as AssetIdAuthority>::asset_id()
 	}
 
 	fn minimum_balance(currency: Self::CurrencyId) -> Self::Balance {

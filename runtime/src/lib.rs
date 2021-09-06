@@ -596,6 +596,7 @@ impl crml_attestation::Config for Runtime {
 
 parameter_types! {
 	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
+	/// TODO: update for go live
 	pub const EventConfirmations: u16 = 0;
 	/// Event expiration deadline in seconds (1 week)
 	pub const EventDeadline: u32 = 604_800;
@@ -629,22 +630,17 @@ impl crml_eth_bridge::Config for Runtime {
 
 // transaction must have an event/log of the deposit
 // i.e. keccack256("Deposit(address,address,uint256,bytes32)")
-// TODO: config via storage
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
 	hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
 	/// The ERC20 bridge contract deposit event
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
-	/// The ERC20 bridge contract address
-	pub const DepositContractAddress: [u8; 20] = DEPOSIT_CONTRACT_ADDRESS;
 	/// The ERC20 peg address
 	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
 }
 impl crml_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;
-	type DepositContractAddress = DepositContractAddress;
 	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = GenericAsset;

@@ -20,7 +20,7 @@ use codec::Decode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{Get, WithdrawReasons},
+	traits::{ExistenceRequirement, Get, WithdrawReasons},
 	transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -36,8 +36,6 @@ use types::*;
 pub trait Config: frame_system::Config {
 	/// An onchain address for this pallet
 	type PegModuleId: Get<ModuleId>;
-	/// The deposit contract address on Ethereum
-	type DepositContractAddress: Get<[u8; 20]>;
 	/// The EVM event signature of a deposit
 	type DepositEventSignature: Get<[u8; 32]>;
 	/// Submits event claims for Ethereum
@@ -50,7 +48,7 @@ pub trait Config: frame_system::Config {
 
 decl_storage! {
 	trait Store for Module<T: Config> as Erc20Peg {
-		/// Wether deposit are active
+		/// Whether deposit are active
 		DepositsActive get(fn deposits_active): bool;
 		/// Whether withdrawals are active
 		WithdrawalsActive get(fn withdrawals_active): bool;
@@ -60,14 +58,18 @@ decl_storage! {
 		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
 		/// Metadata for well-known erc20 tokens
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
+		/// The peg contract address on Ethereum
+		ContractAddress get(fn contract_address): EthAddress;
+		/// Whether CENNZ deposits are active
+		CENNZDepositsActive get(fn cennz_deposit_active): bool;
+
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
 		build(|config: &GenesisConfig| {
 			for (address, symbol, decimals) in config.erc20s.iter() {
 				if symbol == b"CENNZ" {
-					// hack: cpay asset Id is always CENNZ + 1
-					Erc20ToAssetId::insert::<EthAddress, AssetId>(*address, T::MultiCurrency::fee_currency() - 1);
+					Erc20ToAssetId::insert::<EthAddress, AssetId>(*address, T::MultiCurrency::staking_currency());
 				}
 				Erc20Meta::insert(address, (symbol, decimals));
 			}
@@ -87,6 +89,10 @@ decl_event! {
 		Erc20DepositFail(u64),
 		/// Mock withdraw
 		Erc20MockWithdraw(u64),
+		/// The peg contract address has been set
+		SetContractAddress(EthAddress),
+		/// ERC20 CENNZ deposits activated
+		CENNZDepositsActive,
 	}
 }
 
@@ -142,7 +148,7 @@ decl_module! {
 			ensure!(T::AccountId::decode(&mut &claim.beneficiary.0[..]).is_ok(), Error::<T>::InvalidAddress);
 
 			let event_claim_id = T::EthBridge::submit_event_claim(
-					&T::DepositContractAddress::get().into(),
+					&Self::contract_address().into(),
 					&T::DepositEventSignature::get().into(),
 					&tx_hash,
 					&EthAbiCodec::encode(&claim),
@@ -176,13 +182,22 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}
 
-		#[weight = 1]
+		#[weight = 1_000_000]
 		#[transactional]
-		/// A mock withdraw for easy testing
-		pub fn mock_withdraw(origin) {
-			let origin = ensure_signed(origin)?;
-			let event_proof_id = T::EthBridge::generate_event_proof(&123_u64)?;
-			Self::deposit_event(<Event<T>>::Erc20MockWithdraw(event_proof_id));
+		/// Set the peg contract address on Ethereum (requires governance)
+		pub fn set_contract_address(origin, eth_address: EthAddress) {
+			ensure_root(origin)?;
+			ContractAddress::put(eth_address);
+			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
+		}
+
+		#[weight = 1_000_000]
+		#[transactional]
+		/// Activate ERC20 CENNZ deposits (requires governance)
+		pub fn activate_cennz_deposits(origin) {
+			ensure_root(origin)?;
+			CENNZDepositsActive::put(true);
+			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
 		}
 	}
 }
@@ -216,26 +231,26 @@ impl<T: Config> Module<T> {
 		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
 		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
 
-		// TODO (Governance): CENNZ is a special case since the supply is already 100% minted
+		// (Governance): CENNZ is a special case since the supply is already 100% minted
 		// it must be transferred from the unclaimed wallet
-		// if symbol == b"CENNZ" {
-		// 	let _result = T::MultiCurrency::transfer(
-		// 		// TODO: decide upon: Treasury / Sudo::key() / Bridge,
-		// 		&T::PegModuleId::get().into_account(),
-		// 		&beneficiary,
-		// 		asset_id,
-		// 		verified_event.amount.as_u128(), // checked amount < u128 in `deposit_claim` qed.
-		// 		ExistenceRequirement::KeepAlive,
-		// 	);
-		// } else {
-
-		// checked amount < u128 on `deposit_claim` qed.
 		let amount = verified_event.amount.as_u128();
-		let _imbalance = T::MultiCurrency::deposit_creating(
-			&beneficiary,
-			asset_id,
-			amount, // checked amount < u128 in `deposit_claim` qed.
-		);
+		if asset_id == T::MultiCurrency::staking_currency() && Self::cennz_deposit_active() {
+			let _result = T::MultiCurrency::transfer(
+				// TODO: decide upon: Treasury / Sudo::key() / Bridge,
+				&T::PegModuleId::get().into_account(),
+				&beneficiary,
+				asset_id,
+				amount, // checked amount < u128 in `deposit_claim` qed.
+				ExistenceRequirement::KeepAlive,
+			);
+		} else {
+			// checked amount < u128 on `deposit_claim` qed.
+			let _imbalance = T::MultiCurrency::deposit_creating(
+				&beneficiary,
+				asset_id,
+				amount, // checked amount < u128 in `deposit_claim` qed.
+			);
+		}
 
 		Ok((asset_id, amount, beneficiary))
 	}
@@ -243,7 +258,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> EventClaimSubscriber for Module<T> {
 	fn on_success(event_claim_id: u64, contract_address: &EthAddress, event_type: &H256, event_data: &[u8]) {
-		if *contract_address == EthAddress::from(T::DepositContractAddress::get())
+		if *contract_address == EthAddress::from(Self::contract_address())
 			&& *event_type == H256::from(T::DepositEventSignature::get())
 		{
 			if let Some(deposit_event) = EthAbiCodec::decode(event_data) {

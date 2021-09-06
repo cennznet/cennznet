@@ -121,6 +121,9 @@ pub trait MultiCurrency {
 	/// Return the currency Id of the system fee currency
 	fn fee_currency() -> Self::CurrencyId;
 
+	/// Return the currency Id of the system staking currency
+	fn staking_currency() -> Self::CurrencyId;
+
 	/// The combined balance (free + reserved) of `who` for the given `currency`.
 	fn total_balance(who: &Self::AccountId, currency: Self::CurrencyId) -> Self::Balance;
 

@@ -2141,7 +2141,8 @@ impl<T: Config> Module<T> {
 
 			// forcing a new era, means forcing an era end for the next active era
 			if Self::will_era_be_forced() {
-				WasEndEraForced::put(true)
+				WasEndEraForced::put(true);
+				IsCurrentSessionFinal::put(true);
 			}
 
 			match ForceEra::get() {
