@@ -342,10 +342,12 @@ where
 						use sp_runtime::traits::Convert;
 						// Convert the validator ECDSA pub keys to addresses and `abi.encodePacked()` them
 						// + the `event_id`
-						let mut message = Vec::with_capacity(32 * (validator_set.validators.len() + 2));
+						let mut message = vec![0_u8; 32 * (validator_set.validators.len() + 2)];
 						let extra_idx = 32 * (validator_set.validators.len());
 						for (idx, ecda_pubkey) in validator_set.validators.into_iter().enumerate() {
-							message[(idx * 32) + 12..].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
+							let start = (idx * 32) + 12;
+							let end = start + 20;
+							message[start..end].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
 						}
 						message[extra_idx..extra_idx + 32]
 							.copy_from_slice(EthAbiCodec::encode(&validator_set.id).as_slice());

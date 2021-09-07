@@ -1729,7 +1729,7 @@ decl_module! {
 		#[weight = T::WeightInfo::force_new_era()]
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
-			ForceEra::put(Forcing::ForceNew);
+			Self::ensure_new_era()
 		}
 
 		/// Set the minimum bond amount.
@@ -2142,20 +2142,30 @@ impl<T: Config> Module<T> {
 			// forcing a new era, means forcing an era end for the next active era
 			if Self::will_era_be_forced() {
 				WasEndEraForced::put(true);
+			}
+
+			if Self::is_planned_session_final() && session_index > 1 {
+				IsPlannedSessionFinal::kill();
+				log!(debug, "💸 current session final put(true). {:?}", session_index);
 				IsCurrentSessionFinal::put(true);
 			}
+			log!(
+				debug,
+				"💸 era length: {:?}, sessions per era: {:?}",
+				era_length,
+				T::SessionsPerEra::get()
+			);
 
 			match ForceEra::get() {
 				Forcing::ForceNew => ForceEra::kill(),
 				Forcing::ForceAlways => (),
 				Forcing::NotForcing => {
 					if era_length + 1 == T::SessionsPerEra::get() {
+						log!(debug, "💸 planned session final put(true) {:?}", session_index);
 						IsPlannedSessionFinal::put(true);
-					} else if era_length >= T::SessionsPerEra::get() {
-						IsPlannedSessionFinal::kill();
-						IsCurrentSessionFinal::put(true);
-					} else if era_length <= 1 {
-						IsCurrentSessionFinal::kill()
+						return None;
+					} else if era_length < T::SessionsPerEra::get() {
+						return None;
 					}
 				}
 				Forcing::ForceNone => {
@@ -2164,13 +2174,9 @@ impl<T: Config> Module<T> {
 						IsPlannedSessionFinal::put(true);
 					// Mark the started/currently executing session as final (session_index - 1)
 					} else if era_length >= T::SessionsPerEra::get() {
-						IsPlannedSessionFinal::kill();
-						IsCurrentSessionFinal::put(true);
 						// Should only happen when we are ready to trigger an era but we have ForceNone,
 						// otherwise previous arm would short circuit.
 						Self::close_election_window();
-					} else if era_length <= 1 {
-						IsCurrentSessionFinal::kill()
 					}
 					return None;
 				}
@@ -2555,6 +2561,7 @@ impl<T: Config> Module<T> {
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
 	fn start_era(start_session: SessionIndex) {
+		IsCurrentSessionFinal::kill();
 		let active_era = ActiveEra::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			*active_era = Some(ActiveEraInfo {
@@ -2788,6 +2795,7 @@ impl<T: Config> Module<T> {
 			Forcing::ForceAlways | Forcing::ForceNew => (),
 			_ => ForceEra::put(Forcing::ForceNew),
 		}
+		IsPlannedSessionFinal::put(true);
 	}
 
 	fn will_era_be_forced() -> bool {

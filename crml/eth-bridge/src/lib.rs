@@ -663,16 +663,18 @@ impl<T: Config> Module<T> {
 			// Signal the Event Id that will be used for the proof of validator set change.
 			// Any observer can subscribe to this event and submit the resulting proof to keep the
 			// validator set on the Ethereum bridge contract updated.
-			NextProofId::mutate(|event_proof_id| {
-				Self::deposit_event(Event::AuthoritySetChange(*event_proof_id));
-				event_proof_id.wrapping_add(1)
-			});
+			let event_proof_id = NextProofId::get();
+			Self::deposit_event(Event::AuthoritySetChange(event_proof_id));
+			NextProofId::put(event_proof_id.wrapping_add(1));
 			let log: DigestItem<T::Hash> = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: next_keys.to_vec(),
-					id: Self::notary_set_id().wrapping_add(1),
-				})
+				ConsensusLog::PendingAuthoritiesChange((
+					ValidatorSet {
+						validators: next_keys.to_vec(),
+						id: Self::notary_set_id().wrapping_add(1),
+					},
+					event_proof_id,
+				))
 				.encode(),
 			);
 			<frame_system::Pallet<T>>::deposit_log(log);
@@ -680,15 +682,18 @@ impl<T: Config> Module<T> {
 
 		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
 		if T::FinalSessionTracker::is_planned_session_final() {
+			log!(info, "💎 planned session final");
 			log_notary_change(queued.as_ref());
 		} else if T::FinalSessionTracker::is_current_session_final().0 {
 			// Pause bridge claim/proofs
 			// Prevents claims/proofs being partially processed and failing if the validator set changes
 			// significantly
+			log!(info, "💎 current session final");
 			BridgePaused::put(true);
 
 			if Self::next_notary_keys().is_empty() {
 				// if we're here the era was forced, we need to generate a proof asap
+				log!(info, "💎 log notary keys");
 				log_notary_change(new.as_ref());
 			}
 
@@ -764,12 +769,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued_validators: I)
+	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		// Record authorities for the new session.
-		if changed {
+		log!(info, "💎 on new session entered");
+		// Only run change process at the end of an era
+		if T::FinalSessionTracker::is_current_session_final().0 || T::FinalSessionTracker::is_planned_session_final() {
+			log!(info, "💎 new session do change");
+			// Record authorities for the new session.
 			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
 
