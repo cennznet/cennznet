@@ -2135,11 +2135,10 @@ impl<T: Config> Module<T> {
 				0
 			});
 
-			// `session_index` here is current + 1
-			// i.e it will start next session
+			// `session_index` here is current/active + 1
 			let era_length = session_index.checked_sub(current_era_start_session_index).unwrap_or(0); // Must never happen.
 
-			// forcing a new era, means forcing an era end for the next active era
+			// forcing a new era, means forcing an era end for the active era
 			if Self::will_era_be_forced() {
 				WasEndEraForced::put(true);
 			}
@@ -2159,14 +2158,13 @@ impl<T: Config> Module<T> {
 			match ForceEra::get() {
 				Forcing::ForceNew => ForceEra::kill(),
 				Forcing::ForceAlways => (),
+				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
 				Forcing::NotForcing => {
 					if era_length + 1 == T::SessionsPerEra::get() {
 						log!(debug, "💸 planned session final put(true) {:?}", session_index);
 						IsPlannedSessionFinal::put(true);
-						return None;
-					} else if era_length < T::SessionsPerEra::get() {
-						return None;
 					}
+					return None;
 				}
 				Forcing::ForceNone => {
 					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
@@ -2698,7 +2696,6 @@ impl<T: Config> Module<T> {
 
 			Some(elected_stashes)
 		} else {
-			Self::close_election_window();
 			None
 		}
 	}
@@ -2795,7 +2792,8 @@ impl<T: Config> Module<T> {
 			Forcing::ForceAlways | Forcing::ForceNew => (),
 			_ => ForceEra::put(Forcing::ForceNew),
 		}
-		IsPlannedSessionFinal::put(true);
+		IsCurrentSessionFinal::put(true);
+		// TODO: ideally we tell eth-bridge to sign a proof for the new validator set right now
 	}
 
 	fn will_era_be_forced() -> bool {
