@@ -595,19 +595,10 @@ impl crml_attestation::Config for Runtime {
 }
 
 parameter_types! {
-	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	/// TODO: update for go live
-	pub const EventConfirmations: u16 = 0;
-	/// Event expiration deadline in seconds (1 week)
-	pub const EventDeadline: u32 = 604_800;
 	/// The threshold of notarizations required to approve an Eth deposit
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl crml_eth_bridge::Config for Runtime {
-	/// The minimum number of block confirmations needed to secure an event claim
-	type EventConfirmations = EventConfirmations;
-	/// Events cannot be claimed after this duration
-	type EventDeadline = EventDeadline;
 	/// The identifier type for an offchain worker.
 	type EthyId = EthBridgeId;
 	/// The threshold of positive notarizations to approve an event claim

@@ -48,7 +48,7 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::{
-	ensure_none,
+	ensure_none, ensure_root,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_runtime::{
@@ -92,10 +92,6 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The minimum number of block confirmations needed to ratify an Ethereum event
-	type EventConfirmations: Get<u16>;
-	/// Events cannot be claimed after this time (seconds)
-	type EventDeadline: Get<u64>;
 	/// The threshold of notarizations required to approve an Ethereum
 	type NotarizationThreshold: Get<Percent>;
 	/// Rewards notaries for participating in claims
@@ -138,17 +134,21 @@ decl_storage! {
 		/// Scheduled notary (validator) public keys for the next session
 		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
-		// Used in conjunction with `EventDeadline` to prevent "double spends".
+		// Used in conjunction with `EventDeadlineSeconds` to prevent "double spends".
 		// After a bucket is older than the deadline, any events prior are considered expired.
 		// This allows the record of processed events to be pruned from state regularly
 		ProcessedTxBuckets get(fn processed_tx_buckets): double_map hasher(twox_64_concat) u64, hasher(identity) EthHash => ();
 		/// Map from processed tx hash to status
-		/// Periodically cleared after `EventDeadline` expires
+		/// Periodically cleared after `EventDeadlineSeconds` expires
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
 		/// The current validator set id
 		NotarySetId get(fn notary_set_id): u64;
 		/// Whether the bridge is paused
 		BridgePaused get(fn bridge_paused): bool;
+		/// The minimum number of block confirmations needed to notarize an Ethereum event
+		EventConfirmations get(fn event_confirmations): u64 = 3;
+		/// Events cannot be claimed after this time (seconds)
+		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 	}
 }
 
@@ -195,7 +195,7 @@ decl_module! {
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-				let expired_bucket_index = (now - T::EventDeadline::get()) % BUCKET_FACTOR_S;
+				let expired_bucket_index = (now - Self::event_deadline_seconds()) % BUCKET_FACTOR_S;
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
 				}
@@ -206,6 +206,20 @@ decl_module! {
 			} else {
 				Zero::zero()
 			}
+		}
+
+		#[weight = 100_000]
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by CENNZnet
+		pub fn set_event_confirmations(origin, confirmations: u64) {
+			ensure_root(origin)?;
+			EventConfirmations::put(confirmations)
+		}
+
+		#[weight = 100_000]
+		/// Set event deadline (seconds). Events cannot be notarized after this time has elapsed
+		pub fn set_event_deadline(origin, seconds: u64) {
+			ensure_root(origin)?;
+			EventDeadlineSeconds::put(seconds);
 		}
 
 		#[weight = 1_000_000]
@@ -497,14 +511,14 @@ impl<T: Config> Module<T> {
 		let block = maybe_block.unwrap();
 		let latest_block_number: u64 = block.number.unwrap_or_default().as_u64();
 		let block_confirmations = latest_block_number.saturating_sub(observed_block as u64);
-		if block_confirmations < T::EventConfirmations::get() as u64 {
+		if block_confirmations < Self::event_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
 		if T::UnixTime::now().as_secs().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
-			> T::EventDeadline::get()
+			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
 		}

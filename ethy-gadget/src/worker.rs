@@ -40,9 +40,8 @@ use crate::{
 	Client,
 };
 use cennznet_primitives::eth::{
-	crypto::AuthorityId as Public,
-	ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet,
+	VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use crml_support::EthAbiCodec;
 

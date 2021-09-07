@@ -62,7 +62,6 @@ decl_storage! {
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
 		CENNZDepositsActive get(fn cennz_deposit_active): bool;
-
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
