@@ -16,6 +16,7 @@
 //! NFT module types
 
 use crate::Config;
+use cennznet_primitives::types::BlockNumber;
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 #[cfg(feature = "std")]
@@ -85,6 +86,62 @@ pub struct TokenInfo<AccountId> {
 	pub owner: AccountId,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
 	pub royalties: Vec<(AccountId, Permill)>,
+}
+
+/// Contains information for a particular token. Returns the attributes and owner
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct Raffle<AccountId> {
+	// max supply of tokens in the raffle
+	pub max_supply: TokenCount,
+	// Max able to mint per transaction
+	pub transaction_limit: Option<u64>,
+	// Block time that the raffle goes on sale
+	pub activation_time: BlockNumber, // Block number?
+	// Accounts allowed to purchase a token in the raffle
+	pub whitelist: Option<Vec<AccountId>>,
+	// Presale info for the raffle
+	pub pre_sale: Option<PreSale<AccountId>>,
+}
+
+impl<AccountId> Raffle<AccountId> {
+	/// True if transaction_limit is smaller than supply
+	/// And activation time is valid
+	/// And presale is valid
+	pub fn validate(&self) -> bool {
+		if let Some(transaction_limit) = self.transaction_limit {
+			if transaction_limit > self.max_supply {
+				return false;
+			}
+		}
+		// Validate presale
+		if let Some(pre_sale) = &self.pre_sale {
+			if !pre_sale.validate(self) {
+				return false;
+			}
+		}
+		// TODO Check activation_time is valid
+		true
+	}
+}
+
+/// Contains information for a particular token. Returns the attributes and owner
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PreSale<AccountId> {
+	pub transaction_limit: Option<TokenCount>,
+	pub activation_time: BlockNumber, // Block number?
+	pub max_supply: TokenCount,
+	pub whitelist: Vec<AccountId>,
+}
+
+impl<AccountId> PreSale<AccountId> {
+	/// True if transaction_limit is smaller than supply
+	/// And activation time is valid
+	pub fn validate(&self, raffle: &Raffle<AccountId>) -> bool {
+		self.max_supply < raffle.max_supply && self.activation_time < raffle.activation_time
+		// TODO Validate transaction limit < supply
+	}
 }
 
 /// The supported attribute data types for an NFT

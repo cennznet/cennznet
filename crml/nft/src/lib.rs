@@ -152,6 +152,26 @@ decl_error! {
 		AddToUniqueIssue,
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
+		/// The raffle activation_time or limit is invalid
+		RaffleInvalid,
+		/// There is no raffle associated with the series
+		NoRaffleExists,
+		/// There are no accounts in the whitelist
+		WhitelistEmpty,
+		/// The account_id isn't in the whitelist
+		NoAccountId,
+		/// The presale is invalid
+		PresaleInvalid,
+		/// There is no presale associated with the raffle
+		NoPresaleExists,
+		/// The amount specified is higher than the raffle purchase limit
+		PurchaseAmountTooHigh,
+		/// The raffle hasn't started yet
+		RaffleNotStarted,
+		/// The presale hasn't started yet
+		PresaleNotStarted,
+		/// There are not enough tokens left to purchase this amount
+		NotEnoughTokens,
 	}
 }
 
@@ -178,6 +198,8 @@ decl_storage! {
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
+		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
+		pub SeriesRaffles get(fn series_raffles): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Raffle<T::AccountId>>;
 		/// Demarcates a series limited to exactly one token
 		IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// The next available collection Id
@@ -306,6 +328,220 @@ decl_module! {
 			IsSingleIssue::insert(collection_id, series_id, true);
 		}
 
+		// TODO create raffle on existing series (Leave for initial round)
+
+		/// Buy tokens from an active raffle
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn enter_raffle(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			quantity: TokenCount,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					// Check if Presale, if not then check if raffle has started
+					if let Some(transaction_limit) = raffle.transaction_limit {
+						ensure!(quantity <= transaction_limit, Error::T::PurchaseAmountTooHigh);
+					}
+					current_block = <frame_system::Module<T>>::block_number();
+					let serial_number = Self::next_serial_number(collection_id, series_id);
+					ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+					ensure!(
+						serial_number.checked_add(quantity).is_some(),
+						Error::<T>::NoAvailableIds
+					);
+
+					if current_block >= raffle.activation_time {
+						// Raffle has started, proceed with mint
+						ensure!(serial_number + quantity > (raffle.max_supply - 1), Error::<T>::NotEnoughTokens);
+						do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+					}else {
+						// Check if the presale has started
+						pre_sale = raffle.pre_sale;
+						match pre_sale {
+							Some(pre_sale) => {
+								ensure!(current_block >= pre_sale.activation_time, Error::T::PresaleNotStarted);
+								ensure!(serial_number + quantity > (pre_sale.max_supply - 1), Error::<T>::NotEnoughTokens);
+								do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+							},
+							None => Error::T::RaffleNotStarted,
+						}
+					}
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Change the activation time of an existing raffle
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn update_raffle_activation_time(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			new_activation_time: BlockNumber,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			//TODO Check origin is collection_owner
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					raffle.activation_time = new_activation_time;
+					ensure!(raffle.validate(), Error::T::RaffleInvalid);
+					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+					Ok(())
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Set raffle whitelist
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn set_raffle_whitelist(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			account_ids: Vec<T::AccountId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					let mut whitelist: Option<Vec<T::AccountId>> = raffle.whitelist;
+					whitelist = account_ids;
+					raffle.whitelist = whitelist;
+					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+					Ok(())
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Add presale conditions to existing raffle or change presale values
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn update_raffle_presale(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			pre_sale: PreSale<T::AccountId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			ensure!(pre_sale.validate(raffle), Error::T::PresaleInvalid);
+			match raffle {
+				Some(raffle) => {
+					raffle.pre_sale = Some(pre_sale);
+					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+					Ok(())
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Add account_ids to the presale whitelist
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn set_presale_whitelist(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			account_ids: Vec<T::AccountId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					let pre_sale = raffle.pre_sale;
+					match pre_sale {
+						Some(pre_sale) => {
+							whitelist = account_ids;
+							pre_sale.whitelist = whitelist;
+							raffle.pre_sale = pre_sale;
+							SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+							Ok(())
+						},
+						None => Error::T::NoPresaleExists,
+					}
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Remove specific account_id from pre sale whitelist
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn remove_account_from_presale_whitelist(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			account_id: T::AccountId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					let pre_sale = raffle.pre_sale;
+					match pre_sale {
+						Some(pre_sale) => {
+							let mut whitelist: Vec<T::AccountId> = pre_sale.whitelist;
+							let pos = whitelist.iter().position(|x| *x == account_id);
+							match pos {
+								Some(pos) => {
+									whitelist.remove(pos)
+									pre_sale.whitelist = whitelist;
+									raffle.pre_sale = pre_sale;
+									SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+									Ok(())
+								},
+								None => Error::T::NoAccountId,
+							}
+						},
+						None => Error::T::NoPresaleExists,
+					}
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+		/// Remove all accounts from presale whitelist
+		#[weight = 0] // Change this to appropriate weighting
+		#[transactional]
+		fn remove_all_accounts_from_presale_whitelist(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
+			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
+			match raffle {
+				Some(raffle) => {
+					let pre_sale = raffle.pre_sale;
+					match pre_sale {
+						Some(pre_sale) => {
+							pre_sale.whitelist = vec![];
+							raffle.pre_sale = pre_sale;
+							SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+							Ok(())
+						},
+						None => Error::T::NoPresaleExists,
+					}
+				},
+				None => Error::T::NoRaffleExists,
+			}
+		}
+
+
 		/// Mint a series of tokens distinguishable only by a serial number (SFT)
 		/// Series can be issued additional tokens with `mint_additional`
 		///
@@ -314,6 +550,7 @@ decl_module! {
 		/// `is_limited_edition` - signal whether the series is a limited edition or not
 		/// `attributes` - all tokens in series will have these values
 		/// `metadata_path` - URI path to token offchain metadata relative to the collection base URI
+		/// `raffle` - If this series is a raffle, define the raffle parameters
 		/// Caller must be the collection owner
 		/// -----------
 		/// Performs O(N) writes where N is `quantity`
@@ -327,6 +564,7 @@ decl_module! {
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			raffle: Option<Raffle<T::AccountId>>
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -351,6 +589,11 @@ decl_module! {
 				Error::<T>::NoAvailableIds
 			);
 
+			// Create the raffle data
+			if let Some(raffle) = raffle {
+				ensure!(raffle.validate(), Error::T::RaffleInvalid);
+				SeriesRaffles::insert(collection_id, series_id, raffle);
+			}
 			// Ok create the token series data
 			// All these attributes are the same in a series
 			SeriesAttributes::insert(collection_id, series_id, attributes);
@@ -402,11 +645,8 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-			ensure!(!Self::is_single_issue(collection_id, series_id), Error::<T>::AddToUniqueIssue);
-			let serial_number = Self::next_serial_number(collection_id, series_id);
-			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
-			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
+			/// TODO Check if the series is a raffle,
+			/// if a raffle is active, don't mint additional
 
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
@@ -415,18 +655,15 @@ decl_module! {
 				return Err(Error::<T>::NoCollection.into());
 			}
 
-			// Mint the set tokens
+			let serial_number = Self::next_serial_number(collection_id, series_id);
+			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+			ensure!(
+				serial_number.checked_add(quantity).is_some(),
+				Error::<T>::NoAvailableIds
+			);
 			let owner = owner.unwrap_or_else(|| origin.clone());
-			for serial_number in serial_number..serial_number + quantity {
-				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
-			}
 
-			SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-			NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-
-			Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
-
-			Ok(())
+			do_mint_additional(owner, collection_id, series_id, serial_number, quantity)
 		}
 
 		/// Transfer ownership of an NFT
@@ -800,6 +1037,32 @@ impl<T: Config> Module<T> {
 		for token_id in tokens.iter() {
 			<TokenOwner<T>>::insert((token_id.0, token_id.1), token_id.2, new_owner);
 		}
+	}
+	/// Mint additional tokens in a series
+	fn do_mint_additional(
+		owner: T::AccountId,
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+		quantity: TokenCount,
+	) -> DispatchResult {
+		/// TODO check below 5 lines
+		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		ensure!(
+			!Self::is_single_issue(collection_id, series_id),
+			Error::<T>::AddToUniqueIssue
+		);
+
+		// Mint the set tokens
+		for serial_number in serial_number..serial_number + quantity {
+			<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+		}
+
+		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+
+		Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
+		Ok(())
 	}
 	/// Find the tokens owned by an `address` in the given collection
 	pub fn collected_tokens(collection_id: CollectionId, address: &T::AccountId) -> Vec<TokenId> {
