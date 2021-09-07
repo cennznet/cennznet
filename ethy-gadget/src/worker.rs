@@ -40,7 +40,7 @@ use crate::{
 	Client,
 };
 use cennznet_primitives::eth::{
-	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
+	crypto::AuthorityId as Public,
 	ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
 	GENESIS_AUTHORITY_SET_ID,
 };
@@ -339,20 +339,7 @@ where
 					// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
 					// we must do this before the validators officially change next session (~10 minutes)
 					Some(ConsensusLog::PendingAuthoritiesChange((validator_set, event_id))) => {
-						use sp_runtime::traits::Convert;
-						// Convert the validator ECDSA pub keys to addresses and `abi.encodePacked()` them
-						// + the `event_id`
-						let mut message = vec![0_u8; 32 * (validator_set.validators.len() + 2)];
-						let extra_idx = 32 * (validator_set.validators.len());
-						for (idx, ecda_pubkey) in validator_set.validators.into_iter().enumerate() {
-							let start = (idx * 32) + 12;
-							let end = start + 20;
-							message[start..end].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
-						}
-						message[extra_idx..extra_idx + 32]
-							.copy_from_slice(EthAbiCodec::encode(&validator_set.id).as_slice());
-						message[extra_idx + 32..].copy_from_slice(EthAbiCodec::encode(&event_id).as_slice());
-
+						let message = abi_encode_validator_set_change(&validator_set, event_id);
 						Some((message, event_id))
 					}
 					_ => None,
@@ -377,4 +364,52 @@ where
 	};
 
 	header.digest().convert_first(|l| l.try_to(id).and_then(filter))
+}
+
+/// Ethereum ABI encode a validator set change message
+fn abi_encode_validator_set_change(validator_set: &ValidatorSet<Public>, event_id: EventId) -> Vec<u8> {
+	use sp_runtime::traits::Convert;
+
+	// ethereum ABI encode the data
+	// https://docs.soliditylang.org/en/develop/abi-spec.html#use-of-dynamic-types
+	// types: 'address[]', 'uint', 'uint'
+	// header: v_offset, v_id, e_id, v_length, address0,.. addressN
+	let validator_count = validator_set.validators.len();
+	let word_size = 32;
+	// need 4 + validator count words to encode
+	// - validator addresses offset
+	// - validator set id
+	// - event id
+	// - validator address length
+	// - validators addresses x `validator_count`
+	let encoded_words = 4 + validator_count;
+	let mut message = vec![0_u8; word_size * encoded_words];
+	let mut offset = 0;
+
+	// build header section
+	// 1) offset for validator address data (3 * word_size)
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&(3 * word_size as u64)).as_slice());
+	offset += word_size;
+	// 2) encode validator set id
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&validator_set.id).as_slice());
+	offset += word_size;
+	// 3) encode event id
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&event_id).as_slice());
+	offset += word_size;
+	// end header section
+
+	// start data section
+	// encode validators length prefix + addresses
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&(validator_count as u64)).as_slice());
+	offset += word_size;
+	// Convert the validator ECDSA pub keys to addresses and `abi.encode()` them
+	for ecda_pubkey in validator_set.validators.clone().into_iter() {
+		// 0-12 should be 0 padded
+		// 12-32 contain the address bytes
+		message[offset + 12..offset + word_size].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
+		offset += word_size;
+	}
+	// end data section
+
+	message
 }

@@ -19,7 +19,7 @@ use cennznet_primitives::eth::{
 	EventId, Witness,
 };
 use log::trace;
-use std::{collections::HashMap, prelude::*};
+use std::collections::HashMap;
 
 /// Tracks live witnesses
 ///
