@@ -16,7 +16,7 @@
 
 //! CENNZnet chain configurations.
 
-use cennznet_primitives::types::Block;
+use cennznet_primitives::{eth::crypto::AuthorityId as EthBridgeId, types::Block};
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, Erc20PegConfig, FeeRate, GenericAssetConfig,
@@ -24,7 +24,6 @@ use cennznet_runtime::{
 	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
-use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_support::H160;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;

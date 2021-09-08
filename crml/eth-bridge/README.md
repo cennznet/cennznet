@@ -14,10 +14,14 @@ After a threshold of notarizations for an event are reached, the bridge applicat
 - (maybe): allow notarization vote to include the 'failure' reason rather than false e..g not enough re-orgs or differing amounts  ✅
 
 TODO:
+- Develop withdrawal process ✅
+- Move Eth contracts to standalone repo ✅
+- Handle CENNZ deposit edge case (leave to governance) ✅
 - Handle per network bridge config without recompile runtime e.g. genesis properties file
-- Handle CENNZ deposit edge case
-- Develop withdrawal process
-- Test!!!
+- Write integration tests!
+    - Test replay protection and pruning
+    - Mock eth bridge query functions
+    - Test deposit confirmations and deadline expiry
 - Write up design docs
 
 ## Run Bridged Validator

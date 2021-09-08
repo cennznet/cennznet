@@ -30,6 +30,34 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*, result};
 
+/// Tracks the status of sessions in an era
+pub trait FinalSessionTracker {
+	/// Returns whether the next session the final session of an era
+	/// (is_final, was_forced)
+	fn is_next_session_final() -> (bool, bool);
+	/// Returns whether the active session is final of an era
+	fn is_active_session_final() -> bool;
+}
+
+/// Something that can be decoded from eth log data/ ABI
+/// TODO: ethabi crate would be better for this however no support for `no_std`
+pub trait EthAbiCodec: Sized {
+	fn encode(&self) -> Vec<u8>;
+	/// Decode `Self` from Eth log data
+	fn decode(data: &[u8]) -> Option<Self>;
+}
+
+impl EthAbiCodec for u64 {
+	fn encode(&self) -> Vec<u8> {
+		let uint = U256::from(*self);
+		Into::<[u8; 32]>::into(uint).to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
+	}
+}
+
 /// Reward validators for notarizations
 pub trait NotarizationRewardHandler {
 	type AccountId;
@@ -54,6 +82,9 @@ pub trait EventClaimVerifier {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<u64, DispatchError>;
+	/// Generate proof of the given message
+	/// Returns a unique proof Id on success
+	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
 }
 
 /// Something which provides an ID with authority from chain storage
@@ -88,6 +119,9 @@ pub trait MultiCurrency {
 
 	/// Return the currency Id of the system fee currency
 	fn fee_currency() -> Self::CurrencyId;
+
+	/// Return the currency Id of the system staking currency
+	fn staking_currency() -> Self::CurrencyId;
 
 	/// The combined balance (free + reserved) of `who` for the given `currency`.
 	fn total_balance(who: &Self::AccountId, currency: Self::CurrencyId) -> Self::Balance;

@@ -10,8 +10,8 @@ description = "Runtime API definition required by Governance RPC extensions."
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
 crml-governance = { default-features = false, path = "../../" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
 
 [features]
 default = ["std"]

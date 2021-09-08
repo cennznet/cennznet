@@ -15,6 +15,7 @@ cennznet-cli = { path = "cli" }
 members = [
 	"cli",
 	"crml/*",
+	"ethy-gadget",
 	"primitives",
 	"runtime",
 ]

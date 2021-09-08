@@ -311,7 +311,6 @@ decl_module! {
 		///
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner, defaults to the caller
-		/// `is_limited_edition` - signal whether the series is a limited edition or not
 		/// `attributes` - all tokens in series will have these values
 		/// `metadata_path` - URI path to token offchain metadata relative to the collection base URI
 		/// Caller must be the collection owner

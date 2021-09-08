@@ -28,6 +28,8 @@ use sp_std::{prelude::*, vec::Vec};
 pub type EventClaimId = u64;
 /// A bridge event type id
 pub type EventTypeId = u32;
+/// A bridge proof id
+pub type EventProofId = u64;
 
 type Index = U64;
 /// The ethereum block number data type

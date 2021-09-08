@@ -97,23 +97,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "739f4a8db6605981345c5654f3a85b056ce52f37a39d34da03f25bf2151ea16e"
 
 [[package]]
+name = "ahash"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43bb833f0bf979d8475d38fbf09ed3b8a55e1885fe93ad3f93239fc6a4f17b98"
+dependencies = [
+ "getrandom 0.2.3",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "alga"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f823d037a7ec6ea2197046bafd4ae150e6bc36f9ca347404f46a46823fa84f2"
-dependencies = [
- "approx 0.3.2",
- "num-complex 0.2.4",
- "num-traits",
 ]
 
 [[package]]
@@ -142,18 +142,9 @@ checksum = "15af2628f6890fe2609a3b91bef4c83450512802e59489f9c1cb1fa5df064a61"
 
 [[package]]
 name = "approx"
-version = "0.3.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "approx"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
+checksum = "072df7202e63b127ab55acfe16ce97013d5b97bf160489336d3f1840fd78e99e"
 dependencies = [
  "num-traits",
 ]
@@ -453,9 +444,9 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.57.0"
+version = "0.59.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd4865004a46a0aafb2a0a5eb19d3c9fc46ee5f063a6cfc605c69ac9ecf5263d"
+checksum = "453c49e5950bb0eb63bb3df640e31618846c89d5b7faa54040d76e98e0134375"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -478,12 +469,24 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "bitvec"
+version = "0.19.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8942c8d352ae1838c9dda0b0ca2ab657696ef2232a20147cf1b30ae1a9cb4321"
+dependencies = [
+ "funty",
+ "radium 0.5.3",
+ "tap",
+ "wyz",
+]
+
+[[package]]
+name = "bitvec"
 version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7774144344a4faa177370406a7ff5f1da24303817368584c6206c8303eb07848"
 dependencies = [
  "funty",
- "radium",
+ "radium 0.6.2",
  "tap",
  "wyz",
 ]
@@ -737,10 +740,12 @@ dependencies = [
  "crml-support",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc",
+ "ethy-gadget",
+ "ethy-gadget-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
- "futures 0.3.15",
+ "futures 0.3.16",
  "jsonrpc-core",
  "pallet-im-online",
  "parity-scale-codec",
@@ -795,6 +800,8 @@ version = "1.0.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
+ "sp-api",
+ "sp-application-crypto",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -831,7 +838,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hex-literal",
  "log",
  "pallet-authority-discovery",
@@ -874,9 +881,9 @@ dependencies = [
 
 [[package]]
 name = "cexpr"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4aedb84272dbe89af497cf81375129abda4fc0a9e7c5d317498c15cc30c0d27"
+checksum = "db507a7679252d2276ed0dd8113c6875ec56d3089f9225b2b42c30cc1f8e5c89"
 dependencies = [
  "nom",
 ]
@@ -1968,6 +1975,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethy-gadget"
+version = "0.1.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "futures 0.3.16",
+ "hex",
+ "hex-literal",
+ "libsecp256k1 0.6.0",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.11.1",
+ "sc-client-api",
+ "sc-keystore",
+ "sc-network",
+ "sc-network-gossip",
+ "sc-network-test",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-utils",
+ "substrate-prometheus-endpoint",
+ "thiserror",
+]
+
+[[package]]
+name = "ethy-gadget-rpc"
+version = "0.1.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "ethy-gadget",
+ "futures 0.3.16",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "jsonrpc-pubsub",
+ "log",
+ "parity-scale-codec",
+ "sc-rpc",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "sp-utils",
+]
+
+[[package]]
 name = "event-listener"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1979,7 +2039,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e43f2f1833d64e33f15592464d6fdd70f349dda7b1a53088eb83cd94014008c5"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
 ]
 
 [[package]]
@@ -2046,17 +2106,18 @@ dependencies = [
 
 [[package]]
 name = "finality-grandpa"
-version = "0.14.0"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6447e2f8178843749e8c8003206def83ec124a7859475395777a28b5338647c"
+checksum = "c832d0ed507622c7cb98e9b7f10426850fc9d38527ab8071778dcc3a81d45875"
 dependencies = [
  "either",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "log",
  "num-traits",
  "parity-scale-codec",
  "parking_lot 0.11.1",
+ "scale-info",
 ]
 
 [[package]]
@@ -2099,7 +2160,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "fork-tree"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -2117,7 +2178,7 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking"
 version = "3.1.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -2136,7 +2197,7 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking-cli"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "Inflector",
  "chrono",
@@ -2159,7 +2220,7 @@ dependencies = [
 [[package]]
 name = "frame-executive"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -2175,7 +2236,7 @@ dependencies = [
 [[package]]
 name = "frame-metadata"
 version = "13.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -2186,7 +2247,7 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "bitflags",
  "frame-metadata",
@@ -2212,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "Inflector",
  "frame-support-procedural-tools",
@@ -2224,7 +2285,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support-procedural-tools-derive",
  "proc-macro-crate 0.1.5",
@@ -2236,7 +2297,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools-derive"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2246,7 +2307,7 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
@@ -2263,7 +2324,7 @@ dependencies = [
 [[package]]
 name = "frame-system-benchmarking"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -2277,7 +2338,7 @@ dependencies = [
 [[package]]
 name = "frame-system-rpc-runtime-api"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -2286,7 +2347,7 @@ dependencies = [
 [[package]]
 name = "frame-try-runtime"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -2353,9 +2414,9 @@ checksum = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
 
 [[package]]
 name = "futures"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e7e43a803dae2fa37c1f6a8fe121e1f7bf9548b4dfc0522a42f34145dadfc27"
+checksum = "1adc00f486adfc9ce99f77d717836f0c5aa84965eb0b4f051f4e83f7cab53f8b"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2368,9 +2429,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e682a68b29a882df0545c143dc3646daefe80ba479bcdede94d5a703de2871e2"
+checksum = "74ed2411805f6e4e3d9bc904c95d5d423b89b3b25dc0250aa74729de20629ff9"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -2378,9 +2439,9 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0402f765d8a89a26043b889b26ce3c4679d268fa6bb22cd7c6aad98340e179d1"
+checksum = "af51b1b4a7fdff033703db39de8802c673eb91855f2e0d47dcf3bf2c0ef01f99"
 
 [[package]]
 name = "futures-cpupool"
@@ -2399,7 +2460,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdcef58a173af8148b182684c9f2d5250875adbcaff7b5794073894f9d8634a9"
 dependencies = [
  "futures 0.1.31",
- "futures 0.3.15",
+ "futures 0.3.16",
  "lazy_static",
  "log",
  "parking_lot 0.9.0",
@@ -2410,9 +2471,9 @@ dependencies = [
 
 [[package]]
 name = "futures-executor"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "badaa6a909fac9e7236d0620a2f57f7664640c56575b71a7552fbd68deafab79"
+checksum = "4d0d535a57b87e1ae31437b892713aee90cd2d7b0ee48727cd11fc72ef54761c"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2422,9 +2483,9 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acc499defb3b348f8d8f3f66415835a9131856ff7714bf10dadfc4ec4bdb29a1"
+checksum = "0b0e06c393068f3a6ef246c75cdca793d6a46347e75286933e5e75fd2fd11582"
 
 [[package]]
 name = "futures-lite"
@@ -2443,9 +2504,9 @@ dependencies = [
 
 [[package]]
 name = "futures-macro"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4c40298486cdf52cc00cd6d6987892ba502c7656a16a4192a9992b1ccedd121"
+checksum = "c54913bae956fb8df7f4dc6fc90362aa72e69148e3f39041fbe8742d21e0ac57"
 dependencies = [
  "autocfg",
  "proc-macro-hack",
@@ -2467,15 +2528,15 @@ dependencies = [
 
 [[package]]
 name = "futures-sink"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a57bead0ceff0d6dde8f465ecd96c9338121bb7717d3e7b108059531870c4282"
+checksum = "c0f30aaa67363d119812743aa5f33c201a7a66329f97d1a887022971feea4b53"
 
 [[package]]
 name = "futures-task"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a16bef9fc1a4dddb5bee51c989e3fbba26569cbb0e31f5b303c184e3dd33dae"
+checksum = "bbe54a98670017f3be909561f6ad13e810d9a51f3f061b902062ca3da80799f2"
 
 [[package]]
 name = "futures-timer"
@@ -2491,9 +2552,9 @@ checksum = "e64b03909df88034c26dc1547e8970b91f98bdb65165d6a4e9110d94263dbb2c"
 
 [[package]]
 name = "futures-util"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feb5c238d27e2bf94ffdfd27b2c29e3df4a68c4193bb6427384259e2bf191967"
+checksum = "67eb846bfd58e44a8481a00049e82c43e0ccb5d61f8dc071057cb19249dd4d78"
 dependencies = [
  "autocfg",
  "futures 0.1.31",
@@ -2522,15 +2583,6 @@ name = "generic-array"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f797e67af32588215eaaab8327027ee8e71b9dd0b2b26996aedf20c030fce309"
 dependencies = [
  "typenum",
 ]
@@ -2701,7 +2753,16 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 dependencies = [
- "ahash",
+ "ahash 0.4.7",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+dependencies = [
+ "ahash 0.7.4",
 ]
 
 [[package]]
@@ -2769,6 +2830,17 @@ dependencies = [
  "digest 0.8.1",
  "generic-array 0.12.4",
  "hmac 0.7.1",
+]
+
+[[package]]
+name = "hmac-drbg"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17ea0a1394df5b6574da6e0c1ade9e78868c9fb0a4e5ef4428e32da4676b85b1"
+dependencies = [
+ "digest 0.9.0",
+ "generic-array 0.14.4",
+ "hmac 0.8.1",
 ]
 
 [[package]]
@@ -2958,7 +3030,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b8538953a3f0d0d3868f0a706eb4273535e10d72acb5c82c1c23ae48835c85"
 dependencies = [
  "async-io",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-lite",
  "if-addrs",
  "ipnet",
@@ -3003,7 +3075,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.9.1",
  "serde",
 ]
 
@@ -3031,7 +3103,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64fa110ec7b8f493f416eed552740d10e7030ad5f63b2308f82c9608ec2df275"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 2.0.2",
 ]
 
@@ -3333,7 +3405,7 @@ checksum = "adc225a49973cf9ab10d0cdd6a4b8f0cda299df9b760824bbb623f15f8f0c95a"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "lazy_static",
  "libp2p-core",
  "libp2p-deflate",
@@ -3374,10 +3446,10 @@ dependencies = [
  "ed25519-dalek",
  "either",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "multihash",
  "multistream-select",
@@ -3404,7 +3476,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d42eed63305f0420736fa487f9acef720c4528bd7852a6a760f5ccde4813345"
 dependencies = [
  "flate2",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
 ]
 
@@ -3414,7 +3486,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5153b6db68fd4baa3b304e377db744dd8fea8ff4e4504509ee636abcde88d3e3"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "log",
 ]
@@ -3427,7 +3499,7 @@ checksum = "b3c63dfa06581b24b1d12bf9815b43689a784424be217d6545c800c7c75a207f"
 dependencies = [
  "cuckoofilter",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3448,7 +3520,7 @@ dependencies = [
  "byteorder",
  "bytes 1.0.1",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hex_fmt",
  "libp2p-core",
  "libp2p-swarm",
@@ -3469,7 +3541,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b40fb36a059b7a8cce1514bd8b546fa612e006c9937caa7f5950cb20021fe91e"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3490,7 +3562,7 @@ dependencies = [
  "bytes 1.0.1",
  "either",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3514,7 +3586,7 @@ dependencies = [
  "async-io",
  "data-encoding",
  "dns-parser",
- "futures 0.3.15",
+ "futures 0.3.16",
  "if-watch",
  "lazy_static",
  "libp2p-core",
@@ -3534,7 +3606,7 @@ checksum = "350ce8b3923594aedabd5d6e3f875d058435052a29c3f32df378bc70d10be464"
 dependencies = [
  "asynchronous-codec 0.6.0",
  "bytes 1.0.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "log",
  "nohash-hasher",
@@ -3552,7 +3624,7 @@ checksum = "4aca322b52a0c5136142a7c3971446fb1e9964923a526c9cc6ef3b7c94e57778"
 dependencies = [
  "bytes 1.0.1",
  "curve25519-dalek 3.1.0",
- "futures 0.3.15",
+ "futures 0.3.16",
  "lazy_static",
  "libp2p-core",
  "log",
@@ -3572,7 +3644,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f3813276d0708c8db0f500d8beda1bda9ad955723b9cb272c41f4727256f73c"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3589,7 +3661,7 @@ checksum = "9d58defcadb646ae4b033e130b48d87410bf76394dc3335496cae99dac803e61"
 dependencies = [
  "asynchronous-codec 0.6.0",
  "bytes 1.0.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "log",
  "prost",
@@ -3604,7 +3676,7 @@ version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce3374f3b28162db9d3442c9347c4f14cb01e8290052615c7d341d40eae0599"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "pin-project 1.0.7",
  "rand 0.7.3",
@@ -3620,7 +3692,7 @@ checksum = "10e5552827c33d8326502682da73a0ba4bfa40c1b55b216af3c303f32169dd89"
 dependencies = [
  "async-trait",
  "bytes 1.0.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3639,7 +3711,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7955b973e1fd2bd61ffd43ce261c1223f61f4aacd5bae362a924993f9a25fd98"
 dependencies = [
  "either",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "log",
  "rand 0.7.3",
@@ -3665,7 +3737,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88a5aef80e519a6cb8e2663605142f97baaaea1a252eecbf8756184765f7471b"
 dependencies = [
  "async-io",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "if-watch",
  "ipnet",
@@ -3682,7 +3754,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80ac51ce419f60be966e02103c17f67ff5dc4422ba83ba54d251d6c62a4ed487"
 dependencies = [
  "async-std",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "log",
 ]
@@ -3693,7 +3765,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6149c46cb76935c80bc8be6ec6e3ebd5f5e1679765a255fb34331d54610f15dd"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "js-sys",
  "libp2p-core",
  "parity-send-wrapper",
@@ -3708,7 +3780,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3b1c6a3431045da8b925ed83384e4c5163e14b990572307fca9c507435d4d22"
 dependencies = [
  "either",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-rustls",
  "libp2p-core",
  "log",
@@ -3725,7 +3797,7 @@ version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4819358c542a86ff95f6ae691efb4b94ddaf477079b01a686f5705b79bfc232a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p-core",
  "parking_lot 0.11.1",
  "thiserror",
@@ -3734,9 +3806,9 @@ dependencies = [
 
 [[package]]
 name = "librocksdb-sys"
-version = "6.17.3"
+version = "6.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5da125e1c0f22c7cae785982115523a0738728498547f415c9054cb17c7e89f9"
+checksum = "c309a9d2470844aceb9a4a098cf5286154d20596868b75a6b36357d2bb9ca25d"
 dependencies = [
  "bindgen",
  "cc",
@@ -3753,11 +3825,59 @@ dependencies = [
  "arrayref",
  "crunchy",
  "digest 0.8.1",
- "hmac-drbg",
+ "hmac-drbg 0.2.0",
  "rand 0.7.3",
  "sha2 0.8.2",
  "subtle 2.4.0",
  "typenum",
+]
+
+[[package]]
+name = "libsecp256k1"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9d220bc1feda2ac231cb78c3d26f27676b8cf82c96971f7aeef3d0cf2797c73"
+dependencies = [
+ "arrayref",
+ "base64 0.12.3",
+ "digest 0.9.0",
+ "hmac-drbg 0.3.0",
+ "libsecp256k1-core",
+ "libsecp256k1-gen-ecmult",
+ "libsecp256k1-gen-genmult",
+ "rand 0.7.3",
+ "serde",
+ "sha2 0.9.5",
+ "typenum",
+]
+
+[[package]]
+name = "libsecp256k1-core"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0f6ab710cec28cef759c5f18671a27dae2a5f952cdaaee1d8e2908cb2478a80"
+dependencies = [
+ "crunchy",
+ "digest 0.9.0",
+ "subtle 2.4.0",
+]
+
+[[package]]
+name = "libsecp256k1-gen-ecmult"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccab96b584d38fac86a83f07e659f0deafd0253dc096dab5a36d53efe653c5c3"
+dependencies = [
+ "libsecp256k1-core",
+]
+
+[[package]]
+name = "libsecp256k1-gen-genmult"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67abfe149395e3aa1c48a2beb32b068e2334402df8181f818d3aee2b304c4f5d"
+dependencies = [
+ "libsecp256k1-core",
 ]
 
 [[package]]
@@ -3788,11 +3908,11 @@ dependencies = [
 
 [[package]]
 name = "linregress"
-version = "0.4.1"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b36162d2e1dcbdeb61223cb788f029f8ac9f2ab19969b89c5a8f4517aad4d940"
+checksum = "1e6e407dadb4ca4b31bc69c27aff00e7ca4534fdcee855159b039a7cebb5f395"
 dependencies = [
- "nalgebra 0.25.4",
+ "nalgebra",
  "statrs",
 ]
 
@@ -3830,7 +3950,7 @@ version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f374d42cdfc1d7dbf3d3dec28afab2eb97ffbf43a3234d795b5986dbf4b90ba"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.9.1",
 ]
 
 [[package]]
@@ -3862,15 +3982,6 @@ name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
-
-[[package]]
-name = "matrixmultiply"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "916806ba0031cd542105d916a97c8572e1fa6dd79c9c51e7eb43a09ec2dd84c1"
-dependencies = [
- "rawpointer",
-]
 
 [[package]]
 name = "matrixmultiply"
@@ -3927,7 +4038,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "814bbecfc0451fc314eeea34f05bbcd5b98a7ad7af37faee088b86a1e633f1d4"
 dependencies = [
  "hash-db",
- "hashbrown",
+ "hashbrown 0.9.1",
  "parity-util-mem",
 ]
 
@@ -4115,7 +4226,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d91ec0a2440aaff5f78ec35631a7027d50386c6163aa975f7caa0d5da4b6ff8"
 dependencies = [
  "bytes 1.0.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "pin-project 1.0.7",
  "smallvec 1.6.1",
@@ -4124,37 +4235,31 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.19.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0abb021006c01b126a936a8dd1351e0720d83995f4fc942d0d426c654f990745"
+checksum = "462fffe4002f4f2e1f6a9dcf12cc1a6fc0e15989014efc02a941d3e0f5dc2120"
 dependencies = [
- "alga",
- "approx 0.3.2",
- "generic-array 0.13.3",
- "matrixmultiply 0.2.4",
- "num-complex 0.2.4",
- "num-rational 0.2.4",
+ "approx",
+ "matrixmultiply",
+ "nalgebra-macros",
+ "num-complex",
+ "num-rational 0.4.0",
  "num-traits",
- "rand 0.7.3",
+ "rand 0.8.3",
  "rand_distr",
+ "simba",
  "typenum",
 ]
 
 [[package]]
-name = "nalgebra"
-version = "0.25.4"
+name = "nalgebra-macros"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c70c9e8c5f213c8e93fc8c112ade4edd3ee62062fb897776c23dcebac7932900"
+checksum = "01fcc0b8149b4632adc89ac3b7b31a12fb6099a0317a4eb2ebff574ef7de7218"
 dependencies = [
- "approx 0.4.0",
- "generic-array 0.14.4",
- "matrixmultiply 0.3.1",
- "num-complex 0.3.1",
- "num-rational 0.3.2",
- "num-traits",
- "serde",
- "simba",
- "typenum",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4191,10 +4296,12 @@ checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
-version = "5.1.2"
+version = "6.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
+checksum = "e7413f999671bd4745a7b624bd370a569fb6bc574b23c83a3c5ed2e453f3d5e2"
 dependencies = [
+ "bitvec 0.19.5",
+ "funty",
  "memchr",
  "version_check",
 ]
@@ -4212,19 +4319,9 @@ dependencies = [
 
 [[package]]
 name = "num-complex"
-version = "0.2.4"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
-dependencies = [
- "autocfg",
- "num-traits",
-]
-
-[[package]]
-name = "num-complex"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747d632c0c558b87dbabbe6a82f3b4ae03720d0646ac5b7b4dae89394be5f2c5"
+checksum = "26873667bbbb7c5182d4a37c1add32cdf09f841af72da53318fdb81543c15085"
 dependencies = [
  "num-traits",
 ]
@@ -4253,9 +4350,9 @@ dependencies = [
 
 [[package]]
 name = "num-rational"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
+checksum = "d41702bd167c2df5520b384281bc111a4b5efcf7fbc4c9c222c815b07e0a6a6a"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -4340,7 +4437,7 @@ dependencies = [
 [[package]]
 name = "pallet-authority-discovery"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4356,7 +4453,7 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4371,7 +4468,7 @@ dependencies = [
 [[package]]
 name = "pallet-babe"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4396,7 +4493,7 @@ dependencies = [
 [[package]]
 name = "pallet-balances"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4411,7 +4508,7 @@ dependencies = [
 [[package]]
 name = "pallet-grandpa"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4433,7 +4530,7 @@ dependencies = [
 [[package]]
 name = "pallet-identity"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -4449,7 +4546,7 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4468,7 +4565,7 @@ dependencies = [
 [[package]]
 name = "pallet-multisig"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4483,7 +4580,7 @@ dependencies = [
 [[package]]
 name = "pallet-offences"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4499,7 +4596,7 @@ dependencies = [
 [[package]]
 name = "pallet-randomness-collective-flip"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4512,7 +4609,7 @@ dependencies = [
 [[package]]
 name = "pallet-scheduler"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4528,7 +4625,7 @@ dependencies = [
 [[package]]
 name = "pallet-session"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4548,7 +4645,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4570,7 +4667,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro2",
@@ -4581,7 +4678,7 @@ dependencies = [
 [[package]]
 name = "pallet-sudo"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4595,7 +4692,7 @@ dependencies = [
 [[package]]
 name = "pallet-timestamp"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4614,7 +4711,7 @@ dependencies = [
 [[package]]
 name = "pallet-treasury"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4629,7 +4726,7 @@ dependencies = [
 [[package]]
 name = "pallet-utility"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4683,7 +4780,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8975095a2a03bbbdc70a74ab11a4f76a6d0b84680d87c68d722531b0ac28e8a9"
 dependencies = [
  "arrayvec 0.7.1",
- "bitvec",
+ "bitvec 0.20.4",
  "byte-slice-cast",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
@@ -4734,7 +4831,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "664a8c6b8e62d8f9f2f937e391982eb433ab285b4cd9545b342441e04a906e42"
 dependencies = [
  "cfg-if 1.0.0",
- "hashbrown",
+ "hashbrown 0.9.1",
  "impl-trait-for-tuples",
  "parity-util-mem-derive",
  "parking_lot 0.11.1",
@@ -5107,7 +5204,7 @@ dependencies = [
 [[package]]
 name = "prml-generic-asset"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5120,7 +5217,7 @@ dependencies = [
 [[package]]
 name = "prml-generic-asset-rpc-runtime-api"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "prml-generic-asset",
@@ -5131,7 +5228,7 @@ dependencies = [
 [[package]]
 name = "prml-support"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5197,9 +5294,9 @@ checksum = "bc881b2c22681370c6a780e47af9840ef841837bc98118431d4e1868bd0c1086"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.27"
+version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0d8caf72986c1a598726adc988bb5984792ef84f5ee5aa50209145ee8077038"
+checksum = "5c7ed8b8c7b886ea3ed7dde405212185f423ab44682667c8c6dd14aa1d9f6612"
 dependencies = [
  "unicode-xid",
 ]
@@ -5323,6 +5420,12 @@ dependencies = [
 
 [[package]]
 name = "radium"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
+
+[[package]]
+name = "radium"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "643f8f41a8ebc4c5dc4515c82bb8abd397b527fc20fd681b7c011c2aee5d44fb"
@@ -5431,11 +5534,12 @@ dependencies = [
 
 [[package]]
 name = "rand_distr"
-version = "0.2.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96977acbdd3a6576fb1d27391900035bf3863d4a16422973a409b488cf29ffb2"
+checksum = "051b398806e42b9cd04ad9ec8f81e355d0a382c543ac6672c62f5a5b452ef142"
 dependencies = [
- "rand 0.7.3",
+ "num-traits",
+ "rand 0.8.3",
 ]
 
 [[package]]
@@ -5731,7 +5835,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4da5fcb054c46f5a5dff833b129285a93d3f0179531735e6c866e8cc307d2020"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "pin-project 0.4.28",
  "static_assertions",
 ]
@@ -5772,12 +5876,12 @@ dependencies = [
 [[package]]
 name = "sc-authority-discovery"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "async-trait",
  "derive_more",
  "either",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "libp2p",
  "log",
@@ -5800,9 +5904,9 @@ dependencies = [
 [[package]]
 name = "sc-basic-authorship"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "log",
  "parity-scale-codec",
@@ -5823,7 +5927,7 @@ dependencies = [
 [[package]]
 name = "sc-block-builder"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sc-client-api",
@@ -5839,7 +5943,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -5860,7 +5964,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec-derive"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro2",
@@ -5871,11 +5975,11 @@ dependencies = [
 [[package]]
 name = "sc-cli"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "chrono",
  "fdlimit",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hex",
  "libp2p",
  "log",
@@ -5909,11 +6013,11 @@ dependencies = [
 [[package]]
 name = "sc-client-api"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hash-db",
  "kvdb",
  "lazy_static",
@@ -5943,7 +6047,7 @@ dependencies = [
 [[package]]
 name = "sc-client-db"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "blake2-rfc",
  "hash-db",
@@ -5973,7 +6077,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "sc-client-api",
  "sp-blockchain",
@@ -5984,11 +6088,11 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "fork-tree",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "log",
  "merlin",
@@ -6030,10 +6134,10 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe-rpc"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -6054,7 +6158,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-epochs"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
@@ -6067,9 +6171,9 @@ dependencies = [
 [[package]]
 name = "sc-consensus-slots"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "log",
  "parity-scale-codec",
@@ -6093,7 +6197,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-uncles"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "sc-client-api",
@@ -6107,11 +6211,11 @@ dependencies = [
 [[package]]
 name = "sc-executor"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "parity-scale-codec",
  "parity-wasm 0.41.0",
@@ -6136,7 +6240,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-common"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "parity-scale-codec",
@@ -6152,7 +6256,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-wasmi"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -6167,7 +6271,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-wasmtime"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -6185,13 +6289,13 @@ dependencies = [
 [[package]]
 name = "sc-finality-grandpa"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "dyn-clone",
  "finality-grandpa",
  "fork-tree",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "linked-hash-map",
  "log",
@@ -6224,11 +6328,11 @@ dependencies = [
 [[package]]
 name = "sc-finality-grandpa-rpc"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
  "finality-grandpa",
- "futures 0.3.15",
+ "futures 0.3.16",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -6250,10 +6354,10 @@ dependencies = [
 [[package]]
 name = "sc-informant"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "ansi_term 0.12.1",
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "parity-util-mem",
  "sc-client-api",
@@ -6268,11 +6372,11 @@ dependencies = [
 [[package]]
 name = "sc-keystore"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "async-trait",
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-util",
  "hex",
  "merlin",
@@ -6288,7 +6392,7 @@ dependencies = [
 [[package]]
 name = "sc-light"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "hash-db",
  "lazy_static",
@@ -6307,7 +6411,7 @@ dependencies = [
 [[package]]
 name = "sc-network"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "async-std",
  "async-trait",
@@ -6321,7 +6425,7 @@ dependencies = [
  "erased-serde",
  "fnv",
  "fork-tree",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "hex",
  "ip_network",
@@ -6360,9 +6464,9 @@ dependencies = [
 [[package]]
 name = "sc-network-gossip"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "libp2p",
  "log",
@@ -6374,13 +6478,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-network-test"
+version = "0.8.0"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
+dependencies = [
+ "async-std",
+ "futures 0.3.16",
+ "futures-timer 3.0.2",
+ "libp2p",
+ "log",
+ "parking_lot 0.11.1",
+ "rand 0.7.3",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-network",
+ "sc-service",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
+ "substrate-test-runtime",
+ "substrate-test-runtime-client",
+ "tempfile",
+]
+
+[[package]]
 name = "sc-offchain"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "bytes 0.5.6",
  "fnv",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "hyper 0.13.10",
  "hyper-rustls",
@@ -6403,9 +6535,9 @@ dependencies = [
 [[package]]
 name = "sc-peerset"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p",
  "log",
  "serde_json",
@@ -6416,7 +6548,7 @@ dependencies = [
 [[package]]
 name = "sc-proposer-metrics"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "substrate-prometheus-endpoint",
@@ -6425,9 +6557,9 @@ dependencies = [
 [[package]]
 name = "sc-rpc"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "hash-db",
  "jsonrpc-core",
  "jsonrpc-pubsub",
@@ -6459,10 +6591,10 @@ dependencies = [
 [[package]]
 name = "sc-rpc-api"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -6483,7 +6615,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-server"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "futures 0.1.31",
  "jsonrpc-core",
@@ -6501,12 +6633,12 @@ dependencies = [
 [[package]]
 name = "sc-service"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "directories",
  "exit-future",
  "futures 0.1.31",
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "hash-db",
  "jsonrpc-core",
@@ -6564,11 +6696,11 @@ dependencies = [
 [[package]]
 name = "sc-service-test"
 version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "fdlimit",
  "futures 0.1.31",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hex-literal",
  "log",
  "parity-scale-codec",
@@ -6601,7 +6733,7 @@ dependencies = [
 [[package]]
 name = "sc-state-db"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -6616,7 +6748,7 @@ dependencies = [
 [[package]]
 name = "sc-sync-state-rpc"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -6636,10 +6768,10 @@ dependencies = [
 [[package]]
 name = "sc-telemetry"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "chrono",
- "futures 0.3.15",
+ "futures 0.3.16",
  "libp2p",
  "log",
  "parking_lot 0.11.1",
@@ -6658,7 +6790,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "ansi_term 0.12.1",
  "atty",
@@ -6686,7 +6818,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing-proc-macro"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro2",
@@ -6697,10 +6829,10 @@ dependencies = [
 [[package]]
 name = "sc-transaction-graph"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "linked-hash-map",
  "log",
  "parity-util-mem",
@@ -6719,9 +6851,9 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-diagnose",
  "intervalier",
  "log",
@@ -6740,6 +6872,31 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "thiserror",
  "wasm-timer",
+]
+
+[[package]]
+name = "scale-info"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2e62ff266e136db561a007c84569985805f84a1d5a08278e52c36aacb6e061b"
+dependencies = [
+ "bitvec 0.20.4",
+ "cfg-if 1.0.0",
+ "derive_more",
+ "parity-scale-codec",
+ "scale-info-derive",
+]
+
+[[package]]
+name = "scale-info-derive"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b648fa291891a4c80187a25532f6a7d96b82c70353e30b868b14632b8fe043d6"
+dependencies = [
+ "proc-macro-crate 1.0.0",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -6890,18 +7047,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.126"
+version = "1.0.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec7505abeacaec74ae4778d9d9328fe5a5d04253220a85c4ee022239fc996d03"
+checksum = "d1f72836d2aa753853178eda473a3b9d8e4eefdaf20523b919677e6de489f8f1"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.126"
+version = "1.0.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "963a7dbc9895aeac7ac90e74f34a5d5261828f79df35cbed41e10189d3804d43"
+checksum = "e57ae87ad533d9a56427558b516d0adac283614e347abf85b0dc0cbbf0a249f3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6992,9 +7149,9 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "0.1.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
+checksum = "42a568c8f2cd051a4d283bd6eb0343ac214c1b0f1ac19f93e1175b2dee38c73d"
 
 [[package]]
 name = "signal-hook"
@@ -7023,12 +7180,12 @@ checksum = "0f0242b8e50dd9accdd56170e94ca1ebd223b098eb9c83539a6e367d0f36ae68"
 
 [[package]]
 name = "simba"
-version = "0.4.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5132a955559188f3d13c9ba831e77c802ddc8782783f050ed0c52f5988b95f4c"
+checksum = "8e82063457853d00243beda9952e910b82593e4b07ae9f721b9278a99a0d3d5c"
 dependencies = [
- "approx 0.4.0",
- "num-complex 0.3.1",
+ "approx",
+ "num-complex",
  "num-traits",
  "paste",
 ]
@@ -7102,7 +7259,7 @@ dependencies = [
  "base64 0.12.3",
  "bytes 0.5.6",
  "flate2",
- "futures 0.3.15",
+ "futures 0.3.16",
  "httparse",
  "log",
  "rand 0.7.3",
@@ -7112,7 +7269,7 @@ dependencies = [
 [[package]]
 name = "sp-allocator"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "sp-core",
@@ -7124,7 +7281,7 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "hash-db",
  "log",
@@ -7141,7 +7298,7 @@ dependencies = [
 [[package]]
 name = "sp-api-proc-macro"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "blake2-rfc",
  "proc-macro-crate 0.1.5",
@@ -7153,7 +7310,7 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -7165,7 +7322,7 @@ dependencies = [
 [[package]]
 name = "sp-arithmetic"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "integer-sqrt",
  "num-traits",
@@ -7178,7 +7335,7 @@ dependencies = [
 [[package]]
 name = "sp-authority-discovery"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -7190,7 +7347,7 @@ dependencies = [
 [[package]]
 name = "sp-authorship"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-inherents",
@@ -7201,7 +7358,7 @@ dependencies = [
 [[package]]
 name = "sp-block-builder"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -7213,9 +7370,9 @@ dependencies = [
 [[package]]
 name = "sp-blockchain"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "lru",
  "parity-scale-codec",
@@ -7231,7 +7388,7 @@ dependencies = [
 [[package]]
 name = "sp-chain-spec"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "serde",
  "serde_json",
@@ -7240,9 +7397,9 @@ dependencies = [
 [[package]]
 name = "sp-consensus"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-timer 3.0.2",
  "libp2p",
  "log",
@@ -7266,7 +7423,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-aura"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -7281,7 +7438,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-babe"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "merlin",
  "parity-scale-codec",
@@ -7301,7 +7458,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-slots"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-arithmetic",
@@ -7311,7 +7468,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-vrf"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "schnorrkel",
@@ -7323,20 +7480,20 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "base58",
  "blake2-rfc",
  "byteorder",
  "dyn-clonable",
  "ed25519-dalek",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hash-db",
  "hash256-std-hasher",
  "hex",
  "impl-serde",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "merlin",
  "num-traits",
@@ -7367,7 +7524,7 @@ dependencies = [
 [[package]]
 name = "sp-database"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "kvdb",
  "parking_lot 0.11.1",
@@ -7376,7 +7533,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7386,7 +7543,7 @@ dependencies = [
 [[package]]
 name = "sp-election-providers"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-arithmetic",
@@ -7397,7 +7554,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -7408,7 +7565,7 @@ dependencies = [
 [[package]]
 name = "sp-finality-grandpa"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "finality-grandpa",
  "log",
@@ -7425,7 +7582,7 @@ dependencies = [
 [[package]]
 name = "sp-inherents"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -7437,11 +7594,11 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "hash-db",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -7461,7 +7618,7 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "lazy_static",
  "sp-core",
@@ -7472,11 +7629,11 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "async-trait",
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "merlin",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -7489,7 +7646,7 @@ dependencies = [
 [[package]]
 name = "sp-npos-elections"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -7502,7 +7659,7 @@ dependencies = [
 [[package]]
 name = "sp-npos-elections-compact"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro2",
@@ -7513,7 +7670,7 @@ dependencies = [
 [[package]]
 name = "sp-offchain"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "sp-api",
  "sp-core",
@@ -7523,7 +7680,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "backtrace",
 ]
@@ -7531,7 +7688,7 @@ dependencies = [
 [[package]]
 name = "sp-rpc"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "serde",
  "sp-core",
@@ -7540,7 +7697,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "either",
  "hash256-std-hasher",
@@ -7561,7 +7718,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -7578,7 +7735,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "Inflector",
  "proc-macro-crate 0.1.5",
@@ -7590,7 +7747,7 @@ dependencies = [
 [[package]]
 name = "sp-serializer"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "serde",
  "serde_json",
@@ -7599,7 +7756,7 @@ dependencies = [
 [[package]]
 name = "sp-session"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -7612,7 +7769,7 @@ dependencies = [
 [[package]]
 name = "sp-staking"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
@@ -7622,7 +7779,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "hash-db",
  "log",
@@ -7644,12 +7801,12 @@ dependencies = [
 [[package]]
 name = "sp-std"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 
 [[package]]
 name = "sp-storage"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -7662,7 +7819,7 @@ dependencies = [
 [[package]]
 name = "sp-tasks"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "sp-core",
@@ -7675,7 +7832,7 @@ dependencies = [
 [[package]]
 name = "sp-timestamp"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -7689,7 +7846,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -7702,10 +7859,10 @@ dependencies = [
 [[package]]
 name = "sp-transaction-pool"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "derive_more",
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "parity-scale-codec",
  "serde",
@@ -7718,7 +7875,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "hash-db",
  "memory-db",
@@ -7732,9 +7889,9 @@ dependencies = [
 [[package]]
 name = "sp-utils"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "futures-core",
  "futures-timer 3.0.2",
  "lazy_static",
@@ -7744,7 +7901,7 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -7756,7 +7913,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -7784,12 +7941,15 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "statrs"
-version = "0.13.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e34b58a8f9b7462b6922e0b4e3c83d1b3c2075f7f996a56d6c66afa81590064"
+checksum = "05bdbb8e4e78216a85785a85d3ec3183144f98d0097b9281802c019bb07a6f05"
 dependencies = [
- "nalgebra 0.19.0",
- "rand 0.7.3",
+ "approx",
+ "lazy_static",
+ "nalgebra",
+ "num-traits",
+ "rand 0.8.3",
 ]
 
 [[package]]
@@ -7878,7 +8038,7 @@ dependencies = [
 [[package]]
 name = "substrate-build-script-utils"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "platforms",
 ]
@@ -7886,10 +8046,10 @@ dependencies = [
 [[package]]
 name = "substrate-frame-rpc-system"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "frame-system-rpc-runtime-api",
- "futures 0.3.15",
+ "futures 0.3.16",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -7909,7 +8069,7 @@ dependencies = [
 [[package]]
 name = "substrate-prometheus-endpoint"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "async-std",
  "derive_more",
@@ -7923,10 +8083,10 @@ dependencies = [
 [[package]]
 name = "substrate-test-client"
 version = "2.0.1"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "futures 0.1.31",
- "futures 0.3.15",
+ "futures 0.3.16",
  "hash-db",
  "hex",
  "parity-scale-codec",
@@ -7950,7 +8110,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime"
 version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "cfg-if 1.0.0",
  "frame-executive",
@@ -7994,9 +8154,9 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime-client"
 version = "2.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api",
@@ -8015,9 +8175,9 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils"
 version = "3.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "substrate-test-utils-derive",
  "tokio 0.2.25",
 ]
@@ -8025,7 +8185,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils-derive"
 version = "0.9.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "quote",
@@ -8035,7 +8195,7 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder"
 version = "4.0.0"
-source = "git+https://github.com/plugblockchain/plug-blockchain?rev=v3.0.0-rc7#cebc3b631348bca88ff5a97b21c1316f805bf626"
+source = "git+https://github.com/plugblockchain/plug-blockchain?branch=ecdsa-testing-2#91cc2e2f8f6414eda5b4b0207e1e52dbf3cdb69a"
 dependencies = [
  "ansi_term 0.12.1",
  "atty",
@@ -8601,12 +8761,12 @@ dependencies = [
 
 [[package]]
 name = "trie-db"
-version = "0.22.5"
+version = "0.22.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd81fe0c8bc2b528a51c9d2c31dae4483367a26a723a3c9a4a8120311d7774e3"
+checksum = "9eac131e334e81b6b3be07399482042838adcd7957aa0010231d0813e39e02fa"
 dependencies = [
  "hash-db",
- "hashbrown",
+ "hashbrown 0.11.2",
  "log",
  "rustc-hex",
  "smallvec 1.6.1",
@@ -8953,7 +9113,7 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be0ecb0db480561e9a7642b5d3e4187c128914e58aa84330b9493e3eb68c5e7f"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "js-sys",
  "parking_lot 0.11.1",
  "pin-utils",
@@ -9180,18 +9340,18 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "35.0.2"
+version = "37.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ef140f1b49946586078353a453a1d28ba90adfc54dde75710bc1931de204d68"
+checksum = "9bc7b9a76845047ded00e031754ff410afee0d50fbdf62b55bdeecd245063d68"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wat"
-version = "1.0.37"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ec280a739b69173e0ffd12c1658507996836ba4e992ed9bc1e5385a0bd72a02"
+checksum = "2ab2cc8d9a69d1ab28a41d9149bb06bb927aba8fc9d56625f8b597a564c83f50"
 dependencies = [
  "wast",
 ]
@@ -9320,7 +9480,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cc7bd8c983209ed5d527f44b01c41b7dc146fd960c61cf9e1d25399841dc271"
 dependencies = [
- "futures 0.3.15",
+ "futures 0.3.16",
  "log",
  "nohash-hasher",
  "parking_lot 0.11.1",

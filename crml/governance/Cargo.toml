@@ -11,9 +11,9 @@ description = "A runtime module for decentralized governance of the CENNZnet pro
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
 
 [features]
 default = ["std"]

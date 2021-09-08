@@ -976,9 +976,15 @@ decl_storage! {
 		/// solutions to be submitted.
 		pub EraElectionStatus get(fn era_election_status): ElectionStatus<T::BlockNumber>;
 
-		/// True if the current **planned** session is final. Note that this does not take era
-		/// forcing into account.
+		/// NOTE:!! this is poorly named.
+		/// True if the **planned** session (session_index + 1) is final (last in the era). Note that this does not take era
+		/// forcing into account
 		pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
+
+		/// NOTE:!! this is poorly named.
+		/// True if the _active_ session (session_index) is final (last in the era). Note that this does not take era
+		/// forcing into accoun
+		pub IsActiveSessionFinal get(fn is_active_session_final): bool = false;
 
 		/// Same as `will_era_be_forced()` but persists to `end_era`
 		WasEndEraForced get(fn was_end_era_forced): bool = false;
@@ -1725,7 +1731,7 @@ decl_module! {
 		#[weight = T::WeightInfo::force_new_era()]
 		fn force_new_era(origin) {
 			ensure_root(origin)?;
-			ForceEra::put(Forcing::ForceNew);
+			Self::ensure_new_era()
 		}
 
 		/// Set the minimum bond amount.
@@ -2131,19 +2137,49 @@ impl<T: Config> Module<T> {
 				0
 			});
 
+			// `session_index` here is current/active + 1
 			let era_length = session_index.checked_sub(current_era_start_session_index).unwrap_or(0); // Must never happen.
 
 			// forcing a new era, means forcing an era end for the active era
 			if Self::will_era_be_forced() {
-				WasEndEraForced::put(true)
+				WasEndEraForced::put(true);
 			}
+
+			// if this is set, then the active session is done, it's a new era
+			if Self::is_active_session_final() {
+				IsActiveSessionFinal::kill()
+			}
+
+			// read as: 'is_planned_session_final'
+			// if this is set, then it's time to mark active session as final
+			if Self::is_current_session_final() {
+				log!(
+					trace,
+					"💸 active session is final: {:?}",
+					session_index.saturating_sub(1)
+				);
+				IsCurrentSessionFinal::kill();
+				IsActiveSessionFinal::put(true);
+			}
+			log!(
+				trace,
+				"💸 era length: {:?}, sessions per era: {:?}",
+				era_length,
+				T::SessionsPerEra::get()
+			);
 
 			match ForceEra::get() {
 				Forcing::ForceNew => ForceEra::kill(),
 				Forcing::ForceAlways => (),
 				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
-				_ => {
-					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
+				Forcing::NotForcing => {
+					if era_length + 1 == T::SessionsPerEra::get() {
+						log!(trace, "💸 next session marked final: {:?}", session_index);
+						IsCurrentSessionFinal::put(true);
+					}
+					return None;
+				}
+				Forcing::ForceNone => {
 					if era_length + 1 == T::SessionsPerEra::get() {
 						IsCurrentSessionFinal::put(true);
 					} else if era_length >= T::SessionsPerEra::get() {
@@ -2606,7 +2642,6 @@ impl<T: Config> Module<T> {
 		<EraElectionStatus<T>>::put(ElectionStatus::Closed);
 		// Kill snapshots.
 		Self::kill_stakers_snapshot();
-		// Don't track final session.
 		IsCurrentSessionFinal::put(false);
 	}
 
@@ -2768,6 +2803,8 @@ impl<T: Config> Module<T> {
 			Forcing::ForceAlways | Forcing::ForceNew => (),
 			_ => ForceEra::put(Forcing::ForceNew),
 		}
+		IsCurrentSessionFinal::put(true);
+		// TODO: ideally we tell eth-bridge to sign a proof for the new validator set right now
 	}
 
 	fn will_era_be_forced() -> bool {
@@ -3141,4 +3178,14 @@ fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransac
 		_ => 0,
 	};
 	InvalidTransaction::Custom(error_number)
+}
+
+impl<T: Config> crml_support::FinalSessionTracker for Module<T> {
+	/// True if the next (planned) session is the final of an era
+	fn is_next_session_final() -> (bool, bool) {
+		(Self::is_current_session_final(), Self::will_era_be_forced())
+	}
+	fn is_active_session_final() -> bool {
+		Self::is_active_session_final()
+	}
 }
