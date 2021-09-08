@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index};
 use cennznet_runtime::Runtime;
+use ethy_gadget::notification::EthyEventProofStream;
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
@@ -65,6 +66,14 @@ pub struct BabeDeps {
 	pub keystore: SyncCryptoStorePtr,
 }
 
+/// Extra dependencies for Ethy
+pub struct EthyDeps {
+	/// Receives notifications about event proofs from Ethy.
+	pub event_proof_stream: EthyEventProofStream,
+	/// Executor to drive the subscription manager in the Ethy RPC handler.
+	pub subscription_executor: SubscriptionTaskExecutor,
+}
+
 /// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
 	/// Voting round info.
@@ -95,6 +104,8 @@ pub struct FullDeps<C, P, SC, B> {
 	pub deny_unsafe: DenyUnsafe,
 	/// BABE specific dependencies.
 	pub babe: BabeDeps,
+	/// Ethy specific dependencies.
+	pub ethy: EthyDeps,
 	/// GRANDPA specific dependencies.
 	pub grandpa: GrandpaDeps<B>,
 }
@@ -142,6 +153,7 @@ where
 		chain_spec,
 		deny_unsafe,
 		babe,
+		ethy,
 		grandpa,
 	} = deps;
 
@@ -172,6 +184,9 @@ where
 		select_chain,
 		deny_unsafe,
 	)));
+	io.extend_with(ethy_gadget_rpc::EthyApi::to_delegate(
+		ethy_gadget_rpc::EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor),
+	));
 	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
 		GrandpaRpcHandler::new(
 			shared_authority_set.clone(),

@@ -7,9 +7,9 @@ license = "GPL-3.0"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
 crml-nft = { path = "../../", default-features = false }
 
 [dev-dependencies]

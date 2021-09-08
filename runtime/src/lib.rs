@@ -23,7 +23,6 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
-use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -74,7 +73,10 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
+use cennznet_primitives::{
+	eth::crypto::AuthorityId as EthBridgeId,
+	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature},
+};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 pub use crml_generic_asset::{
@@ -593,22 +595,14 @@ impl crml_attestation::Config for Runtime {
 }
 
 parameter_types! {
-	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	pub const EventConfirmations: u16 = 0;
-	/// Event expiration deadline in seconds (1 week)
-	pub const EventDeadline: u32 = 604_800;
 	/// The threshold of notarizations required to approve an Eth deposit
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl crml_eth_bridge::Config for Runtime {
-	/// The minimum number of block confirmations needed to secure an event claim
-	type EventConfirmations = EventConfirmations;
-	/// Events cannot be claimed after this duration
-	type EventDeadline = EventDeadline;
+	/// The identifier type for an offchain worker.
+	type EthyId = EthBridgeId;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
-	/// The identifier type for an offchain worker.
-	type AuthorityId = EthBridgeId;
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
 	/// Handle rewards for notaries
@@ -621,26 +615,23 @@ impl crml_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
+	/// Reports final session status of an era
+	type FinalSessionTracker = Staking;
 }
 
 // transaction must have an event/log of the deposit
 // i.e. keccack256("Deposit(address,address,uint256,bytes32)")
-// TODO: config via storage
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
 	hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
 	/// The ERC20 bridge contract deposit event
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
-	/// The ERC20 bridge contract address
-	pub const DepositContractAddress: [u8; 20] = DEPOSIT_CONTRACT_ADDRESS;
 	/// The ERC20 peg address
 	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
 }
 impl crml_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;
-	type DepositContractAddress = DepositContractAddress;
 	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = GenericAsset;
@@ -921,6 +912,12 @@ impl_runtime_apis! {
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
 			None
+		}
+	}
+
+	impl cennznet_primitives::eth::EthyApi<Block> for Runtime {
+		fn validator_set() -> cennznet_primitives::eth::ValidatorSet<EthBridgeId> {
+			EthBridge::validator_set()
 		}
 	}
 

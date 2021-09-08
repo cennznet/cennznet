@@ -13,10 +13,10 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sc-client-db = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 crml-governance = { path = "../" }
 crml-governance-rpc-runtime-api = { path = "runtime-api" }

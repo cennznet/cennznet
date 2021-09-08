@@ -11,33 +11,33 @@ static_assertions = "1.1.0"
 serde = { version = "1.0.102", optional = true }
 log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-application-crypto = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-io = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-npos-elections = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+frame-support = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+frame-system = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+pallet-authorship = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+pallet-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-application-crypto = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-io = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-npos-elections = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-staking = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-std = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 crml-support = { default-features = false, path = "../support" }
 
 [dev-dependencies]
 hex = "0.4"
 parking_lot = "0.11.1"
 rand_chacha = { version = "0.2" }
-pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+pallet-balances = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+pallet-staking-reward-curve = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 crml-generic-asset = { path = "../generic-asset" }
 crml-support = { path = "../support" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-tracing = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-storage = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-tracing = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+substrate-test-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
 
 [features]
 migrate = []

@@ -1,0 +1,28 @@
+[package]
+name = "ethy-gadget-rpc"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>", "Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+futures = { version = "0.3.4", features = ["compat"] }
+log = "0.4"
+serde = { version = "1.0.127", features = ["derive"] }
+serde_json = "1.0.64"
+
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
+jsonrpc-pubsub = "15.1.0"
+
+codec = { version = "2.0.0", package = "parity-scale-codec", features = ["derive"] }
+
+sc-rpc = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+
+ethy-gadget = { path = "../." }
+cennznet-primitives = { path = "../../primitives" }
+crml-support = { path = "../../crml/support" }

@@ -11,10 +11,10 @@ description = "Common crml types and traits"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"], optional = true}
 primitive-types = {version = "0.10.1", default-features = false, features = ["impl-codec", "impl-serde"] }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7", default-features = false }
+sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 # this isn't needed by this crate but we need to force `getrandom` to use this feature for wasm build
 # TODO: remove in next substrate update (https://github.com/paritytech/substrate/pull/7831/commits/5a6e41e683f8a4844c0a735dcd08caabb2313f11)
