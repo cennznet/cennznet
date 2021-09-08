@@ -173,6 +173,7 @@ where
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
+				self.witness_record.set_validators(active.validators.clone());
 				self.validator_set = active;
 			}
 		}
@@ -241,11 +242,7 @@ where
 			.witness_record
 			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
 		{
-			let signatures = self.witness_record.signatures_for(
-				witness.event_id,
-				&witness.digest,
-				self.validator_set.validators.clone(),
-			);
+			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
 			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}", witness.event_id, signatures);
 			let event_proof = EventProof {
 				digest: witness.digest,

@@ -18,7 +18,7 @@ use cennznet_primitives::eth::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	EventId, Witness,
 };
-use log::trace;
+use log::{trace, warn};
 use std::collections::HashMap;
 
 /// Tracks live witnesses
@@ -28,35 +28,36 @@ use std::collections::HashMap;
 /// this structure allows resiliency incase different digests are witnessed, maliciously or not.
 #[derive(Default)]
 pub struct WitnessRecord {
-	record: HashMap<EventId, HashMap<[u8; 32], Vec<(AuthorityId, Signature)>>>,
+	record: HashMap<EventId, HashMap<[u8; 32], Vec<(usize, Signature)>>>,
 	has_voted: HashMap<EventId, Vec<AuthorityId>>,
+	/// `validators` - The ECDSA public (session) keys of validators ORDERED!
+	validators: Vec<AuthorityId>,
 }
 
 impl WitnessRecord {
+	/// Set the validator keys
+	pub fn set_validators(&mut self, validators: Vec<AuthorityId>) {
+		self.validators = validators;
+	}
 	/// Remove a witness record from memory
 	pub fn clear(&mut self, event_id: EventId) {
 		self.record.remove(&event_id);
 	}
 	/// Return all known signatures for the witness on (event_id, digest)
-	pub fn signatures_for(
-		&self,
-		event_id: EventId,
-		digest: &[u8; 32],
-		validators: Vec<AuthorityId>,
-	) -> Vec<Option<Signature>> {
-		// TODO: can probably do better by storing this in sorted order to begin with...
+	pub fn signatures_for(&self, event_id: EventId, digest: &[u8; 32]) -> Vec<Signature> {
+		let mut signatures = vec![Signature::default(); self.validators.len()];
 		let proofs = self.record.get(&event_id).unwrap().get(digest).unwrap();
-		validators
-			.iter()
-			.map(|v| proofs.iter().find(|(id, _sig)| v == id).map(|(_id, sig)| sig.clone()))
-			.collect()
+		for (idx, signature) in proofs.into_iter() {
+			signatures.insert(*idx, signature.clone());
+		}
+		signatures
 	}
 	/// Does the event identified by `event_id` `digest` have >= `threshold` support
 	pub fn has_consensus(&self, event_id: EventId, digest: &[u8; 32], threshold: usize) -> bool {
 		self.record
 			.get(&event_id)
 			.and_then(|x| x.get(digest))
-			.and_then(|v| Some(v.len()))
+			.map(|v| v.len())
 			.unwrap_or_default()
 			>= threshold
 	}
@@ -68,41 +69,58 @@ impl WitnessRecord {
 			.map(|votes| votes.binary_search(&witness.authority_id).is_ok())
 			.unwrap_or_default()
 		{
-			// TODO: log/ return something useful
+			// TODO: return something useful
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
 			return;
 		}
 
-		if !self.record.contains_key(&witness.event_id) {
-			// first witness for this event_id
-			let mut digest_signatures = HashMap::<[u8; 32], Vec<(AuthorityId, Signature)>>::default();
-			digest_signatures.insert(
-				witness.digest,
-				vec![(witness.authority_id.clone(), witness.signature.clone())],
-			);
-			self.record.insert(witness.event_id, digest_signatures);
-		} else if !self
-			.record
-			.get(&witness.event_id)
-			.map(|x| x.contains_key(&witness.digest))
-			.unwrap_or(false)
-		{
-			// first witness for this digest
-			let digest_signatures = vec![(witness.authority_id.clone(), witness.signature.clone())];
-			self.record
-				.get_mut(&witness.event_id)
-				.unwrap()
-				.insert(witness.digest, digest_signatures);
-		} else {
-			// add witness to known (event_id, digest)
-			self.record
-				.get_mut(&witness.event_id)
-				.unwrap()
-				.get_mut(&witness.digest)
-				.unwrap()
-				.push((witness.authority_id.clone(), witness.signature.clone()));
-		}
-		trace!(target: "ethy", "💎 witness recorded: {:?}", witness.event_id);
+		// Convert authority ECDSA public key into ordered index
+		// this is useful to efficiently generate a proof later
+		let validators = self.validators.clone();
+		let authority_to_index = || -> Option<usize> {
+			let maybe_pos = validators.iter().position(|v| v == &witness.authority_id);
+			if maybe_pos.is_none() {
+				// this implies the witness is not an active validator
+				// this should not happen (i.e. the witness should be invalidated sooner in the lifecycle)
+				warn!(target: "ethy", "💎 unexpected authority witness. event: {:?}, authority: {:?}", witness.event_id, witness.authority_id);
+			}
+			maybe_pos
+		};
+
+		// Spaghetti code to insert into nested map
+		// There are 3 cases:
+		// 1) first time observing an event
+		// 2) known event, first time observing this digest
+		// 3) known event & known digest, first time observing this witness
+		self.record
+			.entry(witness.event_id)
+			.and_modify(|event_digests| {
+				event_digests
+					.entry(witness.digest)
+					.and_modify(|signatures| {
+						// case 2
+						authority_to_index()
+							.map(|authority_index| signatures.push((authority_index, witness.signature.clone())));
+					})
+					.or_insert({
+						// case 3
+						if let Some(authority_index) = authority_to_index() {
+							vec![(authority_index, witness.signature.clone())]
+						} else {
+							// no authority index. should not happen, bail.
+							return;
+						}
+					});
+			})
+			.or_insert({
+				// case 1
+				let mut digest_signatures = HashMap::<[u8; 32], Vec<(usize, Signature)>>::default();
+				authority_to_index().map(|authority_index| {
+					digest_signatures.insert(witness.digest, vec![(authority_index, witness.signature.clone())])
+				});
+				digest_signatures
+			});
+		trace!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
 
 		// Mark authority as voted
 		match self.has_voted.get_mut(&witness.event_id) {

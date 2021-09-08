@@ -11,8 +11,8 @@ The proof is portable and useful for submitting to an accompanying Ethereum cont
 
 ## TODO:
 Essential:
-- handle validator set force era
 - Check the double spend 'bucketing' solution works
+- handle validator set force era ✅
 - Test we can query proofs from fullnodes ✅
 - Check multiple claims in a block are supported  ✅
 - Only update validator set proofs on a new era, not just session key changes  ✅
@@ -22,3 +22,4 @@ Essential:
 QoL/Stability:x
 - How to manage persistence on restart? (e.g. rebroadcast)
 - Add rebroadcast behaviour
+- Add RPC query method for event proofs
