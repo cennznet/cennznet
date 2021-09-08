@@ -16,14 +16,17 @@
 
 //! Extra trait implementations for the `GenericAsset` module
 
-use crate::{CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance, SpendingAssetIdAuthority};
+use crate::{
+	AssetOptions, CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance,
+	SpendingAssetIdAuthority,
+};
 use crml_support::{AssetIdAuthority, MultiCurrency};
 use frame_support::traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedSub, Saturating, UniqueSaturatedInto, Zero},
 	DispatchError, DispatchResult, ModuleId,
 };
-use sp_std::{mem, result};
+use sp_std::{mem, prelude::*, result};
 
 impl<T: Config> MultiCurrency for Module<T> {
 	type AccountId = T::AccountId;
@@ -162,6 +165,33 @@ impl<T: Config> MultiCurrency for Module<T> {
 		}
 
 		<Module<T>>::unreserve(currency, who, amount)
+	}
+
+	/// Bring a new currency into existence
+	/// Returns the new currency Id on success
+	fn create(
+		owner: &Self::AccountId,
+		initial_supply: Self::Balance,
+		decimal_places: u8,
+		minimum_balance: u64,
+		symbol: Vec<u8>,
+	) -> Result<Self::CurrencyId, DispatchError> {
+		let asset_id = <Module<T>>::next_asset_id();
+		let _ = <Module<T>>::create_asset(
+			None,
+			Some(owner.clone()),
+			AssetOptions {
+				initial_issuance: initial_supply,
+				permissions: crate::types::PermissionLatest {
+					update: crate::types::Owner::Address(owner.clone()),
+					mint: crate::types::Owner::Address(owner.clone()),
+					burn: crate::types::Owner::Address(owner.clone()),
+				},
+			},
+			crate::types::AssetInfo::new(symbol, decimal_places, minimum_balance),
+		)?;
+
+		Ok(asset_id)
 	}
 }
 

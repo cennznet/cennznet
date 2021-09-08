@@ -14,6 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
 structopt = "0.3.8"
+url = "2.2.2"
 
 sc-authority-discovery = { rev = "v3.0.0-rc7", git = "https://github.com/plugblockchain/plug-blockchain" }
 sc-chain-spec = { rev = "v3.0.0-rc7", git = "https://github.com/plugblockchain/plug-blockchain" }
@@ -61,6 +62,7 @@ frame-benchmarking-cli = { rev = "v3.0.0-rc7", git = "https://github.com/plugblo
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
+crml-eth-bridge = { path = "../crml/eth-bridge" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
 crml-generic-asset = { path = "../crml/generic-asset" }
@@ -68,6 +70,7 @@ crml-generic-asset-rpc = { path = "../crml/generic-asset/rpc" }
 crml-governance-rpc = { path = "../crml/governance/rpc" }
 crml-nft-rpc = { path = "../crml/nft/rpc" }
 crml-staking-rpc = { path = "../crml/staking/rpc" }
+crml-support = { path = "../crml/support" }
 crml-transaction-payment-rpc = { path = "../crml/transaction-payment/rpc" }
 crml-transaction-payment = { path = "../crml/transaction-payment" }
 

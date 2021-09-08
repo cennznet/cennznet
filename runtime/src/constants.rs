@@ -28,6 +28,15 @@ pub mod asset {
 	pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
 }
 
+pub mod config {
+	// arbitrary keys for storing offchain config.
+	// for consistency expect
+	// 4 byte key for prefix and 8 byte key for subkeys
+
+	/// offchain storage config key for eth http URI
+	pub const ETH_HTTP_URI: [u8; 8] = *b"ETH_HTTP";
+}
+
 /// Money matters.
 pub mod currency {
 	use cennznet_primitives::types::Balance;
