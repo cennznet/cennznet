@@ -695,14 +695,14 @@ impl<T: Config> Module<T> {
 		};
 
 		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
-		if T::FinalSessionTracker::is_planned_session_final() {
-			log!(info, "💎 planned session final");
+		if T::FinalSessionTracker::is_next_session_final().0 {
+			log!(info, "💎 next session final");
 			log_notary_change(queued.as_ref());
-		} else if T::FinalSessionTracker::is_current_session_final().0 {
+		} else if T::FinalSessionTracker::is_active_session_final() {
 			// Pause bridge claim/proofs
 			// Prevents claims/proofs being partially processed and failing if the validator set changes
 			// significantly
-			log!(info, "💎 current session final");
+			log!(info, "💎 active session final");
 			BridgePaused::put(true);
 
 			if Self::next_notary_keys().is_empty() {
@@ -787,10 +787,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		log!(info, "💎 on new session entered");
 		// Only run change process at the end of an era
-		if T::FinalSessionTracker::is_current_session_final().0 || T::FinalSessionTracker::is_planned_session_final() {
-			log!(info, "💎 new session do change");
+		if T::FinalSessionTracker::is_next_session_final().0 || T::FinalSessionTracker::is_active_session_final() {
 			// Record authorities for the new session.
 			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
@@ -805,7 +803,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	/// so we can still affect the validator set.
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
-		if T::FinalSessionTracker::is_current_session_final().0 {
+		if T::FinalSessionTracker::is_active_session_final() {
 			// A proof should've been generated now so we can reactivate the bridge with the new validator set
 			BridgePaused::kill();
 			// Next notary keys should be unset, until populated by new session logic

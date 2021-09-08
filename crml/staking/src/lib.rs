@@ -211,9 +211,8 @@
 
 #[cfg(test)]
 mod mock;
-// TODO: reenable
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 mod migration;
 mod offchain_election;
@@ -977,13 +976,15 @@ decl_storage! {
 		/// solutions to be submitted.
 		pub EraElectionStatus get(fn era_election_status): ElectionStatus<T::BlockNumber>;
 
-		/// True if the next **planned** session is final (last in the era). Note that this does not take era
-		/// forcing into account.
-		pub IsPlannedSessionFinal get(fn is_planned_session_final): bool = false;
-
-		/// True if the active session is final (last in the era). Note that this does not take era
+		/// NOTE:!! this is poorly named.
+		/// True if the **planned** session (session_index + 1) is final (last in the era). Note that this does not take era
 		/// forcing into account
 		pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
+
+		/// NOTE:!! this is poorly named.
+		/// True if the _active_ session (session_index) is final (last in the era). Note that this does not take era
+		/// forcing into accoun
+		pub IsActiveSessionFinal get(fn is_active_session_final): bool = false;
 
 		/// Same as `will_era_be_forced()` but persists to `end_era`
 		WasEndEraForced get(fn was_end_era_forced): bool = false;
@@ -2144,13 +2145,24 @@ impl<T: Config> Module<T> {
 				WasEndEraForced::put(true);
 			}
 
-			if Self::is_planned_session_final() && session_index > 1 {
-				IsPlannedSessionFinal::kill();
-				log!(debug, "💸 current session final put(true). {:?}", session_index);
-				IsCurrentSessionFinal::put(true);
+			// if this is set, then the active session is done, it's a new era
+			if Self::is_active_session_final() {
+				IsActiveSessionFinal::kill()
+			}
+
+			// read as: 'is_planned_session_final'
+			// if this is set, then it's time to mark active session as final
+			if Self::is_current_session_final() {
+				log!(
+					trace,
+					"💸 active session is final: {:?}",
+					session_index.saturating_sub(1)
+				);
+				IsCurrentSessionFinal::kill();
+				IsActiveSessionFinal::put(true);
 			}
 			log!(
-				debug,
+				trace,
 				"💸 era length: {:?}, sessions per era: {:?}",
 				era_length,
 				T::SessionsPerEra::get()
@@ -2162,16 +2174,14 @@ impl<T: Config> Module<T> {
 				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
 				Forcing::NotForcing => {
 					if era_length + 1 == T::SessionsPerEra::get() {
-						log!(debug, "💸 planned session final put(true) {:?}", session_index);
-						IsPlannedSessionFinal::put(true);
+						log!(trace, "💸 next session marked final: {:?}", session_index);
+						IsCurrentSessionFinal::put(true);
 					}
 					return None;
 				}
 				Forcing::ForceNone => {
-					// Either `ForceNone`, or `NotForcing && era_length < T::SessionsPerEra::get()`.
 					if era_length + 1 == T::SessionsPerEra::get() {
-						IsPlannedSessionFinal::put(true);
-					// Mark the started/currently executing session as final (session_index - 1)
+						IsCurrentSessionFinal::put(true);
 					} else if era_length >= T::SessionsPerEra::get() {
 						// Should only happen when we are ready to trigger an era but we have ForceNone,
 						// otherwise previous arm would short circuit.
@@ -2560,7 +2570,6 @@ impl<T: Config> Module<T> {
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
 	fn start_era(start_session: SessionIndex) {
-		IsCurrentSessionFinal::kill();
 		let active_era = ActiveEra::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			*active_era = Some(ActiveEraInfo {
@@ -2633,6 +2642,7 @@ impl<T: Config> Module<T> {
 		<EraElectionStatus<T>>::put(ElectionStatus::Closed);
 		// Kill snapshots.
 		Self::kill_stakers_snapshot();
+		IsCurrentSessionFinal::put(false);
 	}
 
 	/// Select the new validator set at the end of the era.
@@ -3171,14 +3181,11 @@ fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransac
 }
 
 impl<T: Config> crml_support::FinalSessionTracker for Module<T> {
-	/// True if the next session is final in an era
-	fn is_planned_session_final() -> bool {
-		Self::is_planned_session_final()
+	/// True if the next (planned) session is the final of an era
+	fn is_next_session_final() -> (bool, bool) {
+		(Self::is_current_session_final(), Self::will_era_be_forced())
 	}
-	/// True if the current session is final in an era
-	/// True if the era was forced
-	fn is_current_session_final() -> (bool, bool) {
-		// TODO: forced hard-coded to false
-		(Self::is_current_session_final(), false)
+	fn is_active_session_final() -> bool {
+		Self::is_active_session_final()
 	}
 }

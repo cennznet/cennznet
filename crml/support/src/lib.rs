@@ -32,12 +32,11 @@ use sp_std::{fmt::Debug, prelude::*, result};
 
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
-	/// Is the current session the 2nd to last i.e `final_session - 1`
-	/// This session is where the new validator set is queued
-	fn is_planned_session_final() -> bool;
-	/// Is the current session the final session.
-	/// Immediately after this a new validator set is activated
-	fn is_current_session_final() -> (bool, bool);
+	/// Returns whether the next session the final session of an era
+	/// (is_final, was_forced)
+	fn is_next_session_final() -> (bool, bool);
+	/// Returns whether the active session is final of an era
+	fn is_active_session_final() -> bool;
 }
 
 /// Something that can be decoded from eth log data/ ABI
