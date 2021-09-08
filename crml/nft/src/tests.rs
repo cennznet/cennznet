@@ -1898,7 +1898,6 @@ fn get_collection_listings_over_limit() {
 
 		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
-
 		let series_id = Nft::next_series_id(collection_id);
 		// mint token Ids
 		assert_ok!(Nft::mint_series(
