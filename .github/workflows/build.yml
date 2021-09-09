@@ -45,7 +45,7 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Build
-        run: cargo build --locked
+        run: cargo check --locked
       - name: Test
         run: cargo test --all
       - name: Benchmark (build only)
