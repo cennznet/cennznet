@@ -20,6 +20,8 @@ use codec::{Decode, Encode};
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
+use self::crypto::AuthoritySignature;
+
 /// The `ConsensusEngineId` of ETHY.
 pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
 
@@ -128,13 +130,14 @@ pub struct EventProof {
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).
-	pub signatures: Vec<Option<crypto::AuthoritySignature>>,
+	pub signatures: Vec<crypto::AuthoritySignature>,
 }
 
 impl EventProof {
 	/// Return the number of collected signatures.
 	pub fn signature_count(&self) -> usize {
-		self.signatures.iter().filter(|x| x.is_some()).count()
+		let empty_sig = AuthoritySignature::default();
+		self.signatures.iter().filter(|x| x != &&empty_sig).count()
 	}
 }
 

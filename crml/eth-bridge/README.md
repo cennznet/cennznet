@@ -14,6 +14,7 @@ After a threshold of notarizations for an event are reached, the bridge applicat
 - (maybe): allow notarization vote to include the 'failure' reason rather than false e..g not enough re-orgs or differing amounts  ✅
 
 TODO:
+- Test double spend 'bucketing' solution
 - Develop withdrawal process ✅
 - Move Eth contracts to standalone repo ✅
 - Handle CENNZ deposit edge case (leave to governance) ✅

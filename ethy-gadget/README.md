@@ -11,14 +11,11 @@ The proof is portable and useful for submitting to an accompanying Ethereum cont
 
 ## TODO:
 Essential:
-- handle validator set force era
-- Check the double spend 'bucketing' solution works
+- Add RPC query method for event proofs
+- Add rebroadcast behaviour ✅
+- handle validator set force era ✅
 - Test we can query proofs from fullnodes ✅
 - Check multiple claims in a block are supported  ✅
 - Only update validator set proofs on a new era, not just session key changes  ✅
 - Manage proofs in-flight on change? i.e pause proof requests for 1 session ~10 minutes ✅
 - Distinguish validator set proof change (runtime log event w Id when proof requested)(?) ✅
-
-QoL/Stability:x
-- How to manage persistence on restart? (e.g. rebroadcast)
-- Add rebroadcast behaviour
