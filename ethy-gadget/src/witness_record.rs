@@ -48,18 +48,17 @@ impl WitnessRecord {
 		let mut signatures = vec![Signature::default(); self.validators.len()];
 		let proofs = self.record.get(&event_id).unwrap().get(digest).unwrap();
 		for (idx, signature) in proofs.into_iter() {
-			signatures.insert(*idx, signature.clone());
+			let _ = std::mem::replace(&mut signatures[*idx], signature.clone());
 		}
 		signatures
 	}
 	/// Does the event identified by `event_id` `digest` have >= `threshold` support
 	pub fn has_consensus(&self, event_id: EventId, digest: &[u8; 32], threshold: usize) -> bool {
-		self.record
-			.get(&event_id)
-			.and_then(|x| x.get(digest))
-			.map(|v| v.len())
-			.unwrap_or_default()
-			>= threshold
+		trace!(target: "ethy", "💎 event {:?}, records: {:?}", event_id, self.record.get(&event_id));
+		let maybe_count = self.record.get(&event_id).and_then(|x| x.get(digest)).map(|v| v.len());
+
+		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, maybe_count);
+		maybe_count.unwrap_or_default() >= threshold
 	}
 	/// Note a witness if we haven't seen it before
 	pub fn note(&mut self, witness: &Witness) {

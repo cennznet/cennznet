@@ -130,7 +130,7 @@ where
 				return ValidationResult::Discard;
 			}
 
-			if self.active_validators.read().iter().any(|v| *v == authority_id) {
+			if !self.active_validators.read().iter().any(|v| *v == authority_id) {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is not an active authority", &authority_id, event_id);
 				return ValidationResult::Discard;
 			}
