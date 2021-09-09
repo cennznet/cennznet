@@ -66,7 +66,7 @@ const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: u64 = 3;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
-const REQUEST_TTL_MS: u64 = 1_500;
+const REQUEST_TTL_MS: u64 = 2_000;
 /// Bucket claims in intervals of this factor (seconds)
 const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
@@ -262,8 +262,12 @@ decl_module! {
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
-				EventClaims::remove(payload.event_claim_id);
+				let (_eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_data = event_data.unwrap();
 				Self::deposit_event(Event::Invalid(payload.event_claim_id));
+
+				T::Subscribers::on_failure(payload.event_claim_id, &contract_address, &event_signature, &event_data);
 				return Ok(());
 			}
 
