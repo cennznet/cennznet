@@ -273,4 +273,11 @@ impl<T: Config> EventClaimSubscriber for Module<T> {
 			}
 		}
 	}
+	fn on_failure(event_claim_id: u64, contract_address: &H160, event_type: &H256, _event_data: &[u8]) {
+		if *contract_address == EthAddress::from(Self::contract_address())
+			&& *event_type == H256::from(T::DepositEventSignature::get())
+		{
+			Self::deposit_event(<Event<T>>::Erc20DepositFail(event_claim_id));
+		}
+	}
 }

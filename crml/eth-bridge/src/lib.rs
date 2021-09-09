@@ -66,7 +66,7 @@ const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: u64 = 3;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
-const REQUEST_TTL_MS: u64 = 1_500;
+const REQUEST_TTL_MS: u64 = 2_500;
 /// Bucket claims in intervals of this factor (seconds)
 const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
@@ -262,8 +262,12 @@ decl_module! {
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
-				EventClaims::remove(payload.event_claim_id);
+				let (_eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_data = event_data.unwrap();
 				Self::deposit_event(Event::Invalid(payload.event_claim_id));
+
+				T::Subscribers::on_failure(payload.event_claim_id, &contract_address, &event_signature, &event_data);
 				return Ok(());
 			}
 
@@ -497,27 +501,45 @@ impl<T: Config> Module<T> {
 			return EventClaimResult::NoTxLogs;
 		}
 
-		// lastly, have we got enough block confirmations to be re-org safe?
-		let observed_block = tx_receipt.block_number.saturated_into();
-		let result = Self::get_block(observed_block);
-		if let Err(err) = result {
-			log!(error, "💎 eth_getBlockByNumber failed: {:?}", err);
-			return EventClaimResult::DataProviderErr;
-		}
-		let maybe_block = result.unwrap();
-		if maybe_block.is_none() {
-			return EventClaimResult::DataProviderErr;
-		}
-		let block = maybe_block.unwrap();
-		let latest_block_number: u64 = block.number.unwrap_or_default().as_u64();
-		let block_confirmations = latest_block_number.saturating_sub(observed_block as u64);
+		//  have we got enough block confirmations to be re-org safe?
+		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
+
+		let latest_block: EthBlock = match Self::get_block(LatestOrNumber::Latest) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
+		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
+		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
 		if block_confirmations < Self::event_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
+
+		// we can calculate if the block is expired w some high degree of confidence
+		// time since the event = block_confirmations * ~16 seconds avg
+		// `20` arbitrarily chosen by adding a few seconds to the average block time
+		if block_confirmations * 20 > Self::event_deadline_seconds() {
+			return EventClaimResult::Expired;
+		}
+
+		//  check the block this tx is in if the timestamp > deadline
+		let observed_block: EthBlock = match Self::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
-		if T::UnixTime::now().as_secs().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
+		if T::UnixTime::now().as_secs().saturated_into::<u64>() - observed_block.timestamp.saturated_into::<u64>()
 			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
@@ -550,9 +572,11 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Get latest block number from eth client
-	fn get_block(number: u32) -> Result<Option<EthBlock>, Error<T>> {
-		// let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetBlockByNumberRequest::new(1_usize, number);
+	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+		let request = match req {
+			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
+			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
+		};
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
