@@ -280,11 +280,19 @@ pub enum LatestOrNumber {
 
 /// Serializes the parameters for `GetBlockRequest`
 pub fn serialize_params<S: serde::Serializer>(v: &(LatestOrNumber, bool), s: S) -> Result<S::Ok, S::Error> {
+	use core::fmt::Write;
 	use serde::ser::SerializeTuple;
+
 	let mut tup = s.serialize_tuple(2)?;
 	match v.0 {
 		LatestOrNumber::Latest => tup.serialize_element(&"latest")?,
-		LatestOrNumber::Number(n) => tup.serialize_element(&n)?,
+		LatestOrNumber::Number(n) => {
+			// Ethereum JSON RPC API expects the block number as a hex string
+			let mut hex_block_number = sp_std::Writer::default();
+			write!(&mut hex_block_number, "{:#x}", n).expect("valid bytes");
+			// this should always be valid utf8
+			tup.serialize_element(&core::str::from_utf8(hex_block_number.inner()).expect("valid bytes"))?;
+		}
 	}
 	tup.serialize_element(&v.1)?;
 	tup.end()
@@ -539,14 +547,18 @@ mod tests {
 	#[test]
 	fn serialize_get_block_by_number_request() {
 		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x37",false],"id":1}"#;
-		let result = serde_json::to_string(&GetBlockRequest::new(1, 55)).unwrap();
+		let result = serde_json::to_string(&GetBlockRequest::for_number(1, 55)).unwrap();
+		assert_eq!(expected, result);
+
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false],"id":1}"#;
+		let result = serde_json::to_string(&GetBlockRequest::latest(1)).unwrap();
 		assert_eq!(expected, result);
 	}
 
 	#[test]
 	fn serialize_get_block_by_number_request_max() {
 		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffe",false],"id":1}"#;
-		let result = serde_json::to_string(&GetBlockRequest::new(1, u32::MAX - 1)).unwrap();
+		let result = serde_json::to_string(&GetBlockRequest::for_number(1, u32::MAX - 1)).unwrap();
 		assert_eq!(expected, result);
 	}
 }
