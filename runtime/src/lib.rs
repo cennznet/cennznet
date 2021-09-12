@@ -370,15 +370,9 @@ fn transform_session_keys(v: AccountId, old: SessionKeysV40) -> SessionKeys {
 		babe: old.babe,
 		im_online: old.im_online,
 		authority_discovery: old.authority_discovery,
-		eth_bridge: {
-			// We need to produce a dummy value that's unique for the validator.
-			let mut id = EthBridgeId::default();
-			let id_raw: &mut [u8] = id.as_mut();
-			id_raw[1..33].copy_from_slice(v.as_ref());
-			id_raw[0..4].copy_from_slice(&ETH_BRIDGE_KEY_TYPE.0);
-
-			id
-		},
+		// Set the temporary bridge key to `[0_u8; 33]` for all validators
+		// this will ensure the bridge does not start until intentional support/activation is shown
+		eth_bridge: EthBridgeId::default(),
 	}
 }
 
