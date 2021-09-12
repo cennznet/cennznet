@@ -4,6 +4,7 @@ use frame_support::{
 	storage::{IterableStorageMap, StorageDoubleMap, StorageMap},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
+use sp_std::vec::Vec;
 
 /// Locks are keyed by asset Id in v41
 pub fn migrate_locks<T: Config>() -> Weight {

@@ -113,7 +113,7 @@ use crml_support::AssetIdAuthority;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
+		BalanceStatus, Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
 		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	IterableStorageMap, Parameter, StorageMap,

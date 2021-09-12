@@ -214,7 +214,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod migration;
 mod offchain_election;
 pub mod rewards;
 pub use rewards::{HandlePayee, OnEndEra, RewardCalculation};
@@ -1172,14 +1171,7 @@ decl_module! {
 		fn on_runtime_upgrade() -> Weight {
 			match StorageVersion::get().into() {
 				// upgraded!
-				Releases::V2 => Zero::zero(),
-				// needs upgrade
-				Releases::V1 => {
-					migration::upgrade_v1_to_v2::<T>();
-					T::BlockWeights::get().max_block
-				},
-				// won't occur, no live networks on this version...
-				Releases::V0 => Zero::zero(),
+				Releases::V2 | Releases::V1 | Releases::V0 => Zero::zero(),
 			}
 		}
 

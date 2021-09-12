@@ -20,7 +20,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-use cennznet_primitives::eth::ETH_BRIDGE_KEY_TYPE;
 use codec::Encode;
 use sp_std::prelude::*;
 
@@ -342,7 +341,7 @@ impl crml_staking::Config for Runtime {
 }
 
 // TODO: Safe to remove after runtime v41 is live
-/// The session key format pre runtime v41
+// The session key format pre runtime v41
 impl_opaque_keys! {
 	pub struct SessionKeysV40 {
 		pub grandpa: Grandpa,
@@ -364,7 +363,7 @@ impl_opaque_keys! {
 
 // TODO: Safe to remove after runtime v41 is live
 // kudos: https://github.com/paritytech/polkadot/pull/2092/files
-fn transform_session_keys(v: AccountId, old: SessionKeysV40) -> SessionKeys {
+fn transform_session_keys(_v: AccountId, old: SessionKeysV40) -> SessionKeys {
 	SessionKeys {
 		grandpa: old.grandpa,
 		babe: old.babe,

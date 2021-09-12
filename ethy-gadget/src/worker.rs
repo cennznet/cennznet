@@ -157,9 +157,6 @@ where
 
 	// For Ethy this would be a notification from something polling Ethereum full nodes
 	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
-		// TODO: this will only be called when grandpa finalizes at a new block/checkpoint
-		// grandpa does not finalize individual blocks.
-		// we need to backtrack to find requests in all blocks since the last finalization and start signing them
 		trace!(target: "ethy", "💎 finality notification for block #{:?}", &notification.header.number());
 
 		if let Some(active) = self.validator_set(&notification.header) {
@@ -207,7 +204,7 @@ where
 			};
 			let broadcast_witness = witness.encode();
 
-			metric_inc!(self, ethy_votes_sent);
+			metric_inc!(self, ethy_witness_sent);
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
@@ -233,9 +230,6 @@ where
 		// As long as we have threshold of signatures the proof is valid.
 		warn!(target: "ethy", "💎 got witness: {:?}", witness);
 		self.witness_record.note(&witness);
-
-		// metric_set!(self, ethy_round_concluded, round.1);
-		// info!(target: "ethy", "💎 Round #{} concluded, committed: {:?}.", round.1, event_proof);
 
 		let threshold = self.validator_set.validators.len() as f32 * PROOF_THRESHOLD;
 		if self
