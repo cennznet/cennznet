@@ -5,6 +5,7 @@ Validators independently check the Ethereum blockchain for a matching tx and eve
 After a threshold of notarizations for an event are reached, the bridge application is notified of the validity and is able to act accordingly to fulfil the claim e.g mint tokens.
 
 # Steps to go live:
+- fix session key upgrade process
 - Retrieve full validator set ✅
 - Implement token create + mint protocol ✅
 - Replay protection and claims time window  ✅
