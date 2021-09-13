@@ -120,7 +120,7 @@ pub struct Witness {
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
 pub struct EventProof {
 	/// The event witnessed
-	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, event_id))`
+	/// The hash of: `keccak(abi.encode(param0, param1, ..,paramN, validator_set_id, event_id))`
 	pub digest: [u8; 32],
 	/// The witness signatures are collected for this event.
 	pub event_id: EventId,
