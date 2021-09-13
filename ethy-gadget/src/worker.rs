@@ -244,6 +244,8 @@ where
 				validator_set_id: self.validator_set.id,
 				signatures,
 			};
+			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
+
 			// We can add proof to the DB that this block has been finalized specifically by the
 			// given threshold of validators
 			if Backend::insert_aux(
@@ -254,7 +256,7 @@ where
 						[&ETHY_ENGINE_ID[..], &event_proof.event_id.to_be_bytes()[..]]
 							.concat()
 							.as_ref(),
-						VersionedEventProof::V1(event_proof.clone()).encode().as_ref(),
+						versioned_event_proof.encode().as_ref(),
 					),
 				],
 				&[],
@@ -266,7 +268,7 @@ where
 				warn!(target: "ethy", "💎 failed to store witness: {:?}", event_proof);
 			}
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
-			self.event_proof_sender.notify(event_proof);
+			self.event_proof_sender.notify(versioned_event_proof);
 			// Remove from memory
 			self.witness_record.clear(witness.event_id);
 			self.gossip_validator.mark_complete(witness.event_id);
