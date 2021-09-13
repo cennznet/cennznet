@@ -143,7 +143,7 @@ decl_storage! {
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
 		/// The current validator set id
 		NotarySetId get(fn notary_set_id): u64;
-		/// Whether the bridge is paused
+		/// Whether the bridge is paused (for validator transitions)
 		BridgePaused get(fn bridge_paused): bool;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventConfirmations get(fn event_confirmations): u64 = 3;
@@ -316,27 +316,27 @@ decl_module! {
 			}
 
 			// Get all signing keys for this protocol 'KeyTypeId'
-			let keys = T::EthyId::all();
-			let key = match keys.len() {
-				0 => {
-					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
-					return
-				},
-				1 => keys[0].clone(),
-				_ => {
-					// expect at most one key to be present
-					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::EthyId::ID);
-					return
-				},
+			let local_keys = T::EthyId::all();
+			if local_keys.is_empty() {
+				log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
+				return
 			};
 
+			let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
+			// search all local ethy keys
+			for key in local_keys {
+				if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+					maybe_active_key = Some((key, active_key_index));
+					break
+				}
+			}
+
 			// check if locally known keys are in the active validator set
-			let authority_index = Self::notary_keys().iter().position(|k| k == &key);
-			if authority_index.is_none() {
-				log!(error, "💎 no active validator keys, exiting");
+			if maybe_active_key.is_none() {
+				log!(error, "💎 no active ethy keys, exiting");
 				return;
 			}
-			let authority_index = authority_index.unwrap() as u16;
+			let (active_key, authority_index) = maybe_active_key.map(|(key, idx)| (key, idx as u16)).unwrap();
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
@@ -349,7 +349,7 @@ decl_module! {
 				}
 
 				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, key.clone()) {
+				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
 					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
 				}
 
@@ -363,7 +363,7 @@ decl_module! {
 						authority_index,
 						result: result.clone(),
 					};
-					let _ = Self::offchain_send_notarization(&key, payload)
+					let _ = Self::offchain_send_notarization(&active_key, payload)
 						.map_err(|err| {
 							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 						})
