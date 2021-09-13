@@ -2032,6 +2032,7 @@ dependencies = [
  "jsonrpc-pubsub",
  "log",
  "parity-scale-codec",
+ "sc-client-api",
  "sc-rpc",
  "serde",
  "serde_json",

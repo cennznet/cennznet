@@ -28,4 +28,7 @@ impl EventProof {
 where {
 		EventProof(event_proof.encode().into())
 	}
+	pub fn from_raw(raw: Vec<u8>) -> Self {
+		EventProof(raw.into())
+	}
 }
