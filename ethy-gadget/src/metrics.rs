@@ -23,15 +23,7 @@ pub(crate) struct Metrics {
 	/// Current active validator set id
 	pub ethy_validator_set_id: Gauge<U64>,
 	/// Total number of votes sent by this node
-	pub ethy_votes_sent: Counter<U64>,
-	/// Most recent concluded voting round
-	pub ethy_round_concluded: Gauge<U64>,
-	/// Best block finalized by ETHY
-	pub ethy_best_block: Gauge<U64>,
-	/// Next block ETHY should vote on
-	pub ethy_should_vote_on: Gauge<U64>,
-	/// Number of sessions without a signed witness
-	pub ethy_skipped_sessions: Counter<U64>,
+	pub ethy_witness_sent: Counter<U64>,
 }
 
 impl Metrics {
@@ -41,21 +33,8 @@ impl Metrics {
 				Gauge::new("ethy_validator_set_id", "Current ETHY active validator set id.")?,
 				registry,
 			)?,
-			ethy_votes_sent: register(
-				Counter::new("ethy_votes_sent", "Number of votes sent by this node")?,
-				registry,
-			)?,
-			ethy_round_concluded: register(
-				Gauge::new("ethy_round_concluded", "Voting round, that has been concluded")?,
-				registry,
-			)?,
-			ethy_best_block: register(Gauge::new("ethy_best_block", "Best block finalized by ETHY")?, registry)?,
-			ethy_should_vote_on: register(
-				Gauge::new("ethy_should_vote_on", "Next block, ETHY should vote on")?,
-				registry,
-			)?,
-			ethy_skipped_sessions: register(
-				Counter::new("ethy_skipped_sessions", "Number of sessions without a signed witness")?,
+			ethy_witness_sent: register(
+				Counter::new("ethy_witness_sent", "Number of witnesses sent by this node")?,
 				registry,
 			)?,
 		})

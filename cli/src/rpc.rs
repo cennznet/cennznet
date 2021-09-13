@@ -184,7 +184,7 @@ where
 		deny_unsafe,
 	)));
 	io.extend_with(ethy_gadget_rpc::EthyApi::to_delegate(
-		ethy_gadget_rpc::EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor),
+		ethy_gadget_rpc::EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone()),
 	));
 	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
 		GrandpaRpcHandler::new(
