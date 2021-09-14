@@ -8,7 +8,7 @@ services:
     volumes:
     - ./data/node-0:/mnt/data
     command:
-      - -l=ethy
+      - -l=ethy,babe=trace
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
