@@ -81,17 +81,21 @@ impl<BE> EthyRpcHandler<BE> {
 	}
 }
 
-impl<BE> EthyApi<notification::EventProof> for EthyRpcHandler<BE>
+impl<BE> EthyApi<notification::EventProofResponse> for EthyRpcHandler<BE>
 where
 	BE: Send + Sync + 'static + AuxStore,
 {
 	type Metadata = sc_rpc::Metadata;
 
-	fn subscribe_event_proofs(&self, _metadata: Self::Metadata, subscriber: Subscriber<notification::EventProof>) {
+	fn subscribe_event_proofs(
+		&self,
+		_metadata: Self::Metadata,
+		subscriber: Subscriber<notification::EventProofResponse>,
+	) {
 		let stream = self
 			.event_proof_stream
 			.subscribe()
-			.map(|x| Ok::<_, ()>(notification::EventProof::new(x)))
+			.map(|x| Ok::<_, ()>(notification::EventProofResponse::new(x)))
 			.map_err(|e| warn!("Notification stream error: {:?}", e))
 			.compat();
 
@@ -111,13 +115,13 @@ where
 		Ok(self.manager.cancel(id))
 	}
 
-	fn get_event_proof(&self, event_id: EventId) -> jsonrpc_core::Result<Option<notification::EventProof>> {
-		if let Ok(maybe_buf) = self
+	fn get_event_proof(&self, event_id: EventId) -> jsonrpc_core::Result<Option<notification::EventProofResponse>> {
+		if let Ok(maybe_encoded_proof) = self
 			.backend
 			.get_aux([&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref())
 		{
-			if let Some(buf) = maybe_buf {
-				return Ok(Some(notification::EventProof::from_raw(buf)));
+			if let Some(encoded_proof) = maybe_encoded_proof {
+				return Ok(Some(notification::EventProofResponse::from_raw(encoded_proof)));
 			}
 		}
 		Ok(None)
