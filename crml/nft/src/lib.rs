@@ -35,7 +35,7 @@
 //!  Individual tokens are uniquely identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
@@ -152,26 +152,32 @@ decl_error! {
 		AddToUniqueIssue,
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
-		/// The raffle activation_time or limit is invalid
-		RaffleInvalid,
-		/// There is no raffle associated with the series
-		NoRaffleExists,
+		/// The mass_drop activation_time or limit is invalid
+		MassDropInvalid,
+		/// There is no mass_drop associated with the series
+		NoMassDropExists,
 		/// There are no accounts in the whitelist
 		WhitelistEmpty,
 		/// The account_id isn't in the whitelist
 		NoAccountId,
 		/// The presale is invalid
 		PresaleInvalid,
-		/// There is no presale associated with the raffle
+		/// There is no presale associated with the mass_drop
 		NoPresaleExists,
-		/// The amount specified is higher than the raffle purchase limit
-		PurchaseAmountTooHigh,
-		/// The raffle hasn't started yet
-		RaffleNotStarted,
+		/// The quantity specified is higher than the mass_drop purchase limit
+		PurchaseQuantityTooHigh,
+		/// The mass_drop hasn't started yet
+		MassDropNotStarted,
 		/// The presale hasn't started yet
 		PresaleNotStarted,
 		/// There are not enough tokens left to purchase this amount
 		NotEnoughTokens,
+		/// The activation time has passed or is invalid
+		ActivationTimeInvalid,
+		/// This account is not registered in the whitelist
+		NotInWhitelist,
+		/// No owner exists for this collection id
+		NoCollectionOwner,
 	}
 }
 
@@ -199,7 +205,7 @@ decl_storage! {
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
-		pub SeriesRaffles get(fn series_raffles): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Raffle<T::AccountId>>;
+		pub SeriesMassDrops get(fn series_mass_drops): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<MassDrop<T::AccountId>>;
 		/// Demarcates a series limited to exactly one token
 		IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// The next available collection Id
@@ -324,125 +330,153 @@ decl_module! {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) {
 			let series_id = Self::next_series_id(collection_id);
-			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path, royalties_schedule)?;
+			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path, royalties_schedule, None)?;
 			IsSingleIssue::insert(collection_id, series_id, true);
 		}
 
-		// TODO create raffle on existing series (Leave for initial round)
-
-		/// Buy tokens from an active raffle
-		#[weight = 0] // Change this to appropriate weighting
+		/// Buy tokens from an active mass_drop
+		#[weight = 100000] // Change this to appropriate weighting
 		#[transactional]
-		fn enter_raffle(
+		fn enter_mass_drop(
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
 			quantity: TokenCount,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					// Check if Presale, if not then check if raffle has started
-					if let Some(transaction_limit) = raffle.transaction_limit {
-						ensure!(quantity <= transaction_limit, Error::T::PurchaseAmountTooHigh);
-					}
-					current_block = <frame_system::Module<T>>::block_number();
+			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
+			let owner = Self::collection_owner(collection_id);
+			ensure!(owner.is_some(), Error::<T>::NoCollectionOwner);
+			let owner = owner.unwrap();
+			match mass_drop {
+				Some(mass_drop) => {
+					// TODO Check funds and transfer to mass_drop owner
+					let current_block = <frame_system::Module<T>>::block_number();
 					let serial_number = Self::next_serial_number(collection_id, series_id);
-					ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+					let is_owner = owner == origin.clone();
+					// ensure!(serial_number >= Zero::zero(), Error::<T>::NoToken);
 					ensure!(
 						serial_number.checked_add(quantity).is_some(),
 						Error::<T>::NoAvailableIds
 					);
-
-					if current_block >= raffle.activation_time {
-						// Raffle has started, proceed with mint
-						ensure!(serial_number + quantity > (raffle.max_supply - 1), Error::<T>::NotEnoughTokens);
-						do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+					if current_block >= T::BlockNumber::from(mass_drop.activation_time) || is_owner{
+						// MassDrop has started, proceed with mint
+						if let Some(whitelist) = mass_drop.whitelist {
+							ensure!(whitelist.contains(&origin) || is_owner, Error::<T>::NotInWhitelist);
+						}
+						if let Some(transaction_limit) = mass_drop.transaction_limit {
+							ensure!(quantity <= transaction_limit, Error::<T>::PurchaseQuantityTooHigh);
+						}
+						ensure!(serial_number + quantity <= mass_drop.max_supply, Error::<T>::NotEnoughTokens);
+						Self::process_drop_payment(&origin, owner, mass_drop.price, quantity.clone(), mass_drop.asset_id)?;
+						Self::do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
 					}else {
 						// Check if the presale has started
-						pre_sale = raffle.pre_sale;
+						let pre_sale = mass_drop.pre_sale;
 						match pre_sale {
 							Some(pre_sale) => {
-								ensure!(current_block >= pre_sale.activation_time, Error::T::PresaleNotStarted);
-								ensure!(serial_number + quantity > (pre_sale.max_supply - 1), Error::<T>::NotEnoughTokens);
-								do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+								ensure!(current_block >= T::BlockNumber::from(pre_sale.activation_time), Error::<T>::PresaleNotStarted);
+								if pre_sale.whitelist != vec![] {
+									ensure!(pre_sale.whitelist.contains(&origin) || is_owner, Error::<T>::NotInWhitelist);
+								}
+								if let Some(transaction_limit) = mass_drop.transaction_limit {
+									ensure!(quantity <= transaction_limit, Error::<T>::PurchaseQuantityTooHigh);
+								}
+								ensure!(serial_number + quantity <= pre_sale.max_supply, Error::<T>::NotEnoughTokens);
+								Self::process_drop_payment(&origin, owner, pre_sale.price, quantity.clone(), mass_drop.asset_id)?;
+								Self::do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
 							},
-							None => Error::T::RaffleNotStarted,
+							None => Err(Error::<T>::MassDropNotStarted.into()),
 						}
 					}
 				},
-				None => Error::T::NoRaffleExists,
+				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
+
+			// TODO Deposit event on successful purchase
+			// Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
+
 		}
 
-		/// Change the activation time of an existing raffle
+		/// Change the activation time of an existing mass_drop
 		#[weight = 0] // Change this to appropriate weighting
 		#[transactional]
-		fn update_raffle_activation_time(
+		fn update_mass_drop_activation_time(
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
 			new_activation_time: BlockNumber,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			//TODO Check origin is collection_owner
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					raffle.activation_time = new_activation_time;
-					ensure!(raffle.validate(), Error::T::RaffleInvalid);
-					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+
+			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
+			match mass_drop {
+				Some(mut mass_drop) => {
+					let current_block = <frame_system::Module<T>>::block_number();
+					ensure!(
+						current_block < T::BlockNumber::from(mass_drop.activation_time),
+						Error::<T>::ActivationTimeInvalid
+					);
+					mass_drop.activation_time = new_activation_time;
+					ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
+					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
 					Ok(())
 				},
-				None => Error::T::NoRaffleExists,
+				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
 		}
 
-		/// Set raffle whitelist
+		/// Set mass_drop whitelist
 		#[weight = 0] // Change this to appropriate weighting
 		#[transactional]
-		fn set_raffle_whitelist(
+		fn set_mass_drop_whitelist(
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
 			account_ids: Vec<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					let mut whitelist: Option<Vec<T::AccountId>> = raffle.whitelist;
-					whitelist = account_ids;
-					raffle.whitelist = whitelist;
-					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
+			match mass_drop {
+				Some(mut mass_drop) => {
+					let whitelist = Some(account_ids);
+					mass_drop.whitelist = whitelist;
+					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
 					Ok(())
 				},
-				None => Error::T::NoRaffleExists,
+				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
 		}
 
-		/// Add presale conditions to existing raffle or change presale values
+		/// Add presale conditions to existing mass_drop or change presale values
 		#[weight = 0] // Change this to appropriate weighting
 		#[transactional]
-		fn update_raffle_presale(
+		fn update_mass_drop_presale(
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
 			pre_sale: PreSale<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			ensure!(pre_sale.validate(raffle), Error::T::PresaleInvalid);
-			match raffle {
-				Some(raffle) => {
-					raffle.pre_sale = Some(pre_sale);
-					SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
+
+			match mass_drop {
+				Some(mut mass_drop) => {
+					ensure!(pre_sale.validate(&mass_drop), Error::<T>::PresaleInvalid);
+					let current_block = <frame_system::Module<T>>::block_number();
+					ensure!(
+						current_block < T::BlockNumber::from(pre_sale.activation_time),
+						Error::<T>::ActivationTimeInvalid
+					);
+					mass_drop.pre_sale = Some(pre_sale);
+					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
 					Ok(())
 				},
-				None => Error::T::NoRaffleExists,
+				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
 		}
 
@@ -456,88 +490,23 @@ decl_module! {
 			account_ids: Vec<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					let pre_sale = raffle.pre_sale;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
+			match mass_drop {
+				Some(mut mass_drop) => {
+					let pre_sale = mass_drop.pre_sale;
 					match pre_sale {
-						Some(pre_sale) => {
-							whitelist = account_ids;
+						Some(mut pre_sale) => {
+							let whitelist = account_ids;
 							pre_sale.whitelist = whitelist;
-							raffle.pre_sale = pre_sale;
-							SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
+							mass_drop.pre_sale = Some(pre_sale);
+							SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
 							Ok(())
 						},
-						None => Error::T::NoPresaleExists,
+						None => Err(Error::<T>::NoPresaleExists.into()),
 					}
 				},
-				None => Error::T::NoRaffleExists,
-			}
-		}
-
-		/// Remove specific account_id from pre sale whitelist
-		#[weight = 0] // Change this to appropriate weighting
-		#[transactional]
-		fn remove_account_from_presale_whitelist(
-			origin,
-			collection_id: CollectionId,
-			series_id: SeriesId,
-			account_id: T::AccountId,
-		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					let pre_sale = raffle.pre_sale;
-					match pre_sale {
-						Some(pre_sale) => {
-							let mut whitelist: Vec<T::AccountId> = pre_sale.whitelist;
-							let pos = whitelist.iter().position(|x| *x == account_id);
-							match pos {
-								Some(pos) => {
-									whitelist.remove(pos)
-									pre_sale.whitelist = whitelist;
-									raffle.pre_sale = pre_sale;
-									SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
-									Ok(())
-								},
-								None => Error::T::NoAccountId,
-							}
-						},
-						None => Error::T::NoPresaleExists,
-					}
-				},
-				None => Error::T::NoRaffleExists,
-			}
-		}
-
-		/// Remove all accounts from presale whitelist
-		#[weight = 0] // Change this to appropriate weighting
-		#[transactional]
-		fn remove_all_accounts_from_presale_whitelist(
-			origin,
-			collection_id: CollectionId,
-			series_id: SeriesId,
-		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			ensure!(Self::collection_owner(collection_id) == origin, Error::T::NoPermission);
-			let mut raffle: Option<Raffle<T::AccountId>> = Self::series_raffles(collection_id, series_id);
-			match raffle {
-				Some(raffle) => {
-					let pre_sale = raffle.pre_sale;
-					match pre_sale {
-						Some(pre_sale) => {
-							pre_sale.whitelist = vec![];
-							raffle.pre_sale = pre_sale;
-							SeriesRaffles::mutate(collection_id, series_id, |i| *i = raffle);
-							Ok(())
-						},
-						None => Error::T::NoPresaleExists,
-					}
-				},
-				None => Error::T::NoRaffleExists,
+				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
 		}
 
@@ -550,7 +519,7 @@ decl_module! {
 		/// `is_limited_edition` - signal whether the series is a limited edition or not
 		/// `attributes` - all tokens in series will have these values
 		/// `metadata_path` - URI path to token offchain metadata relative to the collection base URI
-		/// `raffle` - If this series is a raffle, define the raffle parameters
+		/// `mass_drop` - If this series is a mass_drop, define the mass_drop parameters
 		/// Caller must be the collection owner
 		/// -----------
 		/// Performs O(N) writes where N is `quantity`
@@ -564,11 +533,10 @@ decl_module! {
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-			raffle: Option<Raffle<T::AccountId>>
+			mass_drop: Option<MassDrop<T::AccountId>>
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
 				ensure!(collection_owner == origin, Error::<T>::NoPermission);
@@ -589,11 +557,21 @@ decl_module! {
 				Error::<T>::NoAvailableIds
 			);
 
-			// Create the raffle data
-			if let Some(raffle) = raffle {
-				ensure!(raffle.validate(), Error::T::RaffleInvalid);
-				SeriesRaffles::insert(collection_id, series_id, raffle);
+			// Create the mass_drop data
+			if let Some(mass_drop) = mass_drop {
+				ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
+				// TODO Specify AssetId
+
+				let current_block = <frame_system::Module<T>>::block_number();
+				ensure!(
+					current_block < T::BlockNumber::from(mass_drop.activation_time),
+					Error::<T>::ActivationTimeInvalid
+				);
+				SeriesMassDrops::<T>::insert(collection_id, series_id, mass_drop);
+			}else {
+				ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 			}
+
 			// Ok create the token series data
 			// All these attributes are the same in a series
 			SeriesAttributes::insert(collection_id, series_id, attributes);
@@ -645,8 +623,8 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			/// TODO Check if the series is a raffle,
-			/// if a raffle is active, don't mint additional
+			// TODO Check if the series is a mass_drop,
+			// if a mass_drop is active, don't mint additional
 
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
@@ -656,14 +634,17 @@ decl_module! {
 			}
 
 			let serial_number = Self::next_serial_number(collection_id, series_id);
-			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+			// ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(
 				serial_number.checked_add(quantity).is_some(),
 				Error::<T>::NoAvailableIds
 			);
 			let owner = owner.unwrap_or_else(|| origin.clone());
 
-			do_mint_additional(owner, collection_id, series_id, serial_number, quantity)
+			Self::do_mint_additional(owner.clone(), collection_id, series_id, serial_number, quantity)?;
+			Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
+
+			Ok(())
 		}
 
 		/// Transfer ownership of an NFT
@@ -1046,7 +1027,7 @@ impl<T: Config> Module<T> {
 		serial_number: SerialNumber,
 		quantity: TokenCount,
 	) -> DispatchResult {
-		/// TODO check below 5 lines
+		// TODO check below 5 lines
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 		ensure!(
 			!Self::is_single_issue(collection_id, series_id),
@@ -1061,8 +1042,24 @@ impl<T: Config> Module<T> {
 		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
 		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
 
-		Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
 		Ok(())
+	}
+
+	fn process_drop_payment(
+		buyer: &T::AccountId,
+		owner: T::AccountId,
+		price: Balance,
+		quantity: TokenCount,
+		asset_id: AssetId,
+	) -> DispatchResult {
+		match price.checked_mul(quantity.into()) {
+			Some(total_price) => {
+				// full proceeds to seller/`current_owner`
+				T::MultiCurrency::transfer(&buyer, &owner, asset_id, total_price, ExistenceRequirement::AllowDeath)?;
+				Ok(())
+			}
+			None => Err(Error::<T>::InternalPayment.into()),
+		}
 	}
 	/// Find the tokens owned by an `address` in the given collection
 	pub fn collected_tokens(collection_id: CollectionId, address: &T::AccountId) -> Vec<TokenId> {

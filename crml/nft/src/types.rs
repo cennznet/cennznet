@@ -16,7 +16,7 @@
 //! NFT module types
 
 use crate::Config;
-use cennznet_primitives::types::BlockNumber;
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 #[cfg(feature = "std")]
@@ -89,22 +89,26 @@ pub struct TokenInfo<AccountId> {
 }
 
 /// Contains information for a particular token. Returns the attributes and owner
-#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Raffle<AccountId> {
-	// max supply of tokens in the raffle
+pub struct MassDrop<AccountId> {
+	// Price of the tokens
+	pub price: Balance,
+	// asset id to use for payment
+	pub asset_id: AssetId,
+	// max supply of tokens in the mass_drop
 	pub max_supply: TokenCount,
 	// Max able to mint per transaction
-	pub transaction_limit: Option<u64>,
-	// Block time that the raffle goes on sale
+	pub transaction_limit: Option<TokenCount>,
+	// Block time that the mass_drop goes on sale
 	pub activation_time: BlockNumber, // Block number?
-	// Accounts allowed to purchase a token in the raffle
-	pub whitelist: Option<Vec<AccountId>>,
-	// Presale info for the raffle
+	// Accounts allowed to purchase a token in the mass_drop
+	pub whitelist: Option<Vec<AccountId>>, // TODO Remove Option
+	// Presale info for the mass_drop
 	pub pre_sale: Option<PreSale<AccountId>>,
 }
 
-impl<AccountId> Raffle<AccountId> {
+impl<AccountId> MassDrop<AccountId> {
 	/// True if transaction_limit is smaller than supply
 	/// And activation time is valid
 	/// And presale is valid
@@ -120,27 +124,31 @@ impl<AccountId> Raffle<AccountId> {
 				return false;
 			}
 		}
-		// TODO Check activation_time is valid
-		true
+		self.max_supply > 0
 	}
 }
 
 /// Contains information for a particular token. Returns the attributes and owner
-#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PreSale<AccountId> {
+	pub price: Balance,
 	pub transaction_limit: Option<TokenCount>,
 	pub activation_time: BlockNumber, // Block number?
 	pub max_supply: TokenCount,
-	pub whitelist: Vec<AccountId>,
+	pub whitelist: Vec<AccountId>, // TODO Restrict to tx limit per account total
 }
 
 impl<AccountId> PreSale<AccountId> {
 	/// True if transaction_limit is smaller than supply
 	/// And activation time is valid
-	pub fn validate(&self, raffle: &Raffle<AccountId>) -> bool {
-		self.max_supply < raffle.max_supply && self.activation_time < raffle.activation_time
-		// TODO Validate transaction limit < supply
+	pub fn validate(&self, mass_drop: &MassDrop<AccountId>) -> bool {
+		if let Some(transaction_limit) = self.transaction_limit {
+			if transaction_limit > self.max_supply {
+				return false;
+			}
+		}
+		self.max_supply < mass_drop.max_supply && self.activation_time < mass_drop.activation_time
 	}
 }
 
