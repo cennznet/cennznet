@@ -87,6 +87,13 @@ pub struct TokenInfo<AccountId> {
 	pub royalties: Vec<(AccountId, Permill)>,
 }
 
+/// Reason for an NFT being locked (un-transferrable)
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+pub enum TokenLockReason {
+	/// Token is listed for sale
+	Listed(ListingId),
+}
+
 /// The supported attribute data types for an NFT
 #[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount)]
 #[cfg_attr(feature = "std", derive(Deserialize))]

@@ -563,7 +563,7 @@ fn sell_bundle() {
 		));
 
 		for token in tokens.iter() {
-			assert!(Nft::token_locks(token));
+			assert_eq!(Nft::token_locks(token).unwrap(), TokenLockReason::Listed(listing_id));
 		}
 
 		let buyer = 3;
@@ -635,7 +635,7 @@ fn sell() {
 			None,
 		));
 
-		assert!(Nft::token_locks(&token_id));
+		assert_eq!(Nft::token_locks(token_id).unwrap(), TokenLockReason::Listed(listing_id));
 		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
@@ -797,7 +797,7 @@ fn buy() {
 		));
 
 		// ownership changed
-		assert!(!Nft::token_locks(&token_id));
+		assert!(Nft::token_locks(&token_id).is_none());
 		assert!(!Nft::open_collection_listings(collection_id, listing_id));
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
 	});
@@ -1064,7 +1064,7 @@ fn auction_bundle() {
 
 		assert!(Nft::open_collection_listings(collection_id, listing_id));
 		for token in tokens.iter() {
-			assert!(Nft::token_locks(token));
+			assert_eq!(Nft::token_locks(token).unwrap(), TokenLockReason::Listed(listing_id));
 		}
 
 		let buyer = 3;
@@ -1138,8 +1138,11 @@ fn auction() {
 			reserve_price,
 			Some(1),
 		));
+		assert_eq!(
+			Nft::token_locks(&token_id).unwrap(),
+			TokenLockReason::Listed(listing_id)
+		);
 		assert_eq!(Nft::next_listing_id(), listing_id + 1);
-		assert!(Nft::token_locks(&token_id));
 		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
 		// first bidder at reserve price
@@ -1170,7 +1173,7 @@ fn auction() {
 		assert!(!Nft::listing_end_schedule(System::block_number() + 1, listing_id));
 
 		// ownership changed
-		assert!(!Nft::token_locks(&token_id));
+		assert!(Nft::token_locks(&token_id).is_none());
 		assert_eq!(Nft::collected_tokens(collection_id, &bidder_2), vec![token_id]);
 		assert!(!Nft::open_collection_listings(collection_id, listing_id));
 

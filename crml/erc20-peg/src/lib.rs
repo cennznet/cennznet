@@ -202,7 +202,7 @@ decl_module! {
 		}]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
-		pub fn set_erc20_details(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {
+		pub fn set_erc20_meta(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {
 			ensure_root(origin)?;
 			for (address, symbol, decimals) in details {
 				Erc20Meta::insert(address, (symbol, decimals));
