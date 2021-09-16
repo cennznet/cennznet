@@ -197,6 +197,8 @@ decl_storage! {
 		pub ListingWinningBid get(fn listing_winning_bid): map hasher(twox_64_concat) ListingId => Option<(T::AccountId, Balance)>;
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
+		/// Version of this module's storage schema
+		StorageVersion build(|_: &GenesisConfig| Releases::V0 as u32): u32;
 	}
 }
 
@@ -223,6 +225,33 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get() == Releases::V0 as u32 {
+				// `TokenLocks` migrating from `bool` to `TokenLockReason`
+				#[allow(dead_code)]
+				mod old_storage {
+					use super::{Config, TokenId};
+					pub struct Module<T>(sp_std::marker::PhantomData<T>);
+					frame_support::decl_storage! {
+						trait Store for Module<T: Config> as Nft {
+							pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+						}
+					}
+				}
+
+				let locks = old_storage::TokenLocks::drain().collect::<Vec<(TokenId, bool)>>();
+				let locks_count = locks.len();
+				for (id, _status) in locks {
+					// these listings are pre-marketplace, `0` is incorrect and that's fine
+					TokenLocks::insert(id, TokenLockReason::Listed(0));
+				}
+
+				100_000 * locks_count as Weight
+			} else {
+				Zero::zero()
+			}
+		}
 
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {

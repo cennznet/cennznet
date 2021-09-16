@@ -304,6 +304,17 @@ pub type TokenCount = SerialNumber;
 /// Global unique token identifier
 pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
+// A value placed in storage that represents the current version of the NFT storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
+pub enum Releases {
+	/// storage version pre-runtime v41
+	V0 = 0,
+	/// storage version > runtime v41
+	V1 = 1,
+}
+
 #[cfg(test)]
 mod test {
 	use super::{CollectionInfo, NFTAttributeValue, RoyaltiesSchedule, TokenInfo};
