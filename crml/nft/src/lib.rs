@@ -165,8 +165,8 @@ decl_storage! {
 		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(twox_64_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from token to its locked status
-		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+		/// Map from a token to a listingId if any
+		pub TokenToListingId get(fn token_locks): map hasher(twox_64_concat) TokenId => Option<ListingId>;
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
@@ -446,7 +446,7 @@ decl_module! {
 
 			ensure!(tokens.len() > Zero::zero(), Error::<T>::NoToken);
 			for token_id in tokens.iter() {
-				ensure!(!TokenLocks::contains_key(token_id), Error::<T>::TokenListingProtection);
+				ensure!(!TokenToListingId::contains_key(token_id), Error::<T>::TokenListingProtection);
 				ensure!(
 					Self::token_owner((token_id.0, token_id.1), token_id.2) == origin,
 					Error::<T>::NoPermission
@@ -484,7 +484,7 @@ decl_module! {
 			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
 			for serial_number in serial_numbers.iter() {
-				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
+				ensure!(!TokenToListingId::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
 				<TokenOwner<T>>::remove((collection_id, series_id), serial_number);
 			}
@@ -541,16 +541,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
-				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
+				ensure!(!TokenToListingId::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenToListingId::insert((collection_id, series_id, serial_number), listing_id);
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
@@ -607,7 +607,7 @@ decl_module! {
 
 				// must not fail now that payment has been made
 				for token_id in listing.tokens.iter() {
-					TokenLocks::remove(token_id);
+					TokenToListingId::remove(token_id);
 				}
 				OpenCollectionListings::remove(collection_id, listing_id);
 
@@ -655,16 +655,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
-				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
+				ensure!(!TokenToListingId::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenToListingId::insert((collection_id, series_id, serial_number), listing_id);
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
@@ -742,7 +742,7 @@ decl_module! {
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
 					for token_id in sale.tokens.iter() {
-						TokenLocks::remove(token_id);
+						TokenToListingId::remove(token_id);
 					}
 					let collection_id = sale.tokens[0].0;
 					OpenCollectionListings::remove(collection_id, listing_id);
@@ -755,7 +755,7 @@ decl_module! {
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(auction.close, listing_id);
 					for token_id in auction.tokens.iter() {
-						TokenLocks::remove(token_id);
+						TokenToListingId::remove(token_id);
 					}
 					let collection_id = auction.tokens[0].0;
 					OpenCollectionListings::remove(collection_id, listing_id);
@@ -842,7 +842,7 @@ impl<T: Config> Module<T> {
 				Some(Listing::FixedPrice(listing)) => {
 					// release listed tokens
 					for token_id in listing.tokens.iter() {
-						TokenLocks::remove(token_id);
+						TokenToListingId::remove(token_id);
 					}
 					let listing_collection_id = listing.tokens[0].0;
 					OpenCollectionListings::remove(listing_collection_id, listing_id);
@@ -852,7 +852,7 @@ impl<T: Config> Module<T> {
 				Some(Listing::Auction(listing)) => {
 					// release listed tokens
 					for token_id in listing.tokens.iter() {
-						TokenLocks::remove(token_id);
+						TokenToListingId::remove(token_id);
 					}
 					let listing_collection_id = listing.tokens[0].0;
 					OpenCollectionListings::remove(listing_collection_id, listing_id);

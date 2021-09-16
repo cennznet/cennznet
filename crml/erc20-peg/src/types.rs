@@ -20,10 +20,11 @@ use sp_std::prelude::*;
 /// Ethereum address type
 pub type EthAddress = H160;
 
-/// A deposit event made by the CENNZnet bridge contract on Ethereum
+/// A deposit event made by the ERC20 peg contract on Ethereum
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
 pub struct Erc20DepositEvent {
 	/// The ERC20 token address / type deposited
+	/// `0` indicates native Eth
 	pub token_address: EthAddress,
 	/// The amount (in 'wei') of the deposit
 	pub amount: U256,
