@@ -1791,12 +1791,6 @@ fn get_collection_listings_on_no_active_listings() {
 		let cursor: u128 = 0;
 		let limit: u16 = 100;
 
-		assert!(has_event(RawEvent::CreateCollection(
-			collection_id,
-			name.clone(),
-			owner
-		)));
-
 		// Should return an empty array as no NFTs have been listed
 		let response = Nft::collection_listings(collection_id, cursor, limit);
 
@@ -1813,13 +1807,6 @@ fn get_collection_listings() {
 		let name = b"test-collection".to_vec();
 		let cursor: u128 = 0;
 		let limit: u16 = 100;
-
-		assert!(has_event(RawEvent::CreateCollection(
-			collection_id,
-			name.clone(),
-			owner
-		)));
-
 		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
 
@@ -1890,12 +1877,6 @@ fn get_collection_listings_over_limit() {
 		let cursor: u128 = 0;
 		let limit: u16 = 1000;
 
-		assert!(has_event(RawEvent::CreateCollection(
-			collection_id,
-			name.clone(),
-			owner
-		)));
-
 		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
 		let series_id = Nft::next_series_id(collection_id);
@@ -1935,5 +1916,41 @@ fn get_collection_listings_over_limit() {
 		// Should return an empty array as no NFTs have been listed
 		let (new_cursor, _listings) = Nft::collection_listings(collection_id, cursor, limit);
 		assert_eq!(new_cursor, Some(100));
+	});
+}
+
+#[test]
+fn get_collection_listings_cursor_too_high() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		let cursor: u128 = 300;
+		let limit: u16 = 1000;
+
+		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
+		let quantity = 200;
+		let series_id = Nft::next_series_id(collection_id);
+		// mint token Ids
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			series_attributes.clone(),
+			None,
+			None,
+		));
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			owner
+		)));
+
+		// Should return an empty array as no NFTs have been listed
+		let (new_cursor, listings) = Nft::collection_listings(collection_id, cursor, limit);
+		assert_eq!(listings, vec![]);
+		assert_eq!(new_cursor, None);
 	});
 }
