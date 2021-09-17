@@ -101,9 +101,9 @@ pub struct MassDrop<AccountId> {
 	// Max able to mint per transaction
 	pub transaction_limit: Option<TokenCount>,
 	// Block time that the mass_drop goes on sale
-	pub activation_time: BlockNumber, // Block number?
+	pub activation_time: BlockNumber,
 	// Accounts allowed to purchase a token in the mass_drop
-	pub whitelist: Option<Vec<AccountId>>, // TODO Remove Option
+	pub whitelist: Vec<AccountId>,
 	// Presale info for the mass_drop
 	pub pre_sale: Option<PreSale<AccountId>>,
 }

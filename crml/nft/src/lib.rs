@@ -112,6 +112,16 @@ decl_event!(
 		AuctionClosed(CollectionId, ListingId, Reason),
 		/// A new highest bid was placed (collection, listing, amount)
 		Bid(CollectionId, ListingId, Balance),
+		/// Token(s) were purchased (collection, series, quantity, new owner)
+		EnteredMassDrop(CollectionId, SeriesId, TokenCount, AccountId),
+		/// Activation time was changed (collection, series, activation time)
+		UpdatedMassDropActivationTime(CollectionId, SeriesId, BlockNumber),
+		/// Mass drop whitelist was updated (collection, series, account ids)
+		UpdatedMassDropWhitelist(CollectionId, SeriesId, Vec<AccountId>),
+		/// Presale was updated (collection, series, presale)
+		UpdatedPresale(CollectionId, SeriesId, PreSale<AccountId>),
+		/// Presale whitelist was updated (collection, series, account ids)
+		UpdatedPresaleWhitelist(CollectionId, SeriesId, Vec<AccountId>),
 	}
 );
 
@@ -350,7 +360,6 @@ decl_module! {
 			let owner = owner.unwrap();
 			match mass_drop {
 				Some(mass_drop) => {
-					// TODO Check funds and transfer to mass_drop owner
 					let current_block = <frame_system::Module<T>>::block_number();
 					let serial_number = Self::next_serial_number(collection_id, series_id);
 					let is_owner = owner == origin.clone();
@@ -361,15 +370,17 @@ decl_module! {
 					);
 					if current_block >= T::BlockNumber::from(mass_drop.activation_time) || is_owner{
 						// MassDrop has started, proceed with mint
-						if let Some(whitelist) = mass_drop.whitelist {
-							ensure!(whitelist.contains(&origin) || is_owner, Error::<T>::NotInWhitelist);
+						if mass_drop.whitelist != vec![] {
+							ensure!(mass_drop.whitelist.contains(&origin) || is_owner, Error::<T>::NotInWhitelist);
 						}
 						if let Some(transaction_limit) = mass_drop.transaction_limit {
 							ensure!(quantity <= transaction_limit, Error::<T>::PurchaseQuantityTooHigh);
 						}
 						ensure!(serial_number + quantity <= mass_drop.max_supply, Error::<T>::NotEnoughTokens);
 						Self::process_drop_payment(&origin, owner, mass_drop.price, quantity.clone(), mass_drop.asset_id)?;
-						Self::do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+						Self::do_mint_additional(&origin, collection_id, series_id, serial_number, quantity)?;
+						Self::deposit_event(RawEvent::EnteredMassDrop(collection_id, series_id, quantity, origin));
+						Ok(())
 					}else {
 						// Check if the presale has started
 						let pre_sale = mass_drop.pre_sale;
@@ -384,7 +395,9 @@ decl_module! {
 								}
 								ensure!(serial_number + quantity <= pre_sale.max_supply, Error::<T>::NotEnoughTokens);
 								Self::process_drop_payment(&origin, owner, pre_sale.price, quantity.clone(), mass_drop.asset_id)?;
-								Self::do_mint_additional(origin, collection_id, series_id, serial_number, quantity)
+								Self::do_mint_additional(&origin, collection_id, series_id, serial_number, quantity)?;
+								Self::deposit_event(RawEvent::EnteredMassDrop(collection_id, series_id, quantity, origin));
+								Ok(())
 							},
 							None => Err(Error::<T>::MassDropNotStarted.into()),
 						}
@@ -392,10 +405,6 @@ decl_module! {
 				},
 				None => Err(Error::<T>::NoMassDropExists.into()),
 			}
-
-			// TODO Deposit event on successful purchase
-			// Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
-
 		}
 
 		/// Change the activation time of an existing mass_drop
@@ -415,12 +424,13 @@ decl_module! {
 				Some(mut mass_drop) => {
 					let current_block = <frame_system::Module<T>>::block_number();
 					ensure!(
-						current_block < T::BlockNumber::from(mass_drop.activation_time),
+						current_block < T::BlockNumber::from(mass_drop.activation_time) && current_block < new_activation_time,
 						Error::<T>::ActivationTimeInvalid
 					);
 					mass_drop.activation_time = new_activation_time;
 					ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
 					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
+					Self::deposit_event(RawEvent::UpdatedMassDropActivationTime(collection_id, series_id, new_activation_time));
 					Ok(())
 				},
 				None => Err(Error::<T>::NoMassDropExists.into()),
@@ -442,9 +452,9 @@ decl_module! {
 			let mass_drop: Option<MassDrop<T::AccountId>> = Self::series_mass_drops(collection_id, series_id);
 			match mass_drop {
 				Some(mut mass_drop) => {
-					let whitelist = Some(account_ids);
-					mass_drop.whitelist = whitelist;
+					mass_drop.whitelist = account_ids.clone();
 					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
+					Self::deposit_event(RawEvent::UpdatedMassDropWhitelist(collection_id, series_id, account_ids));
 					Ok(())
 				},
 				None => Err(Error::<T>::NoMassDropExists.into()),
@@ -472,8 +482,9 @@ decl_module! {
 						current_block < T::BlockNumber::from(pre_sale.activation_time),
 						Error::<T>::ActivationTimeInvalid
 					);
-					mass_drop.pre_sale = Some(pre_sale);
+					mass_drop.pre_sale = Some(pre_sale.clone());
 					SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
+					Self::deposit_event(RawEvent::UpdatedPresale(collection_id, series_id, pre_sale));
 					Ok(())
 				},
 				None => Err(Error::<T>::NoMassDropExists.into()),
@@ -498,9 +509,10 @@ decl_module! {
 					match pre_sale {
 						Some(mut pre_sale) => {
 							let whitelist = account_ids;
-							pre_sale.whitelist = whitelist;
+							pre_sale.whitelist = whitelist.clone();
 							mass_drop.pre_sale = Some(pre_sale);
 							SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
+							Self::deposit_event(RawEvent::UpdatedPresaleWhitelist(collection_id, series_id, whitelist));
 							Ok(())
 						},
 						None => Err(Error::<T>::NoPresaleExists.into()),
@@ -641,7 +653,7 @@ decl_module! {
 			);
 			let owner = owner.unwrap_or_else(|| origin.clone());
 
-			Self::do_mint_additional(owner.clone(), collection_id, series_id, serial_number, quantity)?;
+			Self::do_mint_additional(&owner, collection_id, series_id, serial_number, quantity)?;
 			Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
 
 			Ok(())
@@ -1021,7 +1033,7 @@ impl<T: Config> Module<T> {
 	}
 	/// Mint additional tokens in a series
 	fn do_mint_additional(
-		owner: T::AccountId,
+		owner: &T::AccountId,
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
