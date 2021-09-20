@@ -84,7 +84,7 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -1001,6 +1001,7 @@ impl_runtime_apis! {
 	impl crml_nft_rpc_runtime_api::NftApi<
 		Block,
 		AccountId,
+		Runtime,
 	> for Runtime {
 		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
 			Nft::collected_tokens(collection_id, &who)
@@ -1014,6 +1015,13 @@ impl_runtime_apis! {
 		   serial_number: SerialNumber,
 		) -> TokenInfo<AccountId> {
 		   Nft::token_info(collection_id, series_id, serial_number)
+		}
+		fn collection_listings(
+			collection_id: CollectionId,
+			offset: u128,
+			limit: u16,
+		) -> (Option<u128>, Vec<(ListingId, Listing<Runtime>)>) {
+			Nft::collection_listings(collection_id, offset, limit)
 		}
 	}
 
