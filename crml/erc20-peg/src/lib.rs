@@ -56,7 +56,7 @@ decl_storage! {
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
 		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
-		/// Metadata for well-known erc20 tokens
+		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
@@ -86,8 +86,6 @@ decl_event! {
 		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
 		/// A bridged erc20 deposit failed.(deposit Id)
 		Erc20DepositFail(u64),
-		/// Mock withdraw
-		Erc20MockWithdraw(u64),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
 		/// ERC20 CENNZ deposits activated
@@ -197,6 +195,18 @@ decl_module! {
 			ensure_root(origin)?;
 			CENNZDepositsActive::put(true);
 			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
+		}
+
+		#[weight = {
+			1_000_000 * details.len() as u64
+		}]
+		/// Set the metadata details for a given ERC20 address (requires governance)
+		/// details: `[(contract address, symbol, decimals)]`
+		pub fn set_erc20_meta(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {
+			ensure_root(origin)?;
+			for (address, symbol, decimals) in details {
+				Erc20Meta::insert(address, (symbol, decimals));
+			}
 		}
 	}
 }

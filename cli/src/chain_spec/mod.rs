@@ -161,13 +161,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	// well-known ERC20 token addresses
 	// metadata used by Eth bridge to map token claims when creating generic assets
 	let erc20s = vec![
-		// test only
-		(
-			H160::from_str("0x1215b4ec8161b7959a115805bf980e57a085c3e5").unwrap(),
-			b"YOLO".to_vec(),
-			18,
-		),
-		// end test
+		// Native eth token will be pegged at token address 0
+		(H160::default(), b"Eth".to_vec(), 18),
 		(
 			H160::from_str("0xd4fffa07929b1901fdb30c1c67f80e1185d4210f").unwrap(),
 			b"CERTI".to_vec(),

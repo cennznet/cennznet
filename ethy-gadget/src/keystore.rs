@@ -85,6 +85,7 @@ impl EthyKeystore {
 	/// Use the `public` key to verify that `sig` is a valid signature for `message`.
 	///
 	/// Return `true` if the signature is authentic, `false` otherwise.
+	#[allow(dead_code)]
 	pub fn verify(public: &Public, sig: &Signature, message: &[u8]) -> bool {
 		let msg = keccak_256(message);
 		let sig = sig.as_ref();

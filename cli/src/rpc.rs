@@ -28,9 +28,7 @@ use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
-use sc_finality_grandpa::{
-	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState, VoterCommand,
-};
+use sc_finality_grandpa::{FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState};
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
@@ -40,9 +38,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_transaction_pool::TransactionPool;
-use sp_utils::mpsc::TracingUnboundedSender;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {
@@ -78,8 +74,6 @@ pub struct EthyDeps {
 pub struct GrandpaDeps<B> {
 	/// Voting round info.
 	pub shared_voter_state: SharedVoterState,
-	/// send handle for grandpa voter worker
-	pub voter_worker_send_handle: TracingUnboundedSender<VoterCommand<<Block as BlockT>::Hash, NumberFor<Block>>>,
 	/// Authority set info.
 	pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
 	/// Receives notifications about justification events from Grandpa.
@@ -164,7 +158,6 @@ where
 	} = babe;
 	let GrandpaDeps {
 		shared_voter_state,
-		voter_worker_send_handle,
 		shared_authority_set,
 		justification_stream,
 		subscription_executor,
@@ -190,12 +183,10 @@ where
 	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
 		GrandpaRpcHandler::new(
 			shared_authority_set.clone(),
-			voter_worker_send_handle,
 			shared_voter_state,
 			justification_stream,
 			subscription_executor,
 			finality_provider,
-			deny_unsafe,
 		),
 	));
 	io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(

@@ -14,25 +14,25 @@ thiserror = "1.0"
 
 codec = { version = "2.0.0", package = "parity-scale-codec", features = ["derive"] }
 libsecp256k1 = { version = "0.6.0" }
-prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2"}
+prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735"}
 
 cennznet-primitives = { path = "../primitives" }
 crml-support = { path = "../crml/support" }
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-application-crypto = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-arithmetic = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-blockchain = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-consensus = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-keystore = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sp-utils = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-consensus = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-keystore = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-utils = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
-sc-client-api = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sc-keystore = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sc-network = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
-sc-network-gossip = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sc-client-api = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sc-keystore = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sc-network = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sc-network-gossip = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
 [dev-dependencies]
-sc-network-test = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sc-network-test = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 hex-literal = "*"
