@@ -10,17 +10,17 @@ serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../generic-asset", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false, optional = true }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
-sp-io = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false, optional = true }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
 
 [dev-dependencies]
 cennznet-runtime = { path = "../../runtime" }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
 [features]
 default = ["std"]

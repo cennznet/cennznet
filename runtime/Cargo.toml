@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 cennznet-cli = { path = "../cli", default-features = false }
-sp-keyring = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+sp-keyring = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 # when running tests for the cennznet-runtime use the "integration_config" feature flag.
 # This save us from cases such as 24 hour eras in staking/session tests.
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-749580481
@@ -24,51 +24,51 @@ log = { version = "0.4.14", default-features = false }
 smallvec = "1.6.1"
 static_assertions = "1.1.0"
 
-pallet-authorship = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-authority-discovery = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-babe = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-grandpa = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-identity = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-im-online = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-multisig = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-offences = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-randomness-collective-flip = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-treasury = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-scheduler = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2", features = ["historical"] }
-pallet-sudo = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-timestamp = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-pallet-utility = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+pallet-authorship = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-authority-discovery = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-babe = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-grandpa = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-identity = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-im-online = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-multisig = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-offences = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-randomness-collective-flip = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-treasury = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-scheduler = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-session = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", features = ["historical"] }
+pallet-sudo = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-timestamp = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+pallet-utility = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
-frame-executive = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-frame-system = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-frame-try-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2", optional = true }
+frame-executive = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+frame-support = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+frame-system = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+frame-try-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", optional = true }
 
-sp-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-authority-discovery = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2"}
-sp-block-builder = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2"}
-sp-consensus-babe = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-inherents = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-io = {  git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-offchain = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-runtime-interface = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-session = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-transaction-pool = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-version = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
-sp-staking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+sp-api = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-authority-discovery = {  git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735"}
+sp-block-builder = {  git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735"}
+sp-consensus-babe = {  git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-core = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-inherents = {  git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-io = {  git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-offchain = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-runtime-interface = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-session = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-std = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-transaction-pool = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-version = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
+sp-staking = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
 futures = { version = "0.3.1", features = ["compat"] }
 
 # Used for the node template's RPCs
-frame-system-rpc-runtime-api = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2" }
+frame-system-rpc-runtime-api = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
 # Used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2", optional = true }
-frame-system-benchmarking = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, branch = "ecdsa-testing-2", optional = true }
+frame-benchmarking = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", optional = true }
+frame-system-benchmarking = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", optional = true }
 hex-literal = { version = "0.3.1", default-features = false }
 
 cennznet-primitives = { path = "../primitives", default-features = false }
@@ -91,7 +91,7 @@ crml-transaction-payment = { path = "../crml/transaction-payment", default-featu
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/plugblockchain/plug-blockchain", branch = "ecdsa-testing-2" }
+substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735" }
 
 [features]
 default = ["std"]
