@@ -230,6 +230,7 @@ decl_module! {
 
 		fn on_runtime_upgrade() -> Weight {
 			if StorageVersion::get() == Releases::V0 as u32 {
+				StorageVersion::put(Releases::V1 as u32);
 				// `TokenLocks` migrating from `bool` to `TokenLockReason`
 				#[allow(dead_code)]
 				mod old_storage {
