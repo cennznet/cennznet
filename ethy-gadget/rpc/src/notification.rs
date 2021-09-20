@@ -17,15 +17,16 @@
 use codec::Encode;
 use serde::{Deserialize, Serialize};
 
-/// An encoded signed commitment proving that the given header has been finalized.
-/// The given bytes should be the SCALE-encoded representation of a
-/// `cennznet_primitives::eth::EventProof`.
+/// An encoded `cennznet_primitives::eth::VersionedEventProof`.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct EventProof(sp_core::Bytes);
+pub struct EventProofResponse(sp_core::Bytes);
 
-impl EventProof {
-	pub fn new(event_proof: cennznet_primitives::eth::EventProof) -> Self
+impl EventProofResponse {
+	pub fn new(event_proof: cennznet_primitives::eth::VersionedEventProof) -> Self
 where {
-		EventProof(event_proof.encode().into())
+		EventProofResponse(event_proof.encode().into())
+	}
+	pub fn from_raw(raw: Vec<u8>) -> Self {
+		EventProofResponse(raw.into())
 	}
 }

@@ -18,14 +18,19 @@
 
 #![warn(missing_docs)]
 
+use cennznet_primitives::eth::{EventId, ETHY_ENGINE_ID};
 use ethy_gadget::notification::EthyEventProofStream;
 use futures::{StreamExt, TryStreamExt};
-use jsonrpc_core::futures::{
-	future::Executor as Executor01, future::Future as Future01, sink::Sink as Sink01, stream::Stream as Stream01,
+use jsonrpc_core::{
+	futures::{
+		future::Executor as Executor01, future::Future as Future01, sink::Sink as Sink01, stream::Stream as Stream01,
+	},
+	Result,
 };
 use jsonrpc_derive::rpc;
 use jsonrpc_pubsub::{manager::SubscriptionManager, typed::Subscriber, SubscriptionId};
 use log::warn;
+use sc_client_api::backend::AuxStore;
 use std::sync::Arc;
 
 mod notification;
@@ -48,17 +53,22 @@ pub trait EthyApi<Notification> {
 		metadata: Option<Self::Metadata>,
 		id: SubscriptionId,
 	) -> jsonrpc_core::Result<bool>;
+
+	/// Query a proof for a known event Id. Returns `null` if missing
+	#[rpc(name = "ethy_getEventProof")]
+	fn get_event_proof(&self, event_id: EventId) -> Result<Option<Notification>>;
 }
 
 /// Implements the EthyApi RPC trait for interacting with Ethy.
-pub struct EthyRpcHandler {
+pub struct EthyRpcHandler<BE> {
 	event_proof_stream: EthyEventProofStream,
 	manager: SubscriptionManager,
+	backend: Arc<BE>,
 }
 
-impl EthyRpcHandler {
+impl<BE> EthyRpcHandler<BE> {
 	/// Creates a new EthyRpcHandler instance.
-	pub fn new<E>(event_proof_stream: EthyEventProofStream, executor: E) -> Self
+	pub fn new<E>(event_proof_stream: EthyEventProofStream, executor: E, backend: Arc<BE>) -> Self
 	where
 		E: Executor01<Box<dyn Future01<Item = (), Error = ()> + Send>> + Send + Sync + 'static,
 	{
@@ -66,18 +76,26 @@ impl EthyRpcHandler {
 		Self {
 			event_proof_stream,
 			manager,
+			backend,
 		}
 	}
 }
 
-impl EthyApi<notification::EventProof> for EthyRpcHandler {
+impl<BE> EthyApi<notification::EventProofResponse> for EthyRpcHandler<BE>
+where
+	BE: Send + Sync + 'static + AuxStore,
+{
 	type Metadata = sc_rpc::Metadata;
 
-	fn subscribe_event_proofs(&self, _metadata: Self::Metadata, subscriber: Subscriber<notification::EventProof>) {
+	fn subscribe_event_proofs(
+		&self,
+		_metadata: Self::Metadata,
+		subscriber: Subscriber<notification::EventProofResponse>,
+	) {
 		let stream = self
 			.event_proof_stream
 			.subscribe()
-			.map(|x| Ok::<_, ()>(notification::EventProof::new(x)))
+			.map(|x| Ok::<_, ()>(notification::EventProofResponse::new(x)))
 			.map_err(|e| warn!("Notification stream error: {:?}", e))
 			.compat();
 
@@ -95,5 +113,17 @@ impl EthyApi<notification::EventProof> for EthyRpcHandler {
 		id: SubscriptionId,
 	) -> jsonrpc_core::Result<bool> {
 		Ok(self.manager.cancel(id))
+	}
+
+	fn get_event_proof(&self, event_id: EventId) -> jsonrpc_core::Result<Option<notification::EventProofResponse>> {
+		if let Ok(maybe_encoded_proof) = self
+			.backend
+			.get_aux([&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref())
+		{
+			if let Some(encoded_proof) = maybe_encoded_proof {
+				return Ok(Some(notification::EventProofResponse::from_raw(encoded_proof)));
+			}
+		}
+		Ok(None)
 	}
 }

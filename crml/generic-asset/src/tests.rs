@@ -498,26 +498,12 @@ fn on_runtime_upgrade() {
 		// Test accounts are restored now
 		assert!(System::account_exists(&ALICE));
 		assert!(System::account_exists(&BOB));
-		assert!(System::account_exists(&CHARLIE));
 
 		// Test assets of Alice are as before
 		assert_eq!(<FreeBalance<Test>>::get(&STAKING_ASSET_ID, &ALICE), INITIAL_BALANCE);
-		// Test Alice's dust asset 1 free balance is freed
-		assert!(!<FreeBalance<Test>>::contains_key(&ASSET_ID, &ALICE));
-
-		// Test BOB's dust asset 1 free balance is freed
-		assert!(!<FreeBalance<Test>>::contains_key(ASSET_ID, BOB));
 
 		// Test asset 2 free balance is unchanged
 		assert_eq!(<FreeBalance<Test>>::get(&(ASSET_ID + 1), &BOB), INITIAL_ISSUANCE);
-
-		// Our test hook transfers dust to the treasury account
-		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryModuleId::get().into_account();
-		assert_eq!(
-			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
-			(asset_info_1.existential_deposit() - 1) * 2 // sum of Alice & Bob's dust
-		);
 
 		assert_eq!(GenericAsset::total_issuance(ASSET_ID), INITIAL_ISSUANCE);
 	});

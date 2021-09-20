@@ -15,12 +15,15 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use log::{debug, trace};
-use parking_lot::RwLock;
-use std::collections::BTreeMap;
+use log::{trace, warn};
+use parking_lot::{Mutex, RwLock};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	time::{Duration, Instant},
+};
 
 use sc_network::PeerId;
-use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
+use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 
 use sp_runtime::traits::{Block, Hash, Header};
 
@@ -36,6 +39,12 @@ where
 	<<B::Header as Header>::Hashing as Hash>::hash(b"ethy")
 }
 
+/// Number of recent complete events to keep in memory
+const MAX_COMPLETE_EVENT_CACHE: usize = 30;
+
+// Timeout for rebroadcasting messages.
+const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
+
 /// ETHY gossip validator
 ///
 /// Validate ETHY gossip messages
@@ -47,7 +56,12 @@ where
 {
 	topic: B::Hash,
 	known_votes: RwLock<BTreeMap<EventId, Vec<Public>>>,
+	/// Pruned list of recently completed events
+	complete_events: RwLock<VecDeque<EventId>>,
+	/// Public (ECDSA session) keys of active ethy validators
 	active_validators: RwLock<Vec<Public>>,
+	/// Scheduled time for rebroad casting event witnesses
+	next_rebroadcast: Mutex<Instant>,
 }
 
 impl<B> GossipValidator<B>
@@ -59,13 +73,28 @@ where
 			topic: topic::<B>(),
 			known_votes: RwLock::new(BTreeMap::new()),
 			active_validators: RwLock::new(active_validators),
+			complete_events: RwLock::new(Default::default()),
+			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
 		}
 	}
 
-	/// Make a vote for nonce as complete
-	pub fn mark_complete(&self, nonce: EventId) {
+	/// Make a vote for an event as complete
+	pub fn mark_complete(&self, event_id: EventId) {
 		let mut known_votes = self.known_votes.write();
-		known_votes.remove(&nonce);
+		known_votes.remove(&event_id);
+		let mut complete_events = self.complete_events.write();
+		if complete_events.len() > MAX_COMPLETE_EVENT_CACHE {
+			complete_events.pop_front();
+		}
+		match complete_events.binary_search(&event_id) {
+			Ok(_idx) => {
+				// this shouldn't happen
+				warn!(target: "ethy", "💎 double event complete: {:?} in {:?}", event_id, complete_events);
+			}
+			Err(idx) => {
+				complete_events.insert(idx, event_id);
+			}
+		}
 	}
 
 	pub fn set_active_validators(&self, new_active_validators: Vec<Public>) {
@@ -101,18 +130,11 @@ where
 				return ValidationResult::Discard;
 			}
 
-			if self
-				.active_validators
-				.read()
-				.iter()
-				.find(|v| *v == &authority_id)
-				.is_none()
-			{
+			if !self.active_validators.read().iter().any(|v| *v == authority_id) {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is not an active authority", &authority_id, event_id);
 				return ValidationResult::Discard;
 			}
 
-			trace!(target: "ethy", "💎 verify prehashed: {:?}, event: {:?}", &authority_id, event_id);
 			if EthyKeystore::verify_prehashed(&authority_id, &signature, &digest) {
 				// Make the vote as seen
 				trace!(target: "ethy", "💎 verify prehashed OK, waiting lock: {:?}, event: {:?}", &authority_id, event_id);
@@ -121,9 +143,9 @@ where
 						// we've seen this nonce and need to add the new vote
 						// insert_index is guaranteed to be `Err` as it has not been recorded yet
 						let index = insert_index.err().unwrap();
-						known_votes
-							.get_mut(&event_id)
-							.map(|v| v.insert(index, authority_id.clone()));
+						if let Some(v) = known_votes.get_mut(&event_id) {
+							v.insert(index, authority_id.clone())
+						}
 					}
 					None => {
 						// we haven't seen this nonce yet
@@ -135,7 +157,7 @@ where
 				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
 				// TODO: report peer
-				debug!(target: "ethy", "💎 bad signature: {:?}, event: {:?}", authority_id, event_id);
+				warn!(target: "ethy", "💎 bad signature: {:?}, event: {:?}", authority_id, event_id);
 			}
 		}
 
@@ -143,32 +165,58 @@ where
 		ValidationResult::Discard
 	}
 
-	// TODO: discard old messages
-	// fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
+	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
+		let complete_events = self.complete_events.read();
+		Box::new(move |_topic, mut data| {
+			let witness = match Witness::decode(&mut data) {
+				Ok(w) => w,
+				Err(_) => return true,
+			};
 
-	// 	let live_rounds = self.live_rounds.read();
-	// 	Box::new(move |_topic, mut data| {
-	// 		let msg = match Witness::decode(&mut data) {
-	// 			Ok(vote) => vote,
-	// 			Err(_) => return true,
-	// 		};
+			let expired = complete_events.binary_search(&witness.event_id).is_ok();
+			trace!(target: "ethy", "💎 Message for event #{} expired: {}", witness.event_id, expired);
 
-	// 		let expired = !GossipValidator::<B>::is_live(&live_rounds, msg.witness.block_number);
+			expired
+		})
+	}
 
-	// 		trace!(target: "ethy", "💎 Message for round #{} expired: {}", msg.witness.block_number, expired);
+	#[allow(clippy::type_complexity)]
+	fn message_allowed<'a>(&'a self) -> Box<dyn FnMut(&PeerId, MessageIntent, &B::Hash, &[u8]) -> bool + 'a> {
+		let do_rebroadcast = {
+			let now = Instant::now();
+			let mut next_rebroadcast = self.next_rebroadcast.lock();
+			if now >= *next_rebroadcast {
+				*next_rebroadcast = now + REBROADCAST_AFTER;
+				true
+			} else {
+				false
+			}
+		};
 
-	// 		expired
-	// 	})
-	// }
+		let complete_events = self.complete_events.read();
+		Box::new(move |_who, intent, _topic, mut data| {
+			if let MessageIntent::PeriodicRebroadcast = intent {
+				return do_rebroadcast;
+			}
 
-	// #[allow(clippy::type_complexity)]
-	// fn message_allowed<'a>(&'a self) -> Box<dyn FnMut(&PeerId, MessageIntent, &B::Hash, &[u8]) -> bool + 'a> {
-	// }
+			let witness = match Witness::decode(&mut data) {
+				Ok(w) => w,
+				Err(_) => return true,
+			};
+
+			// Check if message is incomplete
+			let allowed = complete_events.binary_search(&witness.event_id).is_err();
+
+			trace!(target: "ethy", "💎 Message for round #{} allowed: {}", &witness.event_id, allowed);
+
+			allowed
+		})
+	}
 }
 
 // #[cfg(test)]
 // mod tests {
-// 	use super::{GossipValidator, MAX_LIVE_GOSSIP_ROUNDS};
+// 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
 // 	use sc_network_test::Block;
 
 // 	#[test]
@@ -177,7 +225,7 @@ where
 
 // 		gv.note_round(1u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 // 		assert!(GossipValidator::<Block>::is_live(&live, 1u64));
 
 // 		drop(live);
@@ -186,7 +234,7 @@ where
 // 		gv.note_round(7u64);
 // 		gv.note_round(10u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 
 // 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
 
@@ -205,7 +253,7 @@ where
 // 		gv.note_round(10u64);
 // 		gv.note_round(1u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 
 // 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
 
@@ -219,7 +267,7 @@ where
 // 		gv.note_round(20u64);
 // 		gv.note_round(2u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 
 // 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
 
@@ -236,7 +284,7 @@ where
 // 		gv.note_round(7u64);
 // 		gv.note_round(10u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 
 // 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
 
@@ -245,7 +293,7 @@ where
 // 		// note round #7 again -> should not change anything
 // 		gv.note_round(7u64);
 
-// 		let live = gv.live_rounds.read();
+// 		let live = gv.live_events.read();
 
 // 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
 

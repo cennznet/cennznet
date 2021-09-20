@@ -66,7 +66,7 @@ const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: u64 = 3;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
-const REQUEST_TTL_MS: u64 = 1_500;
+const REQUEST_TTL_MS: u64 = 2_500;
 /// Bucket claims in intervals of this factor (seconds)
 const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
@@ -143,7 +143,7 @@ decl_storage! {
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
 		/// The current validator set id
 		NotarySetId get(fn notary_set_id): u64;
-		/// Whether the bridge is paused
+		/// Whether the bridge is paused (for validator transitions)
 		BridgePaused get(fn bridge_paused): bool;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventConfirmations get(fn event_confirmations): u64 = 3;
@@ -262,8 +262,12 @@ decl_module! {
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
-				EventClaims::remove(payload.event_claim_id);
+				let (_eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_data = event_data.unwrap();
 				Self::deposit_event(Event::Invalid(payload.event_claim_id));
+
+				T::Subscribers::on_failure(payload.event_claim_id, &contract_address, &event_signature, &event_data);
 				return Ok(());
 			}
 
@@ -312,27 +316,27 @@ decl_module! {
 			}
 
 			// Get all signing keys for this protocol 'KeyTypeId'
-			let keys = T::EthyId::all();
-			let key = match keys.len() {
-				0 => {
-					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
-					return
-				},
-				1 => keys[0].clone(),
-				_ => {
-					// expect at most one key to be present
-					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::EthyId::ID);
-					return
-				},
+			let local_keys = T::EthyId::all();
+			if local_keys.is_empty() {
+				log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
+				return
 			};
 
+			let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
+			// search all local ethy keys
+			for key in local_keys {
+				if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+					maybe_active_key = Some((key, active_key_index));
+					break
+				}
+			}
+
 			// check if locally known keys are in the active validator set
-			let authority_index = Self::notary_keys().iter().position(|k| k == &key);
-			if authority_index.is_none() {
-				log!(error, "💎 no active validator keys, exiting");
+			if maybe_active_key.is_none() {
+				log!(error, "💎 no active ethy keys, exiting");
 				return;
 			}
-			let authority_index = authority_index.unwrap() as u16;
+			let (active_key, authority_index) = maybe_active_key.map(|(key, idx)| (key, idx as u16)).unwrap();
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
@@ -345,7 +349,7 @@ decl_module! {
 				}
 
 				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, key.clone()) {
+				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
 					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
 				}
 
@@ -359,7 +363,7 @@ decl_module! {
 						authority_index,
 						result: result.clone(),
 					};
-					let _ = Self::offchain_send_notarization(&key, payload)
+					let _ = Self::offchain_send_notarization(&active_key, payload)
 						.map_err(|err| {
 							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 						})
@@ -497,27 +501,45 @@ impl<T: Config> Module<T> {
 			return EventClaimResult::NoTxLogs;
 		}
 
-		// lastly, have we got enough block confirmations to be re-org safe?
-		let observed_block = tx_receipt.block_number.saturated_into();
-		let result = Self::get_block(observed_block);
-		if let Err(err) = result {
-			log!(error, "💎 eth_getBlockByNumber failed: {:?}", err);
-			return EventClaimResult::DataProviderErr;
-		}
-		let maybe_block = result.unwrap();
-		if maybe_block.is_none() {
-			return EventClaimResult::DataProviderErr;
-		}
-		let block = maybe_block.unwrap();
-		let latest_block_number: u64 = block.number.unwrap_or_default().as_u64();
-		let block_confirmations = latest_block_number.saturating_sub(observed_block as u64);
+		//  have we got enough block confirmations to be re-org safe?
+		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
+
+		let latest_block: EthBlock = match Self::get_block(LatestOrNumber::Latest) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
+		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
+		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
 		if block_confirmations < Self::event_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
+
+		// we can calculate if the block is expired w some high degree of confidence
+		// time since the event = block_confirmations * ~16 seconds avg
+		// `20` arbitrarily chosen by adding a few seconds to the average block time
+		if block_confirmations * 20 > Self::event_deadline_seconds() {
+			return EventClaimResult::Expired;
+		}
+
+		//  check the block this tx is in if the timestamp > deadline
+		let observed_block: EthBlock = match Self::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
-		if T::UnixTime::now().as_secs().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
+		if T::UnixTime::now().as_secs().saturated_into::<u64>() - observed_block.timestamp.saturated_into::<u64>()
 			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
@@ -550,9 +572,11 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Get latest block number from eth client
-	fn get_block(number: u32) -> Result<Option<EthBlock>, Error<T>> {
-		// let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetBlockByNumberRequest::new(1_usize, number);
+	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+		let request = match req {
+			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
+			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
+		};
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch

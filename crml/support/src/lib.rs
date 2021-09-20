@@ -70,6 +70,8 @@ pub trait NotarizationRewardHandler {
 pub trait EventClaimSubscriber {
 	/// Notify subscriber about a successful event claim for the given event data
 	fn on_success(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+	/// Notify subscriber about a failed event claim for the given event data
+	fn on_failure(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
 }
 
 /// Something that verifies event claims

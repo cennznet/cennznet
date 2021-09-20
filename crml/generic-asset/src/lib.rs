@@ -105,49 +105,6 @@
 //! - `ensure_can_withdraw`: Check if the account is able to make a withdrawal of the given amount
 //!	for the given reason.
 //!
-//! ### Usage
-//!
-//! The following examples show how to use the Generic Asset Pallet in your custom pallet.
-//!
-//! ### Examples from the FRAME pallet
-//!
-//! The Fees Pallet uses the `Currency` trait to handle fee charge/refund, and its types inherit from `Currency`:
-//!
-//! ```
-//! use frame_support::{
-//! 	dispatch,
-//! 	traits::{Currency, ExistenceRequirement, WithdrawReasons},
-//! };
-//! # pub trait Config: frame_system::Config {
-//! # 	type Currency: Currency<Self::AccountId>;
-//! # }
-//! type AssetOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-//!
-//! fn charge_fee<T: Config>(transactor: &T::AccountId, amount: AssetOf<T>) -> dispatch::DispatchResult {
-//! 	// ...
-//! 	T::Currency::withdraw(
-//! 		transactor,
-//! 		amount,
-//! 		WithdrawReasons::TRANSACTION_PAYMENT,
-//! 		ExistenceRequirement::KeepAlive,
-//! 	)?;
-//! 	// ...
-//! 	Ok(())
-//! }
-//!
-//! fn refund_fee<T: Config>(transactor: &T::AccountId, amount: AssetOf<T>) -> dispatch::DispatchResult {
-//! 	// ...
-//! 	T::Currency::deposit_into_existing(transactor, amount)?;
-//! 	// ...
-//! 	Ok(())
-//! }
-//!
-//! # fn main() {}
-//! ```
-//!
-//! ## Genesis config
-//!
-//! The Generic Asset Pallet depends on the [`GenesisConfig`](./struct.GenesisConfig.html).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -156,10 +113,10 @@ use crml_support::AssetIdAuthority;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
+		BalanceStatus, Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
 		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
-	IterableStorageDoubleMap, IterableStorageMap, Parameter, StorageMap,
+	IterableStorageMap, Parameter, StorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
@@ -174,6 +131,7 @@ use sp_std::{cmp, fmt::Debug, iter::Sum, prelude::*, result};
 mod benchmarking;
 mod imbalances;
 pub mod impls;
+mod migration;
 mod mock;
 mod tests;
 mod types;
@@ -406,38 +364,7 @@ decl_module! {
 			if StorageVersion::get() == Releases::V0 as u32 {
 				StorageVersion::put(Releases::V1 as u32);
 
-				migrate_locks::<T>();
-
-				// For each (asset, account)
-				// 1) release reserved balance storage if 0
-				// 2) release free balance storage if < ED
-				AssetMeta::<T>::iter().for_each(|(asset_id, asset_meta)| {
-					let mut total_dust_imbalance = NegativeImbalance::new(Zero::zero(), asset_id);
-					<FreeBalance<T>>::iter_prefix(asset_id)
-						.filter_map(|(account_id, balance)| {
-							if balance < asset_meta.existential_deposit().saturated_into() {
-								Some(account_id)
-							} else {
-								// set provider = 1
-								if <frame_system::Module<T>>::providers(&account_id).is_zero() {
-									<frame_system::Module<T>>::inc_providers(&account_id);
-								}
-								None
-							}
-						})
-						.for_each(|account_id| {
-							let amount = <FreeBalance<T>>::take(asset_id, account_id);
-							if amount > Zero::zero() {
-								total_dust_imbalance.subsume(NegativeImbalance::new(amount, asset_id));
-							}
-						});
-
-					if total_dust_imbalance.peek() > Zero::zero() {
-						T::OnDustImbalance::on_nonzero_unbalanced(total_dust_imbalance);
-					}
-				});
-
-				T::BlockWeights::get().max_block
+				migration::migrate_locks::<T>() + migration::migrate_asset_info::<T>()
 			} else {
 				Zero::zero()
 			}
@@ -530,31 +457,6 @@ decl_storage! {
 			});
 		});
 	}
-}
-
-fn migrate_locks<T: Config>() {
-	#[allow(dead_code)]
-	mod old_storage {
-		use super::Config;
-		use crate::types::BalanceLock;
-		use sp_std::vec::Vec;
-
-		pub struct Module<T>(sp_std::marker::PhantomData<T>);
-		frame_support::decl_storage! {
-			trait Store for Module<T: Config> as GenericAsset {
-				pub Locks get(fn locks):
-					map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
-			}
-		}
-	}
-
-	let staking_asset_id = <Module<T>>::staking_asset_id();
-	let all_locks = <old_storage::Locks<T>>::drain().collect::<Vec<(T::AccountId, Vec<BalanceLock<T::Balance>>)>>();
-	all_locks.iter().for_each(|(account_id, locks)| {
-		if !locks.is_empty() {
-			<Locks<T>>::insert(staking_asset_id, &account_id, locks);
-		}
-	});
 }
 
 decl_event! {

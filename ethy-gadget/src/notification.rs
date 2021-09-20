@@ -16,16 +16,16 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::eth::EventProof;
+use cennznet_primitives::eth::VersionedEventProof;
 use sp_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 use parking_lot::Mutex;
 
 /// Stream of event proofs returned when subscribing.
-type EventProofStream = TracingUnboundedReceiver<EventProof>;
+type EventProofStream = TracingUnboundedReceiver<VersionedEventProof>;
 
 /// Sending endpoint for notifying about event proofs.
-type EventProofSender = TracingUnboundedSender<EventProof>;
+type EventProofSender = TracingUnboundedSender<VersionedEventProof>;
 
 /// Collection of channel sending endpoints shared with the receiver side so they can register
 /// themselves.
@@ -47,7 +47,7 @@ impl EthyEventProofSender {
 
 	/// Send out a notification to all subscribers that a new event proof is available for a
 	/// block.
-	pub fn notify(&self, event_proof: EventProof) {
+	pub fn notify(&self, event_proof: VersionedEventProof) {
 		let mut subscribers = self.subscribers.lock();
 
 		// do an initial prune on closed subscriptions

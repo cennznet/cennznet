@@ -157,9 +157,6 @@ where
 
 	// For Ethy this would be a notification from something polling Ethereum full nodes
 	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
-		// TODO: this will only be called when grandpa finalizes at a new block/checkpoint
-		// grandpa does not finalize individual blocks.
-		// we need to backtrack to find requests in all blocks since the last finalization and start signing them
 		trace!(target: "ethy", "💎 finality notification for block #{:?}", &notification.header.number());
 
 		if let Some(active) = self.validator_set(&notification.header) {
@@ -173,6 +170,7 @@ where
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
+				self.witness_record.set_validators(active.validators.clone());
 				self.validator_set = active;
 			}
 		}
@@ -206,7 +204,7 @@ where
 			};
 			let broadcast_witness = witness.encode();
 
-			metric_inc!(self, ethy_votes_sent);
+			metric_inc!(self, ethy_witness_sent);
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
@@ -233,19 +231,12 @@ where
 		warn!(target: "ethy", "💎 got witness: {:?}", witness);
 		self.witness_record.note(&witness);
 
-		// metric_set!(self, ethy_round_concluded, round.1);
-		// info!(target: "ethy", "💎 Round #{} concluded, committed: {:?}.", round.1, event_proof);
-
 		let threshold = self.validator_set.validators.len() as f32 * PROOF_THRESHOLD;
 		if self
 			.witness_record
 			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
 		{
-			let signatures = self.witness_record.signatures_for(
-				witness.event_id,
-				&witness.digest,
-				self.validator_set.validators.clone(),
-			);
+			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
 			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}", witness.event_id, signatures);
 			let event_proof = EventProof {
 				digest: witness.digest,
@@ -253,6 +244,8 @@ where
 				validator_set_id: self.validator_set.id,
 				signatures,
 			};
+			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
+
 			// We can add proof to the DB that this block has been finalized specifically by the
 			// given threshold of validators
 			if Backend::insert_aux(
@@ -263,7 +256,7 @@ where
 						[&ETHY_ENGINE_ID[..], &event_proof.event_id.to_be_bytes()[..]]
 							.concat()
 							.as_ref(),
-						VersionedEventProof::V1(event_proof.clone()).encode().as_ref(),
+						versioned_event_proof.encode().as_ref(),
 					),
 				],
 				&[],
@@ -275,7 +268,7 @@ where
 				warn!(target: "ethy", "💎 failed to store witness: {:?}", event_proof);
 			}
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
-			self.event_proof_sender.notify(event_proof);
+			self.event_proof_sender.notify(versioned_event_proof);
 			// Remove from memory
 			self.witness_record.clear(witness.event_id);
 			self.gossip_validator.mark_complete(witness.event_id);

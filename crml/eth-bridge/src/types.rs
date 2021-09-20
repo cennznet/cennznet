@@ -259,7 +259,7 @@ impl GetTxReceiptRequest {
 const METHOD_GET_BLOCK_BY_NUMBER: &str = "eth_getBlockByNumber";
 /// Request for 'eth_blockNumber'
 #[derive(Serialize, Debug)]
-pub struct GetBlockByNumberRequest {
+pub struct GetBlockRequest {
 	#[serde(rename = "jsonrpc")]
 	/// The version of the JSON RPC spec
 	pub json_rpc: &'static str,
@@ -267,32 +267,52 @@ pub struct GetBlockByNumberRequest {
 	pub method: &'static str,
 	/// Arguments supplied to the method. (blockNumber, fullTxData?)
 	#[serde(serialize_with = "serialize_params")]
-	pub params: (u32, bool),
+	pub params: (LatestOrNumber, bool),
 	/// The id for the request
 	pub id: usize,
 }
 
-/// Serializes the parameters for `GetBlockByNumberRequest`
-pub fn serialize_params<S: serde::Serializer>(v: &(u32, bool), s: S) -> Result<S::Ok, S::Error> {
+#[derive(Debug)]
+pub enum LatestOrNumber {
+	Latest,
+	Number(u32),
+}
+
+/// Serializes the parameters for `GetBlockRequest`
+pub fn serialize_params<S: serde::Serializer>(v: &(LatestOrNumber, bool), s: S) -> Result<S::Ok, S::Error> {
 	use core::fmt::Write;
 	use serde::ser::SerializeTuple;
-	// Ethereum JSON RPC API expects the block number as a hex string
-	let mut hex_block_number = sp_std::Writer::default();
-	write!(&mut hex_block_number, "{:#x}", v.0).expect("valid bytes");
+
 	let mut tup = s.serialize_tuple(2)?;
-	// this should always be valid utf8
-	tup.serialize_element(&core::str::from_utf8(hex_block_number.inner()).expect("valid bytes"))?;
+	match v.0 {
+		LatestOrNumber::Latest => tup.serialize_element(&"latest")?,
+		LatestOrNumber::Number(n) => {
+			// Ethereum JSON RPC API expects the block number as a hex string
+			let mut hex_block_number = sp_std::Writer::default();
+			write!(&mut hex_block_number, "{:#x}", n).expect("valid bytes");
+			// this should always be valid utf8
+			tup.serialize_element(&core::str::from_utf8(hex_block_number.inner()).expect("valid bytes"))?;
+		}
+	}
 	tup.serialize_element(&v.1)?;
 	tup.end()
 }
 
 /// JSON-RPC method name for the request
-impl GetBlockByNumberRequest {
-	pub fn new(id: usize, block_number: u32) -> Self {
+impl GetBlockRequest {
+	pub fn for_number(id: usize, block_number: u32) -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_GET_BLOCK_BY_NUMBER,
-			params: (block_number, false), // `false` = return tx hashes not full tx data
+			params: (LatestOrNumber::Number(block_number), false), // `false` = return tx hashes not full tx data
+			id,
+		}
+	}
+	pub fn latest(id: usize) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_GET_BLOCK_BY_NUMBER,
+			params: (LatestOrNumber::Latest, false), // `false` = return tx hashes not full tx data
 			id,
 		}
 	}
@@ -527,14 +547,18 @@ mod tests {
 	#[test]
 	fn serialize_get_block_by_number_request() {
 		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x37",false],"id":1}"#;
-		let result = serde_json::to_string(&GetBlockByNumberRequest::new(1, 55)).unwrap();
+		let result = serde_json::to_string(&GetBlockRequest::for_number(1, 55)).unwrap();
+		assert_eq!(expected, result);
+
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false],"id":1}"#;
+		let result = serde_json::to_string(&GetBlockRequest::latest(1)).unwrap();
 		assert_eq!(expected, result);
 	}
 
 	#[test]
 	fn serialize_get_block_by_number_request_max() {
 		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffe",false],"id":1}"#;
-		let result = serde_json::to_string(&GetBlockByNumberRequest::new(1, u32::MAX - 1)).unwrap();
+		let result = serde_json::to_string(&GetBlockRequest::for_number(1, u32::MAX - 1)).unwrap();
 		assert_eq!(expected, result);
 	}
 }
