@@ -52,7 +52,6 @@ jobs:
         with:
           tag_name: ${{ steps.find_version.outputs.tag_name }}
           release_name: ${{ steps.find_version.outputs.tag_name }}
-          draft: false
           # 'rc' is a pre-release
           prerelease: ${{ contains(steps.find_version.outputs.tag_name, 'rc') }}
       ### build the wasm runtime for publishing

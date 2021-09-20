@@ -34,12 +34,11 @@ use crate::{
 pub(crate) use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use core::convert::TryFrom;
 use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	PalletId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
