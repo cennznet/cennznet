@@ -1,6 +1,6 @@
 [package]
 name = "cennznet-cli"
-version = "2.0.0-rc1"
+version = "2.0.0-rc2"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "CENNZnet node implementation in Rust."
 build = "build.rs"
