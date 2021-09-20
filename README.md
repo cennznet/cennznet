@@ -68,7 +68,7 @@ Clone the repo, build the binary and run it.
 ```bash
 $ git clone https://github.com/cennznet/cennznet.git
 $ cd cennznet
-$ cargo build --release # or --debug for speed
+$ cargo build --release # or remove  '--release' for quick debug build
 $ ./target/release/cennznet --help
 
 # start a validator node for development
