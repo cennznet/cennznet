@@ -21,12 +21,12 @@ use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	traits::{ExistenceRequirement, Get, WithdrawReasons},
-	transactional,
+	transactional, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
-	DispatchError, ModuleId,
+	DispatchError,
 };
 use sp_std::prelude::*;
 
@@ -35,7 +35,7 @@ use types::*;
 
 pub trait Config: frame_system::Config {
 	/// An onchain address for this pallet
-	type PegModuleId: Get<ModuleId>;
+	type PegPalletId: Get<PalletId>;
 	/// The EVM event signature of a deposit
 	type DepositEventSignature: Get<[u8; 32]>;
 	/// Submits event claims for Ethereum
@@ -222,7 +222,7 @@ impl<T: Config> Module<T> {
 				let (symbol, decimals) =
 					Erc20Meta::get(verified_event.token_address).unwrap_or((Default::default(), 18));
 				let asset_id = T::MultiCurrency::create(
-					&T::PegModuleId::get().into_account(),
+					&T::PegPalletId::get().into_account(),
 					Zero::zero(), // 0 initial supply
 					decimals,
 					1, // minimum balance
@@ -246,7 +246,7 @@ impl<T: Config> Module<T> {
 		if asset_id == T::MultiCurrency::staking_currency() && Self::cennz_deposit_active() {
 			let _result = T::MultiCurrency::transfer(
 				// TODO: decide upon: Treasury / Sudo::key() / Bridge,
-				&T::PegModuleId::get().into_account(),
+				&T::PegPalletId::get().into_account(),
 				&beneficiary,
 				asset_id,
 				amount, // checked amount < u128 in `deposit_claim` qed.

@@ -400,7 +400,10 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			..Default::default()
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
-		pallet_babe: Some(BabeConfig { authorities: vec![] }),
+		pallet_babe: Some(BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(cennznet_runtime::BABE_GENESIS_EPOCH_CONFIG),
+		}),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),

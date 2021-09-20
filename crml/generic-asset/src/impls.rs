@@ -21,10 +21,13 @@ use crate::{
 	SpendingAssetIdAuthority, StakingAssetIdAuthority,
 };
 use crml_support::{AssetIdAuthority, MultiCurrency};
-use frame_support::traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons};
+use frame_support::{
+	traits::{ExistenceRequirement, Get, Imbalance, OnUnbalanced, SignedImbalance, WithdrawReasons},
+	PalletId,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedSub, Saturating, UniqueSaturatedInto, Zero},
-	DispatchError, DispatchResult, ModuleId,
+	DispatchError, DispatchResult,
 };
 use sp_std::{mem, prelude::*, result};
 
@@ -199,9 +202,9 @@ impl<T: Config> MultiCurrency for Module<T> {
 	}
 }
 
-/// A dust imbalance handler that transfers dust to the given `ModuleId`
-pub struct TransferDustImbalance<M: Get<ModuleId>>(sp_std::marker::PhantomData<M>);
-impl<T: Config, M: Get<ModuleId>> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<M> {
+/// A dust imbalance handler that transfers dust to the given `PalletId`
+pub struct TransferDustImbalance<M: Get<PalletId>>(sp_std::marker::PhantomData<M>);
+impl<T: Config, M: Get<PalletId>> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<M> {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<T>) {
 		let beneficiary = M::get().into_account();
 		let beneficiary_balance = <Module<T>>::free_balance(imbalance.asset_id(), &beneficiary);
