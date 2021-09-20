@@ -18,8 +18,12 @@
 
 use std::sync::Arc;
 
+use cennznet_primitives::types::BlockNumber;
 use codec::Codec;
-use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{
+	CollectionId, CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper, SerialNumber, SeriesId,
+	TokenId, TokenInfo,
+};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
@@ -45,6 +49,14 @@ pub trait NftApi<AccountId> {
 		series_id: SeriesId,
 		serial_number: SerialNumber,
 	) -> Result<TokenInfo<AccountId>>;
+
+	#[rpc(name = "nft_getCollectionListings")]
+	fn collection_listings(
+		&self,
+		collection_id: CollectionId,
+		cursor: u128,
+		limit: u16,
+	) -> Result<ListingResponseWrapper<AccountId>>;
 }
 
 /// Error type of this RPC api.
@@ -62,12 +74,12 @@ impl From<Error> for i64 {
 }
 
 /// An implementation of NFT specific RPC methods.
-pub struct Nft<C, T> {
+pub struct Nft<C, Block, T: Config> {
 	client: Arc<C>,
-	_marker: std::marker::PhantomData<T>,
+	_marker: std::marker::PhantomData<(Block, T)>,
 }
 
-impl<C, T> Nft<C, T> {
+impl<C, Block, T: Config> Nft<C, Block, T> {
 	/// Create new `Nft` with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
 		Nft {
@@ -77,11 +89,12 @@ impl<C, T> Nft<C, T> {
 	}
 }
 
-impl<C, Block, AccountId> NftApi<AccountId> for Nft<C, Block>
+impl<C, Block, AccountId, T> NftApi<AccountId> for Nft<C, Block, T>
 where
 	Block: BlockT,
+	T: Config<AccountId = AccountId, BlockNumber = BlockNumber> + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	C::Api: NftRuntimeApi<Block, AccountId>,
+	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
 {
 	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>> {
@@ -122,5 +135,59 @@ where
 				message: "Unable to query token information.".into(),
 				data: Some(format!("{:?}", e).into()),
 			})
+	}
+
+	fn collection_listings(
+		&self,
+		collection_id: CollectionId,
+		offset: u128,
+		limit: u16,
+	) -> Result<ListingResponseWrapper<AccountId>> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+
+		let result = api
+			.collection_listings(&at, collection_id, offset, limit)
+			.map_err(|e| RpcError {
+				code: ErrorCode::ServerError(Error::RuntimeError.into()),
+				message: "Unable to query collection listings.".into(),
+				data: Some(format!("{:?}", e).into()),
+			})?;
+
+		let new_cursor = result.0;
+		let result = result
+			.1
+			.into_iter()
+			.map(|(listing_id, listing)| match listing {
+				Listing::FixedPrice(fixed_price) => ListingResponse {
+					id: listing_id,
+					listing_type: "fixedPrice".as_bytes().to_vec(),
+					payment_asset: fixed_price.payment_asset,
+					price: fixed_price.fixed_price,
+					end_block: fixed_price.close,
+					buyer: fixed_price.buyer,
+					seller: fixed_price.seller,
+					token_ids: fixed_price.tokens,
+					royalties: fixed_price.royalties_schedule.entitlements,
+				},
+				Listing::Auction(auction) => ListingResponse {
+					id: listing_id,
+					listing_type: "auction".as_bytes().to_vec(),
+					payment_asset: auction.payment_asset,
+					price: auction.reserve_price,
+					end_block: auction.close,
+					buyer: None,
+					seller: auction.seller,
+					token_ids: auction.tokens,
+					royalties: auction.royalties_schedule.entitlements,
+				},
+			})
+			.collect();
+
+		Ok(ListingResponseWrapper {
+			listings: result,
+			new_cursor,
+		})
 	}
 }

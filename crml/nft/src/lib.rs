@@ -204,6 +204,8 @@ decl_storage! {
 pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
+/// The maximum amount of listings to return
+pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
@@ -965,5 +967,47 @@ impl<T: Config> Module<T> {
 			owner,
 			royalties,
 		}
+	}
+	/// Get list of all NFT listings within a range
+	pub fn collection_listings(
+		collection_id: CollectionId,
+		cursor: u128,
+		limit: u16,
+	) -> (Option<u128>, Vec<(ListingId, Listing<T>)>) {
+		let mut listing_ids = OpenCollectionListings::iter_prefix(collection_id)
+			.map(|(listing_id, _)| listing_id)
+			.collect::<Vec<u128>>();
+		listing_ids.sort();
+		let last_id = listing_ids.last().copied();
+		let mut highest_cursor: u128 = 0;
+
+		let response: Vec<(ListingId, Listing<T>)> = listing_ids
+			.into_iter()
+			.filter(|listing_id| listing_id >= &cursor)
+			.take(sp_std::cmp::min(limit, MAX_COLLECTION_LISTING_LIMIT).into())
+			.map(|listing_id| {
+				highest_cursor = listing_id;
+				match Self::listings(listing_id) {
+					Some(listing) => Some((listing_id, listing)),
+					None => {
+						log!(error, "🃏 Unexpected empty listing: {:?}", listing_id);
+						None
+					}
+				}
+			})
+			.flatten()
+			.collect();
+
+		let new_cursor = match last_id {
+			Some(id) => {
+				if highest_cursor != id {
+					Some(highest_cursor + 1)
+				} else {
+					None
+				}
+			}
+			None => None,
+		};
+		(new_cursor, response)
 	}
 }

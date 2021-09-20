@@ -1781,3 +1781,176 @@ fn get_collection_info() {
 		assert_eq!(Nft::collection_info::<AccountId>(collection_id), Some(collection_info));
 	});
 }
+
+#[test]
+fn get_collection_listings_on_no_active_listings() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		let cursor: u128 = 0;
+		let limit: u16 = 100;
+
+		// Should return an empty array as no NFTs have been listed
+		let response = Nft::collection_listings(collection_id, cursor, limit);
+
+		assert_eq!(response.0, None);
+		assert_eq!(response.1, vec![]);
+	});
+}
+
+#[test]
+fn get_collection_listings() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		let cursor: u128 = 0;
+		let limit: u16 = 100;
+		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
+		let quantity = 200;
+
+		let series_id = Nft::next_series_id(collection_id);
+		// mint token Ids
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			series_attributes.clone(),
+			None,
+			None,
+		));
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			owner
+		)));
+
+		let payment_asset = PAYMENT_ASSET;
+		let price = 1_000;
+		let listing_id = Nft::next_listing_id();
+		let close = 10;
+		// List tokens for sale
+		for serial_number in 0..quantity {
+			let token_id: TokenId = (collection_id, series_id, serial_number);
+			assert_ok!(Nft::sell(
+				Some(owner).into(),
+				token_id,
+				None,
+				payment_asset,
+				price,
+				Some(close),
+			));
+		}
+
+		// Should return an empty array as no NFTs have been listed
+		let (new_cursor, listings) = Nft::collection_listings(collection_id, cursor, limit);
+		let royalties_schedule = RoyaltiesSchedule { entitlements: vec![] };
+		assert_eq!(new_cursor, Some(limit as u128));
+
+		// Check the response is as expected
+		for id in 0..limit {
+			let token_id: Vec<TokenId> = vec![(collection_id, series_id, id as u32)];
+			let expected_listing = FixedPriceListing {
+				payment_asset,
+				fixed_price: price,
+				close: close + 1,
+				buyer: None,
+				seller: owner,
+				tokens: token_id,
+				royalties_schedule: royalties_schedule.clone(),
+			};
+			let expected_listing = Listing::FixedPrice(expected_listing);
+			assert_eq!(listings[id as usize], (id as u128, expected_listing));
+		}
+	});
+}
+
+#[test]
+fn get_collection_listings_over_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		let cursor: u128 = 0;
+		let limit: u16 = 1000;
+
+		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
+		let quantity = 200;
+		let series_id = Nft::next_series_id(collection_id);
+		// mint token Ids
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			series_attributes.clone(),
+			None,
+			None,
+		));
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			owner
+		)));
+
+		let payment_asset = PAYMENT_ASSET;
+		let price = 1_000;
+		let close = 10;
+		// List tokens for sale
+		for serial_number in 0..quantity {
+			let token_id: TokenId = (collection_id, series_id, serial_number);
+			assert_ok!(Nft::sell(
+				Some(owner).into(),
+				token_id,
+				None,
+				payment_asset,
+				price,
+				Some(close),
+			));
+		}
+
+		// Should return an empty array as no NFTs have been listed
+		let (new_cursor, _listings) = Nft::collection_listings(collection_id, cursor, limit);
+		assert_eq!(new_cursor, Some(100));
+	});
+}
+
+#[test]
+fn get_collection_listings_cursor_too_high() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let name = b"test-collection".to_vec();
+		let cursor: u128 = 300;
+		let limit: u16 = 1000;
+
+		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
+		let quantity = 200;
+		let series_id = Nft::next_series_id(collection_id);
+		// mint token Ids
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			series_attributes.clone(),
+			None,
+			None,
+		));
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			owner
+		)));
+
+		// Should return an empty array as no NFTs have been listed
+		let (new_cursor, listings) = Nft::collection_listings(collection_id, cursor, limit);
+		assert_eq!(listings, vec![]);
+		assert_eq!(new_cursor, None);
+	});
+}
