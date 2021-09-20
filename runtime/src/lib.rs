@@ -61,7 +61,7 @@ pub use frame_support::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
 	},
-	StorageValue,
+	PalletId, StorageValue,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -70,7 +70,7 @@ use frame_system::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
+pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
 use cennznet_primitives::{
@@ -133,6 +133,13 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
+
+/// The BABE epoch configuration at genesis.
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+	sp_consensus_babe::BabeEpochConfiguration {
+		c: PRIMARY_PROBABILITY,
+		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+	};
 
 /// Native version.
 #[cfg(any(feature = "std", test))]
@@ -415,7 +422,7 @@ impl crml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
@@ -568,14 +575,14 @@ parameter_types! {
 	pub const DataDepositPerByte: Balance = 1 * MICROS;
 	pub const BountyDepositBase: Balance = 1 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
 	pub const MaximumReasonLength: u32 = 16_384;
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
 impl pallet_treasury::Config for Runtime {
-	type ModuleId = TreasuryModuleId;
+	type PalletId = TreasuryPalletId;
 	type Currency = SpendingAssetCurrency<Self>;
 	// root only is sufficient for launch phase
 	type ApproveOrigin = EnsureRoot<AccountId>;
@@ -603,7 +610,7 @@ impl crml_staking_rewards::Config for Runtime {
 	type FiscalEraLength = FiscalEraLength;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type ScheduledPayoutRunner = ScheduledPayoutRunner<Self>;
-	type TreasuryModuleId = TreasuryModuleId;
+	type TreasuryPalletId = TreasuryPalletId;
 	type WeightInfo = ();
 }
 
@@ -661,7 +668,7 @@ parameter_types! {
 	/// The ERC20 bridge contract deposit event
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
 	/// The ERC20 peg address
-	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
+	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 }
 impl crml_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
@@ -669,8 +676,8 @@ impl crml_erc20_peg::Config for Runtime {
 	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = GenericAsset;
-	/// ModuleId/Account for this module
-	type PegModuleId = PegModuleId;
+	/// PalletId/Account for this module
+	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
 }
@@ -875,10 +882,10 @@ impl_runtime_apis! {
 			sp_consensus_babe::BabeGenesisConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
-				c: PRIMARY_PROBABILITY,
+				c: BABE_GENESIS_EPOCH_CONFIG.c,
 				genesis_authorities: Babe::authorities(),
 				randomness: Babe::randomness(),
-				allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+				allowed_slots: BABE_GENESIS_EPOCH_CONFIG.allowed_slots,
 			}
 		}
 

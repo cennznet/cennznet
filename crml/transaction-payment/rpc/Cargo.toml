@@ -15,9 +15,9 @@ codec = { package = "parity-scale-codec", version = "2.0.0" }
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "1b0b2ef54e83b2352e139581af29ca6eb2691735", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
 crml-transaction-payment-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
