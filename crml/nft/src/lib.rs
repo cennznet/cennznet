@@ -165,8 +165,8 @@ decl_storage! {
 		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(twox_64_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from token to its locked status
-		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+		/// Map from a token to lock status if any
+		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => Option<TokenLockReason>;
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
@@ -197,6 +197,8 @@ decl_storage! {
 		pub ListingWinningBid get(fn listing_winning_bid): map hasher(twox_64_concat) ListingId => Option<(T::AccountId, Balance)>;
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
+		/// Version of this module's storage schema
+		StorageVersion build(|_: &GenesisConfig| Releases::V0 as u32): u32;
 	}
 }
 
@@ -225,6 +227,34 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get() == Releases::V0 as u32 {
+				StorageVersion::put(Releases::V1 as u32);
+				// `TokenLocks` migrating from `bool` to `TokenLockReason`
+				#[allow(dead_code)]
+				mod old_storage {
+					use super::{Config, TokenId};
+					pub struct Module<T>(sp_std::marker::PhantomData<T>);
+					frame_support::decl_storage! {
+						trait Store for Module<T: Config> as Nft {
+							pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+						}
+					}
+				}
+
+				let locks = old_storage::TokenLocks::drain().collect::<Vec<(TokenId, bool)>>();
+				let locks_count = locks.len();
+				for (id, _status) in locks {
+					// these listings are pre-marketplace, `0` is incorrect and that's fine
+					TokenLocks::insert(id, TokenLockReason::Listed(0));
+				}
+
+				100_000 * locks_count as Weight
+			} else {
+				Zero::zero()
+			}
+		}
 
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
@@ -543,16 +573,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
@@ -657,16 +687,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);

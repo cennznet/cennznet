@@ -88,6 +88,13 @@ pub struct TokenInfo<AccountId> {
 	pub royalties: Vec<(AccountId, Permill)>,
 }
 
+/// Reason for an NFT being locked (un-transferrable)
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+pub enum TokenLockReason {
+	/// Token is listed for sale
+	Listed(ListingId),
+}
+
 /// The supported attribute data types for an NFT
 #[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount)]
 #[cfg_attr(feature = "std", derive(Deserialize))]
@@ -340,6 +347,17 @@ pub type TokenCount = SerialNumber;
 
 /// Global unique token identifier
 pub type TokenId = (CollectionId, SeriesId, SerialNumber);
+
+// A value placed in storage that represents the current version of the NFT storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
+pub enum Releases {
+	/// storage version pre-runtime v41
+	V0 = 0,
+	/// storage version > runtime v41
+	V1 = 1,
+}
 
 #[cfg(test)]
 mod test {
