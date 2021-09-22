@@ -424,7 +424,7 @@ decl_module! {
 				Some(mut mass_drop) => {
 					let current_block = <frame_system::Module<T>>::block_number();
 					ensure!(
-						current_block < T::BlockNumber::from(mass_drop.activation_time) && current_block < new_activation_time,
+						current_block < T::BlockNumber::from(mass_drop.activation_time) && current_block < T::BlockNumber::from(new_activation_time),
 						Error::<T>::ActivationTimeInvalid
 					);
 					mass_drop.activation_time = new_activation_time;
@@ -1067,8 +1067,7 @@ impl<T: Config> Module<T> {
 		match price.checked_mul(quantity.into()) {
 			Some(total_price) => {
 				// full proceeds to seller/`current_owner`
-				T::MultiCurrency::transfer(&buyer, &owner, asset_id, total_price, ExistenceRequirement::AllowDeath)?;
-				Ok(())
+				T::MultiCurrency::transfer(&buyer, &owner, asset_id, total_price, ExistenceRequirement::AllowDeath)
 			}
 			None => Err(Error::<T>::InternalPayment.into()),
 		}

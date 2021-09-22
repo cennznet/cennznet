@@ -148,7 +148,7 @@ impl<AccountId> PreSale<AccountId> {
 				return false;
 			}
 		}
-		self.max_supply < mass_drop.max_supply && self.activation_time < mass_drop.activation_time
+		self.max_supply <= mass_drop.max_supply && self.activation_time < mass_drop.activation_time
 	}
 }
 
