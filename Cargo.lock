@@ -730,14 +730,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-primitives"
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
@@ -1271,6 +1271,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-application-crypto",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -8931,7 +8932,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.7.3",
+ "rand 0.3.23",
  "static_assertions",
 ]
 
