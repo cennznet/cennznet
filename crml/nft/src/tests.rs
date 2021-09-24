@@ -2192,49 +2192,6 @@ fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
 }
 
 #[test]
-fn update_existing_mass_drop_whitelist() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mut fixture = setup_default_mass_drop();
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_ok!(Nft::set_mass_drop_whitelist(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		));
-		assert!(has_event(RawEvent::UpdateMassDropWhitelist(
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		)));
-
-		// Ensure storage was updated
-		fixture.mass_drop.whitelist = whitelist;
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(fixture.mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_whitelist_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mut fixture = setup_default_mass_drop();
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_noop!(
-			Nft::set_mass_drop_whitelist(
-				Some(2_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				whitelist.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
 fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
@@ -2264,6 +2221,82 @@ fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 		assert_eq!(
 			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
 			Some(fixture.mass_drop)
+		);
+	});
+}
+
+#[test]
+fn update_existing_mass_drop_pre_sale_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let pre_sale = PreSale {
+			price: 20,
+			max_supply: 10000,
+			transaction_limit: Some(10),
+			activation_time: 4,
+			whitelist: vec![],
+		};
+		assert_noop!(
+			Nft::update_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, pre_sale),
+			Error::<Test>::NoMassDropExists
+		);
+	});
+}
+
+#[test]
+fn update_existing_mass_drop_whitelist() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mut fixture = setup_default_mass_drop();
+		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
+		assert_ok!(Nft::set_mass_drop_whitelist(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			whitelist.clone(),
+		));
+		assert!(has_event(RawEvent::UpdateMassDropWhitelist(
+			fixture.collection_id,
+			fixture.series_id,
+			whitelist.clone(),
+		)));
+
+		// Ensure storage was updated
+		fixture.mass_drop.whitelist = whitelist;
+		assert_eq!(
+			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
+			Some(fixture.mass_drop)
+		);
+	});
+}
+
+#[test]
+fn update_existing_mass_drop_whitelist_not_owner_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let fixture = setup_default_mass_drop();
+		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
+		assert_noop!(
+			Nft::set_mass_drop_whitelist(
+				Some(2_u64).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				whitelist.clone(),
+			),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
+fn update_existing_mass_drop_whitelist_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
+
+		assert_noop!(
+			Nft::set_mass_drop_whitelist(Some(collection_owner).into(), collection_id, 0, whitelist),
+			Error::<Test>::NoMassDropExists
 		);
 	});
 }
@@ -2313,6 +2346,130 @@ fn update_existing_mass_drop_invalid_activation_time_should_fail() {
 }
 
 #[test]
+fn update_existing_mass_drop_activation_time_not_owner_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let fixture = setup_default_mass_drop();
+		let activation_time = 1;
+		System::set_block_number(activation_time as u64 + 1);
+
+		assert_noop!(
+			Nft::update_mass_drop_activation_time(
+				Some(2_u64).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				activation_time.clone(),
+			),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
+fn update_existing_mass_drop_activation_time_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		assert_noop!(
+			Nft::update_mass_drop_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
+			Error::<Test>::NoMassDropExists
+		);
+	});
+}
+
+#[test]
+fn update_existing_pre_sale_activation_time() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mut pre_sale = PreSale {
+			price: 20,
+			max_supply: 100,
+			transaction_limit: Some(10),
+			activation_time: 3,
+			whitelist: vec![],
+		};
+		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let activation_time = 4;
+		assert_ok!(Nft::update_pre_sale_activation_time(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			activation_time.clone(),
+		));
+		assert!(has_event(RawEvent::UpdatePresaleActivationTime(
+			fixture.collection_id,
+			fixture.series_id,
+			activation_time.clone(),
+		)));
+		let mut mass_drop = fixture.mass_drop;
+		pre_sale.activation_time = activation_time;
+		mass_drop.pre_sale = Some(pre_sale);
+		assert_eq!(
+			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
+			Some(mass_drop)
+		);
+	});
+}
+
+#[test]
+fn update_existing_pre_sale_invalid_activation_time_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let pre_sale = PreSale {
+			price: 20,
+			max_supply: 100,
+			transaction_limit: Some(10),
+			activation_time: 3,
+			whitelist: vec![],
+		};
+		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let activation_time = 100;
+		assert_noop!(
+			Nft::update_pre_sale_activation_time(
+				Some(fixture.collection_owner).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				activation_time.clone(),
+			),
+			Error::<Test>::MassDropInvalid
+		);
+	});
+}
+
+#[test]
+fn update_existing_pre_sale_activation_time_not_owner_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let pre_sale = PreSale {
+			price: 20,
+			max_supply: 100,
+			transaction_limit: Some(10),
+			activation_time: 3,
+			whitelist: vec![],
+		};
+		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let activation_time = 4;
+		assert_noop!(
+			Nft::update_pre_sale_activation_time(
+				Some(2_u64).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				activation_time.clone(),
+			),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
+fn update_existing_pre_sale_activation_time_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		assert_noop!(
+			Nft::update_pre_sale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
+			Error::<Test>::NoMassDropExists
+		);
+	});
+}
+
+#[test]
 fn update_existing_pre_sale_whitelist() {
 	ExtBuilder::default().build().execute_with(|| {
 		let pre_sale = PreSale {
@@ -2357,7 +2514,7 @@ fn update_existing_pre_sale_whitelist_not_owner_should_fail() {
 			activation_time: 4,
 			whitelist: vec![],
 		};
-		let mut fixture = setup_mass_drop(None, Some(pre_sale));
+		let fixture = setup_mass_drop(None, Some(pre_sale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
 		assert_noop!(
 			Nft::set_presale_whitelist(
@@ -2372,7 +2529,20 @@ fn update_existing_pre_sale_whitelist_not_owner_should_fail() {
 }
 
 #[test]
-fn enter_raffle() {
+fn update_existing_pre_sale_whitelist_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
+		assert_noop!(
+			Nft::set_presale_whitelist(Some(collection_owner).into(), collection_id, 0, whitelist.clone(),),
+			Error::<Test>::NoMassDropExists
+		);
+	});
+}
+
+#[test]
+fn enter_mass_drop() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
 		let activation_time: u32 = 5;
@@ -2396,7 +2566,19 @@ fn enter_raffle() {
 }
 
 #[test]
-fn enter_raffle_with_insufficient_funds_should_fail() {
+fn enter_mass_drop_no_mass_drop_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		assert_noop!(
+			Nft::enter_mass_drop(Some(collection_owner).into(), collection_id, 0, 1),
+			Error::<Test>::NoMassDropExists
+		);
+	});
+}
+
+#[test]
+fn enter_mass_drop_with_insufficient_funds_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let activation_time: u32 = 5;
 		let mass_drop = MassDrop {
@@ -2424,7 +2606,7 @@ fn enter_raffle_with_insufficient_funds_should_fail() {
 }
 
 #[test]
-fn enter_raffle_on_whitelist() {
+fn enter_mass_drop_on_whitelist() {
 	ExtBuilder::default().build().execute_with(|| {
 		let activation_time: u32 = 5;
 		let mass_drop = MassDrop {
@@ -2450,7 +2632,7 @@ fn enter_raffle_on_whitelist() {
 }
 
 #[test]
-fn enter_raffle_not_on_whitelist_should_fail() {
+fn enter_mass_drop_not_on_whitelist_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let activation_time: u32 = 5;
 		let mass_drop = MassDrop {
@@ -2474,7 +2656,7 @@ fn enter_raffle_not_on_whitelist_should_fail() {
 }
 
 #[test]
-fn enter_raffle_too_high_quantity_should_fail() {
+fn enter_mass_drop_too_high_quantity_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let activation_time: u32 = 5;
 		let mass_drop = MassDrop {
@@ -2498,7 +2680,7 @@ fn enter_raffle_too_high_quantity_should_fail() {
 }
 
 #[test]
-fn enter_raffle_before_activation_should_fail() {
+fn enter_mass_drop_before_activation_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
 		let quantity: TokenCount = 1;
@@ -2511,7 +2693,7 @@ fn enter_raffle_before_activation_should_fail() {
 }
 
 #[test]
-fn enter_raffle_before_activation_as_owner() {
+fn enter_mass_drop_before_activation_as_owner() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
 		let quantity: TokenCount = 1;
@@ -2579,13 +2761,7 @@ fn enter_pre_sale_insufficient_funds_should_fail() {
 		let quantity: TokenCount = 1;
 
 		// Should fail as collection_owner has insufficient funds
-		assert!(Nft::enter_mass_drop(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		)
-		.is_err());
+		assert!(Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,).is_err());
 	});
 }
 

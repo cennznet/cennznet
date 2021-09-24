@@ -655,7 +655,7 @@ decl_module! {
 			}
 
 			let serial_number = Self::next_serial_number(collection_id, series_id);
-			// ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(
 				serial_number.checked_add(quantity).is_some(),
 				Error::<T>::NoAvailableIds
@@ -1048,7 +1048,6 @@ impl<T: Config> Module<T> {
 		serial_number: SerialNumber,
 		quantity: TokenCount,
 	) -> DispatchResult {
-		// TODO check below 5 lines
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 		ensure!(
 			!Self::is_single_issue(collection_id, series_id),
