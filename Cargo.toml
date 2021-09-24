@@ -49,7 +49,7 @@ blake2s_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
 cranelift-codegen = { opt-level = 3 }
 cranelift-wasm = { opt-level = 3 }
-crc42fast = { opt-level = 3 }
+crc32fast = { opt-level = 3 }
 crossbeam-deque = { opt-level = 3 }
 crossbeam-queue = { opt-level = 3 }
 crypto-mac = { opt-level = 3 }
