@@ -345,7 +345,7 @@ decl_module! {
 		/// Buy tokens from an active mass_drop
 		/// Checks to make sure the drop has started
 		/// If the whitelist is not empty, only whitelisted accounts will be able to join
-		#[weight = 100000]
+		#[weight = 78_000_000]
 		#[transactional]
 		fn enter_mass_drop(
 			origin,
@@ -388,7 +388,7 @@ decl_module! {
 		}
 
 		/// Change the activation time of an existing mass_drop
-		#[weight = 100_000]
+		#[weight = 4_000_000]
 		#[transactional]
 		fn set_mass_drop_activation_time(
 			origin,
@@ -414,7 +414,7 @@ decl_module! {
 		}
 
 		/// Add presale conditions to existing mass_drop or change presale values
-		#[weight = 0]
+		#[weight = 60_000_000]
 		#[transactional]
 		fn set_mass_drop_presale(
 			origin,
@@ -442,7 +442,7 @@ decl_module! {
 		/// Add account_ids to the presale whitelist
 		/// Enter an empty array to clear the whitelist
 		/// Will replace the whitelist with the one supplied
-		#[weight = 0]
+		#[weight = 50_000_000]
 		#[transactional]
 		fn set_presale_whitelist(
 			origin,
@@ -466,7 +466,7 @@ decl_module! {
 		}
 
 		/// Change the activation time of an existing pre_sale
-		#[weight = 0] // Change this to appropriate weighting
+		#[weight = 4_000_000] // Change this to appropriate weighting
 		#[transactional]
 		fn set_pre_sale_activation_time(
 			origin,
@@ -495,7 +495,6 @@ decl_module! {
 			Ok(())
 
 		}
-
 
 		/// Mint a series of tokens distinguishable only by a serial number (SFT)
 		/// Series can be issued additional tokens with `mint_additional`
