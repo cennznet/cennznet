@@ -126,7 +126,6 @@ fn setup_mass_drop(mass_drop: Option<MassDrop<AccountId>>, pre_sale: Option<PreS
 	let royalties_schedule = RoyaltiesSchedule {
 		entitlements: vec![(collection_owner, Permill::one())],
 	};
-	let whitelist = vec![];
 	let activation_time: u32 = 5;
 	let mass_drop = mass_drop.unwrap_or(MassDrop {
 		price: 0,
@@ -134,7 +133,6 @@ fn setup_mass_drop(mass_drop: Option<MassDrop<AccountId>>, pre_sale: Option<PreS
 		max_supply: 1000,
 		transaction_limit: Some(10),
 		activation_time,
-		whitelist,
 		pre_sale: pre_sale.clone(),
 	});
 
@@ -1869,7 +1867,6 @@ fn mint_series_with_mass_drop() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop.clone()), Some(pre_sale.clone()));
@@ -1896,7 +1893,6 @@ fn mint_mass_drop_with_invalid_activation_time_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 0,
-			whitelist: vec![],
 			pre_sale: None,
 		};
 		//Activation time <= current block should fail
@@ -1933,7 +1929,6 @@ fn mint_mass_drop_with_invalid_transaction_limit_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(1001),
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: None,
 		};
 		//Activation time <= current block should fail
@@ -1970,7 +1965,6 @@ fn mint_mass_drop_with_zero_max_supply_should_fail() {
 			max_supply: 0,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: None,
 		};
 		//Activation time <= current block should fail
@@ -2015,7 +2009,6 @@ fn mint_mass_drop_with_invalid_pre_sale_activation_time_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale),
 		};
 		// presale activation time >= mass drop activation time should fail
@@ -2060,7 +2053,6 @@ fn mint_mass_drop_with_invalid_pre_sale_max_supply_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale),
 		};
 		// presale activation time >= massdrop activation time should fail
@@ -2105,7 +2097,6 @@ fn mint_mass_drop_with_invalid_pre_sale_transaction_limit_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale),
 		};
 		// presale activation time >= massdrop activation time should fail
@@ -2239,63 +2230,6 @@ fn update_existing_mass_drop_pre_sale_no_mass_drop_should_fail() {
 		};
 		assert_noop!(
 			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, pre_sale),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_whitelist() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mut fixture = setup_default_mass_drop();
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_ok!(Nft::set_mass_drop_whitelist(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		));
-		assert!(has_event(RawEvent::UpdateMassDropWhitelist(
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		)));
-
-		// Ensure storage was updated
-		fixture.mass_drop.whitelist = whitelist;
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(fixture.mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_whitelist_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_noop!(
-			Nft::set_mass_drop_whitelist(
-				Some(2_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				whitelist.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_whitelist_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-
-		assert_noop!(
-			Nft::set_mass_drop_whitelist(Some(collection_owner).into(), collection_id, 0, whitelist),
 			Error::<Test>::NoMassDropExists
 		);
 	});
@@ -2587,7 +2521,6 @@ fn enter_mass_drop_with_insufficient_funds_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time,
-			whitelist: vec![],
 			pre_sale: None,
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), None);
@@ -2602,56 +2535,6 @@ fn enter_mass_drop_with_insufficient_funds_should_fail() {
 			quantity,
 		)
 		.is_err());
-	});
-}
-
-#[test]
-fn enter_mass_drop_on_whitelist() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time: u32 = 5;
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time,
-			whitelist: vec![2_u64],
-			pre_sale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let quantity: TokenCount = 1;
-
-		System::set_block_number(activation_time as u64);
-		assert_ok!(Nft::enter_mass_drop(
-			Some(2_u64).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		));
-	});
-}
-
-#[test]
-fn enter_mass_drop_not_on_whitelist_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time: u32 = 5;
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time,
-			whitelist: vec![2_u64],
-			pre_sale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let quantity: TokenCount = 1;
-
-		System::set_block_number(activation_time as u64);
-		assert_noop!(
-			Nft::enter_mass_drop(Some(3_u64).into(), fixture.collection_id, fixture.series_id, quantity),
-			Error::<Test>::NotInWhitelist
-		);
 	});
 }
 
@@ -2723,7 +2606,6 @@ fn enter_pre_sale() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
@@ -2754,7 +2636,6 @@ fn enter_pre_sale_insufficient_funds_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
@@ -2781,7 +2662,6 @@ fn enter_pre_sale_before_activation_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
@@ -2810,7 +2690,6 @@ fn enter_pre_sale_on_whitelist() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
@@ -2841,7 +2720,6 @@ fn enter_pre_sale_not_on_whitelist_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
@@ -2870,7 +2748,6 @@ fn enter_pre_sale_too_high_quantity_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			whitelist: vec![],
 			pre_sale: Some(pre_sale.clone()),
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
