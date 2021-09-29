@@ -763,7 +763,6 @@ decl_module! {
 					ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
 					ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
 					listing.close = new_closing_block;
-					Listings::<T>::remove(listing_id);
 					Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
 				}
 

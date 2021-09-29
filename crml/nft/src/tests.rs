@@ -1204,18 +1204,11 @@ fn bid_auto_extends() {
 			reserve_price,
 			Some(2),
 		));
-		assert_eq!(
-			Nft::token_locks(&token_id).unwrap(),
-			TokenLockReason::Listed(listing_id)
-		);
-		assert_eq!(Nft::next_listing_id(), listing_id + 1);
-		assert!(Nft::open_collection_listings(collection_id, listing_id));
 
-		// first bidder at reserve price
+		// Place bid
 		let bidder_1 = 10;
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder_1, payment_asset, reserve_price);
 		assert_ok!(Nft::bid(Some(bidder_1).into(), listing_id, reserve_price,));
-		assert_eq!(GenericAsset::reserved_balance(payment_asset, &bidder_1), reserve_price);
 
 		if let Some(Listing::Auction(listing)) = Nft::listings(listing_id) {
 			assert_eq!(listing.close, System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
