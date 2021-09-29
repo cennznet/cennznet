@@ -1071,7 +1071,7 @@ fn auction_bundle() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, 1_000);
 		assert_ok!(Nft::bid(Some(buyer).into(), listing_id, 1_000));
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + 40);
 
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
 	})
@@ -1160,7 +1160,7 @@ fn auction() {
 		assert_eq!(GenericAsset::reserved_balance(payment_asset, &bidder_2), winning_bid);
 
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + 40);
 
 		// no royalties, all proceeds to token owner
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), winning_bid);
@@ -1252,7 +1252,7 @@ fn auction_royalty_payments() {
 		assert_ok!(Nft::bid(Some(bidder).into(), listing_id, reserve_price,));
 
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + 40);
 
 		// royalties paid out
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
