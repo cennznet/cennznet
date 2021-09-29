@@ -161,9 +161,9 @@ decl_event! {
 		Verified(EventClaimId),
 		/// Verifying an event failed
 		Invalid(EventClaimId),
-		/// A notary (validator) set change is in motion
+		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_id`
-		AuthoritySetChange(EventProofId),
+		AuthoritySetChange(EventProofId, u64),
 	}
 }
 
@@ -705,7 +705,8 @@ impl<T: Config> Module<T> {
 			// Any observer can subscribe to this event and submit the resulting proof to keep the
 			// validator set on the Ethereum bridge contract updated.
 			let event_proof_id = NextProofId::get();
-			Self::deposit_event(Event::AuthoritySetChange(event_proof_id));
+			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+			Self::deposit_event(Event::AuthoritySetChange(event_proof_id, next_validator_set_id));
 			NotarySetProofId::put(event_proof_id);
 			NextProofId::put(event_proof_id.wrapping_add(1));
 			let log: DigestItem<T::Hash> = DigestItem::Consensus(
@@ -713,7 +714,7 @@ impl<T: Config> Module<T> {
 				ConsensusLog::PendingAuthoritiesChange((
 					ValidatorSet {
 						validators: next_keys.to_vec(),
-						id: Self::notary_set_id().wrapping_add(1),
+						id: next_validator_set_id,
 					},
 					event_proof_id,
 				))
