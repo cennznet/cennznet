@@ -2136,7 +2136,7 @@ fn update_existing_mass_drop_pre_sale() {
 			activation_time: 4,
 			whitelist: vec![],
 		};
-		assert_ok!(Nft::update_mass_drop_presale(
+		assert_ok!(Nft::set_mass_drop_presale(
 			Some(fixture.collection_owner).into(),
 			fixture.collection_id,
 			fixture.series_id,
@@ -2169,7 +2169,7 @@ fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
 		};
 
 		assert_noop!(
-			Nft::update_mass_drop_presale(
+			Nft::set_mass_drop_presale(
 				Some(3_u64).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2203,7 +2203,7 @@ fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 			whitelist: vec![],
 		};
 		assert_noop!(
-			Nft::update_mass_drop_presale(
+			Nft::set_mass_drop_presale(
 				Some(fixture.collection_owner).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2238,7 +2238,7 @@ fn update_existing_mass_drop_pre_sale_no_mass_drop_should_fail() {
 			whitelist: vec![],
 		};
 		assert_noop!(
-			Nft::update_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, pre_sale),
+			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, pre_sale),
 			Error::<Test>::NoMassDropExists
 		);
 	});
@@ -2306,7 +2306,7 @@ fn update_existing_mass_drop_activation_time() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
 		let activation_time = 1000;
-		assert_ok!(Nft::update_mass_drop_activation_time(
+		assert_ok!(Nft::set_mass_drop_activation_time(
 			Some(fixture.collection_owner).into(),
 			fixture.collection_id,
 			fixture.series_id,
@@ -2334,7 +2334,7 @@ fn update_existing_mass_drop_invalid_activation_time_should_fail() {
 		System::set_block_number(activation_time as u64 + 1);
 
 		assert_noop!(
-			Nft::update_mass_drop_activation_time(
+			Nft::set_mass_drop_activation_time(
 				Some(fixture.collection_owner).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2353,7 +2353,7 @@ fn update_existing_mass_drop_activation_time_not_owner_should_fail() {
 		System::set_block_number(activation_time as u64 + 1);
 
 		assert_noop!(
-			Nft::update_mass_drop_activation_time(
+			Nft::set_mass_drop_activation_time(
 				Some(2_u64).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2370,7 +2370,7 @@ fn update_existing_mass_drop_activation_time_no_mass_drop_should_fail() {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		assert_noop!(
-			Nft::update_mass_drop_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
+			Nft::set_mass_drop_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
 			Error::<Test>::NoMassDropExists
 		);
 	});
@@ -2388,7 +2388,7 @@ fn update_existing_pre_sale_activation_time() {
 		};
 		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
 		let activation_time = 4;
-		assert_ok!(Nft::update_pre_sale_activation_time(
+		assert_ok!(Nft::set_pre_sale_activation_time(
 			Some(fixture.collection_owner).into(),
 			fixture.collection_id,
 			fixture.series_id,
@@ -2422,7 +2422,7 @@ fn update_existing_pre_sale_invalid_activation_time_should_fail() {
 		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
 		let activation_time = 100;
 		assert_noop!(
-			Nft::update_pre_sale_activation_time(
+			Nft::set_pre_sale_activation_time(
 				Some(fixture.collection_owner).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2446,7 +2446,7 @@ fn update_existing_pre_sale_activation_time_not_owner_should_fail() {
 		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
 		let activation_time = 4;
 		assert_noop!(
-			Nft::update_pre_sale_activation_time(
+			Nft::set_pre_sale_activation_time(
 				Some(2_u64).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2463,7 +2463,7 @@ fn update_existing_pre_sale_activation_time_no_mass_drop_should_fail() {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		assert_noop!(
-			Nft::update_pre_sale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
+			Nft::set_pre_sale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
 			Error::<Test>::NoMassDropExists
 		);
 	});

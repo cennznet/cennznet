@@ -88,7 +88,7 @@ pub struct TokenInfo<AccountId> {
 	pub royalties: Vec<(AccountId, Permill)>,
 }
 
-/// Contains information for a particular token. Returns the attributes and owner
+/// Configuration for a mass drop
 #[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct MassDrop<AccountId> {
@@ -128,7 +128,7 @@ impl<AccountId> MassDrop<AccountId> {
 	}
 }
 
-/// Contains information for a particular token. Returns the attributes and owner
+/// configuration for pre sale
 #[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PreSale<AccountId> {
