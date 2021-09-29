@@ -89,7 +89,7 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	#[codec(index = 2)]
 	OnDisabled(AuthorityIndex),
 	/// A request to sign some data was logged
-	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, event_id)`
+	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, validatorSetId, event_id)`
 	#[codec(index = 3)]
 	OpaqueSigningRequest((Message, EventId)),
 	#[codec(index = 4)]

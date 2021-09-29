@@ -40,7 +40,7 @@ use crate::{
 	Client,
 };
 use cennznet_primitives::eth::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet,
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet, ValidatorSetId,
 	VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use crml_support::EthAbiCodec;
@@ -185,7 +185,7 @@ where
 
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
-		for (message, event_id) in extract_proof_requests::<B>(&notification.header).iter() {
+		for (message, event_id) in extract_proof_requests::<B>(&notification.header, self.validator_set.id).iter() {
 			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, hex::encode(message));
 			// `message = abi.encode(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
@@ -315,7 +315,7 @@ where
 }
 
 /// Extract event proof requests from a digest in the given header, if any.
-fn extract_proof_requests<B>(header: &B::Header) -> Vec<(Message, EventId)>
+fn extract_proof_requests<B>(header: &B::Header, active_validator_set_id: ValidatorSetId) -> Vec<(Message, EventId)>
 where
 	B: Block,
 {
@@ -330,8 +330,9 @@ where
 					// Note: we also handle this in `find_authorities_change` to update the validator set
 					// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
 					// we must do this before the validators officially change next session (~10 minutes)
-					Some(ConsensusLog::PendingAuthoritiesChange((validator_set, event_id))) => {
-						let message = abi_encode_validator_set_change(&validator_set, event_id);
+					Some(ConsensusLog::PendingAuthoritiesChange((next_validator_set, event_id))) => {
+						let message =
+							abi_encode_validator_set_change(&next_validator_set, active_validator_set_id, event_id);
 						Some((message, event_id))
 					}
 					_ => None,
@@ -359,33 +360,41 @@ where
 }
 
 /// Ethereum ABI encode a validator set change message
-fn abi_encode_validator_set_change(validator_set: &ValidatorSet<Public>, event_id: EventId) -> Vec<u8> {
+fn abi_encode_validator_set_change(
+	next_validator_set: &ValidatorSet<Public>,
+	active_validator_set_id: ValidatorSetId,
+	event_id: EventId,
+) -> Vec<u8> {
 	use sp_runtime::traits::Convert;
 
 	// ethereum ABI encode the data
 	// https://docs.soliditylang.org/en/develop/abi-spec.html#use-of-dynamic-types
 	// types: 'address[]', 'uint', 'uint'
 	// header: v_offset, v_id, e_id, v_length, address0,.. addressN
-	let validator_count = validator_set.validators.len();
+	let validator_count = next_validator_set.validators.len();
 	let word_size = 32;
-	// need 4 + validator count words to encode
-	// - validator addresses offset
-	// - validator set id
+	// need 5 + validator count words to encode
+	// - next validator addresses offset
+	// - next validator set id
+	// - active validator set id (the witnesses)
 	// - event id
 	// - validator address length
 	// - validators addresses x `validator_count`
-	let encoded_words = 4 + validator_count;
+	let encoded_words = 5 + validator_count;
 	let mut message = vec![0_u8; word_size * encoded_words];
 	let mut offset = 0;
 
 	// build header section
-	// 1) offset for validator address data (3 * word_size)
-	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&(3 * word_size as u64)).as_slice());
+	// 1) offset for validator address data (4 * word_size)
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&(4 * word_size as u64)).as_slice());
 	offset += word_size;
-	// 2) encode validator set id
-	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&validator_set.id).as_slice());
+	// 2) encode next validator set id
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&next_validator_set.id).as_slice());
 	offset += word_size;
-	// 3) encode event id
+	// 3) encode current validator set id (witnesses)
+	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&active_validator_set_id).as_slice());
+	offset += word_size;
+	// 4) encode event id
 	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&event_id).as_slice());
 	offset += word_size;
 	// end header section
@@ -395,13 +404,44 @@ fn abi_encode_validator_set_change(validator_set: &ValidatorSet<Public>, event_i
 	message[offset..offset + word_size].copy_from_slice(EthAbiCodec::encode(&(validator_count as u64)).as_slice());
 	offset += word_size;
 	// Convert the validator ECDSA pub keys to addresses and `abi.encode()` them
-	for ecda_pubkey in validator_set.validators.clone().into_iter() {
+	for ecdsa_pubkey in next_validator_set.validators.clone().into_iter() {
 		// 0-12 should be 0 padded
 		// 12-32 contain the address bytes
-		message[offset + 12..offset + word_size].copy_from_slice(&EthyEcdsaToEthereum::convert(ecda_pubkey)[..]);
+		message[offset + 12..offset + word_size].copy_from_slice(&EthyEcdsaToEthereum::convert(ecdsa_pubkey)[..]);
 		offset += word_size;
 	}
 	// end data section
 
 	message
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use sp_core::Public as PublicT;
+
+	#[test]
+	fn encode_validator_set_change() {
+		let abi_encoded = abi_encode_validator_set_change(
+			&ValidatorSet::<Public> {
+				validators: vec![
+					Public::from_slice(
+						// `//Alice` ECDSA public key
+						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
+					),
+					Public::from_slice(
+						// `//Alice` ECDSA public key
+						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
+					),
+				],
+				id: 598,
+			},
+			599,
+			1_234_567,
+		);
+		assert_eq!(
+			hex::encode(abi_encoded),
+			"000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002560000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d687000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
+		);
+	}
 }
