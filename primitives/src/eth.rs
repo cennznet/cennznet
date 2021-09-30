@@ -104,10 +104,12 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 /// and is gossiped to its peers.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct Witness {
-	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, event_id))`
+	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, validator_set_id, event_id))`
 	pub digest: [u8; 32],
 	/// Event nonce (it is unique across all Ethy event proofs)
 	pub event_id: EventId,
+	/// The validator set witnessing the message
+	pub validator_set_id: ValidatorSetId,
 	/// Node public key (i.e. Ethy session key)
 	pub authority_id: crypto::AuthorityId,
 	/// Node signature

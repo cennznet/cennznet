@@ -725,26 +725,21 @@ impl<T: Config> Module<T> {
 
 		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
 		if T::FinalSessionTracker::is_next_session_final().0 {
-			log!(info, "💎 next session final");
+			log!(trace, "💎 next session final");
 			log_notary_change(queued.as_ref());
 		} else if T::FinalSessionTracker::is_active_session_final() {
 			// Pause bridge claim/proofs
 			// Prevents claims/proofs being partially processed and failing if the validator set changes
 			// significantly
-			log!(info, "💎 active session final");
+			// Note: the bridge will be reactivated at the end of the session
+			log!(trace, "💎 active session final");
 			BridgePaused::put(true);
 
 			if Self::next_notary_keys().is_empty() {
 				// if we're here the era was forced, we need to generate a proof asap
-				log!(info, "💎 log notary keys");
+				log!(warn, "💎 urgent notary key rotation");
 				log_notary_change(new.as_ref());
 			}
-
-			// Time to update the bridge validator keys.
-			// Store the new keys and increment the validator set id
-			<NotaryKeys<T>>::put(&Self::next_notary_keys());
-			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
-			// Note: the bridge will be reactivated at the end of the session
 		}
 	}
 }
@@ -833,10 +828,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
+			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new validator set
 			BridgePaused::kill();
+			// Time to update the bridge validator keys.
+			let next_notary_keys = NextNotaryKeys::<T>::take();
+			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
-			NextNotaryKeys::<T>::kill();
+			<NotaryKeys<T>>::put(&next_notary_keys);
+			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}
 	}
 

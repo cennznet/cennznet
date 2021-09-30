@@ -195,9 +195,10 @@ where
 					return;
 				}
 			};
-			warn!(target: "ethy", "💎 signed event id: {:?}, signature: {:?}", event_id, hex::encode(&signature));
+			warn!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
 			let witness = Witness {
 				digest: sp_core::keccak_256(message.as_ref()),
+				validator_set_id: self.validator_set.id,
 				event_id: *event_id,
 				authority_id: authority_id.clone(),
 				signature,
@@ -237,7 +238,7 @@ where
 			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
 		{
 			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
-			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}", witness.event_id, signatures);
+			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,

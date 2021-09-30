@@ -117,11 +117,12 @@ where
 		if let Ok(Witness {
 			authority_id,
 			event_id,
+			validator_set_id,
 			digest,
 			signature,
 		}) = Witness::decode(&mut data)
 		{
-			trace!(target: "ethy", "💎 witness from: {:?}, event: {:?}", authority_id, event_id);
+			trace!(target: "ethy", "💎 witness from: {:?}, validator set: {:?}, event: {:?}", authority_id, validator_set_id, event_id);
 
 			let mut known_votes = self.known_votes.write();
 			let maybe_known = known_votes.get(&event_id).map(|v| v.binary_search(&authority_id));

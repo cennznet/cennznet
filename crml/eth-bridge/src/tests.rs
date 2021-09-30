@@ -17,8 +17,10 @@ use crate as crml_eth_bridge;
 use crate::{Config, Module};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{EventClaimSubscriber, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml};
+use frame_support::traits::OneSessionHandler;
 use frame_support::{
 	parameter_types,
+	storage::StorageValue,
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use sp_core::{
@@ -241,9 +243,28 @@ fn pre_last_session_change() {
 #[test]
 fn last_session_change() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let set_id = Module::<TestRuntime>::notary_set_id();
-		Module::<TestRuntime>::handle_authorities_change(vec![], vec![]);
-		assert!(set_id + 1 == Module::<TestRuntime>::notary_set_id())
+		let current_set_id = Module::<TestRuntime>::notary_set_id();
+
+		// setup storage
+		let current_keys = vec![
+			AuthorityId::from_slice(&[1_u8; 33]),
+			AuthorityId::from_slice(&[2_u8; 33]),
+		];
+		crate::NotaryKeys::<TestRuntime>::put(&current_keys);
+		let next_keys = vec![
+			AuthorityId::from_slice(&[3_u8; 33]),
+			AuthorityId::from_slice(&[4_u8; 33]),
+		];
+		crate::NextNotaryKeys::<TestRuntime>::put(&next_keys);
+
+		// current session is last in era: starting
+		Module::<TestRuntime>::handle_authorities_change(current_keys, next_keys.clone());
+		assert!(Module::<TestRuntime>::bridge_paused());
+		// current session is last in era: finishing
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(Module::<TestRuntime>::notary_keys(), next_keys);
+		assert_eq!(Module::<TestRuntime>::notary_set_id(), current_set_id + 1);
+		assert!(!Module::<TestRuntime>::bridge_paused());
 	});
 }
 
