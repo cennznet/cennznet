@@ -725,7 +725,7 @@ decl_module! {
 		fn bid(origin, listing_id: ListingId, amount: Balance) {
 			let origin = ensure_signed(origin)?;
 
-			if let Some(Listing::Auction(listing)) = Self::listings(listing_id) {
+			if let Some(Listing::Auction(mut listing)) = Self::listings(listing_id) {
 				if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
 					ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
 				} else {
@@ -753,6 +753,18 @@ decl_module! {
 					}
 					*maybe_current_bid = Some((origin, amount))
 				});
+
+				// Auto extend auction if bid is made within certain amount of time of auction duration
+				let listing_end_block = listing.close;
+				let current_block = <frame_system::Module<T>>::block_number();
+				let blocks_till_close = listing_end_block - current_block;
+				let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
+				if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
+					ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
+					ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
+					listing.close = new_closing_block;
+					Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
+				}
 
 				let listing_collection_id = listing.tokens[0].0;
 				Self::deposit_event(RawEvent::Bid(listing_collection_id, listing_id, amount));

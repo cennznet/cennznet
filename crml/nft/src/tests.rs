@@ -1071,7 +1071,7 @@ fn auction_bundle() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, 1_000);
 		assert_ok!(Nft::bid(Some(buyer).into(), listing_id, 1_000));
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
 	})
@@ -1160,7 +1160,7 @@ fn auction() {
 		assert_eq!(GenericAsset::reserved_balance(payment_asset, &bidder_2), winning_bid);
 
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 		// no royalties, all proceeds to token owner
 		assert_eq!(GenericAsset::free_balance(payment_asset, &token_owner), winning_bid);
@@ -1185,6 +1185,38 @@ fn auction() {
 			winning_bid,
 			bidder_2
 		)));
+	});
+}
+
+#[test]
+fn bid_auto_extends() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		let payment_asset = PAYMENT_ASSET;
+		let reserve_price = 100_000;
+
+		let listing_id = Nft::next_listing_id();
+
+		assert_ok!(Nft::auction(
+			Some(token_owner).into(),
+			token_id,
+			payment_asset,
+			reserve_price,
+			Some(2),
+		));
+
+		// Place bid
+		let bidder_1 = 10;
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&bidder_1, payment_asset, reserve_price);
+		assert_ok!(Nft::bid(Some(bidder_1).into(), listing_id, reserve_price,));
+
+		if let Some(Listing::Auction(listing)) = Nft::listings(listing_id) {
+			assert_eq!(listing.close, System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
+		}
+		assert!(Nft::listing_end_schedule(
+			System::block_number() + AUCTION_EXTENSION_PERIOD as u64,
+			listing_id
+		));
 	});
 }
 
@@ -1220,7 +1252,7 @@ fn auction_royalty_payments() {
 		assert_ok!(Nft::bid(Some(bidder).into(), listing_id, reserve_price,));
 
 		// end auction
-		let _ = Nft::on_initialize(System::block_number() + 1);
+		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 		// royalties paid out
 		let presale_issuance = GenericAsset::total_issuance(payment_asset);
