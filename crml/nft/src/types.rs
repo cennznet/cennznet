@@ -26,6 +26,9 @@ use sp_std::prelude::*;
 use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use variant_count::VariantCount;
 
+// Time before auction ends that auction is extended if a bid is placed
+pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
+
 /// A base metadata URI string for a collection
 #[derive(Decode, Encode, Debug, Clone, PartialEq)]
 pub enum MetadataBaseURI {
