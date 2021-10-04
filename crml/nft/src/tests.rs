@@ -105,8 +105,8 @@ fn setup_token_with_royalties(
 }
 
 struct MassDropFixture {
-	mass_drop: MassDrop<AccountId>,
-	pre_sale: Option<PreSale<AccountId>>,
+	mass_drop: MassDrop,
+	presale: Option<Presale>,
 	collection_owner: u64,
 	collection_id: u32,
 	series_id: u32,
@@ -116,7 +116,7 @@ fn setup_default_mass_drop() -> MassDropFixture {
 	setup_mass_drop(None, None)
 }
 
-fn setup_mass_drop(mass_drop: Option<MassDrop<AccountId>>, pre_sale: Option<PreSale<AccountId>>) -> MassDropFixture {
+fn setup_mass_drop(mass_drop: Option<MassDrop>, presale: Option<Presale>) -> MassDropFixture {
 	let collection_owner = 1_u64;
 	let collection_id = setup_collection(collection_owner);
 	let series_id = Nft::next_series_id(collection_id);
@@ -133,7 +133,7 @@ fn setup_mass_drop(mass_drop: Option<MassDrop<AccountId>>, pre_sale: Option<PreS
 		max_supply: 1000,
 		transaction_limit: Some(10),
 		activation_time,
-		pre_sale: pre_sale.clone(),
+		presale: presale.clone(),
 	});
 
 	// mint_series with mass drop
@@ -154,7 +154,7 @@ fn setup_mass_drop(mass_drop: Option<MassDrop<AccountId>>, pre_sale: Option<PreS
 
 	MassDropFixture {
 		mass_drop,
-		pre_sale,
+		presale,
 		collection_owner,
 		collection_id,
 		series_id,
@@ -1854,7 +1854,7 @@ fn get_collection_info() {
 #[test]
 fn mint_series_with_mass_drop() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
@@ -1867,12 +1867,12 @@ fn mint_series_with_mass_drop() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop.clone()), Some(pre_sale.clone()));
+		let fixture = setup_mass_drop(Some(mass_drop.clone()), Some(presale.clone()));
 
 		assert_eq!(mass_drop, fixture.mass_drop);
-		assert_eq!(Some(pre_sale), fixture.pre_sale);
+		assert_eq!(Some(presale), fixture.presale);
 	});
 }
 
@@ -1893,7 +1893,7 @@ fn mint_mass_drop_with_invalid_activation_time_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 0,
-			pre_sale: None,
+			presale: None,
 		};
 		//Activation time <= current block should fail
 		assert_noop!(
@@ -1929,7 +1929,7 @@ fn mint_mass_drop_with_invalid_transaction_limit_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(1001),
 			activation_time: 10,
-			pre_sale: None,
+			presale: None,
 		};
 		//Activation time <= current block should fail
 		assert_noop!(
@@ -1965,7 +1965,7 @@ fn mint_mass_drop_with_zero_max_supply_should_fail() {
 			max_supply: 0,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: None,
+			presale: None,
 		};
 		//Activation time <= current block should fail
 		assert_noop!(
@@ -1985,7 +1985,7 @@ fn mint_mass_drop_with_zero_max_supply_should_fail() {
 }
 
 #[test]
-fn mint_mass_drop_with_invalid_pre_sale_activation_time_should_fail() {
+fn mint_mass_drop_with_invalid_presale_activation_time_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
@@ -1995,7 +1995,7 @@ fn mint_mass_drop_with_invalid_pre_sale_activation_time_should_fail() {
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![(collection_owner, Permill::one())],
 		};
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
@@ -2009,7 +2009,7 @@ fn mint_mass_drop_with_invalid_pre_sale_activation_time_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			pre_sale: Some(pre_sale),
+			presale: Some(presale),
 		};
 		// presale activation time >= mass drop activation time should fail
 		assert_noop!(
@@ -2029,7 +2029,7 @@ fn mint_mass_drop_with_invalid_pre_sale_activation_time_should_fail() {
 }
 
 #[test]
-fn mint_mass_drop_with_invalid_pre_sale_max_supply_should_fail() {
+fn mint_mass_drop_with_invalid_presale_max_supply_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
@@ -2039,7 +2039,7 @@ fn mint_mass_drop_with_invalid_pre_sale_max_supply_should_fail() {
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![(collection_owner, Permill::one())],
 		};
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 1001,
 			transaction_limit: Some(10),
@@ -2053,7 +2053,7 @@ fn mint_mass_drop_with_invalid_pre_sale_max_supply_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			pre_sale: Some(pre_sale),
+			presale: Some(presale),
 		};
 		// presale activation time >= massdrop activation time should fail
 		assert_noop!(
@@ -2073,7 +2073,7 @@ fn mint_mass_drop_with_invalid_pre_sale_max_supply_should_fail() {
 }
 
 #[test]
-fn mint_mass_drop_with_invalid_pre_sale_transaction_limit_should_fail() {
+fn mint_mass_drop_with_invalid_presale_transaction_limit_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
@@ -2083,7 +2083,7 @@ fn mint_mass_drop_with_invalid_pre_sale_transaction_limit_should_fail() {
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![(collection_owner, Permill::one())],
 		};
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 10,
 			transaction_limit: Some(1000),
@@ -2097,7 +2097,7 @@ fn mint_mass_drop_with_invalid_pre_sale_transaction_limit_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			pre_sale: Some(pre_sale),
+			presale: Some(presale),
 		};
 		// presale activation time >= massdrop activation time should fail
 		assert_noop!(
@@ -2117,10 +2117,10 @@ fn mint_mass_drop_with_invalid_pre_sale_transaction_limit_should_fail() {
 }
 
 #[test]
-fn update_existing_mass_drop_pre_sale() {
+fn update_existing_mass_drop_presale() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
@@ -2131,15 +2131,15 @@ fn update_existing_mass_drop_pre_sale() {
 			Some(fixture.collection_owner).into(),
 			fixture.collection_id,
 			fixture.series_id,
-			pre_sale.clone(),
+			presale.clone(),
 		));
 		assert!(has_event(RawEvent::UpdatePresale(
 			fixture.collection_id,
 			fixture.series_id,
-			pre_sale.clone(),
+			presale.clone(),
 		)));
 		let mut mass_drop = fixture.mass_drop;
-		mass_drop.pre_sale = Some(pre_sale);
+		mass_drop.presale = Some(presale);
 		assert_eq!(
 			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
 			Some(mass_drop)
@@ -2148,10 +2148,10 @@ fn update_existing_mass_drop_pre_sale() {
 }
 
 #[test]
-fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
+fn update_existing_mass_drop_presale_from_not_owner_account_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
@@ -2164,7 +2164,7 @@ fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
 				Some(3_u64).into(),
 				fixture.collection_id,
 				fixture.series_id,
-				pre_sale.clone(),
+				presale.clone(),
 			),
 			Error::<Test>::NoPermission
 		);
@@ -2172,7 +2172,7 @@ fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
 		assert!(!has_event(RawEvent::UpdatePresale(
 			fixture.collection_id,
 			fixture.series_id,
-			pre_sale.clone(),
+			presale.clone(),
 		)));
 		// Make sure mass drop hasn't changed
 		assert_eq!(
@@ -2183,10 +2183,10 @@ fn update_existing_mass_drop_pre_sale_from_not_owner_account_should_fail() {
 }
 
 #[test]
-fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
+fn update_existing_mass_drop_with_invalid_presale_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 10000,
 			transaction_limit: Some(10),
@@ -2198,7 +2198,7 @@ fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 				Some(fixture.collection_owner).into(),
 				fixture.collection_id,
 				fixture.series_id,
-				pre_sale.clone(),
+				presale.clone(),
 			),
 			Error::<Test>::PresaleInvalid
 		);
@@ -2206,7 +2206,7 @@ fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 		assert!(!has_event(RawEvent::UpdatePresale(
 			fixture.collection_id,
 			fixture.series_id,
-			pre_sale.clone(),
+			presale.clone(),
 		)));
 		// Make sure mass drop hasn't changed
 		assert_eq!(
@@ -2217,11 +2217,11 @@ fn update_existing_mass_drop_with_invalid_pre_sale_should_fail() {
 }
 
 #[test]
-fn update_existing_mass_drop_pre_sale_no_mass_drop_should_fail() {
+fn update_existing_mass_drop_presale_no_mass_drop_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 10000,
 			transaction_limit: Some(10),
@@ -2229,7 +2229,7 @@ fn update_existing_mass_drop_pre_sale_no_mass_drop_should_fail() {
 			whitelist: vec![],
 		};
 		assert_noop!(
-			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, pre_sale),
+			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, presale),
 			Error::<Test>::NoMassDropExists
 		);
 	});
@@ -2311,18 +2311,18 @@ fn update_existing_mass_drop_activation_time_no_mass_drop_should_fail() {
 }
 
 #[test]
-fn update_existing_pre_sale_activation_time() {
+fn update_existing_presale_activation_time() {
 	ExtBuilder::default().build().execute_with(|| {
-		let mut pre_sale = PreSale {
+		let mut presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
 			whitelist: vec![],
 		};
-		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 4;
-		assert_ok!(Nft::set_pre_sale_activation_time(
+		assert_ok!(Nft::set_presale_activation_time(
 			Some(fixture.collection_owner).into(),
 			fixture.collection_id,
 			fixture.series_id,
@@ -2334,8 +2334,8 @@ fn update_existing_pre_sale_activation_time() {
 			activation_time.clone(),
 		)));
 		let mut mass_drop = fixture.mass_drop;
-		pre_sale.activation_time = activation_time;
-		mass_drop.pre_sale = Some(pre_sale);
+		presale.activation_time = activation_time;
+		mass_drop.presale = Some(presale);
 		assert_eq!(
 			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
 			Some(mass_drop)
@@ -2344,19 +2344,19 @@ fn update_existing_pre_sale_activation_time() {
 }
 
 #[test]
-fn update_existing_pre_sale_invalid_activation_time_should_fail() {
+fn update_existing_presale_invalid_activation_time_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
 			whitelist: vec![],
 		};
-		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 100;
 		assert_noop!(
-			Nft::set_pre_sale_activation_time(
+			Nft::set_presale_activation_time(
 				Some(fixture.collection_owner).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2368,19 +2368,19 @@ fn update_existing_pre_sale_invalid_activation_time_should_fail() {
 }
 
 #[test]
-fn update_existing_pre_sale_activation_time_not_owner_should_fail() {
+fn update_existing_presale_activation_time_not_owner_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
 			whitelist: vec![],
 		};
-		let fixture = setup_mass_drop(None, Some(pre_sale.clone()));
+		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 4;
 		assert_noop!(
-			Nft::set_pre_sale_activation_time(
+			Nft::set_presale_activation_time(
 				Some(2_u64).into(),
 				fixture.collection_id,
 				fixture.series_id,
@@ -2392,28 +2392,28 @@ fn update_existing_pre_sale_activation_time_not_owner_should_fail() {
 }
 
 #[test]
-fn update_existing_pre_sale_activation_time_no_mass_drop_should_fail() {
+fn update_existing_presale_activation_time_no_mass_drop_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		assert_noop!(
-			Nft::set_pre_sale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
+			Nft::set_presale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
 			Error::<Test>::NoMassDropExists
 		);
 	});
 }
 
 #[test]
-fn update_existing_pre_sale_whitelist() {
+fn update_existing_presale_whitelist() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
 			whitelist: vec![],
 		};
-		let mut fixture = setup_mass_drop(None, Some(pre_sale));
+		let mut fixture = setup_mass_drop(None, Some(presale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
 		assert_ok!(Nft::set_presale_whitelist(
 			Some(fixture.collection_owner).into(),
@@ -2428,9 +2428,9 @@ fn update_existing_pre_sale_whitelist() {
 		)));
 
 		// Ensure storage was updated
-		let mut pre_sale = fixture.pre_sale.unwrap();
-		pre_sale.whitelist = whitelist;
-		fixture.mass_drop.pre_sale = Some(pre_sale);
+		let mut presale = fixture.presale.unwrap();
+		presale.whitelist = whitelist;
+		fixture.mass_drop.presale = Some(presale);
 		assert_eq!(
 			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
 			Some(fixture.mass_drop)
@@ -2439,16 +2439,16 @@ fn update_existing_pre_sale_whitelist() {
 }
 
 #[test]
-fn update_existing_pre_sale_whitelist_not_owner_should_fail() {
+fn update_existing_presale_whitelist_not_owner_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 20,
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
 			whitelist: vec![],
 		};
-		let fixture = setup_mass_drop(None, Some(pre_sale));
+		let fixture = setup_mass_drop(None, Some(presale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
 		assert_noop!(
 			Nft::set_presale_whitelist(
@@ -2463,7 +2463,7 @@ fn update_existing_pre_sale_whitelist_not_owner_should_fail() {
 }
 
 #[test]
-fn update_existing_pre_sale_whitelist_no_mass_drop_should_fail() {
+fn update_existing_presale_whitelist_no_mass_drop_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
@@ -2521,7 +2521,7 @@ fn enter_mass_drop_with_insufficient_funds_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(10),
 			activation_time,
-			pre_sale: None,
+			presale: None,
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), None);
 		let quantity: TokenCount = 1;
@@ -2549,7 +2549,7 @@ fn enter_mass_drop_too_high_quantity_should_fail() {
 			transaction_limit: Some(1),
 			activation_time,
 			whitelist: vec![],
-			pre_sale: None,
+			presale: None,
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), None);
 		let quantity: TokenCount = 2;
@@ -2591,9 +2591,9 @@ fn enter_mass_drop_before_activation_as_owner() {
 }
 
 #[test]
-fn enter_pre_sale() {
+fn enter_presale() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 0,
 			max_supply: 10,
 			transaction_limit: None,
@@ -2606,9 +2606,9 @@ fn enter_pre_sale() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
 
 		assert_ok!(Nft::enter_mass_drop(
@@ -2621,9 +2621,9 @@ fn enter_pre_sale() {
 }
 
 #[test]
-fn enter_pre_sale_insufficient_funds_should_fail() {
+fn enter_presale_insufficient_funds_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 10,
 			max_supply: 10,
 			transaction_limit: None,
@@ -2636,9 +2636,9 @@ fn enter_pre_sale_insufficient_funds_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
 
 		// Should fail as collection_owner has insufficient funds
@@ -2647,9 +2647,9 @@ fn enter_pre_sale_insufficient_funds_should_fail() {
 }
 
 #[test]
-fn enter_pre_sale_before_activation_should_fail() {
+fn enter_presale_before_activation_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 0,
 			max_supply: 10,
 			transaction_limit: None,
@@ -2662,9 +2662,9 @@ fn enter_pre_sale_before_activation_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
 
 		assert_noop!(
@@ -2675,9 +2675,9 @@ fn enter_pre_sale_before_activation_should_fail() {
 }
 
 #[test]
-fn enter_pre_sale_on_whitelist() {
+fn enter_presale_on_whitelist() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 0,
 			max_supply: 10,
 			transaction_limit: None,
@@ -2690,9 +2690,9 @@ fn enter_pre_sale_on_whitelist() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
 
 		assert_ok!(Nft::enter_mass_drop(
@@ -2705,9 +2705,9 @@ fn enter_pre_sale_on_whitelist() {
 }
 
 #[test]
-fn enter_pre_sale_not_on_whitelist_should_fail() {
+fn enter_presale_not_on_whitelist_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 0,
 			max_supply: 10,
 			transaction_limit: None,
@@ -2720,9 +2720,9 @@ fn enter_pre_sale_not_on_whitelist_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
 
 		assert_noop!(
@@ -2733,9 +2733,9 @@ fn enter_pre_sale_not_on_whitelist_should_fail() {
 }
 
 #[test]
-fn enter_pre_sale_too_high_quantity_should_fail() {
+fn enter_presale_too_high_quantity_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let pre_sale = PreSale {
+		let presale = Presale {
 			price: 0,
 			max_supply: 10,
 			transaction_limit: Some(1),
@@ -2748,9 +2748,9 @@ fn enter_pre_sale_too_high_quantity_should_fail() {
 			max_supply: 1000,
 			transaction_limit: None,
 			activation_time: 10,
-			pre_sale: Some(pre_sale.clone()),
+			presale: Some(presale.clone()),
 		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(pre_sale));
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 2;
 
 		assert_noop!(

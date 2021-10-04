@@ -119,7 +119,7 @@ decl_event!(
 		/// Mass drop whitelist was updated (collection, series, account ids)
 		UpdateMassDropWhitelist(CollectionId, SeriesId, Vec<AccountId>),
 		/// Presale was updated (collection, series, presale)
-		UpdatePresale(CollectionId, SeriesId, PreSale<AccountId>),
+		UpdatePresale(CollectionId, SeriesId, Presale),
 		/// Activation time was changed (collection, series, activation time)
 		UpdatePresaleActivationTime(CollectionId, SeriesId, BlockNumber),
 		/// Presale whitelist was updated (collection, series, account ids)
@@ -212,8 +212,10 @@ decl_storage! {
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
-		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
-		pub SeriesMassDrops get(fn series_mass_drops): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<MassDrop<T::AccountId>>;
+		/// Map from a token series to its massdrop object
+		pub SeriesMassDrops get(fn series_mass_drops): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<MassDrop>;
+		/// Map from a token series to its presale whitelist
+		pub PresaleWhitelist get(fn presale_whitelist): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) T::AccountId => bool;
 		/// Demarcates a series limited to exactly one token
 		IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// The next available collection Id
@@ -356,7 +358,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			let owner = Self::collection_owner(collection_id);
 			ensure!(owner.is_some(), Error::<T>::NoCollectionOwner);
-			let mass_drop: MassDrop<T::AccountId> = Self::series_mass_drops(collection_id, series_id)
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
 				.ok_or(Error::<T>::NoMassDropExists)?;
 			let owner = owner.unwrap();
 			let is_owner = owner == origin.clone();
@@ -369,10 +371,15 @@ decl_module! {
 
 			let (price, max_supply, transaction_limit) = if current_block >= T::BlockNumber::from(mass_drop.activation_time) {
 				(mass_drop.price, mass_drop.max_supply, mass_drop.transaction_limit)
-			} else if mass_drop.pre_sale.is_some() && current_block >= T::BlockNumber::from(mass_drop.pre_sale.clone().unwrap().activation_time) {
-				let pre_sale = mass_drop.pre_sale.unwrap();
-				ensure!(pre_sale.whitelist.is_empty() || pre_sale.whitelist.contains(&origin) || is_owner, Error::<T>::NoPermission);
-				(pre_sale.price, pre_sale.max_supply, pre_sale.transaction_limit)
+			} else if mass_drop.presale.is_some() && current_block >= T::BlockNumber::from(mass_drop.presale.clone().unwrap().activation_time) {
+				let presale = mass_drop.presale.unwrap();
+				ensure!(
+					<PresaleWhitelist<T>>::iter_prefix((collection_id, series_id)).next().is_none() ||
+					<PresaleWhitelist<T>>::contains_key((collection_id, series_id), &origin) ||
+					is_owner,
+					Error::<T>::NoPermission
+				);
+				(presale.price, presale.max_supply, presale.transaction_limit)
 			} else {
 				return Err(Error::<T>::MassDropNotStarted.into());
 			};
@@ -380,7 +387,15 @@ decl_module! {
 			if let Some(transaction_limit) = transaction_limit {
 				ensure!(quantity <= transaction_limit, Error::<T>::PurchaseQuantityTooHigh);
 			}
-			ensure!(serial_number + quantity <= max_supply, Error::<T>::NotEnoughTokens);
+
+			ensure!(serial_number <= max_supply, Error::<T>::NotEnoughTokens);
+			let quantity = if serial_number + quantity >= max_supply {
+				PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+				max_supply - serial_number
+			}else {
+				quantity
+			};
+
 			Self::process_drop_payment(&origin, owner, price, quantity, mass_drop.asset_id)?;
 			Self::do_mint_additional(&origin, collection_id, series_id, serial_number, quantity)?;
 			Self::deposit_event(RawEvent::EnterMassDrop(collection_id, series_id, quantity, origin));
@@ -398,7 +413,7 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
-			let mut mass_drop: MassDrop<T::AccountId> = Self::series_mass_drops(collection_id, series_id)
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
 				.ok_or(Error::<T>::NoMassDropExists)?;
 			let current_block = <frame_system::Module<T>>::block_number();
 
@@ -408,7 +423,7 @@ decl_module! {
 			);
 			mass_drop.activation_time = new_activation_time;
 			ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
-			SeriesMassDrops::<T>::mutate(collection_id, series_id, |i| *i = Some(mass_drop));
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
 			Self::deposit_event(RawEvent::UpdateMassDropActivationTime(collection_id, series_id, new_activation_time));
 			Ok(())
 		}
@@ -420,29 +435,29 @@ decl_module! {
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
-			pre_sale: PreSale<T::AccountId>,
+			presale: Presale,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
-			let mut mass_drop: MassDrop<T::AccountId> = Self::series_mass_drops(collection_id, series_id)
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
 				.ok_or(Error::<T>::NoMassDropExists)?;
 
-			ensure!(pre_sale.validate(&mass_drop), Error::<T>::PresaleInvalid);
+			ensure!(presale.validate(&mass_drop), Error::<T>::PresaleInvalid);
 			let current_block = <frame_system::Module<T>>::block_number();
 			ensure!(
-				current_block < T::BlockNumber::from(pre_sale.activation_time),
+				current_block < T::BlockNumber::from(presale.activation_time),
 				Error::<T>::ActivationTimeInvalid
 			);
-			mass_drop.pre_sale = Some(pre_sale.clone());
-			SeriesMassDrops::<T>::insert(collection_id, series_id, mass_drop);
-			Self::deposit_event(RawEvent::UpdatePresale(collection_id, series_id, pre_sale));
+			mass_drop.presale = Some(presale.clone());
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
+			Self::deposit_event(RawEvent::UpdatePresale(collection_id, series_id, presale));
 			Ok(())
 		}
 
 		/// Add account_ids to the presale whitelist
 		/// Enter an empty array to clear the whitelist
 		/// Will replace the whitelist with the one supplied
-		#[weight = 50_000_000]
+		#[weight = 70_000_000]
 		#[transactional]
 		fn set_presale_whitelist(
 			origin,
@@ -452,23 +467,21 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
-			let mut mass_drop: MassDrop<T::AccountId> = Self::series_mass_drops(collection_id, series_id)
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
 				.ok_or(Error::<T>::NoMassDropExists)?;
-			let mut pre_sale: PreSale<T::AccountId> = mass_drop.pre_sale
-				.ok_or(Error::<T>::NoPresaleExists)?;
-			let whitelist = account_ids;
-
-			pre_sale.whitelist = whitelist.clone();
-			mass_drop.pre_sale = Some(pre_sale);
-			SeriesMassDrops::<T>::insert(collection_id, series_id, mass_drop);
-			Self::deposit_event(RawEvent::UpdatePresaleWhitelist(collection_id, series_id, whitelist));
+			ensure!(mass_drop.presale.is_some(), Error::<T>::NoPresaleExists);
+			PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+			for account in &account_ids {
+				PresaleWhitelist::<T>::insert((collection_id, series_id), account, true);
+			}
+			Self::deposit_event(RawEvent::UpdatePresaleWhitelist(collection_id, series_id, account_ids));
 			Ok(())
 		}
 
-		/// Change the activation time of an existing pre_sale
+		/// Change the activation time of an existing presale
 		#[weight = 4_000_000] // Change this to appropriate weighting
 		#[transactional]
-		fn set_pre_sale_activation_time(
+		fn set_presale_activation_time(
 			origin,
 			collection_id: CollectionId,
 			series_id: SeriesId,
@@ -476,9 +489,9 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
-			let mut mass_drop: MassDrop<T::AccountId> = Self::series_mass_drops(collection_id, series_id)
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
 				.ok_or(Error::<T>::NoMassDropExists)?;
-			let mut pre_sale: PreSale<T::AccountId> = mass_drop.pre_sale
+			let mut presale: Presale = mass_drop.presale
 				.ok_or(Error::<T>::NoPresaleExists)?;
 			let current_block = <frame_system::Module<T>>::block_number();
 
@@ -487,10 +500,10 @@ decl_module! {
 				Error::<T>::ActivationTimeInvalid
 			);
 
-			pre_sale.activation_time = new_activation_time;
-			mass_drop.pre_sale = Some(pre_sale);
+			presale.activation_time = new_activation_time;
+			mass_drop.presale = Some(presale);
 			ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
-			SeriesMassDrops::<T>::insert(collection_id, series_id, mass_drop);
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
 			Self::deposit_event(RawEvent::UpdatePresaleActivationTime(collection_id, series_id, new_activation_time));
 			Ok(())
 
@@ -518,7 +531,7 @@ decl_module! {
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-			mass_drop: Option<MassDrop<T::AccountId>>
+			mass_drop: Option<MassDrop>
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -550,7 +563,7 @@ decl_module! {
 					current_block < T::BlockNumber::from(mass_drop.activation_time),
 					Error::<T>::ActivationTimeInvalid
 				);
-				SeriesMassDrops::<T>::insert(collection_id, series_id, mass_drop);
+				SeriesMassDrops::insert(collection_id, series_id, mass_drop);
 			} else {
 				ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 			}

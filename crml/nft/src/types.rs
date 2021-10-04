@@ -91,7 +91,7 @@ pub struct TokenInfo<AccountId> {
 /// Configuration for a mass drop
 #[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct MassDrop<AccountId> {
+pub struct MassDrop {
 	// Price of the tokens
 	pub price: Balance,
 	// asset id to use for payment
@@ -103,10 +103,10 @@ pub struct MassDrop<AccountId> {
 	// Block time that the mass_drop goes on sale
 	pub activation_time: BlockNumber,
 	// Presale info for the mass_drop
-	pub pre_sale: Option<PreSale<AccountId>>,
+	pub presale: Option<Presale>,
 }
 
-impl<AccountId> MassDrop<AccountId> {
+impl MassDrop {
 	/// True if transaction_limit is smaller than supply
 	/// And activation time is valid
 	/// And presale is valid
@@ -117,8 +117,8 @@ impl<AccountId> MassDrop<AccountId> {
 			}
 		}
 		// Validate presale
-		if let Some(pre_sale) = &self.pre_sale {
-			if !pre_sale.validate(self) {
+		if let Some(presale) = &self.presale {
+			if !presale.validate(self) {
 				return false;
 			}
 		}
@@ -129,18 +129,17 @@ impl<AccountId> MassDrop<AccountId> {
 /// configuration for pre sale
 #[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct PreSale<AccountId> {
+pub struct Presale {
 	pub price: Balance,
 	pub transaction_limit: Option<TokenCount>,
 	pub activation_time: BlockNumber, // Block number?
 	pub max_supply: TokenCount,
-	pub whitelist: Vec<AccountId>, // TODO Restrict to tx limit per account total
 }
 
-impl<AccountId> PreSale<AccountId> {
+impl Presale {
 	/// True if transaction_limit is smaller than supply
 	/// And activation time is valid
-	pub fn validate(&self, mass_drop: &MassDrop<AccountId>) -> bool {
+	pub fn validate(&self, mass_drop: &MassDrop) -> bool {
 		if let Some(transaction_limit) = self.transaction_limit {
 			if transaction_limit > self.max_supply {
 				return false;
