@@ -1859,7 +1859,6 @@ fn mint_series_with_mass_drop() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		let mass_drop = MassDrop {
 			price: 20,
@@ -2000,7 +1999,6 @@ fn mint_mass_drop_with_invalid_presale_activation_time_should_fail() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 		};
 
 		let mass_drop = MassDrop {
@@ -2044,7 +2042,6 @@ fn mint_mass_drop_with_invalid_presale_max_supply_should_fail() {
 			max_supply: 1001,
 			transaction_limit: Some(10),
 			activation_time: 5,
-			whitelist: vec![],
 		};
 
 		let mass_drop = MassDrop {
@@ -2088,7 +2085,6 @@ fn mint_mass_drop_with_invalid_presale_transaction_limit_should_fail() {
 			max_supply: 10,
 			transaction_limit: Some(1000),
 			activation_time: 5,
-			whitelist: vec![],
 		};
 
 		let mass_drop = MassDrop {
@@ -2125,7 +2121,6 @@ fn update_existing_mass_drop_presale() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		assert_ok!(Nft::set_mass_drop_presale(
 			Some(fixture.collection_owner).into(),
@@ -2156,7 +2151,6 @@ fn update_existing_mass_drop_presale_from_not_owner_account_should_fail() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 
 		assert_noop!(
@@ -2191,7 +2185,6 @@ fn update_existing_mass_drop_with_invalid_presale_should_fail() {
 			max_supply: 10000,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		assert_noop!(
 			Nft::set_mass_drop_presale(
@@ -2226,7 +2219,6 @@ fn update_existing_mass_drop_presale_no_mass_drop_should_fail() {
 			max_supply: 10000,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		assert_noop!(
 			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, presale),
@@ -2318,7 +2310,6 @@ fn update_existing_presale_activation_time() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
-			whitelist: vec![],
 		};
 		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 4;
@@ -2351,7 +2342,6 @@ fn update_existing_presale_invalid_activation_time_should_fail() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
-			whitelist: vec![],
 		};
 		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 100;
@@ -2375,7 +2365,6 @@ fn update_existing_presale_activation_time_not_owner_should_fail() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 3,
-			whitelist: vec![],
 		};
 		let fixture = setup_mass_drop(None, Some(presale.clone()));
 		let activation_time = 4;
@@ -2411,7 +2400,6 @@ fn update_existing_presale_whitelist() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		let mut fixture = setup_mass_drop(None, Some(presale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
@@ -2428,13 +2416,12 @@ fn update_existing_presale_whitelist() {
 		)));
 
 		// Ensure storage was updated
-		let mut presale = fixture.presale.unwrap();
-		presale.whitelist = whitelist;
-		fixture.mass_drop.presale = Some(presale);
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(fixture.mass_drop)
-		);
+		for account in whitelist {
+			assert!(PresaleWhitelist::<Test>::contains_key(
+				(fixture.collection_id, fixture.series_id),
+				account
+			));
+		}
 	});
 }
 
@@ -2446,7 +2433,6 @@ fn update_existing_presale_whitelist_not_owner_should_fail() {
 			max_supply: 100,
 			transaction_limit: Some(10),
 			activation_time: 4,
-			whitelist: vec![],
 		};
 		let fixture = setup_mass_drop(None, Some(presale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
@@ -2548,7 +2534,6 @@ fn enter_mass_drop_too_high_quantity_should_fail() {
 			max_supply: 1000,
 			transaction_limit: Some(1),
 			activation_time,
-			whitelist: vec![],
 			presale: None,
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), None);
@@ -2598,7 +2583,6 @@ fn enter_presale() {
 			max_supply: 10,
 			transaction_limit: None,
 			activation_time: 0,
-			whitelist: vec![],
 		};
 		let mass_drop = MassDrop {
 			price: 0,
@@ -2628,7 +2612,6 @@ fn enter_presale_insufficient_funds_should_fail() {
 			max_supply: 10,
 			transaction_limit: None,
 			activation_time: 0,
-			whitelist: vec![],
 		};
 		let mass_drop = MassDrop {
 			price: 0,
@@ -2654,7 +2637,6 @@ fn enter_presale_before_activation_should_fail() {
 			max_supply: 10,
 			transaction_limit: None,
 			activation_time: 5,
-			whitelist: vec![],
 		};
 		let mass_drop = MassDrop {
 			price: 0,
@@ -2669,7 +2651,7 @@ fn enter_presale_before_activation_should_fail() {
 
 		assert_noop!(
 			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::PresaleNotStarted
+			Error::<Test>::MassDropNotStarted
 		);
 	});
 }
@@ -2682,7 +2664,6 @@ fn enter_presale_on_whitelist() {
 			max_supply: 10,
 			transaction_limit: None,
 			activation_time: 0,
-			whitelist: vec![2_u64],
 		};
 		let mass_drop = MassDrop {
 			price: 0,
@@ -2712,7 +2693,6 @@ fn enter_presale_not_on_whitelist_should_fail() {
 			max_supply: 10,
 			transaction_limit: None,
 			activation_time: 0,
-			whitelist: vec![2_u64],
 		};
 		let mass_drop = MassDrop {
 			price: 0,
@@ -2724,10 +2704,16 @@ fn enter_presale_not_on_whitelist_should_fail() {
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
-
+		let whitelist = vec![1_u64, 2_u64];
+		assert_ok!(Nft::set_presale_whitelist(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			whitelist.clone(),
+		));
 		assert_noop!(
 			Nft::enter_mass_drop(Some(3_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::NotInWhitelist
+			Error::<Test>::NoPermission
 		);
 	});
 }
@@ -2740,7 +2726,6 @@ fn enter_presale_too_high_quantity_should_fail() {
 			max_supply: 10,
 			transaction_limit: Some(1),
 			activation_time: 0,
-			whitelist: vec![],
 		};
 		let mass_drop = MassDrop {
 			price: 0,

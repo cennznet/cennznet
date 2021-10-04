@@ -369,14 +369,13 @@ decl_module! {
 			);
 			let current_block = <frame_system::Module<T>>::block_number();
 
-			let (price, max_supply, transaction_limit) = if current_block >= T::BlockNumber::from(mass_drop.activation_time) {
+			let (price, max_supply, transaction_limit) = if current_block >= T::BlockNumber::from(mass_drop.activation_time) || is_owner {
 				(mass_drop.price, mass_drop.max_supply, mass_drop.transaction_limit)
 			} else if mass_drop.presale.is_some() && current_block >= T::BlockNumber::from(mass_drop.presale.clone().unwrap().activation_time) {
 				let presale = mass_drop.presale.unwrap();
 				ensure!(
 					<PresaleWhitelist<T>>::iter_prefix((collection_id, series_id)).next().is_none() ||
-					<PresaleWhitelist<T>>::contains_key((collection_id, series_id), &origin) ||
-					is_owner,
+					<PresaleWhitelist<T>>::contains_key((collection_id, series_id), &origin),
 					Error::<T>::NoPermission
 				);
 				(presale.price, presale.max_supply, presale.transaction_limit)
