@@ -386,8 +386,13 @@ fn transform_session_keys(_v: AccountId, old: SessionKeysV40) -> SessionKeys {
 pub struct UpgradeSessionKeys;
 impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		Session::upgrade_keys::<SessionKeysV40, _>(transform_session_keys);
-		Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
+		// Keys upgraded since 41
+		if <frame_system::LastRuntimeUpgrade<Runtime>>::get().spec_version >= 41 {
+			Zero::zero()
+		} else {
+			Session::upgrade_keys::<SessionKeysV40, _>(transform_session_keys);
+			Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
+		}
 	}
 }
 
