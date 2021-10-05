@@ -306,6 +306,8 @@ pub struct AuctionListing<T: Config> {
 	pub tokens: Vec<TokenId>,
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+	/// The marketplace this is being sold on
+	pub marketplace: Option<T::AccountId>,
 }
 
 /// Information about a fixed price listing
@@ -325,6 +327,8 @@ pub struct FixedPriceListing<T: Config> {
 	pub tokens: Vec<TokenId>,
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+	/// The marketplace this is being sold on
+	pub marketplace: Option<T::AccountId>,
 }
 
 /// Auto-incrementing Uint

@@ -46,7 +46,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchResult,
+	DispatchResult, PerThing, Permill,
 };
 use sp_std::prelude::*;
 
@@ -152,6 +152,8 @@ decl_error! {
 		AddToUniqueIssue,
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
+		/// The account_id hasn't been registered as a marketplace
+		MarketplaceNotRegistered
 	}
 }
 
@@ -170,6 +172,8 @@ decl_storage! {
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
+		/// Map from marketplace account_id to royalties schedule
+		pub RegisteredMarketplaces get(fn registered_marketplaces): map hasher(twox_64_concat) T::AccountId => Permill;
 		/// Map from (collection, series) to its attributes
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
 		/// Map from (collection, series) to configured royalties schedule
@@ -277,6 +281,15 @@ decl_module! {
 			} else {
 				Err(Error::<T>::NoCollection.into())
 			}
+		}
+
+		/// Flag an account as a marketplace
+		#[weight = 16_000_000]
+		fn register_marketplace(origin, entitlement: Permill) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(entitlement.deconstruct() as u32 <= Permill::ACCURACY, Error::<T>::RoyaltiesInvalid);
+			<RegisteredMarketplaces<T>>::insert(origin, entitlement);
+			Ok(())
 		}
 
 		/// Create a new token collection
@@ -541,11 +554,12 @@ decl_module! {
 		/// `asset_id` fungible asset Id to receive as payment for the NFT
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
+		/// `marketplace` optionally, the marketplace that the NFT is being sold on
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::sell()]
 		#[transactional]
-		fn sell(origin, token_id: TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
-			Self::sell_bundle(origin, vec![token_id], buyer, payment_asset, fixed_price, duration)?;
+		fn sell(origin, token_id: TokenId, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>, marketplace: Option<T::AccountId>) {
+			Self::sell_bundle(origin, vec![token_id], buyer, payment_asset, fixed_price, duration, marketplace)?;
 		}
 
 		/// Sell a bundle of tokens at a fixed price
@@ -564,14 +578,14 @@ decl_module! {
 				)
 		}]
 		#[transactional]
-		fn sell_bundle(origin, tokens: Vec<TokenId>, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>) {
+		fn sell_bundle(origin, tokens: Vec<TokenId>, buyer: Option<T::AccountId>, payment_asset: AssetId, fixed_price: Balance, duration: Option<T::BlockNumber>, marketplace: Option<T::AccountId>) {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
 				return Err(Error::<T>::NoToken.into());
 			}
 
-			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
+			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace.clone())?;
 
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -595,6 +609,7 @@ decl_module! {
 					buyer: buyer.clone(),
 					seller: origin.clone(),
 					royalties_schedule,
+					marketplace,
 				}
 			);
 
@@ -659,8 +674,8 @@ decl_module! {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[weight = T::WeightInfo::sell()]
-		fn auction(origin, token_id: TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) -> DispatchResult {
-			Self::auction_bundle(origin, vec![token_id], payment_asset, reserve_price, duration)
+		fn auction(origin, token_id: TokenId, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>, marketplace: Option<T::AccountId>) -> DispatchResult {
+			Self::auction_bundle(origin, vec![token_id], payment_asset, reserve_price, duration, marketplace)
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -678,14 +693,14 @@ decl_module! {
 				)
 		}]
 		#[transactional]
-		fn auction_bundle(origin, tokens: Vec<TokenId>, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>) {
+		fn auction_bundle(origin, tokens: Vec<TokenId>, payment_asset: AssetId, reserve_price: Balance, duration: Option<T::BlockNumber>, marketplace: Option<T::AccountId>) {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
 				return Err(Error::<T>::NoToken.into());
 			}
 
-			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
+			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace.clone())?;
 
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -708,6 +723,7 @@ decl_module! {
 					tokens: tokens.clone(),
 					seller: origin.clone(),
 					royalties_schedule,
+					marketplace,
 				}
 			);
 
@@ -819,7 +835,10 @@ impl<T: Config> Module<T> {
 	/// 2) same collection and different series, no series royalties set (could extend to iff royalties equal)
 	/// Although possible, we do not support:
 	/// 3) different collections, no royalties allowed
-	fn check_bundle_royalties(tokens: &[TokenId]) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
+	fn check_bundle_royalties(
+		tokens: &[TokenId],
+		marketplace: Option<T::AccountId>,
+	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
 		// use the first token's collection as representative of the bundle
 		let (bundle_collection_id, bundle_series_id, _serial_number) = tokens[0];
 
@@ -832,10 +851,24 @@ impl<T: Config> Module<T> {
 				);
 			}
 		}
-
 		// series schedule takes priority if it exists
-		Ok(Self::series_royalties(bundle_collection_id, bundle_series_id)
-			.unwrap_or_else(|| Self::collection_royalties(bundle_collection_id).unwrap_or_else(Default::default)))
+		let mut royalties = Self::series_royalties(bundle_collection_id, bundle_series_id)
+			.unwrap_or_else(|| Self::collection_royalties(bundle_collection_id).unwrap_or_else(Default::default));
+		let royalties = match marketplace {
+			Some(marketplace) => {
+				ensure!(
+					<RegisteredMarketplaces<T>>::contains_key(&marketplace),
+					Error::<T>::MarketplaceNotRegistered
+				);
+				royalties
+					.entitlements
+					.push((marketplace.clone(), Self::registered_marketplaces(marketplace)));
+				ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
+				royalties
+			}
+			None => royalties,
+		};
+		Ok(royalties)
 	}
 	/// Transfer the given tokens from `current_owner` to `new_owner`
 	/// Does no verification
