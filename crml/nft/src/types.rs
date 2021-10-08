@@ -291,6 +291,15 @@ pub enum Listing<T: Config> {
 	Auction(AuctionListing<T>),
 }
 
+/// Information about a marketplace
+#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq)]
+pub struct Marketplace<AccountId> {
+	/// The marketplace account
+	pub account: AccountId,
+	/// Royalties to go to the marketplace
+	pub entitlement: Permill,
+}
+
 /// Information about an auction listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub struct AuctionListing<T: Config> {
@@ -307,7 +316,7 @@ pub struct AuctionListing<T: Config> {
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
-	pub marketplace: Option<T::AccountId>,
+	pub marketplace_id: Option<MarketplaceId>,
 }
 
 /// Information about a fixed price listing
@@ -328,7 +337,7 @@ pub struct FixedPriceListing<T: Config> {
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
-	pub marketplace: Option<T::AccountId>,
+	pub marketplace_id: Option<MarketplaceId>,
 }
 
 /// Auto-incrementing Uint
@@ -341,6 +350,10 @@ pub type CollectionNameType = Vec<u8>;
 /// Auto-incrementing Uint
 /// Uniquely identifies a series of tokens within a collection
 pub type SeriesId = u32;
+
+/// Auti-incrementing Uint
+/// Uniquely identifies a registered marketplace
+pub type MarketplaceId = u32;
 
 /// Auto-incrementing Uint
 /// Uniquely identifies a token within a series
