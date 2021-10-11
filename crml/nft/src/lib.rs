@@ -112,8 +112,8 @@ decl_event!(
 		AuctionClosed(CollectionId, ListingId, Reason),
 		/// A new highest bid was placed (collection, listing, amount)
 		Bid(CollectionId, ListingId, Balance),
-		/// Token(s) were purchased (collection, series, quantity, new owner)
-		EnterMassDrop(CollectionId, SeriesId, TokenCount, AccountId),
+		/// Token(s) were purchased (collection, series, quantity, first serial number, new owner)
+		EnterMassDrop(CollectionId, SeriesId, TokenCount, SerialNumber, AccountId),
 		/// Activation time was changed (collection, series, activation time)
 		UpdateMassDropActivationTime(CollectionId, SeriesId, BlockNumber),
 		/// Mass drop whitelist was updated (collection, series, account ids)
@@ -124,6 +124,10 @@ decl_event!(
 		UpdatePresaleActivationTime(CollectionId, SeriesId, BlockNumber),
 		/// Presale whitelist was updated (collection, series, account ids)
 		UpdatePresaleWhitelist(CollectionId, SeriesId, Vec<AccountId>),
+		/// All tokens in the presale have been minted
+		PresaleEnded(CollectionId, SeriesId),
+		/// All tokens in the mass drop have been minted
+		MassDropEnded(CollectionId, SeriesId),
 	}
 );
 
@@ -389,15 +393,20 @@ decl_module! {
 
 			ensure!(serial_number <= max_supply, Error::<T>::NotEnoughTokens);
 			let quantity = if serial_number + quantity >= max_supply {
-				PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+				if <PresaleWhitelist<T>>::iter_prefix((collection_id, series_id)).next().is_some() {
+					PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+					Self::deposit_event(RawEvent::PresaleEnded(collection_id, series_id));
+				} else {
+					Self::deposit_event(RawEvent::MassDropEnded(collection_id, series_id));
+				}
 				max_supply - serial_number
-			}else {
+			} else {
 				quantity
 			};
 
-			Self::process_drop_payment(&origin, owner, price, quantity, mass_drop.asset_id)?;
+			Self::process_drop_payment(&origin, &owner, price, quantity, mass_drop.asset_id)?;
 			Self::do_mint_additional(&origin, collection_id, series_id, serial_number, quantity)?;
-			Self::deposit_event(RawEvent::EnterMassDrop(collection_id, series_id, quantity, origin));
+			Self::deposit_event(RawEvent::EnterMassDrop(collection_id, series_id, quantity, serial_number, origin));
 			Ok(())
 		}
 
@@ -1039,7 +1048,7 @@ impl<T: Config> Module<T> {
 
 	fn process_drop_payment(
 		buyer: &T::AccountId,
-		owner: T::AccountId,
+		owner: &T::AccountId,
 		price: Balance,
 		quantity: TokenCount,
 		asset_id: AssetId,

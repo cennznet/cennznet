@@ -1930,7 +1930,7 @@ fn mint_mass_drop_with_invalid_transaction_limit_should_fail() {
 			activation_time: 10,
 			presale: None,
 		};
-		//Activation time <= current block should fail
+		// Mass drop invalid tx limit should fail
 		assert_noop!(
 			Nft::mint_series(
 				Some(collection_owner).into(),
@@ -2466,7 +2466,7 @@ fn enter_mass_drop() {
 	ExtBuilder::default().build().execute_with(|| {
 		let fixture = setup_default_mass_drop();
 		let activation_time: u32 = 5;
-
+		let serial_number = Nft::next_serial_number(fixture.collection_id, fixture.series_id);
 		System::set_block_number(activation_time as u64);
 		let quantity: TokenCount = 1;
 		assert_ok!(Nft::enter_mass_drop(
@@ -2480,6 +2480,7 @@ fn enter_mass_drop() {
 			fixture.collection_id,
 			fixture.series_id,
 			quantity,
+			serial_number,
 			fixture.collection_owner.into(),
 		)));
 	});
@@ -2675,7 +2676,13 @@ fn enter_presale_on_whitelist() {
 		};
 		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
 		let quantity: TokenCount = 1;
-
+		let whitelist = vec![2_u64];
+		assert_ok!(Nft::set_presale_whitelist(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			whitelist.clone(),
+		));
 		assert_ok!(Nft::enter_mass_drop(
 			Some(2_u64).into(),
 			fixture.collection_id,
