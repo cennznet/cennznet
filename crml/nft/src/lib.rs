@@ -46,7 +46,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchResult, PerThing, Permill,
+	DispatchResult, PerThing, Permill, Perquintill,
 };
 use sp_std::prelude::*;
 
@@ -691,7 +691,7 @@ decl_module! {
 					let mut for_seller = listing.fixed_price;
 					let mut imbalance = T::MultiCurrency::withdraw(&origin, listing.payment_asset, listing.fixed_price, WithdrawReasons::TRANSFER, ExistenceRequirement::AllowDeath)?;
 					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
-						let royalty = entitlement * listing.fixed_price;
+						let royalty = Perquintill::from_parts((entitlement.deconstruct() as u64 * 1_000_000_000_000u64).into()) * listing.fixed_price;
 						for_seller -= royalty;
 						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
 					}
