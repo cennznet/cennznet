@@ -351,7 +351,7 @@ pub type CollectionNameType = Vec<u8>;
 /// Uniquely identifies a series of tokens within a collection
 pub type SeriesId = u32;
 
-/// Auti-incrementing Uint
+/// Auto-incrementing Uint
 /// Uniquely identifies a registered marketplace
 pub type MarketplaceId = u32;
 

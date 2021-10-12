@@ -310,6 +310,8 @@ decl_module! {
 			};
 			<RegisteredMarketplaces<T>>::insert(&marketplace_id, marketplace);
 			Self::deposit_event(RawEvent::RegisteredMarketplace(marketplace_account, entitlement, marketplace_id));
+			let marketplace_id = NextMarketplaceId::get();
+			ensure!(marketplace_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 			NextMarketplaceId::mutate(|i| *i += 1);
 			Ok(())
 		}
@@ -587,7 +589,7 @@ decl_module! {
 			payment_asset: AssetId,
 			fixed_price: Balance,
 			duration: Option<T::BlockNumber>,
-			marketplace_id: Option<MarketplaceId>
+			marketplace_id: Option<MarketplaceId>,
 		) {
 			Self::sell_bundle(
 				origin,
@@ -596,7 +598,7 @@ decl_module! {
 				payment_asset,
 				fixed_price,
 				duration,
-				marketplace_id
+				marketplace_id,
 			)?;
 		}
 
@@ -655,7 +657,7 @@ decl_module! {
 					buyer: buyer.clone(),
 					seller: origin.clone(),
 					royalties_schedule,
-					marketplace_id: marketplace_id,
+					marketplace_id,
 				}
 			);
 
@@ -790,7 +792,7 @@ decl_module! {
 					tokens: tokens.clone(),
 					seller: origin.clone(),
 					royalties_schedule,
-					marketplace_id: marketplace_id,
+					marketplace_id,
 				}
 			);
 

@@ -804,8 +804,10 @@ fn register_marketplace() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account = 1;
 		let entitlements: Permill = Permill::from_fraction(0.1);
+		let marketplace_id = Nft::next_marketplace_id();
 		assert_ok!(Nft::register_marketplace(Some(account).into(), None, entitlements));
 		assert!(has_event(RawEvent::RegisteredMarketplace(account, entitlements, 0)));
+		assert_eq!(Nft::next_marketplace_id(), marketplace_id + 1);
 	});
 }
 
@@ -912,8 +914,6 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 			marketplace_entitlement
 		));
 		let marketplace_id = 0;
-		let listing_id = Nft::next_listing_id();
-		assert_eq!(listing_id, 0);
 		assert_noop!(
 			Nft::sell(
 				Some(token_owner).into(),
@@ -2146,7 +2146,6 @@ fn get_collection_listings_cursor_too_high() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let collection_id = setup_collection(owner);
-		let name = b"test-collection".to_vec();
 		let cursor: u128 = 300;
 		let limit: u16 = 1000;
 
