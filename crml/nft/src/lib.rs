@@ -128,6 +128,8 @@ decl_event!(
 		PresaleEnded(CollectionId, SeriesId),
 		/// All tokens in the mass drop have been minted
 		MassDropEnded(CollectionId, SeriesId),
+		/// metadata has been updated (collection, series)
+		MetadataUpdated(CollectionId, SeriesId),
 	}
 );
 
@@ -190,6 +192,10 @@ decl_error! {
 		NoCollectionOwner,
 		/// Can't mint additional when a mass drop is active
 		MassDropConfigured,
+		/// Metadata URIs already changed and Mass Drop has started
+		MetadataAlreadySet,
+		/// The number of Metadata URIs supplied doesn't match the Mass Drop max supply
+		IncorrectAmountOfUris,
 	}
 }
 
@@ -214,6 +220,8 @@ decl_storage! {
 		pub SeriesRoyalties get(fn series_royalties): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a (collection, series) to its total issuance
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
+		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
+		pub SerialNumberMetadataURI get(fn serial_number_metadata_uri): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => Option<Vec<u8>>;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
 		/// Map from a token series to its massdrop object
@@ -348,6 +356,46 @@ decl_module! {
 			IsSingleIssue::insert(collection_id, series_id, true);
 		}
 
+		/// Update metadata uris for tokens in a Mass Drop
+		/// If the mass drop has started, these URIs cannot be changed
+		/// Must pass in the entire vector of URIs of the same length of the Mass Drop Max Supply
+		#[weight = 78_000_000]
+		#[transactional]
+		fn update_metadata_uris(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			metadata_uris: Vec<Vec<u8>>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			ensure!(metadata_uris.len() as u32 == mass_drop.max_supply, Error::<T>::IncorrectAmountOfUris);
+			// Check if data already exists
+			// Check if mass drop has started, if it has, don't allow changing of data
+			let current_block = <frame_system::Module<T>>::block_number();
+			let serial_number: SerialNumber = 0;
+			if <SerialNumberMetadataURI>::contains_key((collection_id, series_id), serial_number) {
+				ensure!(
+					current_block < T::BlockNumber::from(mass_drop.activation_time),
+					Error::<T>::MetadataAlreadySet
+				);
+				if mass_drop.presale.is_some() {
+					ensure!(
+						current_block < T::BlockNumber::from(mass_drop.presale.clone().unwrap().activation_time),
+						Error::<T>::MetadataAlreadySet
+					);
+				}
+			}
+			// Loop through each metadata uri
+			for (i, uri) in metadata_uris.iter().enumerate() {
+				let serial_number: SerialNumber = (i as u32).into();
+				SerialNumberMetadataURI::insert((collection_id, series_id), serial_number, uri);
+			}
+			Self::deposit_event(RawEvent::MetadataUpdated(collection_id, series_id));
+			Ok(())
+		}
 		/// Buy tokens from an active mass_drop
 		/// Checks to make sure the drop has started
 		/// If the whitelist is not empty, only whitelisted accounts will be able to join

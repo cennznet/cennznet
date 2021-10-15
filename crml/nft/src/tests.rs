@@ -2401,7 +2401,7 @@ fn update_existing_presale_whitelist() {
 			transaction_limit: Some(10),
 			activation_time: 4,
 		};
-		let mut fixture = setup_mass_drop(None, Some(presale));
+		let fixture = setup_mass_drop(None, Some(presale));
 		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
 		assert_ok!(Nft::set_presale_whitelist(
 			Some(fixture.collection_owner).into(),
@@ -2748,6 +2748,233 @@ fn enter_presale_too_high_quantity_should_fail() {
 		assert_noop!(
 			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
 			Error::<Test>::PurchaseQuantityTooHigh
+		);
+	});
+}
+
+#[test]
+fn update_metadata_uris() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 5,
+			transaction_limit: None,
+			activation_time: 10,
+			presale: None,
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), None);
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+			String::from("test2").as_bytes().to_vec(),
+			String::from("test3").as_bytes().to_vec(),
+			String::from("test4").as_bytes().to_vec(),
+		];
+		assert_ok!(Nft::update_metadata_uris(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			metadata_uris.clone(),
+		));
+		assert!(has_event(RawEvent::MetadataUpdated(
+			fixture.collection_id,
+			fixture.series_id,
+		)));
+	});
+}
+
+#[test]
+fn update_metadata_uris_incorrect_amount_of_uris_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 5,
+			transaction_limit: None,
+			activation_time: 10,
+			presale: None,
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), None);
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+			String::from("test2").as_bytes().to_vec(),
+			String::from("test3").as_bytes().to_vec(),
+		];
+		assert_noop!(
+			Nft::update_metadata_uris(
+				Some(fixture.collection_owner).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				metadata_uris,
+			),
+			Error::<Test>::IncorrectAmountOfUris
+		);
+	});
+}
+
+#[test]
+fn update_metadata_uris_not_owner_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 5,
+			transaction_limit: None,
+			activation_time: 10,
+			presale: None,
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), None);
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+			String::from("test2").as_bytes().to_vec(),
+			String::from("test3").as_bytes().to_vec(),
+			String::from("test4").as_bytes().to_vec(),
+		];
+		assert_noop!(
+			Nft::update_metadata_uris(
+				Some(10u64).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				metadata_uris,
+			),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
+fn update_metadata_uris_twice_before_start() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 5,
+			transaction_limit: None,
+			activation_time: 10,
+			presale: None,
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), None);
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+			String::from("test2").as_bytes().to_vec(),
+			String::from("test3").as_bytes().to_vec(),
+			String::from("test4").as_bytes().to_vec(),
+		];
+		assert_ok!(Nft::update_metadata_uris(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			metadata_uris.clone(),
+		));
+		let metadata_uris = vec![
+			String::from("testing").as_bytes().to_vec(),
+			String::from("testing1").as_bytes().to_vec(),
+			String::from("testing2").as_bytes().to_vec(),
+			String::from("testing3").as_bytes().to_vec(),
+			String::from("testing4").as_bytes().to_vec(),
+		];
+		assert_ok!(Nft::update_metadata_uris(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			metadata_uris.clone(),
+		));
+		assert!(has_event(RawEvent::MetadataUpdated(
+			fixture.collection_id,
+			fixture.series_id,
+		)));
+	});
+}
+
+#[test]
+fn update_metadata_uris_twice_after_mass_drop_start_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let activation_time = 2;
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 2,
+			transaction_limit: None,
+			activation_time,
+			presale: None,
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), None);
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+		];
+		assert_ok!(Nft::update_metadata_uris(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			metadata_uris.clone(),
+		));
+		System::set_block_number(activation_time as u64);
+
+		let metadata_uris = vec![
+			String::from("testing").as_bytes().to_vec(),
+			String::from("testing1").as_bytes().to_vec(),
+		];
+		assert_noop!(
+			Nft::update_metadata_uris(
+				Some(fixture.collection_owner).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				metadata_uris.clone(),
+			),
+			Error::<Test>::MetadataAlreadySet
+		);
+	});
+}
+
+#[test]
+fn update_metadata_uris_twice_after_presale_start_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let activation_time = 2;
+		let presale = Presale {
+			price: 0,
+			max_supply: 1,
+			transaction_limit: Some(1),
+			activation_time,
+		};
+		let mass_drop = MassDrop {
+			price: 0,
+			asset_id: 16000,
+			max_supply: 2,
+			transaction_limit: None,
+			activation_time: activation_time + 1,
+			presale: Some(presale.clone()),
+		};
+		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
+		let metadata_uris = vec![
+			String::from("test").as_bytes().to_vec(),
+			String::from("test1").as_bytes().to_vec(),
+		];
+		assert_ok!(Nft::update_metadata_uris(
+			Some(fixture.collection_owner).into(),
+			fixture.collection_id,
+			fixture.series_id,
+			metadata_uris.clone(),
+		));
+		System::set_block_number(activation_time as u64);
+		Nft::on_initialize(System::block_number());
+
+		let metadata_uris = vec![
+			String::from("testing").as_bytes().to_vec(),
+			String::from("testing1").as_bytes().to_vec(),
+		];
+		assert_noop!(
+			Nft::update_metadata_uris(
+				Some(fixture.collection_owner).into(),
+				fixture.collection_id,
+				fixture.series_id,
+				metadata_uris.clone(),
+			),
+			Error::<Test>::MetadataAlreadySet
 		);
 	});
 }
