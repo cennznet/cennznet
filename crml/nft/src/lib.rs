@@ -128,8 +128,8 @@ decl_event!(
 		PresaleEnded(CollectionId, SeriesId),
 		/// All tokens in the mass drop have been minted
 		MassDropEnded(CollectionId, SeriesId),
-		/// metadata has been updated (collection, series)
-		MetadataUpdated(CollectionId, SeriesId),
+		/// metadata has been updated (collection, series, last_serial_number)
+		MetadataUpdated(CollectionId, SeriesId, SerialNumber),
 	}
 );
 
@@ -389,11 +389,12 @@ decl_module! {
 				}
 			}
 			// Loop through each metadata uri
+			let mut serial_number: SerialNumber = 0;
 			for (i, uri) in metadata_uris.iter().enumerate() {
-				let serial_number: SerialNumber = (i as u32).into();
+				serial_number = (i as u32).into();
 				SerialNumberMetadataURI::insert((collection_id, series_id), serial_number, uri);
 			}
-			Self::deposit_event(RawEvent::MetadataUpdated(collection_id, series_id));
+			Self::deposit_event(RawEvent::MetadataUpdated(collection_id, series_id, serial_number));
 			Ok(())
 		}
 		/// Buy tokens from an active mass_drop

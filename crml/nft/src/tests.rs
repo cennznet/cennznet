@@ -2780,6 +2780,7 @@ fn update_metadata_uris() {
 		assert!(has_event(RawEvent::MetadataUpdated(
 			fixture.collection_id,
 			fixture.series_id,
+			fixture.mass_drop.max_supply - 1,
 		)));
 	});
 }
@@ -2886,6 +2887,7 @@ fn update_metadata_uris_twice_before_start() {
 		assert!(has_event(RawEvent::MetadataUpdated(
 			fixture.collection_id,
 			fixture.series_id,
+			fixture.mass_drop.max_supply - 1,
 		)));
 	});
 }
