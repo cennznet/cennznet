@@ -3054,6 +3054,7 @@ fn get_collection_listings() {
 			series_attributes.clone(),
 			None,
 			None,
+			None,
 		));
 		assert!(has_event(RawEvent::CreateSeries(
 			collection_id,
@@ -3123,6 +3124,7 @@ fn get_collection_listings_over_limit() {
 			series_attributes.clone(),
 			None,
 			None,
+			None,
 		));
 		assert!(has_event(RawEvent::CreateSeries(
 			collection_id,
@@ -3172,6 +3174,7 @@ fn get_collection_listings_cursor_too_high() {
 			quantity,
 			None,
 			series_attributes.clone(),
+			None,
 			None,
 			None,
 		));
