@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 // Counts enum variants at compile time
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use variant_count::VariantCount;
 
 // Time before auction ends that auction is extended if a bid is placed
