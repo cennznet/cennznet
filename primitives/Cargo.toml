@@ -1,21 +1,25 @@
 [package]
 name = "cennznet-primitives"
-version = "1.0.0"
+version = "2.0.0-rc5"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-frame-support = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-core = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-runtime = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
-sp-std = { git = "https://github.com/plugblockchain/plug-blockchain", default-features = false, rev = "v3.0.0-rc7" }
+frame-support = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-std = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"sp-api/std",
+	"sp-application-crypto/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",

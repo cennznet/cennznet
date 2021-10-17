@@ -23,7 +23,6 @@
 use codec::Encode;
 use sp_std::prelude::*;
 
-use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
@@ -62,7 +61,7 @@ pub use frame_support::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
 	},
-	StorageValue,
+	PalletId, StorageValue,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -71,10 +70,13 @@ use frame_system::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{ModuleId, Perbill, Percent, Permill, Perquintill};
+pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
-use cennznet_primitives::types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature};
+use cennznet_primitives::{
+	eth::crypto::AuthorityId as EthBridgeId,
+	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature},
+};
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
 pub use crml_generic_asset::{
@@ -82,7 +84,7 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionId, CollectionInfo, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
 pub use crml_sylo::groups as sylo_groups;
@@ -126,11 +128,18 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 41,
-	impl_version: 41,
+	spec_version: 44,
+	impl_version: 44,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
+
+/// The BABE epoch configuration at genesis.
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+	sp_consensus_babe::BabeEpochConfiguration {
+		c: PRIMARY_PROBABILITY,
+		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+	};
 
 /// Native version.
 #[cfg(any(feature = "std", test))]
@@ -338,6 +347,17 @@ impl crml_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// TODO: Safe to remove after runtime v41 is live
+// The session key format pre runtime v41
+impl_opaque_keys! {
+	pub struct SessionKeysV40 {
+		pub grandpa: Grandpa,
+		pub babe: Babe,
+		pub im_online: ImOnline,
+		pub authority_discovery: AuthorityDiscovery,
+	}
+}
+
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
@@ -345,6 +365,29 @@ impl_opaque_keys! {
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
 		pub eth_bridge: EthBridge,
+	}
+}
+
+// TODO: Safe to remove after runtime v41 is live
+// kudos: https://github.com/paritytech/polkadot/pull/2092/files
+fn transform_session_keys(_v: AccountId, old: SessionKeysV40) -> SessionKeys {
+	SessionKeys {
+		grandpa: old.grandpa,
+		babe: old.babe,
+		im_online: old.im_online,
+		authority_discovery: old.authority_discovery,
+		// Set the temporary bridge key to `[0_u8; 33]` for all validators
+		// this will ensure the bridge does not start until intentional support/activation is shown
+		eth_bridge: EthBridgeId::default(),
+	}
+}
+
+/// Performs session key upgrade from v40 compatible to v41
+pub struct UpgradeSessionKeys;
+impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		Session::upgrade_keys::<SessionKeysV40, _>(transform_session_keys);
+		Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
 	}
 }
 
@@ -379,7 +422,7 @@ impl crml_generic_asset::Config for Runtime {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
@@ -532,14 +575,14 @@ parameter_types! {
 	pub const DataDepositPerByte: Balance = 1 * MICROS;
 	pub const BountyDepositBase: Balance = 1 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
 	pub const MaximumReasonLength: u32 = 16_384;
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
 impl pallet_treasury::Config for Runtime {
-	type ModuleId = TreasuryModuleId;
+	type PalletId = TreasuryPalletId;
 	type Currency = SpendingAssetCurrency<Self>;
 	// root only is sufficient for launch phase
 	type ApproveOrigin = EnsureRoot<AccountId>;
@@ -567,7 +610,7 @@ impl crml_staking_rewards::Config for Runtime {
 	type FiscalEraLength = FiscalEraLength;
 	type HistoricalPayoutEras = HistoricalPayoutEras;
 	type ScheduledPayoutRunner = ScheduledPayoutRunner<Self>;
-	type TreasuryModuleId = TreasuryModuleId;
+	type TreasuryPalletId = TreasuryPalletId;
 	type WeightInfo = ();
 }
 
@@ -593,22 +636,14 @@ impl crml_attestation::Config for Runtime {
 }
 
 parameter_types! {
-	/// The minimum number of transaction confirmations needed to ratify an Eth deposit
-	pub const EventConfirmations: u16 = 0;
-	/// Event expiration deadline in seconds (1 week)
-	pub const EventDeadline: u32 = 604_800;
 	/// The threshold of notarizations required to approve an Eth deposit
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl crml_eth_bridge::Config for Runtime {
-	/// The minimum number of block confirmations needed to secure an event claim
-	type EventConfirmations = EventConfirmations;
-	/// Events cannot be claimed after this duration
-	type EventDeadline = EventDeadline;
+	/// The identifier type for an offchain worker.
+	type EthyId = EthBridgeId;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
-	/// The identifier type for an offchain worker.
-	type AuthorityId = EthBridgeId;
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
 	/// Handle rewards for notaries
@@ -621,31 +656,28 @@ impl crml_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
+	/// Reports final session status of an era
+	type FinalSessionTracker = Staking;
 }
 
 // transaction must have an event/log of the deposit
 // i.e. keccack256("Deposit(address,address,uint256,bytes32)")
-// TODO: config via storage
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
 	hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-const DEPOSIT_CONTRACT_ADDRESS: [u8; 20] = hex_literal::hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
 parameter_types! {
 	/// The ERC20 bridge contract deposit event
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
-	/// The ERC20 bridge contract address
-	pub const DepositContractAddress: [u8; 20] = DEPOSIT_CONTRACT_ADDRESS;
 	/// The ERC20 peg address
-	pub const PegModuleId: ModuleId = ModuleId(*b"erc20peg");
+	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 }
 impl crml_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;
-	type DepositContractAddress = DepositContractAddress;
 	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = GenericAsset;
-	/// ModuleId/Account for this module
-	type PegModuleId = PegModuleId;
+	/// PalletId/Account for this module
+	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
 }
@@ -763,8 +795,15 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules, ()>;
+pub type Executive = frame_executive::Executive<
+	Runtime,
+	Block,
+	frame_system::ChainContext<Runtime>,
+	Runtime,
+	AllModules,
+	// TODO: remove after v41
+	UpgradeSessionKeys,
+>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -843,10 +882,10 @@ impl_runtime_apis! {
 			sp_consensus_babe::BabeGenesisConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
-				c: PRIMARY_PROBABILITY,
+				c: BABE_GENESIS_EPOCH_CONFIG.c,
 				genesis_authorities: Babe::authorities(),
 				randomness: Babe::randomness(),
-				allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+				allowed_slots: BABE_GENESIS_EPOCH_CONFIG.allowed_slots,
 			}
 		}
 
@@ -924,6 +963,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cennznet_primitives::eth::EthyApi<Block> for Runtime {
+		fn validator_set() -> cennznet_primitives::eth::ValidatorSet<EthBridgeId> {
+			EthBridge::validator_set()
+		}
+	}
+
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {
 			System::account_nonce(account)
@@ -963,6 +1008,7 @@ impl_runtime_apis! {
 	impl crml_nft_rpc_runtime_api::NftApi<
 		Block,
 		AccountId,
+		Runtime,
 	> for Runtime {
 		fn collected_tokens(collection_id: CollectionId, who: AccountId) -> Vec<TokenId> {
 			Nft::collected_tokens(collection_id, &who)
@@ -976,6 +1022,13 @@ impl_runtime_apis! {
 		   serial_number: SerialNumber,
 		) -> TokenInfo<AccountId> {
 		   Nft::token_info(collection_id, series_id, serial_number)
+		}
+		fn collection_listings(
+			collection_id: CollectionId,
+			offset: u128,
+			limit: u16,
+		) -> (Option<u128>, Vec<(ListingId, Listing<Runtime>)>) {
+			Nft::collection_listings(collection_id, offset, limit)
 		}
 	}
 

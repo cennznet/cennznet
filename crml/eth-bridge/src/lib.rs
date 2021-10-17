@@ -31,53 +31,42 @@ mod tests;
 mod types;
 use types::*;
 
-use cennznet_primitives::types::BlockNumber;
+use cennznet_primitives::{
+	eth::{ConsensusLog, ValidatorSet, ETHY_ENGINE_ID},
+	types::BlockNumber,
+};
 use codec::Encode;
-use crml_support::{EventClaimSubscriber, EventClaimVerifier, NotarizationRewardHandler};
+use crml_support::{
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	NotarizationRewardHandler,
+};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet},
+	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::Weight,
 	Parameter,
 };
 use frame_system::{
-	ensure_none,
+	ensure_none, ensure_root,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_runtime::{
+	generic::DigestItem,
 	offchain as rt_offchain,
 	offchain::StorageKind,
 	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-	DispatchError, KeyTypeId, Percent, RuntimeAppPublic,
+	DispatchError, Percent, RuntimeAppPublic,
 };
 use sp_std::{convert::TryInto, prelude::*};
-
-pub const ETH_BRIDGE: KeyTypeId = KeyTypeId(*b"eth-");
-
-pub mod crypto {
-	mod app_crypto {
-		use crate::ETH_BRIDGE;
-		use sp_application_crypto::{app_crypto, ecdsa};
-		app_crypto!(ecdsa, ETH_BRIDGE);
-	}
-	sp_application_crypto::with_pair! {
-		/// An eth bridge keypair using ecdsa as its crypto.
-		pub type AuthorityPair = app_crypto::Pair;
-	}
-	/// An eth bridge signature using ecdsa as its crypto.
-	pub type AuthoritySignature = app_crypto::Signature;
-	/// An eth bridge identifier using ecdsa as its crypto.
-	pub type AuthorityId = app_crypto::Public;
-}
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: u64 = 3;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
-const REQUEST_TTL_MS: u64 = 1_500;
+const REQUEST_TTL_MS: u64 = 2_500;
 /// Bucket claims in intervals of this factor (seconds)
 const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
@@ -99,13 +88,10 @@ macro_rules! log {
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
-	type AuthorityId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	/// 33 byte ECDSA public key
+	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Knows the active authority set (validator stash addresses)
-	type AuthoritySet: ValidatorSet<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The minimum number of block confirmations needed to ratify an Ethereum event
-	type EventConfirmations: Get<u16>;
-	/// Events cannot be claimed after this time (seconds)
-	type EventDeadline: Get<u64>;
+	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The threshold of notarizations required to approve an Ethereum
 	type NotarizationThreshold: Get<Percent>;
 	/// Rewards notaries for participating in claims
@@ -118,6 +104,8 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type Call: From<Call<Self>>;
 	/// The overarching event type.
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+	/// Tracks the status of sessions/eras
+	type FinalSessionTracker: FinalSessionTrackerT;
 }
 
 decl_storage! {
@@ -130,7 +118,7 @@ decl_storage! {
 		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
-		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::AuthorityId => Option<EventClaimResult>;
+		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
 		/// Maps event types seen by the bridge ((contract address, event signature)) to unique type Ids
 		EventTypeToTypeId get(fn event_type_to_type_id): map hasher(blake2_128_concat) (EthAddress, EthHash) => EventTypeId;
 		/// Maps event type ids to ((contract address, event signature))
@@ -139,16 +127,31 @@ decl_storage! {
 		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
 		/// Id of the next event type (internal)
 		NextEventTypeId get(fn next_event_type_id): EventTypeId;
+		/// Id of the next event proof
+		NextProofId get(fn next_proof_id): EventProofId;
 		/// Active notary (validator) public keys
-		NotaryKeys get(fn notary_keys): Vec<T::AuthorityId>;
+		NotaryKeys get(fn notary_keys): Vec<T::EthyId>;
+		/// Scheduled notary (validator) public keys for the next session
+		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
-		// Used in conjunction with `EventDeadline` to prevent "double spends".
+		// Used in conjunction with `EventDeadlineSeconds` to prevent "double spends".
 		// After a bucket is older than the deadline, any events prior are considered expired.
 		// This allows the record of processed events to be pruned from state regularly
 		ProcessedTxBuckets get(fn processed_tx_buckets): double_map hasher(twox_64_concat) u64, hasher(identity) EthHash => ();
 		/// Map from processed tx hash to status
-		/// Periodically cleared after `EventDeadline` expires
+		/// Periodically cleared after `EventDeadlineSeconds` expires
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
+		/// The current validator set id
+		NotarySetId get(fn notary_set_id): u64;
+		/// The event proof Id generated by the previous validator set to notarize the current set.
+		/// Useful for syncing the latest proof to Ethereum
+		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
+		/// Whether the bridge is paused (for validator transitions)
+		BridgePaused get(fn bridge_paused): bool;
+		/// The minimum number of block confirmations needed to notarize an Ethereum event
+		EventConfirmations get(fn event_confirmations): u64 = 3;
+		/// Events cannot be claimed after this time (seconds)
+		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 	}
 }
 
@@ -158,6 +161,9 @@ decl_event! {
 		Verified(EventClaimId),
 		/// Verifying an event failed
 		Invalid(EventClaimId),
+		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
+		/// A proof for the change will be generated with the given `event_id`
+		AuthoritySetChange(EventProofId, u64),
 	}
 }
 
@@ -176,7 +182,10 @@ decl_error! {
 		/// offchain worker not configured properly
 		OcwConfig,
 		/// This message has already been notarized
-		AlreadyNotarized
+		AlreadyNotarized,
+		/// The bridge is paused pending validator set changes (once every era / 24 hours)
+		/// It will reactive after ~10 minutes
+		BridgePaused,
 	}
 }
 
@@ -189,7 +198,7 @@ decl_module! {
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-				let expired_bucket_index = (now - T::EventDeadline::get()) % BUCKET_FACTOR_S;
+				let expired_bucket_index = (now - Self::event_deadline_seconds()) % BUCKET_FACTOR_S;
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
 				}
@@ -202,11 +211,25 @@ decl_module! {
 			}
 		}
 
+		#[weight = 100_000]
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by CENNZnet
+		pub fn set_event_confirmations(origin, confirmations: u64) {
+			ensure_root(origin)?;
+			EventConfirmations::put(confirmations)
+		}
+
+		#[weight = 100_000]
+		/// Set event deadline (seconds). Events cannot be notarized after this time has elapsed
+		pub fn set_event_deadline(origin, seconds: u64) {
+			ensure_root(origin)?;
+			EventDeadlineSeconds::put(seconds);
+		}
+
 		#[weight = 1_000_000]
 		#[transactional]
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::AuthorityId as RuntimeAppPublic>::Signature) {
+		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::EthyId as RuntimeAppPublic>::Signature) {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
@@ -216,7 +239,7 @@ decl_module! {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
-			<EventNotarizations<T>>::insert::<EventClaimId, T::AuthorityId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
+			<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
 
 			T::AuthoritySet::validators().get(payload.authority_index as usize)
 				.map(|v| T::RewardHandler::reward_notary(v));
@@ -242,8 +265,12 @@ decl_module! {
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
-				EventClaims::remove(payload.event_claim_id);
+				let (_eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_data = event_data.unwrap();
 				Self::deposit_event(Event::Invalid(payload.event_claim_id));
+
+				T::Subscribers::on_failure(payload.event_claim_id, &contract_address, &event_signature, &event_data);
 				return Ok(());
 			}
 
@@ -292,27 +319,27 @@ decl_module! {
 			}
 
 			// Get all signing keys for this protocol 'KeyTypeId'
-			let keys = T::AuthorityId::all();
-			let key = match keys.len() {
-				0 => {
-					log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::AuthorityId::ID);
-					return
-				},
-				1 => keys[0].clone(),
-				_ => {
-					// expect at most one key to be present
-					log!(error, "💎 multiple signing keys detected for: {:?}, bailing...", T::AuthorityId::ID);
-					return
-				},
+			let local_keys = T::EthyId::all();
+			if local_keys.is_empty() {
+				log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
+				return
 			};
 
+			let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
+			// search all local ethy keys
+			for key in local_keys {
+				if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+					maybe_active_key = Some((key, active_key_index));
+					break
+				}
+			}
+
 			// check if locally known keys are in the active validator set
-			let authority_index = Self::notary_keys().iter().position(|k| k == &key);
-			if authority_index.is_none() {
-				log!(error, "💎 no active validator keys, exiting");
+			if maybe_active_key.is_none() {
+				log!(error, "💎 no active ethy keys, exiting");
 				return;
 			}
-			let authority_index = authority_index.unwrap() as u16;
+			let (active_key, authority_index) = maybe_active_key.map(|(key, idx)| (key, idx as u16)).unwrap();
 
 			// check all pending claims we have _yet_ to notarize and try to notarize them
 			// this will be invoked once every block
@@ -325,7 +352,7 @@ decl_module! {
 				}
 
 				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::AuthorityId>(event_claim_id, key.clone()) {
+				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
 					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
 				}
 
@@ -339,7 +366,7 @@ decl_module! {
 						authority_index,
 						result: result.clone(),
 					};
-					let _ = Self::offchain_send_notarization(&key, payload)
+					let _ = Self::offchain_send_notarization(&active_key, payload)
 						.map_err(|err| {
 							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 						})
@@ -368,6 +395,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError> {
+		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
 
 		// check if we've seen this event type before
@@ -388,6 +416,29 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		NextEventClaimId::put(event_claim_id.wrapping_add(1));
 
 		Ok(event_claim_id)
+	}
+
+	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
+		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
+		let event_proof_id = Self::next_proof_id();
+
+		// TODO: does this support multiple consensus logs in a block?
+		// save this for `on_finalize` and insert many
+		let packed_event_with_id = [
+			&event.encode()[..],
+			&EthAbiCodec::encode(&Self::validator_set().id)[..],
+			&EthAbiCodec::encode(&event_proof_id)[..],
+		]
+		.concat();
+		let log: DigestItem<T::Hash> = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+
+		NextProofId::put(event_proof_id.wrapping_add(1));
+
+		Ok(event_proof_id)
 	}
 }
 
@@ -418,7 +469,7 @@ impl<T: Config> Module<T> {
 
 		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
 		let tx_receipt = match maybe_tx_receipt {
-			Some(tx_receipt) => tx_receipt,
+			Some(t) => t,
 			None => return EventClaimResult::NoTxLogs,
 		};
 		let status = tx_receipt.status.unwrap_or_default();
@@ -453,28 +504,46 @@ impl<T: Config> Module<T> {
 			return EventClaimResult::NoTxLogs;
 		}
 
-		// lastly, have we got enough block confirmations to be re-org safe?
-		let observed_block = tx_receipt.block_number.saturated_into();
-		let result = Self::get_block(observed_block);
-		if let Err(err) = result {
-			log!(error, "💎 eth_getBlockByNumber failed: {:?}", err);
-			return EventClaimResult::DataProviderErr;
-		}
-		let maybe_block = result.unwrap();
-		if maybe_block.is_none() {
-			return EventClaimResult::DataProviderErr;
-		}
-		let block = maybe_block.unwrap();
-		let latest_block_number: u64 = block.number.unwrap_or_default().as_u64();
-		let block_confirmations = latest_block_number.saturating_sub(observed_block as u64);
-		if block_confirmations < T::EventConfirmations::get() as u64 {
+		//  have we got enough block confirmations to be re-org safe?
+		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
+
+		let latest_block: EthBlock = match Self::get_block(LatestOrNumber::Latest) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
+		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
+		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
+		if block_confirmations < Self::event_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
+
+		// we can calculate if the block is expired w some high degree of confidence
+		// time since the event = block_confirmations * ~16 seconds avg
+		// `20` arbitrarily chosen by adding a few seconds to the average block time
+		if block_confirmations * 20 > Self::event_deadline_seconds() {
+			return EventClaimResult::Expired;
+		}
+
+		//  check the block this tx is in if the timestamp > deadline
+		let observed_block: EthBlock = match Self::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
+			Ok(None) => return EventClaimResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
+
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
-		if T::UnixTime::now().as_secs().saturated_into::<u64>() - block.timestamp.saturated_into::<u64>()
-			> T::EventDeadline::get()
+		if T::UnixTime::now().as_secs().saturated_into::<u64>() - observed_block.timestamp.saturated_into::<u64>()
+			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
 		}
@@ -506,9 +575,11 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Get latest block number from eth client
-	fn get_block(number: u32) -> Result<Option<EthBlock>, Error<T>> {
-		// let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetBlockByNumberRequest::new(1_usize, number);
+	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+		let request = match req {
+			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
+			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
+		};
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			<Error<T>>::HttpFetch
@@ -590,7 +661,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(key: &T::AuthorityId, payload: NotarizationPayload) -> Result<(), Error<T>> {
+	fn offchain_send_notarization(key: &T::EthyId, payload: NotarizationPayload) -> Result<(), Error<T>> {
 		let signature = key
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
@@ -602,6 +673,74 @@ impl<T: Config> Module<T> {
 			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)?;
 
 		Ok(())
+	}
+
+	/// Return the active Ethy validator set.
+	pub fn validator_set() -> ValidatorSet<T::EthyId> {
+		ValidatorSet::<T::EthyId> {
+			validators: Self::notary_keys(),
+			id: Self::notary_set_id(),
+		}
+	}
+
+	/// Handle changes to the authority set
+	/// This could be called when validators rotate their keys, we don't want to
+	/// change this until the era has changed to avoid generating proofs for small set changes or too frequently
+	/// - `new`: The validator set that is active right now
+	/// - `queued`: The validator set that will activate next session
+	fn handle_authorities_change(new: Vec<T::EthyId>, queued: Vec<T::EthyId>) {
+		// ### Session life cycle
+		// block on_initialize if ShouldEndSession(n)
+		//  rotate_session
+		//    before_end_session
+		//    end_session (end just been)
+		//    start_session (start now)
+		//    new_session (start now + 1)
+		//   -> on_new_session <- this function is CALLED here
+
+		let log_notary_change = |next_keys: &[T::EthyId]| {
+			// Store the keys for usage next session
+			<NextNotaryKeys<T>>::put(next_keys);
+			// Signal the Event Id that will be used for the proof of validator set change.
+			// Any observer can subscribe to this event and submit the resulting proof to keep the
+			// validator set on the Ethereum bridge contract updated.
+			let event_proof_id = NextProofId::get();
+			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+			Self::deposit_event(Event::AuthoritySetChange(event_proof_id, next_validator_set_id));
+			NotarySetProofId::put(event_proof_id);
+			NextProofId::put(event_proof_id.wrapping_add(1));
+			let log: DigestItem<T::Hash> = DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::PendingAuthoritiesChange((
+					ValidatorSet {
+						validators: next_keys.to_vec(),
+						id: next_validator_set_id,
+					},
+					event_proof_id,
+				))
+				.encode(),
+			);
+			<frame_system::Pallet<T>>::deposit_log(log);
+		};
+
+		// signal 1 session early about the `queued` validator set change for the next era so there's time to generate a proof
+		if T::FinalSessionTracker::is_next_session_final().0 {
+			log!(trace, "💎 next session final");
+			log_notary_change(queued.as_ref());
+		} else if T::FinalSessionTracker::is_active_session_final() {
+			// Pause bridge claim/proofs
+			// Prevents claims/proofs being partially processed and failing if the validator set changes
+			// significantly
+			// Note: the bridge will be reactivated at the end of the session
+			log!(trace, "💎 active session final");
+			BridgePaused::put(true);
+
+			if Self::next_notary_keys().is_empty() {
+				// if we're here the era was forced, we need to generate a proof asap
+				log!(warn, "💎 urgent notary key rotation");
+				log_notary_change(new.as_ref());
+			}
+		}
 	}
 }
 
@@ -648,15 +787,15 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Module<T> {
-	type Public = T::AuthorityId;
+	type Public = T::EthyId;
 }
 
 impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
-	type Key = T::AuthorityId;
+	type Key = T::EthyId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
@@ -668,22 +807,40 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, _queued_validators: I)
+	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, queued_validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		// Record authorities for the new session.
-		if changed {
-			NotaryKeys::<T>::put(validators.map(|x| x.1).collect::<Vec<_>>());
+		// Only run change process at the end of an era
+		if T::FinalSessionTracker::is_next_session_final().0 || T::FinalSessionTracker::is_active_session_final() {
+			// Record authorities for the new session.
+			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+
+			Self::handle_authorities_change(next_authorities, next_queued_authorities);
 		}
-		// `changed` informs us the current `validators` has changed in some way as of right now
-		// `queued_validators` will update the reflected set one session prior to activation
-		// this gives us one session to notarize a proof of ancestry for the next set.
-		// TODO: how does this interplay function with the election window?
-		// e.g. PendingAncestryClaim::insert(queued_validators)
-		// next block should trigger voting asap
 	}
 
-	fn on_before_session_ending() {}
-	fn on_disabled(_i: usize) {}
+	/// A notification for end of the session.
+	///
+	/// Note it is triggered before any [`SessionManager::end_session`] handlers,
+	/// so we can still affect the validator set.
+	fn on_before_session_ending() {
+		// Re-activate the bridge, allowing claims & proofs again
+		if T::FinalSessionTracker::is_active_session_final() {
+			log!(trace, "💎 session & era ending, set new validator keys");
+			// A proof should've been generated now so we can reactivate the bridge with the new validator set
+			BridgePaused::kill();
+			// Time to update the bridge validator keys.
+			let next_notary_keys = NextNotaryKeys::<T>::take();
+			// Store the new keys and increment the validator set id
+			// Next notary keys should be unset, until populated by new session logic
+			<NotaryKeys<T>>::put(&next_notary_keys);
+			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
+		}
+	}
+
+	fn on_disabled(_i: usize) {
+		// TODO: remove disabled validator from claim voting?
+	}
 }

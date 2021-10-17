@@ -16,12 +16,12 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-sp-blockchain = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-core = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-rpc = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 serde = { version = "1.0.102", features = ["derive"] }
-sp-runtime = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
-sp-api = { default-features = false, git = "https://github.com/plugblockchain/plug-blockchain", rev = "v3.0.0-rc7" }
+sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }
 
 [dev-dependencies]

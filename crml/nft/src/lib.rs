@@ -209,8 +209,8 @@ decl_storage! {
 		pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
 		/// Map from collection to its defacto royalty scheme
 		pub CollectionRoyalties get(fn collection_royalties): map hasher(twox_64_concat) CollectionId => Option<RoyaltiesSchedule<T::AccountId>>;
-		/// Map from token to its locked status
-		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+		/// Map from a token to lock status if any
+		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => Option<TokenLockReason>;
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
@@ -247,6 +247,8 @@ decl_storage! {
 		pub ListingWinningBid get(fn listing_winning_bid): map hasher(twox_64_concat) ListingId => Option<(T::AccountId, Balance)>;
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
+		/// Version of this module's storage schema
+		StorageVersion build(|_: &GenesisConfig| Releases::V0 as u32): u32;
 	}
 }
 
@@ -254,6 +256,8 @@ decl_storage! {
 pub const MAX_SCHEMA_FIELDS: u32 = 16;
 /// The maximum length of valid collection IDs
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
+/// The maximum amount of listings to return
+pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
@@ -273,6 +277,34 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get() == Releases::V0 as u32 {
+				StorageVersion::put(Releases::V1 as u32);
+				// `TokenLocks` migrating from `bool` to `TokenLockReason`
+				#[allow(dead_code)]
+				mod old_storage {
+					use super::{Config, TokenId};
+					pub struct Module<T>(sp_std::marker::PhantomData<T>);
+					frame_support::decl_storage! {
+						trait Store for Module<T: Config> as Nft {
+							pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+						}
+					}
+				}
+
+				let locks = old_storage::TokenLocks::drain().collect::<Vec<(TokenId, bool)>>();
+				let locks_count = locks.len();
+				for (id, _status) in locks {
+					// these listings are pre-marketplace, `0` is incorrect and that's fine
+					TokenLocks::insert(id, TokenLockReason::Listed(0));
+				}
+
+				100_000 * locks_count as Weight
+			} else {
+				Zero::zero()
+			}
+		}
 
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
@@ -571,7 +603,6 @@ decl_module! {
 		///
 		/// `quantity` - how many tokens to mint
 		/// `owner` - the token owner, defaults to the caller
-		/// `is_limited_edition` - signal whether the series is a limited edition or not
 		/// `attributes` - all tokens in series will have these values
 		/// `metadata_path` - URI path to token offchain metadata relative to the collection base URI
 		/// `mass_drop` - If this series is a mass_drop, define the mass_drop parameters
@@ -811,16 +842,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
@@ -925,16 +956,16 @@ decl_module! {
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens)?;
 
+			let listing_id = Self::next_listing_id();
+			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
-				TokenLocks::insert((collection_id, series_id, serial_number), true);
+				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
-
-			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
@@ -963,7 +994,7 @@ decl_module! {
 		fn bid(origin, listing_id: ListingId, amount: Balance) {
 			let origin = ensure_signed(origin)?;
 
-			if let Some(Listing::Auction(listing)) = Self::listings(listing_id) {
+			if let Some(Listing::Auction(mut listing)) = Self::listings(listing_id) {
 				if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
 					ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
 				} else {
@@ -991,6 +1022,18 @@ decl_module! {
 					}
 					*maybe_current_bid = Some((origin, amount))
 				});
+
+				// Auto extend auction if bid is made within certain amount of time of auction duration
+				let listing_end_block = listing.close;
+				let current_block = <frame_system::Module<T>>::block_number();
+				let blocks_till_close = listing_end_block - current_block;
+				let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
+				if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
+					ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
+					ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
+					listing.close = new_closing_block;
+					Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
+				}
 
 				let listing_collection_id = listing.tokens[0].0;
 				Self::deposit_event(RawEvent::Bid(listing_collection_id, listing_id, amount));
@@ -1275,5 +1318,47 @@ impl<T: Config> Module<T> {
 			owner,
 			royalties,
 		}
+	}
+	/// Get list of all NFT listings within a range
+	pub fn collection_listings(
+		collection_id: CollectionId,
+		cursor: u128,
+		limit: u16,
+	) -> (Option<u128>, Vec<(ListingId, Listing<T>)>) {
+		let mut listing_ids = OpenCollectionListings::iter_prefix(collection_id)
+			.map(|(listing_id, _)| listing_id)
+			.collect::<Vec<u128>>();
+		listing_ids.sort();
+		let last_id = listing_ids.last().copied();
+		let mut highest_cursor: u128 = 0;
+
+		let response: Vec<(ListingId, Listing<T>)> = listing_ids
+			.into_iter()
+			.filter(|listing_id| listing_id >= &cursor)
+			.take(sp_std::cmp::min(limit, MAX_COLLECTION_LISTING_LIMIT).into())
+			.map(|listing_id| {
+				highest_cursor = listing_id;
+				match Self::listings(listing_id) {
+					Some(listing) => Some((listing_id, listing)),
+					None => {
+						log!(error, "🃏 Unexpected empty listing: {:?}", listing_id);
+						None
+					}
+				}
+			})
+			.flatten()
+			.collect();
+
+		let new_cursor = match last_id {
+			Some(id) => {
+				if highest_cursor != id {
+					Some(highest_cursor + 1)
+				} else {
+					None
+				}
+			}
+			None => None,
+		};
+		(new_cursor, response)
 	}
 }

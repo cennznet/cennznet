@@ -22,13 +22,13 @@
 use std::sync::Arc;
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index};
+use cennznet_runtime::Runtime;
+use ethy_gadget::notification::EthyEventProofStream;
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
-use sc_finality_grandpa::{
-	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState, VoterCommand,
-};
+use sc_finality_grandpa::{FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState};
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
@@ -38,9 +38,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_transaction_pool::TransactionPool;
-use sp_utils::mpsc::TracingUnboundedSender;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {
@@ -64,12 +62,18 @@ pub struct BabeDeps {
 	pub keystore: SyncCryptoStorePtr,
 }
 
+/// Extra dependencies for Ethy
+pub struct EthyDeps {
+	/// Receives notifications about event proofs from Ethy.
+	pub event_proof_stream: EthyEventProofStream,
+	/// Executor to drive the subscription manager in the Ethy RPC handler.
+	pub subscription_executor: SubscriptionTaskExecutor,
+}
+
 /// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
 	/// Voting round info.
 	pub shared_voter_state: SharedVoterState,
-	/// send handle for grandpa voter worker
-	pub voter_worker_send_handle: TracingUnboundedSender<VoterCommand<<Block as BlockT>::Hash, NumberFor<Block>>>,
 	/// Authority set info.
 	pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
 	/// Receives notifications about justification events from Grandpa.
@@ -94,6 +98,8 @@ pub struct FullDeps<C, P, SC, B> {
 	pub deny_unsafe: DenyUnsafe,
 	/// BABE specific dependencies.
 	pub babe: BabeDeps,
+	/// Ethy specific dependencies.
+	pub ethy: EthyDeps,
 	/// GRANDPA specific dependencies.
 	pub grandpa: GrandpaDeps<B>,
 }
@@ -115,7 +121,7 @@ where
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
-	C::Api: crml_nft_rpc::NftRuntimeApi<Block, AccountId>,
+	C::Api: crml_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: crml_generic_asset_rpc::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
@@ -141,6 +147,7 @@ where
 		chain_spec,
 		deny_unsafe,
 		babe,
+		ethy,
 		grandpa,
 	} = deps;
 
@@ -151,7 +158,6 @@ where
 	} = babe;
 	let GrandpaDeps {
 		shared_voter_state,
-		voter_worker_send_handle,
 		shared_authority_set,
 		justification_stream,
 		subscription_executor,
@@ -171,15 +177,16 @@ where
 		select_chain,
 		deny_unsafe,
 	)));
+	io.extend_with(ethy_gadget_rpc::EthyApi::to_delegate(
+		ethy_gadget_rpc::EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone()),
+	));
 	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
 		GrandpaRpcHandler::new(
 			shared_authority_set.clone(),
-			voter_worker_send_handle,
 			shared_voter_state,
 			justification_stream,
 			subscription_executor,
 			finality_provider,
-			deny_unsafe,
 		),
 	));
 	io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(

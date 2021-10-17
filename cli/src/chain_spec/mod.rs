@@ -16,7 +16,7 @@
 
 //! CENNZnet chain configurations.
 
-use cennznet_primitives::types::Block;
+use cennznet_primitives::{eth::crypto::AuthorityId as EthBridgeId, types::Block};
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
 	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, Erc20PegConfig, FeeRate, GenericAssetConfig,
@@ -24,7 +24,6 @@ use cennznet_runtime::{
 	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
-use crml_eth_bridge::crypto::AuthorityId as EthBridgeId;
 use crml_support::H160;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -162,13 +161,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	// well-known ERC20 token addresses
 	// metadata used by Eth bridge to map token claims when creating generic assets
 	let erc20s = vec![
-		// test only
-		(
-			H160::from_str("0x1215b4ec8161b7959a115805bf980e57a085c3e5").unwrap(),
-			b"YOLO".to_vec(),
-			18,
-		),
-		// end test
+		// Native eth token will be pegged at token address 0
+		(H160::default(), b"Eth".to_vec(), 18),
 		(
 			H160::from_str("0xd4fffa07929b1901fdb30c1c67f80e1185d4210f").unwrap(),
 			b"CERTI".to_vec(),
@@ -406,7 +400,10 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			..Default::default()
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
-		pallet_babe: Some(BabeConfig { authorities: vec![] }),
+		pallet_babe: Some(BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(cennznet_runtime::BABE_GENESIS_EPOCH_CONFIG),
+		}),
 		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
 		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
 		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),

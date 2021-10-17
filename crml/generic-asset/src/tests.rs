@@ -24,7 +24,7 @@ use super::*;
 use crate::mock::{
 	new_test_ext_with_balance, new_test_ext_with_default, new_test_ext_with_next_asset_id,
 	new_test_ext_with_permissions, Event as TestEvent, GenericAsset, NegativeImbalanceOf, Origin, PositiveImbalanceOf,
-	System, Test, TreasuryModuleId, ALICE, ASSET_ID, BOB, CHARLIE, ID_1, ID_2, INITIAL_BALANCE, INITIAL_ISSUANCE,
+	System, Test, TreasuryPalletId, ALICE, ASSET_ID, BOB, CHARLIE, ID_1, ID_2, INITIAL_BALANCE, INITIAL_ISSUANCE,
 	SPENDING_ASSET_ID, STAKING_ASSET_ID, TEST1_ASSET_ID, TEST2_ASSET_ID,
 };
 use crate::CheckedImbalance;
@@ -449,7 +449,7 @@ fn on_dust_imbalance_hook_invoked() {
 
 		// Our test hook transfers dust to the treasury account
 		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryModuleId::get().into_account();
+		let treasury_account_id = TreasuryPalletId::get().into_account();
 		assert_eq!(
 			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
 			asset_info.existential_deposit() - 1
@@ -498,26 +498,12 @@ fn on_runtime_upgrade() {
 		// Test accounts are restored now
 		assert!(System::account_exists(&ALICE));
 		assert!(System::account_exists(&BOB));
-		assert!(System::account_exists(&CHARLIE));
 
 		// Test assets of Alice are as before
 		assert_eq!(<FreeBalance<Test>>::get(&STAKING_ASSET_ID, &ALICE), INITIAL_BALANCE);
-		// Test Alice's dust asset 1 free balance is freed
-		assert!(!<FreeBalance<Test>>::contains_key(&ASSET_ID, &ALICE));
-
-		// Test BOB's dust asset 1 free balance is freed
-		assert!(!<FreeBalance<Test>>::contains_key(ASSET_ID, BOB));
 
 		// Test asset 2 free balance is unchanged
 		assert_eq!(<FreeBalance<Test>>::get(&(ASSET_ID + 1), &BOB), INITIAL_ISSUANCE);
-
-		// Our test hook transfers dust to the treasury account
-		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryModuleId::get().into_account();
-		assert_eq!(
-			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
-			(asset_info_1.existential_deposit() - 1) * 2 // sum of Alice & Bob's dust
-		);
 
 		assert_eq!(GenericAsset::total_issuance(ASSET_ID), INITIAL_ISSUANCE);
 	});

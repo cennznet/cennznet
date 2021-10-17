@@ -25,11 +25,12 @@ use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
 	weights::{DispatchClass, Weight},
+	PalletId,
 };
 use frame_system::{self as system, ensure_root};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedDiv, One, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
-	FixedPointNumber, FixedU128, ModuleId, Perbill,
+	FixedPointNumber, FixedU128, Perbill,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -51,7 +52,7 @@ pub trait Config: frame_system::Config {
 	/// The reward currency system (total issuance, account balance, etc.) for payouts.
 	type CurrencyToReward: Currency<Self::AccountId>;
 	/// The treasury account for payouts
-	type TreasuryModuleId: Get<ModuleId>;
+	type TreasuryPalletId: Get<PalletId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
 	/// The gap between subsequent payouts (in number of blocks)
@@ -220,7 +221,7 @@ impl<T: Config> OnEndEra for Module<T> {
 
 		// Deduct taxes from network spending
 		let _ = T::CurrencyToReward::deposit_creating(
-			&T::TreasuryModuleId::get().into_account(),
+			&T::TreasuryPalletId::get().into_account(),
 			next_reward.treasury_cut + remainder,
 		);
 
@@ -349,7 +350,7 @@ impl<T: Config> Module<T> {
 			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_creating(&T::TreasuryModuleId::get().into_account(), remainder);
+		T::CurrencyToReward::deposit_creating(&T::TreasuryPalletId::get().into_account(), remainder);
 	}
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
@@ -550,13 +551,15 @@ mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::impls::TransferDustImbalance;
-	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, StorageValue};
+	use frame_support::{
+		assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, PalletId, StorageValue,
+	};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
 		traits::{AccountIdConversion, BadOrigin, BlakeTwo256, IdentityLookup, Zero},
-		FixedPointNumber, FixedU128, ModuleId, Perbill,
+		FixedPointNumber, FixedU128, Perbill,
 	};
 
 	/// The account Id type in this test runtime
@@ -614,7 +617,7 @@ mod tests {
 		type AssetId = AssetId;
 		type Balance = Balance;
 		type Event = Event;
-		type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+		type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 		type WeightInfo = ();
 	}
 
@@ -626,7 +629,7 @@ mod tests {
 	}
 
 	parameter_types! {
-		pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
 		pub const BlockPayoutInterval: <Test as frame_system::Config>::BlockNumber = 3;
 		pub const FiscalEraLength: u32 = 5;
@@ -638,7 +641,7 @@ mod tests {
 		type FiscalEraLength = FiscalEraLength;
 		type HistoricalPayoutEras = HistoricalPayoutEras;
 		type ScheduledPayoutRunner = MockPayoutRunner<Self>;
-		type TreasuryModuleId = TreasuryModuleId;
+		type TreasuryPalletId = TreasuryPalletId;
 		type WeightInfo = ();
 	}
 
@@ -1394,7 +1397,7 @@ mod tests {
 			// remainder to treasury
 			assert!(remainder > 0);
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
 				remainder
 			);
 
@@ -1418,7 +1421,7 @@ mod tests {
 
 			// treasury is paid
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryModuleId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
 				// +1 is the remainder from after stakers cut distribution
 				next_reward.treasury_cut + 1
 			);

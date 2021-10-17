@@ -22,12 +22,11 @@
 
 use super::*;
 use crate::{self as crml_generic_asset, impls::TransferDustImbalance, NegativeImbalance, PositiveImbalance};
-use frame_support::parameter_types;
+use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ModuleId,
 };
 
 // test accounts
@@ -100,13 +99,13 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 }
 impl Config for Test {
 	type Balance = u64;
 	type AssetId = u32;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryModuleId>;
+	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
 	type WeightInfo = ();
 }
 
