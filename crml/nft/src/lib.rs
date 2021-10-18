@@ -35,7 +35,7 @@
 //!  Individual tokens are uniquely identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
@@ -116,6 +116,24 @@ decl_event!(
 		Bid(CollectionId, ListingId, Balance),
 		/// An account has been registered as a marketplace (account, entitlement, marketplace_id)
 		RegisteredMarketplace(AccountId, Permill, MarketplaceId),
+		/// Token(s) were purchased (collection, series, quantity, first serial number, new owner)
+		EnterMassDrop(CollectionId, SeriesId, TokenCount, SerialNumber, AccountId),
+		/// Activation time was changed (collection, series, activation time)
+		UpdateMassDropActivationTime(CollectionId, SeriesId, BlockNumber),
+		/// Mass drop whitelist was updated (collection, series, account ids)
+		UpdateMassDropWhitelist(CollectionId, SeriesId, Vec<AccountId>),
+		/// Presale was updated (collection, series, presale)
+		UpdatePresale(CollectionId, SeriesId, Presale),
+		/// Activation time was changed (collection, series, activation time)
+		UpdatePresaleActivationTime(CollectionId, SeriesId, BlockNumber),
+		/// Presale whitelist was updated (collection, series, account ids)
+		UpdatePresaleWhitelist(CollectionId, SeriesId, Vec<AccountId>),
+		/// All tokens in the presale have been minted
+		PresaleEnded(CollectionId, SeriesId),
+		/// All tokens in the mass drop have been minted
+		MassDropEnded(CollectionId, SeriesId),
+		/// metadata has been updated (collection, series, last_serial_number)
+		MetadataUpdated(CollectionId, SeriesId, SerialNumber),
 	}
 );
 
@@ -158,6 +176,32 @@ decl_error! {
 		RoyaltiesProtection,
 		/// The account_id hasn't been registered as a marketplace
 		MarketplaceNotRegistered
+		/// The mass_drop activation_time or limit is invalid
+		MassDropInvalid,
+		/// There is no mass_drop associated with the series
+		NoMassDropExists,
+		/// The presale is invalid
+		PresaleInvalid,
+		/// There is no presale associated with the mass_drop
+		NoPresaleExists,
+		/// The quantity specified is higher than the mass_drop purchase limit
+		PurchaseQuantityTooHigh,
+		/// The mass_drop hasn't started yet
+		MassDropNotStarted,
+		/// The presale hasn't started yet
+		PresaleNotStarted,
+		/// There are not enough tokens left to purchase this amount
+		NotEnoughTokens,
+		/// The activation time has passed or is invalid
+		ActivationTimeInvalid,
+		/// No owner exists for this collection id
+		NoCollectionOwner,
+		/// Can't mint additional when a mass drop is active
+		MassDropConfigured,
+		/// Metadata URIs already changed and Mass Drop has started
+		MetadataAlreadySet,
+		/// The number of Metadata URIs supplied doesn't match the Mass Drop max supply
+		IncorrectAmountOfUris,
 	}
 }
 
@@ -187,7 +231,13 @@ decl_storage! {
 		/// Map from a (collection, series) to its total issuance
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
+		pub SerialNumberMetadataURI get(fn serial_number_metadata_uri): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => Option<Vec<u8>>;
+		/// Map from a token series to its metadata URI path. This should be joined wih the collection base path
 		pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
+		/// Map from a token series to its massdrop object
+		pub SeriesMassDrops get(fn series_mass_drops): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<MassDrop>;
+		/// Map from a token series to its presale whitelist
+		pub PresaleWhitelist get(fn presale_whitelist): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) T::AccountId => bool;
 		/// Demarcates a series limited to exactly one token
 		IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
 		/// The next available collection Id
@@ -371,8 +421,218 @@ decl_module! {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) {
 			let series_id = Self::next_series_id(collection_id);
-			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path, royalties_schedule)?;
+			let _ = Self::mint_series(origin, collection_id, One::one(), owner, attributes, metadata_path, royalties_schedule, None)?;
 			IsSingleIssue::insert(collection_id, series_id, true);
+		}
+
+		/// Update metadata uris for tokens in a Mass Drop
+		/// If the mass drop has started, these URIs cannot be changed
+		/// Must pass in the entire vector of URIs of the same length of the Mass Drop Max Supply
+		#[weight = 78_000_000]
+		#[transactional]
+		fn update_metadata_uris(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			metadata_uris: Vec<Vec<u8>>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			ensure!(metadata_uris.len() as u32 == mass_drop.max_supply, Error::<T>::IncorrectAmountOfUris);
+			// Check if data already exists
+			// Check if mass drop has started, if it has, don't allow changing of data
+			let current_block = <frame_system::Module<T>>::block_number();
+			let serial_number: SerialNumber = 0;
+			if <SerialNumberMetadataURI>::contains_key((collection_id, series_id), serial_number) {
+				ensure!(
+					current_block < T::BlockNumber::from(mass_drop.activation_time),
+					Error::<T>::MetadataAlreadySet
+				);
+				if mass_drop.presale.is_some() {
+					ensure!(
+						current_block < T::BlockNumber::from(mass_drop.presale.clone().unwrap().activation_time),
+						Error::<T>::MetadataAlreadySet
+					);
+				}
+			}
+			// Loop through each metadata uri
+			let mut serial_number: SerialNumber = 0;
+			for (i, uri) in metadata_uris.iter().enumerate() {
+				serial_number = (i as u32).into();
+				SerialNumberMetadataURI::insert((collection_id, series_id), serial_number, uri);
+			}
+			Self::deposit_event(RawEvent::MetadataUpdated(collection_id, series_id, serial_number));
+			Ok(())
+		}
+		/// Buy tokens from an active mass_drop
+		/// Checks to make sure the drop has started
+		/// If the whitelist is not empty, only whitelisted accounts will be able to join
+		#[weight = 78_000_000]
+		#[transactional]
+		fn enter_mass_drop(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			quantity: TokenCount,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			let owner = Self::collection_owner(collection_id);
+			ensure!(owner.is_some(), Error::<T>::NoCollectionOwner);
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			let owner = owner.unwrap();
+			let is_owner = owner == origin.clone();
+			let serial_number = Self::next_serial_number(collection_id, series_id);
+			ensure!(
+				serial_number.checked_add(quantity).is_some(),
+				Error::<T>::NoAvailableIds
+			);
+			let current_block = <frame_system::Module<T>>::block_number();
+
+			let (price, max_supply, transaction_limit) = if current_block >= T::BlockNumber::from(mass_drop.activation_time) || is_owner {
+				(mass_drop.price, mass_drop.max_supply, mass_drop.transaction_limit)
+			} else if mass_drop.presale.is_some() && current_block >= T::BlockNumber::from(mass_drop.presale.clone().unwrap().activation_time) {
+				let presale = mass_drop.presale.unwrap();
+				ensure!(
+					<PresaleWhitelist<T>>::iter_prefix((collection_id, series_id)).next().is_none() ||
+					<PresaleWhitelist<T>>::contains_key((collection_id, series_id), &origin),
+					Error::<T>::NoPermission
+				);
+				(presale.price, presale.max_supply, presale.transaction_limit)
+			} else {
+				return Err(Error::<T>::MassDropNotStarted.into());
+			};
+
+			if let Some(transaction_limit) = transaction_limit {
+				ensure!(quantity <= transaction_limit, Error::<T>::PurchaseQuantityTooHigh);
+			}
+
+			ensure!(serial_number <= max_supply, Error::<T>::NotEnoughTokens);
+			let quantity = if serial_number + quantity >= max_supply {
+				if <PresaleWhitelist<T>>::iter_prefix((collection_id, series_id)).next().is_some() {
+					PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+					Self::deposit_event(RawEvent::PresaleEnded(collection_id, series_id));
+				} else {
+					Self::deposit_event(RawEvent::MassDropEnded(collection_id, series_id));
+				}
+				max_supply - serial_number
+			} else {
+				quantity
+			};
+
+			Self::process_drop_payment(&origin, &owner, price, quantity, mass_drop.asset_id)?;
+			Self::do_mint_additional(&origin, collection_id, series_id, serial_number, quantity)?;
+			Self::deposit_event(RawEvent::EnterMassDrop(collection_id, series_id, quantity, serial_number, origin));
+			Ok(())
+		}
+
+		/// Change the activation time of an existing mass_drop
+		#[weight = 4_000_000]
+		#[transactional]
+		fn set_mass_drop_activation_time(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			new_activation_time: BlockNumber,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			let current_block = <frame_system::Module<T>>::block_number();
+
+			ensure!(
+				current_block < T::BlockNumber::from(mass_drop.activation_time) && current_block < T::BlockNumber::from(new_activation_time),
+				Error::<T>::ActivationTimeInvalid
+			);
+			mass_drop.activation_time = new_activation_time;
+			ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
+			Self::deposit_event(RawEvent::UpdateMassDropActivationTime(collection_id, series_id, new_activation_time));
+			Ok(())
+		}
+
+		/// Add presale conditions to existing mass_drop or change presale values
+		#[weight = 60_000_000]
+		#[transactional]
+		fn set_mass_drop_presale(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			presale: Presale,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+
+			ensure!(presale.validate(&mass_drop), Error::<T>::PresaleInvalid);
+			let current_block = <frame_system::Module<T>>::block_number();
+			ensure!(
+				current_block < T::BlockNumber::from(presale.activation_time),
+				Error::<T>::ActivationTimeInvalid
+			);
+			mass_drop.presale = Some(presale.clone());
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
+			Self::deposit_event(RawEvent::UpdatePresale(collection_id, series_id, presale));
+			Ok(())
+		}
+
+		/// Add account_ids to the presale whitelist
+		/// Enter an empty array to clear the whitelist
+		/// Will replace the whitelist with the one supplied
+		#[weight = 70_000_000]
+		#[transactional]
+		fn set_presale_whitelist(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			account_ids: Vec<T::AccountId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			ensure!(mass_drop.presale.is_some(), Error::<T>::NoPresaleExists);
+			PresaleWhitelist::<T>::remove_prefix((collection_id, series_id));
+			for account in &account_ids {
+				PresaleWhitelist::<T>::insert((collection_id, series_id), account, true);
+			}
+			Self::deposit_event(RawEvent::UpdatePresaleWhitelist(collection_id, series_id, account_ids));
+			Ok(())
+		}
+
+		/// Change the activation time of an existing presale
+		#[weight = 4_000_000] // Change this to appropriate weighting
+		#[transactional]
+		fn set_presale_activation_time(
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+			new_activation_time: BlockNumber,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::collection_owner(collection_id) == Some(origin), Error::<T>::NoPermission);
+			let mut mass_drop: MassDrop = Self::series_mass_drops(collection_id, series_id)
+				.ok_or(Error::<T>::NoMassDropExists)?;
+			let mut presale: Presale = mass_drop.presale
+				.ok_or(Error::<T>::NoPresaleExists)?;
+			let current_block = <frame_system::Module<T>>::block_number();
+
+			ensure!(
+				current_block < T::BlockNumber::from(mass_drop.activation_time) && current_block < T::BlockNumber::from(new_activation_time),
+				Error::<T>::ActivationTimeInvalid
+			);
+
+			presale.activation_time = new_activation_time;
+			mass_drop.presale = Some(presale);
+			ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
+			SeriesMassDrops::insert(collection_id, series_id, mass_drop);
+			Self::deposit_event(RawEvent::UpdatePresaleActivationTime(collection_id, series_id, new_activation_time));
+			Ok(())
+
 		}
 
 		/// Mint a series of tokens distinguishable only by a serial number (SFT)
@@ -382,6 +642,7 @@ decl_module! {
 		/// `owner` - the token owner, defaults to the caller
 		/// `attributes` - all tokens in series will have these values
 		/// `metadata_path` - URI path to token offchain metadata relative to the collection base URI
+		/// `mass_drop` - If this series is a mass_drop, define the mass_drop parameters
 		/// Caller must be the collection owner
 		/// -----------
 		/// Performs O(N) writes where N is `quantity`
@@ -395,10 +656,10 @@ decl_module! {
 			attributes: Vec<NFTAttributeValue>,
 			metadata_path: Option<Vec<u8>>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			mass_drop: Option<MassDrop>
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
 				ensure!(collection_owner == origin, Error::<T>::NoPermission);
@@ -418,6 +679,19 @@ decl_module! {
 				series_id.checked_add(One::one()).is_some(),
 				Error::<T>::NoAvailableIds
 			);
+
+			// Create the mass_drop data
+			if let Some(mass_drop) = mass_drop {
+				ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
+				let current_block = <frame_system::Module<T>>::block_number();
+				ensure!(
+					current_block < T::BlockNumber::from(mass_drop.activation_time),
+					Error::<T>::ActivationTimeInvalid
+				);
+				SeriesMassDrops::insert(collection_id, series_id, mass_drop);
+			} else {
+				ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+			}
 
 			// Ok create the token series data
 			// All these attributes are the same in a series
@@ -469,12 +743,7 @@ decl_module! {
 			owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-			ensure!(!Self::is_single_issue(collection_id, series_id), Error::<T>::AddToUniqueIssue);
-			let serial_number = Self::next_serial_number(collection_id, series_id);
-			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
-			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
+			ensure!(Self::series_mass_drops(collection_id, series_id).is_none(), Error::<T>::MassDropConfigured);
 
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
@@ -483,15 +752,15 @@ decl_module! {
 				return Err(Error::<T>::NoCollection.into());
 			}
 
-			// Mint the set tokens
+			let serial_number = Self::next_serial_number(collection_id, series_id);
+			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
+			ensure!(
+				serial_number.checked_add(quantity).is_some(),
+				Error::<T>::NoAvailableIds
+			);
 			let owner = owner.unwrap_or_else(|| origin.clone());
-			for serial_number in serial_number..serial_number + quantity {
-				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
-			}
 
-			SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-			NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-
+			Self::do_mint_additional(&owner, collection_id, series_id, serial_number, quantity)?;
 			Self::deposit_event(RawEvent::CreateAdditional(collection_id, series_id, quantity, owner));
 
 			Ok(())
@@ -945,6 +1214,46 @@ impl<T: Config> Module<T> {
 	fn do_transfer_unchecked(tokens: &[TokenId], new_owner: &T::AccountId) {
 		for token_id in tokens.iter() {
 			<TokenOwner<T>>::insert((token_id.0, token_id.1), token_id.2, new_owner);
+		}
+	}
+	/// Mint additional tokens in a series
+	fn do_mint_additional(
+		owner: &T::AccountId,
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_number: SerialNumber,
+		quantity: TokenCount,
+	) -> DispatchResult {
+		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		ensure!(
+			!Self::is_single_issue(collection_id, series_id),
+			Error::<T>::AddToUniqueIssue
+		);
+
+		// Mint the set tokens
+		for serial_number in serial_number..serial_number + quantity {
+			<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+		}
+
+		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+
+		Ok(())
+	}
+
+	fn process_drop_payment(
+		buyer: &T::AccountId,
+		owner: &T::AccountId,
+		price: Balance,
+		quantity: TokenCount,
+		asset_id: AssetId,
+	) -> DispatchResult {
+		match price.checked_mul(quantity.into()) {
+			Some(total_price) => {
+				// full proceeds to seller/`current_owner`
+				T::MultiCurrency::transfer(&buyer, &owner, asset_id, total_price, ExistenceRequirement::AllowDeath)
+			}
+			None => Err(Error::<T>::InternalPayment.into()),
 		}
 	}
 	/// Find the tokens owned by an `address` in the given collection
