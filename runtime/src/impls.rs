@@ -49,8 +49,7 @@ static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
-		if let Some(fees) = fees_then_tips.next() {
-			Rewards::note_transaction_fees(fees.peek());
+		if let Some(_fees) = fees_then_tips.next() {
 			if let Some(tips) = fees_then_tips.next() {
 				Rewards::note_transaction_fees(tips.peek());
 			}
