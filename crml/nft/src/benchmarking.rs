@@ -172,7 +172,7 @@ benchmarks! {
 		let token_id = (collection_id, 0, 0);
 		let listing_id = <Nft<T>>::next_listing_id();
 
-	}: _(RawOrigin::Signed(owner.clone()), token_id, Some(owner.clone()), PAYMENT_ASSET, PRICE, Some(T::BlockNumber::from(1_u32)))
+	}: _(RawOrigin::Signed(owner.clone()), token_id, Some(owner.clone()), PAYMENT_ASSET, PRICE, Some(T::BlockNumber::from(1_u32)), None)
 	verify {
 		assert!(<Nft<T>>::listings(listing_id).is_some());
 	}
@@ -185,7 +185,7 @@ benchmarks! {
 		let listing_id = <Nft<T>>::next_listing_id();
 		let _ = T::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, PRICE);
 		let listing_id = <Nft<T>>::next_listing_id();
-		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None).expect("listed ok");
+		let _ = <Nft<T>>::sell(RawOrigin::Signed(owner.clone()).into(), token_id, Some(buyer.clone()), PAYMENT_ASSET, PRICE, None, None).expect("listed ok");
 
 	}: _(RawOrigin::Signed(buyer.clone()), listing_id)
 	verify {
@@ -203,7 +203,7 @@ benchmarks! {
 		let _ = T::MultiCurrency::deposit_creating(&owner, PAYMENT_ASSET, PRICE);
 		let _ = T::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, PRICE + 1);
 		let listing_id = <Nft<T>>::next_listing_id();
-		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration), None).expect("listed ok");
 		// worst case path is to replace an existing bid
 		let _ = <Nft<T>>::bid(RawOrigin::Signed(owner.clone()).into(), listing_id, PRICE);
 
@@ -219,7 +219,7 @@ benchmarks! {
 		let listing_id = <Nft<T>>::next_listing_id();
 		let duration = T::BlockNumber::from(100_u32);
 		let listing_id = <Nft<T>>::next_listing_id();
-		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration)).expect("listed ok");
+		let _ = <Nft<T>>::auction(RawOrigin::Signed(owner.clone()).into(), token_id, PAYMENT_ASSET, PRICE, Some(duration), None).expect("listed ok");
 
 	}: _(RawOrigin::Signed(owner.clone()), listing_id)
 	verify {
