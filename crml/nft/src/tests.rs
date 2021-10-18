@@ -33,6 +33,8 @@ fn has_event(
 		SerialNumber,
 		TokenCount,
 		CollectionNameType,
+		Permill,
+		MarketplaceId,
 	>,
 ) -> bool {
 	System::events()
@@ -480,6 +482,7 @@ fn transfer_fails_prechecks() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None,
 		));
 
 		// cannot transfer while listed
@@ -584,6 +587,7 @@ fn burn_fails_prechecks() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None,
 		));
 		// cannot burn_batch while listed
 		assert_noop!(
@@ -621,6 +625,7 @@ fn sell_bundle() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None,
 		));
 
 		for token in tokens.iter() {
@@ -647,7 +652,15 @@ fn sell_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::sell_bundle(Some(collection_owner).into(), vec![], None, PAYMENT_ASSET, 1_000, None),
+			Nft::sell_bundle(
+				Some(collection_owner).into(),
+				vec![],
+				None,
+				PAYMENT_ASSET,
+				1_000,
+				None,
+				None
+			),
 			Error::<Test>::NoToken
 		);
 
@@ -659,6 +672,7 @@ fn sell_bundle_fails() {
 				None,
 				PAYMENT_ASSET,
 				1_000,
+				None,
 				None,
 			),
 			Error::<Test>::MixedBundleSale
@@ -674,6 +688,7 @@ fn sell_bundle_fails() {
 				None,
 				PAYMENT_ASSET,
 				1_000,
+				None,
 				None,
 			),
 			Error::<Test>::RoyaltiesProtection
@@ -694,6 +709,7 @@ fn sell() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None,
 		));
 
 		assert_eq!(Nft::token_locks(token_id).unwrap(), TokenLockReason::Listed(listing_id));
@@ -707,6 +723,7 @@ fn sell() {
 			tokens: vec![token_id],
 			seller: token_owner,
 			royalties_schedule: Default::default(),
+			marketplace_id: None,
 		});
 
 		let listing = Nft::listings(listing_id).expect("token is listed");
@@ -724,7 +741,11 @@ fn sell() {
 			Error::<Test>::TokenListingProtection
 		);
 
-		assert!(has_event(RawEvent::FixedPriceSaleListed(collection_id, listing_id,)));
+		assert!(has_event(RawEvent::FixedPriceSaleListed(
+			collection_id,
+			listing_id,
+			None
+		)));
 	});
 }
 
@@ -740,6 +761,7 @@ fn sell_fails() {
 				Some(5),
 				PAYMENT_ASSET,
 				1_000,
+				None,
 				None
 			),
 			Error::<Test>::NoPermission
@@ -753,15 +775,24 @@ fn sell_fails() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None,
 		));
 		assert_noop!(
-			Nft::sell(Some(token_owner).into(), token_id, Some(5), PAYMENT_ASSET, 1_000, None),
+			Nft::sell(
+				Some(token_owner).into(),
+				token_id,
+				Some(5),
+				PAYMENT_ASSET,
+				1_000,
+				None,
+				None
+			),
 			Error::<Test>::TokenListingProtection
 		);
 
 		// can't auction, listed for fixed price sale
 		assert_noop!(
-			Nft::auction(Some(token_owner).into(), token_id, PAYMENT_ASSET, 1_000, None),
+			Nft::auction(Some(token_owner).into(), token_id, PAYMENT_ASSET, 1_000, None, None),
 			Error::<Test>::TokenListingProtection
 		);
 	});
@@ -779,6 +810,7 @@ fn cancel_sell() {
 			PAYMENT_ASSET,
 			1_000,
 			None,
+			None
 		));
 		assert_ok!(Nft::cancel_sale(Some(token_owner).into(), listing_id));
 		assert!(has_event(RawEvent::FixedPriceSaleClosed(collection_id, listing_id)));
@@ -809,6 +841,7 @@ fn sell_closes_on_schedule() {
 			PAYMENT_ASSET,
 			1_000,
 			Some(listing_duration),
+			None
 		));
 
 		// sale should close after the duration expires
@@ -828,6 +861,136 @@ fn sell_closes_on_schedule() {
 }
 
 #[test]
+fn register_marketplace() {
+	ExtBuilder::default().build().execute_with(|| {
+		let account = 1;
+		let entitlements: Permill = Permill::from_fraction(0.1);
+		let marketplace_id = Nft::next_marketplace_id();
+		assert_ok!(Nft::register_marketplace(Some(account).into(), None, entitlements));
+		assert!(has_event(RawEvent::RegisteredMarketplace(account, entitlements, 0)));
+		assert_eq!(Nft::next_marketplace_id(), marketplace_id + 1);
+	});
+}
+
+#[test]
+fn register_marketplace_separate_account() {
+	ExtBuilder::default().build().execute_with(|| {
+		let account = 1;
+		let marketplace_account = 2;
+		let entitlements: Permill = Permill::from_fraction(0.1);
+		assert_ok!(Nft::register_marketplace(
+			Some(account).into(),
+			Some(marketplace_account).into(),
+			entitlements
+		));
+		assert!(has_event(RawEvent::RegisteredMarketplace(
+			marketplace_account,
+			entitlements,
+			0
+		)));
+	});
+}
+
+#[test]
+fn buy_with_marketplace_royalties() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1;
+		let beneficiary_1 = 11;
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: vec![(beneficiary_1, Permill::from_fraction(0.1111))],
+		};
+		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+		let buyer = 5;
+		let payment_asset = PAYMENT_ASSET;
+		let sale_price = 1_000_008;
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, sale_price * 2);
+		let token_id = first_token_id(collection_id);
+
+		let marketplace_account = 20;
+		let initial_balance_marketplace = GenericAsset::free_balance(payment_asset, &marketplace_account);
+		let marketplace_entitlement: Permill = Permill::from_fraction(0.5);
+		assert_ok!(Nft::register_marketplace(
+			Some(marketplace_account).into(),
+			Some(marketplace_account).into(),
+			marketplace_entitlement
+		));
+		let marketplace_id = 0;
+		let listing_id = Nft::next_listing_id();
+		assert_eq!(listing_id, 0);
+		assert_ok!(Nft::sell(
+			Some(token_owner).into(),
+			token_id,
+			Some(buyer),
+			payment_asset,
+			sale_price,
+			None,
+			Some(marketplace_id).into(),
+		));
+
+		let initial_balance_owner = GenericAsset::free_balance(payment_asset, &collection_owner);
+		let initial_balance_b1 = GenericAsset::free_balance(payment_asset, &beneficiary_1);
+
+		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+		let presale_issuance = GenericAsset::total_issuance(payment_asset);
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &marketplace_account),
+			initial_balance_marketplace + marketplace_entitlement * sale_price
+		);
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &beneficiary_1),
+			initial_balance_b1 + royalties_schedule.clone().entitlements[0].1 * sale_price
+		);
+		// token owner gets sale price less royalties
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset, &token_owner),
+			initial_balance_owner + sale_price
+				- marketplace_entitlement * sale_price
+				- royalties_schedule.clone().entitlements[0].1 * sale_price
+		);
+		assert_eq!(GenericAsset::total_issuance(payment_asset), presale_issuance);
+	});
+}
+
+#[test]
+fn list_with_invalid_marketplace_royalties_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let beneficiary_1 = 11;
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: vec![(beneficiary_1, Permill::from_fraction(0.51))],
+		};
+		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+		let buyer = 5;
+		let payment_asset = PAYMENT_ASSET;
+		let sale_price = 1_000_008;
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, sale_price * 2);
+		let token_id = first_token_id(collection_id);
+
+		let marketplace_account = 20;
+		let marketplace_entitlement: Permill = Permill::from_fraction(0.5);
+		assert_ok!(Nft::register_marketplace(
+			Some(marketplace_account).into(),
+			Some(marketplace_account).into(),
+			marketplace_entitlement
+		));
+		let marketplace_id = 0;
+		assert_noop!(
+			Nft::sell(
+				Some(token_owner).into(),
+				token_id,
+				Some(buyer),
+				payment_asset,
+				sale_price,
+				None,
+				Some(marketplace_id).into(),
+			),
+			Error::<Test>::RoyaltiesInvalid,
+		);
+	});
+}
+
+#[test]
 fn buy() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
@@ -843,6 +1006,7 @@ fn buy() {
 			payment_asset,
 			price,
 			None,
+			None
 		));
 
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price);
@@ -895,6 +1059,7 @@ fn buy_with_royalties() {
 			payment_asset,
 			sale_price,
 			None,
+			None
 		));
 
 		let initial_balance_owner = GenericAsset::free_balance(payment_asset, &collection_owner);
@@ -964,6 +1129,7 @@ fn buy_fails_prechecks() {
 			payment_asset,
 			price,
 			None,
+			None
 		));
 
 		// no permission
@@ -996,6 +1162,7 @@ fn sell_to_anybody() {
 			payment_asset,
 			price,
 			None,
+			None
 		));
 
 		let buyer = 11;
@@ -1043,6 +1210,7 @@ fn buy_with_overcommitted_royalties() {
 			payment_asset,
 			price,
 			None,
+			None
 		));
 
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, payment_asset, price);
@@ -1071,6 +1239,7 @@ fn cancel_auction() {
 			payment_asset,
 			reserve_price,
 			Some(System::block_number() + 1),
+			None,
 		));
 
 		assert_noop!(
@@ -1122,6 +1291,7 @@ fn auction_bundle() {
 			PAYMENT_ASSET,
 			1_000,
 			Some(1),
+			None,
 		));
 
 		assert!(Nft::open_collection_listings(collection_id, listing_id));
@@ -1152,7 +1322,7 @@ fn auction_bundle_fails() {
 
 		// empty tokens fails
 		assert_noop!(
-			Nft::auction_bundle(Some(collection_owner).into(), vec![], PAYMENT_ASSET, 1_000, None),
+			Nft::auction_bundle(Some(collection_owner).into(), vec![], PAYMENT_ASSET, 1_000, None, None),
 			Error::<Test>::NoToken
 		);
 
@@ -1164,6 +1334,7 @@ fn auction_bundle_fails() {
 				PAYMENT_ASSET,
 				1_000,
 				None,
+				None
 			),
 			Error::<Test>::MixedBundleSale
 		);
@@ -1178,6 +1349,7 @@ fn auction_bundle_fails() {
 				PAYMENT_ASSET,
 				1_000,
 				None,
+				None
 			),
 			Error::<Test>::RoyaltiesProtection
 		);
@@ -1199,6 +1371,7 @@ fn auction() {
 			payment_asset,
 			reserve_price,
 			Some(1),
+			None,
 		));
 		assert_eq!(
 			Nft::token_locks(&token_id).unwrap(),
@@ -1265,6 +1438,7 @@ fn bid_auto_extends() {
 			payment_asset,
 			reserve_price,
 			Some(2),
+			None,
 		));
 
 		// Place bid
@@ -1306,6 +1480,7 @@ fn auction_royalty_payments() {
 			payment_asset,
 			reserve_price,
 			Some(1),
+			None,
 		));
 
 		// first bidder at reserve price
@@ -1377,6 +1552,7 @@ fn close_listings_at_removes_listing_data() {
 				seller: 1,
 				tokens: vec![token_1],
 				royalties_schedule: Default::default(),
+				marketplace_id: None,
 			}),
 			// an open auction which has no bids before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1386,6 +1562,7 @@ fn close_listings_at_removes_listing_data() {
 				seller: 1,
 				tokens: vec![token_1],
 				royalties_schedule: Default::default(),
+				marketplace_id: None,
 			}),
 			// an open auction which has a winning bid before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
@@ -1395,6 +1572,7 @@ fn close_listings_at_removes_listing_data() {
 				seller: 1,
 				tokens: vec![token_1],
 				royalties_schedule: Default::default(),
+				marketplace_id: None,
 			}),
 		];
 
@@ -1453,6 +1631,7 @@ fn auction_fails_prechecks() {
 				payment_asset,
 				reserve_price,
 				Some(1),
+				None,
 			),
 			Error::<Test>::NoPermission
 		);
@@ -1465,6 +1644,7 @@ fn auction_fails_prechecks() {
 				payment_asset,
 				reserve_price,
 				Some(1),
+				None,
 			),
 			Error::<Test>::NoPermission
 		);
@@ -1476,6 +1656,7 @@ fn auction_fails_prechecks() {
 			payment_asset,
 			reserve_price,
 			Some(1),
+			None,
 		));
 		// already listed
 		assert_noop!(
@@ -1485,6 +1666,7 @@ fn auction_fails_prechecks() {
 				payment_asset,
 				reserve_price,
 				Some(1),
+				None,
 			),
 			Error::<Test>::TokenListingProtection
 		);
@@ -1497,6 +1679,7 @@ fn auction_fails_prechecks() {
 				None,
 				payment_asset,
 				reserve_price,
+				None,
 				None,
 			),
 			Error::<Test>::TokenListingProtection
@@ -1524,6 +1707,7 @@ fn bid_fails_prechecks() {
 			payment_asset,
 			reserve_price,
 			Some(1),
+			None,
 		));
 
 		let bidder = 5;
@@ -3077,6 +3261,7 @@ fn get_collection_listings() {
 				payment_asset,
 				price,
 				Some(close),
+				None,
 			));
 		}
 
@@ -3096,6 +3281,7 @@ fn get_collection_listings() {
 				seller: owner,
 				tokens: token_id,
 				royalties_schedule: royalties_schedule.clone(),
+				marketplace_id: None,
 			};
 			let expected_listing = Listing::FixedPrice(expected_listing);
 			assert_eq!(listings[id as usize], (id as u128, expected_listing));
@@ -3146,6 +3332,7 @@ fn get_collection_listings_over_limit() {
 				payment_asset,
 				price,
 				Some(close),
+				None,
 			));
 		}
 
@@ -3160,7 +3347,6 @@ fn get_collection_listings_cursor_too_high() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let collection_id = setup_collection(owner);
-		let name = b"test-collection".to_vec();
 		let cursor: u128 = 300;
 		let limit: u16 = 1000;
 
