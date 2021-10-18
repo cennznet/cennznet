@@ -175,7 +175,7 @@ decl_error! {
 		/// Tokens with different individual royalties cannot be sold together
 		RoyaltiesProtection,
 		/// The account_id hasn't been registered as a marketplace
-		MarketplaceNotRegistered
+		MarketplaceNotRegistered,
 		/// The mass_drop activation_time or limit is invalid
 		MassDropInvalid,
 		/// There is no mass_drop associated with the series
@@ -188,8 +188,6 @@ decl_error! {
 		PurchaseQuantityTooHigh,
 		/// The mass_drop hasn't started yet
 		MassDropNotStarted,
-		/// The presale hasn't started yet
-		PresaleNotStarted,
 		/// There are not enough tokens left to purchase this amount
 		NotEnoughTokens,
 		/// The activation time has passed or is invalid
@@ -358,10 +356,10 @@ decl_module! {
 				account: marketplace_account.clone(),
 				entitlement
 			};
-			ensure!(marketplace_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+			let next_marketplace_id = NextMarketplaceId::get();
+			ensure!(next_marketplace_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 			<RegisteredMarketplaces<T>>::insert(&marketplace_id, marketplace);
 			Self::deposit_event(RawEvent::RegisteredMarketplace(marketplace_account, entitlement, marketplace_id));
-			let marketplace_id = NextMarketplaceId::get();
 			NextMarketplaceId::mutate(|i| *i += 1);
 			Ok(())
 		}
