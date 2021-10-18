@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#![recursion_limit = "256"]
 //! # NFT Module
 //!
 //! Provides the basic creation and management of dynamic NFTs (created at runtime).
