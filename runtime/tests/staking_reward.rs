@@ -220,13 +220,13 @@ fn era_transaction_fees_collected() {
 			let r = Executive::apply_extrinsic(xt_1.clone());
 			assert!(r.is_ok());
 			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
 			assert!(r2.is_ok());
 			era1_tx_fees += extrinsic_fee_for(&xt_2);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			// Advancing sessions shouldn't change transaction rewards storage
 			advance_session();
@@ -270,23 +270,23 @@ fn era_transaction_fees_accrued() {
 			let r = Executive::apply_extrinsic(xt_1.clone());
 			assert!(r.is_ok());
 			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
 			assert!(r2.is_ok());
 			era1_tx_fees += extrinsic_fee_for(&xt_2);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
 			start_active_era(1);
 			// rewards have accrued
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
 			start_active_era(2);
 			// rewards have accrued
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, era1_tx_fees);
+			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
 
 			start_active_era(3);
 			// rewards paid out on normal era
@@ -345,8 +345,8 @@ fn elected_validators_receive_transaction_fee_reward() {
 			// tx fees are tracked by the Rewards module
 			let reward_parts = Rewards::calculate_total_reward();
 			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.inflation);
-			assert_eq!(tx_fee, reward_parts.transaction_fees);
-			assert_eq!(Rewards::target_inflation_per_staking_era() + tx_fee, reward_parts.total);
+			assert_eq!(0, reward_parts.transaction_fees);
+			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.total);
 
 			// treasury has nothing at this point
 			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
@@ -355,10 +355,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 			start_active_era(2);
 
 			// treasury is paid its cut of network tx fees
-			assert_eq!(
-				RewardCurrency::free_balance(&Treasury::account_id()),
-				reward_parts.treasury_cut
-			);
+			assert_eq!(0, reward_parts.treasury_cut);
 
 			// skip a few blocks to ensure payouts are made
 			advance_session();
@@ -372,11 +369,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 				)
 			}
 
-			assert_eq!(
-				RewardCurrency::free_balance(&Treasury::account_id()),
-				// + 6 is a remainder after the stakers_cut is split
-				reward_parts.treasury_cut + 5
-			);
+			assert_eq!(RewardCurrency::free_balance(&Treasury::account_id()), 10);
 		});
 }
 
