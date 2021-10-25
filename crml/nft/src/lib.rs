@@ -96,6 +96,8 @@ decl_event!(
 		CreateAdditional(CollectionId, SeriesId, TokenCount, AccountId),
 		/// A unique token was created (collection, series id, serial number, owner)
 		CreateToken(CollectionId, TokenId, AccountId),
+		/// A new mass drop was created (collection, series id, owner)
+		CreateMassDrop(CollectionId, SeriesId, AccountId),
 		/// Token(s) were transferred (previous owner, token Ids, new owner)
 		Transfer(AccountId, Vec<TokenId>, AccountId),
 		/// Tokens were burned (collection, series id, serial numbers)
@@ -679,7 +681,7 @@ decl_module! {
 			);
 
 			// Create the mass_drop data
-			if let Some(mass_drop) = mass_drop {
+			if let Some(mass_drop) = mass_drop.clone() {
 				ensure!(mass_drop.validate(), Error::<T>::MassDropInvalid);
 				let current_block = <frame_system::Module<T>>::block_number();
 				ensure!(
@@ -714,12 +716,15 @@ decl_module! {
 			NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
 			NextSerialNumber::insert(collection_id, series_id, quantity as SerialNumber);
 
-			if quantity > One::one() {
-				Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
+			if mass_drop.is_some() {
+				Self::deposit_event(RawEvent::CreateMassDrop(collection_id, series_id, owner));
 			} else {
-				Self::deposit_event(RawEvent::CreateToken(collection_id, (collection_id, series_id, 0 as SerialNumber), owner));
+				if quantity > One::one() {
+					Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
+				} else {
+					Self::deposit_event(RawEvent::CreateToken(collection_id, (collection_id, series_id, 0 as SerialNumber), owner));
+				}
 			}
-
 			Ok(())
 		}
 
