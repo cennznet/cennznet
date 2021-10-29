@@ -10,7 +10,10 @@
   "protocolId": "cennznet-nikau-v2",
   "properties": null,
   "forkBlocks": null,
-  "badBlocks": null,
+  "badBlocks": [
+    "0xe8f34606000b383f0b65338459c3c538b786f5f8eef108d26f56a272e08f6f82",
+    "0x9a1a8b516d0efce8edef98b94aba6d8b09918a3cf6dabbc093224b48622d3870"
+  ],
   "consensusEngine": null,
   "lightSyncState": null,
   "genesis": {
