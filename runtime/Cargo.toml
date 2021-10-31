@@ -89,6 +89,8 @@ crml-support = { path = "../crml/support", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
+crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
+crml-eth-wallet-rpc-runtime-api = { path = "../crml/eth-wallet/rpc/runtime-api", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
@@ -103,6 +105,8 @@ std = [
 	"pallet-authorship/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
+	"crml-eth-wallet/std",
+	"crml-eth-wallet-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-im-online/std",
