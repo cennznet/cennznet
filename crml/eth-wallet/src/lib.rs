@@ -1,4 +1,5 @@
 //! Kudos: https://github.com/PlasmNetwork/Astar/blob/08c4a9211836b929abcbad4ed33ede0f616a6423/frame/custom-signatures/
+//! Provides shims for Ethereum wallets (e.g. metamask) to interact with CENNZnet
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::ethereum::{ecrecover, EthereumSignature};
@@ -7,7 +8,6 @@ use crml_support::{TransactionFeeHandler, H160 as EthAddress};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchInfo, Dispatchable},
-	log,
 	traits::{Get, UnfilteredDispatchable},
 	weights::GetDispatchInfo,
 	Parameter,
@@ -24,19 +24,6 @@ use sp_std::prelude::*;
 
 /// Ethereum-compatible signatures (eth_sign API call).
 pub mod ethereum;
-
-pub(crate) const LOG_TARGET: &str = "eth-wallet";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
 
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
@@ -79,14 +66,15 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Config>::AccountId,
 	{
-		/// A call just executed. \[result\]
-		Execute(AccountId, DispatchResult),
+		/// A call just executed. (Ethereum Address, CENNZnet Address, Result)
+		Execute(EthAddress, AccountId, DispatchResult),
 	}
 );
 
 decl_storage! {
 	trait Store for Module<T: Config> as EthWallet {
 		/// Mapping from Ethereum address to a CENNZnet only transaction nonce
+		/// It may be higher than the CENNZnet system nonce for the same address
 		pub AddressNonce get(fn stored_address_nonce): map hasher(identity) EthAddress => u32
 	}
 }
@@ -110,34 +98,33 @@ decl_module! {
 		fn call(
 			origin,
 			call: Box<<T as Config>::Call> ,
-			address: EthAddress,
+			eth_address: EthAddress,
 			signature: EthereumSignature,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
 			// check the known nonce for this ethereum address
-			let address_nonce = Self::stored_address_nonce(address);
+			let address_nonce = Self::stored_address_nonce(eth_address);
 			let message = &(&call, address_nonce).encode()[..];
 
-			if let Some(public_key) = ecrecover(&signature, message, &address) {
-				// TODO: convert ethereum address to CENNZnet account type
-				log!(trace, "eth address: {:?}, public key: {:?}\n", address, public_key);
-				// 032df450513c73c9ff7a6e4f677767bb02807a27e93b016cc90ce6fd69677bc939
-				// eca51cdc998e42bfa50c6700804fd133fe87401512b9017dc304c4297776031f
-				let account = T::Signer::from(public_key).into_account();
+			if let Some(public_key) = ecrecover(&signature, message, &eth_address) {
+				let account = T::Signer::from(public_key).into_account(); // CENNZnet address
 
-				// ensure system nonce and nonce known by this pallet are synched
+				// it's possible this account is used normally outside of eth signing-
+				// ensure highest known nonce is used
 				let system_nonce = <frame_system::Module<T>>::account_nonce(account.clone());
 				let highest_nonce = sp_std::cmp::max(system_nonce.saturated_into(), address_nonce);
 				let new_nonce = highest_nonce.checked_add(1).ok_or(Error::<T>::InvalidNonce)?;
-				AddressNonce::insert(address, new_nonce);
-				log!(trace, "eth address: {:?}, cennznet account: {:?}\n", address, account);
+
+				// Pay fee, increment nonce
+				let _ = Self::pay_fee(&call, &account)?;
+				AddressNonce::insert(eth_address, new_nonce);
+				<frame_system::Module<T>>::inc_account_nonce(&account);
 
 				// execute the call
-				let _ = Self::pay_fee(&call, &account)?;
 				let new_origin = frame_system::RawOrigin::Signed(account.clone()).into();
 				let res = call.dispatch_bypass_filter(new_origin).map(|_| ());
-				Self::deposit_event(RawEvent::Execute(account, res.map_err(|e| e.error)));
+				Self::deposit_event(RawEvent::Execute(eth_address, account, res.map_err(|e| e.error)));
 
 				Ok(())
 			} else {
@@ -148,14 +135,14 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Take required fees from `account` to dispatch `call`
 	fn pay_fee(call: &<T as Config>::Call, account: &T::AccountId) -> DispatchResult {
 		let info = call.get_dispatch_info();
 		let len = call.clone().encode()[..].len() as u32 + 33 + 65 + 4; // call + account, signature, nonce bytes
 
-		match T::TransactionFeeHandler::pay_fee(len, call, &info, account) {
-			Ok(_) => Ok(()),
-			Err(_) => Err(Error::<T>::CantPay)?,
-		}
+		T::TransactionFeeHandler::pay_fee(len, call, &info, account)
+			.map(|_| ())
+			.map_err(|_| Error::<T>::CantPay.into())
 	}
 	/// Return the known CENNZnet nonce for a given Ethereum address
 	pub fn address_nonce(eth_address: &EthAddress) -> u32 {
@@ -188,26 +175,22 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 
 #[cfg(test)]
 mod tests {
-	use std::marker::PhantomData;
-	use std::convert::TryInto;
 	use crate as crml_eth_wallet;
-	use libsecp256k1 as secp256k1;
 	use crml_eth_wallet::*;
-	use frame_support::{assert_err, assert_ok, parameter_types};
-	use frame_system::mocking::MockBlock;
+	use frame_support::{assert_err, assert_ok, parameter_types, storage};
 	use hex_literal::hex;
-	use sp_core::{crypto::Ss58Codec, ecdsa, keccak_256, Pair};
-	use sp_keyring::AccountKeyring as Keyring;
+	use libsecp256k1 as secp256k1;
+	use sp_core::{ecdsa, keccak_256, Pair};
 	use sp_runtime::{
 		testing::{Header, H256},
 		traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 		transaction_validity::TransactionPriority,
 		MultiSignature, MultiSigner,
 	};
+	use std::{convert::TryFrom, marker::PhantomData};
 
 	pub const ECDSA_SEED: [u8; 32] = hex!("7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c");
 
-	type Balance = u128;
 	type BlockNumber = u64;
 	type Signature = MultiSignature;
 	type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -228,7 +211,6 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
 	}
-
 	impl frame_system::Config for Runtime {
 		type Origin = Origin;
 		type BaseCallFilter = ();
@@ -257,7 +239,6 @@ mod tests {
 	parameter_types! {
 		pub const Priority: TransactionPriority = TransactionPriority::max_value();
 	}
-
 	impl Config for Runtime {
 		type Event = Event;
 		type Call = Call;
@@ -266,46 +247,50 @@ mod tests {
 		type UnsignedPriority = Priority;
 	}
 
-	struct MockTransactionFeeHandler<AccountId, Call: Dispatchable + GetDispatchInfo + Encode> {
-		phantom: PhantomData<(AccountId, Call)>
+	/// temp storage key for testing fee payment
+	const MOCK_FEE_PAID: [u8; 13] = *b"MOCK_FEE_PAID";
+
+	/// Mock transaction handler (noop)
+	pub struct MockTransactionFeeHandler<AccountId, Call: Dispatchable + GetDispatchInfo + Encode> {
+		phantom: PhantomData<(AccountId, Call)>,
 	}
-	impl<AccountId, Call: Dispatchable + GetDispatchInfo + Encode> TransactionFeeHandler for MockTransactionFeeHandler<AccountId, Call> {
+	impl<AccountId, Call: Dispatchable + GetDispatchInfo + Encode> TransactionFeeHandler
+		for MockTransactionFeeHandler<AccountId, Call>
+	{
 		/// Ubiquitous account type
 		type AccountId = AccountId;
 		/// Runtime call type
 		type Call = Call;
 		/// pay fee for `call_info` from `account`
 		fn pay_fee(
-			len: u32,
-			call: &Self::Call,
-			info: &<Self::Call as Dispatchable>::Info,
-			account: &Self::AccountId,
+			_len: u32,
+			_call: &Self::Call,
+			_info: &<Self::Call as Dispatchable>::Info,
+			_account: &Self::AccountId,
 		) -> Result<(), ()> {
+			storage::unhashed::put(&MOCK_FEE_PAID, &1u32);
 			Ok(())
 		}
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let mut storage = frame_system::GenesisConfig::default()
+		let storage = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()
 			.unwrap();
-
-		let pair = ecdsa::Pair::from_seed(&ECDSA_SEED);
-		let account = MultiSigner::from(pair.public()).into_account();
-
 		storage.into()
 	}
 
 	// Simple `eth_sign` implementation, should be equal to exported by RPC
 	fn eth_sign(seed: &[u8; 32], data: &[u8]) -> Vec<u8> {
 		let call_msg = ethereum::signable_message(data);
-		// TODO: derive ethereum address here
 		let ecdsa_msg = secp256k1::Message::parse(&keccak_256(&call_msg));
 		let secret = secp256k1::SecretKey::parse(&seed).expect("valid seed");
-		let mut ecdsa: ecdsa::Signature = secp256k1::sign(&ecdsa_msg, &secret).try_into().unwrap;
+		let (signature, recovery_id) = libsecp256k1::sign(&ecdsa_msg, &secret);
+		let mut out = Vec::with_capacity(65);
+		out.extend_from_slice(&signature.serialize()[..]);
 		// Fix recovery ID: Ethereum uses 27/28 notation
-		ecdsa.as_mut()[64] += 27;
-		Vec::from(ecdsa.as_ref() as &[u8])
+		out.push(recovery_id.serialize() + 27);
+		out
 	}
 
 	#[test]
@@ -318,54 +303,46 @@ mod tests {
 
 	#[test]
 	fn invalid_signature() {
-		let bob: <Runtime as frame_system::Config>::AccountId = Keyring::Bob.into();
-		let alice: <Runtime as frame_system::Config>::AccountId = Keyring::Alice.into();
-		let call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
-		let signature = Vec::from(&hex!("dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b")[..]);
-		assert_err!(
-			EthWallet::call(Origin::none(), Box::new(call), bob, signature),
-			Error::<Runtime>::InvalidSignature,
-		);
+		new_test_ext().execute_with(|| {
+			let bob = EthAddress::from_low_u64_be(555);
+			let call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
+			let signature = EthereumSignature {
+				0: hex!("dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b")
+			};
+			assert_err!(
+				EthWallet::call(Origin::none(), Box::new(call), bob, signature),
+				Error::<Runtime>::InvalidSignature,
+			);
+		});
 	}
 
 	#[test]
 	fn simple_remark() {
 		new_test_ext().execute_with(|| {
 			let pair = ecdsa::Pair::from_seed(&ECDSA_SEED);
-			let account = MultiSigner::from(pair.public()).into_account();
-
-			let alice: <Runtime as frame_system::Config>::AccountId = Keyring::Alice.into();
+			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
+			let cennznet_address = MultiSigner::from(pair.public()).into_account();
 
 			let call: Call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
-			let nonce = <frame_system::Module<Runtime>>::account_nonce(&account);
-			let signature = eth_sign(&ECDSA_SEED, (call, nonce).encode().as_ref()).into();
+			let system_nonce = <frame_system::Module<Runtime>>::account_nonce(&cennznet_address);
+			let module_nonce = EthWallet::address_nonce(&eth_address);
+			assert_eq!(system_nonce as u32, module_nonce);
+			let signature =
+				EthereumSignature::try_from(eth_sign(&ECDSA_SEED, (call.clone(), module_nonce).encode().as_ref()))
+					.expect("valid sig");
 
-			assert_ok!(EthWallet::call(
-				Origin::none(),
-				Box::new(call),
-				account,
-				signature
-			));
+			// execute the call
+			assert_ok!(EthWallet::call(Origin::none(), Box::new(call), eth_address, signature));
+
+			// nonces incremented
+			assert_eq!(EthWallet::address_nonce(&eth_address), module_nonce + 1,);
+			assert_eq!(
+				<frame_system::Module<Runtime>>::account_nonce(&cennznet_address),
+				system_nonce + 1,
+			);
+
+			// fee payment triggered
+			assert_eq!(storage::unhashed::get(&MOCK_FEE_PAID), Some(1u32),);
 		})
-	}
-
-	#[test]
-	fn call_fixtures() {
-		let seed = hex!("7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c");
-		let pair = ecdsa::Pair::from_seed(&seed);
-		assert_eq!(
-			MultiSigner::from(pair.public()).into_account().to_ss58check(),
-			"5Geeci7qCoYHyg9z2AwfpiT4CDryvxYyD7SAUdfNBz9CyDSb",
-		);
-
-		let dest = AccountId::from_ss58check("5GVwcV6EzxxYbXBm7H6dtxc9TCgL4oepMXtgqWYEc3VXJoaf").unwrap();
-		let call: Call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
-		assert_eq!(
-			call.encode(),
-			hex!("0000c4305fb88b6ccb43d6552dc11d18e7b0ee3185247adcc6e885eb284adf6c563da10f"),
-		);
-
-		let signature = hex!("96cd8087ef720b0ec10d96996a8bbb45005ba3320d1dde38450a56f77dfd149720cc2e6dcc8f09963aad4cdf5ec15e103ce56d0f4c7a753840217ef1787467a01c");
-		assert_eq!(eth_sign(&seed, call.encode().as_ref()), signature)
 	}
 }
