@@ -8,9 +8,11 @@ repository = "https://github.com/cennznet/cennznet"
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 frame-support = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+libsecp256k1 = { version = "0.6.0", default-features = false }
 sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
 sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
 sp-core = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-io = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 sp-std = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 
@@ -18,11 +20,13 @@ sp-std = { git = "https://github.com/cennznet/substrate", default-features = fal
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-support/std",
+	"libsecp256k1/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"frame-support/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

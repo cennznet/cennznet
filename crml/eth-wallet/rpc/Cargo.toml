@@ -1,0 +1,23 @@
+[package]
+name = "crml-eth-wallet-rpc"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+license = "GPL-3.0"
+repository = "https://github.com/cennznet/cennznet"
+description = "RPC interface for the eth wallet module."
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0" }
+crml-support = { path = "../../support" }
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
+serde = { version = "1.0.101", features = ["derive"] }
+sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+crml-eth-wallet = { path = "../" }
+crml-eth-wallet-rpc-runtime-api = { path = "runtime-api" }

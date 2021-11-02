@@ -682,6 +682,18 @@ impl crml_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	/// lower priority than Staking and ImOnline txs
+	pub const EcdsaUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 3;
+}
+impl crml_eth_wallet::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type TransactionFeeHandler = TransactionPayment;
+	type Signer = <Signature as Verify>::Signer;
+	type UnsignedPriority = EcdsaUnsignedPriority;
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -766,6 +778,7 @@ construct_runtime!(
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
 		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned} = 32,
 		Erc20Peg: crml_erc20_peg::{Module, Call, Storage, Config, Event<T>} = 33,
+		EthWallet: crml_eth_wallet::{Module, Call, Event<T>, ValidateUnsigned} = 34,
 	}
 );
 
@@ -863,6 +876,12 @@ impl_runtime_apis! {
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
+		}
+	}
+
+	impl crml_eth_wallet_rpc_runtime_api::EthWalletApi<Block> for Runtime {
+		fn address_nonce(eth_address: &crml_support::H160) -> u32 {
+			EthWallet::address_nonce(eth_address)
 		}
 	}
 
