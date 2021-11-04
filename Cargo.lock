@@ -4663,6 +4663,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dex"
+version = "0.0.1"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "3.0.0"
 source = "git+https://github.com/cennznet/substrate?rev=d05b61e9b948621416a3c6eea2e10fd2f1b62aba#d05b61e9b948621416a3c6eea2e10fd2f1b62aba"

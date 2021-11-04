@@ -60,6 +60,14 @@ impl<T: Config> MultiCurrency for Module<T> {
 		<Module<T>>::free_balance(currency, who)
 	}
 
+	fn total_issuance(currency: Self::CurrencyId) -> Self::Balance {
+		<Module<T>>::total_issuance(currency)
+	}
+
+	fn currency_exists(currency: Self::CurrencyId) -> bool {
+		<Module<T>>::asset_exists(currency)
+	}
+
 	fn deposit_creating(
 		who: &T::AccountId,
 		currency: Self::CurrencyId,

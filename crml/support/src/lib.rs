@@ -144,6 +144,12 @@ pub trait MultiCurrency {
 	/// Return the currency Id of the system staking currency
 	fn staking_currency() -> Self::CurrencyId;
 
+	/// Return whether the currency exists or not
+	fn currency_exists(currency: Self::CurrencyId) -> bool;
+
+	/// Return the total issuance of the currency
+	fn total_issuance(currency: Self::CurrencyId) -> Self::Balance;
+
 	/// The combined balance (free + reserved) of `who` for the given `currency`.
 	fn total_balance(who: &Self::AccountId, currency: Self::CurrencyId) -> Self::Balance;
 
