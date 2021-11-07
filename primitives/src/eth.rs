@@ -16,12 +16,11 @@
 //! Ethereum bridge common types
 //! shared between crml/eth-bridge runtime & ethy-gadget client
 
+use self::crypto::AuthoritySignature;
 use codec::{Decode, Encode};
 use sp_core::ecdsa::Public;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::{convert::TryInto, prelude::*};
-
-use self::crypto::AuthoritySignature;
 
 /// The `ConsensusEngineId` of ETHY.
 pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
@@ -145,7 +144,7 @@ pub struct EventProof {
 	pub event_id: EventId,
 	/// The validators set Id that signed the proof
 	pub validator_set_id: ValidatorSetId,
-	/// GRANDPA validators' signatures for the witness.
+	/// Bridge validators' signatures for the proof.
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).

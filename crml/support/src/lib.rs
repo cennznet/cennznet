@@ -34,6 +34,15 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*, result};
 
+/// Resolves CENNZnet addresses given an ethereum address
+pub trait EthAddressResolver {
+	/// The CENNZnet address type
+	type AccountId;
+	/// The ethereum address type
+	/// Lookup a CENNZnet address for a given Ethereum address, None if not found
+	fn resolve(_eth_address: &H160) -> Option<Self::AccountId>;
+}
+
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
 	/// Returns whether the next session the final session of an era
@@ -137,6 +146,9 @@ pub trait MultiCurrency {
 	/// The minimum balance any single account may have. This is equivalent to the `Balances` module's
 	/// `ExistentialDeposit`.
 	fn minimum_balance(currency: Self::CurrencyId) -> Self::Balance;
+
+	/// Return asset metadata (symbol, decimals)
+	fn meta(currency: Self::CurrencyId) -> (Vec<u8>, u8);
 
 	/// Return the currency Id of the system fee currency
 	fn fee_currency() -> Self::CurrencyId;

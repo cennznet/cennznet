@@ -4,7 +4,7 @@
 
 use crate::ethereum::{ecrecover, EthereumSignature};
 use codec::Encode;
-use crml_support::{TransactionFeeHandler, H160 as EthAddress};
+use crml_support::{EthAddressResolver, TransactionFeeHandler, H160 as EthAddress};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchInfo, Dispatchable},
@@ -24,6 +24,13 @@ use sp_std::prelude::*;
 
 /// Ethereum-compatible signatures (eth_sign API call).
 pub mod ethereum;
+
+impl<T: Config> EthAddressResolver for Module<T> {
+	type AccountId = T::AccountId;
+	fn resolve(eth_address: &EthAddress) -> Option<Self::AccountId> {
+		AddressToAccount::<T>::get(eth_address)
+	}
+}
 
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
@@ -75,7 +82,9 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthWallet {
 		/// Mapping from Ethereum address to a CENNZnet only transaction nonce
 		/// It may be higher than the CENNZnet system nonce for the same address
-		pub AddressNonce get(fn stored_address_nonce): map hasher(identity) EthAddress => u32
+		pub AddressNonce get(fn stored_address_nonce): map hasher(twox_64_concat) EthAddress => u32;
+		/// Mapping from an ethereum address to CENNZnet address
+		pub AddressToAccount get(fn address_to_account): map hasher(twox_64_concat) EthAddress => Option<T::AccountId>;
 	}
 }
 
@@ -121,6 +130,11 @@ decl_module! {
 				AddressNonce::insert(eth_address, new_nonce);
 				<frame_system::Module<T>>::inc_account_nonce(&account);
 
+				// if we haven't seen this address before, add the pairing/lookup
+				if !AddressToAccount::<T>::contains_key(eth_address) {
+					AddressToAccount::<T>::insert(eth_address, account.clone());
+				}
+
 				// execute the call
 				let new_origin = frame_system::RawOrigin::Signed(account.clone()).into();
 				let res = call.dispatch_bypass_filter(new_origin).map(|_| ());
@@ -154,21 +168,22 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::call(call, address, signature) = call {
-			let address_nonce = Self::stored_address_nonce(address);
-			let message = &(&call, address_nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &address) {
-				return ValidTransaction::with_tag_prefix("EthWallet")
-					.priority(T::UnsignedPriority::get())
-					.and_provides((address, address_nonce))
-					.longevity(64_u64)
-					.propagate(true)
-					.build();
-			} else {
-				InvalidTransaction::BadProof.into()
+		match call {
+			Call::call(call, address, signature) => {
+				let address_nonce = Self::stored_address_nonce(address);
+				let message = &(&call, address_nonce).encode()[..];
+				if let Some(_public_key) = ecrecover(&signature, message, &address) {
+					return ValidTransaction::with_tag_prefix("EthWallet")
+						.priority(T::UnsignedPriority::get())
+						.and_provides((address, address_nonce))
+						.longevity(64_u64)
+						.propagate(true)
+						.build();
+				} else {
+					InvalidTransaction::BadProof.into()
+				}
 			}
-		} else {
-			InvalidTransaction::Call.into()
+			_ => InvalidTransaction::Call.into(),
 		}
 	}
 }

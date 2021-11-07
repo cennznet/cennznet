@@ -8,12 +8,15 @@ repository = "https://github.com/cennznet/cennznet"
 description = "RPC interface for the eth wallet module."
 
 [dependencies]
+serde = { version = "1.0.106", features = ["derive"] }
+rustc-hex = "*"
 codec = { package = "parity-scale-codec", version = "2.0.0" }
+cennznet-primitives = { path = "../../../primitives"}
+ethereum-types = { version = "0.12.0", features = ["impl-serde"] }
 crml-support = { path = "../../support" }
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-serde = { version = "1.0.101", features = ["derive"] }
 sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", features = ["kvdb-rocksdb", "parity-db"] }
 sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
 sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
