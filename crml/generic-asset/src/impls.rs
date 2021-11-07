@@ -46,6 +46,11 @@ impl<T: Config> MultiCurrency for Module<T> {
 		<StakingAssetIdAuthority<T> as AssetIdAuthority>::asset_id()
 	}
 
+	fn meta(currency: Self::CurrencyId) -> (Vec<u8>, u8) {
+		let meta = <Module<T>>::asset_meta(currency);
+		(meta.symbol(), meta.decimal_places())
+	}
+
 	fn minimum_balance(currency: Self::CurrencyId) -> Self::Balance {
 		<Module<T>>::asset_meta(currency)
 			.existential_deposit()

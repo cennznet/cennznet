@@ -21,6 +21,7 @@
 #![recursion_limit = "256"]
 
 use codec::Encode;
+use crml_support::{MultiCurrency, U256};
 use sp_std::prelude::*;
 
 use crml_generic_asset_rpc_runtime_api;
@@ -682,6 +683,11 @@ impl crml_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+impl crml_erc20_shim::Config for Runtime {
+	type MultiCurrency = GenericAsset;
+	type EthAddressResolver = EthWallet;
+}
+
 parameter_types! {
 	/// lower priority than Staking and ImOnline txs
 	pub const EcdsaUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 3;
@@ -778,7 +784,8 @@ construct_runtime!(
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
 		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned} = 32,
 		Erc20Peg: crml_erc20_peg::{Module, Call, Storage, Config, Event<T>} = 33,
-		EthWallet: crml_eth_wallet::{Module, Call, Event<T>, ValidateUnsigned} = 34,
+		EthWallet: crml_eth_wallet::{Module, Call, Storage, Event<T>, ValidateUnsigned} = 34,
+		Erc20Shim: crml_erc20_shim::{Module} = 35,
 	}
 );
 
@@ -882,6 +889,13 @@ impl_runtime_apis! {
 	impl crml_eth_wallet_rpc_runtime_api::EthWalletApi<Block> for Runtime {
 		fn address_nonce(eth_address: &crml_support::H160) -> u32 {
 			EthWallet::address_nonce(eth_address)
+		}
+		fn erc20_call(asset_id: AssetId, calldata: &Vec<u8>) -> Vec<u8> {
+			// TODO: propagate error
+			Erc20Shim::call(asset_id, calldata).unwrap_or_default()
+		}
+		fn get_balance(eth_address: &crml_support::H160) -> U256 {
+			Erc20Shim::get_balance(eth_address)
 		}
 	}
 

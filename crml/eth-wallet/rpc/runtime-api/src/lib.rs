@@ -24,12 +24,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crml_support::H160 as EthAddress;
+use cennznet_primitives::types::AssetId;
+use crml_support::{H160 as EthAddress, U256};
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	pub trait EthWalletApi {
 		/// Get CENNZnet nonce for an Ethereum address
 		fn address_nonce(address: &EthAddress) -> u32;
+		/// eth_call shim for erc20 / generic asset compatibility
+		fn erc20_call(_asset_id: AssetId, _calldata: &Vec<u8>) -> Vec<u8>;
+		/// get native CENNZ balance for an ethereum address
+		fn get_balance(address: &EthAddress) -> U256;
 	}
 }

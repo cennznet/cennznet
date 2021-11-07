@@ -77,6 +77,7 @@ crml-cennzx = { path = "../crml/cennzx", default-features = false }
 crml-cennzx-rpc-runtime-api = { path = "../crml/cennzx/rpc/runtime-api", default-features = false }
 crml-eth-bridge = { path = "../crml/eth-bridge", default-features = false }
 crml-erc20-peg = { path = "../crml/erc20-peg", default-features = false }
+crml-erc20-shim = { path = "../crml/erc20-shim", default-features = false }
 crml-generic-asset = { path = "../crml/generic-asset", default-features = false }
 crml-generic-asset-rpc-runtime-api = { path = "../crml/generic-asset/rpc/runtime-api", default-features = false }
 crml-governance = { path = "../crml/governance", default-features = false }
@@ -141,6 +142,7 @@ std = [
 	"crml-cennzx/std",
 	"crml-cennzx-rpc-runtime-api/std",
 	"crml-erc20-peg/std",
+	"crml-erc20-shim/std",
 	"crml-eth-bridge/std",
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",

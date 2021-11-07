@@ -9,6 +9,7 @@ description = "Runtime API definition required by ethereum wallet RPC extensions
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
+cennznet-primitives = { default-features = false, path = "../../../../primitives" }
 crml-eth-wallet = { default-features = false, path = "../../" }
 crml-support = { default-features = false, path = "../../../support" }
 sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
@@ -17,6 +18,7 @@ sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621
 [features]
 default = ["std"]
 std = [
+	"cennznet-primitives/std",
 	"codec/std",
 	"sp-api/std",
 	"sp-std/std",

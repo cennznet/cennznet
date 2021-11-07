@@ -834,6 +834,7 @@ dependencies = [
  "crml-cennzx",
  "crml-cennzx-rpc-runtime-api",
  "crml-erc20-peg",
+ "crml-erc20-shim",
  "crml-eth-bridge",
  "crml-eth-wallet",
  "crml-eth-wallet-rpc-runtime-api",
@@ -876,7 +877,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -1095,7 +1096,7 @@ dependencies = [
  "log",
  "regalloc",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "target-lexicon",
  "thiserror",
 ]
@@ -1136,7 +1137,7 @@ checksum = "e6f41e2f9b57d2c030e249d0958f1cdc2c3cd46accf8c0438b3d1944e9153444"
 dependencies = [
  "cranelift-codegen",
  "log",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "target-lexicon",
 ]
 
@@ -1162,7 +1163,7 @@ dependencies = [
  "itertools 0.10.1",
  "log",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "thiserror",
  "wasmparser",
 ]
@@ -1262,6 +1263,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-erc20-shim"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "crml-eth-bridge"
 version = "1.0.0"
 dependencies = [
@@ -1306,13 +1324,16 @@ dependencies = [
 name = "crml-eth-wallet-rpc"
 version = "2.0.0"
 dependencies = [
+ "cennznet-primitives",
  "crml-eth-wallet",
  "crml-eth-wallet-rpc-runtime-api",
  "crml-support",
+ "ethereum-types",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
  "parity-scale-codec",
+ "rustc-hex",
  "sc-client-db",
  "serde",
  "sp-api",
@@ -1325,6 +1346,7 @@ dependencies = [
 name = "crml-eth-wallet-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
+ "cennznet-primitives",
  "crml-eth-wallet",
  "crml-support",
  "parity-scale-codec",
@@ -1578,7 +1600,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "serde_json",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -2040,6 +2062,7 @@ dependencies = [
  "crunchy",
  "fixed-hash",
  "impl-codec",
+ "impl-rlp",
  "impl-serde",
  "tiny-keccak",
 ]
@@ -2053,6 +2076,7 @@ dependencies = [
  "ethbloom",
  "fixed-hash",
  "impl-codec",
+ "impl-rlp",
  "impl-serde",
  "primitive-types 0.10.1",
  "uint",
@@ -2343,7 +2367,7 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "sp-arithmetic",
  "sp-core",
  "sp-inherents",
@@ -3145,6 +3169,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "impl-rlp"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
+dependencies = [
+ "rlp",
+]
+
+[[package]]
 name = "impl-serde"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3432,7 +3465,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8891bd853eff90e33024195d79d578dc984c82f9e0715fcd2b525a0c19d52811"
 dependencies = [
  "parity-util-mem",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
 ]
 
 [[package]]
@@ -3461,7 +3494,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "regex",
  "rocksdb",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
 ]
 
 [[package]]
@@ -3549,7 +3582,7 @@ dependencies = [
  "parity-multiaddr",
  "parking_lot 0.11.1",
  "pin-project 1.0.7",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "wasm-timer",
 ]
 
@@ -3580,7 +3613,7 @@ dependencies = [
  "ring",
  "rw-stream-sink",
  "sha2 0.9.5",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "thiserror",
  "unsigned-varint 0.7.0",
  "void",
@@ -3608,7 +3641,7 @@ dependencies = [
  "futures 0.3.17",
  "libp2p-core",
  "log",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "trust-dns-resolver",
 ]
 
@@ -3627,7 +3660,7 @@ dependencies = [
  "prost",
  "prost-build",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
 ]
 
 [[package]]
@@ -3651,7 +3684,7 @@ dependencies = [
  "rand 0.7.3",
  "regex",
  "sha2 0.9.5",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "unsigned-varint 0.7.0",
  "wasm-timer",
 ]
@@ -3668,7 +3701,7 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "wasm-timer",
 ]
 
@@ -3691,7 +3724,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "sha2 0.9.5",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "uint",
  "unsigned-varint 0.7.0",
  "void",
@@ -3714,7 +3747,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "rand 0.8.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "socket2 0.4.0",
  "void",
 ]
@@ -3733,7 +3766,7 @@ dependencies = [
  "nohash-hasher",
  "parking_lot 0.11.1",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "unsigned-varint 0.7.0",
 ]
 
@@ -3822,7 +3855,7 @@ dependencies = [
  "prost",
  "prost-build",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "unsigned-varint 0.7.0",
  "void",
  "wasm-timer",
@@ -3843,7 +3876,7 @@ dependencies = [
  "lru",
  "minicbor",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "unsigned-varint 0.7.0",
  "wasm-timer",
 ]
@@ -3859,7 +3892,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "void",
  "wasm-timer",
 ]
@@ -4388,7 +4421,7 @@ dependencies = [
  "futures 0.3.17",
  "log",
  "pin-project 1.0.7",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "unsigned-varint 0.7.0",
 ]
 
@@ -5010,7 +5043,7 @@ dependencies = [
  "parity-util-mem-derive",
  "parking_lot 0.11.1",
  "primitive-types 0.9.1",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "winapi 0.3.9",
 ]
 
@@ -5121,7 +5154,7 @@ dependencies = [
  "cloudabi",
  "libc",
  "redox_syscall 0.1.57",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "winapi 0.3.9",
 ]
 
@@ -5135,7 +5168,7 @@ dependencies = [
  "instant",
  "libc",
  "redox_syscall 0.2.8",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "winapi 0.3.9",
 ]
 
@@ -5371,6 +5404,7 @@ checksum = "05e4722c697a58a99d5d06a08c30821d7c082a4632198de1eaa5a6c22ef42373"
 dependencies = [
  "fixed-hash",
  "impl-codec",
+ "impl-rlp",
  "impl-serde",
  "uint",
 ]
@@ -5801,7 +5835,7 @@ dependencies = [
  "log",
  "rustc-hash",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
 ]
 
 [[package]]
@@ -5880,6 +5914,16 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "rlp"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "999508abb0ae792aabed2460c45b89106d97fe4adac593bdaef433c2605847b5"
+dependencies = [
+ "bytes 1.0.1",
+ "rustc-hex",
 ]
 
 [[package]]
@@ -6595,7 +6639,7 @@ dependencies = [
  "sc-peerset",
  "serde",
  "serde_json",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
@@ -7355,9 +7399,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
 name = "snow"
@@ -7952,7 +7996,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.11.1",
  "rand 0.7.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "sp-core",
  "sp-externalities",
  "sp-panic-handler",
@@ -8919,7 +8963,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sharded-slab",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "thread_local",
  "tracing",
  "tracing-core",
@@ -8937,7 +8981,7 @@ dependencies = [
  "hashbrown 0.11.2",
  "log",
  "rustc-hex",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
 ]
 
 [[package]]
@@ -8967,7 +9011,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rand 0.8.3",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "thiserror",
  "tinyvec",
  "url 2.2.2",
@@ -8987,7 +9031,7 @@ dependencies = [
  "lru-cache",
  "parking_lot 0.11.1",
  "resolv-conf",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "thiserror",
  "trust-dns-proto",
 ]
@@ -9380,7 +9424,7 @@ dependencies = [
  "region",
  "rustc-demangle",
  "serde",
- "smallvec 1.6.1",
+ "smallvec 1.7.0",
  "target-lexicon",
  "wasmparser",
  "wasmtime-cache",

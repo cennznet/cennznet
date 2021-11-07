@@ -542,7 +542,10 @@ impl<T: Config> Module<T> {
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
-		if T::UnixTime::now().as_secs().saturated_into::<u64>() - observed_block.timestamp.saturated_into::<u64>()
+		if T::UnixTime::now()
+			.as_secs()
+			.saturated_into::<u64>()
+			.saturating_sub(observed_block.timestamp.saturated_into::<u64>())
 			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
