@@ -484,6 +484,11 @@ decl_event! {
 }
 
 impl<T: Config> Module<T> {
+	/// Return wether an asset has been created or not
+	pub fn asset_exists(asset_id: T::AssetId) -> bool {
+		<TotalIssuance<T>>::contains_key(asset_id)
+	}
+
 	/// Get an account's total balance of an asset kind.
 	pub fn total_balance(asset_id: T::AssetId, who: &T::AccountId) -> T::Balance {
 		Self::free_balance(asset_id, who) + Self::reserved_balance(asset_id, who)
@@ -580,7 +585,7 @@ impl<T: Config> Module<T> {
 
 		let asset_id = if let Some(asset_id) = asset_id {
 			ensure!(!asset_id.is_zero(), Error::<T>::AssetIdExists);
-			ensure!(!<TotalIssuance<T>>::contains_key(asset_id), Error::<T>::AssetIdExists);
+			ensure!(!Self::asset_exists(asset_id), Error::<T>::AssetIdExists);
 			ensure!(asset_id < Self::next_asset_id(), Error::<T>::AssetIdExists);
 			asset_id
 		} else {

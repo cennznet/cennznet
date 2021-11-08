@@ -445,4 +445,36 @@ mod test {
 			"000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002560000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d687000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
 		);
 	}
+
+	#[test]
+	fn encode_validator_set_change2() {
+		let abi_encoded = abi_encode_validator_set_change(
+			&ValidatorSet::<Public> {
+				validators: vec![
+					Public::from_slice(
+						&hex::decode(b"03016818bdc7967b9a6dd14fa35a788ef81544b4496e781069471a88dbf5cd55ae").unwrap(),
+					),
+					Public::from_slice(
+						&hex::decode(b"023fcf594a9b65ceb4101e7684d55388477a9a87a6c73557b766617ac735cd1db9").unwrap(),
+					),
+					Public::from_slice(
+						&hex::decode(b"0331450da77b18acae5186d6a4f88cfd44e551eace6c2af928be2c68ca42bc422f").unwrap(),
+					),
+					Public::from_slice(
+						&hex::decode(b"02613e28ddbaaba4e972b313a242fabbb84e2539bd5627fd0bb4268446f4bdf2fa").unwrap(),
+					),
+					Public::from_slice(
+						&hex::decode(b"02587213a7ad59f1de52d353916c86ef187d1dfef2c84c7b3dcc4f4d24f287ed72").unwrap(),
+					),
+				],
+				id: 5,
+			},
+			4,
+			4,
+		);
+		assert_eq!(
+			hex::encode(sp_core::keccak_256(&abi_encoded)),
+			"71630ca4b9627c570f731d4ab1295349596106ca55867226b683ffcebc77d6a3"
+		);
+	}
 }

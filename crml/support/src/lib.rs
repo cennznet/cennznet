@@ -150,6 +150,12 @@ pub trait MultiCurrency {
 	/// Return asset metadata (symbol, decimals)
 	fn meta(currency: Self::CurrencyId) -> (Vec<u8>, u8);
 
+	/// Total issued supply of the currency
+	fn total_issuance(currency: Self::CurrencyId) -> Self::Balance;
+
+	/// Whether the currency exists or not
+	fn currency_exists(currency: Self::CurrencyId) -> bool;
+
 	/// Return the currency Id of the system fee currency
 	fn fee_currency() -> Self::CurrencyId;
 

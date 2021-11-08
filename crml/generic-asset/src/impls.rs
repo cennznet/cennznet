@@ -57,6 +57,14 @@ impl<T: Config> MultiCurrency for Module<T> {
 			.unique_saturated_into()
 	}
 
+	fn total_issuance(currency: Self::CurrencyId) -> Self::Balance {
+		<Module<T>>::total_issuance(currency)
+	}
+
+	fn currency_exists(currency: Self::CurrencyId) -> bool {
+		<Module<T>>::asset_exists(currency)
+	}
+
 	fn total_balance(who: &T::AccountId, currency: Self::CurrencyId) -> Self::Balance {
 		<Module<T>>::total_balance(currency, who)
 	}

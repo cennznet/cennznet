@@ -54,6 +54,9 @@ pub trait EthWalletApi<BlockHash> {
 	/// Get the latest block hash by number
 	#[rpc(name = "eth_getBlockByNumber")]
 	fn eth_get_block_by_number(&self, _block_number: U256, details: bool) -> Result<Bytes>;
+	/// Get the current gas price
+	#[rpc(name = "eth_gasPrice")]
+	fn eth_gas_price(&self) -> Result<U256>;
 }
 
 /// A struct that implements the [`GovernanceApi`].
@@ -95,6 +98,10 @@ where
 				message: "Unable to query Eth address nonce.".into(),
 				data: Some(format!("{:?}", e).into()),
 			})
+	}
+
+	fn eth_gas_price(&self) -> Result<U256> {
+		Ok(U256::from(1))
 	}
 
 	fn eth_chain_id(&self) -> Result<U256> {
