@@ -29,10 +29,11 @@ use frame_support::{
 	ensure,
 	traits::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
-		Currency, Get, LockIdentifier, ReservableCurrency,
+		Currency, Get, LockIdentifier, RegistrationInfo, ReservableCurrency,
 	},
 };
 use frame_system::{ensure_root, ensure_signed};
+use pallet_identity::{IdentityInfo, IdentityOf, Judgement, RegistrarIndex};
 use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
@@ -53,11 +54,24 @@ pub trait Config: frame_system::Config {
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 	/// Weight information for extrinsics in this module.
 	type WeightInfo: WeightInfo;
+	/// Registrations for identities
+	type Registration: RegistrationInfo<AccountId = Self::AccountId>;
 }
 
 /// TODO: move to weights
 pub trait WeightInfo {}
 impl WeightInfo for () {}
+
+// Move to Substrate identity module eventually
+pub struct RegistrationImplementation<T: Config>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> RegistrationInfo for RegistrationImplementation<T> {
+	type AccountId = T::AccountId;
+
+	fn registered_accounts(who: T::AccountId) -> u32 {
+		12
+	}
+}
 
 decl_event! {
 	pub enum Event {
@@ -204,6 +218,11 @@ decl_module! {
 			ensure_root(origin)?;
 			let mut council = Self::council();
 			// TODO: add voter to all active proposals
+
+			// Check their verified identities
+			let registration = T::Registration::registered_accounts(new_member.clone());
+			ensure!(registration == 12, Error::<T>::MaxCouncilReached);
+
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {
 				council.insert(idx, new_member);

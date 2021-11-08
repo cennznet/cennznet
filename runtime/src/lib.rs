@@ -56,7 +56,9 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
+	traits::{
+		Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, RegistrationInfo, U128CurrencyToVote,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
@@ -83,7 +85,7 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
-use crml_governance::{ProposalId, ProposalVoteInfo};
+use crml_governance::{ProposalId, ProposalVoteInfo, RegistrationImplementation};
 use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;
@@ -485,6 +487,7 @@ impl crml_governance::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
 	type WeightInfo = ();
+	type Registration = RegistrationImplementation<Self>;
 }
 
 impl pallet_utility::Config for Runtime {
