@@ -27,6 +27,7 @@ use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_identity::RegistrationImplementation;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
@@ -85,7 +86,7 @@ pub use crml_generic_asset::{
 	impls::TransferDustImbalance, AllBalances, AssetInfo, Call as GenericAssetCall, SpendingAssetCurrency,
 	StakingAssetCurrency,
 };
-use crml_governance::{ProposalId, ProposalVoteInfo, RegistrationImplementation};
+use crml_governance::{ProposalId, ProposalVoteInfo};
 use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
 pub use crml_sylo::device as sylo_device;
 pub use crml_sylo::e2ee as sylo_e2ee;

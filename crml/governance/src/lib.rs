@@ -38,6 +38,8 @@ use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
+/// Minimum number of registered identities required to become a council member
+const MINIMUM_REGISTERED_IDENTITIES: u32 = 2;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
@@ -61,17 +63,6 @@ pub trait Config: frame_system::Config {
 /// TODO: move to weights
 pub trait WeightInfo {}
 impl WeightInfo for () {}
-
-// Move to Substrate identity module eventually
-pub struct RegistrationImplementation<T: Config>(sp_std::marker::PhantomData<T>);
-
-impl<T: Config> RegistrationInfo for RegistrationImplementation<T> {
-	type AccountId = T::AccountId;
-
-	fn registered_accounts(who: T::AccountId) -> u32 {
-		12
-	}
-}
 
 decl_event! {
 	pub enum Event {
@@ -97,7 +88,9 @@ decl_error! {
 		/// Proposal was not found
 		ProposalMissing,
 		/// Cannot vote twice
-		DoubleVote
+		DoubleVote,
+		/// This account does not meet the required amount of registered identities
+		NotEnoughRegistrations
 	}
 }
 
@@ -220,8 +213,8 @@ decl_module! {
 			// TODO: add voter to all active proposals
 
 			// Check their verified identities
-			let registration = T::Registration::registered_accounts(new_member.clone());
-			ensure!(registration == 12, Error::<T>::MaxCouncilReached);
+			let registration: u32 = T::Registration::registered_accounts(new_member.clone());
+			ensure!(registration >= MINIMUM_REGISTERED_IDENTITIES, Error::<T>::NotEnoughRegistrations);
 
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {

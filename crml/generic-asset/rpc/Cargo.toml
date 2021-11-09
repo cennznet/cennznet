@@ -13,15 +13,15 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
 crml-generic-asset = { path = "../" }
 crml-generic-asset-rpc-runtime-api = { path = "runtime-api" }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sc-consensus = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+substrate-test-runtime-client = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sc-consensus = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
 serde_json = "1.0.50"

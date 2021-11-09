@@ -12,15 +12,15 @@ codec = { version = "2.0.0", package = "parity-scale-codec", default-features = 
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
+frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
 
 [features]
 default = ["std"]
