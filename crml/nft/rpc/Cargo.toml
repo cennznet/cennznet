@@ -12,14 +12,14 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6", default-features = false }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d", default-features = false }
 
 crml-nft = { path = "../" }
 crml-nft-rpc-runtime-api = { path = "./runtime-api" }

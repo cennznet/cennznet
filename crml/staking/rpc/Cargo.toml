@@ -16,12 +16,12 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
-sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
-sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d" }
+sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d" }
+sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d" }
 serde = { version = "1.0.102", features = ["derive"] }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
-sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92a7aad229d5373ae95f06bc5f618b2aec6178d6" }
+sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d" }
+sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "e7e83d9e26abd57dc5d8c41badfe4b26080cbb0d" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }
 
 [dev-dependencies]

@@ -21,7 +21,7 @@
 mod types;
 pub use types::*;
 
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::types::{AssetId, Balance};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
@@ -110,6 +110,8 @@ decl_storage! {
 		NextProposalId get(fn next_proposal_id): ProposalId;
 		/// Proposal bond amount in 'wei'
 		ProposalBond get(fn proposal_bond): Balance;
+		/// Minimum stake required to create a new council member
+		MinimumCouncilStake get(fn minimum_council_stake): Balance = 20_000;
 	}
 }
 
@@ -171,6 +173,8 @@ decl_module! {
 			let tally = votes.count_votes();
 			ProposalVotes::insert(proposal_id, votes);
 
+			//TODO Check identity is still valid and stake is valid
+
 			// if we have more than 50% approval
 			let threshold = <Council<T>>::decode_len().unwrap_or(1) as u32 / 2;
 			if tally.yes > threshold {
@@ -212,9 +216,7 @@ decl_module! {
 			let mut council = Self::council();
 			// TODO: add voter to all active proposals
 
-			// Check their verified identities
-			let registration: u32 = T::Registration::registered_accounts(new_member.clone());
-			ensure!(registration >= MINIMUM_REGISTERED_IDENTITIES, Error::<T>::NotEnoughRegistrations);
+
 
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {
@@ -297,5 +299,20 @@ impl<T: Config> Module<T> {
 	/// Return all vote information on active proposals
 	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
 		ProposalVotes::iter().collect()
+	}
+
+	pub fn check_council_account_validity(account: &T::AccountId) -> DispatchResult {
+		// Check the amount they have staked
+		let locked_balance: Balance = T::Currency::locked_balance(&new_member, &cennz);
+		frame_support::log::info!("The amount locked by this account is: {:?}", locked_balance);
+		//ensure!(registration >= test_balance, Error::<T>::NotEnoughRegistrations);
+
+		// Check their verified identities
+		let registration: u32 = T::Registration::registered_accounts(new_member.clone());
+		ensure!(
+			registration >= MINIMUM_REGISTERED_IDENTITIES,
+			Error::<T>::NotEnoughRegistrations
+		);
+		Ok(())
 	}
 }
