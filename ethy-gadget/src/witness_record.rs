@@ -29,6 +29,8 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct WitnessRecord {
 	record: HashMap<EventId, HashMap<[u8; 32], Vec<(usize, Signature)>>>,
+	/// local record of info of an event (tag (optional), block number of event)
+	event_meta: HashMap<EventId, ([u8; 32], Option<Vec<u8>>)>,
 	has_voted: HashMap<EventId, Vec<AuthorityId>>,
 	/// `validators` - The ECDSA public (session) keys of validators ORDERED!
 	validators: Vec<AuthorityId>,
@@ -42,6 +44,7 @@ impl WitnessRecord {
 	/// Remove a witness record from memory
 	pub fn clear(&mut self, event_id: EventId) {
 		self.record.remove(&event_id);
+		self.event_meta.remove(&event_id);
 	}
 	/// Return all known signatures for the witness on (event_id, digest)
 	pub fn signatures_for(&self, event_id: EventId, digest: &[u8; 32]) -> Vec<Signature> {
@@ -59,6 +62,14 @@ impl WitnessRecord {
 
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, maybe_count);
 		maybe_count.unwrap_or_default() >= threshold
+	}
+	/// Return event metadata (block, optional tag)
+	pub fn event_metadata(&self, event_id: EventId) -> Option<&([u8; 32], Option<Vec<u8>>)> {
+		self.event_meta.get(&event_id)
+	}
+	/// Note event metadata
+	pub fn note_event_metadata(&mut self, event_id: EventId, block: [u8; 32], tag: Option<Vec<u8>>) {
+		self.event_meta.entry(event_id).or_insert((block, tag));
 	}
 	/// Note a witness if we haven't seen it before
 	pub fn note(&mut self, witness: &Witness) {
@@ -91,6 +102,7 @@ impl WitnessRecord {
 		// 1) first time observing an event
 		// 2) known event, first time observing this digest
 		// 3) known event & known digest, first time observing this witness
+		// all of this to ensure we have consensus over the exact values
 		self.record
 			.entry(witness.event_id)
 			.and_modify(|event_digests| {

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use codec::{Codec, Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
@@ -185,8 +185,14 @@ where
 
 		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
 		// Sign and broadcast a witness
-		for (message, event_id) in extract_proof_requests::<B>(&notification.header, self.validator_set.id).iter() {
-			warn!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, hex::encode(message));
+		for ProofRequest {
+			message,
+			event_id,
+			tag,
+			block,
+		} in extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
+		{
+			debug!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, hex::encode(&message));
 			// `message = abi.encode(param0, param1,.., paramN, nonce)`
 			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
 				Ok(sig) => sig,
@@ -195,11 +201,11 @@ where
 					return;
 				}
 			};
-			warn!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
+			debug!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
 			let witness = Witness {
 				digest: sp_core::keccak_256(message.as_ref()),
 				validator_set_id: self.validator_set.id,
-				event_id: *event_id,
+				event_id,
 				authority_id: authority_id.clone(),
 				signature,
 			};
@@ -209,6 +215,7 @@ where
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
+			self.witness_record.note_event_metadata(event_id, block, tag);
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
@@ -239,10 +246,18 @@ where
 		{
 			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
 			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
+
+			let (block, tag) = self
+				.witness_record
+				.event_metadata(witness.event_id)
+				.unwrap_or(&([0_u8; 32], None));
+
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,
 				validator_set_id: self.validator_set.id,
+				block: *block,
+				tag: tag.clone(),
 				signatures,
 			};
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
@@ -315,26 +330,48 @@ where
 	}
 }
 
+pub struct ProofRequest {
+	/// raw message for signing
+	message: Vec<u8>,
+	/// nonce/event Id of this request
+	event_id: EventId,
+	/// metadata tag about the proof
+	tag: Option<Vec<u8>>,
+	/// Block hash whe  proof was requested
+	block: [u8; 32],
+}
 /// Extract event proof requests from a digest in the given header, if any.
-fn extract_proof_requests<B>(header: &B::Header, active_validator_set_id: ValidatorSetId) -> Vec<(Message, EventId)>
+/// Returns (digest for signing, event id, optional tag)
+fn extract_proof_requests<B>(header: &B::Header, active_validator_set_id: ValidatorSetId) -> Vec<ProofRequest>
 where
 	B: Block,
 {
+	let block_hash = header.hash().as_ref().try_into().unwrap_or_default();
 	header
 		.digest()
 		.logs()
 		.iter()
 		.flat_map(|log| {
-			let res: Option<(Vec<u8>, EventId)> =
+			let res: Option<ProofRequest> =
 				match log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID)) {
-					Some(ConsensusLog::OpaqueSigningRequest(r)) => Some(r),
+					Some(ConsensusLog::OpaqueSigningRequest((message, event_id))) => Some(ProofRequest {
+						message,
+						event_id,
+						tag: None,
+						block: block_hash,
+					}),
 					// Note: we also handle this in `find_authorities_change` to update the validator set
 					// here we want to convert it into an 'OpaqueSigningRequest` to create a proof of the validator set change
 					// we must do this before the validators officially change next session (~10 minutes)
 					Some(ConsensusLog::PendingAuthoritiesChange((next_validator_set, event_id))) => {
 						let message =
 							abi_encode_validator_set_change(&next_validator_set, active_validator_set_id, event_id);
-						Some((message, event_id))
+						Some(ProofRequest {
+							message,
+							event_id,
+							tag: Some(b"sys:authority-change".to_vec()),
+							block: block_hash,
+						})
 					}
 					_ => None,
 				};
