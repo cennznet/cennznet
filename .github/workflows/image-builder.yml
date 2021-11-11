@@ -10,6 +10,7 @@ on:
       - "released"
   push:
     branches:
+      - "release/*"
       - "develop"
     paths:
       - "**.rs"
