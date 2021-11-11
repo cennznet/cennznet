@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - release/*
   pull_request:
     branches:
       - develop
@@ -31,10 +34,10 @@ jobs:
       - merge-release-branch
     runs-on: [self-hosted, linux]
     steps:
-      - name: Check out develop
+      - name: Check out
         uses: actions/checkout@v2
         with:
-          ref: develop
+          ref: ${{ github.event.pull_request.base.ref }}
       - name: Find release version
         id: find_version
         run: |
