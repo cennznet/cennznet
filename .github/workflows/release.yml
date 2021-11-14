@@ -3,16 +3,11 @@ name: Release
 on:
   push:
     branches:
-      - release/*
-  # only trigger merge when branch protections (configured in github settings) are met:
-  # - requisite # of approvals
-  # - CI build check passes
-  check_suite:
-    types:
-      - completed
+      - "release/*"
 
 jobs:
   release-to-github:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, linux]
     steps:
       - name: Check out
@@ -59,8 +54,8 @@ jobs:
           asset_content_type: application/wasm
   on-success:
     needs: release-to-github
+    if: ${{ github.event.workflow_run.conclusion == 'success' && success() }}
     runs-on: ubuntu-latest
-    if: ${{ success() }}
     steps:
       - uses: rtCamp/action-slack-notify@v2
         env:

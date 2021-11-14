@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     branches:
+      - release/*
       - develop
       - trunk/*
     paths:
@@ -13,8 +14,8 @@ on:
       - "Dockerfile"
   push:
     branches:
+      - release/*
       - develop
-      - trunk/*
     paths:
       - "**.rs"
       - "**.toml"

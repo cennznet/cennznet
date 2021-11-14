@@ -4,13 +4,15 @@
 name: "Image Builder"
 
 on:
-  release:
-    types: 
-      - "created"
-      - "released"
-  push:
+  workflow_run:
+    workflows:
+      - "Release"
     branches:
       - "release/*"
+    types: 
+      - completed
+  push:
+    branches:
       - "develop"
     paths:
       - "**.rs"
@@ -22,7 +24,8 @@ on:
 
 jobs:
   build-image:
-    # only run if prechecks pass and the source branch is named 'prerelease/*'
+    # only run if release branch CI build passes or its a push to develop
+    if: ${{ (startsWith(github.head_ref, 'release/') && github.event.workflow_run.conclusion == 'success') || (startsWith(github.head_ref, 'develop') && github.event_name == 'push) }}
     runs-on: [self-hosted, linux]
     env:
       IMAGE_NAME: "cennznet/cennznet"
