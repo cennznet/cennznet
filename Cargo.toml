@@ -4,7 +4,7 @@ path = "cli/src/main.rs"
 
 [package]
 name = "cennznet"
-version = "2.0.0-rc6"
+version = "2.0.0-rc7"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 

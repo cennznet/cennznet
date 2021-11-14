@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
       - name: Find release version
         id: find_version
         run: |
@@ -60,6 +58,7 @@ jobs:
           asset_name: cennznet_runtime.compact.wasm
           asset_content_type: application/wasm
   on-success:
+    needs: release-to-github
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
