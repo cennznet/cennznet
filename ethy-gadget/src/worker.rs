@@ -18,7 +18,7 @@ use std::{convert::TryInto, sync::Arc};
 
 use codec::{Codec, Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::Mutex;
 
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -40,7 +40,7 @@ use crate::{
 	Client,
 };
 use cennznet_primitives::eth::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, Message, ValidatorSet, ValidatorSetId,
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, ValidatorSet, ValidatorSetId,
 	VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use crml_support::EthAbiCodec;
@@ -179,7 +179,17 @@ where
 			trace!(target: "ethy", "💎 Local authority id: {:?}", id);
 			id
 		} else {
-			trace!(target: "ethy", "💎 Missing validator id - can't vote for: {:?}", notification.header.hash());
+			trace!(target: "ethy", "💎 No authority id - can't vote for events in: {:?}", notification.header.hash());
+			for ProofRequest {
+				message: _,
+				event_id,
+				tag,
+				block,
+			} in extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
+			{
+				trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
+				self.witness_record.note_event_metadata(event_id, block, tag);
+			}
 			return;
 		};
 
@@ -230,14 +240,23 @@ where
 
 	/// Note an individual witness for a message
 	/// If the witness means consensus is reached on a message then;
-	/// 1) Assemble the aggregated witness
-	/// 2) Add justification in DB
-	/// 3) Broadcast the witness to listeners
+	/// 1) Assemble the aggregated witness (proof)
+	/// 2) Add proof to DB
+	/// 3) Notify listeners of the proof
 	fn handle_witness(&mut self, witness: Witness) {
 		// The aggregated signed witness here could be different to another validators.
 		// As long as we have threshold of signatures the proof is valid.
-		warn!(target: "ethy", "💎 got witness: {:?}", witness);
-		self.witness_record.note(&witness);
+		info!(target: "ethy", "💎 got witness: {:?}", witness);
+
+		// only share if it's the first time witnessing the event
+		let first_observation = self.witness_record.note(&witness);
+		if !first_observation {
+			return;
+		}
+
+		self.gossip_engine
+			.lock()
+			.gossip_message(topic::<B>(), witness.encode(), false);
 
 		let threshold = self.validator_set.validators.len() as f32 * PROOF_THRESHOLD;
 		if self
@@ -245,7 +264,7 @@ where
 			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
 		{
 			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
-			warn!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
+			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
 
 			let (block, tag) = self
 				.witness_record

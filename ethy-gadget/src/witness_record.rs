@@ -18,7 +18,7 @@ use cennznet_primitives::eth::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	EventId, Witness,
 };
-use log::{trace, warn};
+use log::{error, trace};
 use std::collections::HashMap;
 
 /// Tracks live witnesses
@@ -72,16 +72,16 @@ impl WitnessRecord {
 		self.event_meta.entry(event_id).or_insert((block, tag));
 	}
 	/// Note a witness if we haven't seen it before
-	pub fn note(&mut self, witness: &Witness) {
+	/// Returns true if the witness was noted, i.e previously unseen
+	pub fn note(&mut self, witness: &Witness) -> bool {
 		if self
 			.has_voted
 			.get(&witness.event_id)
 			.map(|votes| votes.binary_search(&witness.authority_id).is_ok())
 			.unwrap_or_default()
 		{
-			// TODO: return something useful
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
-			return;
+			return false;
 		}
 
 		// Convert authority ECDSA public key into ordered index
@@ -92,7 +92,7 @@ impl WitnessRecord {
 			if maybe_pos.is_none() {
 				// this implies the witness is not an active validator
 				// this should not happen (i.e. the witness should be invalidated sooner in the lifecycle)
-				warn!(target: "ethy", "💎 unexpected authority witness. event: {:?}, authority: {:?}", witness.event_id, witness.authority_id);
+				error!(target: "ethy", "💎 unexpected authority witness. event: {:?}, authority: {:?}", witness.event_id, witness.authority_id);
 			}
 			maybe_pos
 		};
@@ -147,5 +147,7 @@ impl WitnessRecord {
 				}
 			}
 		}
+
+		return true;
 	}
 }
