@@ -16,12 +16,6 @@ jobs:
         id: find_version
         run: |
           echo ::set-output name=tag_name::$(grep version Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-      - name: Make the release branch
-        uses: peterjgrainger/action-create-branch@v2.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          branch: "release/${{ steps.find_version.outputs.tag_name }}"
       - name: Tag the release 🚀
         id: create_release
         uses: actions/create-release@v1
