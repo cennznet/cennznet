@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref_name }}
       - name: Find release version
         id: find_version
         run: |
