@@ -2,6 +2,7 @@ name: Release
 
 on:
   workflow_run:
+    workflows: ["CI"]
     branches:
       - "release/*"
     types:
