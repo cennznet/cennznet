@@ -6,10 +6,12 @@ on:
       - CI
     types:
       - completed
+    branches:
+      - "release/*"
 
 jobs:
   release-to-github:
-    if: ${{ startsWith(github.ref_name, 'release/') && github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, linux]
     steps:
       - name: Check out
