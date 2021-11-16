@@ -27,7 +27,6 @@ on:
 jobs:
   format-build-test:
     runs-on: [self-hosted, linux]
-    steps:
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
