@@ -31,7 +31,7 @@ jobs:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
       - name: test
-        run: echo "hello world"
+        run: echo "..."
       # - name: Cancel previous runs
       #   uses: styfle/cancel-workflow-action@0.6.0
       #   with:
