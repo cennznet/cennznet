@@ -6,15 +6,12 @@ name: "Image Builder"
 on:
   workflow_run:
     workflows:
-      - "Release"
-    branches:
-      - "release/*"
-    types: 
+      - Release
+    types:
       - completed
   push:
     branches:
       - "develop"
-      - "release/*"
     paths:
       - "**.rs"
       - "**.toml"
@@ -25,6 +22,7 @@ on:
 
 jobs:
   build-image:
+    if: ${{ (startsWith(github.head_ref, 'release/') && github.event.workflow_run.conclusion == 'success') || (startsWith(github.head_ref, 'develop')  }}
     # only run if release branch CI build passes or its a push to develop
     runs-on: [self-hosted, linux]
     env:

@@ -2,15 +2,14 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["CI"]
-    branches:
-      - "release/*"
+    workflows:
+      - CI
     types:
       - completed
 
 jobs:
   release-to-github:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ startsWith(github.head_ref, 'release/') && github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, linux]
     steps:
       - name: Check out
@@ -51,7 +50,7 @@ jobs:
           asset_content_type: application/wasm
   on-success:
     needs: release-to-github
-    if: ${{ github.event.workflow_run.conclusion == 'success' && success() }}
+    if: ${{ success() }}
     runs-on: ubuntu-latest
     steps:
       - uses: rtCamp/action-slack-notify@v2

@@ -730,14 +730,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.0.0-rc8"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.0.0-rc8"
+version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-primitives"
-version = "2.0.0-rc8"
+version = "2.0.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.0.0-rc8"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
