@@ -3,28 +3,31 @@ name: CI
 on:
   pull_request:
     branches:
-      - develop
+      - release/*
       - trunk/*
+      - develop
     paths:
       - "**.rs"
       - "**.toml"
       - "**.lock"
       - "genesis/**"
-      - "Dockerfile"
+      - ".github/workflows/*.yml"
   push:
     branches:
-      - develop
       - trunk/*
+      - release/*
+      - develop
     paths:
       - "**.rs"
       - "**.toml"
       - "**.lock"
       - "genesis/**"
-      - "Dockerfile"
+      - ".github/workflows/*.yml"
 
 jobs:
   format-build-test:
     runs-on: [self-hosted, linux]
+    steps:
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
