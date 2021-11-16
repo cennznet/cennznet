@@ -6,7 +6,7 @@ on:
     branches:
       - "release/*"
     types:
-      - "completed"
+      - completed
 
 jobs:
   release-to-github:
