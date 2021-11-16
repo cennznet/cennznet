@@ -1,6 +1,6 @@
 [package]
 name = "cennznet-runtime"
-version = "2.0.0-rc7"
+version = "2.0.0-rc8"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 build = "build.rs"

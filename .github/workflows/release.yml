@@ -1,9 +1,11 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
     branches:
       - "release/*"
+    types:
+      - "completed"
 
 jobs:
   release-to-github:
