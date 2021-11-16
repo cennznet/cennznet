@@ -13,7 +13,6 @@ on:
       - "genesis/**"
   push:
     branches:
-      - release/*
       - trunk/*
       - develop
     paths:
