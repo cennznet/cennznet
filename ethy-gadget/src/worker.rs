@@ -188,8 +188,47 @@ where
 			} in extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
 			{
 				trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-				self.witness_record.note_event_metadata(event_id, block, tag);
+				// it's possible this event already has a proof stored due to differences in block
+				// propagation times.
+				// update the proof block hash and tag
+				let proof_key = [&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat();
+
+				if let Ok(Some(encoded_proof)) = Backend::get_aux(self.backend.as_ref(), proof_key.as_ref()) {
+					if let Ok(VersionedEventProof::V1 { 0: mut proof }) =
+						VersionedEventProof::decode(&mut &encoded_proof[..])
+					{
+						proof.block = block;
+						proof.tag = tag;
+
+						if Backend::insert_aux(
+							self.backend.as_ref(),
+							&[
+								// DB key is (engine_id + proof_id)
+								(
+									[&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]]
+										.concat()
+										.as_ref(),
+										VersionedEventProof::V1(proof).encode().as_ref(),
+								),
+							],
+							&[],
+						)
+						.is_err()
+						{
+							// this is a warning for now, because until the round lifecycle is improved, we will
+							// conclude certain rounds multiple times.
+							error!(target: "ethy", "💎 failed to store proof: {:?}", event_id);
+						}
+					} else {
+						error!(target: "ethy", "💎 failed decoding event proof v1: {:?}", event_id);
+					}
+				} else {
+					// no proof is known for this event yet
+					self.witness_record.note_event_metadata(event_id, block, tag);
+				}
 			}
+
+			// full node can't vote, we're done
 			return;
 		};
 
@@ -281,7 +320,7 @@ where
 			};
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
-			// We can add proof to the DB that this block has been finalized specifically by the
+			// Add proof to the DB that this event has been notarized specifically by the
 			// given threshold of validators
 			if Backend::insert_aux(
 				self.backend.as_ref(),
@@ -300,7 +339,7 @@ where
 			{
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
-				warn!(target: "ethy", "💎 failed to store witness: {:?}", event_proof);
+				warn!(target: "ethy", "💎 failed to store proof: {:?}", event_proof);
 			}
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
 			self.event_proof_sender.notify(versioned_event_proof);
