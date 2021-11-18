@@ -15,8 +15,14 @@
 
 use crate as crml_governance;
 use cennznet_primitives::types::{AssetId, Balance};
-use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::{parameter_types, PalletId};
+use crml_generic_asset::StakingAssetCurrency;
+use crml_support::StakingAmount;
+use frame_support::{
+	parameter_types,
+	traits::{IntegrityTest, RegistrationInfo},
+	PalletId,
+};
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -36,10 +42,14 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
 		Governance: crml_governance::{Module, Call, Storage, Event},
+		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
 	}
 );
+
+// impl IntegrityTest for Test {
+// 	fn integrity_test() {}
+// }
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -76,49 +86,45 @@ impl crml_generic_asset::Config for Test {
 	type AssetId = AssetId;
 	type Balance = Balance;
 	type Event = Event;
-	type OnDustImbalance = TransferDustImbalance<TreasuryPalletId>;
+	type OnDustImbalance = ();
 	type WeightInfo = ();
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
-	// 28 eras/days for bond to be withdraw
-	pub const BondingDuration: crml_staking::EraIndex = 28;
-	// 27 eras/days for a slash to be deferrable
-	pub const SlashDeferDuration: crml_staking::EraIndex = 27;
-	/// the highest n stakers that will receive rewards only
-	pub const MaxNominatorRewardedPerValidator: u32 = 128;
-	// Allow election solution computation during the entire last session (~10 minutes)
-	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
-	// maximum phragemn iterations
-	pub const MaxIterations: u32 = 10;
-	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
-	pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
-		.get(DispatchClass::Normal)
-		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
-		.saturating_sub(BlockExecutionWeight::get());
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+impl pallet_scheduler::Config for Test {
+	type Event = Event;
+	type Origin = Origin;
+	type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type MaximumWeight = ();
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = ();
 }
 
-impl crml_staking::Config for Runtime {
-	type BondingDuration = BondingDuration;
-	type Call = Call;
-	type Currency = StakingAssetCurrency<Self>;
-	type CurrencyToVote = U128CurrencyToVote;
-	type Event = Event;
-	type ElectionLookahead = ElectionLookahead;
-	type MaxIterations = MaxIterations;
-	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
-	type MinSolutionScoreBump = MinSolutionScoreBump;
-	type NextNewSession = Session;
-	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
-	type SessionInterface = Self;
-	type SessionsPerEra = SessionsPerEra;
-	type Slash = SlashFundsToTreasury; // send the slashed funds in CENNZ to the treasury.
-	type SlashDeferDuration = SlashDeferDuration;
-	type Rewarder = Rewards;
-	type UnixTime = Timestamp;
-	type UnsignedPriority = StakingUnsignedPriority;
-	type WeightInfo = ();
+struct MockStakingAmount;
+impl StakingAmount for MockStakingAmount {
+	type AccountId = AccountId;
+	type Balance = Balance;
+
+	fn active_balance(controller: Self::AccountId) -> Self::Balance {
+		match controller {
+			1 => 10000,
+			2 => 20000,
+			_ => 0,
+		}
+	}
+}
+
+struct MockRegistrationImplementation;
+impl RegistrationInfo for MockRegistrationImplementation {
+	type AccountId = AccountId;
+	/// Registration information for an identity
+	fn registered_accounts(who: Self::AccountId) -> u32 {
+		2
+	}
 }
 
 parameter_types! {
@@ -127,13 +133,14 @@ parameter_types! {
 }
 impl crate::Config for Test {
 	type Call = Call;
-	type Currency = SpendingAssetCurrency<Self>;
-	type MaxCouncilSize = MaxCouncilSize;
+	type Currency = StakingAssetCurrency<Self>;
+	type MaxCouncilSize = ();
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
 	type WeightInfo = ();
-	type Registration = RegistrationImplementation<Self>;
+	type Registration = MockRegistrationImplementation;
+	type StakingAmount = MockStakingAmount;
 }
 
 #[derive(Default)]

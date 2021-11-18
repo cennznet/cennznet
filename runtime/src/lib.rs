@@ -489,6 +489,7 @@ impl crml_governance::Config for Runtime {
 	type Event = Event;
 	type WeightInfo = ();
 	type Registration = RegistrationImplementation<Self>;
+	type StakingAmount = Staking;
 }
 
 impl pallet_utility::Config for Runtime {

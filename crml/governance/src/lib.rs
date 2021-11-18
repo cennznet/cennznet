@@ -18,11 +18,16 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 mod types;
 pub use types::*;
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
+use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable, Parameter},
@@ -33,7 +38,6 @@ use frame_support::{
 	},
 };
 use frame_system::{ensure_root, ensure_signed};
-use pallet_identity::{IdentityInfo, IdentityOf, Judgement, RegistrarIndex};
 use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
@@ -58,6 +62,8 @@ pub trait Config: frame_system::Config {
 	type WeightInfo: WeightInfo;
 	/// Registrations for identities
 	type Registration: RegistrationInfo<AccountId = Self::AccountId>;
+
+	type StakingAmount: StakingAmount<AccountId = Self::AccountId, Balance = Balance>;
 }
 
 /// TODO: move to weights
@@ -90,7 +96,9 @@ decl_error! {
 		/// Cannot vote twice
 		DoubleVote,
 		/// This account does not meet the required amount of registered identities
-		NotEnoughRegistrations
+		NotEnoughRegistrations,
+		/// This account does not meet the minimum required stake amount
+		NotEnoughStaked,
 	}
 }
 
@@ -130,6 +138,8 @@ decl_module! {
 			enactment_delay: T::BlockNumber,
 		) {
 			let origin = ensure_signed(origin)?;
+			// Validate council members identity and staking assets
+			Self::check_council_account_validity(&origin)?;
 			let sponsor_idx = Self::council().binary_search(&origin);
 			ensure!(sponsor_idx.is_ok(), Error::<T>::NotCouncilor);
 			let proposal_id = Self::next_proposal_id();
@@ -216,7 +226,8 @@ decl_module! {
 			let mut council = Self::council();
 			// TODO: add voter to all active proposals
 
-
+			// Validate council members identity and staking assets
+			Self::check_council_account_validity(&new_member)?;
 
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {
@@ -288,6 +299,17 @@ decl_module! {
 			ensure_root(origin)?;
 			ProposalBond::put(new_proposal_bond);
 		}
+
+		/// Adjust the minimum stake required for new council members
+		#[weight = 100_000]
+		fn set_minimum_council_stake(
+			origin,
+			new_minimum_council_stake: Balance
+		) {
+			ensure_root(origin)?;
+			MinimumCouncilStake::put(new_minimum_council_stake);
+		}
+
 	}
 }
 
@@ -303,12 +325,16 @@ impl<T: Config> Module<T> {
 
 	pub fn check_council_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
-		let locked_balance: Balance = T::Currency::locked_balance(&new_member, &cennz);
-		frame_support::log::info!("The amount locked by this account is: {:?}", locked_balance);
-		//ensure!(registration >= test_balance, Error::<T>::NotEnoughRegistrations);
+		let staked_amount: Balance = T::StakingAmount::active_balance(account.clone());
+		frame_support::log::info!("The amount staked by this account is: {:?}", staked_amount);
+
+		ensure!(
+			staked_amount >= Self::minimum_council_stake(),
+			Error::<T>::NotEnoughStaked
+		);
 
 		// Check their verified identities
-		let registration: u32 = T::Registration::registered_accounts(new_member.clone());
+		let registration: u32 = T::Registration::registered_accounts(account.clone());
 		ensure!(
 			registration >= MINIMUM_REGISTERED_IDENTITIES,
 			Error::<T>::NotEnoughRegistrations

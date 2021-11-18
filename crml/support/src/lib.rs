@@ -247,3 +247,12 @@ pub trait MultiCurrency {
 		symbol: Vec<u8>,
 	) -> Result<Self::CurrencyId, DispatchError>;
 }
+
+// TODO Comments
+pub trait StakingAmount {
+	type AccountId;
+
+	type Balance;
+
+	fn active_balance(controller: Self::AccountId) -> Self::Balance;
+}
