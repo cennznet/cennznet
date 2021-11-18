@@ -22,6 +22,7 @@ sp-staking = { git = "https://github.com/cennznet/substrate", default-features =
 sp-io = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
 crml-support = { path = "../support", default-features = false }
 pallet-scheduler = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
+pallet-balances = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b"}
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }

@@ -3,7 +3,7 @@ use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Governance, System
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
 /// The asset Id used for payment in these tests
-const PAYMENT_ASSET: AssetId = 16_001;
+// const PAYMENT_ASSET: AssetId = 16_001;
 
 // Check the test system contains an event record `event`
 // fn has_event(event: RawEvent<SubmitProposal, EnactProposal, ProposalVeto>) -> bool {

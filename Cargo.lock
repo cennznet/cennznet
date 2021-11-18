@@ -1335,6 +1335,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "pallet-identity",
  "pallet-scheduler",
  "parity-scale-codec",
