@@ -302,6 +302,11 @@ decl_module! {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
+			// Nothing to do while bridge is paused
+			if Self::bridge_paused() {
+				return;
+			}
+
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
 				// this passes if flag `--validator` set not necessarily
@@ -395,7 +400,6 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError> {
-		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
 
 		// check if we've seen this event type before

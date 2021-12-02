@@ -15,7 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use log::{trace, warn};
+use log::{error, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -60,7 +60,7 @@ where
 	complete_events: RwLock<VecDeque<EventId>>,
 	/// Public (ECDSA session) keys of active ethy validators
 	active_validators: RwLock<Vec<Public>>,
-	/// Scheduled time for rebroad casting event witnesses
+	/// Scheduled time for re-broadcasting event witnesses
 	next_rebroadcast: Mutex<Instant>,
 }
 
@@ -88,8 +88,7 @@ where
 		}
 		match complete_events.binary_search(&event_id) {
 			Ok(_idx) => {
-				// this shouldn't happen
-				warn!(target: "ethy", "💎 double event complete: {:?} in {:?}", event_id, complete_events);
+				error!(target: "ethy", "💎 double event complete: {:?} in {:?}", event_id, complete_events);
 			}
 			Err(idx) => {
 				complete_events.insert(idx, event_id);

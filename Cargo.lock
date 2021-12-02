@@ -730,14 +730,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -810,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-primitives"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "frame-support",
  "libsecp256k1 0.6.0",
@@ -825,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
