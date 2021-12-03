@@ -1385,10 +1385,12 @@ name = "crml-governance"
 version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-support",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-runtime",
  "sp-std",
 ]
 

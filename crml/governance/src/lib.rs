@@ -21,8 +21,9 @@
 mod types;
 pub use types::*;
 
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::types::{Balance, BlockNumber};
 use codec::{Decode, Encode};
+use crml_support::StakingInfo;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable, Parameter},
@@ -33,10 +34,15 @@ use frame_support::{
 	},
 };
 use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::Permill;
 use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
+// The length in blocks of a referendum voting cycle
+const REFERENDUM_LENGTH: u32 = 100;
+
+const REFERENDUM_CHECK_TIME: u32 = 10;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
@@ -53,6 +59,8 @@ pub trait Config: frame_system::Config {
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 	/// Weight information for extrinsics in this module.
 	type WeightInfo: WeightInfo;
+	/// Information on staking assets and nominators
+	type StakingInfo: StakingInfo<AccountId = Self::AccountId, Balance = Balance>;
 }
 
 /// TODO: move to weights
@@ -67,6 +75,12 @@ decl_event! {
 		EnactProposal(ProposalId, bool),
 		/// A proposal was vetoed by the council
 		ProposalVeto(ProposalId),
+		/// A referendum was vetoed by vote
+		ReferendumVeto(ProposalId),
+		/// A referendum has been created and will start at start_time
+		ReferendumCreated(ProposalId),
+		/// A referendum has been approved and is awaiting enactment
+		ReferendumApproved(ProposalId),
 	}
 }
 
@@ -83,7 +97,15 @@ decl_error! {
 		/// Proposal was not found
 		ProposalMissing,
 		/// Cannot vote twice
-		DoubleVote
+		DoubleVote,
+		/// Referendum Threshold hasn't been set
+		NoReferendumThreshold,
+		/// This account does not meet the minimum required stake amount
+		NotEnoughStaked,
+		/// The referendum hasn't started yet
+		ReferendumNotStarted,
+		/// The referendum is ongoing
+		ReferendumNotEnded,
 	}
 }
 
@@ -97,12 +119,18 @@ decl_storage! {
 		ProposalVotes get(fn proposal_votes): map hasher(twox_64_concat) ProposalId => ProposalVoteInfo;
 		/// Map from proposal Id to status
 		ProposalStatus get(fn proposal_status): map hasher(twox_64_concat) ProposalId => Option<ProposalStatusInfo>;
+		/// Map from proposal Id to referendum votes
+		ReferendumVoteCount get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVotes;
+		/// Map from proposal id to referendum end time
+		ReferendumStartTime get(fn referendum_start_time): map hasher(twox_64_concat) ProposalId => Option<T::BlockNumber>;
 		/// Ordered set of active council members
 		Council get(fn council): Vec<T::AccountId>;
 		/// Next available ID for proposal
 		NextProposalId get(fn next_proposal_id): ProposalId;
 		/// Proposal bond amount in 'wei'
 		ProposalBond get(fn proposal_bond): Balance;
+		/// Permill of vetos needed for a referendum to fail
+		ReferendumThreshold get(fn referendum_threshold): Permill = Permill::from_percent(33);
 	}
 }
 
@@ -168,17 +196,13 @@ decl_module! {
 			let threshold = <Council<T>>::decode_len().unwrap_or(1) as u32 / 2;
 			if tally.yes > threshold {
 				if ProposalCalls::contains_key(proposal_id) {
-					if T::Scheduler::schedule_named(
-						(GOVERNANCE_ID, proposal_id).encode(),
-						DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
-						None,
-						63,
-						frame_system::RawOrigin::Root.into(),
-						Call::enact_proposal(proposal_id).into(),
-					).is_err() {
-						frame_support::print("LOGIC ERROR: governance/schedule_named failed");
-					}
-					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedWaitingEnactment);
+					let start_time: T::BlockNumber = <frame_system::Module<T>>::block_number() + T::BlockNumber::from(REFERENDUM_CHECK_TIME);
+
+					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumDeliberation);
+					ProposalVotes::remove(proposal_id);
+					ReferendumStartTime::<T>::insert(proposal_id, start_time);
+					Self::deposit_event(Event::ReferendumCreated(proposal_id));
+
 				} else {
 					// Proposal does not have a onchain call, it can be considered enacted
 					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(true));
@@ -244,9 +268,81 @@ decl_module! {
 			Ok(())
 		}
 
+		/// Submit a veto for a referendum
+		#[weight = 1_000_000]
+		fn vote_against_referendum(
+			origin,
+			proposal_id: ProposalId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			// Validate council members identity and staking assets
+			Self::check_voter_account_validity(&origin)?;
+			let block_number = <frame_system::Module<T>>::block_number();
+			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
+			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
+
+			ReferendumVoteCount::<T>::insert(
+				proposal_id,
+				origin,
+				ReferendumVotes {
+					vote: 1, // 1 for no vote
+				}
+			);
+			Ok(())
+		}
+
+		/// End of a referendum, tally votes and proceed to next stage
+		#[weight = 1_000_000]
+		fn end_referendum(
+			origin,
+			proposal_id: ProposalId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let proposal_call = Self::proposal_calls(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
+			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
+			let referendum_start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
+			ensure!(<frame_system::Module<T>>::block_number() + T::BlockNumber::from(REFERENDUM_LENGTH) >= referendum_start_time, Error::<T>::ReferendumNotEnded);
+			//let max_referendum_threshold = Self::referendum_threshold();
+			let mut no_vote_weight_sum: u64 = 0;
+			let max_stakers: u64 = T::StakingInfo::count_nominators();
+			// Sum up total vote weight
+			<ReferendumVoteCount<T>>::drain_prefix(proposal_id).for_each(|(_, vote)| {
+				no_vote_weight_sum += vote.vote as u64;
+			});
+
+			if Permill::from_rational_approximation(no_vote_weight_sum, max_stakers) >= Self::referendum_threshold() {
+				// Too many veto votes, not going ahead
+				Self::deposit_event(Event::ReferendumVeto(proposal_id));
+				let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
+				<Proposals<T>>::remove(proposal_id);
+				ProposalCalls::remove(proposal_id);
+				ProposalStatus::insert(proposal_id, ProposalStatusInfo::Disapproved);
+			} else {
+				if ProposalCalls::contains_key(proposal_id) {
+					if T::Scheduler::schedule_named(
+						(GOVERNANCE_ID, proposal_id).encode(),
+						DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
+						None,
+						63,
+						frame_system::RawOrigin::Root.into(),
+						Call::enact_referendum(proposal_id).into(),
+					).is_err() {
+						frame_support::print("LOGIC ERROR: governance/schedule_named failed");
+					}
+					Self::deposit_event(Event::ReferendumApproved(proposal_id));
+					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedWaitingReferendum);
+					ReferendumStartTime::<T>::remove(proposal_id);
+				} else {
+					// Proposal does not have a onchain call, it can be considered enacted
+					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(true));
+				}
+			}
+			Ok(())
+		}
+
 		/// Execute a proposal transaction
 		#[weight = 1_000_000]
-		fn enact_proposal(origin, proposal_id: ProposalId) -> DispatchResult {
+		fn enact_referendum(origin, proposal_id: ProposalId) -> DispatchResult {
 			ensure_root(origin)?;
 			let proposal_call = Self::proposal_calls(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
@@ -258,7 +354,7 @@ decl_module! {
 				ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(ok));
 				<Proposals<T>>::remove(proposal_id);
 				ProposalCalls::remove(proposal_id);
-				ProposalVotes::remove(proposal_id);
+				<ReferendumStartTime<T>>::remove(proposal_id);
 			}
 
 			Ok(())
@@ -274,6 +370,17 @@ decl_module! {
 			ensure_root(origin)?;
 			ProposalBond::put(new_proposal_bond);
 		}
+
+		/// Adjust the referendum threshold
+		/// This must be submitted like any other proposal
+		#[weight = 100_000]
+		fn set_referendum_threshold(
+			origin,
+			new_referendum_threshold: Permill,
+		) {
+			ensure_root(origin)?;
+			ReferendumThreshold::put(new_referendum_threshold);
+		}
 	}
 }
 
@@ -285,5 +392,19 @@ impl<T: Config> Module<T> {
 	/// Return all vote information on active proposals
 	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
 		ProposalVotes::iter().collect()
+	}
+
+	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
+		// Check the amount they have staked
+		let staked_amount: Balance = T::StakingInfo::active_balance(account.clone());
+		ensure!(staked_amount >= 0, Error::<T>::NotEnoughStaked);
+
+		// Check their verified identities
+		// let registration: u32 = T::Registration::registered_accounts(account.clone());
+		// ensure!(
+		// 	registration >= MINIMUM_REGISTERED_IDENTITIES,
+		// 	Error::<T>::NotEnoughRegistrations
+		// );
+		Ok(())
 	}
 }

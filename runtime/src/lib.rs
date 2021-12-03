@@ -485,6 +485,7 @@ impl crml_governance::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
 	type WeightInfo = ();
+	type StakingInfo = Staking;
 }
 
 impl pallet_utility::Config for Runtime {
