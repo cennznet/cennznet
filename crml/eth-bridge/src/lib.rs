@@ -603,7 +603,7 @@ impl<T: Config> Module<T> {
 			})
 	}
 
-	/// This function uses the `offchain::http` API to query the remote github information,
+	/// This function uses the `offchain::http` API to query the remote ethereum information,
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
 		// Load eth http URI from offchain storage
@@ -632,6 +632,7 @@ impl<T: Config> Module<T> {
 		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
 		let pending = request
 			.add_header("Content-Type", HEADER_CONTENT_TYPE)
+			.add_header("Content-Length", &body.as_bytes().len().to_string())
 			.deadline(timeout) // Setting the timeout time
 			.send() // Sending the request out by the host
 			.map_err(|err| {

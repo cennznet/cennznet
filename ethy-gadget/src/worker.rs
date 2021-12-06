@@ -205,10 +205,8 @@ where
 							&[
 								// DB key is (engine_id + proof_id)
 								(
-									[&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]]
-										.concat()
-										.as_ref(),
-										VersionedEventProof::V1(proof).encode().as_ref(),
+									[&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref(),
+									VersionedEventProof::V1(proof).encode().as_ref(),
 								),
 							],
 							&[],
