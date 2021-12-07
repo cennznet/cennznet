@@ -17,17 +17,12 @@ use crate as crml_governance;
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_generic_asset::StakingAssetCurrency;
 use crml_support::StakingAmount;
-use frame_support::{
-	ord_parameter_types, parameter_types,
-	traits::{Contains, Filter, IntegrityTest, OnInitialize, RegistrationInfo},
-	weights::Weight,
-	PalletId,
-};
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_support::{parameter_types, traits::RegistrationInfo, weights::Weight, PalletId};
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
 
@@ -49,18 +44,6 @@ frame_support::construct_runtime!(
 	}
 );
 
-// impl IntegrityTest for Test {
-// 	fn integrity_test() {}
-// }
-
-// Test that a fitlered call can be dispatched.
-pub struct BaseFilter;
-impl Filter<Call> for BaseFilter {
-	fn filter(call: &Call) -> bool {
-		!matches!(call, &Call::Balances(pallet_balances::Call::set_balance(..)))
-	}
-}
-
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub BlockWeights: frame_system::limits::BlockWeights =
@@ -69,7 +52,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
-	type BaseCallFilter = BaseFilter;
+	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = u64;
@@ -84,7 +67,7 @@ impl frame_system::Config for Test {
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -114,23 +97,11 @@ impl pallet_scheduler::Config for Test {
 	type Call = Call;
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
-	type MaxScheduledPerBlock = (); //MaxScheduledPerBlock;
+	type MaxScheduledPerBlock = ();
 	type WeightInfo = ();
 }
-// parameter_types! {
-// 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
-// }
-// impl pallet_scheduler::Config for Test {
-// 	type Event = Event;
-// 	type Origin = Origin;
-// 	type PalletsOrigin = OriginCaller;
-// 	type Call = Call;
-// 	type MaximumWeight = MaximumSchedulerWeight;
-// 	type ScheduleOrigin = EnsureRoot<u64>;
-// 	type MaxScheduledPerBlock = ();
-// 	type WeightInfo = ();
-// }
-struct MockStakingAmount;
+
+pub struct MockStakingAmount;
 impl StakingAmount for MockStakingAmount {
 	type AccountId = AccountId;
 	type Balance = Balance;
@@ -144,11 +115,11 @@ impl StakingAmount for MockStakingAmount {
 	}
 }
 
-struct MockRegistrationImplementation;
+pub struct MockRegistrationImplementation;
 impl RegistrationInfo for MockRegistrationImplementation {
 	type AccountId = AccountId;
 	/// Registration information for an identity
-	fn registered_accounts(who: Self::AccountId) -> u32 {
+	fn registered_accounts(_who: Self::AccountId) -> u32 {
 		2
 	}
 }
@@ -168,18 +139,6 @@ impl crate::Config for Test {
 	type Registration = MockRegistrationImplementation;
 	type StakingAmount = MockStakingAmount;
 }
-// parameter_types! {
-// 	pub const ExistentialDeposit: u64 = 1;
-// }
-// impl pallet_balances::Config for Test {
-// 	type MaxLocks = ();
-// 	type Balance = u64;
-// 	type Event = Event;
-// 	type DustRemoval = ();
-// 	type ExistentialDeposit = ExistentialDeposit;
-// 	type AccountStore = System;
-// 	type WeightInfo = ();
-// }
 
 #[derive(Default)]
 pub struct ExtBuilder;
