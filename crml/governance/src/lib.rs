@@ -32,15 +32,17 @@ use frame_support::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
 		Currency, Get, LockIdentifier, ReservableCurrency,
 	},
+	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::traits::Zero;
 use sp_runtime::Permill;
 use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 // The length in blocks of a referendum voting cycle
-const REFERENDUM_LENGTH: u32 = 100;
+const REFERENDUM_LENGTH: u32 = 20;
 
 const REFERENDUM_CHECK_TIME: u32 = 10;
 
@@ -81,6 +83,10 @@ decl_event! {
 		ReferendumCreated(ProposalId),
 		/// A referendum has been approved and is awaiting enactment
 		ReferendumApproved(ProposalId),
+		/// A random test event
+		CheckingBlockNumber(),
+		/// Start of the end Referendum Step
+		FinishingReferendum(),
 	}
 }
 
@@ -138,6 +144,35 @@ decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
 		fn deposit_event() = default;
+
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			if (block_number % T::BlockNumber::from(REFERENDUM_CHECK_TIME)).is_zero() {
+				Self::deposit_event(Event::CheckingBlockNumber());
+				// Check referendums
+				let mut weight_count = 0;
+				let proposalIds = <ReferendumStartTime<T>>::iter();
+				proposalIds.inspect(|(proposal_id, block)| {
+					if (block >= &(block_number + T::BlockNumber::from(REFERENDUM_LENGTH))) {
+						//let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing);
+						let enactment_delay: u32 = 5;
+						if T::Scheduler::schedule_named(
+							(GOVERNANCE_ID, proposal_id).encode(),
+							DispatchTime::At(<frame_system::Module<T>>::block_number() + T::BlockNumber::from(enactment_delay)),
+							None,
+							63,
+							frame_system::RawOrigin::Root.into(),
+							Call::end_referendum(*proposal_id).into(),
+						).is_err() {
+							frame_support::print("LOGIC ERROR: governance/schedule_named failed");
+						}
+						weight_count += 1;
+					}
+				});
+				weight_count * 1_000_000u64
+			} else  {
+				0
+			}
+		}
 
 		#[weight = 1_000_000]
 		/// Submit a proposal for consideration by the council
@@ -298,6 +333,7 @@ decl_module! {
 			proposal_id: ProposalId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			Self::deposit_event(Event::FinishingReferendum());
 			let proposal_call = Self::proposal_calls(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			let referendum_start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
