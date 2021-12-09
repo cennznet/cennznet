@@ -109,8 +109,7 @@ impl StakingAmount for MockStakingAmount {
 	fn active_balance(controller: Self::AccountId) -> Self::Balance {
 		match controller {
 			1 => 10000,
-			2 => 20000,
-			_ => 0,
+			_ => 20000,
 		}
 	}
 }
@@ -119,19 +118,24 @@ pub struct MockRegistrationImplementation;
 impl RegistrationInfo for MockRegistrationImplementation {
 	type AccountId = AccountId;
 	/// Registration information for an identity
-	fn registered_accounts(_who: Self::AccountId) -> u32 {
-		2
+	fn registered_accounts(who: Self::AccountId) -> u32 {
+		match who {
+			1 => 2,
+			2 => 1,
+			_ => 2,
+		}
 	}
 }
 
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
+	pub const MaxCouncilSize: u16 = 2;
 }
 impl crate::Config for Test {
 	type Call = Call;
 	type Currency = StakingAssetCurrency<Self>;
-	type MaxCouncilSize = ();
+	type MaxCouncilSize = MaxCouncilSize;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
