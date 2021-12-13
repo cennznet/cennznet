@@ -347,17 +347,6 @@ impl crml_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
-// TODO: Safe to remove after runtime v41 is live
-// The session key format pre runtime v41
-impl_opaque_keys! {
-	pub struct SessionKeysV40 {
-		pub grandpa: Grandpa,
-		pub babe: Babe,
-		pub im_online: ImOnline,
-		pub authority_discovery: AuthorityDiscovery,
-	}
-}
-
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
@@ -365,29 +354,6 @@ impl_opaque_keys! {
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
 		pub eth_bridge: EthBridge,
-	}
-}
-
-// TODO: Safe to remove after runtime v41 is live
-// kudos: https://github.com/paritytech/polkadot/pull/2092/files
-fn transform_session_keys(_v: AccountId, old: SessionKeysV40) -> SessionKeys {
-	SessionKeys {
-		grandpa: old.grandpa,
-		babe: old.babe,
-		im_online: old.im_online,
-		authority_discovery: old.authority_discovery,
-		// Set the temporary bridge key to `[0_u8; 33]` for all validators
-		// this will ensure the bridge does not start until intentional support/activation is shown
-		eth_bridge: EthBridgeId::default(),
-	}
-}
-
-/// Performs session key upgrade from v40 compatible to v41
-pub struct UpgradeSessionKeys;
-impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		Session::upgrade_keys::<SessionKeysV40, _>(transform_session_keys);
-		Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
 	}
 }
 
@@ -808,15 +774,8 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-	Runtime,
-	Block,
-	frame_system::ChainContext<Runtime>,
-	Runtime,
-	AllModules,
-	// TODO: remove after v41
-	UpgradeSessionKeys,
->;
+pub type Executive =
+	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
