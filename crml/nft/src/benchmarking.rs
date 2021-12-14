@@ -54,24 +54,15 @@ fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 	let _ = <Nft<T>>::create_collection(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_name,
-		Some(MetadataBaseURI::Https(
-			b"example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec(),
-		)),
 		Some(royalties.clone()),
 	)
 	.expect("created collection");
-	assert_eq!(140, T::MaxAttributeLength::get() as usize);
-	// all attributes max. length
-	let attributes = (0..MAX_SCHEMA_FIELDS)
-		.map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec()))
-		.collect::<Vec<NFTAttributeValue>>();
 	let _ = <Nft<T>>::mint_series(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_id,
-		QUANTITY, // QUANTITY
+		QUANTITY,
 		Some(owner.clone()),
-		attributes.clone(),
-		None,
+		MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()),
 		None,
 		None,
 	)
@@ -85,7 +76,7 @@ benchmarks! {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
 		let (collection_id, royalties) = setup_collection::<T>(creator.clone());
-		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, None).expect("created collection");
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None).expect("created collection");
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_id, new_owner.clone())
 	verify {
@@ -97,7 +88,7 @@ benchmarks! {
 		let (collection_id, royalties) = setup_collection::<T>(creator.clone());
 		let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_name, Some(MetadataBaseURI::Https(b"example.com/nfts/more/paths/thatmakethisunreasonablylong/tostresstestthis".to_vec())), Some(royalties))
+	}: _(RawOrigin::Signed(creator.clone()), collection_name, Some(royalties))
 	verify {
 		assert_eq!(<Nft<T>>::collection_owner(&collection_id), Some(creator));
 	}
@@ -111,10 +102,8 @@ benchmarks! {
 		let series_id = <Nft<T>>::next_series_id(collection_id);
 		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
 		let final_token_id = (collection_id, series_id, serial_number);
-		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, Some(royalties.clone())).expect("created collection");
-		// all attributes max. length
-		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
-		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), attributes, Some(b"/tokens".to_vec()), None, None).expect("minted series");
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), Some(royalties.clone())).expect("created collection");
+		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), None, None).expect("minted series");
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, q.into(), Some(owner.clone()))
 	verify {
@@ -130,9 +119,7 @@ benchmarks! {
 		let series_id = <Nft<T>>::next_series_id(collection_id);
 		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
 		let final_token_id = (collection_id, series_id, serial_number);
-		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), None, Some(royalties.clone())).expect("created collection");
-		// all attributes max. length
-		let attributes = (0..MAX_SCHEMA_FIELDS).map(|_| NFTAttributeValue::String([1_u8; 140_usize].to_vec())).collect::<Vec<NFTAttributeValue>>();
+		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), Some(royalties.clone())).expect("created collection");
 		// Royalties with max. entitled addresses
 		let royalties = RoyaltiesSchedule::<T::AccountId> {
 			entitlements: (0..MAX_ENTITLEMENTS)
@@ -140,7 +127,7 @@ benchmarks! {
 				.collect::<Vec<(T::AccountId, Permill)>>(),
 		};
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, q.into(), Some(owner.clone()), attributes, Some(b"/tokens".to_vec()), Some(royalties), None)
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, q.into(), Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), Some(royalties), None)
 	verify {
 		// the last token id in
 		assert_eq!(<Nft<T>>::token_owner((collection_id, series_id), <Nft<T>>::next_serial_number(collection_id, series_id) - 1), owner);

@@ -29,15 +29,21 @@ use variant_count::VariantCount;
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
-/// A base metadata URI string for a collection
+/// Denotes the metadata URI referencing scheme used by a series
+/// Enable token metadata URI construction by clients
 #[derive(Decode, Encode, Debug, Clone, PartialEq)]
-pub enum MetadataBaseURI {
-	/// Collection metadata is hosted by IPFS
-	/// Its tokens' metdata will be available at `ipfs://<token_metadata_path>`
-	Ipfs,
-	/// Collection metadata is hosted by an HTTPS server
-	/// Its tokens' metdata will be avilable at `https://<domain>/<token_metadata_path>`
+pub enum MetadataScheme {
+	/// Series metadata is hosted by an HTTPS server
+	/// Inner value is the URI without trailing '/'
+	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
+	/// Https(b"example.com/metadata")
+	///
 	Https(Vec<u8>),
+	/// Series metadata is hosted by an IPFS directory
+	/// Inner value is the directory's IPFS CID
+	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
+	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
+	IpfsDir(Vec<u8>),
 }
 
 /// Name of an NFT attribute
@@ -438,6 +444,8 @@ pub enum Releases {
 	V0 = 0,
 	/// storage version > runtime v41
 	V1 = 1,
+	// storage version > runtime v46
+	V2 = 2,
 }
 
 #[cfg(test)]
