@@ -157,6 +157,53 @@ fn setup_mass_drop(mass_drop: Option<MassDrop>, presale: Option<Presale>) -> Mas
 }
 
 #[test]
+fn migration_v1_to_v2() {
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	#[allow(dead_code)]
+	mod v1_storage {
+		use super::{CollectionId, Config, SeriesId};
+		use codec::{Decode, Encode};
+
+		#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+		pub enum MetadataBaseURI {
+			Ipfs,
+			Https(Vec<u8>),
+		}
+
+		pub struct Module<T>(sp_std::marker::PhantomData<T>);
+		frame_support::decl_storage! {
+			trait Store for Module<T: Config> as Nft {
+				pub IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
+				pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
+				pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
+			}
+		}
+	}
+
+	ExtBuilder::default().build().execute_with(|| {
+		// setup old values
+		v1_storage::IsSingleIssue::insert(0, 5, true);
+		v1_storage::CollectionMetadataURI::insert(1, v1_storage::MetadataBaseURI::Ipfs);
+		v1_storage::SeriesMetadataURI::insert(3, 0, b"https://api.example.com/tokens".to_vec());
+		v1_storage::SeriesMetadataURI::insert(3, 1, Vec::<u8>::default());
+
+		// run upgrade
+		StorageVersion::put(Releases::V1 as u32); // rollback to v1
+		<Module<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
+		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
+		assert_eq!(
+			SeriesMetadataScheme::get(3, 0),
+			Some(MetadataScheme::Https(b"https://api.example.com/tokens".to_vec()))
+		);
+		assert!(!SeriesMetadataScheme::contains_key(3, 1),);
+		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
+	});
+}
+
+#[test]
 fn set_owner() {
 	ExtBuilder::default().build().execute_with(|| {
 		// setup token collection + one token

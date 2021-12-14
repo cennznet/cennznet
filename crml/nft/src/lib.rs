@@ -36,6 +36,7 @@ use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
+	storage::IterableStorageDoubleMap,
 	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons},
 	transactional,
 	weights::Weight,
@@ -243,7 +244,7 @@ decl_storage! {
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
 		/// Version of this module's storage schema
-		StorageVersion build(|_: &GenesisConfig| Releases::V0 as u32): u32;
+		StorageVersion build(|_: &GenesisConfig| Releases::V2 as u32): u32;
 	}
 }
 
@@ -274,28 +275,42 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::get() == Releases::V0 as u32 {
-				StorageVersion::put(Releases::V1 as u32);
-				// `TokenLocks` migrating from `bool` to `TokenLockReason`
+			if StorageVersion::get() == Releases::V1 as u32 {
+				StorageVersion::put(Releases::V2 as u32);
+
 				#[allow(dead_code)]
-				mod old_storage {
-					use super::{Config, TokenId};
+				mod v1_storage {
+					use super::{Config, CollectionId, SeriesId};
+					use codec::{Encode, Decode};
+
+					#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+					pub enum MetadataBaseURI {
+						Ipfs,
+						Https(Vec<u8>),
+					}
+
 					pub struct Module<T>(sp_std::marker::PhantomData<T>);
 					frame_support::decl_storage! {
 						trait Store for Module<T: Config> as Nft {
-							pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => bool;
+							pub IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
+							pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
+							pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
 						}
 					}
 				}
 
-				let locks = old_storage::TokenLocks::drain().collect::<Vec<(TokenId, bool)>>();
-				let locks_count = locks.len();
-				for (id, _status) in locks {
-					// these listings are pre-marketplace, `0` is incorrect and that's fine
-					TokenLocks::insert(id, TokenLockReason::Listed(0));
+				let series_metadata_uris: Vec<(CollectionId, SeriesId, Vec<u8>)> = v1_storage::SeriesMetadataURI::drain().collect();
+				let write_count = series_metadata_uris.len();
+				for (collection, series, series_uri_path) in series_metadata_uris {
+					if !series_uri_path.is_empty() {
+						SeriesMetadataScheme::insert(collection, series, MetadataScheme::Https(series_uri_path));
+					}
 				}
 
-				100_000 * locks_count as Weight
+				v1_storage::CollectionMetadataURI::remove_all();
+				v1_storage::IsSingleIssue::remove_all();
+
+				100_000 * write_count as Weight
 			} else {
 				Zero::zero()
 			}
