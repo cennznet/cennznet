@@ -280,6 +280,7 @@ decl_module! {
 
 				#[allow(dead_code)]
 				mod v1_storage {
+					use sp_std::prelude::*;
 					use super::{Config, CollectionId, SeriesId};
 					use codec::{Encode, Decode};
 
