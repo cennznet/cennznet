@@ -21,7 +21,7 @@
 mod types;
 pub use types::*;
 
-use cennznet_primitives::types::{Balance, BlockNumber};
+use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
 use crml_support::StakingInfo;
 use frame_support::{
@@ -35,6 +35,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use log::warn;
 use sp_runtime::traits::Zero;
 use sp_runtime::Permill;
 use sp_std::prelude::*;
@@ -42,9 +43,9 @@ use sp_std::prelude::*;
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 // The length in blocks of a referendum voting cycle
-const REFERENDUM_LENGTH: u32 = 20;
+const REFERENDUM_LENGTH: u32 = 10;
 
-const REFERENDUM_CHECK_TIME: u32 = 10;
+const REFERENDUM_CHECK_TIME: u32 = 5;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
@@ -83,10 +84,8 @@ decl_event! {
 		ReferendumCreated(ProposalId),
 		/// A referendum has been approved and is awaiting enactment
 		ReferendumApproved(ProposalId),
-		/// A random test event
-		CheckingBlockNumber(),
 		/// Start of the end Referendum Step
-		FinishingReferendum(),
+		EnactingReferendum(),
 	}
 }
 
@@ -147,25 +146,15 @@ decl_module! {
 
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			if (block_number % T::BlockNumber::from(REFERENDUM_CHECK_TIME)).is_zero() {
-				Self::deposit_event(Event::CheckingBlockNumber());
 				// Check referendums
 				let mut weight_count = 0;
-				let proposalIds = <ReferendumStartTime<T>>::iter();
-				proposalIds.inspect(|(proposal_id, block)| {
-					if (block >= &(block_number + T::BlockNumber::from(REFERENDUM_LENGTH))) {
-						//let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing);
-						let enactment_delay: u32 = 5;
-						if T::Scheduler::schedule_named(
-							(GOVERNANCE_ID, proposal_id).encode(),
-							DispatchTime::At(<frame_system::Module<T>>::block_number() + T::BlockNumber::from(enactment_delay)),
-							None,
-							63,
-							frame_system::RawOrigin::Root.into(),
-							Call::end_referendum(*proposal_id).into(),
-						).is_err() {
-							frame_support::print("LOGIC ERROR: governance/schedule_named failed");
+				let proposal_ids = <ReferendumStartTime<T>>::iter();
+				proposal_ids.for_each(|(proposal_id, block)| {
+					if block_number >= block + T::BlockNumber::from(REFERENDUM_LENGTH) {
+						if Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation) {
+							Self::end_referendum(proposal_id);
+							weight_count += 1;
 						}
-						weight_count += 1;
 					}
 				});
 				weight_count * 1_000_000u64
@@ -299,6 +288,7 @@ decl_module! {
 			ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnactmentCancelled);
 			ProposalCalls::remove(proposal_id);
 			ProposalVotes::remove(proposal_id);
+			<ReferendumStartTime<T>>::remove(proposal_id);
 
 			Ok(())
 		}
@@ -326,62 +316,14 @@ decl_module! {
 			Ok(())
 		}
 
-		/// End of a referendum, tally votes and proceed to next stage
-		#[weight = 1_000_000]
-		fn end_referendum(
-			origin,
-			proposal_id: ProposalId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::deposit_event(Event::FinishingReferendum());
-			let proposal_call = Self::proposal_calls(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
-			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
-			let referendum_start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
-			ensure!(<frame_system::Module<T>>::block_number() + T::BlockNumber::from(REFERENDUM_LENGTH) >= referendum_start_time, Error::<T>::ReferendumNotEnded);
-			//let max_referendum_threshold = Self::referendum_threshold();
-			let mut no_vote_weight_sum: u64 = 0;
-			let max_stakers: u64 = T::StakingInfo::count_nominators();
-			// Sum up total vote weight
-			<ReferendumVoteCount<T>>::drain_prefix(proposal_id).for_each(|(_, vote)| {
-				no_vote_weight_sum += vote.vote as u64;
-			});
-
-			if Permill::from_rational_approximation(no_vote_weight_sum, max_stakers) >= Self::referendum_threshold() {
-				// Too many veto votes, not going ahead
-				Self::deposit_event(Event::ReferendumVeto(proposal_id));
-				let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
-				<Proposals<T>>::remove(proposal_id);
-				ProposalCalls::remove(proposal_id);
-				ProposalStatus::insert(proposal_id, ProposalStatusInfo::Disapproved);
-			} else {
-				if ProposalCalls::contains_key(proposal_id) {
-					if T::Scheduler::schedule_named(
-						(GOVERNANCE_ID, proposal_id).encode(),
-						DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
-						None,
-						63,
-						frame_system::RawOrigin::Root.into(),
-						Call::enact_referendum(proposal_id).into(),
-					).is_err() {
-						frame_support::print("LOGIC ERROR: governance/schedule_named failed");
-					}
-					Self::deposit_event(Event::ReferendumApproved(proposal_id));
-					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedWaitingReferendum);
-					ReferendumStartTime::<T>::remove(proposal_id);
-				} else {
-					// Proposal does not have a onchain call, it can be considered enacted
-					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(true));
-				}
-			}
-			Ok(())
-		}
-
 		/// Execute a proposal transaction
 		#[weight = 1_000_000]
 		fn enact_referendum(origin, proposal_id: ProposalId) -> DispatchResult {
 			ensure_root(origin)?;
 			let proposal_call = Self::proposal_calls(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			let proposal = Self::proposals(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
+			Self::deposit_event(Event::EnactingReferendum());
+
 			if let Ok(call) = <T as Config>::Call::decode(&mut &proposal_call[..]) {
 				let ok = call.dispatch(frame_system::RawOrigin::Root.into()).is_ok();
 				Self::deposit_event(Event::EnactProposal(proposal_id, ok));
@@ -433,7 +375,7 @@ impl<T: Config> Module<T> {
 	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
 		let staked_amount: Balance = T::StakingInfo::active_balance(account.clone());
-		ensure!(staked_amount >= 0, Error::<T>::NotEnoughStaked);
+		ensure!(staked_amount > 0, Error::<T>::NotEnoughStaked);
 
 		// Check their verified identities
 		// let registration: u32 = T::Registration::registered_accounts(account.clone());
@@ -442,5 +384,51 @@ impl<T: Config> Module<T> {
 		// 	Error::<T>::NotEnoughRegistrations
 		// );
 		Ok(())
+	}
+
+	pub fn end_referendum(proposal_id: ProposalId) {
+		let proposal = match Self::proposals(proposal_id) {
+			Some(proposal) => proposal,
+			None => {
+				warn!("clean up proposal: {:?} failed, not found", proposal_id);
+				return;
+			}
+		};
+		let mut no_vote_weight_sum: u64 = 0;
+		let max_stakers: u64 = T::StakingInfo::count_nominators();
+		// Sum up total vote weight
+		<ReferendumVoteCount<T>>::drain_prefix(proposal_id).for_each(|(_, vote)| {
+			no_vote_weight_sum += vote.vote as u64;
+		});
+
+		if Permill::from_rational_approximation(no_vote_weight_sum, max_stakers) >= Self::referendum_threshold() {
+			// Too many veto votes, not going ahead
+			Self::deposit_event(Event::ReferendumVeto(proposal_id));
+			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
+			<Proposals<T>>::remove(proposal_id);
+			ProposalCalls::remove(proposal_id);
+			<ReferendumStartTime<T>>::remove(proposal_id);
+			ProposalStatus::insert(proposal_id, ProposalStatusInfo::Disapproved);
+		} else {
+			if ProposalCalls::contains_key(proposal_id) {
+				if T::Scheduler::schedule_named(
+					(GOVERNANCE_ID, proposal_id).encode(),
+					DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
+					None,
+					63,
+					frame_system::RawOrigin::Root.into(),
+					Call::enact_referendum(proposal_id).into(),
+				)
+				.is_err()
+				{
+					frame_support::print("LOGIC ERROR: governance/schedule_named failed");
+				}
+				Self::deposit_event(Event::ReferendumApproved(proposal_id));
+				ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedWaitingReferendum);
+			} else {
+				// Proposal does not have a onchain call, it can be considered enacted
+				ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(true));
+			}
+		}
 	}
 }

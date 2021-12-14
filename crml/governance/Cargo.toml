@@ -8,6 +8,7 @@ repository = "https://github.com/cennznet/cennznet"
 description = "A runtime module for decentralized governance of the CENNZnet protocol"
 
 [dependencies]
+log = "0.4"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }

@@ -1388,6 +1388,7 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
  "serde",
  "sp-runtime",
