@@ -1335,14 +1335,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-identity",
  "pallet-scheduler",
  "parity-scale-codec",
  "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-staking",
  "sp-std",
 ]
 
