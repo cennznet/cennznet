@@ -62,7 +62,7 @@ pub trait Config: frame_system::Config {
 	type WeightInfo: WeightInfo;
 	/// Registrations for identities
 	type Registration: RegistrationInfo<AccountId = Self::AccountId>;
-
+	/// staking information of an account
 	type StakingAmount: StakingAmount<AccountId = Self::AccountId, Balance = Balance>;
 }
 
@@ -119,7 +119,7 @@ decl_storage! {
 		/// Proposal bond amount in 'wei'
 		ProposalBond get(fn proposal_bond): Balance;
 		/// Minimum stake required to create a new council member
-		MinimumCouncilStake get(fn minimum_council_stake): Balance = 20_000;
+		MinimumCouncilStake get(fn minimum_council_stake): Balance = 10_000_000;
 	}
 }
 
@@ -322,19 +322,17 @@ impl<T: Config> Module<T> {
 	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
 		ProposalVotes::iter().collect()
 	}
-
+	/// Check an accounts staked amount and total number of registered identities
 	pub fn check_council_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
-		let staked_amount: Balance = T::StakingAmount::active_balance(account.clone());
-		frame_support::log::info!("The amount staked by this account is: {:?}", staked_amount);
-
+		let staked_amount: Balance = T::StakingAmount::active_balance(account);
 		ensure!(
 			staked_amount >= Self::minimum_council_stake(),
 			Error::<T>::NotEnoughStaked
 		);
 
 		// Check their verified identities
-		let registration: u32 = T::Registration::registered_accounts(account.clone());
+		let registration: u32 = T::Registration::registered_identity_count(account);
 		ensure!(
 			registration >= MINIMUM_REGISTERED_IDENTITIES,
 			Error::<T>::NotEnoughRegistrations

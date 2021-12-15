@@ -429,7 +429,7 @@ impl<T: Config> StakingAmount for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
-	fn active_balance(controller: Self::AccountId) -> Self::Balance {
+	fn active_balance(controller: &Self::AccountId) -> Self::Balance {
 		Self::active_balance(controller)
 	}
 }
@@ -2816,7 +2816,7 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	pub fn active_balance(controller: T::AccountId) -> BalanceOf<T> {
+	pub fn active_balance(controller: &T::AccountId) -> BalanceOf<T> {
 		let staking_ledger = Self::ledger(controller);
 		match staking_ledger {
 			Some(ledger) => ledger.active,

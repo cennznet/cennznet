@@ -7,12 +7,12 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false }
-sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-std = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
+frame-support = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
+sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-std = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
 
 [features]
 default = ["std"]

@@ -106,10 +106,12 @@ impl StakingAmount for MockStakingAmount {
 	type AccountId = AccountId;
 	type Balance = Balance;
 
-	fn active_balance(controller: Self::AccountId) -> Self::Balance {
+	fn active_balance(controller: &Self::AccountId) -> Self::Balance {
 		match controller {
-			1 => 10000,
-			_ => 20000,
+			1 => 1_000_000,
+			2 => 20_000_000,
+			3 => 30_000_000,
+			_ => 0,
 		}
 	}
 }
@@ -118,11 +120,12 @@ pub struct MockRegistrationImplementation;
 impl RegistrationInfo for MockRegistrationImplementation {
 	type AccountId = AccountId;
 	/// Registration information for an identity
-	fn registered_accounts(who: Self::AccountId) -> u32 {
+	fn registered_identity_count(who: &Self::AccountId) -> u32 {
 		match who {
 			1 => 2,
 			2 => 1,
-			_ => 2,
+			3 => 3,
+			_ => 0,
 		}
 	}
 }

@@ -11,9 +11,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
+sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
 
 [features]
 default = ["std"]

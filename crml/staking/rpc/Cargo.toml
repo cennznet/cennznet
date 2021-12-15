@@ -16,12 +16,12 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
-sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
+sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
 serde = { version = "1.0.102", features = ["derive"] }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
-sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b" }
+sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }
 
 [dev-dependencies]

@@ -42,7 +42,7 @@ fn add_council_member_not_enough_registrations_should_fail() {
 #[test]
 fn add_council_member_not_root_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 2_u64;
+		let account = 3_u64;
 		let signing_account = 4_u64;
 		assert_noop!(
 			Governance::add_council_member(frame_system::RawOrigin::Signed(signing_account).into(), account.into()),
@@ -54,7 +54,7 @@ fn add_council_member_not_root_should_fail() {
 #[test]
 fn set_minimum_stake_bond() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_minimum_council_stake: Balance = Balance::from(10_000_u32);
+		let new_minimum_council_stake: Balance = Balance::from(500_000_u32);
 		let account = 1_u64;
 
 		assert_noop!(

@@ -14,13 +14,13 @@ variant_count = "1.0.0"
 hex = { version = "0.4.3", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false, optional = true }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "6ec19e279f8b47dabe39640ad93dfbf391d1e48b", default-features = false  }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
+frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false, optional = true }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }
