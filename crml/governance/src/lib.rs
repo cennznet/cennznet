@@ -386,7 +386,10 @@ impl<T: Config> Module<T> {
 	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
 		let staked_amount: Balance = T::StakingInfo::active_balance(account.clone());
-		ensure!(staked_amount > Self::min_voter_staked_amount(), Error::<T>::NotEnoughStaked);
+		ensure!(
+			staked_amount > Self::min_voter_staked_amount(),
+			Error::<T>::NotEnoughStaked
+		);
 
 		// TODO Check their verified identities
 		Ok(())
