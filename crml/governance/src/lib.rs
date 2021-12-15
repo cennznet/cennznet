@@ -146,6 +146,7 @@ decl_module! {
 
 		fn deposit_event() = default;
 
+		/// Check whether any referendums have finished
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			if (block_number % T::BlockNumber::from(REFERENDUM_CHECK_INTERVAL)).is_zero() {
 				// Check referendums
@@ -382,7 +383,7 @@ impl<T: Config> Module<T> {
 	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
 		ProposalVotes::iter().collect()
 	}
-
+	/// Check whether an account is eligible to vote on a referendum
 	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
 		let staked_amount: Balance = T::StakingInfo::active_balance(account.clone());
@@ -394,7 +395,7 @@ impl<T: Config> Module<T> {
 		// TODO Check their verified identities
 		Ok(())
 	}
-
+	/// Finish up a referendum and tally vetos
 	pub fn end_referendum(proposal_id: ProposalId) {
 		let proposal = match Self::proposals(proposal_id) {
 			Some(proposal) => proposal,
