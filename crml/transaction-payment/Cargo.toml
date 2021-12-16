@@ -22,9 +22,6 @@ sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
-smallvec = "1.6.1"
 serde_json = "1.0.50"
 
 [features]

@@ -32,7 +32,7 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
+use cennznet_primitives::types::{AssetId, Balance};
 use crml_support::MultiCurrency;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
@@ -920,21 +920,6 @@ impl<T: Config> Module<T> {
 		Ok(())
 	}
 
-	fn process_drop_payment(
-		buyer: &T::AccountId,
-		owner: &T::AccountId,
-		price: Balance,
-		quantity: TokenCount,
-		asset_id: AssetId,
-	) -> DispatchResult {
-		match price.checked_mul(quantity.into()) {
-			Some(total_price) => {
-				// full proceeds to seller/`current_owner`
-				T::MultiCurrency::transfer(&buyer, &owner, asset_id, total_price, ExistenceRequirement::AllowDeath)
-			}
-			None => Err(Error::<T>::InternalPayment.into()),
-		}
-	}
 	/// Find the tokens owned by an `address` in the given collection
 	pub fn collected_tokens(collection_id: CollectionId, address: &T::AccountId) -> Vec<TokenId> {
 		let next_series_id = Self::next_series_id(collection_id);
