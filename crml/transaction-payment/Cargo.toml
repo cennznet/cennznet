@@ -10,19 +10,19 @@ description = "CENNZnet pallet to manage transaction payments"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
 smallvec = "1.6.1"
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
 smallvec = "1.6.1"
 serde_json = "1.0.50"
 

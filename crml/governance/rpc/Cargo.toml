@@ -13,10 +13,10 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521" }
+sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
 crml-governance = { path = "../" }
 crml-governance-rpc-runtime-api = { path = "runtime-api" }

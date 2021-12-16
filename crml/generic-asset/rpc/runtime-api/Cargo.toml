@@ -10,8 +10,8 @@ description = "Runtime API definition required by Generic Asset RPC extensions."
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
 crml-generic-asset = { default-features = false, path = "../../" }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "771dfdd046da2ce4f7b1865ac40ebe805a821521", default-features = false }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
 
 [features]
 default = ["std"]
