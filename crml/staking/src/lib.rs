@@ -434,7 +434,7 @@ impl<T: Config> StakingInfo for Module<T> {
 		Self::active_balance(controller)
 	}
 
-	fn count_nominators() -> u64 {
+	fn count_nominators() -> u32 {
 		Self::count_nominators()
 	}
 }
@@ -2822,8 +2822,8 @@ impl<T: Config> Module<T> {
 	}
 
 	/// returns number of active nominators
-	pub fn count_nominators() -> u64 {
-		<SnapshotNominators<T>>::decode_len().unwrap_or_default() as u64
+	pub fn count_nominators() -> u32 {
+		<SnapshotNominators<T>>::decode_len().unwrap_or_default() as u32
 	}
 
 	/// Calculates the active staking balance of an account

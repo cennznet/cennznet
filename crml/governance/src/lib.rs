@@ -43,9 +43,9 @@ use sp_std::prelude::*;
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 /// The length in blocks of a referendum voting cycle
-const REFERENDUM_LENGTH: u32 = 2000;
+const REFERENDUM_LENGTH: u32 = 10; //2000;
 /// The interval in which the referendum ending is checked
-const REFERENDUM_CHECK_INTERVAL: u32 = 500;
+const REFERENDUM_CHECK_INTERVAL: u32 = 5; //500;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
@@ -80,7 +80,7 @@ decl_event! {
 		ProposalVeto(ProposalId),
 		/// A referendum was vetoed by vote
 		ReferendumVeto(ProposalId),
-		/// A referendum has been created and will start at start_time
+		/// A proposal was approved by council and a referendum has been created
 		ReferendumCreated(ProposalId),
 		/// A referendum has been approved and is awaiting enactment
 		ReferendumApproved(ProposalId),
@@ -107,10 +107,8 @@ decl_error! {
 		NotEnoughStaked,
 		/// The referendum hasn't started yet
 		ReferendumNotStarted,
-		/// The referendum is ongoing
-		ReferendumNotEnded,
-		/// The referendum has already ended
-		ReferendumEnded,
+		/// The referendum isn't currently accepting votes
+		ReferendumNotDeliberating,
 	}
 }
 
@@ -125,7 +123,9 @@ decl_storage! {
 		/// Map from proposal Id to status
 		ProposalStatus get(fn proposal_status): map hasher(twox_64_concat) ProposalId => Option<ProposalStatusInfo>;
 		/// Map from proposal Id to referendum votes
-		ReferendumVoteCount get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVotes;
+		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVoteCount;
+		/// Running tally of referendum votes
+		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => u32;
 		/// Map from proposal id to referendum start time
 		ReferendumStartTime get(fn referendum_start_time): map hasher(twox_64_concat) ProposalId => Option<T::BlockNumber>;
 		/// Ordered set of active council members
@@ -228,6 +228,7 @@ decl_module! {
 					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumDeliberation);
 					ProposalVotes::remove(proposal_id);
 					ReferendumStartTime::<T>::insert(proposal_id, start_time);
+					ReferendumVetoSum::insert(proposal_id, 0);
 					Self::deposit_event(Event::ReferendumCreated(proposal_id));
 				} else {
 					// Proposal does not have a onchain call, it can be considered enacted
@@ -302,19 +303,22 @@ decl_module! {
 			proposal_id: ProposalId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation), Error::<T>::ReferendumEnded);
+			ensure!(Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation), Error::<T>::ReferendumNotDeliberating);
+			ensure!(ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
 			Self::check_voter_account_validity(&origin)?;
 			let block_number = <frame_system::Module<T>>::block_number();
 			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
-			ReferendumVoteCount::<T>::insert(
+			// Enter vote in storage
+			ReferendumVotes::<T>::insert(
 				proposal_id,
 				origin,
-				ReferendumVotes {
+				ReferendumVoteCount {
 					vote: 1, // 1 for no vote
 				}
 			);
+			ReferendumVetoSum::mutate(proposal_id, |n| *n += 1);
 			Ok(())
 		}
 
@@ -333,6 +337,7 @@ decl_module! {
 				ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedEnacted(ok));
 				<Proposals<T>>::remove(proposal_id);
 				ProposalCalls::remove(proposal_id);
+				ReferendumVetoSum::remove(proposal_id);
 				<ReferendumStartTime<T>>::remove(proposal_id);
 			}
 
@@ -404,20 +409,17 @@ impl<T: Config> Module<T> {
 				return;
 			}
 		};
-		let mut no_vote_weight_sum: u64 = 0;
-		let max_stakers: u64 = T::StakingInfo::count_nominators();
-		// Sum up total vote weight
-		<ReferendumVoteCount<T>>::drain_prefix(proposal_id).for_each(|(_, vote)| {
-			no_vote_weight_sum += vote.vote as u64;
-		});
+		let max_stakers: u32 = T::StakingInfo::count_nominators();
+		ReferendumVotes::<T>::remove_prefix(proposal_id);
 
-		if Permill::from_rational_approximation(no_vote_weight_sum, max_stakers) >= Self::referendum_threshold() {
+		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers) >= Self::referendum_threshold() {
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
 			<Proposals<T>>::remove(proposal_id);
 			ProposalCalls::remove(proposal_id);
 			<ReferendumStartTime<T>>::remove(proposal_id);
+			ReferendumVetoSum::remove(proposal_id);
 			ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumVetoed);
 		} else {
 			if ProposalCalls::contains_key(proposal_id) {

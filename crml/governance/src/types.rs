@@ -49,8 +49,9 @@ pub enum ProposalStatusInfo {
 	ReferendumVetoed,
 }
 
+// Used to store votes on a referendum
 #[derive(Debug, Default, PartialEq, Encode, Decode)]
-pub struct ReferendumVotes {
+pub struct ReferendumVoteCount {
 	// u8 representing either a yes or no vote (0 for yes 1 for no)
 	pub vote: u8,
 }
