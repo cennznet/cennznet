@@ -266,3 +266,11 @@ pub trait MultiCurrency {
 		symbol: Vec<u8>,
 	) -> Result<Self::CurrencyId, DispatchError>;
 }
+
+/// The interface to provide amount staked by a controller account
+pub trait StakingAmount {
+	type AccountId;
+	type Balance;
+	/// Gets the active balance of a controller accounts staked amount
+	fn active_balance(controller: &Self::AccountId) -> Self::Balance;
+}

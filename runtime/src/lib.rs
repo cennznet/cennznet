@@ -27,6 +27,7 @@ use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_identity::RegistrationImplementation;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
@@ -56,7 +57,9 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
+	traits::{
+		Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, RegistrationInfo, U128CurrencyToVote,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
@@ -451,6 +454,8 @@ impl crml_governance::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
 	type WeightInfo = ();
+	type Registration = RegistrationImplementation<Self>;
+	type StakingAmount = Staking;
 }
 
 impl pallet_utility::Config for Runtime {

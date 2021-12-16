@@ -222,6 +222,7 @@ mod slashing;
 pub use slashing::REWARD_F1;
 
 use codec::{Decode, Encode, HasCompact};
+use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
@@ -422,6 +423,15 @@ pub struct UnlockChunk<Balance: HasCompact> {
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
 	era: EraIndex,
+}
+
+impl<T: Config> StakingAmount for Module<T> {
+	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
+
+	fn active_balance(controller: &Self::AccountId) -> Self::Balance {
+		Self::active_balance(controller)
+	}
 }
 
 /// The ledger of a (bonded) stash.
@@ -2803,6 +2813,14 @@ impl<T: Config> Module<T> {
 		match ForceEra::get() {
 			Forcing::ForceAlways | Forcing::ForceNew => true,
 			Forcing::ForceNone | Forcing::NotForcing => false,
+		}
+	}
+
+	pub fn active_balance(controller: &T::AccountId) -> BalanceOf<T> {
+		let staking_ledger = Self::ledger(controller);
+		match staking_ledger {
+			Some(ledger) => ledger.active,
+			None => BalanceOf::<T>::zero(),
 		}
 	}
 
