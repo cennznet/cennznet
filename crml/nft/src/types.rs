@@ -97,67 +97,6 @@ pub struct TokenInfo<AccountId> {
 	pub royalties: Vec<(AccountId, Permill)>,
 }
 
-/// Configuration for a mass drop
-#[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct MassDrop {
-	// Price of the tokens
-	pub price: Balance,
-	// asset id to use for payment
-	pub asset_id: AssetId,
-	// max supply of tokens in the mass_drop
-	pub max_supply: TokenCount,
-	// Max able to mint per transaction
-	pub transaction_limit: Option<TokenCount>,
-	// Block time that the mass_drop goes on sale
-	pub activation_time: BlockNumber,
-	// Presale info for the mass_drop
-	pub presale: Option<Presale>,
-}
-
-impl MassDrop {
-	/// True if transaction_limit is smaller than supply
-	/// And activation time is valid
-	/// And presale is valid
-	pub fn validate(&self) -> bool {
-		if let Some(transaction_limit) = self.transaction_limit {
-			if transaction_limit > self.max_supply {
-				return false;
-			}
-		}
-		// Validate presale
-		if let Some(presale) = &self.presale {
-			if !presale.validate(self) {
-				return false;
-			}
-		}
-		self.max_supply > 0
-	}
-}
-
-/// configuration for pre sale
-#[derive(Eq, PartialEq, Decode, Encode, Clone, Default, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Presale {
-	pub price: Balance,
-	pub transaction_limit: Option<TokenCount>,
-	pub activation_time: BlockNumber, // Block number?
-	pub max_supply: TokenCount,
-}
-
-impl Presale {
-	/// True if transaction_limit is smaller than supply
-	/// And activation time is valid
-	pub fn validate(&self, mass_drop: &MassDrop) -> bool {
-		if let Some(transaction_limit) = self.transaction_limit {
-			if transaction_limit > self.max_supply {
-				return false;
-			}
-		}
-		self.max_supply <= mass_drop.max_supply && self.activation_time < mass_drop.activation_time
-	}
-}
-
 /// Reason for an NFT being locked (un-transferrable)
 #[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
 pub enum TokenLockReason {
