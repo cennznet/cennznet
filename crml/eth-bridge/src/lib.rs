@@ -59,7 +59,11 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	DispatchError, Percent, RuntimeAppPublic,
 };
+#[cfg(not(feature = "std"))]
+use sp_std::alloc::string::ToString;
 use sp_std::{convert::TryInto, prelude::*};
+#[cfg(std)]
+use std::string::ToString;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -302,6 +306,11 @@ decl_module! {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
+			// Nothing to do while bridge is paused
+			if Self::bridge_paused() {
+				return;
+			}
+
 			// check local `key` is a valid bridge notary
 			if !sp_io::offchain::is_validator() {
 				// this passes if flag `--validator` set not necessarily
@@ -395,7 +404,6 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError> {
-		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
 
 		// check if we've seen this event type before
@@ -599,7 +607,7 @@ impl<T: Config> Module<T> {
 			})
 	}
 
-	/// This function uses the `offchain::http` API to query the remote github information,
+	/// This function uses the `offchain::http` API to query the remote ethereum information,
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
 		// Load eth http URI from offchain storage
@@ -620,14 +628,16 @@ impl<T: Config> Module<T> {
 		const HEADER_CONTENT_TYPE: &str = "application/json";
 		log!(info, "💎 sending request to: {}", eth_http_uri);
 		let body = serde_json::to_string::<R>(&request_body).unwrap();
+		let body_raw = body.as_bytes();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body.as_bytes()]);
+		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body_raw]);
 		log!(trace, "💎 request: {:?}", request);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
 		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
 		let pending = request
 			.add_header("Content-Type", HEADER_CONTENT_TYPE)
+			.add_header("Content-Length", &body_raw.len().to_string())
 			.deadline(timeout) // Setting the timeout time
 			.send() // Sending the request out by the host
 			.map_err(|err| {

@@ -150,6 +150,10 @@ pub struct EventProof {
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).
 	pub signatures: Vec<crypto::AuthoritySignature>,
+	/// Block hash of the event
+	pub block: [u8; 32],
+	/// Metadata tag for the event
+	pub tag: Option<Vec<u8>>,
 }
 
 impl EventProof {
