@@ -8,15 +8,21 @@ repository = "https://github.com/cennznet/cennznet"
 description = "A runtime module for decentralized governance of the CENNZnet protocol"
 
 [dependencies]
-log = "0.4"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+log = { version = "0.4.14", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false  }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false  }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false  }
 crml-support = { path = "../support", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+pallet-scheduler = { git = "https://github.com/cennznet/substrate", default-features = false, rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
+
+[dev-dependencies]
+crml-generic-asset = { path = "../generic-asset" }
 
 [features]
 default = ["std"]
@@ -27,4 +33,6 @@ std = [
 	"sp-std/std",
 	"frame-support/std",
 	"frame-system/std",
+	"crml-support/std",
+	"pallet-scheduler/std",
 ]

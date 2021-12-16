@@ -222,7 +222,7 @@ mod slashing;
 pub use slashing::REWARD_F1;
 
 use codec::{Decode, Encode, HasCompact};
-use crml_support::StakingInfo;
+use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
@@ -426,11 +426,11 @@ pub struct UnlockChunk<Balance: HasCompact> {
 }
 
 /// Information on an accounts balance and total nominators
-impl<T: Config> StakingInfo for Module<T> {
+impl<T: Config> StakingAmount for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
-	fn active_balance(controller: Self::AccountId) -> Self::Balance {
+	fn active_balance(controller: &Self::AccountId) -> Self::Balance {
 		Self::active_balance(controller)
 	}
 
@@ -2827,7 +2827,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Calculates the active staking balance of an account
-	pub fn active_balance(controller: T::AccountId) -> BalanceOf<T> {
+	pub fn active_balance(controller: &T::AccountId) -> BalanceOf<T> {
 		let staking_ledger = Self::ledger(controller);
 		match staking_ledger {
 			Some(ledger) => ledger.active,

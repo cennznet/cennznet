@@ -10,17 +10,17 @@ serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../generic-asset", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false, optional = true }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false, optional = true }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe", default-features = false }
 
 [dev-dependencies]
 cennznet-runtime = { path = "../../runtime" }
-sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
 
 [features]
 default = ["std"]

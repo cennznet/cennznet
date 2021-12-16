@@ -18,19 +18,23 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 mod types;
 pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
-use crml_support::StakingInfo;
+use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable, Parameter},
 	ensure,
 	traits::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
-		Currency, Get, LockIdentifier, ReservableCurrency,
+		Currency, Get, LockIdentifier, RegistrationInfo, ReservableCurrency,
 	},
 	weights::Weight,
 };
@@ -42,6 +46,8 @@ use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
+/// Minimum number of registered identities required to become a council member
+const MINIMUM_REGISTERED_IDENTITIES: u32 = 2;
 /// The length in blocks of a referendum voting cycle
 const REFERENDUM_LENGTH: u32 = 21600;
 /// The interval in which the referendum ending is checked
@@ -62,8 +68,10 @@ pub trait Config: frame_system::Config {
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 	/// Weight information for extrinsics in this module.
 	type WeightInfo: WeightInfo;
-	/// Information on staking assets and nominators
-	type StakingInfo: StakingInfo<AccountId = Self::AccountId, Balance = Balance>;
+	/// Registrations for identities
+	type Registration: RegistrationInfo<AccountId = Self::AccountId>;
+	/// staking information of an account
+	type StakingAmount: StakingAmount<AccountId = Self::AccountId, Balance = Balance>;
 }
 
 /// TODO: move to weights
@@ -109,6 +117,8 @@ decl_error! {
 		ReferendumNotStarted,
 		/// The referendum isn't currently accepting votes
 		ReferendumNotDeliberating,
+		/// This account does not meet the required amount of registered identities
+		NotEnoughRegistrations,
 	}
 }
 
@@ -138,6 +148,8 @@ decl_storage! {
 		MinVoterStakedAmount get(fn min_voter_staked_amount): Balance = 10_000;
 		/// Permill of vetos needed for a referendum to fail
 		ReferendumThreshold get(fn referendum_threshold): Permill = Permill::from_percent(33);
+		/// Minimum stake required to create a new council member
+		MinimumCouncilStake get(fn minimum_council_stake): Balance = 10_000_000;
 	}
 }
 
@@ -176,6 +188,8 @@ decl_module! {
 			enactment_delay: T::BlockNumber,
 		) {
 			let origin = ensure_signed(origin)?;
+			// Validate council members identity and staking assets
+			Self::check_council_account_validity(&origin)?;
 			let sponsor_idx = Self::council().binary_search(&origin);
 			ensure!(sponsor_idx.is_ok(), Error::<T>::NotCouncilor);
 			let proposal_id = Self::next_proposal_id();
@@ -220,6 +234,8 @@ decl_module! {
 			let tally = votes.count_votes();
 			ProposalVotes::insert(proposal_id, votes);
 
+			//TODO Check identity is still valid and stake is valid
+
 			// if we have more than 50% approval
 			let threshold = <Council<T>>::decode_len().unwrap_or(1) as u32 / 2;
 			if tally.yes > threshold {
@@ -256,6 +272,10 @@ decl_module! {
 			ensure_root(origin)?;
 			let mut council = Self::council();
 			// TODO: add voter to all active proposals
+
+			// Validate council members identity and staking assets
+			Self::check_council_account_validity(&new_member)?;
+
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {
 				council.insert(idx, new_member);
@@ -356,6 +376,17 @@ decl_module! {
 			ProposalBond::put(new_proposal_bond);
 		}
 
+		/// Adjust the minimum stake required for new council members
+		#[weight = 100_000]
+		fn set_minimum_council_stake(
+			origin,
+			new_minimum_council_stake: Balance
+		) {
+			ensure_root(origin)?;
+			MinimumCouncilStake::put(new_minimum_council_stake);
+		}
+
+
 		/// Adjust the referendum veto threshold
 		/// This must be submitted like any other proposal
 		#[weight = 100_000]
@@ -388,6 +419,23 @@ impl<T: Config> Module<T> {
 	/// Return all vote information on active proposals
 	pub fn get_proposal_votes() -> Vec<(ProposalId, ProposalVoteInfo)> {
 		ProposalVotes::iter().collect()
+	}
+	/// Check an accounts staked amount and total number of registered identities
+	pub fn check_council_account_validity(account: &T::AccountId) -> DispatchResult {
+		// Check the amount they have staked
+		let staked_amount: Balance = T::StakingAmount::active_balance(account);
+		ensure!(
+			staked_amount >= Self::minimum_council_stake(),
+			Error::<T>::NotEnoughStaked
+		);
+
+		// Check their verified identities
+		let registration: u32 = T::Registration::registered_identity_count(account);
+		ensure!(
+			registration >= MINIMUM_REGISTERED_IDENTITIES,
+			Error::<T>::NotEnoughRegistrations
+		);
+		Ok(())
 	}
 	/// Check whether an account is eligible to vote on a referendum
 	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
