@@ -43,9 +43,9 @@ use sp_std::prelude::*;
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 /// The length in blocks of a referendum voting cycle
-const REFERENDUM_LENGTH: u32 = 10;//2000;
+const REFERENDUM_LENGTH: u32 = 2000;
 /// The interval in which the referendum ending is checked
-const REFERENDUM_CHECK_INTERVAL: u32 = 5;//500;
+const REFERENDUM_CHECK_INTERVAL: u32 = 500;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
