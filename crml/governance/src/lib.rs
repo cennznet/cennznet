@@ -43,9 +43,9 @@ use sp_std::prelude::*;
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 /// The length in blocks of a referendum voting cycle
-const REFERENDUM_LENGTH: u32 = 2000;
+const REFERENDUM_LENGTH: u32 = 10;//2000;
 /// The interval in which the referendum ending is checked
-const REFERENDUM_CHECK_INTERVAL: u32 = 500;
+const REFERENDUM_CHECK_INTERVAL: u32 = 5;//500;
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
@@ -180,6 +180,7 @@ decl_module! {
 			ensure!(sponsor_idx.is_ok(), Error::<T>::NotCouncilor);
 			let proposal_id = Self::next_proposal_id();
 			let _ = T::Currency::reserve(&origin, Self::proposal_bond())?;
+			let enactment_delay = sp_std::cmp::max(T::BlockNumber::from(1u32), enactment_delay);
 
 			<Proposals<T>>::insert(proposal_id, Proposal {
 				sponsor: origin,
