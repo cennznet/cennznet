@@ -64,7 +64,6 @@ fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 		Some(owner.clone()),
 		MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()),
 		None,
-		None,
 	)
 	.expect("created token");
 
