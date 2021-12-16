@@ -17,8 +17,9 @@
 //! shared between crml/eth-bridge runtime & ethy-gadget client
 
 use codec::{Decode, Encode};
-use sp_runtime::KeyTypeId;
-use sp_std::prelude::*;
+use sp_core::ecdsa::Public;
+use sp_runtime::{traits::Convert, KeyTypeId};
+use sp_std::{convert::TryInto, prelude::*};
 
 use self::crypto::AuthoritySignature;
 
@@ -79,6 +80,22 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 	}
 }
 
+/// Convert an Ethy secp256k1 public key into an Ethereum addresses
+pub struct EthyEcdsaToEthereum;
+impl Convert<Public, Option<[u8; 20]>> for EthyEcdsaToEthereum {
+	fn convert(a: Public) -> Option<[u8; 20]> {
+		use sp_core::crypto::Public;
+		let compressed_key = a.as_slice();
+
+		libsecp256k1::PublicKey::parse_slice(compressed_key, Some(libsecp256k1::PublicKeyFormat::Compressed))
+			// uncompress the key
+			.map(|pub_key| pub_key.serialize().to_vec())
+			// now convert to ETH address
+			.map(|uncompressed| sp_io::hashing::keccak_256(&uncompressed[1..])[12..].try_into().ok())
+			.unwrap_or_default()
+	}
+}
+
 /// A consensus log item for ETHY.
 #[derive(Decode, Encode)]
 pub enum ConsensusLog<AuthorityId: Encode + Decode> {
@@ -133,6 +150,10 @@ pub struct EventProof {
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).
 	pub signatures: Vec<crypto::AuthoritySignature>,
+	/// Block hash of the event
+	pub block: [u8; 32],
+	/// Metadata tag for the event
+	pub tag: Option<Vec<u8>>,
 }
 
 impl EventProof {

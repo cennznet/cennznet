@@ -1,6 +1,6 @@
 [package]
 name = "cennznet-runtime"
-version = "2.0.0-rc5"
+version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
 build = "build.rs"
@@ -89,6 +89,8 @@ crml-support = { path = "../crml/support", default-features = false }
 crml-sylo = { path = "../crml/sylo", default-features = false}
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
+crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
+crml-eth-wallet-rpc-runtime-api = { path = "../crml/eth-wallet/rpc/runtime-api", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = "86a3bab75c656f6f759dbd9e6513f314dc185abe" }
@@ -103,6 +105,8 @@ std = [
 	"pallet-authorship/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
+	"crml-eth-wallet/std",
+	"crml-eth-wallet-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-im-online/std",

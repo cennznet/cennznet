@@ -121,6 +121,7 @@ where
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: crml_cennzx_rpc::CennzxRuntimeApi<Block, AssetId, Balance, AccountId>,
+	C::Api: crml_eth_wallet_rpc::EthWalletRuntimeApi<Block>,
 	C::Api: crml_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	C::Api: crml_staking_rpc::StakingRuntimeApi<Block, AccountId>,
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
@@ -132,6 +133,7 @@ where
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
+	use crml_eth_wallet_rpc::{EthWallet, EthWalletApi};
 	use crml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use crml_governance_rpc::{Governance, GovernanceApi};
 	use crml_nft_rpc::{Nft, NftApi};
@@ -205,7 +207,8 @@ where
 	io.extend_with(NftApi::to_delegate(Nft::new(client.clone())));
 	io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
 	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client.clone())));
-	io.extend_with(GovernanceApi::to_delegate(Governance::new(client)));
+	io.extend_with(GovernanceApi::to_delegate(Governance::new(client.clone())));
+	io.extend_with(EthWalletApi::to_delegate(EthWallet::new(client)));
 
 	io
 }

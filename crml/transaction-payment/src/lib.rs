@@ -50,6 +50,7 @@
 use crate::constants::error_code;
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
+use crml_support::TransactionFeeHandler;
 use frame_support::{
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
@@ -64,7 +65,7 @@ use sp_arithmetic::traits::BaseArithmetic;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, Member, PostDispatchInfoOf, SaturatedConversion, Saturating,
-		SignedExtension,
+		SignedExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -701,6 +702,32 @@ where
 		let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(&who, info, post_info, actual_fee, tip, imbalance)?;
 		Ok(())
+	}
+}
+
+impl<T: Config> TransactionFeeHandler for Module<T>
+where
+	BalanceOf<T>: FixedPointOperand,
+	T::Call: Encode + GetDispatchInfo + Dispatchable<Info = DispatchInfo>,
+{
+	type AccountId = T::AccountId;
+	type Call = T::Call;
+	fn pay_fee(
+		len: u32,
+		call: &Self::Call,
+		info: &<Self::Call as Dispatchable>::Info,
+		account: &Self::AccountId,
+	) -> Result<(), ()> {
+		let fee = Module::<T>::compute_fee(len, info, Zero::zero());
+		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
+			account,
+			call,
+			info,
+			fee,
+			Zero::zero(),
+		)
+		.map(|_| ())
+		.map_err(|_| ())
 	}
 }
 

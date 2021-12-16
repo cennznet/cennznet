@@ -730,19 +730,20 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
  "crml-cennzx-rpc",
  "crml-eth-bridge",
+ "crml-eth-wallet-rpc",
  "crml-generic-asset",
  "crml-generic-asset-rpc",
  "crml-governance-rpc",
@@ -809,20 +810,22 @@ dependencies = [
 
 [[package]]
 name = "cennznet-primitives"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "frame-support",
+ "libsecp256k1 0.6.0",
  "parity-scale-codec",
  "sp-api",
  "sp-application-crypto",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.0.0-rc5"
+version = "2.0.0"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
@@ -832,6 +835,8 @@ dependencies = [
  "crml-cennzx-rpc-runtime-api",
  "crml-erc20-peg",
  "crml-eth-bridge",
+ "crml-eth-wallet",
+ "crml-eth-wallet-rpc-runtime-api",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
  "crml-governance",
@@ -1278,6 +1283,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-eth-wallet"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "libsecp256k1 0.6.0",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-eth-wallet-rpc"
+version = "2.0.0"
+dependencies = [
+ "crml-eth-wallet",
+ "crml-eth-wallet-rpc-runtime-api",
+ "crml-support",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "sc-client-db",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "crml-eth-wallet-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "crml-eth-wallet",
+ "crml-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "crml-generic-asset"
 version = "2.0.0"
 dependencies = [
@@ -1523,6 +1578,7 @@ name = "crml-transaction-payment"
 version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-support",
  "frame-support",
  "frame-system",
  "pallet-balances",

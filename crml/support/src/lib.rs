@@ -18,14 +18,18 @@
 
 //! # Common crml types and traits
 
+use codec::Encode;
 // Note: in the following traits the terms:
 // - 'token' / 'asset' / 'currency' and
 // - 'balance' / 'value' / 'amount'
 // are used interchangeably as they make more sense in certain contexts.
-use frame_support::traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons};
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
+};
 pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Saturating},
+	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating},
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, prelude::*, result};
@@ -95,6 +99,21 @@ pub trait AssetIdAuthority {
 	type AssetId;
 	/// Return the authoritative asset ID (no `&self`)
 	fn asset_id() -> Self::AssetId;
+}
+
+/// Handles transaction fee payment
+pub trait TransactionFeeHandler {
+	/// Ubiquitous account type
+	type AccountId;
+	/// Runtime call type
+	type Call: Dispatchable + Encode + GetDispatchInfo;
+	/// pay fee for `call_info` from `account`
+	fn pay_fee(
+		len: u32,
+		call: &Self::Call,
+		info: &<Self::Call as Dispatchable>::Info,
+		account: &Self::AccountId,
+	) -> Result<(), ()>;
 }
 
 /// An abstraction over the accounting behaviour of a fungible, multi-currency system

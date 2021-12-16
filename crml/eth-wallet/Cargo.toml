@@ -1,0 +1,42 @@
+[package]
+name = "crml-eth-wallet"
+version = "2.0.0"
+authors = ["Stake Technologies <devops@stake.co.jp>"]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://docs.plasmnet.io/"
+repository = "https://github.com/staketechnologies/Plasm/"
+description = "FRAME pallet for eth_sign extrinsics"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0", features = ["derive"], default-features = false }
+serde = { version = "1.0.106", features = ["derive"], optional = true }
+crml-support = { path = "../support", default-features = false }
+cennznet-primitives = { path = "../../primitives", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+
+[dev-dependencies]
+hex-literal = "0.3.1"
+libsecp256k1 = { version = "0.6.0" }
+pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default_features = false }
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+    "codec/std",
+    "crml-support/std",
+    "cennznet-primitives/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-std/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+]

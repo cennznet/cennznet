@@ -131,8 +131,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 44,
-	impl_version: 44,
+	spec_version: 45,
+	impl_version: 45,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -350,17 +350,6 @@ impl crml_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
-// TODO: Safe to remove after runtime v41 is live
-// The session key format pre runtime v41
-impl_opaque_keys! {
-	pub struct SessionKeysV40 {
-		pub grandpa: Grandpa,
-		pub babe: Babe,
-		pub im_online: ImOnline,
-		pub authority_discovery: AuthorityDiscovery,
-	}
-}
-
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
@@ -368,29 +357,6 @@ impl_opaque_keys! {
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
 		pub eth_bridge: EthBridge,
-	}
-}
-
-// TODO: Safe to remove after runtime v41 is live
-// kudos: https://github.com/paritytech/polkadot/pull/2092/files
-fn transform_session_keys(_v: AccountId, old: SessionKeysV40) -> SessionKeys {
-	SessionKeys {
-		grandpa: old.grandpa,
-		babe: old.babe,
-		im_online: old.im_online,
-		authority_discovery: old.authority_discovery,
-		// Set the temporary bridge key to `[0_u8; 33]` for all validators
-		// this will ensure the bridge does not start until intentional support/activation is shown
-		eth_bridge: EthBridgeId::default(),
-	}
-}
-
-/// Performs session key upgrade from v40 compatible to v41
-pub struct UpgradeSessionKeys;
-impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		Session::upgrade_keys::<SessionKeysV40, _>(transform_session_keys);
-		Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
 	}
 }
 
@@ -687,6 +653,18 @@ impl crml_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	/// lower priority than Staking and ImOnline txs
+	pub const EcdsaUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 3;
+}
+impl crml_eth_wallet::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type TransactionFeeHandler = TransactionPayment;
+	type Signer = <Signature as Verify>::Signer;
+	type UnsignedPriority = EcdsaUnsignedPriority;
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -771,6 +749,7 @@ construct_runtime!(
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
 		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned} = 32,
 		Erc20Peg: crml_erc20_peg::{Module, Call, Storage, Config, Event<T>} = 33,
+		EthWallet: crml_eth_wallet::{Module, Call, Event<T>, ValidateUnsigned} = 34,
 	}
 );
 
@@ -800,15 +779,8 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-	Runtime,
-	Block,
-	frame_system::ChainContext<Runtime>,
-	Runtime,
-	AllModules,
-	// TODO: remove after v41
-	UpgradeSessionKeys,
->;
+pub type Executive =
+	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -868,6 +840,12 @@ impl_runtime_apis! {
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
+		}
+	}
+
+	impl crml_eth_wallet_rpc_runtime_api::EthWalletApi<Block> for Runtime {
+		fn address_nonce(eth_address: &crml_support::H160) -> u32 {
+			EthWallet::address_nonce(eth_address)
 		}
 	}
 
