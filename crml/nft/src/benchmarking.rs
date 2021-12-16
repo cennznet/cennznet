@@ -64,7 +64,6 @@ fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 		Some(owner.clone()),
 		MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()),
 		None,
-		None,
 	)
 	.expect("created token");
 
@@ -103,7 +102,7 @@ benchmarks! {
 		let serial_number = <Nft<T>>::next_serial_number(collection_id, series_id);
 		let final_token_id = (collection_id, series_id, serial_number);
 		let _ = <Nft<T>>::create_collection(RawOrigin::Signed(creator.clone()).into(), b"test-collection".to_vec(), Some(royalties.clone())).expect("created collection");
-		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), None, None).expect("minted series");
+		let _ = <Nft<T>>::mint_series(RawOrigin::Signed(creator.clone()).into(), collection_id, 1, Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), None).expect("minted series");
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_id, series_id, q.into(), Some(owner.clone()))
 	verify {
@@ -127,7 +126,7 @@ benchmarks! {
 				.collect::<Vec<(T::AccountId, Permill)>>(),
 		};
 
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, q.into(), Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), Some(royalties), None)
+	}: _(RawOrigin::Signed(creator.clone()), collection_id, q.into(), Some(owner.clone()), MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()), Some(royalties))
 	verify {
 		// the last token id in
 		assert_eq!(<Nft<T>>::token_owner((collection_id, series_id), <Nft<T>>::next_serial_number(collection_id, series_id) - 1), owner);
