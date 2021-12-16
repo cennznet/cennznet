@@ -412,7 +412,9 @@ impl<T: Config> Module<T> {
 		let max_stakers: u32 = T::StakingInfo::count_nominators();
 		ReferendumVotes::<T>::remove_prefix(proposal_id);
 
-		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers) >= Self::referendum_threshold() {
+		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers)
+			>= Self::referendum_threshold()
+		{
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
