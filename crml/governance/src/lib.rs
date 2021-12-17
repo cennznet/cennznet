@@ -423,7 +423,7 @@ impl<T: Config> Module<T> {
 	/// Check an accounts staked amount and total number of registered identities
 	pub fn check_council_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
-		let staked_amount: Balance = T::StakingAmount::active_balance(account);
+		let staked_amount: Balance = T::StakingAmount::active_balance(&account);
 		ensure!(
 			staked_amount >= Self::minimum_council_stake(),
 			Error::<T>::NotEnoughStaked
@@ -440,13 +440,18 @@ impl<T: Config> Module<T> {
 	/// Check whether an account is eligible to vote on a referendum
 	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
 		// Check the amount they have staked
-		let staked_amount: Balance = T::StakingInfo::active_balance(account.clone());
+		let staked_amount: Balance = T::StakingAmount::active_balance(&account);
 		ensure!(
 			staked_amount > Self::min_voter_staked_amount(),
 			Error::<T>::NotEnoughStaked
 		);
 
-		// TODO Check their verified identities
+		// Check their verified identities
+		let registration: u32 = T::Registration::registered_identity_count(account);
+		ensure!(
+			registration >= MINIMUM_REGISTERED_IDENTITIES,
+			Error::<T>::NotEnoughRegistrations
+		);
 		Ok(())
 	}
 	/// Finish up a referendum and tally vetos
@@ -458,7 +463,7 @@ impl<T: Config> Module<T> {
 				return;
 			}
 		};
-		let max_stakers: u32 = T::StakingInfo::count_nominators();
+		let max_stakers: u32 = T::StakingAmount::count_nominators();
 		ReferendumVotes::<T>::remove_prefix(proposal_id);
 
 		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers)
