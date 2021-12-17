@@ -35,7 +35,9 @@ pub struct Proposal<T: crate::Config> {
 pub enum ProposalStatusInfo {
 	/// Council is deliberating
 	Deliberation,
-	/// Proposal approved, waiting enactment
+	/// Referendum is in progress, CENNZ holders deliberating
+	ReferendumDeliberation,
+	/// referendum approved, awaiting enactment
 	ApprovedWaitingEnactment,
 	/// Proposal approved and enacted (success/fail)
 	ApprovedEnacted(bool),
@@ -43,6 +45,15 @@ pub enum ProposalStatusInfo {
 	ApprovedEnactmentCancelled,
 	/// The council voted against this proposal
 	Disapproved,
+	/// The proposal was voted against during the referendum phase
+	ReferendumVetoed,
+}
+
+// Used to store votes on a referendum
+#[derive(Debug, Default, PartialEq, Encode, Decode)]
+pub struct ReferendumVoteCount {
+	// u8 representing either a yes or no vote (0 for yes 1 for no)
+	pub vote: u8,
 }
 
 /// Votes on a proposal

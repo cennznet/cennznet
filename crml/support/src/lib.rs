@@ -273,4 +273,6 @@ pub trait StakingAmount {
 	type Balance;
 	/// Gets the active balance of a controller accounts staked amount
 	fn active_balance(controller: &Self::AccountId) -> Self::Balance;
+	/// Counts the current amount of nominators
+	fn count_nominators() -> u32;
 }

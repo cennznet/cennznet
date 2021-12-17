@@ -114,6 +114,10 @@ impl StakingAmount for MockStakingAmount {
 			_ => 0,
 		}
 	}
+
+	fn count_nominators() -> u32 {
+		1
+	}
 }
 
 pub struct MockRegistrationImplementation;
