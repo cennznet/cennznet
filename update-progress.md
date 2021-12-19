@@ -5,18 +5,31 @@
 crate update progress
 ---
 crml
-- [] generic-asset
+- [x] attestation (removed*)
+- [x] generic-asset
+    - [] tests
 - [] governance
+    - [] tests
 - [] nft
+    - [] tests
 - [] transaction-payment
+    - [] tests
 - [] eth-bridge
+    - [] tests
 - [x] eth-wallet
 - [x] erc20-peg
 - [x] support
+- [x] sylo (removed*)
 - [] staking
+    - [] tests
 [] ethy-gadget
+    - [] tests
 [] cli
+    - [] tests
 [] runtime
+    - [] tests
+
+*modules unused, removed to speed up update process
 
 ## Migration Notes
 
@@ -25,3 +38,4 @@ crml
 - scale-info import required on most crml crates
 - scale-info derive `TypeInfo` needed on most types
 - warning: <frame_system::Module<T>> -> <frame_system::Pallet<T>>
+- new prelude imports for pallets: `frame_system::pallet_prelude::*` && `frame_support:pallet_prelude::*`

@@ -154,7 +154,12 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::call { call, eth_address, signature } = call {
+		if let Call::call {
+			call,
+			eth_address,
+			signature,
+		} = call
+		{
 			let address_nonce = Self::stored_address_nonce(eth_address);
 			let message = &(&call, address_nonce).encode()[..];
 			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
