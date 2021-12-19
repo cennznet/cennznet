@@ -11,8 +11,10 @@ description = "A runtime module for decentralized governance of the CENNZnet pro
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
+crml-support = { path = "../support", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 
 [features]
@@ -21,7 +23,9 @@ std = [
 	"codec/std",
 	"serde/std",
 	"cennznet-primitives/std",
+	"crml-support/std",
 	"sp-std/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-scheduler/std",
 ]

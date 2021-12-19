@@ -53,12 +53,7 @@ fn first_token_id(collection_id: CollectionId) -> TokenId {
 fn setup_collection(owner: AccountId) -> CollectionId {
 	let collection_id = Nft::next_collection_id();
 	let collection_name = b"test-collection".to_vec();
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		Some(MetadataBaseURI::Https(b"example.com/metadata".to_vec())),
-		None,
-	));
+	assert_ok!(Nft::create_collection(Some(owner).into(), collection_name, None,));
 
 	collection_id
 }
@@ -69,12 +64,12 @@ fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Config>::Acco
 	let collection_id = setup_collection(collection_owner);
 	let token_owner = 2_u64;
 	let token_id = first_token_id(collection_id);
-	assert_ok!(Nft::mint_unique(
+	assert_ok!(Nft::mint_series(
 		Some(collection_owner).into(),
 		collection_id,
+		1,
 		Some(token_owner),
-		vec![NFTAttributeValue::I32(500)],
-		None,
+		MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 		None,
 	));
 
@@ -97,70 +92,58 @@ fn setup_token_with_royalties(
 		collection_id,
 		quantity,
 		Some(token_owner),
-		vec![NFTAttributeValue::I32(500)],
-		None,
-		None,
+		MetadataScheme::Https(b"example.com/metadata".to_vec()),
 		None,
 	));
 
 	(collection_id, token_id, token_owner)
 }
 
-struct MassDropFixture {
-	mass_drop: MassDrop,
-	presale: Option<Presale>,
-	collection_owner: u64,
-	collection_id: u32,
-	series_id: u32,
-}
+#[test]
+fn migration_v1_to_v2() {
+	use frame_support::traits::OnRuntimeUpgrade;
 
-fn setup_default_mass_drop() -> MassDropFixture {
-	setup_mass_drop(None, None)
-}
+	#[allow(dead_code)]
+	mod v1_storage {
+		use super::{CollectionId, Config, SeriesId};
+		use codec::{Decode, Encode};
 
-fn setup_mass_drop(mass_drop: Option<MassDrop>, presale: Option<Presale>) -> MassDropFixture {
-	let collection_owner = 1_u64;
-	let collection_id = setup_collection(collection_owner);
-	let series_id = Nft::next_series_id(collection_id);
-	let series_attributes = vec![];
-	let token_owner = 2_u64;
-	let quantity = 0;
-	let royalties_schedule = RoyaltiesSchedule {
-		entitlements: vec![(collection_owner, Permill::one())],
-	};
-	let activation_time: u32 = 5;
-	let mass_drop = mass_drop.unwrap_or(MassDrop {
-		price: 0,
-		asset_id: 16000,
-		max_supply: 1000,
-		transaction_limit: Some(10),
-		activation_time,
-		presale: presale.clone(),
-	});
+		#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+		pub enum MetadataBaseURI {
+			Ipfs,
+			Https(Vec<u8>),
+		}
 
-	// mint_series with mass drop
-	assert_ok!(Nft::mint_series(
-		Some(collection_owner).into(),
-		collection_id,
-		quantity,
-		Some(token_owner),
-		series_attributes,
-		None,
-		Some(royalties_schedule),
-		Some(mass_drop.clone()),
-	));
-	assert_eq!(
-		Nft::series_mass_drops(collection_id, series_id),
-		Some(mass_drop.clone())
-	);
-
-	MassDropFixture {
-		mass_drop,
-		presale,
-		collection_owner,
-		collection_id,
-		series_id,
+		pub struct Module<T>(sp_std::marker::PhantomData<T>);
+		frame_support::decl_storage! {
+			trait Store for Module<T: Config> as Nft {
+				pub IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
+				pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
+				pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
+			}
+		}
 	}
+
+	ExtBuilder::default().build().execute_with(|| {
+		// setup old values
+		v1_storage::IsSingleIssue::insert(0, 5, true);
+		v1_storage::CollectionMetadataURI::insert(1, v1_storage::MetadataBaseURI::Ipfs);
+		v1_storage::SeriesMetadataURI::insert(3, 0, b"https://api.example.com/tokens".to_vec());
+		v1_storage::SeriesMetadataURI::insert(3, 1, Vec::<u8>::default());
+
+		// run upgrade
+		StorageVersion::put(Releases::V1 as u32); // rollback to v1
+		<Module<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
+		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
+		assert_eq!(
+			SeriesMetadataScheme::get(3, 0),
+			Some(MetadataScheme::Https(b"https://api.example.com/tokens".to_vec()))
+		);
+		assert!(!SeriesMetadataScheme::contains_key(3, 1),);
+		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
+	});
 }
 
 #[test]
@@ -197,10 +180,6 @@ fn create_collection() {
 
 		assert_eq!(Nft::collection_owner(collection_id).expect("owner should exist"), owner);
 		assert_eq!(Nft::collection_name(collection_id), name);
-		assert_eq!(
-			Nft::collection_metadata_uri(collection_id),
-			Some(MetadataBaseURI::Https(b"example.com/metadata".to_vec()))
-		);
 		assert_eq!(Nft::collection_royalties(collection_id), None);
 		assert_eq!(Nft::next_collection_id(), collection_id + 1);
 	});
@@ -212,13 +191,13 @@ fn create_collection_invalid_name() {
 		// too long
 		let bad_collection_name = b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_name, None, None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_name, None),
 			Error::<Test>::CollectionNameInvalid
 		);
 
 		// empty name
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), vec![], None, None),
+			Nft::create_collection(Some(1_u64).into(), vec![], None),
 			Error::<Test>::CollectionNameInvalid
 		);
 
@@ -226,7 +205,7 @@ fn create_collection_invalid_name() {
 		// kudos: https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
 		let bad_collection_name = vec![0xfe, 0xff];
 		assert_noop!(
-			Nft::create_collection(Some(1_u64).into(), bad_collection_name, None, None),
+			Nft::create_collection(Some(1_u64).into(), bad_collection_name, None),
 			Error::<Test>::CollectionNameInvalid
 		);
 	});
@@ -242,7 +221,6 @@ fn create_collection_royalties_invalid() {
 			Nft::create_collection(
 				Some(owner).into(),
 				b"test-collection".to_vec(),
-				None,
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Permill::from_fraction(1.2)),
@@ -258,163 +236,11 @@ fn create_collection_royalties_invalid() {
 			Nft::create_collection(
 				Some(owner).into(),
 				b"test-collection".to_vec(),
-				None,
 				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
 	})
-}
-
-#[test]
-fn mint_unique() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let token_id = first_token_id(collection_id);
-
-		let token_owner = 2_u64;
-		let series_id = 0;
-		assert_eq!(Nft::next_series_id(collection_id), series_id);
-		assert_ok!(Nft::mint_unique(
-			Some(collection_owner).into(),
-			collection_id,
-			Some(token_owner),
-			vec![
-				NFTAttributeValue::I32(-33),
-				NFTAttributeValue::U8(0),
-				NFTAttributeValue::Bytes32([1_u8; 32])
-			],
-			None,
-			None,
-		));
-		assert!(has_event(RawEvent::CreateToken(collection_id, token_id, token_owner,)));
-
-		let token_attributes = Nft::series_attributes(collection_id, series_id);
-		assert_eq!(
-			token_attributes,
-			vec![
-				NFTAttributeValue::I32(-33),
-				NFTAttributeValue::U8(Default::default()),
-				NFTAttributeValue::Bytes32([1_u8; 32])
-			],
-		);
-
-		assert_eq!(Nft::collected_tokens(collection_id, &token_owner), vec![token_id]);
-		assert_eq!(Nft::token_owner((collection_id, series_id), 0), token_owner);
-		assert!(Nft::is_single_issue(collection_id, series_id));
-		assert_eq!(Nft::next_serial_number(collection_id, series_id), 1);
-		assert_eq!(Nft::next_series_id(collection_id), series_id + 1);
-		assert_eq!(Nft::series_issuance(collection_id, series_id), 1);
-	});
-}
-
-#[test]
-fn create_multiple_unique_tokens() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let token_owner = 2_u64;
-		let metadata_uri = b"/series/test/";
-
-		let token_1 = first_token_id(collection_id);
-		let token_2 = (collection_id, 1 as SeriesId, 0 as SerialNumber);
-
-		assert_ok!(Nft::mint_unique(
-			Some(collection_owner).into(),
-			collection_id,
-			Some(token_owner),
-			vec![
-				NFTAttributeValue::I32(-33),
-				NFTAttributeValue::U8(0),
-				NFTAttributeValue::Bytes32([1_u8; 32])
-			],
-			None,
-			None,
-		));
-
-		assert_ok!(Nft::mint_unique(
-			Some(collection_owner).into(),
-			collection_id,
-			Some(token_owner),
-			vec![
-				NFTAttributeValue::I32(33),
-				NFTAttributeValue::U8(0),
-				NFTAttributeValue::String(String::from("💎🙌").as_bytes().to_vec())
-			],
-			Some(metadata_uri.to_vec()),
-			None,
-		));
-		assert!(has_event(RawEvent::CreateToken(collection_id, token_2, token_owner,)));
-
-		assert_eq!(Nft::series_metadata_uri(collection_id, 1), Some(metadata_uri.to_vec()));
-		assert_eq!(
-			Nft::collected_tokens(collection_id, &token_owner),
-			vec![token_1, token_2]
-		);
-		assert_eq!(Nft::next_series_id(collection_id), 2);
-	});
-}
-
-#[test]
-fn mint_unique_fails_prechecks() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-
-		assert_noop!(
-			Nft::mint_unique(
-				Some(2_u64).into(),
-				collection_id,
-				Some(collection_owner),
-				Default::default(),
-				None,
-				None,
-			),
-			Error::<Test>::NoPermission
-		);
-
-		assert_noop!(
-			Nft::mint_unique(
-				Some(collection_owner).into(),
-				collection_id + 1, // collection doesn't exist
-				None,
-				Default::default(),
-				None,
-				None,
-			),
-			Error::<Test>::NoCollection
-		);
-
-		let too_many_attributes = vec![NFTAttributeValue::U8(0).clone(); (MAX_SCHEMA_FIELDS + 1_u32) as usize];
-		assert_noop!(
-			Nft::mint_unique(
-				Some(collection_owner).into(),
-				collection_id,
-				None,
-				too_many_attributes,
-				None,
-				None,
-			),
-			Error::<Test>::SchemaMaxAttributes
-		);
-
-		// attribute value too long
-		assert_noop!(
-			Nft::mint_unique(
-				Some(collection_owner).into(),
-				collection_id,
-				None,
-				vec![
-					NFTAttributeValue::I32(0),
-					NFTAttributeValue::Url([1_u8; <Test as Config>::MaxAttributeLength::get() as usize + 1].to_vec())
-				],
-				None,
-				None,
-			),
-			Error::<Test>::MaxAttributeLength
-		);
-	});
 }
 
 #[test]
@@ -425,12 +251,12 @@ fn transfer() {
 		let collection_id = setup_collection(collection_owner);
 		let token_owner = 2_u64;
 		let token_id = first_token_id(collection_id);
-		assert_ok!(Nft::mint_unique(
+		assert_ok!(Nft::mint_series(
 			Some(collection_owner).into(),
 			collection_id,
+			1,
 			Some(token_owner),
-			vec![NFTAttributeValue::I32(500)],
-			None,
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -460,12 +286,12 @@ fn transfer_fails_prechecks() {
 			Error::<Test>::NoPermission,
 		);
 
-		assert_ok!(Nft::mint_unique(
+		assert_ok!(Nft::mint_series(
 			Some(collection_owner).into(),
 			collection_id,
+			1,
 			Some(token_owner),
-			vec![NFTAttributeValue::I32(500)],
-			None,
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -508,9 +334,7 @@ fn burn() {
 			collection_id,
 			3,
 			Some(token_owner),
-			vec![NFTAttributeValue::I32(500)],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -528,8 +352,7 @@ fn burn() {
 
 		assert!(!SeriesIssuance::contains_key(collection_id, series_id));
 		assert!(!<SeriesRoyalties<Test>>::contains_key(collection_id, series_id));
-		assert!(!SeriesMetadataURI::contains_key(collection_id, series_id));
-		assert!(!SeriesAttributes::contains_key(collection_id, series_id));
+		assert!(!SeriesMetadataScheme::contains_key(collection_id, series_id));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 0));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 1));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 2));
@@ -562,9 +385,7 @@ fn burn_fails_prechecks() {
 			collection_id,
 			100,
 			Some(token_owner),
-			vec![NFTAttributeValue::I32(500)],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -609,9 +430,7 @@ fn sell_bundle() {
 			collection_id,
 			quantity,
 			None,
-			vec![NFTAttributeValue::I32(123)],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -1276,9 +1095,7 @@ fn auction_bundle() {
 			collection_id,
 			quantity,
 			None,
-			vec![NFTAttributeValue::I32(123)],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -1426,7 +1243,7 @@ fn auction() {
 #[test]
 fn bid_auto_extends() {
 	ExtBuilder::default().build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
+		let (_collection_id, token_id, token_owner) = setup_token();
 		let payment_asset = PAYMENT_ASSET;
 		let reserve_price = 100_000;
 
@@ -1759,9 +1576,7 @@ fn transfer_batch() {
 			collection_id,
 			token_1_quantity,
 			Some(token_owner),
-			vec![],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -1793,9 +1608,7 @@ fn transfer_batch_fails() {
 			collection_id,
 			3,
 			Some(token_owner),
-			vec![],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -1841,10 +1654,6 @@ fn mint_series() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![
-			NFTAttributeValue::I32(123),
-			NFTAttributeValue::String(b"foobar".to_owned().to_vec()),
-		];
 		let token_owner = 2_u64;
 		let quantity = 5;
 		let series_id = Nft::next_series_id(collection_id);
@@ -1858,10 +1667,8 @@ fn mint_series() {
 			collection_id,
 			quantity,
 			Some(token_owner),
-			series_attributes.clone(),
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			Some(royalties_schedule.clone()),
-			None,
 		));
 
 		assert!(has_event(RawEvent::CreateSeries(
@@ -1871,11 +1678,7 @@ fn mint_series() {
 			token_owner
 		)));
 
-		// check token ownership and attributes correct
-		assert_eq!(
-			Nft::series_attributes(collection_id, series_id),
-			series_attributes.clone()
-		);
+		// check token ownership
 		assert_eq!(Nft::series_issuance(collection_id, series_id), quantity);
 		assert_eq!(
 			Nft::series_royalties(collection_id, series_id).expect("royalties set"),
@@ -1929,24 +1732,33 @@ fn mint_series() {
 }
 
 #[test]
-fn mint_series_fails() {
+fn mint_series_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 
-		// create 0 should fail
+		assert_noop!(
+			Nft::mint_series(
+				Some(2_u64).into(),
+				collection_id,
+				3,
+				Some(collection_owner),
+				MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+				None,
+			),
+			Error::<Test>::NoPermission
+		);
+
 		assert_noop!(
 			Nft::mint_series(
 				Some(collection_owner).into(),
-				collection_id,
-				0,
-				Some(collection_owner),
-				vec![],
+				collection_id + 1, // collection doesn't exist
+				3,
 				None,
-				None,
+				MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 				None,
 			),
-			Error::<Test>::NoToken
+			Error::<Test>::NoCollection
 		);
 	});
 }
@@ -1965,10 +1777,8 @@ fn mint_series_royalties_invalid() {
 				collection_id,
 				quantity,
 				Some(token_owner),
-				vec![],
-				None,
+				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
-				None,
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
@@ -1980,15 +1790,13 @@ fn mint_series_royalties_invalid() {
 				collection_id,
 				quantity,
 				Some(token_owner),
-				vec![],
-				None,
+				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				Some(RoyaltiesSchedule::<AccountId> {
 					entitlements: vec![
 						(3_u64, Permill::from_fraction(1.2)),
 						(4_u64, Permill::from_fraction(3.3))
 					]
 				}),
-				None,
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
@@ -2008,9 +1816,7 @@ fn mint_additional_fails() {
 			collection_id,
 			5,
 			None,
-			vec![],
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 
@@ -2032,20 +1838,14 @@ fn mint_additional_fails() {
 			Error::<Test>::NoPermission
 		);
 
-		assert_ok!(Nft::mint_unique(
+		assert_ok!(Nft::mint_series(
 			Some(collection_owner).into(),
 			collection_id,
+			1,
 			None,
-			vec![],
-			None,
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 		));
-
-		// One of one token
-		assert_noop!(
-			Nft::mint_additional(Some(collection_owner).into(), collection_id, series_id + 1, 5, None),
-			Error::<Test>::AddToUniqueIssue
-		);
 	});
 }
 
@@ -2071,1141 +1871,10 @@ fn get_collection_info() {
 }
 
 #[test]
-fn mint_series_with_mass_drop() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time: 5,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop.clone()), Some(presale.clone()));
-
-		assert_eq!(mass_drop, fixture.mass_drop);
-		assert_eq!(Some(presale), fixture.presale);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_invalid_activation_time_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 0,
-			presale: None,
-		};
-		//Activation time <= current block should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::ActivationTimeInvalid
-		);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_invalid_transaction_limit_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(1001),
-			activation_time: 10,
-			presale: None,
-		};
-		// Mass drop invalid tx limit should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_zero_max_supply_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 0,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: None,
-		};
-		//Activation time <= current block should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_invalid_presale_activation_time_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 5,
-		};
-
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time: 5,
-			presale: Some(presale),
-		};
-		// presale activation time >= mass drop activation time should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_invalid_presale_max_supply_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let presale = Presale {
-			price: 20,
-			max_supply: 1001,
-			transaction_limit: Some(10),
-			activation_time: 5,
-		};
-
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time: 5,
-			presale: Some(presale),
-		};
-		// presale activation time >= massdrop activation time should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn mint_mass_drop_with_invalid_presale_transaction_limit_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_attributes = vec![];
-		let token_owner = 2_u64;
-		let quantity = 5;
-		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(collection_owner, Permill::one())],
-		};
-		let presale = Presale {
-			price: 20,
-			max_supply: 10,
-			transaction_limit: Some(1000),
-			activation_time: 5,
-		};
-
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time: 5,
-			presale: Some(presale),
-		};
-		// presale activation time >= massdrop activation time should fail
-		assert_noop!(
-			Nft::mint_series(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				series_attributes,
-				None,
-				Some(royalties_schedule),
-				Some(mass_drop),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_presale() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		assert_ok!(Nft::set_mass_drop_presale(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			presale.clone(),
-		));
-		assert!(has_event(RawEvent::UpdatePresale(
-			fixture.collection_id,
-			fixture.series_id,
-			presale.clone(),
-		)));
-		let mut mass_drop = fixture.mass_drop;
-		mass_drop.presale = Some(presale);
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_presale_from_not_owner_account_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-
-		assert_noop!(
-			Nft::set_mass_drop_presale(
-				Some(3_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				presale.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-		// Make sure no event is thrown
-		assert!(!has_event(RawEvent::UpdatePresale(
-			fixture.collection_id,
-			fixture.series_id,
-			presale.clone(),
-		)));
-		// Make sure mass drop hasn't changed
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(fixture.mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_with_invalid_presale_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let presale = Presale {
-			price: 20,
-			max_supply: 10000,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		assert_noop!(
-			Nft::set_mass_drop_presale(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				presale.clone(),
-			),
-			Error::<Test>::PresaleInvalid
-		);
-		// Make sure no event is thrown
-		assert!(!has_event(RawEvent::UpdatePresale(
-			fixture.collection_id,
-			fixture.series_id,
-			presale.clone(),
-		)));
-		// Make sure mass drop hasn't changed
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(fixture.mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_presale_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let presale = Presale {
-			price: 20,
-			max_supply: 10000,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		assert_noop!(
-			Nft::set_mass_drop_presale(Some(collection_owner).into(), collection_id, 0, presale),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_activation_time() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let activation_time = 1000;
-		assert_ok!(Nft::set_mass_drop_activation_time(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			activation_time.clone(),
-		));
-		assert!(has_event(RawEvent::UpdateMassDropActivationTime(
-			fixture.collection_id,
-			fixture.series_id,
-			activation_time.clone(),
-		)));
-		let mut mass_drop = fixture.mass_drop;
-		mass_drop.activation_time = activation_time;
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_invalid_activation_time_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let activation_time = 1;
-		System::set_block_number(activation_time as u64 + 1);
-
-		assert_noop!(
-			Nft::set_mass_drop_activation_time(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				activation_time.clone(),
-			),
-			Error::<Test>::ActivationTimeInvalid
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_activation_time_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let activation_time = 1;
-		System::set_block_number(activation_time as u64 + 1);
-
-		assert_noop!(
-			Nft::set_mass_drop_activation_time(
-				Some(2_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				activation_time.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn update_existing_mass_drop_activation_time_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		assert_noop!(
-			Nft::set_mass_drop_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_activation_time() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mut presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 3,
-		};
-		let fixture = setup_mass_drop(None, Some(presale.clone()));
-		let activation_time = 4;
-		assert_ok!(Nft::set_presale_activation_time(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			activation_time.clone(),
-		));
-		assert!(has_event(RawEvent::UpdatePresaleActivationTime(
-			fixture.collection_id,
-			fixture.series_id,
-			activation_time.clone(),
-		)));
-		let mut mass_drop = fixture.mass_drop;
-		presale.activation_time = activation_time;
-		mass_drop.presale = Some(presale);
-		assert_eq!(
-			Nft::series_mass_drops(fixture.collection_id, fixture.series_id),
-			Some(mass_drop)
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_invalid_activation_time_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 3,
-		};
-		let fixture = setup_mass_drop(None, Some(presale.clone()));
-		let activation_time = 100;
-		assert_noop!(
-			Nft::set_presale_activation_time(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				activation_time.clone(),
-			),
-			Error::<Test>::MassDropInvalid
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_activation_time_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 3,
-		};
-		let fixture = setup_mass_drop(None, Some(presale.clone()));
-		let activation_time = 4;
-		assert_noop!(
-			Nft::set_presale_activation_time(
-				Some(2_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				activation_time.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_activation_time_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		assert_noop!(
-			Nft::set_presale_activation_time(Some(collection_owner).into(), collection_id, 0, 10),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_whitelist() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		let fixture = setup_mass_drop(None, Some(presale));
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_ok!(Nft::set_presale_whitelist(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		));
-		assert!(has_event(RawEvent::UpdatePresaleWhitelist(
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		)));
-
-		// Ensure storage was updated
-		for account in whitelist {
-			assert!(PresaleWhitelist::<Test>::contains_key(
-				(fixture.collection_id, fixture.series_id),
-				account
-			));
-		}
-	});
-}
-
-#[test]
-fn update_existing_presale_whitelist_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 20,
-			max_supply: 100,
-			transaction_limit: Some(10),
-			activation_time: 4,
-		};
-		let fixture = setup_mass_drop(None, Some(presale));
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_noop!(
-			Nft::set_presale_whitelist(
-				Some(2_u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				whitelist.clone(),
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn update_existing_presale_whitelist_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let whitelist = vec![1_u64, 2_u64, 3_u64, 4_u64];
-		assert_noop!(
-			Nft::set_presale_whitelist(Some(collection_owner).into(), collection_id, 0, whitelist.clone(),),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn enter_mass_drop() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let activation_time: u32 = 5;
-		let serial_number = Nft::next_serial_number(fixture.collection_id, fixture.series_id);
-		System::set_block_number(activation_time as u64);
-		let quantity: TokenCount = 1;
-		assert_ok!(Nft::enter_mass_drop(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		));
-
-		assert!(has_event(RawEvent::EnterMassDrop(
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-			serial_number,
-			fixture.collection_owner.into(),
-		)));
-	});
-}
-
-#[test]
-fn enter_mass_drop_no_mass_drop_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		assert_noop!(
-			Nft::enter_mass_drop(Some(collection_owner).into(), collection_id, 0, 1),
-			Error::<Test>::NoMassDropExists
-		);
-	});
-}
-
-#[test]
-fn enter_mass_drop_with_insufficient_funds_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time: u32 = 5;
-		let mass_drop = MassDrop {
-			price: 20,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(10),
-			activation_time,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let quantity: TokenCount = 1;
-
-		System::set_block_number(activation_time as u64);
-		// Should fail as collection_owner has insufficient funds
-		assert!(Nft::enter_mass_drop(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		)
-		.is_err());
-	});
-}
-
-#[test]
-fn enter_mass_drop_too_high_quantity_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time: u32 = 5;
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: Some(1),
-			activation_time,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let quantity: TokenCount = 2;
-
-		System::set_block_number(activation_time as u64);
-		assert_noop!(
-			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity),
-			Error::<Test>::PurchaseQuantityTooHigh
-		);
-	});
-}
-
-#[test]
-fn enter_mass_drop_before_activation_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let quantity: TokenCount = 1;
-
-		assert_noop!(
-			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::MassDropNotStarted
-		);
-	});
-}
-
-#[test]
-fn enter_mass_drop_before_activation_as_owner() {
-	ExtBuilder::default().build().execute_with(|| {
-		let fixture = setup_default_mass_drop();
-		let quantity: TokenCount = 1;
-
-		assert_ok!(Nft::enter_mass_drop(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		));
-	});
-}
-
-#[test]
-fn enter_presale() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 0,
-			max_supply: 10,
-			transaction_limit: None,
-			activation_time: 0,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 1;
-
-		assert_ok!(Nft::enter_mass_drop(
-			Some(2_u64).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity
-		));
-	});
-}
-
-#[test]
-fn enter_presale_insufficient_funds_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 10,
-			max_supply: 10,
-			transaction_limit: None,
-			activation_time: 0,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 1;
-
-		// Should fail as collection_owner has insufficient funds
-		assert!(Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,).is_err());
-	});
-}
-
-#[test]
-fn enter_presale_before_activation_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 0,
-			max_supply: 10,
-			transaction_limit: None,
-			activation_time: 5,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 1;
-
-		assert_noop!(
-			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::MassDropNotStarted
-		);
-	});
-}
-
-#[test]
-fn enter_presale_on_whitelist() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 0,
-			max_supply: 10,
-			transaction_limit: None,
-			activation_time: 0,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 1;
-		let whitelist = vec![2_u64];
-		assert_ok!(Nft::set_presale_whitelist(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		));
-		assert_ok!(Nft::enter_mass_drop(
-			Some(2_u64).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			quantity,
-		));
-	});
-}
-
-#[test]
-fn enter_presale_not_on_whitelist_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 0,
-			max_supply: 10,
-			transaction_limit: None,
-			activation_time: 0,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 1;
-		let whitelist = vec![1_u64, 2_u64];
-		assert_ok!(Nft::set_presale_whitelist(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			whitelist.clone(),
-		));
-		assert_noop!(
-			Nft::enter_mass_drop(Some(3_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn enter_presale_too_high_quantity_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let presale = Presale {
-			price: 0,
-			max_supply: 10,
-			transaction_limit: Some(1),
-			activation_time: 0,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 1000,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let quantity: TokenCount = 2;
-
-		assert_noop!(
-			Nft::enter_mass_drop(Some(2_u64).into(), fixture.collection_id, fixture.series_id, quantity,),
-			Error::<Test>::PurchaseQuantityTooHigh
-		);
-	});
-}
-
-#[test]
-fn update_metadata_uris() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 5,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-			String::from("test2").as_bytes().to_vec(),
-			String::from("test3").as_bytes().to_vec(),
-			String::from("test4").as_bytes().to_vec(),
-		];
-		assert_ok!(Nft::update_metadata_uris(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			metadata_uris.clone(),
-		));
-		assert!(has_event(RawEvent::MetadataUpdated(
-			fixture.collection_id,
-			fixture.series_id,
-			fixture.mass_drop.max_supply - 1,
-		)));
-	});
-}
-
-#[test]
-fn update_metadata_uris_incorrect_amount_of_uris_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 5,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-			String::from("test2").as_bytes().to_vec(),
-			String::from("test3").as_bytes().to_vec(),
-		];
-		assert_noop!(
-			Nft::update_metadata_uris(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				metadata_uris,
-			),
-			Error::<Test>::IncorrectAmountOfUris
-		);
-	});
-}
-
-#[test]
-fn update_metadata_uris_not_owner_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 5,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-			String::from("test2").as_bytes().to_vec(),
-			String::from("test3").as_bytes().to_vec(),
-			String::from("test4").as_bytes().to_vec(),
-		];
-		assert_noop!(
-			Nft::update_metadata_uris(
-				Some(10u64).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				metadata_uris,
-			),
-			Error::<Test>::NoPermission
-		);
-	});
-}
-
-#[test]
-fn update_metadata_uris_twice_before_start() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 5,
-			transaction_limit: None,
-			activation_time: 10,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-			String::from("test2").as_bytes().to_vec(),
-			String::from("test3").as_bytes().to_vec(),
-			String::from("test4").as_bytes().to_vec(),
-		];
-		assert_ok!(Nft::update_metadata_uris(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			metadata_uris.clone(),
-		));
-		let metadata_uris = vec![
-			String::from("testing").as_bytes().to_vec(),
-			String::from("testing1").as_bytes().to_vec(),
-			String::from("testing2").as_bytes().to_vec(),
-			String::from("testing3").as_bytes().to_vec(),
-			String::from("testing4").as_bytes().to_vec(),
-		];
-		assert_ok!(Nft::update_metadata_uris(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			metadata_uris.clone(),
-		));
-		assert!(has_event(RawEvent::MetadataUpdated(
-			fixture.collection_id,
-			fixture.series_id,
-			fixture.mass_drop.max_supply - 1,
-		)));
-	});
-}
-
-#[test]
-fn update_metadata_uris_twice_after_mass_drop_start_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time = 2;
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 2,
-			transaction_limit: None,
-			activation_time,
-			presale: None,
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), None);
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-		];
-		assert_ok!(Nft::update_metadata_uris(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			metadata_uris.clone(),
-		));
-		System::set_block_number(activation_time as u64);
-
-		let metadata_uris = vec![
-			String::from("testing").as_bytes().to_vec(),
-			String::from("testing1").as_bytes().to_vec(),
-		];
-		assert_noop!(
-			Nft::update_metadata_uris(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				metadata_uris.clone(),
-			),
-			Error::<Test>::MetadataAlreadySet
-		);
-	});
-}
-
-#[test]
-fn update_metadata_uris_twice_after_presale_start_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let activation_time = 2;
-		let presale = Presale {
-			price: 0,
-			max_supply: 1,
-			transaction_limit: Some(1),
-			activation_time,
-		};
-		let mass_drop = MassDrop {
-			price: 0,
-			asset_id: 16000,
-			max_supply: 2,
-			transaction_limit: None,
-			activation_time: activation_time + 1,
-			presale: Some(presale.clone()),
-		};
-		let fixture = setup_mass_drop(Some(mass_drop), Some(presale));
-		let metadata_uris = vec![
-			String::from("test").as_bytes().to_vec(),
-			String::from("test1").as_bytes().to_vec(),
-		];
-		assert_ok!(Nft::update_metadata_uris(
-			Some(fixture.collection_owner).into(),
-			fixture.collection_id,
-			fixture.series_id,
-			metadata_uris.clone(),
-		));
-		System::set_block_number(activation_time as u64);
-		Nft::on_initialize(System::block_number());
-
-		let metadata_uris = vec![
-			String::from("testing").as_bytes().to_vec(),
-			String::from("testing1").as_bytes().to_vec(),
-		];
-		assert_noop!(
-			Nft::update_metadata_uris(
-				Some(fixture.collection_owner).into(),
-				fixture.collection_id,
-				fixture.series_id,
-				metadata_uris.clone(),
-			),
-			Error::<Test>::MetadataAlreadySet
-		);
-	});
-}
-
-#[test]
 fn get_collection_listings_on_no_active_listings() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let collection_id = setup_collection(owner);
-		let name = b"test-collection".to_vec();
 		let cursor: u128 = 0;
 		let limit: u16 = 100;
 
@@ -3222,10 +1891,8 @@ fn get_collection_listings() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let collection_id = setup_collection(owner);
-		let name = b"test-collection".to_vec();
 		let cursor: u128 = 0;
 		let limit: u16 = 100;
-		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
 
 		let series_id = Nft::next_series_id(collection_id);
@@ -3235,9 +1902,7 @@ fn get_collection_listings() {
 			collection_id,
 			quantity,
 			None,
-			series_attributes.clone(),
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 		assert!(has_event(RawEvent::CreateSeries(
@@ -3249,7 +1914,6 @@ fn get_collection_listings() {
 
 		let payment_asset = PAYMENT_ASSET;
 		let price = 1_000;
-		let listing_id = Nft::next_listing_id();
 		let close = 10;
 		// List tokens for sale
 		for serial_number in 0..quantity {
@@ -3294,11 +1958,9 @@ fn get_collection_listings_over_limit() {
 	ExtBuilder::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let collection_id = setup_collection(owner);
-		let name = b"test-collection".to_vec();
 		let cursor: u128 = 0;
 		let limit: u16 = 1000;
 
-		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
 		let series_id = Nft::next_series_id(collection_id);
 		// mint token Ids
@@ -3307,9 +1969,7 @@ fn get_collection_listings_over_limit() {
 			collection_id,
 			quantity,
 			None,
-			series_attributes.clone(),
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 		assert!(has_event(RawEvent::CreateSeries(
@@ -3350,7 +2010,6 @@ fn get_collection_listings_cursor_too_high() {
 		let cursor: u128 = 300;
 		let limit: u16 = 1000;
 
-		let series_attributes = vec![NFTAttributeValue::String(b"foobar".to_owned().to_vec())];
 		let quantity = 200;
 		let series_id = Nft::next_series_id(collection_id);
 		// mint token Ids
@@ -3359,9 +2018,7 @@ fn get_collection_listings_cursor_too_high() {
 			collection_id,
 			quantity,
 			None,
-			series_attributes.clone(),
-			None,
-			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
 		assert!(has_event(RawEvent::CreateSeries(

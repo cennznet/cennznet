@@ -139,6 +139,8 @@ std = [
 	"crml-cennzx-rpc-runtime-api/std",
 	"crml-erc20-peg/std",
 	"crml-eth-bridge/std",
+	"crml-eth-wallet/std",
+	"crml-eth-wallet-rpc-runtime-api/std",
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",
 	"crml-governance/std",

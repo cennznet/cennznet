@@ -24,14 +24,11 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use sp_core::{
-	// offchain::{
-	// 	testing::{self, OffchainState, PoolState},
-	// 	OffchainExt, TransactionPoolExt,
-	// },
 	ecdsa::Signature,
-	Public,
-	H256,
+	offchain::{testing, OffchainExt},
+	Public, H256,
 };
+use sp_runtime::offchain::StorageKind;
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
@@ -219,6 +216,15 @@ impl ExtBuilder {
 	}
 }
 
+/// Mock eth-http endpoint
+const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
+
+/// Test request
+#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+struct TestRequest {
+	message: String,
+}
+
 #[test]
 fn pre_last_session_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
@@ -266,6 +272,50 @@ fn last_session_change() {
 		assert_eq!(Module::<TestRuntime>::notary_set_id(), current_set_id + 1);
 		assert!(!Module::<TestRuntime>::bridge_paused());
 	});
+}
+
+#[test]
+fn eth_client_http_request() {
+	let (offchain, offchain_state) = testing::TestOffchainExt::new();
+	let mut t = sp_io::TestExternalities::default();
+	t.register_extension(OffchainExt::new(offchain));
+	// Set the ethereum http endpoint for OCW queries
+	t.execute_with(|| sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, b"ETH_HTTP", &MOCK_ETH_HTTP_URI));
+
+	// Setup
+	// Mock an ethereum JSON-RPC response
+	let request_body = TestRequest {
+		message: "hello ethereum".to_string(),
+	};
+	let request_body_raw = serde_json::to_string(&request_body).unwrap();
+	{
+		let mut offchain_state = offchain_state.write();
+		offchain_state.expect_request(testing::PendingRequest {
+			method: "POST".into(),
+			uri: core::str::from_utf8(&MOCK_ETH_HTTP_URI)
+				.expect("valid utf8")
+				.to_string(),
+			body: request_body_raw.as_bytes().to_vec(),
+			response: Some(br#"{"message":"hello cennznet"}"#.to_vec()),
+			headers: vec![
+				("Content-Type".to_string(), "application/json".to_string()),
+				("Content-Length".to_string(), request_body_raw.len().to_string()),
+			],
+			sent: true,
+			..Default::default()
+		});
+	}
+
+	// Test
+	t.execute_with(|| {
+		let response = Module::<TestRuntime>::query_eth_client(request_body).expect("got response");
+		assert_eq!(
+			serde_json::from_slice::<'_, TestRequest>(response.as_slice()).unwrap(),
+			TestRequest {
+				message: "hello cennznet".to_string()
+			}
+		);
+	})
 }
 
 #[test]
