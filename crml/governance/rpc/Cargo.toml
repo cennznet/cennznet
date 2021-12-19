@@ -13,10 +13,10 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sc-client-db = { git = "https://github.com/paritytech/substrate", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 crml-governance = { path = "../" }
 crml-governance-rpc-runtime-api = { path = "runtime-api" }

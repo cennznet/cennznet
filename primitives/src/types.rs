@@ -45,7 +45,7 @@ pub type Balance = u128;
 pub type AssetId = u32;
 
 /// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
+pub type DigestItem = generic::DigestItem;
 
 /// Type used for expressing timestamp.
 pub type Moment = u64;

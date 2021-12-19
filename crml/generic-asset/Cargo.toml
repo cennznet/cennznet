@@ -10,21 +10,22 @@ description = "A runtime module for managing ERC-20 like fungible assets"
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 
 [features]
 default = ["std"]
-std =[
+std = [
 	"codec/std",
 	"serde/std",
 	"cennznet-primitives/std",
@@ -34,5 +35,6 @@ std =[
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std"
 ]
 runtime-benchmarks = ["frame-benchmarking"]

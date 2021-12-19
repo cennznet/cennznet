@@ -14,6 +14,7 @@
 */
 use codec::{Decode, Encode};
 pub use crml_support::{EthAbiCodec, H160, H256, U256};
+use scale_info::TypeInfo;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
@@ -21,7 +22,7 @@ use sp_std::prelude::*;
 pub type EthAddress = H160;
 
 /// A deposit event made by the ERC20 peg contract on Ethereum
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct Erc20DepositEvent {
 	/// The ERC20 token address / type deposited
 	/// `0` indicates native Eth

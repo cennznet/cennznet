@@ -13,54 +13,54 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 futures = { version = "0.3.1", features = ["compat"] }
 serde = { version = "1.0.102", features = ["derive"] }
-structopt = "0.3.8"
+structopt = "0.3.25"
 url = "2.2.2"
 
-sc-authority-discovery = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-chain-spec = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-cli = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate", features = ["wasmtime"] }
-sp-core = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-executor = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate", features = ["wasmtime"] }
-sc-service = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate", features = ["wasmtime"] }
-sp-inherents = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-transaction-pool = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-transaction-pool = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-authorship = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-authority-discovery = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus-babe = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-consensus-babe = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus-epochs = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus-uncles = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-consensus = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-network = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-finality-grandpa = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-finality-grandpa = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-client-api = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-runtime = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-timestamp = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
+sc-authority-discovery = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-chain-spec = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
+sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
+sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-authorship = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-authority-discovery = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus-babe = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-consensus-babe = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus-epochs = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus-uncles = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-consensus = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-network = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-finality-grandpa = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-finality-grandpa = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "15.1.0"
-sc-rpc = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-api = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-rpc-api = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-blockchain = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-block-builder = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-keystore = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-utils = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-basic-authorship = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus-slots = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-telemetry = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-sync-state-rpc = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-substrate-frame-rpc-system = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-consensus-babe-rpc = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-finality-grandpa-rpc = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-keystore = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
+sc-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-block-builder = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-keystore = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-utils = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus-slots = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-sync-state-rpc = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-consensus-babe-rpc = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-finality-grandpa-rpc = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-frame-benchmarking-cli = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
+frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
@@ -80,18 +80,17 @@ crml-transaction-payment = { path = "../crml/transaction-payment" }
 ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
-pallet-im-online = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
-sp-keyring = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sp-timestamp = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-sc-service-test = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
-frame-system = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
+sp-keyring = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 tempfile = "3.1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", git = "https://github.com/cennznet/substrate" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/substrate" }
 
 [features]
 default = []

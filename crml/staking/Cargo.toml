@@ -11,33 +11,33 @@ static_assertions = "1.1.0"
 serde = { version = "1.0.102", optional = true }
 log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-frame-support = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-frame-system = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-pallet-authorship = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-pallet-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-application-crypto = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-io = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-npos-elections = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+pallet-authorship = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+pallet-staking = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-npos-elections = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 crml-support = { default-features = false, path = "../support" }
 
 [dev-dependencies]
 hex = "0.4"
 parking_lot = "0.11.1"
 rand_chacha = { version = "0.2" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-pallet-staking-reward-curve = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-pallet-timestamp = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 crml-generic-asset = { path = "../generic-asset" }
 crml-support = { path = "../support" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-storage = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-sp-tracing = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
-substrate-test-utils = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+sp-core = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-storage = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 
 [features]
 migrate = []

@@ -112,14 +112,14 @@ decl_module! {
 
 				// it's possible this account is used normally outside of eth signing-
 				// ensure highest known nonce is used
-				let system_nonce = <frame_system::Module<T>>::account_nonce(account.clone());
+				let system_nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
 				let highest_nonce = sp_std::cmp::max(system_nonce.saturated_into(), address_nonce);
 				let new_nonce = highest_nonce.checked_add(1).ok_or(Error::<T>::InvalidNonce)?;
 
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
 				AddressNonce::insert(eth_address, new_nonce);
-				<frame_system::Module<T>>::inc_account_nonce(&account);
+				<frame_system::Pallet<T>>::inc_account_nonce(&account);
 
 				// execute the call
 				let new_origin = frame_system::RawOrigin::Signed(account.clone()).into();
@@ -154,13 +154,13 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::call(call, address, signature) = call {
-			let address_nonce = Self::stored_address_nonce(address);
+		if let Call::call { call, eth_address, signature } = call {
+			let address_nonce = Self::stored_address_nonce(eth_address);
 			let message = &(&call, address_nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &address) {
+			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
-					.and_provides((address, address_nonce))
+					.and_provides((eth_address, address_nonce))
 					.longevity(64_u64)
 					.propagate(true)
 					.build();

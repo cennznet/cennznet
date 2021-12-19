@@ -14,13 +14,13 @@ variant_count = "1.0.0"
 hex = { version = "0.4.3", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false, optional = true }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false  }
+sp-core = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+sp-io = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+sp-runtime = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+frame-system = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }

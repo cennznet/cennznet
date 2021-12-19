@@ -85,12 +85,6 @@ pub use crml_generic_asset::{
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
 use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
-pub use crml_sylo::device as sylo_device;
-pub use crml_sylo::e2ee as sylo_e2ee;
-pub use crml_sylo::groups as sylo_groups;
-pub use crml_sylo::inbox as sylo_inbox;
-pub use crml_sylo::response as sylo_response;
-pub use crml_sylo::vault as sylo_vault;
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 
@@ -580,24 +574,12 @@ impl crml_staking_rewards::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl crml_sylo::e2ee::Config for Runtime {}
-impl crml_sylo::device::Config for Runtime {}
-impl crml_sylo::inbox::Config for Runtime {}
-impl crml_sylo::response::Config for Runtime {}
-impl crml_sylo::vault::Config for Runtime {}
-impl crml_sylo::groups::Config for Runtime {}
-
 impl crml_cennzx::Config for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type WeightInfo = ();
-}
-
-impl crml_attestation::Config for Runtime {
-	type Event = Event;
 	type WeightInfo = ();
 }
 
@@ -732,13 +714,6 @@ construct_runtime!(
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
 		Historical: session_historical::{Module} = 20,
 		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
-		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
-		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
-		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
-		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
-		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
-		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
 		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
 		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
 		Governance: crml_governance::{Module, Call, Storage, Event} = 31,

@@ -122,7 +122,7 @@ pub trait MultiCurrency {
 	/// The ID type for an account in the system
 	type AccountId: Debug + Default;
 	/// The balance of an account for a particular currency
-	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating;
+	type Balance: AtLeast32BitUnsigned + Copy + Debug + Default + Saturating + MaybeSerializeDeserialize;
 	/// The ID type of a currency in the system
 	type CurrencyId: Debug + Default;
 	/// The opaque token type for an imbalance of a particular currency. This is returned by unbalanced operations

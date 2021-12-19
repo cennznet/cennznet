@@ -20,7 +20,7 @@ use codec::Decode;
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{ExistenceRequirement, Get, WithdrawReasons},
+	traits::{ExistenceRequirement, Get, IsType, WithdrawReasons},
 	transactional, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -43,7 +43,7 @@ pub trait Config: frame_system::Config {
 	/// Currency functions
 	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 }
 
 decl_storage! {
