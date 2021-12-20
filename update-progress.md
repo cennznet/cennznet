@@ -20,6 +20,7 @@ crml
 - [x] erc20-peg
 - [x] support
 - [x] sylo (removed*)
+- [x] cennzx  
 - [] staking
     - [] tests
 [] ethy-gadget
