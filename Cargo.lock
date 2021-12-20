@@ -1344,9 +1344,12 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-scheduler",
  "parity-scale-codec",
+ "scale-info",
  "serde",
+ "sp-runtime",
  "sp-std",
 ]
 

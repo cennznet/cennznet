@@ -16,6 +16,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", version = "4.
 frame-system = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+log = { version = "0.4.14", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
 
 [features]
 default = ["std"]
@@ -28,4 +31,5 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-scheduler/std",
+	"scale-info/std",
 ]
