@@ -31,8 +31,10 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member, One, Saturating, Zero},
 	DispatchError, DispatchResult, SaturatedConversion,
 };
-use sp_std::fmt::Debug;
-use sp_std::prelude::*;
+use sp_std::{
+	fmt::Debug,
+    prelude::*,
+};
 use scale_info::TypeInfo;
 
 // import `mock` first so its macros are defined in `impl` and `tests`.
