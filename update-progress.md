@@ -8,7 +8,7 @@ crml
 - [x] attestation (removed*)
 - [x] generic-asset
     - [] tests
-- [] governance
+- [x] governance
     - [] tests
 - [] nft
     - [] tests

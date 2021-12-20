@@ -116,6 +116,13 @@ pub trait TransactionFeeHandler {
 	) -> Result<(), ()>;
 }
 
+/// An interface to count total registrations of an account
+pub trait RegistrationInfo {
+	type AccountId;
+	/// Registration information for an identity
+	fn registered_identity_count(who: &Self::AccountId) -> u32;
+}
+
 /// An abstraction over the accounting behaviour of a fungible, multi-currency system
 /// Currencies in the system are identifiable by a unique `CurrencyId`
 pub trait MultiCurrency {

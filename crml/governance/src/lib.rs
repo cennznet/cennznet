@@ -27,18 +27,17 @@ pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
-use crml_support::StakingAmount;
+use crml_support::{StakingAmount, RegistrationInfo};
+use frame_support::pallet_prelude::*;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchResult, Dispatchable, Parameter},
-	ensure,
+	dispatch::{DispatchResult, Dispatchable},
 	traits::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
-		Currency, Get, LockIdentifier, RegistrationInfo, ReservableCurrency,
+		Currency, LockIdentifier, ReservableCurrency,
 	},
-	weights::Weight,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::pallet_prelude::*;
 use log::warn;
 use sp_runtime::traits::Zero;
 use sp_runtime::Permill;
@@ -464,9 +463,9 @@ impl<T: Config> Module<T> {
 			}
 		};
 		let max_stakers: u32 = T::StakingAmount::count_nominators();
-		ReferendumVotes::<T>::remove_prefix(proposal_id);
+		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers)
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), max_stakers)
 			>= Self::referendum_threshold()
 		{
 			// Too many veto votes, not going ahead
@@ -485,7 +484,7 @@ impl<T: Config> Module<T> {
 					None,
 					63,
 					frame_system::RawOrigin::Root.into(),
-					Call::enact_referendum(proposal_id).into(),
+					Call::enact_referendum{proposal_id}.into(),
 				)
 				.is_err()
 				{
