@@ -28,8 +28,8 @@ pub use types::*;
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
 use crml_support::{StakingAmount, RegistrationInfo};
-use frame_support::pallet_prelude::*;
 use frame_support::{
+	pallet_prelude::*,
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable},
 	traits::{

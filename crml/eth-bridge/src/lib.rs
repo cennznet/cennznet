@@ -40,16 +40,15 @@ use crml_support::{
 	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
-use frame_support::pallet_prelude::*;
 use frame_support::{
+	pallet_prelude::*,
 	decl_error, decl_event, decl_module, decl_storage, log,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	Parameter,
 };
-use frame_system::pallet_prelude::*;
 use frame_system::{
-	//ensure_none, ensure_root,
+	pallet_prelude::*,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_runtime::{

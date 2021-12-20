@@ -34,8 +34,8 @@
 
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_support::MultiCurrency;
-use frame_support::pallet_prelude::*;
 use frame_support::{
+	pallet_prelude::*,
 	decl_error, decl_event, decl_module, decl_storage,
 	storage::IterableStorageDoubleMap,
 	traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
