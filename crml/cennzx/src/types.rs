@@ -20,6 +20,8 @@ use core::{
 	convert::{From, Into, TryFrom},
 	marker::PhantomData,
 };
+use scale_info::TypeInfo;
+
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -32,14 +34,14 @@ pub trait Scaled {
 }
 
 /// Per millionth of unit price
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, TypeInfo)]
 pub enum PerMillion {}
 impl Scaled for PerMillion {
 	const SCALE: LowPrecisionUnsigned = 1_000_000;
 }
 
 /// Per thousandth of unit price
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, TypeInfo)]
 pub enum PerThousand {}
 impl Scaled for PerThousand {
 	const SCALE: LowPrecisionUnsigned = 1_000;
@@ -60,7 +62,7 @@ impl Into<&'static str> for FeeRateError {
 
 /// Inner type is `LowPrecisionUnsigned` in order to support compatibility with `crml_generic_asset::Balance` type
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, TypeInfo)]
 pub struct FeeRate<S: Scaled>(LowPrecisionUnsigned, PhantomData<S>);
 
 impl<S: Scaled> Default for FeeRate<S> {

@@ -1344,9 +1344,12 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-scheduler",
  "parity-scale-codec",
+ "scale-info",
  "serde",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -1391,6 +1394,7 @@ dependencies = [
  "hex",
  "log",
  "parity-scale-codec",
+ "scale-info",
  "serde",
  "serde_json",
  "sp-core",
@@ -1521,6 +1525,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "parity-scale-codec",
+ "scale-info",
  "serde",
  "serde_json",
  "smallvec",

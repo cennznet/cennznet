@@ -1,20 +1,20 @@
-- update to 4.0.0-dev
-- switch back to cennznet/substrate
-- staking module rebuild
+## Update plan
+- update crates to 4.0.0-dev
+- switch deps to cennznet/substrate fork (ensure ethy bridge keys are derived correctly)
 
-crate update progress
+## Crate update progress
 ---
 crml
 - [x] attestation (removed*)
 - [x] generic-asset
     - [] tests
-- [] governance
+- [x] governance
     - [] tests
-- [] nft
+- [x] nft
     - [] tests
-- [] transaction-payment
+- [x] transaction-payment
     - [] tests
-- [] eth-bridge
+- [x] eth-bridge
     - [] tests
 - [x] eth-wallet
     - [] tests
@@ -22,14 +22,15 @@ crml
     - [] tests
 - [x] support
 - [x] sylo (removed*)
-- [] staking
+- [x] cennzx
+- [] staking  
     - [] tests
-- [] ethy-gadget
-    - [] tests
-- [] cli
-    - [] tests
-- [] runtime
-    - [] tests
+- [] runtime  
+    - [] tests    
+- [] ethy-gadget  
+    - [] tests  
+- [] cli  
+    - [] tests  
 
 *modules unused, removed to speed up update process
 
@@ -41,3 +42,4 @@ crml
 - scale-info derive `TypeInfo` needed on most types
 - warning: <frame_system::Module<T>> -> <frame_system::Pallet<T>>
 - new prelude imports for pallets: `frame_system::pallet_prelude::*` && `frame_support:pallet_prelude::*`
+- structs using T and deriving `TypeInfo` require `#[scale_info(skip_type_params(T))]`

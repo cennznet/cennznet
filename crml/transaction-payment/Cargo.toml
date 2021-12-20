@@ -19,6 +19,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev
 smallvec = "1.6.1"
 sp-io = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }

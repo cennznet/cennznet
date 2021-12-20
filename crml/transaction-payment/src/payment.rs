@@ -2,7 +2,8 @@
 use crate::Config;
 use codec::FullCodec;
 use frame_support::{
-	traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReasons},
+	pallet_prelude::*,
+	traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, SameOrOther, WithdrawReasons},
 	unsigned::TransactionValidityError,
 };
 use sp_runtime::{
@@ -16,7 +17,7 @@ type NegativeImbalanceOf<C, T> = <C as Currency<<T as frame_system::Config>::Acc
 /// Handle withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeTransaction<T: Config> {
 	/// The underlying integer type in which fees are calculated.
-	type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default;
+	type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default + TypeInfo;
 	type LiquidityInfo: Default;
 
 	/// Before the transaction is executed the payment of the transaction fees
@@ -114,9 +115,12 @@ where
 			let refund_imbalance =
 				C::deposit_into_existing(&who, refund_amount).unwrap_or_else(|_| C::PositiveImbalance::zero());
 			// merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid = paid
-				.offset(refund_imbalance)
-				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			let adjusted_paid = match paid.offset(refund_imbalance) {
+				SameOrOther::Same(value) => value,
+				SameOrOther::Other(_) | SameOrOther::None => {
+					return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment).into())
+				}
+			};
 			// Call someone else to handle the imbalance (fee and tip separately)
 			let (tip, fee) = adjusted_paid.split(tip);
 			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
