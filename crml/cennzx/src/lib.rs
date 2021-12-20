@@ -35,7 +35,6 @@ use sp_std::{
 	fmt::Debug,
     prelude::*,
 };
-use scale_info::TypeInfo;
 
 // import `mock` first so its macros are defined in `impl` and `tests`.
 #[macro_use]
