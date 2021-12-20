@@ -12,7 +12,7 @@ crml
     - [] tests
 - [x] nft
     - [] tests
-- [] transaction-payment
+- [x] transaction-payment
     - [] tests
 - [x] eth-bridge
     - [] tests

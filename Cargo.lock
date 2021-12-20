@@ -1524,6 +1524,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "parity-scale-codec",
+ "scale-info",
  "serde",
  "serde_json",
  "smallvec",

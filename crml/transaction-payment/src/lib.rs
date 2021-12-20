@@ -54,11 +54,8 @@ use crml_support::TransactionFeeHandler;
 use frame_support::{
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
-	traits::Get,
-	weights::{
-		DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight, WeightToFeeCoefficient,
-		WeightToFeePolynomial,
-	},
+	pallet_prelude::*,
+	weights::{DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient, WeightToFeePolynomial},
 	Parameter,
 };
 use sp_arithmetic::traits::BaseArithmetic;
@@ -228,7 +225,7 @@ where
 }
 
 /// Storage releases of the module.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 enum Releases {
 	/// Original version of the module.
 	V1Ancient,
@@ -244,7 +241,7 @@ impl Default for Releases {
 
 pub trait Config: frame_system::Config {
 	/// The arithmetic type of asset identifier.
-	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy;
+	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy + TypeInfo;
 
 	/// Handler for withdrawing, refunding and depositing the transaction fee.
 	/// Transaction fees are withdrawn before the transaction is executed.
@@ -563,7 +560,8 @@ where
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
