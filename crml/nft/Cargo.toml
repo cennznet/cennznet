@@ -21,6 +21,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false, optional = true }
 frame-support = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
 frame-system = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev", default-features = false  }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset" }
@@ -39,5 +40,6 @@ std = [
 	"sp-std/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]

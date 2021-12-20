@@ -34,14 +34,14 @@
 
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_support::MultiCurrency;
+use frame_support::pallet_prelude::*;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
+	decl_error, decl_event, decl_module, decl_storage,
 	storage::IterableStorageDoubleMap,
-	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons},
+	traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
 	transactional,
-	weights::Weight,
 };
-use frame_system::ensure_signed;
+use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,
@@ -237,8 +237,9 @@ decl_module! {
 					use sp_std::prelude::*;
 					use super::{Config, CollectionId, SeriesId};
 					use codec::{Encode, Decode};
+					use scale_info::TypeInfo;
 
-					#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+					#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 					pub enum MetadataBaseURI {
 						Ipfs,
 						Https(Vec<u8>),
@@ -262,8 +263,8 @@ decl_module! {
 					}
 				}
 
-				v1_storage::CollectionMetadataURI::remove_all();
-				v1_storage::IsSingleIssue::remove_all();
+				v1_storage::CollectionMetadataURI::remove_all(None);
+				v1_storage::IsSingleIssue::remove_all(None);
 
 				100_000 * write_count as Weight
 			} else {
@@ -647,9 +648,15 @@ decl_module! {
 					for (who, entitlement) in listing.royalties_schedule.entitlements.into_iter() {
 						let royalty = entitlement * listing.fixed_price;
 						for_seller -= royalty;
-						imbalance = imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?).map_err(|_| Error::<T>::InternalPayment)?;
+						imbalance = match imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?) {
+							SameOrOther::Same(value) => value,
+							SameOrOther::Other(_) | SameOrOther::None => return Err(Error::<T>::InternalPayment.into()),
+						}
 					}
-					imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?).map_err(|_| Error::<T>::InternalPayment)?;
+					match imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?) {
+						SameOrOther::Same(_) => (),
+						SameOrOther::Other(_) | SameOrOther::None => return Err(Error::<T>::InternalPayment.into()),
+					}
 				}
 
 				// must not fail now that payment has been made
