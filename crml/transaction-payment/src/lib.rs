@@ -52,11 +52,11 @@ use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
 use crml_support::TransactionFeeHandler;
 use frame_support::{
+	pallet_prelude::*,
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
-	traits::Get,
 	weights::{
-		DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight, WeightToFeeCoefficient,
+		DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient,
 		WeightToFeePolynomial,
 	},
 	Parameter,
@@ -73,6 +73,7 @@ use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug,
 };
 use sp_std::prelude::*;
+use scale_info::TypeInfo;
 
 mod payment;
 mod types;
@@ -244,7 +245,7 @@ impl Default for Releases {
 
 pub trait Config: frame_system::Config {
 	/// The arithmetic type of asset identifier.
-	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy;
+	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy + TypeInfo;
 
 	/// Handler for withdrawing, refunding and depositing the transaction fee.
 	/// Transaction fees are withdrawn before the transaction is executed.
@@ -563,7 +564,7 @@ where
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct ChargeTransactionPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
