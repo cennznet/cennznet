@@ -23,6 +23,7 @@ use sp_runtime::{
 	MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::*;
+use scale_info::TypeInfo;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -72,7 +73,7 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
 	V1(FeeExchangeV1<AssetId, Balance>),
@@ -82,7 +83,7 @@ pub enum FeeExchange<AssetId, Balance> {
 /// Signals a fee payment requiring the CENNZX-Spot exchange. It is intended to
 /// embed within CENNZnet extrinsic payload.
 /// It specifies input asset ID and the max. limit of input asset to pay
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct FeeExchangeV1<AssetId, Balance> {
 	/// The Asset ID to exchange for network fee asset
 	#[codec(compact)]

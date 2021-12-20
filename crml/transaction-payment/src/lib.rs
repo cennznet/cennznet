@@ -52,13 +52,10 @@ use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use codec::{Decode, Encode};
 use crml_support::TransactionFeeHandler;
 use frame_support::{
-	pallet_prelude::*,
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
-	weights::{
-		DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient,
-		WeightToFeePolynomial,
-	},
+	pallet_prelude::*,
+	weights::{DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient, WeightToFeePolynomial},
 	Parameter,
 };
 use sp_arithmetic::traits::BaseArithmetic;
@@ -73,7 +70,6 @@ use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug,
 };
 use sp_std::prelude::*;
-use scale_info::TypeInfo;
 
 mod payment;
 mod types;
@@ -229,7 +225,7 @@ where
 }
 
 /// Storage releases of the module.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 enum Releases {
 	/// Original version of the module.
 	V1Ancient,
@@ -565,6 +561,7 @@ where
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
