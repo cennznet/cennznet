@@ -221,40 +221,36 @@ pub use rewards::{HandlePayee, OnEndEra, RewardCalculation};
 mod slashing;
 pub use slashing::REWARD_F1;
 
-use codec::{Decode, Encode, HasCompact};
+use codec::HasCompact;
 use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
-	ensure,
+	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
+	pallet_prelude::*,
 	traits::{
-		Currency, CurrencyToVote, EstimateNextNewSession, Get, IsSubType, LockIdentifier, LockableCurrency,
-		OnUnbalanced, UnixTime, WithdrawReasons,
+		Currency, CurrencyToVote, EstimateNextNewSession, IsSubType, LockableCurrency,
+		LockIdentifier, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
-	weights::{
-		constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
-		Weight,
-	},
-	IterableStorageMap,
+	weights::constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
 };
-use frame_system::{self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes};
+use frame_system::{
+	self as system,
+	pallet_prelude::*,
+	offchain::SendTransactionTypes,
+};
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
-use sp_npos_elections::{
-	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, CompactSolution,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
-	VoteWeight,
-};
 use sp_runtime::{
-	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-		ValidTransaction,
-	},
-	DispatchError, InnerOf, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
+	InnerOf, Perbill, PerU16,
+	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, SaturatedConversion, Zero},
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+use sp_npos_elections::{
+	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, NposSolution,
+	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
+	VoteWeight,
+};
 use sp_staking::{
 	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
@@ -263,7 +259,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromItera
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 const MAX_UNLOCKING_CHUNKS: usize = 32;
-pub const MAX_NOMINATIONS: usize = <CompactAssignments as CompactSolution>::LIMIT;
+pub const MAX_NOMINATIONS: usize = <CompactAssignments as NposSolution>::LIMIT;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
 
@@ -281,7 +277,7 @@ macro_rules! log {
 // Note: Maximum nomination limit is set here -- 16.
 generate_solution_type!(
 	#[compact]
-	pub struct CompactAssignments::<NominatorIndex, ValidatorIndex, OffchainAccuracy>(16)
+	pub struct CompactAssignments::<VoterIndex = NominatorIndex, TargetIndex = ValidatorIndex, Accuracy = OffchainAccuracy>(16)
 );
 
 /// Data type used to index nominators in the compact type
@@ -310,7 +306,7 @@ pub type ChainAccuracy = Perbill;
 pub type OffchainAccuracy = PerU16;
 
 /// The result of an election round.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ElectionResult<AccountId, Balance: HasCompact> {
 	/// Flat list of validators who have been elected.
 	elected_stashes: Vec<AccountId>,
@@ -322,7 +318,7 @@ pub struct ElectionResult<AccountId, Balance: HasCompact> {
 }
 
 /// The status of the upcoming (offchain) election.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum ElectionStatus<BlockNumber> {
 	/// Nothing has and will happen for now. submission window is not open.
 	Closed,
@@ -335,7 +331,7 @@ pub enum ElectionStatus<BlockNumber> {
 /// Note that these values must reflect the __total__ number, not only those that are present in the
 /// solution. In short, these should be the same size as the size of the values dumped in
 /// `SnapshotValidators` and `SnapshotNominators`.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
 pub struct ElectionSize {
 	/// Number of validators in the snapshot of the current election round.
 	#[codec(compact)]
@@ -381,7 +377,7 @@ pub enum StakerStatus<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
@@ -398,7 +394,7 @@ impl<AccountId> Default for RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -415,7 +411,7 @@ impl Default for ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
@@ -440,7 +436,7 @@ impl<T: Config> StakingAmount for Module<T> {
 }
 
 /// The ledger of a (bonded) stash.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct StakingLedger<AccountId, Balance: HasCompact> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: AccountId,
@@ -577,7 +573,7 @@ where
 }
 
 /// A record of the nominations made by a specific account.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct Nominations<AccountId> {
 	/// The targets of nomination.
 	pub targets: Vec<AccountId>,
@@ -586,7 +582,7 @@ pub struct Nominations<AccountId> {
 }
 
 /// The amount of exposure (to slashing) than an individual nominator has.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	who: AccountId,
@@ -602,7 +598,7 @@ impl<AccountId, Balance: HasCompact> IndividualExposure<AccountId, Balance> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -616,7 +612,7 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, Default, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Default, RuntimeDebug)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
 	validator: AccountId,
@@ -631,7 +627,7 @@ pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 }
 
 /// Indicate how an election round was computed.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum ElectionCompute {
 	/// Result was forcefully computed on chain at the end of the session.
 	OnChain,
@@ -647,7 +643,7 @@ type NegativeImbalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -686,7 +682,8 @@ where
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
 	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-		<pallet_session::Module<T>>::disable(validator)
+		// CHECK
+		Ok(<pallet_session::Module<T>>::disable(validator))
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -787,7 +784,7 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 }
 
 /// Mode of era-forcing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Forcing {
 	/// Not forcing anything - just let whatever happen.
@@ -809,7 +806,7 @@ impl Default for Forcing {
 // A value placed in storage that represents the current version of the Staking storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 // This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 enum Releases {
 	/// storage version pre-runtime v38
 	V0 = 0,
@@ -2779,9 +2776,9 @@ impl<T: Config> Module<T> {
 
 	/// Clear all era information for given era.
 	fn clear_era_information(era_index: EraIndex) {
-		<ErasStakers<T>>::remove_prefix(era_index);
-		<ErasStakersClipped<T>>::remove_prefix(era_index);
-		<ErasValidatorPrefs<T>>::remove_prefix(era_index);
+		<ErasStakers<T>>::remove_prefix(era_index, None);
+		<ErasStakersClipped<T>>::remove_prefix(era_index, None);
+		<ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
 		<ErasTotalStake<T>>::remove(era_index);
 		ErasStartSessionIndex::remove(era_index);
 	}
@@ -2964,9 +2961,10 @@ where
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
 	) -> Result<Weight, ()> {
-		if !Self::can_report() {
-			return Err(());
-		}
+		// CHECK: can report
+		// if !Self::can_report() {
+		// 	return Err(());
+		// }
 
 		let reward_proportion = SlashRewardFraction::get();
 		let mut consumed_weight: Weight = 0;
@@ -3075,10 +3073,7 @@ where
 
 		Ok(consumed_weight)
 	}
-
-	fn can_report() -> bool {
-		Self::era_election_status().is_closed()
-	}
+	// CHECK: `can_report` removed...
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
@@ -3118,7 +3113,8 @@ where
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_election_solution_unsigned(_, _, score, era, _) = call {
+		if let Call::submit_election_solution_unsigned {
+			winners: _, compact: _, score, era, size: _ } = call {
 			use offchain_election::DEFAULT_LONGEVITY;
 
 			// discard solution not coming from the local OCW.
@@ -3167,7 +3163,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	}
 
 	fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-		if let Call::submit_election_solution_unsigned(_, _, score, era, _) = call {
+		if let Call::submit_election_solution_unsigned { winners: _, compact: _, score, era, size: _ } = call {
 			// IMPORTANT NOTE: These checks are performed in the dispatch call itself, yet we need
 			// to duplicate them here to prevent a block producer from putting a previously
 			// validated, yet no longer valid solution on chain.

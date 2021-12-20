@@ -17,16 +17,18 @@ crml
 - [] eth-bridge
     - [] tests
 - [x] eth-wallet
+    - [] tests
 - [x] erc20-peg
+    - [] tests
 - [x] support
 - [x] sylo (removed*)
 - [] staking
     - [] tests
-[] ethy-gadget
+- [] ethy-gadget
     - [] tests
-[] cli
+- [] cli
     - [] tests
-[] runtime
+- [] runtime
     - [] tests
 
 *modules unused, removed to speed up update process

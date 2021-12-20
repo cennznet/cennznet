@@ -25,7 +25,7 @@ use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-	reduce, to_supports, Assignment, CompactSolution, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance,
+	reduce, to_supports, Assignment, NposSolution, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance,
 };
 use sp_runtime::{offchain::storage::StorageValueRef, traits::TrailingZeroInput, PerThing, RuntimeDebug};
 use sp_std::{convert::TryInto, prelude::*};
@@ -121,7 +121,9 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
 	let current_era = <Module<T>>::current_era().unwrap_or_default();
 
 	// send it.
-	let call = Call::submit_election_solution_unsigned(winners, compact, score, current_era, size).into();
+	let call = Call::submit_election_solution_unsigned {
+		winners, compact, score, era: current_era, size
+	}.into();
 
 	SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
 		.map_err(|_| OffchainElectionError::PoolSubmissionFailed)

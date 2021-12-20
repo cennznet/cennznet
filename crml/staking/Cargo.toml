@@ -11,6 +11,7 @@ static_assertions = "1.1.0"
 serde = { version = "1.0.102", optional = true }
 log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
@@ -45,6 +46,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"serde",
+	"scale-info/std",
 	"crml-support/std",
 	"sp-io/std",
 	"sp-npos-elections/std",

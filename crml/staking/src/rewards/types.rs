@@ -16,6 +16,7 @@
 //! Staking reward types
 
 use crate::{EraIndex, Exposure};
+use scale_info::TypeInfo;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::weights::Weight;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
@@ -109,7 +110,7 @@ pub type RewardPoint = u32;
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// These points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Clone, Encode, Decode, Default, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
