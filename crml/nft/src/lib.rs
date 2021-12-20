@@ -36,9 +36,9 @@ use cennznet_primitives::types::{AssetId, Balance};
 use crml_support::MultiCurrency;
 use frame_support::pallet_prelude::*;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
+	decl_error, decl_event, decl_module, decl_storage,
 	storage::IterableStorageDoubleMap,
-	traits::{ExistenceRequirement, Get, Imbalance, WithdrawReasons, SameOrOther},
+	traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
 	transactional,
 };
 use frame_system::pallet_prelude::*;
@@ -650,12 +650,12 @@ decl_module! {
 						for_seller -= royalty;
 						imbalance = match imbalance.offset(T::MultiCurrency::deposit_into_existing(&who, listing.payment_asset, royalty)?) {
 							SameOrOther::Same(value) => value,
-							_ => return Err(Error::<T>::InternalPayment.into()),
+							SameOrOther::Other(_) | SameOrOther::None => return Err(Error::<T>::InternalPayment.into()),
 						}
 					}
 					match imbalance.offset(T::MultiCurrency::deposit_into_existing(&listing.seller, listing.payment_asset, for_seller)?) {
 						SameOrOther::Same(_) => (),
-						_ => return Err(Error::<T>::InternalPayment.into()),
+						SameOrOther::Other(_) | SameOrOther::None => return Err(Error::<T>::InternalPayment.into()),
 					}
 				}
 
