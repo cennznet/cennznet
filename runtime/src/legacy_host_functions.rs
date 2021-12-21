@@ -46,7 +46,7 @@ pub trait Storage {
 
 	/// Clear child key by prefix.
 	fn child_clear_prefix(&mut self, storage_key: &[u8], _child_definition: &[u8], _child_type: u32, prefix: &[u8]) {
-		sp_io::default_child_storage::clear_prefix(storage_key, prefix)
+		sp_io::default_child_storage::clear_prefix(storage_key, prefix, None);
 	}
 
 	/// Child trie root calcualation.

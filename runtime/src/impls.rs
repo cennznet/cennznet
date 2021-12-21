@@ -16,7 +16,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{BlockPayoutInterval, EpochDuration, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
@@ -60,18 +60,16 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
 // Move to Substrate identity module eventually
 pub struct RegistrationImplementation<T: crml_governance::Config>(sp_std::marker::PhantomData<T>);
 impl<T: crml_governance::Config> crml_support::RegistrationInfo for RegistrationImplementation<T> {
-	type AccountId = T::AccountId;
+	// `T::AccountId` is missing `EncodeLike<AccountId32`
+	type AccountId = cennznet_primitives::types::AccountId;
 
-	fn registered_identity_count(who: &T::AccountId) -> u32 {
-		if !Identity::IdentityOf::<T>::contains_key(&who) {
-			return 0;
-		}
-		let registration = Identity::IdentityOf::<T>::get(who);
+	fn registered_identity_count(who: &Self::AccountId) -> u32 {
+		let registration = Identity::identity(who.clone());
 		match registration {
 			Some(registration) => registration
 				.judgements
 				.iter()
-				.filter(|j| j.1 == Identity::Judgement::KnownGood)
+				.filter(|j| j.1 == pallet_identity::Judgement::KnownGood)
 				.count() as u32,
 			None => 0,
 		}
@@ -127,13 +125,7 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
 impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
-		t == (&pallet_sudo::Module::<T>::key())
-	}
-	fn sorted_members() -> Vec<T::AccountId> {
-		vec![(pallet_sudo::Module::<T>::key())]
-	}
-	fn count() -> usize {
-		1
+		t == (&pallet_sudo::Pallet::<T>::key())
 	}
 }
 impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
