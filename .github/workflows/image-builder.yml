@@ -24,7 +24,7 @@ on:
 
 jobs:
   build-image:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || startsWith(github.head_ref, 'develop')  }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || contains(github.head_ref, 'develop')  }}
     # only run if release branch CI build passes or its a push to develop
     runs-on: [self-hosted, linux]
     env:
