@@ -24,7 +24,7 @@ on:
 
 jobs:
   build-image:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || contains(github.head_ref, 'develop')  }}
+    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'develop')
     # only run if release branch CI build passes or its a push to develop
     runs-on: [self-hosted, linux]
     env:
@@ -56,7 +56,7 @@ jobs:
             docker push $IMAGE_NAME:$COMMIT_TAG
           fi
       - name: notify success
-        if: ${{ success() }}
+        if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_USERNAME: "status bot"
