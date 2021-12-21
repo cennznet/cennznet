@@ -20,13 +20,8 @@
 
 use cennznet_primitives::eth::{EventId, ETHY_ENGINE_ID};
 use ethy_gadget::notification::EthyEventProofStream;
-use futures::{StreamExt, TryStreamExt};
-use jsonrpc_core::{
-	futures::{
-		future::Executor as Executor01, future::Future as Future01, sink::Sink as Sink01, stream::Stream as Stream01,
-	},
-	Result,
-};
+use futures::{FutureExt, SinkExt, StreamExt};
+use jsonrpc_core::Result;
 use jsonrpc_derive::rpc;
 use jsonrpc_pubsub::{manager::SubscriptionManager, typed::Subscriber, SubscriptionId};
 use log::warn;
@@ -70,7 +65,7 @@ impl<BE> EthyRpcHandler<BE> {
 	/// Creates a new EthyRpcHandler instance.
 	pub fn new<E>(event_proof_stream: EthyEventProofStream, executor: E, backend: Arc<BE>) -> Self
 	where
-		E: Executor01<Box<dyn Future01<Item = (), Error = ()> + Send>> + Send + Sync + 'static,
+		E: futures::task::Spawn + Send + Sync + 'static,
 	{
 		let manager = SubscriptionManager::new(Arc::new(executor));
 		Self {
@@ -95,14 +90,11 @@ where
 		let stream = self
 			.event_proof_stream
 			.subscribe()
-			.map(|x| Ok::<_, ()>(notification::EventProofResponse::new(x)))
-			.map_err(|e| warn!("Notification stream error: {:?}", e))
-			.compat();
+			.map(|x| Ok::<_, ()>(Ok(notification::EventProofResponse::new(x))));
 
 		self.manager.add(subscriber, |sink| {
-			let stream = stream.map(|res| Ok(res));
-			sink.sink_map_err(|e| warn!("Error sending notifications: {:?}", e))
-				.send_all(stream)
+			stream
+				.forward(sink.sink_map_err(|e| warn!("Error sending notifications: {:?}", e)))
 				.map(|_| ())
 		});
 	}

@@ -10,9 +10,9 @@ description = "RPC interface for the eth wallet module."
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0" }
 crml-support = { path = "../../support" }
-jsonrpc-core = "15.1.0"
-jsonrpc-core-client = "15.1.0"
-jsonrpc-derive = "15.1.0"
+jsonrpc-core = "18.0.0"
+jsonrpc-core-client = "18.0.0"
+jsonrpc-derive = "18.0.0"
 serde = { version = "1.0.101", features = ["derive"] }
 sc-client-db = { git = "https://github.com/paritytech/substrate", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
 sp-api = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
