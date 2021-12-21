@@ -64,16 +64,16 @@ impl<T: crml_governance::Config> crml_support::RegistrationInfo for Registration
 
 	fn registered_identity_count(who: &T::AccountId) -> u32 {
 		if !Identity::IdentityOf::<T>::contains_key(&who) {
-			return 0
+			return 0;
 		}
 		let registration = Identity::IdentityOf::<T>::get(who);
 		match registration {
-			Some(registration) => {
-				registration.judgements.iter().filter(|j|
-					j.1 == Identity::Judgement::KnownGood
-				).count() as u32
-			},
-			None => 0
+			Some(registration) => registration
+				.judgements
+				.iter()
+				.filter(|j| j.1 == Identity::Judgement::KnownGood)
+				.count() as u32,
+			None => 0,
 		}
 	}
 }

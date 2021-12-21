@@ -24,7 +24,7 @@ RUN apt-get update && \
     apt-get install -y ca-certificates openssl curl && \
     mkdir -p /root/.local/share/cennznet && \
     ln -s /root/.local/share/cennznet /data
-
+# rebuild
 COPY --from=0 /cennznet/target/release/cennznet /usr/local/bin
 # copy in genesis files
 COPY --from=0 /cennznet/genesis /cennznet/genesis

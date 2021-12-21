@@ -1,8 +1,9 @@
-- update to 4.0.0-dev
-- switch back to cennznet/substrate
-- staking module rebuild
+## Update plan
+- update crates to 4.0.0-dev
+- use this substrate commit to match frontier: https://github.com/paritytech/frontier/commit/bcae5695242cc346aa26814b1160fe7e041854b3#diff-13ee4b2252c9e516a0547f2891aa2105c3ca71c6d7a1e682c69be97998dfc87e
+- switch deps to cennznet/substrate fork (ensure ethy bridge keys are derived correctly)
 
-crate update progress
+## Crate update progress
 ---
 crml
 - [x] attestation (removed*)
@@ -19,10 +20,11 @@ crml
 - [x] eth-wallet
     - [x] tests
 - [x] erc20-peg
+    - [] tests
 - [x] support
 - [x] sylo (removed*)
 - [x] cennzx  
-- [] staking
+- [x] staking
     - [] tests
 - [] ethy-gadget
     - [] tests

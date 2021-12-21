@@ -19,11 +19,11 @@ use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
 use ethereum_types::{Bloom as H2048, U64};
+use scale_info::TypeInfo;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
-use scale_info::TypeInfo;
 
 /// A bridge message id
 pub type EventClaimId = u64;
