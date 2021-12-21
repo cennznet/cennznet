@@ -27,11 +27,11 @@ pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
-use crml_support::{StakingAmount, RegistrationInfo};
+use crml_support::{RegistrationInfo, StakingAmount};
 use frame_support::{
-	pallet_prelude::*,
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable},
+	pallet_prelude::*,
 	traits::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
 		Currency, LockIdentifier, ReservableCurrency,
@@ -465,9 +465,7 @@ impl<T: Config> Module<T> {
 		let max_stakers: u32 = T::StakingAmount::count_nominators();
 		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), max_stakers)
-			>= Self::referendum_threshold()
-		{
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), max_stakers) >= Self::referendum_threshold() {
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
@@ -484,7 +482,7 @@ impl<T: Config> Module<T> {
 					None,
 					63,
 					frame_system::RawOrigin::Root.into(),
-					Call::enact_referendum{proposal_id}.into(),
+					Call::enact_referendum { proposal_id }.into(),
 				)
 				.is_err()
 				{

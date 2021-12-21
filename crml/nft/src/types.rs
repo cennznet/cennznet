@@ -19,11 +19,11 @@ use crate::Config;
 use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
-use scale_info::TypeInfo;
 
 // Counts enum variants at compile time
 use variant_count::VariantCount;

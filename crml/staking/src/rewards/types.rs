@@ -16,9 +16,9 @@
 //! Staking reward types
 
 use crate::{EraIndex, Exposure};
-use scale_info::TypeInfo;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::weights::Weight;
+use scale_info::TypeInfo;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
 

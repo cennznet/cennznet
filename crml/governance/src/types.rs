@@ -14,8 +14,8 @@
 */
 
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 use scale_info::TypeInfo;
+use sp_std::prelude::*;
 
 /// Identifies proposals
 pub type ProposalId = u64;

@@ -41,15 +41,14 @@ use crml_support::{
 	NotarizationRewardHandler,
 };
 use frame_support::{
-	pallet_prelude::*,
 	decl_error, decl_event, decl_module, decl_storage, log,
+	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
-	transactional,
-	Parameter,
+	transactional, Parameter,
 };
 use frame_system::{
-	pallet_prelude::*,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
+	pallet_prelude::*,
 };
 use sp_runtime::{
 	generic::DigestItem,
@@ -676,7 +675,10 @@ impl<T: Config> Module<T> {
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
 
-		let call = Call::submit_notarization{payload, _signature: signature};
+		let call = Call::submit_notarization {
+			payload,
+			_signature: signature,
+		};
 
 		// Retrieve the signer to sign the payload
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
@@ -758,7 +760,11 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_notarization{ref payload, _signature: ref signature} = call {
+		if let Call::submit_notarization {
+			ref payload,
+			_signature: ref signature,
+		} = call
+		{
 			// notarization must be from an active notary
 			let notary_keys = Self::notary_keys();
 			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {

@@ -911,7 +911,8 @@ pub(crate) fn prepare_submission_with(
 		Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
 	let winners = sp_npos_elections::to_without_backing(winners);
 
-	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn()).map_err(|_| OffchainElectionError::ElectionFailed)?;;
+	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn())
+		.map_err(|_| OffchainElectionError::ElectionFailed)?;
 
 	// apply custom tweaks. awesome for testing.
 	tweak(&mut staked);
@@ -949,7 +950,8 @@ pub(crate) fn prepare_submission_with(
 		let staked = sp_npos_elections::assignment_ratio_to_staked(
 			assignments_reduced.clone(),
 			Staking::slashable_balance_of_fn(),
-		).map_err(|_| OffchainElectionError::ElectionFailed)?;
+		)
+		.map_err(|_| OffchainElectionError::ElectionFailed)?;
 
 		let support_map = to_supports(winners.as_slice(), staked.as_slice()).unwrap();
 		support_map.evaluate()

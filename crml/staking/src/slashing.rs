@@ -52,13 +52,13 @@ use super::{
 	BalanceOf, Config, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store,
 	UnappliedSlash,
 };
-use scale_info::TypeInfo;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Currency, Imbalance, OnUnbalanced},
 	StorageDoubleMap, StorageMap,
 };
+use scale_info::TypeInfo;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 

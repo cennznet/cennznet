@@ -228,31 +228,27 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{
-		Currency, CurrencyToVote, EstimateNextNewSession, IsSubType, LockableCurrency,
-		LockIdentifier, OnUnbalanced, UnixTime, WithdrawReasons,
+		Currency, CurrencyToVote, EstimateNextNewSession, IsSubType, LockIdentifier, LockableCurrency, OnUnbalanced,
+		UnixTime, WithdrawReasons,
 	},
 	weights::constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
 };
-use frame_system::{
-	self as system,
-	pallet_prelude::*,
-	offchain::SendTransactionTypes,
-};
+use frame_system::{self as system, offchain::SendTransactionTypes, pallet_prelude::*};
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
+use sp_npos_elections::{
+	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment,
+	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
+	PerThing128, Supports, VoteWeight,
+};
 use sp_runtime::{
-	InnerOf, Perbill, PerU16,
-	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, SaturatedConversion, Zero},
+	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, SaturatedConversion, Saturating, Zero},
+	InnerOf, PerU16, Perbill,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_npos_elections::{
-	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, NposSolution,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
-	VoteWeight,
-};
 use sp_staking::{
-	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
+	offence::{DisableStrategy, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromIterator, mem::size_of, prelude::*, vec};
@@ -780,7 +776,7 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	type OffchainSolutionWeightLimit: Get<Weight>;
 
 	/// Extrinsic weight info
-	type WeightInfo: WeightInfo;
+	type WeightInfo: WeightInfo + ElectionWeightExt;
 }
 
 /// Mode of era-forcing.
@@ -1199,7 +1195,7 @@ decl_module! {
 				// either current session final based on the plan, or we're forcing.
 				(Self::is_current_session_final() || Self::will_era_be_forced())
 			{
-				if let Some(next_session_change) = T::NextNewSession::estimate_next_new_session(now) {
+				if let (Some(next_session_change), _weight) = T::NextNewSession::estimate_next_new_session(now) {
 					if let Some(remaining) = next_session_change.checked_sub(&now) {
 						if remaining <= T::ElectionLookahead::get() && !remaining.is_zero() {
 							// create snapshot.
@@ -1221,7 +1217,6 @@ decl_module! {
 				} else {
 					log!(warn, "💸 Estimating next session change failed.");
 				}
-				add_weight(0, 0, T::NextNewSession::weight(now))
 			}
 			// For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
 			add_weight(3, 0, 0);
@@ -2241,7 +2236,14 @@ impl<T: Config> Module<T> {
 			let assignments = phragmen_result.assignments;
 
 			let staked_assignments =
-				sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, Self::slashable_balance_of_fn());
+				sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, Self::slashable_balance_of_fn())
+					.map_err(|_| {
+						log!(
+							error,
+							"💸 on-chain phragmen is failing due to a problem in the result. This is a bug."
+						)
+					})
+					.ok()?;
 
 			let supports = to_supports(&staked_assignments);
 
@@ -2938,7 +2940,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
@@ -2953,13 +2955,9 @@ where
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-	) -> Result<Weight, ()> {
-		// CHECK: can report
-		// if !Self::can_report() {
-		// 	return Err(());
-		// }
-
-		let reward_proportion = SlashRewardFraction::get();
+		_disable_strategy: DisableStrategy,
+	) -> Weight {
+		let reward_proportion = Self::slash_reward_fraction();
 		let mut consumed_weight: Weight = 0;
 		let mut add_db_reads_writes = |reads, writes| {
 			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -2969,8 +2967,8 @@ where
 			let active_era = Self::active_era();
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
-				// this offence need not be re-submitted.
-				return Ok(consumed_weight);
+				// This offence need not be re-submitted.
+				return consumed_weight;
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -2982,7 +2980,7 @@ where
 
 		let window_start = active_era.saturating_sub(T::BondingDuration::get());
 
-		// fast path for active-era report - most likely.
+		// Fast path for active-era report - most likely.
 		// `slash_session` cannot be in a future active era. It must be in `active_era` or before.
 		let slash_era = if slash_session >= active_era_start_session_index {
 			active_era
@@ -2990,7 +2988,7 @@ where
 			let eras = BondedEras::get();
 			add_db_reads_writes(1, 0);
 
-			// reverse because it's more likely to find reports from recent eras.
+			// Reverse because it's more likely to find reports from recent eras.
 			match eras
 				.iter()
 				.rev()
@@ -2998,8 +2996,8 @@ where
 				.next()
 			{
 				Some(&(ref slash_era, _)) => *slash_era,
-				// before bonding period. defensive - should be filtered out.
-				None => return Ok(consumed_weight),
+				// Before bonding period. defensive - should be filtered out.
+				None => return consumed_weight,
 			}
 		};
 
@@ -3044,7 +3042,7 @@ where
 				}
 				unapplied.reporters = details.reporters.clone();
 				if slash_defer_duration == 0 {
-					// apply right away.
+					// Apply right away.
 					slashing::apply_slash::<T>(unapplied);
 					{
 						let slash_cost = (6, 5);
@@ -3055,7 +3053,7 @@ where
 						);
 					}
 				} else {
-					// defer to end of some `slash_defer_duration` from now.
+					// Defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(active_era, move |for_later| for_later.push(unapplied));
 					add_db_reads_writes(1, 1);
 				}
@@ -3064,9 +3062,8 @@ where
 			}
 		}
 
-		Ok(consumed_weight)
+		consumed_weight
 	}
-	// CHECK: `can_report` removed...
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
@@ -3107,7 +3104,13 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_election_solution_unsigned {
-			winners: _, compact: _, score, era, size: _ } = call {
+			winners: _,
+			compact: _,
+			score,
+			era,
+			size: _,
+		} = call
+		{
 			use offchain_election::DEFAULT_LONGEVITY;
 
 			// discard solution not coming from the local OCW.
@@ -3156,7 +3159,14 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	}
 
 	fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-		if let Call::submit_election_solution_unsigned { winners: _, compact: _, score, era, size: _ } = call {
+		if let Call::submit_election_solution_unsigned {
+			winners: _,
+			compact: _,
+			score,
+			era,
+			size: _,
+		} = call
+		{
 			// IMPORTANT NOTE: These checks are performed in the dispatch call itself, yet we need
 			// to duplicate them here to prevent a block producer from putting a previously
 			// validated, yet no longer valid solution on chain.
@@ -3197,5 +3207,25 @@ impl<T: Config> crml_support::FinalSessionTracker for Module<T> {
 	}
 	fn is_active_session_final() -> bool {
 		Self::is_active_session_final()
+	}
+}
+
+pub trait ElectionWeightExt {
+	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight;
+}
+
+impl ElectionWeightExt for () {
+	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
+		(0 as Weight)
+			// Standard Error: 5_000
+			.saturating_add((1_970_000 as Weight).saturating_mul(v as Weight))
+			// Standard Error: 10_000
+			.saturating_add((173_000 as Weight).saturating_mul(t as Weight))
+			// Standard Error: 18_000
+			.saturating_add((9_783_000 as Weight).saturating_mul(a as Weight))
+			// Standard Error: 27_000
+			.saturating_add((2_224_000 as Weight).saturating_mul(d as Weight))
+			.saturating_add(700_000 as Weight)
+			.saturating_add(1_000_000 as Weight)
 	}
 }

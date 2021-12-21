@@ -17,13 +17,13 @@
 //! Low-level types used by CENNZnet node.
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::*;
-use scale_info::TypeInfo;
 
 /// An index to a block.
 pub type BlockNumber = u32;
