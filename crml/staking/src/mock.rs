@@ -849,7 +849,7 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 	let score = {
 		let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-		let support = to_supports(&winners, &staked_assignment).unwrap();
+		let support = to_supports(&staked_assignment).unwrap();
 		let score = (&support).evaluate();
 
 		assert!(sp_npos_elections::is_score_better::<Perbill>(
@@ -911,7 +911,7 @@ pub(crate) fn prepare_submission_with(
 		Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
 	let winners = sp_npos_elections::to_without_backing(winners);
 
-	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn());
+	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn()).map_err(|_| OffchainElectionError::ElectionFailed)?;;
 
 	// apply custom tweaks. awesome for testing.
 	tweak(&mut staked);
@@ -949,7 +949,7 @@ pub(crate) fn prepare_submission_with(
 		let staked = sp_npos_elections::assignment_ratio_to_staked(
 			assignments_reduced.clone(),
 			Staking::slashable_balance_of_fn(),
-		);
+		).map_err(|_| OffchainElectionError::ElectionFailed)?;
 
 		let support_map = to_supports(winners.as_slice(), staked.as_slice()).unwrap();
 		support_map.evaluate()

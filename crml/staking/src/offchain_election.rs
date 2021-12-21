@@ -160,7 +160,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(winners_len: u32, size: Electio
 
 	// helper closures.
 	let weight_with = |voters: u32| -> Weight {
-		W::submit_solution_better(size.validators.into(), size.nominators.into(), voters, winners_len)
+		W::submit_unsigned(size.validators.into(), size.nominators.into(), voters, winners_len)
 	};
 
 	let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {
@@ -341,7 +341,7 @@ where
 		sp_npos_elections::assignment_staked_to_ratio_normalized(staked).map_err(|e| OffchainElectionError::from(e))?;
 
 	// compact encode the assignment.
-	let compact = CompactAssignments::from_assignment(low_accuracy_assignment, nominator_index, validator_index)
+	let compact = CompactAssignments::from_assignment(&low_accuracy_assignment, nominator_index, validator_index)
 		.map_err(|e| OffchainElectionError::from(e))?;
 
 	// potentially reduce the size of the compact to fit weight.
@@ -351,7 +351,7 @@ where
 		debug,
 		"💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
 		maximum_weight,
-		T::WeightInfo::submit_solution_better(
+		T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -369,10 +369,10 @@ where
 	let score = {
 		let compact = compact.clone();
 		let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
-		let staked =
-			sp_npos_elections::assignment_ratio_to_staked(assignments.clone(), <Module<T>>::slashable_balance_of_fn());
+		let staked_assignments =
+			sp_npos_elections::assignment_ratio_to_staked_normalized(assignments.clone(), <Module<T>>::slashable_balance_of_fn());
 
-		let supports = to_supports(&winners, &staked).map_err(|_| OffchainElectionError::ElectionFailed)?;
+		let supports = to_supports(&staked_assignments);
 		(&supports).evaluate()
 	};
 

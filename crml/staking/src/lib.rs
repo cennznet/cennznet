@@ -1966,7 +1966,7 @@ decl_module! {
 		///   - Initial solution is almost the same.
 		///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
 		/// # </weight>
-		#[weight = T::WeightInfo::submit_solution_better(
+		#[weight = T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -2000,7 +2000,7 @@ decl_module! {
 		/// # <weight>
 		/// See `crate::weight` module.
 		/// # </weight>
-		#[weight = T::WeightInfo::submit_solution_better(
+		#[weight = T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -2241,16 +2241,9 @@ impl<T: Config> Module<T> {
 			let assignments = phragmen_result.assignments;
 
 			let staked_assignments =
-				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
+				sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, Self::slashable_balance_of_fn());
 
-			let supports = to_supports(&elected_stashes, &staked_assignments)
-				.map_err(|_| {
-					log!(
-						error,
-						"💸 on-chain phragmen is failing due to a problem in the result. This must be a bug."
-					)
-				})
-				.ok()?;
+			let supports = to_supports(&staked_assignments);
 
 			// collect exposures
 			let exposures = Self::collect_exposures(supports);
@@ -2512,7 +2505,7 @@ impl<T: Config> Module<T> {
 			sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
 		// build the support map thereof in order to evaluate.
-		let supports = to_supports(&winners, &staked_assignments).map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
+		let supports = to_supports(&staked_assignments);
 
 		// Check if the score is the same as the claimed one.
 		let submitted_score = (&supports).evaluate();

@@ -19,6 +19,7 @@ pallet-authorship = { default-features = false, git = "https://github.com/parity
 pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 pallet-staking = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-npos-elections = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
@@ -35,7 +36,6 @@ pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate",
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 crml-generic-asset = { path = "../generic-asset" }
 crml-support = { path = "../support" }
-sp-core = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-storage = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", version = "4.0.0-dev" }
@@ -48,6 +48,7 @@ std = [
 	"serde",
 	"scale-info/std",
 	"crml-support/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
