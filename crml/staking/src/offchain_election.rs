@@ -491,6 +491,16 @@ mod test {
 		fn kick(w: u32) -> Weight {
 			unimplemented!()
 		}
+		fn get_npos_voters(_: u32, _: u32, _: u32) -> u64 { unimplemented!() }
+		fn get_npos_targets(_: u32) -> u64 { unimplemented!() }
+		fn set_staking_configs() -> u64 { unimplemented!() }
+		fn chill_other() -> u64 { unimplemented!() }
+	}
+
+	impl crate::ElectionWeightExt for Staking {
+		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
+			unimplemented!()
+		}
 	}
 
 	#[test]

@@ -2602,7 +2602,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let mock::Event::staking(inner) = e {
+						if let mock::Event::Staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2673,7 +2673,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let mock::Event::staking(inner) = e {
+						if let mock::Event::Staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2692,7 +2692,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let mock::Event::staking(inner) = e {
+						if let mock::Event::Staking(inner) = e {
 							Some(inner)
 						} else {
 							None
@@ -2726,7 +2726,7 @@ mod offchain_election {
 					.into_iter()
 					.map(|r| r.event)
 					.filter_map(|e| {
-						if let mock::Event::staking(inner) = e {
+						if let mock::Event::Staking(inner) = e {
 							Some(inner)
 						} else {
 							None

@@ -79,10 +79,10 @@ impl OneSessionHandler<AccountId> for OtherSessionHandler {
 		SESSION.with(|x| *x.borrow_mut() = (validators.map(|x| x.0.clone()).collect(), HashSet::new()));
 	}
 
-	fn on_disabled(validator_index: usize) {
+	fn on_disabled(validator_index: u32) {
 		SESSION.with(|d| {
 			let mut d = d.borrow_mut();
-			let value = d.0[validator_index];
+			let value = d.0[validator_index as usize];
 			d.1.insert(value);
 		})
 	}
@@ -161,11 +161,11 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		Staking: staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Staking: staking::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -188,7 +188,7 @@ parameter_types! {
 		);
 }
 impl frame_system::Config for Test {
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
@@ -210,6 +210,7 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {

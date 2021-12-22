@@ -11,9 +11,9 @@ crml
 - [x] generic-asset
     - [x] tests
 - [x] governance
-    - [] tests
+    - [x] tests
 - [x] nft
-    - [] tests
+    - [x] tests
 - [x] transaction-payment
     - [] tests
 - [x] eth-bridge
@@ -21,11 +21,11 @@ crml
 - [x] eth-wallet
     - [x] tests
 - [x] erc20-peg
-    - [] tests
+    - [x] tests
 - [x] support
 - [x] sylo (removed*)
 - [x] cennzx
-    - [] tests
+    - [x] tests
 - [x] staking
     - [] tests
 - [x] ethy-gadget
