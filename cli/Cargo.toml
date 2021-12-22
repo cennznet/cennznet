@@ -3,7 +3,6 @@ name = "cennznet-cli"
 version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "CENNZnet node implementation in Rust."
-build = "build.rs"
 edition = "2018"
 license = "GPL-3.0"
 
@@ -11,20 +10,20 @@ license = "GPL-3.0"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-futures = { version = "0.3.1", features = ["compat"] }
-serde = { version = "1.0.102", features = ["derive"] }
-structopt = "0.3.25"
+futures = "0.3.16"
+serde = { version = "1.0.126", features = ["derive"] }
+structopt = { version = "0.3.8" }
 url = "2.2.2"
 
 sc-authority-discovery = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-chain-spec = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", features = ["wasmtime"] }
+sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sp-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-authorship = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-authority-discovery = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-consensus-babe = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
@@ -41,13 +40,15 @@ sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/subst
 sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 
 # These dependencies are used for the node RPCs
-jsonrpc-core = "15.1.0"
+jsonrpc-core = "18.0.0"
+node-inspect = { version = "0.9.0-dev", path = "./inspect" }
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-block-builder = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sp-keystore = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
+sp-transaction-storage-proof = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-utils = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
 sc-consensus-slots = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }

@@ -86,6 +86,8 @@ pub struct Extensions {
 	pub fork_blocks: sc_client_api::ForkBlocks<Block>,
 	/// Known bad block hashes.
 	pub bad_blocks: sc_client_api::BadBlocks<Block>,
+	/// The light sync state extension used by the sync-state rpc.
+	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
 }
 
 /// Specialised `ChainSpec`.
@@ -371,11 +373,10 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 	];
 
 	GenesisConfig {
-		frame_system: Some(SystemConfig {
+		system: SystemConfig {
 			code: WASM_BINARY.expect("wasm binary not available").to_vec(),
-			changes_trie_config: Default::default(),
-		}),
-		pallet_session: Some(SessionConfig {
+		},
+		session: SessionConfig {
 			keys: initial_authorities
 				.iter()
 				.map(|x| {
@@ -386,8 +387,8 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 					)
 				})
 				.collect::<Vec<_>>(),
-		}),
-		crml_staking: Some(StakingConfig {
+		},
+		staking: StakingConfig {
 			validator_count: initial_authorities.len() as u32 * 2,
 			minimum_validator_count: initial_authorities.len() as u32,
 			stakers: initial_authorities
@@ -398,16 +399,16 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			minimum_bond: 1,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
-		}),
-		pallet_sudo: Some(SudoConfig { key: root_key.clone() }),
-		pallet_babe: Some(BabeConfig {
+		},
+		sudo: SudoConfig { key: root_key.clone() },
+		babe: BabeConfig {
 			authorities: vec![],
 			epoch_config: Some(cennznet_runtime::BABE_GENESIS_EPOCH_CONFIG),
-		}),
-		pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
-		pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-		pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
-		crml_generic_asset: Some(GenericAssetConfig {
+		},
+		im_online: ImOnlineConfig { keys: vec![] },
+		authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+		grandpa: GrandpaConfig { authorities: vec![] },
+		generic_asset: GenericAssetConfig {
 			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
 			// Grant root key full permissions (mint,burn,update) on the following assets
 			permissions: vec![(CENNZ_ASSET_ID, root_key.clone()), (CPAY_ASSET_ID, root_key.clone())],
@@ -420,19 +421,19 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 				(CENNZ_ASSET_ID, AssetInfo::new(b"CENNZ".to_vec(), 4, 1)),
 				(CPAY_ASSET_ID, AssetInfo::new(b"CPAY".to_vec(), 4, 1)),
 			],
-		}),
-		crml_cennzx: Some(CennzxConfig {
+		},
+		cennzx: CennzxConfig {
 			// 0.003%
 			fee_rate: FeeRate::<PerMillion>::try_from(FeeRate::<PerThousand>::from(3u128)).unwrap(),
 			core_asset_id: CPAY_ASSET_ID,
-		}),
-		crml_staking_rewards: Some(RewardsConfig {
+		},
+		rewards: RewardsConfig {
 			// 20% of all fees
 			development_fund_take: Perbill::from_percent(20),
 			// 80% APY
 			inflation_rate: FixedU128::saturating_from_rational(8, 10),
-		}),
-		crml_erc20_peg: Some(Erc20PegConfig { erc20s }),
+		},
+		erc_20_peg: Erc20PegConfig { erc20s },
 	}
 }
 

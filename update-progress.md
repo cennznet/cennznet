@@ -28,11 +28,11 @@ crml
     - [] tests
 - [x] staking
     - [] tests
-- [] ethy-gadget
+- [x] ethy-gadget
     - [] tests
-- [] cli
+- [x] cli
     - [] tests
-- [] runtime
+- [x] runtime
     - [] tests
 
 *modules unused, removed to speed up update process
