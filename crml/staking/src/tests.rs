@@ -3376,6 +3376,7 @@ mod offchain_election {
 			})
 	}
 
+	// FIX: snapshot not created
 	#[test]
 	fn nomination_slash_filter_is_checked() {
 		// If a nominator has voted for someone who has been recently slashed, that particular
@@ -3525,6 +3526,7 @@ mod offchain_election {
 		})
 	}
 
+	// FIX: test did not panic as expected
 	#[test]
 	#[should_panic]
 	fn offence_is_blocked_when_window_open() {

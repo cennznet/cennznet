@@ -504,7 +504,7 @@ mod test {
 
 	impl crate::ElectionWeightExt for Staking {
 		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
-			unimplemented!()
+			v as Weight
 		}
 	}
 
