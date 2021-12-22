@@ -434,10 +434,7 @@ mod test {
 	fn invalid_royalties_plan() {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
-			entitlements: vec![
-				(1_u32, Permill::from_float(0.2)),
-				(2_u32, Permill::from_float(0.81)),
-			],
+			entitlements: vec![(1_u32, Permill::from_float(0.2)), (2_u32, Permill::from_float(0.81)),],
 		}
 		.validate());
 	}
@@ -448,10 +445,7 @@ mod test {
 			let collection_name = b"test-collection".to_vec();
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![
-					(3_u64, Permill::from_float(0.2)),
-					(4_u64, Permill::from_float(0.3)),
-				],
+				entitlements: vec![(3_u64, Permill::from_float(0.2)), (4_u64, Permill::from_float(0.3))],
 			};
 			let collection_info = CollectionInfo {
 				name: collection_name,

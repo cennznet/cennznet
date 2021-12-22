@@ -223,10 +223,7 @@ fn create_collection_royalties_invalid() {
 				Some(owner).into(),
 				b"test-collection".to_vec(),
 				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_float(1.2)),
-						(4_u64, Permill::from_float(3.3))
-					]
+					entitlements: vec![(3_u64, Permill::from_float(1.2)), (4_u64, Permill::from_float(3.3))]
 				}),
 			),
 			Error::<Test>::RoyaltiesInvalid
@@ -1012,10 +1009,7 @@ fn buy_with_overcommitted_royalties() {
 		// royalty schedules should not make it into storage but we protect against it anyway
 		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
-			entitlements: vec![
-				(11_u64, Permill::from_float(0.125)),
-				(12_u64, Permill::from_float(0.9)),
-			],
+			entitlements: vec![(11_u64, Permill::from_float(0.125)), (12_u64, Permill::from_float(0.9))],
 		};
 		CollectionRoyalties::<Test>::insert(collection_id, bad_schedule.clone());
 		let listing_id = Nft::next_listing_id();
@@ -1793,10 +1787,7 @@ fn mint_series_royalties_invalid() {
 				Some(token_owner),
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_float(1.2)),
-						(4_u64, Permill::from_float(3.3))
-					]
+					entitlements: vec![(3_u64, Permill::from_float(1.2)), (4_u64, Permill::from_float(3.3))]
 				}),
 			),
 			Error::<Test>::RoyaltiesInvalid
