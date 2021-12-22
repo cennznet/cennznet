@@ -25,7 +25,7 @@ crml
 - [x] support
 - [x] sylo (removed*)
 - [x] cennzx
-    - [] tests
+    - [x] tests
 - [x] staking
     - [] tests
 - [x] ethy-gadget
