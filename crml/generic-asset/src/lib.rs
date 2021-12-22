@@ -213,6 +213,7 @@ decl_module! {
 			#[allow(dead_code)]
 			mod old_storage {
 				use super::{Config, BalanceLockOld};
+				use sp_std::prelude::*;
 				pub struct Module<T>(sp_std::marker::PhantomData<T>);
 				frame_support::decl_storage! {
 					trait Store for Module<T: Config> as GenericAsset {

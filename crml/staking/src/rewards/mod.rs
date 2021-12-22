@@ -434,8 +434,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					payout.stakers_cut / (validator_commission_stake_map.len() as u32).into()
 				} else {
-					Perbill::from_rational(validator_reward_points, total_reward_points)
-						* payout.stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * payout.stakers_cut
 				};
 
 				if validator_total_payout.is_zero() {
@@ -489,15 +488,13 @@ impl<T: Config> Module<T> {
 
 		// Iterate all nominator staked amounts
 		for nominator_stake in &validator_stake.others {
-			let contribution_ratio =
-				Perbill::from_rational(nominator_stake.value, aggregate_validator_stake);
+			let contribution_ratio = Perbill::from_rational(nominator_stake.value, aggregate_validator_stake);
 			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
 		// As a validator always self-nominates using it's own stake.
-		let validator_contribution_ratio =
-			Perbill::from_rational(validator_stake.own, aggregate_validator_stake);
+		let validator_contribution_ratio = Perbill::from_rational(validator_stake.own, aggregate_validator_stake);
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
