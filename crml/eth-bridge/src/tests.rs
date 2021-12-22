@@ -25,7 +25,7 @@ use frame_support::{
 };
 use sp_core::{
 	ecdsa::Signature,
-	offchain::{testing, OffchainExt},
+	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
 	Public, H256,
 };
 use sp_runtime::offchain::StorageKind;
@@ -48,8 +48,8 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 	}
 );
 
@@ -59,7 +59,7 @@ parameter_types! {
 impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = u64;
@@ -79,6 +79,7 @@ impl frame_system::Config for TestRuntime {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {
@@ -278,7 +279,8 @@ fn last_session_change() {
 fn eth_client_http_request() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
 	let mut t = sp_io::TestExternalities::default();
-	t.register_extension(OffchainExt::new(offchain));
+	t.register_extension(OffchainDbExt::new(offchain.clone()));
+	t.register_extension(OffchainWorkerExt::new(offchain));
 	// Set the ethereum http endpoint for OCW queries
 	t.execute_with(|| sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, b"ETH_HTTP", &MOCK_ETH_HTTP_URI));
 
