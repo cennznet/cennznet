@@ -11,7 +11,7 @@ crml
 - [x] generic-asset
     - [x] tests
 - [x] governance
-    - [] tests
+    - [x] tests
 - [x] nft
     - [] tests
 - [x] transaction-payment
