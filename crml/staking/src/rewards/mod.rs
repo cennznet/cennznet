@@ -377,7 +377,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					stakers_cut / (validators.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * stakers_cut
 				};
 				remainder -= payout;
 				(validator, payout)
@@ -434,7 +434,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					payout.stakers_cut / (validator_commission_stake_map.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points)
+					Perbill::from_rational(validator_reward_points, total_reward_points)
 						* payout.stakers_cut
 				};
 
@@ -490,14 +490,14 @@ impl<T: Config> Module<T> {
 		// Iterate all nominator staked amounts
 		for nominator_stake in &validator_stake.others {
 			let contribution_ratio =
-				Perbill::from_rational_approximation(nominator_stake.value, aggregate_validator_stake);
+				Perbill::from_rational(nominator_stake.value, aggregate_validator_stake);
 			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
 		// As a validator always self-nominates using it's own stake.
 		let validator_contribution_ratio =
-			Perbill::from_rational_approximation(validator_stake.own, aggregate_validator_stake);
+			Perbill::from_rational(validator_stake.own, aggregate_validator_stake);
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
@@ -1080,7 +1080,7 @@ mod tests {
 			let mock_commission_stake_map = MockCommissionStakeInfo::new(
 				(1, 1_000),
 				vec![(2, 2_000), (3, 2_000)],
-				Perbill::from_rational_approximation(2u32, 1u32),
+				Perbill::from_rational(2u32, 1u32),
 			);
 
 			let reward = 1_000;
@@ -1261,7 +1261,7 @@ mod tests {
 			let (per_validator_payouts, _remainder) =
 				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
-			let validator_1_payout = Perbill::from_rational_approximation(
+			let validator_1_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_1)
@@ -1270,7 +1270,7 @@ mod tests {
 				authoring_points.total,
 			) * validator_total_payout;
 
-			let validator_2_payout = Perbill::from_rational_approximation(
+			let validator_2_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_2)
@@ -1363,7 +1363,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let (validator_stash, validator_stake) = (13, 1_000);
 			let nominator_stakes = [(1_u64, 1_000_u64), (2, 2_000), (3, 500)];
-			let commission = Perbill::from_rational_approximation(5_u32, 100);
+			let commission = Perbill::from_rational(5_u32, 100);
 
 			let exposures = MockCommissionStakeInfo::new(
 				(validator_stash, validator_stake),
