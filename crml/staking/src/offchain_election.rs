@@ -485,16 +485,21 @@ mod test {
 		fn new_era(v: u32, n: u32) -> Weight {
 			unimplemented!()
 		}
-		fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-			(0 * v + 0 * n + 1000 * a + 0 * w) as Weight
-		}
 		fn kick(w: u32) -> Weight {
 			unimplemented!()
 		}
-		fn get_npos_voters(_: u32, _: u32, _: u32) -> u64 { unimplemented!() }
-		fn get_npos_targets(_: u32) -> u64 { unimplemented!() }
-		fn set_staking_configs() -> u64 { unimplemented!() }
-		fn chill_other() -> u64 { unimplemented!() }
+		fn get_npos_voters(_: u32, _: u32, _: u32) -> u64 {
+			unimplemented!()
+		}
+		fn get_npos_targets(_: u32) -> u64 {
+			unimplemented!()
+		}
+		fn set_staking_configs() -> u64 {
+			unimplemented!()
+		}
+		fn chill_other() -> u64 {
+			unimplemented!()
+		}
 	}
 
 	impl crate::ElectionWeightExt for Staking {

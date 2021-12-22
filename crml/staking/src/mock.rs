@@ -224,6 +224,8 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type MaxLocks = MaxLocks;
 	type WeightInfo = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
 }
 
 parameter_types! {
@@ -244,7 +246,6 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type SessionHandler = (OtherSessionHandler,);
 	type Keys = SessionKeys;
-	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = ();
 }
 
@@ -541,7 +542,7 @@ impl ExtBuilder {
 			// session length is 1, then it is already triggered.
 			ext.execute_with(|| {
 				System::set_block_number(1);
-				Session::on_initialize(1);
+				<pallet_session::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(1);
 				Staking::on_initialize(1);
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
@@ -682,7 +683,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	Staking::on_finalize(System::block_number());
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
-		Session::on_initialize(b);
+		<pallet_session::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(b);
 		Staking::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
@@ -735,11 +736,12 @@ pub(crate) fn on_offence_in_era(
 	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
+	disable_strategy: DisableStrategy,
 ) {
 	let bonded_eras = crate::BondedEras::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session).unwrap();
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
 			return;
 		} else if bonded_era > era {
 			break;
@@ -751,8 +753,8 @@ pub(crate) fn on_offence_in_era(
 			offenders,
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
-		)
-		.unwrap();
+			disable_strategy,
+		);
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
@@ -763,7 +765,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = Staking::active_era().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now)
+	on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
@@ -850,7 +852,7 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 	let score = {
 		let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-		let support = to_supports(&staked_assignment).unwrap();
+		let support = to_supports(&staked_assignment);
 		let score = (&support).evaluate();
 
 		assert!(sp_npos_elections::is_score_better::<Perbill>(
@@ -885,7 +887,7 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 	let assignments_reduced =
 		sp_npos_elections::assignment_staked_to_ratio::<AccountId, OffchainAccuracy>(staked_assignment);
 
-	let compact = CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index).unwrap();
+	let compact = CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index).unwrap();
 
 	// winner ids to index
 	let winners = winners
@@ -910,10 +912,9 @@ pub(crate) fn prepare_submission_with(
 	// run election on the default stuff.
 	let sp_npos_elections::ElectionResult { winners, assignments } =
 		Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
-	let winners = sp_npos_elections::to_without_backing(winners);
+	let winners: Vec<AccountId> = winners.into_iter().map(|(who, _)| who).collect();
 
-	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn())
-		.map_err(|_| OffchainElectionError::ElectionFailed)?;
+	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::slashable_balance_of_fn());
 
 	// apply custom tweaks. awesome for testing.
 	tweak(&mut staked);
@@ -951,16 +952,15 @@ pub(crate) fn prepare_submission_with(
 		let staked = sp_npos_elections::assignment_ratio_to_staked(
 			assignments_reduced.clone(),
 			Staking::slashable_balance_of_fn(),
-		)
-		.map_err(|_| OffchainElectionError::ElectionFailed)?;
+		);
 
-		let support_map = to_supports(winners.as_slice(), staked.as_slice()).unwrap();
+		let support_map = to_supports(staked.as_slice());
 		support_map.evaluate()
 	} else {
 		Default::default()
 	};
 
-	let compact = CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
+	let compact = CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
 		.expect("Failed to create compact");
 
 	// winner ids to index
