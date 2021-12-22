@@ -329,7 +329,7 @@ fn lock_storage_is_freed_when_empty() {
 		let lock_1 = BalanceLock {
 			id: ID_1,
 			amount: 3u64,
-			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT.into(),
 		};
 		let alice_locks = vec![lock_1];
 		<Locks<Test>>::insert(STAKING_ASSET_ID, ALICE, &alice_locks);
@@ -347,12 +347,12 @@ fn get_balance_reads_all_balance_types() {
 		let lock_1 = BalanceLock {
 			id: ID_1,
 			amount: 10u64,
-			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT.into(),
 		};
 		let lock_2 = BalanceLock {
 			id: ID_2,
 			amount: 20u64,
-			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT.into(),
 		};
 		let reserved_amount = 50;
 		let alice_locks = vec![lock_1, lock_2];
@@ -514,56 +514,49 @@ fn migrate_locks_on_runtime_upgrade() {
 		#[allow(dead_code)]
 		mod old_storage {
 			use super::Config;
-			use crate::types::BalanceLock;
+			use crate::types::{BalanceLockOld};
 
 			pub struct Module<T>(sp_std::marker::PhantomData<T>);
 			frame_support::decl_storage! {
 				trait Store for Module<T: Config> as GenericAsset {
-					pub Locks get(fn locks):
-						map hasher(blake2_128_concat) u64 => Vec<BalanceLock<u64>>;
+					pub Locks get(fn locks): double_map hasher(twox_64_concat) T::AssetId, hasher(blake2_128_concat) T::AccountId => Vec<BalanceLockOld<T::Balance>>;
 				}
 			}
 		}
 
-		assert!(!<Locks<Test>>::contains_key(STAKING_ASSET_ID, ALICE));
-		assert!(!<Locks<Test>>::contains_key(STAKING_ASSET_ID, BOB));
-
-		let lock_1 = BalanceLock {
+		let lock_1 = BalanceLockOld {
 			id: ID_1,
 			amount: 3u64,
 			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
 		};
-		let lock_2 = BalanceLock {
+		let lock_2 = BalanceLockOld {
 			id: ID_1,
 			amount: 5u64,
 			reasons: WithdrawReasons::TRANSFER,
 		};
-		let lock_3 = BalanceLock {
+		let lock_3 = BalanceLockOld {
 			id: ID_2,
 			amount: 7u64,
 			reasons: WithdrawReasons::TIP,
 		};
 		let alice_locks = vec![lock_1, lock_2, lock_3];
-		old_storage::Locks::insert(ALICE, alice_locks.clone());
+		<old_storage::Locks<Test>>::insert(STAKING_ASSET_ID, ALICE, alice_locks.clone());
 
-		let lock_4 = BalanceLock {
+		let lock_4 = BalanceLockOld {
 			id: ID_2,
 			amount: 11u64,
 			reasons: WithdrawReasons::FEE,
 		};
 		let bob_locks = vec![lock_4];
-		old_storage::Locks::insert(BOB, bob_locks.clone());
+		<old_storage::Locks<Test>>::insert(STAKING_ASSET_ID, BOB, bob_locks.clone());
 
 		let _ = GenericAsset::on_runtime_upgrade();
 
-		// Old lock storage is now freed
-		assert!(!old_storage::Locks::contains_key(ALICE));
-		assert!(!old_storage::Locks::contains_key(BOB));
-
-		assert_eq!(<Module<Test>>::staking_asset_id(), STAKING_ASSET_ID);
 		assert_eq!(<Locks<Test>>::iter().count(), 2);
-		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, ALICE), alice_locks);
-		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, BOB), bob_locks);
+		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, ALICE), alice_locks.iter().map(|l| l.clone().upgrade()).collect::<Vec<BalanceLock<u64>>>());
+		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, BOB), bob_locks.iter().map(|l| l.clone().upgrade()).collect::<Vec<BalanceLock<u64>>>());
+		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
+
 	});
 }
 
@@ -574,17 +567,17 @@ fn ensure_can_withdraw() {
 		let lock_1 = BalanceLock {
 			id: ID_1,
 			amount: 3u64,
-			reasons: WithdrawReasons::TRANSACTION_PAYMENT,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT.into(), // Reasons::Fee
 		};
 		let lock_2 = BalanceLock {
 			id: ID_1,
 			amount: 5u64,
-			reasons: WithdrawReasons::TRANSFER,
+			reasons: WithdrawReasons::TRANSFER.into(), // Reasons::Misc
 		};
 		let lock_3 = BalanceLock {
 			id: ID_2,
 			amount: 7u64,
-			reasons: WithdrawReasons::TIP,
+			reasons: WithdrawReasons::all().into(), // Reasons::Misc
 		};
 		let alice_locks = vec![lock_1.clone(), lock_2.clone(), lock_3.clone()];
 		<Locks<Test>>::insert(STAKING_ASSET_ID, ALICE, alice_locks.clone());
@@ -612,35 +605,61 @@ fn ensure_can_withdraw() {
 				STAKING_ASSET_ID,
 				&ALICE,
 				1,
-				WithdrawReasons::all(),
+				WithdrawReasons::all(), // Reasons::All
 				alice_max_locked - 1
 			),
 			Error::<Test>::LiquidityRestrictions
 		);
 
+		let bob_lock = BalanceLock {
+			id: ID_1,
+			amount: 3u64,
+			reasons: WithdrawReasons::TRANSACTION_PAYMENT.into(), //Reasons::Fee
+		};
+		<Locks<Test>>::insert(STAKING_ASSET_ID, BOB, vec![bob_lock.clone()]);
+
 		// Withdrawal is okay if it's for a reason other than the reasons the current locks are created for.
 		assert_ok!(GenericAsset::ensure_can_withdraw(
 			STAKING_ASSET_ID,
-			&ALICE,
+			&BOB,
 			1,
-			WithdrawReasons::FEE,
+			WithdrawReasons::FEE, // Reasons::Misc
 			0
 		));
 
-		// Withdrawal conflicts
-		alice_locks.iter().for_each(|x| {
-			assert_noop!(
-				GenericAsset::ensure_can_withdraw(STAKING_ASSET_ID, &ALICE, 1, x.reasons, x.amount - 1),
-				Error::<Test>::LiquidityRestrictions
-			);
-			assert_ok!(GenericAsset::ensure_can_withdraw(
+		let bob_lock = BalanceLock {
+			id: ID_1,
+			amount: 3u64,
+			reasons: WithdrawReasons::FEE.into(), //Reasons::Fee
+		};
+		<Locks<Test>>::insert(STAKING_ASSET_ID, BOB, vec![bob_lock.clone()]);
+		// Withdrawal is okay if it's for a reason other than the reasons the current locks are created for.
+		assert_ok!(GenericAsset::ensure_can_withdraw(
+			STAKING_ASSET_ID,
+			&BOB,
+			1,
+			WithdrawReasons::TRANSACTION_PAYMENT, // Reasons::Misc
+			0
+		));
+
+		let charlie_lock = BalanceLock {
+			id: ID_1,
+			amount: 3u64,
+			reasons: WithdrawReasons::all().into(), //Reasons::All
+		};
+		<Locks<Test>>::insert(STAKING_ASSET_ID, CHARLIE, vec![charlie_lock.clone()]);
+
+		// Withdrawal is not okay if the lock reason is all
+		assert_noop!(
+			GenericAsset::ensure_can_withdraw(
 				STAKING_ASSET_ID,
-				&ALICE,
+				&CHARLIE,
 				1,
-				x.reasons,
-				x.amount
-			));
-		});
+				WithdrawReasons::FEE, // Reasons::Misc
+				charlie_lock.amount - 1,
+			),
+			Error::<Test>::LiquidityRestrictions
+		);
 	});
 }
 
@@ -1631,7 +1650,7 @@ fn update_permission_should_raise_event() {
 			permissions.clone()
 		));
 
-		let expected_event = TestEvent::crml_generic_asset(RawEvent::PermissionUpdated(ASSET_ID, permissions));
+		let expected_event = TestEvent::GenericAsset(RawEvent::PermissionUpdated(ASSET_ID, permissions));
 		assert!(System::events().iter().any(|record| record.event == expected_event));
 	});
 }
@@ -1653,7 +1672,7 @@ fn mint_should_raise_event() {
 		));
 		assert_ok!(GenericAsset::mint(Origin::signed(ALICE), ASSET_ID, BOB, amount));
 
-		let expected_event = TestEvent::crml_generic_asset(RawEvent::Minted(ASSET_ID, BOB, amount));
+		let expected_event = TestEvent::GenericAsset(RawEvent::Minted(ASSET_ID, BOB, amount));
 		assert!(System::events().iter().any(|record| record.event == expected_event));
 	});
 }
@@ -1675,7 +1694,7 @@ fn burn_should_raise_event() {
 		));
 		assert_ok!(GenericAsset::burn(Origin::signed(ALICE), ASSET_ID, ALICE, amount));
 
-		let expected_event = TestEvent::crml_generic_asset(RawEvent::Burned(ASSET_ID, ALICE, amount));
+		let expected_event = TestEvent::GenericAsset(RawEvent::Burned(ASSET_ID, ALICE, amount));
 		assert!(System::events().iter().any(|record| record.event == expected_event));
 	});
 }
@@ -1699,7 +1718,7 @@ fn total_issuance_should_update_after_positive_imbalance_dropped() {
 		let positive_im = PositiveImbalanceOf::new(0, asset_id);
 		let other = PositiveImbalanceOf::new(100, asset_id);
 		// merge
-		let merged_im = positive_im.checked_merge(other);
+		let merged_im = positive_im.merge(other);
 		// explitically drop `imbalance` so issuance is managed
 		drop(merged_im);
 		assert_eq!(GenericAsset::total_issuance(&asset_id), balance + 100);
@@ -1716,7 +1735,7 @@ fn total_issuance_should_update_after_negative_imbalance_dropped() {
 		let positive_im = NegativeImbalanceOf::new(0, asset_id);
 		let other = NegativeImbalanceOf::new(100, asset_id);
 		// merge
-		let merged_im = positive_im.checked_merge(other);
+		let merged_im = positive_im.merge(other);
 		// explitically drop `imbalance` so issuance is managed
 		drop(merged_im);
 		assert_eq!(GenericAsset::total_issuance(&asset_id), balance - 100);

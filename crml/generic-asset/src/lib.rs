@@ -224,7 +224,7 @@ decl_module! {
 
 			// original migration here:
 			// https://github.com/paritytech/substrate/pull/4649/files
-			let locks: Vec<(T::AssetId, T::AccountId, Vec<BalanceLockOld<T::Balance>>)> = old_storage::Locks::<T>::drain().collect();
+			let locks: Vec<(T::AssetId, T::AccountId, Vec<BalanceLockOld<T::Balance>>)> = old_storage::Locks::<T>::iter().collect();
 			let weight = locks.len() as Weight * 100_000;
 			for (asset_id, address, old_locks) in &locks {
 				Locks::<T>::insert(
@@ -454,7 +454,7 @@ decl_storage! {
 		/// Storage version of the pallet.
 		///
 		/// This is set to v1 for new networks.
-		StorageVersion build(|_: &GenesisConfig<T>| Releases::V0 as u32): u32;
+		StorageVersion build(|_: &GenesisConfig<T>| Releases::V1 as u32): u32;
 	}
 	add_extra_genesis {
 		config(assets): Vec<T::AssetId>;
@@ -837,11 +837,15 @@ impl<T: Config> Module<T> {
 		}
 		if locks
 			.into_iter()
-			// unlock allowed on either of 2 conditions:
+			// Unlock allowed on either of 2 conditions:
 			// 1) new balance higher than the lock requires
 			// 2) the lock reason does not overlap with the withdraw reason i.e. not applicable ('all' negates any withdraw reason)
-			.all(|l| new_balance >= l.amount || l.reasons != Reasons::All && l.reasons != reasons.into())
-		{
+			.all(|l| {
+				new_balance >= l.amount
+					|| (Reasons::from(reasons) != Reasons::All
+						&& l.reasons != Reasons::All
+						&& l.reasons != reasons.into())
+			}) {
 			Ok(())
 		} else {
 			Err(Error::<T>::LiquidityRestrictions)?

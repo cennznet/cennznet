@@ -8,7 +8,7 @@
 crml
 - [x] attestation (removed*)
 - [x] generic-asset
-    - [] tests
+    - [x] tests
 - [x] governance
     - [] tests
 - [x] nft
@@ -23,7 +23,8 @@ crml
     - [] tests
 - [x] support
 - [x] sylo (removed*)
-- [x] cennzx  
+- [x] cennzx
+    - [] tests
 - [x] staking
     - [] tests
 - [] ethy-gadget
