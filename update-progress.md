@@ -21,7 +21,7 @@ crml
 - [x] eth-wallet
     - [x] tests
 - [x] erc20-peg
-    - [] tests
+    - [x] tests
 - [x] support
 - [x] sylo (removed*)
 - [x] cennzx
