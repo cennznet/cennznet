@@ -762,13 +762,13 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: system::{Module, Call, Config, Storage, Event<T>},
-			Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: crml_transaction_payment::{Module, Storage},
+			System: system::{Pallet, Call, Config, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			TransactionPayment: crml_transaction_payment::{Pallet, Storage},
 		}
 	);
 
-	const CALL: &<Runtime as frame_system::Config>::Call = &Call::Balances(BalancesCall::transfer(2, 69));
+	const CALL: &<Runtime as frame_system::Config>::Call = &tests::Call::Balances(BalancesCall::transfer{dest: 2, value: 69});
 	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
 	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
 
@@ -798,7 +798,7 @@ mod tests {
 	}
 
 	impl frame_system::Config for Runtime {
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = BlockWeights;
 		type BlockLength = ();
 		type DbWeight = ();
@@ -820,6 +820,7 @@ mod tests {
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	parameter_types! {
@@ -834,6 +835,8 @@ mod tests {
 		type AccountStore = System;
 		type MaxLocks = ();
 		type WeightInfo = ();
+		type MaxReserves = ();
+		type ReserveIdentifier = ();
 	}
 
 	impl WeightToFeePolynomial for WeightToFee {
@@ -1138,7 +1141,7 @@ mod tests {
 
 	#[test]
 	fn query_info_works() {
-		let call = Call::Balances(BalancesCall::transfer(2, 69));
+		let call = tests::Call::Balances(BalancesCall::transfer{dest: 2, value: 69});
 		let origin = 111111;
 		let extra = ();
 		let xt = TestXt::new(call, Some((origin, extra)));
@@ -1175,7 +1178,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				// Next fee multiplier is zero
-				assert_eq!(NextFeeMultiplier::get(), Multiplier::one());
+				assert_eq!(NextFeeMultiplier::get(), Multiplier::from(1));
 
 				// Tip only, no fees works
 				let dispatch_info = DispatchInfo {
@@ -1321,12 +1324,12 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 0);
 				// Transfer Event
 				assert!(System::events().iter().any(|event| {
-					event.event == Event::pallet_balances(pallet_balances::Event::<Runtime>::Transfer(2, 3, 80))
+					event.event == tests::Event::Balances(pallet_balances::Event::<Runtime>::Transfer{from: 2, to: 3, amount: 80})
 				}));
 				// Killed Event
 				assert!(System::events()
 					.iter()
-					.any(|event| { event.event == Event::system(frame_system::Event::<Runtime>::KilledAccount(2)) }));
+					.any(|event| { event.event == Event::System(frame_system::Event::<Runtime>::KilledAccount{account: 2}) }));
 			});
 	}
 

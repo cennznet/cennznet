@@ -46,7 +46,7 @@ fn investor_can_add_liquidity() {
 		));
 		assert_eq!(
 			last_event(),
-			Event::crml_cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 15)),
+			Event::Cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 15)),
 		);
 
 		// Second investment
@@ -60,7 +60,7 @@ fn investor_can_add_liquidity() {
 		));
 		assert_eq!(
 			last_event(),
-			Event::crml_cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 16)),
+			Event::Cennzx(RawEvent::AddLiquidity(investor.clone(), 10, TRADE_ASSET_A_ID, 16)),
 		);
 
 		assert_exchange_balance_eq!(CORE_ASSET_ID => 20, TRADE_ASSET_A_ID => 31);
@@ -360,7 +360,7 @@ fn asset_to_core_execute_buy() {
 
 		assert_eq!(
 			last_event(),
-			Event::crml_cennzx(RawEvent::AssetBought(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 1004, 5)),
+			Event::Cennzx(RawEvent::AssetBought(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 1004, 5)),
 		);
 	});
 }
@@ -1184,7 +1184,7 @@ fn asset_to_core_execute_sell() {
 
 		assert_eq!(
 			last_event(),
-			Event::crml_cennzx(RawEvent::AssetSold(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 90, 81)),
+			Event::Cennzx(RawEvent::AssetSold(TRADE_ASSET_A_ID, CORE_ASSET_ID, trader, 90, 81)),
 		);
 	});
 }

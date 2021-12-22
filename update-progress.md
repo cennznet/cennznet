@@ -15,9 +15,9 @@ crml
 - [x] nft
     - [x] tests
 - [x] transaction-payment
-    - [] tests
+    - [x] tests
 - [x] eth-bridge
-    - [] tests
+    - [x] tests
 - [x] eth-wallet
     - [x] tests
 - [x] erc20-peg
@@ -31,7 +31,7 @@ crml
 - [x] ethy-gadget
     - [] tests
 - [x] cli
-    - [] tests
+    - [x] tests
 - [x] runtime
     - [] tests
 

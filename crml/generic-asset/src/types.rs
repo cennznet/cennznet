@@ -4,7 +4,7 @@ use codec::{Decode, Encode, Error as CodecError, HasCompact, Input, MaxEncodedLe
 use frame_support::traits::{LockIdentifier, WithdrawReasons};
 use scale_info::{Type, TypeDefPrimitive, TypeInfo};
 use sp_runtime::RuntimeDebug;
-use sp_std::{ops::BitOr, prelude::*};
+use sp_std::{ops::BitOr, prelude::*, vec};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
