@@ -7,7 +7,7 @@ crate update progress
 crml
 - [x] attestation (removed*)
 - [x] generic-asset
-    - [] tests
+    - [x] tests
 - [x] governance
     - [] tests
 - [x] nft
@@ -21,7 +21,8 @@ crml
 - [x] erc20-peg
 - [x] support
 - [x] sylo (removed*)
-- [x] cennzx  
+- [x] cennzx
+    - [] tests
 - [] staking
     - [] tests
 - [] ethy-gadget
