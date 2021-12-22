@@ -31,7 +31,7 @@ crml
 - [x] ethy-gadget
     - [] tests
 - [x] cli
-    - [] tests
+    - [x] tests
 - [x] runtime
     - [] tests
 
