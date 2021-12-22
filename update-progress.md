@@ -9,7 +9,7 @@
 crml
 - [x] attestation (removed*)
 - [x] generic-asset
-    - [] tests
+    - [x] tests
 - [x] governance
     - [] tests
 - [x] nft
@@ -19,20 +19,21 @@ crml
 - [x] eth-bridge
     - [] tests
 - [x] eth-wallet
-    - [] tests
+    - [x] tests
 - [x] erc20-peg
     - [] tests
 - [x] support
 - [x] sylo (removed*)
 - [x] cennzx
-- [] staking  
     - [] tests
-- [] runtime  
-    - [] tests    
-- [] ethy-gadget  
-    - [] tests  
-- [] cli  
-    - [] tests  
+- [x] staking
+    - [] tests
+- [x] ethy-gadget
+    - [] tests
+- [x] cli
+    - [] tests
+- [x] runtime
+    - [] tests
 
 *modules unused, removed to speed up update process
 
@@ -45,3 +46,6 @@ crml
 - warning: <frame_system::Module<T>> -> <frame_system::Pallet<T>>
 - new prelude imports for pallets: `frame_system::pallet_prelude::*` && `frame_support:pallet_prelude::*`
 - structs using T and deriving `TypeInfo` require `#[scale_info(skip_type_params(T))]`
+- For test runtimes, replace `Module` with `Pallet`
+- For test runtimes, `type BaseCallFilter = frame_support::traits::Everything;` works
+- For test runtimes, add `type OnSetCode = ();`
