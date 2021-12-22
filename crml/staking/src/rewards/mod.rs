@@ -575,10 +575,10 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-			Authorship: pallet_authorship::{Module, Call, Storage},
-			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Pallet, Call, Storage},
+			Rewards: rewards::{Pallet, Call, Storage, Config, Event<T>},
 		}
 	);
 
@@ -586,7 +586,7 @@ mod tests {
 		pub const BlockHashCount: u64 = 250;
 	}
 	impl frame_system::Config for Test {
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
 		type BlockLength = ();
 		type DbWeight = ();
@@ -608,6 +608,7 @@ mod tests {
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	impl crml_generic_asset::Config for Test {
@@ -844,7 +845,7 @@ mod tests {
 			Rewards::new_fiscal_era();
 
 			let events = System::events();
-			assert_eq!(events.last().unwrap().event, Event::rewards(RawEvent::NewFiscalEra(60)));
+			assert_eq!(events.last().unwrap().event, Event::Rewards(RawEvent::NewFiscalEra(60)));
 		});
 	}
 
@@ -856,7 +857,7 @@ mod tests {
 			Rewards::on_end_era(&vec![], 0, false);
 
 			let era_1_inflation_target = 14;
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
+			let expected_event = Event::Rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
 			assert!(System::events().iter().any(|record| record.event == expected_event));
 			System::reset_events();
 
@@ -864,7 +865,7 @@ mod tests {
 			Rewards::on_end_era(&vec![], 1, false);
 			Rewards::on_end_era(&vec![], 2, false);
 			assert!(!System::events().iter().any(|record| match record.event {
-				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
+				Event::Rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
@@ -878,7 +879,7 @@ mod tests {
 
 			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
+			let expected_event = Event::Rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
 			assert!(System::events().iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_2_inflation_target);
 		});
@@ -904,7 +905,7 @@ mod tests {
 				// Trigger era end, new fiscal era should be enacted
 				Rewards::on_end_era(&vec![], 0, false);
 
-				let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+				let expected_event = Event::Rewards(RawEvent::NewFiscalEra(14));
 				let events = System::events();
 				assert!(events.iter().any(|record| record.event == expected_event));
 
@@ -1386,7 +1387,7 @@ mod tests {
 				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
 				assert!(System::events()
 					.iter()
-					.find(|e| e.event == Event::rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.find(|e| e.event == Event::Rewards(RawEvent::EraStakerPayout(payee, amount)))
 					.is_some());
 				remainder = remainder.saturating_sub(amount);
 			}
@@ -1429,7 +1430,7 @@ mod tests {
 			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 
 			assert_eq!(ScheduledPayoutEra::get(), era);
@@ -1452,7 +1453,7 @@ mod tests {
 			assert_eq!(next_reward.transaction_fees, 1_000);
 			assert!(System::events()
 				.iter()
-				.find(|e| e.event == Event::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
+				.find(|e| e.event == Event::Rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
 				.is_some());
 			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
 			assert!(ScheduledPayoutEra::get().is_zero());
@@ -1468,7 +1469,7 @@ mod tests {
 			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 		})
 	}

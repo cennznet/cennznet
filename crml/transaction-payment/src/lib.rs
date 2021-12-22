@@ -768,7 +768,8 @@ mod tests {
 		}
 	);
 
-	const CALL: &<Runtime as frame_system::Config>::Call = &tests::Call::Balances(BalancesCall::transfer{dest: 2, value: 69});
+	const CALL: &<Runtime as frame_system::Config>::Call =
+		&tests::Call::Balances(BalancesCall::transfer { dest: 2, value: 69 });
 	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
 	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
 
@@ -1141,7 +1142,7 @@ mod tests {
 
 	#[test]
 	fn query_info_works() {
-		let call = tests::Call::Balances(BalancesCall::transfer{dest: 2, value: 69});
+		let call = tests::Call::Balances(BalancesCall::transfer { dest: 2, value: 69 });
 		let origin = 111111;
 		let extra = ();
 		let xt = TestXt::new(call, Some((origin, extra)));
@@ -1324,12 +1325,17 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 0);
 				// Transfer Event
 				assert!(System::events().iter().any(|event| {
-					event.event == tests::Event::Balances(pallet_balances::Event::<Runtime>::Transfer{from: 2, to: 3, amount: 80})
+					event.event
+						== tests::Event::Balances(pallet_balances::Event::<Runtime>::Transfer {
+							from: 2,
+							to: 3,
+							amount: 80,
+						})
 				}));
 				// Killed Event
-				assert!(System::events()
-					.iter()
-					.any(|event| { event.event == Event::System(frame_system::Event::<Runtime>::KilledAccount{account: 2}) }));
+				assert!(System::events().iter().any(|event| {
+					event.event == Event::System(frame_system::Event::<Runtime>::KilledAccount { account: 2 })
+				}));
 			});
 	}
 

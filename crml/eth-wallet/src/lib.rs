@@ -280,9 +280,7 @@ mod tests {
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default()
-			.build_storage::<Test>()
-			.unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		storage.into()
 	}
 
@@ -329,7 +327,10 @@ mod tests {
 			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
 			let cennznet_address = MultiSigner::from(pair.public()).into_account();
 
-			let call: Call = frame_system::Call::<Test>::remark{remark: b"hello world".to_vec()}.into();
+			let call: Call = frame_system::Call::<Test>::remark {
+				remark: b"hello world".to_vec(),
+			}
+			.into();
 			let system_nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
 			let module_nonce = EthWallet::address_nonce(&eth_address);
 			assert_eq!(system_nonce as u32, module_nonce);
