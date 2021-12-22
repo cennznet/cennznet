@@ -12,7 +12,7 @@ crml
 - [x] governance
     - [] tests
 - [x] nft
-    - [] tests
+    - [x] tests
 - [x] transaction-payment
     - [] tests
 - [x] eth-bridge
