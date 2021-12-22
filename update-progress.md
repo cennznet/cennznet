@@ -17,7 +17,7 @@ crml
 - [x] transaction-payment
     - [] tests
 - [x] eth-bridge
-    - [] tests
+    - [x] tests
 - [x] eth-wallet
     - [x] tests
 - [x] erc20-peg
