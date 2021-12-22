@@ -411,19 +411,19 @@ mod test {
 	#[test]
 	fn valid_royalties_plan() {
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.1))],
+			entitlements: vec![(1_u32, Permill::from_float(0.1))],
 		}
 		.validate());
 
 		// explicitally specifying zero royalties is odd but fine
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.0))],
+			entitlements: vec![(1_u32, Permill::from_float(0.0))],
 		}
 		.validate());
 
 		let plan = RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Permill::from_fraction(1.01)), // saturates at 100%
+				(1_u32, Permill::from_float(1.01)), // saturates at 100%
 			],
 		};
 		assert_eq!(plan.entitlements[0].1, Permill::one());
@@ -435,8 +435,8 @@ mod test {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Permill::from_fraction(0.2)),
-				(2_u32, Permill::from_fraction(0.81)),
+				(1_u32, Permill::from_float(0.2)),
+				(2_u32, Permill::from_float(0.81)),
 			],
 		}
 		.validate());
@@ -449,8 +449,8 @@ mod test {
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![
-					(3_u64, Permill::from_fraction(0.2)),
-					(4_u64, Permill::from_fraction(0.3)),
+					(3_u64, Permill::from_float(0.2)),
+					(4_u64, Permill::from_float(0.3)),
 				],
 			};
 			let collection_info = CollectionInfo {
@@ -482,7 +482,7 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
 			let series_attributes = vec![
 				NFTAttributeValue::I32(500),
@@ -538,7 +538,7 @@ mod test {
 			let collection_owner = 1_u64;
 			let buyer = 2_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
 			let token_id: TokenId = (0, 0, 0);
 
