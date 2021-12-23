@@ -116,13 +116,20 @@ pub trait TransactionFeeHandler {
 	) -> Result<(), ()>;
 }
 
+/// An interface to count total registrations of an account
+pub trait RegistrationInfo {
+	type AccountId;
+	/// Registration information for an identity
+	fn registered_identity_count(who: &Self::AccountId) -> u32;
+}
+
 /// An abstraction over the accounting behaviour of a fungible, multi-currency system
 /// Currencies in the system are identifiable by a unique `CurrencyId`
 pub trait MultiCurrency {
 	/// The ID type for an account in the system
 	type AccountId: Debug + Default;
 	/// The balance of an account for a particular currency
-	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating;
+	type Balance: AtLeast32BitUnsigned + Copy + Debug + Default + Saturating + MaybeSerializeDeserialize;
 	/// The ID type of a currency in the system
 	type CurrencyId: Debug + Default;
 	/// The opaque token type for an imbalance of a particular currency. This is returned by unbalanced operations

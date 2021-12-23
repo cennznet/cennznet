@@ -22,16 +22,15 @@ use codec::FullCodec;
 use core::convert::TryFrom;
 use crml_support::MultiCurrency;
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, traits::ExistenceRequirement, transactional, Parameter,
-	StorageDoubleMap,
+	decl_error, decl_event, decl_module, decl_storage, pallet_prelude::*, traits::ExistenceRequirement, transactional,
+	Parameter, StorageDoubleMap,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member, One, Saturating, Zero},
 	DispatchError, DispatchResult, SaturatedConversion,
 };
-use sp_std::fmt::Debug;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 // import `mock` first so its macros are defined in `impl` and `tests`.
 #[macro_use]
@@ -72,7 +71,14 @@ pub struct LiquidityPrice<Balance> {
 }
 
 pub trait Config: frame_system::Config {
-	type Balance: AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + Debug + Default + Saturating + FullCodec;
+	type Balance: AtLeast32BitUnsigned
+		+ Copy
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ Default
+		+ Saturating
+		+ FullCodec
+		+ TypeInfo;
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// Type for identifying assets

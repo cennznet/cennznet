@@ -27,7 +27,6 @@ use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_identity::RegistrationImplementation;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session;
 use pallet_session::historical as session_historical;
@@ -57,9 +56,7 @@ pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::marker::PhantomData,
 	ord_parameter_types, parameter_types,
-	traits::{
-		Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, RegistrationInfo, U128CurrencyToVote,
-	},
+	traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
@@ -88,12 +85,6 @@ pub use crml_generic_asset::{
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
 use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
-pub use crml_sylo::device as sylo_device;
-pub use crml_sylo::e2ee as sylo_e2ee;
-pub use crml_sylo::groups as sylo_groups;
-pub use crml_sylo::inbox as sylo_inbox;
-pub use crml_sylo::response as sylo_response;
-pub use crml_sylo::vault as sylo_vault;
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 
@@ -194,7 +185,7 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -237,6 +228,7 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
+	type OnSetCode = ();
 }
 
 parameter_types! {
@@ -274,6 +266,7 @@ impl pallet_babe::Config for Runtime {
 	type EpochDuration = EpochDuration;
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+	type DisabledValidators = Session;
 	type KeyOwnerProofSystem = Historical;
 	type KeyOwnerProof =
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
@@ -281,17 +274,20 @@ impl pallet_babe::Config for Runtime {
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::IdentificationTuple;
 	type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
 	type WeightInfo = ();
+	type MaxAuthorities = MaxAuthorities;
 }
 
 impl pallet_grandpa::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type KeyOwnerProofSystem = ();
+	type KeyOwnerProofSystem = Historical;
 	type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 	type KeyOwnerIdentification =
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
-	type HandleEquivocation = ();
+	type HandleEquivocation =
+		pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
 	type WeightInfo = ();
+	type MaxAuthorities = MaxAuthorities;
 }
 
 parameter_types! {
@@ -307,6 +303,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type WeightInfo = ();
 }
 
@@ -322,7 +319,7 @@ parameter_types! {
 	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
 	// maximum phragemn iterations
 	pub const MaxIterations: u32 = 10;
-	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+	pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
 	pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
 		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
@@ -361,7 +358,7 @@ impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	pub const MaxAuthorities: u32 = 100_000;
 }
 impl pallet_session::Config for Runtime {
 	type Event = Event;
@@ -372,7 +369,6 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = ();
 }
 
@@ -454,17 +450,20 @@ impl crml_governance::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type Event = Event;
 	type WeightInfo = ();
-	type Registration = RegistrationImplementation<Self>;
+	type Registration = impls::RegistrationImplementation<Self>;
 	type StakingAmount = Staking;
 }
 
 impl pallet_utility::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type PalletsOrigin = OriginCaller;
 	type WeightInfo = ();
 }
 
-impl pallet_authority_discovery::Config for Runtime {}
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+}
 
 impl frame_system::offchain::SigningTypes for Runtime {
 	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
@@ -481,29 +480,34 @@ where
 
 parameter_types! {
 	pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub StakingUnsignedPriority: TransactionPriority = Perbill::from_percent(90) * TransactionPriority::max_value();
 }
+
+parameter_types! {
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const MaxPeerInHeartbeats: u32 = 10_000;
+	pub const MaxPeerDataEncodingSize: u32 = 1_000;
+	pub const MaxKeys: u32 = 10_000;
+}
+
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type Event = Event;
 	type ValidatorSet = Historical;
-	type SessionDuration = SessionDuration;
+	type NextSessionRotation = Babe;
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
+	type MaxKeys = MaxKeys;
+	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
 
-parameter_types! {
-	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
-		RuntimeBlockWeights::get().max_block;
-}
 impl pallet_offences::Config for Runtime {
 	type Event = Event;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
-	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -549,6 +553,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
 	pub const MaximumReasonLength: u32 = 16_384;
+	pub const MaxApprovals: u32 = 100;
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 }
@@ -559,6 +564,7 @@ impl pallet_treasury::Config for Runtime {
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type RejectOrigin = EnsureRoot<AccountId>;
 	type Event = Event;
+	type MaxApprovals = MaxApprovals;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ProposalBondMinimum;
@@ -585,24 +591,12 @@ impl crml_staking_rewards::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl crml_sylo::e2ee::Config for Runtime {}
-impl crml_sylo::device::Config for Runtime {}
-impl crml_sylo::inbox::Config for Runtime {}
-impl crml_sylo::response::Config for Runtime {}
-impl crml_sylo::vault::Config for Runtime {}
-impl crml_sylo::groups::Config for Runtime {}
-
 impl crml_cennzx::Config for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
-	type WeightInfo = ();
-}
-
-impl crml_attestation::Config for Runtime {
-	type Event = Event;
 	type WeightInfo = ();
 }
 
@@ -716,40 +710,32 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		// Give modules fixed indexes in the runtime
-		System: frame_system::{Module, Call, Storage, Config, Event<T>} = 0,
-		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 1,
-		Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 2,
-		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 3,
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Event<T>, Config<T>} = 4,
-		Authorship: pallet_authorship::{Module, Call, Storage} = 5,
-		Staking: crml_staking::{Module, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
-		Offences: pallet_offences::{Module, Call, Storage, Event} = 7,
-		Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 8,
-		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned} = 10,
-		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
-		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 12,
-		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 13,
-		Treasury: pallet_treasury::{Module, Call, Storage, Event<T>} = 14,
-		Utility: pallet_utility::{Module, Call, Event} = 15,
-		Identity: pallet_identity::{Module, Call, Storage, Event<T>} = 16,
-		TransactionPayment: crml_transaction_payment::{Module, Storage} = 17,
-		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>} = 18,
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Storage} = 19,
-		Historical: session_historical::{Module} = 20,
-		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>} = 21,
-		SyloGroups: sylo_groups::{Module, Call, Storage} = 22,
-		SyloE2EE: sylo_e2ee::{Module, Call, Storage} = 23,
-		SyloDevice: sylo_device::{Module, Call, Storage} = 24,
-		SyloInbox: sylo_inbox::{Module, Call, Storage} = 25,
-		SyloResponse: sylo_response::{Module, Call, Storage} = 26,
-		SyloVault: sylo_vault::{Module, Call, Storage} = 27,
-		Attestation: crml_attestation::{Module, Call, Storage, Event<T>} = 28,
-		Rewards: crml_staking_rewards::{Module, Call, Storage, Config, Event<T>} = 29,
-		Nft: crml_nft::{Module, Call, Storage, Event<T>} = 30,
-		Governance: crml_governance::{Module, Call, Storage, Event} = 31,
-		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned} = 32,
-		Erc20Peg: crml_erc20_peg::{Module, Call, Storage, Config, Event<T>} = 33,
-		EthWallet: crml_eth_wallet::{Module, Call, Event<T>, ValidateUnsigned} = 34,
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 1,
+		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 2,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
+		Authorship: pallet_authorship::{Pallet, Call, Storage} = 5,
+		Staking: crml_staking::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
+		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 8,
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 10,
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
+		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 12,
+		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 13,
+		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>} = 14,
+		Utility: pallet_utility::{Pallet, Call, Event} = 15,
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 16,
+		TransactionPayment: crml_transaction_payment::{Pallet, Storage} = 17,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 18,
+		Historical: session_historical::{Pallet} = 20,
+		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
+		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
+		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
+		Governance: crml_governance::{Pallet, Call, Storage, Event} = 31,
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned} = 32,
+		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>} = 33,
+		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned} = 34,
 	}
 );
 
@@ -780,7 +766,7 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
-	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
+	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -799,7 +785,7 @@ impl_runtime_apis! {
 
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
-			Runtime::metadata().into()
+			OpaqueMetadata::new(Runtime::metadata().into())
 		}
 	}
 
@@ -822,18 +808,15 @@ impl_runtime_apis! {
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
-
-		fn random_seed() -> <Block as BlockT>::Hash {
-			RandomnessCollectiveFlip::random_seed()
-		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
 			source: TransactionSource,
 			tx: <Block as BlockT>::Extrinsic,
+			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx)
+			Executive::validate_transaction(source, tx, block_hash)
 		}
 	}
 
@@ -866,7 +849,7 @@ impl_runtime_apis! {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
 				c: BABE_GENESIS_EPOCH_CONFIG.c,
-				genesis_authorities: Babe::authorities(),
+				genesis_authorities: Babe::authorities().to_vec(),
 				randomness: Babe::randomness(),
 				allowed_slots: BABE_GENESIS_EPOCH_CONFIG.allowed_slots,
 			}
@@ -923,6 +906,10 @@ impl_runtime_apis! {
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
+		}
+
+		fn current_set_id() -> fg_primitives::SetId {
+			Grandpa::current_set_id()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(

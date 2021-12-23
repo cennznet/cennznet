@@ -58,6 +58,7 @@ use frame_support::{
 	traits::{Currency, Imbalance, OnUnbalanced},
 	StorageDoubleMap, StorageMap,
 };
+use scale_info::TypeInfo;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
@@ -69,7 +70,7 @@ pub const REWARD_F1: Perbill = Perbill::from_percent(50);
 pub(crate) type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct SlashingSpan {
 	pub(crate) index: SpanIndex,
@@ -84,7 +85,7 @@ impl SlashingSpan {
 }
 
 /// An encoding of all of a nominator's slashing spans.
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TypeInfo)]
 pub struct SlashingSpans {
 	// the index of the current slashing span of the nominator. different for
 	// every stash, resets when the account hits free balance 0.
@@ -185,7 +186,7 @@ impl SlashingSpans {
 }
 
 /// A slashing-span record for a particular stash.
-#[derive(Encode, Decode, Default)]
+#[derive(Encode, Decode, TypeInfo, Default)]
 pub(crate) struct SpanRecord<Balance> {
 	slashed: Balance,
 	paid_out: Balance,
@@ -529,8 +530,8 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 
 /// Clear slashing metadata for an obsolete era.
 pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
-	<Module<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era);
-	<Module<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era);
+	<Module<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era, None);
+	<Module<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era, None);
 }
 
 /// Clear slashing metadata for a dead account.

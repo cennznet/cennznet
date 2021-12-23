@@ -27,18 +27,17 @@ pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
-use crml_support::StakingAmount;
+use crml_support::{RegistrationInfo, StakingAmount};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchResult, Dispatchable, Parameter},
-	ensure,
+	dispatch::{DispatchResult, Dispatchable},
+	pallet_prelude::*,
 	traits::{
 		schedule::{DispatchTime, Named as ScheduleNamed},
-		Currency, Get, LockIdentifier, RegistrationInfo, ReservableCurrency,
+		Currency, LockIdentifier, ReservableCurrency,
 	},
-	weights::Weight,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::pallet_prelude::*;
 use log::warn;
 use sp_runtime::traits::Zero;
 use sp_runtime::Permill;
@@ -240,7 +239,7 @@ decl_module! {
 			let threshold = <Council<T>>::decode_len().unwrap_or(1) as u32 / 2;
 			if tally.yes > threshold {
 				if ProposalCalls::contains_key(proposal_id) {
-					let start_time: T::BlockNumber = <frame_system::Module<T>>::block_number();
+					let start_time: T::BlockNumber = <frame_system::Pallet<T>>::block_number();
 
 					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumDeliberation);
 					ProposalVotes::remove(proposal_id);
@@ -328,7 +327,7 @@ decl_module! {
 			ensure!(ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
 			Self::check_voter_account_validity(&origin)?;
-			let block_number = <frame_system::Module<T>>::block_number();
+			let block_number = <frame_system::Pallet<T>>::block_number();
 			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
 			// Enter vote in storage
@@ -464,11 +463,9 @@ impl<T: Config> Module<T> {
 			}
 		};
 		let max_stakers: u32 = T::StakingAmount::count_nominators();
-		ReferendumVotes::<T>::remove_prefix(proposal_id);
+		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational_approximation(Self::referendum_veto_sum(proposal_id), max_stakers)
-			>= Self::referendum_threshold()
-		{
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), max_stakers) >= Self::referendum_threshold() {
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
@@ -481,11 +478,11 @@ impl<T: Config> Module<T> {
 			if ProposalCalls::contains_key(proposal_id) {
 				if T::Scheduler::schedule_named(
 					(GOVERNANCE_ID, proposal_id).encode(),
-					DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
+					DispatchTime::At(<frame_system::Pallet<T>>::block_number() + proposal.enactment_delay),
 					None,
 					63,
 					frame_system::RawOrigin::Root.into(),
-					Call::enact_referendum(proposal_id).into(),
+					Call::enact_referendum { proposal_id }.into(),
 				)
 				.is_err()
 				{

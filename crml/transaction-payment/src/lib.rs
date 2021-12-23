@@ -54,11 +54,8 @@ use crml_support::TransactionFeeHandler;
 use frame_support::{
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
-	traits::Get,
-	weights::{
-		DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight, WeightToFeeCoefficient,
-		WeightToFeePolynomial,
-	},
+	pallet_prelude::*,
+	weights::{DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient, WeightToFeePolynomial},
 	Parameter,
 };
 use sp_arithmetic::traits::BaseArithmetic;
@@ -193,7 +190,7 @@ where
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| weights.max_block);
-		let current_block_weight = <frame_system::Module<T>>::block_weight();
+		let current_block_weight = <frame_system::Pallet<T>>::block_weight();
 		let normal_block_weight = *current_block_weight.get(DispatchClass::Normal).min(&normal_max_weight);
 
 		let s = S::get();
@@ -228,7 +225,7 @@ where
 }
 
 /// Storage releases of the module.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 enum Releases {
 	/// Original version of the module.
 	V1Ancient,
@@ -244,7 +241,7 @@ impl Default for Releases {
 
 pub trait Config: frame_system::Config {
 	/// The arithmetic type of asset identifier.
-	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy;
+	type AssetId: Parameter + Member + BaseArithmetic + Default + Copy + TypeInfo;
 
 	/// Handler for withdrawing, refunding and depositing the transaction fee.
 	/// Transaction fees are withdrawn before the transaction is executed.
@@ -326,7 +323,7 @@ decl_module! {
 			target += addition;
 
 			sp_io::TestExternalities::new_empty().execute_with(|| {
-				<frame_system::Module<T>>::set_block_consumed_resources(target, 0);
+				<frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
 				let next = T::FeeMultiplierUpdate::convert(min_value);
 				assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
 					block saturation is more than target by 1% and multiplier is minimal then \
@@ -563,7 +560,8 @@ where
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
@@ -764,13 +762,14 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: system::{Module, Call, Config, Storage, Event<T>},
-			Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: crml_transaction_payment::{Module, Storage},
+			System: system::{Pallet, Call, Config, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			TransactionPayment: crml_transaction_payment::{Pallet, Storage},
 		}
 	);
 
-	const CALL: &<Runtime as frame_system::Config>::Call = &Call::Balances(BalancesCall::transfer(2, 69));
+	const CALL: &<Runtime as frame_system::Config>::Call =
+		&tests::Call::Balances(BalancesCall::transfer { dest: 2, value: 69 });
 	const VALID_ASSET_TO_BUY_FEE: u32 = 1;
 	const INVALID_ASSET_TO_BUY_FEE: u32 = 2;
 
@@ -800,7 +799,7 @@ mod tests {
 	}
 
 	impl frame_system::Config for Runtime {
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = BlockWeights;
 		type BlockLength = ();
 		type DbWeight = ();
@@ -822,6 +821,7 @@ mod tests {
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	parameter_types! {
@@ -836,6 +836,8 @@ mod tests {
 		type AccountStore = System;
 		type MaxLocks = ();
 		type WeightInfo = ();
+		type MaxReserves = ();
+		type ReserveIdentifier = ();
 	}
 
 	impl WeightToFeePolynomial for WeightToFee {
@@ -1140,7 +1142,7 @@ mod tests {
 
 	#[test]
 	fn query_info_works() {
-		let call = Call::Balances(BalancesCall::transfer(2, 69));
+		let call = tests::Call::Balances(BalancesCall::transfer { dest: 2, value: 69 });
 		let origin = 111111;
 		let extra = ();
 		let xt = TestXt::new(call, Some((origin, extra)));
@@ -1177,7 +1179,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				// Next fee multiplier is zero
-				assert_eq!(NextFeeMultiplier::get(), Multiplier::one());
+				assert_eq!(NextFeeMultiplier::get(), Multiplier::from(1));
 
 				// Tip only, no fees works
 				let dispatch_info = DispatchInfo {
@@ -1323,12 +1325,17 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 0);
 				// Transfer Event
 				assert!(System::events().iter().any(|event| {
-					event.event == Event::pallet_balances(pallet_balances::Event::<Runtime>::Transfer(2, 3, 80))
+					event.event
+						== tests::Event::Balances(pallet_balances::Event::<Runtime>::Transfer {
+							from: 2,
+							to: 3,
+							amount: 80,
+						})
 				}));
 				// Killed Event
-				assert!(System::events()
-					.iter()
-					.any(|event| { event.event == Event::system(frame_system::Event::<Runtime>::KilledAccount(2)) }));
+				assert!(System::events().iter().any(|event| {
+					event.event == Event::System(frame_system::Event::<Runtime>::KilledAccount { account: 2 })
+				}));
 			});
 	}
 

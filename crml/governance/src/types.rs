@@ -14,13 +14,15 @@
 */
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 /// Identifies proposals
 pub type ProposalId = u64;
 
 /// A governance proposal
-#[derive(Debug, Default, PartialEq, Encode, Decode)]
+#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct Proposal<T: crate::Config> {
 	/// The submitter of the proposal
 	pub sponsor: T::AccountId,
@@ -31,7 +33,7 @@ pub struct Proposal<T: crate::Config> {
 	pub enactment_delay: T::BlockNumber,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, Encode, Decode, TypeInfo)]
 pub enum ProposalStatusInfo {
 	/// Council is deliberating
 	Deliberation,
@@ -50,7 +52,7 @@ pub enum ProposalStatusInfo {
 }
 
 // Used to store votes on a referendum
-#[derive(Debug, Default, PartialEq, Encode, Decode)]
+#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
 pub struct ReferendumVoteCount {
 	// u8 representing either a yes or no vote (0 for yes 1 for no)
 	pub vote: u8,
@@ -58,7 +60,7 @@ pub struct ReferendumVoteCount {
 
 /// Votes on a proposal
 /// Tracks vote and participation of council member by index
-#[derive(Debug, Default, PartialEq, Encode, Decode)]
+#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
 pub struct ProposalVoteInfo {
 	/// Bit field, records the index of councillor and their vote: 0/against, 1/for
 	vote_bits: (u128, u128),

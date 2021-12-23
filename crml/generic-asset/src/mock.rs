@@ -62,8 +62,8 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -76,7 +76,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = u64;
@@ -96,6 +96,7 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {

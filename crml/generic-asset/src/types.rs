@@ -1,22 +1,86 @@
 //! Generic Asset Types
 
-use codec::{Decode, Encode, Error as CodecError, HasCompact, Input, Output};
+use codec::{Decode, Encode, Error as CodecError, HasCompact, Input, MaxEncodedLen, Output};
 use frame_support::traits::{LockIdentifier, WithdrawReasons};
+use scale_info::{Type, TypeDefPrimitive, TypeInfo};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
+use sp_std::{ops::BitOr, prelude::*, vec};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-pub struct BalanceLock<Balance> {
+pub struct BalanceLockOld<Balance> {
 	pub id: LockIdentifier,
 	pub amount: Balance,
 	pub reasons: WithdrawReasons,
 }
 
+/// `TypeInfo` can't be derived for the `WithdrawReasons` type automatically.
+/// This is a nonsense implementation to allow the `decl_storage!` macro to compile
+/// for the lock storage migration
+/// TODO: remove after runtime update to > v46 versions
+impl<Balance: 'static> TypeInfo for BalanceLockOld<Balance> {
+	type Identity = Self;
+	fn type_info() -> Type {
+		TypeDefPrimitive::U8.into()
+	}
+}
+
+impl<Balance> BalanceLockOld<Balance> {
+	/// Upgrade to new balance lock
+	/// `WithdrawReasons` updated to `Reasons`
+	pub fn upgrade(self) -> BalanceLock<Balance> {
+		BalanceLock {
+			id: self.id,
+			amount: self.amount,
+			reasons: self.reasons.into(),
+		}
+	}
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+pub struct BalanceLock<Balance> {
+	pub id: LockIdentifier,
+	pub amount: Balance,
+	pub reasons: Reasons,
+}
+
+/// Simplified reasons for withdrawing balance.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub enum Reasons {
+	/// Paying system transaction fees.
+	Fee = 0,
+	/// Any reason other than paying system transaction fees.
+	Misc = 1,
+	/// Any reason at all.
+	All = 2,
+}
+
+impl From<WithdrawReasons> for Reasons {
+	fn from(r: WithdrawReasons) -> Reasons {
+		if r == WithdrawReasons::from(WithdrawReasons::TRANSACTION_PAYMENT) {
+			Reasons::Fee
+		} else if r.contains(WithdrawReasons::TRANSACTION_PAYMENT) {
+			Reasons::All
+		} else {
+			Reasons::Misc
+		}
+	}
+}
+
+impl BitOr for Reasons {
+	type Output = Reasons;
+	fn bitor(self, other: Reasons) -> Reasons {
+		if self == other {
+			return self;
+		}
+		Reasons::All
+	}
+}
+
 /// Asset Metadata
-#[derive(Encode, Decode, PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AssetInfo {
 	symbol: Vec<u8>,
@@ -55,7 +119,7 @@ impl Default for AssetInfo {
 }
 
 /// Asset creation options.
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct AssetOptions<Balance: HasCompact, AccountId> {
 	/// Initial number of whole tokens to be issued. All deposited to the creator of the asset.
 	#[codec(compact)]
@@ -65,7 +129,7 @@ pub struct AssetOptions<Balance: HasCompact, AccountId> {
 }
 
 /// Owner of an asset.
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum Owner<AccountId> {
 	/// No owner.
 	None,
@@ -80,7 +144,7 @@ impl<AccountId> Default for Owner<AccountId> {
 }
 
 //All balances belonging to account
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct AllBalances<Balance> {
 	/// Reserved balance
 	pub reserved: Balance,
@@ -91,7 +155,7 @@ pub struct AllBalances<Balance> {
 }
 
 /// Asset permissions
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct PermissionsV1<AccountId> {
 	/// Who have permission to update asset permission
 	pub update: Owner<AccountId>,
@@ -112,14 +176,14 @@ impl<AccountId: Clone> PermissionsV1<AccountId> {
 	}
 }
 
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[repr(u8)]
 enum PermissionVersionNumber {
 	V1 = 0,
 }
 
 /// Versioned asset permission
-#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum PermissionVersions<AccountId> {
 	V1(PermissionsV1<AccountId>),
 }

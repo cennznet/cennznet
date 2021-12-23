@@ -18,16 +18,20 @@
 //! Helpers for offchain worker election.
 
 use crate::{
-	Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators, OffchainAccuracy,
-	ValidatorIndex, WeightInfo,
+	Call, CompactAssignments, Config, ElectionSize, ElectionWeightExt, Module, NominatorIndex, Nominators,
+	OffchainAccuracy, ValidatorIndex, WeightInfo,
 };
 use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-	reduce, to_supports, Assignment, CompactSolution, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance,
+	reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
 };
-use sp_runtime::{offchain::storage::StorageValueRef, traits::TrailingZeroInput, PerThing, RuntimeDebug};
+use sp_runtime::{
+	offchain::storage::{MutateStorageError, StorageValueRef},
+	traits::TrailingZeroInput,
+	PerThing, RuntimeDebug,
+};
 use sp_std::{convert::TryInto, prelude::*};
 
 /// Error types related to the offchain election machinery.
@@ -72,11 +76,11 @@ pub(crate) fn set_check_offchain_execution_status<T: Config>(now: T::BlockNumber
 	let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);
 	let threshold = T::BlockNumber::from(OFFCHAIN_REPEAT);
 
-	let mutate_stat = storage.mutate::<_, &'static str, _>(|maybe_head: Option<Option<T::BlockNumber>>| {
+	let mutate_stat = storage.mutate::<_, &'static str, _>(|maybe_head: Result<Option<T::BlockNumber>, _>| {
 		match maybe_head {
-			Some(Some(head)) if now < head => Err("fork."),
-			Some(Some(head)) if now >= head && now <= head + threshold => Err("recently executed."),
-			Some(Some(head)) if now > head + threshold => {
+			Ok(Some(head)) if now < head => Err("fork."),
+			Ok(Some(head)) if now >= head && now <= head + threshold => Err("recently executed."),
+			Ok(Some(head)) if now > head + threshold => {
 				// we can run again now. Write the new head.
 				Ok(now)
 			}
@@ -89,11 +93,12 @@ pub(crate) fn set_check_offchain_execution_status<T: Config>(now: T::BlockNumber
 
 	match mutate_stat {
 		// all good
-		Ok(Ok(_)) => Ok(()),
-		// failed to write.
-		Ok(Err(_)) => Err("failed to write to offchain db."),
+		Ok(_) => Ok(()),
+		Err(MutateStorageError::ConcurrentModification(_)) => {
+			Err("failed to write to offchain db (concurrent modification).")
+		}
 		// fork etc.
-		Err(why) => Err(why),
+		Err(MutateStorageError::ValueFunctionFailed(why)) => Err(why),
 	}
 }
 
@@ -121,7 +126,14 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
 	let current_era = <Module<T>>::current_era().unwrap_or_default();
 
 	// send it.
-	let call = Call::submit_election_solution_unsigned(winners, compact, score, current_era, size).into();
+	let call = Call::submit_election_solution_unsigned {
+		winners,
+		compact,
+		score,
+		era: current_era,
+		size,
+	}
+	.into();
 
 	SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
 		.map_err(|_| OffchainElectionError::PoolSubmissionFailed)
@@ -146,7 +158,11 @@ pub fn get_balancing_iters<T: Config>() -> usize {
 /// Find the maximum `len` that a compact can have in order to fit into the block weight.
 ///
 /// This only returns a value between zero and `size.nominators`.
-pub fn maximum_compact_len<W: crate::WeightInfo>(winners_len: u32, size: ElectionSize, max_weight: Weight) -> u32 {
+pub fn maximum_compact_len<W: WeightInfo + ElectionWeightExt>(
+	winners_len: u32,
+	size: ElectionSize,
+	max_weight: Weight,
+) -> u32 {
 	use sp_std::cmp::Ordering;
 
 	if size.nominators < 1 {
@@ -158,7 +174,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(winners_len: u32, size: Electio
 
 	// helper closures.
 	let weight_with = |voters: u32| -> Weight {
-		W::submit_solution_better(size.validators.into(), size.nominators.into(), voters, winners_len)
+		W::submit_unsigned(size.validators.into(), size.nominators.into(), voters, winners_len)
 	};
 
 	let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {
@@ -324,7 +340,7 @@ where
 	};
 
 	// Clean winners.
-	let winners = sp_npos_elections::to_without_backing(winners);
+	let winners: Vec<T::AccountId> = winners.into_iter().map(|(who, _)| who).collect();
 
 	// convert into absolute value and to obtain the reduced version.
 	let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, <Module<T>>::slashable_balance_of_fn());
@@ -339,7 +355,7 @@ where
 		sp_npos_elections::assignment_staked_to_ratio_normalized(staked).map_err(|e| OffchainElectionError::from(e))?;
 
 	// compact encode the assignment.
-	let compact = CompactAssignments::from_assignment(low_accuracy_assignment, nominator_index, validator_index)
+	let compact = CompactAssignments::from_assignment(&low_accuracy_assignment, nominator_index, validator_index)
 		.map_err(|e| OffchainElectionError::from(e))?;
 
 	// potentially reduce the size of the compact to fit weight.
@@ -349,7 +365,7 @@ where
 		debug,
 		"💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
 		maximum_weight,
-		T::WeightInfo::submit_solution_better(
+		T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -367,10 +383,13 @@ where
 	let score = {
 		let compact = compact.clone();
 		let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
-		let staked =
-			sp_npos_elections::assignment_ratio_to_staked(assignments.clone(), <Module<T>>::slashable_balance_of_fn());
+		let staked_assignments = sp_npos_elections::assignment_ratio_to_staked_normalized(
+			assignments.clone(),
+			<Module<T>>::slashable_balance_of_fn(),
+		)
+		.map_err(|_| OffchainElectionError::ElectionFailed)?;
 
-		let supports = to_supports(&winners, &staked).map_err(|_| OffchainElectionError::ElectionFailed)?;
+		let supports = to_supports(&staked_assignments);
 		(&supports).evaluate()
 	};
 
@@ -466,14 +485,31 @@ mod test {
 		fn new_era(v: u32, n: u32) -> Weight {
 			unimplemented!()
 		}
-		fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-			(0 * v + 0 * n + 1000 * a + 0 * w) as Weight
-		}
 		fn kick(w: u32) -> Weight {
+			unimplemented!()
+		}
+		fn get_npos_voters(_: u32, _: u32, _: u32) -> u64 {
+			unimplemented!()
+		}
+		fn get_npos_targets(_: u32) -> u64 {
+			unimplemented!()
+		}
+		fn set_staking_configs() -> u64 {
+			unimplemented!()
+		}
+		fn chill_other() -> u64 {
 			unimplemented!()
 		}
 	}
 
+	impl crate::ElectionWeightExt for Staking {
+		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
+			v as Weight
+		}
+	}
+
+	// TODO: issue #564
+	#[ignore]
 	#[test]
 	fn find_max_voter_binary_search_works() {
 		let size = ElectionSize {

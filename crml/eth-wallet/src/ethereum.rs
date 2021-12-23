@@ -2,6 +2,7 @@
 
 use crate::EthAddress;
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_core::ecdsa;
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256};
 use sp_runtime::traits::{Convert, IdentifyAccount, Lazy, Verify};
@@ -9,7 +10,7 @@ use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
 /// Ethereum-compatible signature type.
-#[derive(Encode, Decode, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
 pub struct EthereumSignature(pub [u8; 65]);
 
 impl sp_std::fmt::Debug for EthereumSignature {

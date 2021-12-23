@@ -108,17 +108,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Codec, Decode, Encode, FullCodec};
 use crml_support::AssetIdAuthority;
+use frame_support::pallet_prelude::*;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
-		BalanceStatus, Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency, OnUnbalanced,
-		ReservableCurrency, SignedImbalance, WithdrawReasons,
+		BalanceStatus, Currency, ExistenceRequirement, Imbalance, IsType, LockIdentifier, LockableCurrency,
+		OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	IterableStorageMap, Parameter, StorageMap,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Member, One,
@@ -131,35 +131,25 @@ use sp_std::{cmp, fmt::Debug, iter::Sum, prelude::*, result};
 mod benchmarking;
 mod imbalances;
 pub mod impls;
-mod migration;
 mod mock;
 mod tests;
 mod types;
 mod weights;
 
 // Export GA types/traits
-pub use self::imbalances::{CheckedImbalance, NegativeImbalance, OffsetResult, PositiveImbalance};
+pub use self::imbalances::{NegativeImbalance, OffsetResult, PositiveImbalance};
 pub use types::*;
 use weights::WeightInfo;
 
 pub trait Config: frame_system::Config {
 	/// The type for asset IDs
-	type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaybeSerializeDeserialize + Codec;
+	type AssetId: Parameter + Member + Default + AtLeast32BitUnsigned + Copy;
 	/// The type for asset amounts
-	type Balance: Parameter
-		+ Member
-		+ AtLeast32BitUnsigned
-		+ Default
-		+ Copy
-		+ MaybeSerializeDeserialize
-		+ Debug
-		+ FullCodec;
+	type Balance: Parameter + Member + Default + AtLeast32BitUnsigned + Copy + MaybeSerializeDeserialize + MaxEncodedLen;
 	/// The system event type
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-
+	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 	/// The type that handles the imbalance of dust cleaning.
 	type OnDustImbalance: OnUnbalanced<NegativeImbalance<Self>>;
-
 	/// Weight information for extrinsics in this module.
 	type WeightInfo: WeightInfo;
 }
@@ -211,6 +201,42 @@ decl_module! {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
+
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get() != Releases::V1 as u32 {
+				return Zero::zero();
+			}
+
+			// Update to v2
+			StorageVersion::put(Releases::V2 as u32);
+			// `TokenLocks` migrating from `bool` to `TokenLockReason`
+			#[allow(dead_code)]
+			mod old_storage {
+				use super::{Config, BalanceLockOld};
+				use sp_std::prelude::*;
+				pub struct Module<T>(sp_std::marker::PhantomData<T>);
+				frame_support::decl_storage! {
+					trait Store for Module<T: Config> as GenericAsset {
+						/// Any liquidity locks on some account balances.
+						pub Locks get(fn locks): double_map hasher(twox_64_concat) T::AssetId, hasher(blake2_128_concat) T::AccountId => Vec<BalanceLockOld<T::Balance>>;
+					}
+				}
+			}
+
+			// original migration here:
+			// https://github.com/paritytech/substrate/pull/4649/files
+			let locks: Vec<(T::AssetId, T::AccountId, Vec<BalanceLockOld<T::Balance>>)> = old_storage::Locks::<T>::iter().collect();
+			let weight = locks.len() as Weight * 100_000;
+			for (asset_id, address, old_locks) in &locks {
+				Locks::<T>::insert(
+					asset_id,
+					address,
+					old_locks.iter().map(|l| l.clone().upgrade()).collect::<Vec<BalanceLock<T::Balance>>>()
+				);
+			}
+
+			weight
+		}
 
 		/// Create a new kind of asset and nominates the owner of this asset.
 		/// The asset_id will be the next unoccupied asset_id
@@ -358,17 +384,6 @@ decl_module! {
 			ensure_root(origin)?;
 			Self::create_asset(Some(asset_id), None, options, info)
 		}
-
-		/// On runtime upgrade, update account data for existing accounts and remove dust balances
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			if StorageVersion::get() == Releases::V0 as u32 {
-				StorageVersion::put(Releases::V1 as u32);
-
-				migration::migrate_locks::<T>() + migration::migrate_asset_info::<T>()
-			} else {
-				Zero::zero()
-			}
-		}
 	}
 }
 
@@ -380,6 +395,8 @@ enum Releases {
 	V0 = 0,
 	/// Storage version as of runtime version 41
 	V1 = 1,
+	/// Storage version as of runtime version 47
+	V2 = 2,
 }
 
 impl Default for Releases {
@@ -438,7 +455,7 @@ decl_storage! {
 		/// Storage version of the pallet.
 		///
 		/// This is set to v1 for new networks.
-		StorageVersion build(|_: &GenesisConfig<T>| Releases::V0 as u32): u32;
+		StorageVersion build(|_: &GenesisConfig<T>| Releases::V1 as u32): u32;
 	}
 	add_extra_genesis {
 		config(assets): Vec<T::AssetId>;
@@ -821,8 +838,15 @@ impl<T: Config> Module<T> {
 		}
 		if locks
 			.into_iter()
-			.all(|l| new_balance >= l.amount || !l.reasons.intersects(reasons))
-		{
+			// Unlock allowed on either of 2 conditions:
+			// 1) new balance higher than the lock requires
+			// 2) the lock reason does not overlap with the withdraw reason i.e. not applicable ('all' negates any withdraw reason)
+			.all(|l| {
+				new_balance >= l.amount
+					|| (Reasons::from(reasons) != Reasons::All
+						&& l.reasons != Reasons::All
+						&& l.reasons != reasons.into())
+			}) {
 			Ok(())
 		} else {
 			Err(Error::<T>::LiquidityRestrictions)?
@@ -881,8 +905,8 @@ impl<T: Config> Module<T> {
 			// Tell the system module we are "providing" the account
 			// This is only done so that FRAME pallets from substrate think
 			// this accounts "exists"
-			if <frame_system::Module<T>>::providers(&who).is_zero() {
-				<frame_system::Module<T>>::inc_providers(&who);
+			if <frame_system::Pallet<T>>::providers(&who).is_zero() {
+				<frame_system::Pallet<T>>::inc_providers(&who);
 			}
 			*balance = free
 		});
@@ -895,7 +919,11 @@ impl<T: Config> Module<T> {
 		amount: T::Balance,
 		reasons: WithdrawReasons,
 	) {
-		let mut new_lock = Some(BalanceLock { id, amount, reasons });
+		let mut new_lock = Some(BalanceLock {
+			id,
+			amount,
+			reasons: reasons.into(),
+		});
 		let mut locks = <Module<T>>::locks(asset_id, who)
 			.into_iter()
 			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
@@ -913,7 +941,11 @@ impl<T: Config> Module<T> {
 		amount: T::Balance,
 		reasons: WithdrawReasons,
 	) {
-		let mut new_lock = Some(BalanceLock { id, amount, reasons });
+		let mut new_lock = Some(BalanceLock {
+			id,
+			amount,
+			reasons: reasons.into(),
+		});
 		let mut locks = <Module<T>>::locks(asset_id, who)
 			.into_iter()
 			.filter_map(|l| {

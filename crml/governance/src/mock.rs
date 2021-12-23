@@ -16,8 +16,8 @@
 use crate as crml_governance;
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_generic_asset::StakingAssetCurrency;
-use crml_support::StakingAmount;
-use frame_support::{parameter_types, traits::RegistrationInfo, weights::Weight, PalletId};
+use crml_support::{RegistrationInfo, StakingAmount};
+use frame_support::{parameter_types, weights::Weight, PalletId};
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
@@ -37,10 +37,10 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Scheduler: pallet_scheduler::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		Governance: crml_governance::{Module, Call, Storage, Event},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		Scheduler: pallet_scheduler::{Pallet, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Governance: crml_governance::{Pallet, Call, Storage, Event},
 	}
 );
 
@@ -52,7 +52,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = u64;
@@ -72,6 +72,7 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {
@@ -99,6 +100,7 @@ impl pallet_scheduler::Config for Test {
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = ();
 	type WeightInfo = ();
+	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 }
 
 pub struct MockStakingAmount;

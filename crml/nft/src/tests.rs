@@ -39,7 +39,7 @@ fn has_event(
 ) -> bool {
 	System::events()
 		.iter()
-		.find(|e| e.event == Event::crml_nft(event.clone()))
+		.find(|e| e.event == Event::Nft(event.clone()))
 		.is_some()
 }
 
@@ -107,8 +107,9 @@ fn migration_v1_to_v2() {
 	mod v1_storage {
 		use super::{CollectionId, Config, SeriesId};
 		use codec::{Decode, Encode};
+		use scale_info::TypeInfo;
 
-		#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+		#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 		pub enum MetadataBaseURI {
 			Ipfs,
 			Https(Vec<u8>),
@@ -222,10 +223,7 @@ fn create_collection_royalties_invalid() {
 				Some(owner).into(),
 				b"test-collection".to_vec(),
 				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_fraction(1.2)),
-						(4_u64, Permill::from_fraction(3.3))
-					]
+					entitlements: vec![(3_u64, Permill::from_float(1.2)), (4_u64, Permill::from_float(3.3))]
 				}),
 			),
 			Error::<Test>::RoyaltiesInvalid
@@ -683,7 +681,7 @@ fn sell_closes_on_schedule() {
 fn register_marketplace() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account = 1;
-		let entitlements: Permill = Permill::from_fraction(0.1);
+		let entitlements: Permill = Permill::from_float(0.1);
 		let marketplace_id = Nft::next_marketplace_id();
 		assert_ok!(Nft::register_marketplace(Some(account).into(), None, entitlements));
 		assert!(has_event(RawEvent::RegisteredMarketplace(account, entitlements, 0)));
@@ -696,7 +694,7 @@ fn register_marketplace_separate_account() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account = 1;
 		let marketplace_account = 2;
-		let entitlements: Permill = Permill::from_fraction(0.1);
+		let entitlements: Permill = Permill::from_float(0.1);
 		assert_ok!(Nft::register_marketplace(
 			Some(account).into(),
 			Some(marketplace_account).into(),
@@ -716,7 +714,7 @@ fn buy_with_marketplace_royalties() {
 		let collection_owner = 1;
 		let beneficiary_1 = 11;
 		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(beneficiary_1, Permill::from_fraction(0.1111))],
+			entitlements: vec![(beneficiary_1, Permill::from_float(0.1111))],
 		};
 		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
 
@@ -728,7 +726,7 @@ fn buy_with_marketplace_royalties() {
 
 		let marketplace_account = 20;
 		let initial_balance_marketplace = GenericAsset::free_balance(payment_asset, &marketplace_account);
-		let marketplace_entitlement: Permill = Permill::from_fraction(0.5);
+		let marketplace_entitlement: Permill = Permill::from_float(0.5);
 		assert_ok!(Nft::register_marketplace(
 			Some(marketplace_account).into(),
 			Some(marketplace_account).into(),
@@ -776,7 +774,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let beneficiary_1 = 11;
 		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: vec![(beneficiary_1, Permill::from_fraction(0.51))],
+			entitlements: vec![(beneficiary_1, Permill::from_float(0.51))],
 		};
 		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
 
@@ -787,7 +785,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 		let token_id = first_token_id(collection_id);
 
 		let marketplace_account = 20;
-		let marketplace_entitlement: Permill = Permill::from_fraction(0.5);
+		let marketplace_entitlement: Permill = Permill::from_float(0.5);
 		assert_ok!(Nft::register_marketplace(
 			Some(marketplace_account).into(),
 			Some(marketplace_account).into(),
@@ -855,9 +853,9 @@ fn buy_with_royalties() {
 		let beneficiary_2 = 12;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.111)),
-				(beneficiary_1, Permill::from_fraction(0.1111)),
-				(beneficiary_2, Permill::from_fraction(0.3333)),
+				(collection_owner, Permill::from_float(0.111)),
+				(beneficiary_1, Permill::from_float(0.1111)),
+				(beneficiary_2, Permill::from_float(0.3333)),
 			],
 		};
 		let (collection_id, _, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1011,10 +1009,7 @@ fn buy_with_overcommitted_royalties() {
 		// royalty schedules should not make it into storage but we protect against it anyway
 		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
-			entitlements: vec![
-				(11_u64, Permill::from_fraction(0.125)),
-				(12_u64, Permill::from_fraction(0.9)),
-			],
+			entitlements: vec![(11_u64, Permill::from_float(0.125)), (12_u64, Permill::from_float(0.9))],
 		};
 		CollectionRoyalties::<Test>::insert(collection_id, bad_schedule.clone());
 		let listing_id = Nft::next_listing_id();
@@ -1283,9 +1278,9 @@ fn auction_royalty_payments() {
 		let collection_owner = 1;
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: vec![
-				(collection_owner, Permill::from_fraction(0.1111)),
-				(beneficiary_1, Permill::from_fraction(0.1111)),
-				(beneficiary_2, Permill::from_fraction(0.1111)),
+				(collection_owner, Permill::from_float(0.1111)),
+				(beneficiary_1, Permill::from_float(0.1111)),
+				(beneficiary_2, Permill::from_float(0.1111)),
 			],
 		};
 		let (collection_id, token_id, token_owner) = setup_token_with_royalties(royalties_schedule.clone(), 1);
@@ -1792,10 +1787,7 @@ fn mint_series_royalties_invalid() {
 				Some(token_owner),
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_fraction(1.2)),
-						(4_u64, Permill::from_fraction(3.3))
-					]
+					entitlements: vec![(3_u64, Permill::from_float(1.2)), (4_u64, Permill::from_float(3.3))]
 				}),
 			),
 			Error::<Test>::RoyaltiesInvalid

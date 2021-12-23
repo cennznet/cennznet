@@ -41,15 +41,14 @@ use crml_support::{
 	NotarizationRewardHandler,
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, log,
-	traits::{Get, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
-	transactional,
-	weights::Weight,
-	Parameter,
+	decl_error, decl_event, decl_module, decl_storage, log,
+	pallet_prelude::*,
+	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	transactional, Parameter,
 };
 use frame_system::{
-	ensure_none, ensure_root,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
+	pallet_prelude::*,
 };
 use sp_runtime::{
 	generic::DigestItem,
@@ -206,7 +205,7 @@ decl_module! {
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
 				}
-				ProcessedTxBuckets::remove_prefix(expired_bucket_index);
+				ProcessedTxBuckets::remove_prefix(expired_bucket_index, None);
 
 				// TODO: better estimate
 				50_000_000_u64
@@ -260,7 +259,7 @@ decl_module! {
 			}
 
 			// Claim is invalid (nays > (100% - NotarizationThreshold))
-			if Percent::from_rational_approximation(nay_count, notary_count) > (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct())) {
+			if Percent::from_rational(nay_count, notary_count) > (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct())) {
 				// event did not notarize / failed, clean up
 				let event_data = EventData::take(payload.event_claim_id);
 				if event_data.is_none() {
@@ -268,7 +267,7 @@ decl_module! {
 					log!(error, "💎 unexpected empty claim");
 					return Err(Error::<T>::InvalidClaim.into())
 				}
-				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
+				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id, None);
 				let (_eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
 				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
 				let event_data = event_data.unwrap();
@@ -279,7 +278,7 @@ decl_module! {
 			}
 
 			// Claim is valid
-			if Percent::from_rational_approximation(yay_count, notary_count) >= T::NotarizationThreshold::get() {
+			if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
 				let event_data = EventData::take(payload.event_claim_id);
 				if event_data.is_none() {
 					// this should never happen
@@ -287,7 +286,7 @@ decl_module! {
 					return Err(Error::<T>::InvalidClaim.into())
 				}
 				// no need to track info on this claim any more since it's approved
-				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id);
+				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id, None);
 				let (eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
 				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
 				let event_data = event_data.unwrap();
@@ -322,7 +321,7 @@ decl_module! {
 			let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
 			let needed = Self::activation_threshold();
 			let total = T::AuthoritySet::validators().len();
-			if Percent::from_rational_approximation(supports, total) < needed {
+			if Percent::from_rational(supports, total) < needed {
 				log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
 				return;
 			}
@@ -438,7 +437,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 			&EthAbiCodec::encode(&event_proof_id)[..],
 		]
 		.concat();
-		let log: DigestItem<T::Hash> = DigestItem::Consensus(
+		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
 		);
@@ -676,7 +675,10 @@ impl<T: Config> Module<T> {
 			.sign(&payload.encode())
 			.ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
 
-		let call = Call::submit_notarization(payload, signature);
+		let call = Call::submit_notarization {
+			payload,
+			_signature: signature,
+		};
 
 		// Retrieve the signer to sign the payload
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
@@ -719,7 +721,7 @@ impl<T: Config> Module<T> {
 			Self::deposit_event(Event::AuthoritySetChange(event_proof_id, next_validator_set_id));
 			NotarySetProofId::put(event_proof_id);
 			NextProofId::put(event_proof_id.wrapping_add(1));
-			let log: DigestItem<T::Hash> = DigestItem::Consensus(
+			let log: DigestItem = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::PendingAuthoritiesChange((
 					ValidatorSet {
@@ -758,7 +760,11 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_notarization(ref payload, ref signature) = call {
+		if let Call::submit_notarization {
+			ref payload,
+			_signature: ref signature,
+		} = call
+		{
 			// notarization must be from an active notary
 			let notary_keys = Self::notary_keys();
 			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
@@ -850,7 +856,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_disabled(_i: usize) {
+	fn on_disabled(_i: u32) {
 		// TODO: remove disabled validator from claim voting?
 	}
 }

@@ -112,14 +112,14 @@ decl_module! {
 
 				// it's possible this account is used normally outside of eth signing-
 				// ensure highest known nonce is used
-				let system_nonce = <frame_system::Module<T>>::account_nonce(account.clone());
+				let system_nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
 				let highest_nonce = sp_std::cmp::max(system_nonce.saturated_into(), address_nonce);
 				let new_nonce = highest_nonce.checked_add(1).ok_or(Error::<T>::InvalidNonce)?;
 
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
 				AddressNonce::insert(eth_address, new_nonce);
-				<frame_system::Module<T>>::inc_account_nonce(&account);
+				<frame_system::Pallet<T>>::inc_account_nonce(&account);
 
 				// execute the call
 				let new_origin = frame_system::RawOrigin::Signed(account.clone()).into();
@@ -154,13 +154,18 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::call(call, address, signature) = call {
-			let address_nonce = Self::stored_address_nonce(address);
+		if let Call::call {
+			call,
+			eth_address,
+			signature,
+		} = call
+		{
+			let address_nonce = Self::stored_address_nonce(eth_address);
 			let message = &(&call, address_nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &address) {
+			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
-					.and_provides((address, address_nonce))
+					.and_provides((eth_address, address_nonce))
 					.longevity(64_u64)
 					.propagate(true)
 					.build();
@@ -194,26 +199,26 @@ mod tests {
 	type BlockNumber = u64;
 	type Signature = MultiSignature;
 	type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-	type Block = frame_system::mocking::MockBlock<Runtime>;
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
+	type Block = frame_system::mocking::MockBlock<Test>;
+	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 
 	frame_support::construct_runtime!(
-		pub enum Runtime where
+		pub enum Test where
 			Block = Block,
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			EthWallet: crml_eth_wallet::{Module, Call, Event<T>},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>},
 		}
 	);
 
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
 	}
-	impl frame_system::Config for Runtime {
+	impl frame_system::Config for Test {
 		type Origin = Origin;
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type Index = u64;
 		type BlockNumber = BlockNumber;
 		type Call = Call;
@@ -234,12 +239,13 @@ mod tests {
 		type BlockWeights = ();
 		type BlockLength = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	parameter_types! {
 		pub const Priority: TransactionPriority = TransactionPriority::max_value();
 	}
-	impl Config for Runtime {
+	impl Config for Test {
 		type Event = Event;
 		type Call = Call;
 		type Signer = <Signature as Verify>::Signer;
@@ -274,9 +280,7 @@ mod tests {
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
-			.unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		storage.into()
 	}
 
@@ -305,13 +309,13 @@ mod tests {
 	fn invalid_signature() {
 		new_test_ext().execute_with(|| {
 			let bob = EthAddress::from_low_u64_be(555);
-			let call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
+			let call = frame_system::Call::<Test>::remark{remark: b"hello world".to_vec()}.into();
 			let signature = EthereumSignature {
 				0: hex!("dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b")
 			};
 			assert_err!(
 				EthWallet::call(Origin::none(), Box::new(call), bob, signature),
-				Error::<Runtime>::InvalidSignature,
+				Error::<Test>::InvalidSignature,
 			);
 		});
 	}
@@ -323,8 +327,11 @@ mod tests {
 			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
 			let cennznet_address = MultiSigner::from(pair.public()).into_account();
 
-			let call: Call = frame_system::Call::<Runtime>::remark(b"hello world".to_vec()).into();
-			let system_nonce = <frame_system::Module<Runtime>>::account_nonce(&cennznet_address);
+			let call: Call = frame_system::Call::<Test>::remark {
+				remark: b"hello world".to_vec(),
+			}
+			.into();
+			let system_nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
 			let module_nonce = EthWallet::address_nonce(&eth_address);
 			assert_eq!(system_nonce as u32, module_nonce);
 			let signature =
@@ -337,7 +344,7 @@ mod tests {
 			// nonces incremented
 			assert_eq!(EthWallet::address_nonce(&eth_address), module_nonce + 1,);
 			assert_eq!(
-				<frame_system::Module<Runtime>>::account_nonce(&cennznet_address),
+				<frame_system::Pallet<Test>>::account_nonce(&cennznet_address),
 				system_nonce + 1,
 			);
 

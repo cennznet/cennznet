@@ -221,49 +221,41 @@ pub use rewards::{HandlePayee, OnEndEra, RewardCalculation};
 mod slashing;
 pub use slashing::REWARD_F1;
 
-use codec::{Decode, Encode, HasCompact};
+use codec::HasCompact;
 use crml_support::StakingAmount;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo},
-	ensure,
+	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
+	pallet_prelude::*,
 	traits::{
-		Currency, CurrencyToVote, EstimateNextNewSession, Get, IsSubType, LockIdentifier, LockableCurrency,
-		OnUnbalanced, UnixTime, WithdrawReasons,
+		Currency, CurrencyToVote, EstimateNextNewSession, IsSubType, LockIdentifier, LockableCurrency, OnUnbalanced,
+		UnixTime, WithdrawReasons,
 	},
-	weights::{
-		constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
-		Weight,
-	},
-	IterableStorageMap,
+	weights::constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
 };
-use frame_system::{self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes};
+use frame_system::{self as system, offchain::SendTransactionTypes, pallet_prelude::*};
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
 use sp_npos_elections::{
-	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment, CompactSolution,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, PerThing128, Supports,
-	VoteWeight,
+	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment,
+	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
+	PerThing128, Supports, VoteWeight,
 };
 use sp_runtime::{
-	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, Saturating, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-		ValidTransaction,
-	},
-	DispatchError, InnerOf, PerU16, Perbill, RuntimeDebug, SaturatedConversion,
+	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, SaturatedConversion, Saturating, Zero},
+	InnerOf, PerU16, Perbill,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_staking::{
-	offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
+	offence::{DisableStrategy, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromIterator, mem::size_of, prelude::*, vec};
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 const MAX_UNLOCKING_CHUNKS: usize = 32;
-pub const MAX_NOMINATIONS: usize = <CompactAssignments as CompactSolution>::LIMIT;
+pub const MAX_NOMINATIONS: usize = <CompactAssignments as NposSolution>::LIMIT;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
 
@@ -281,7 +273,7 @@ macro_rules! log {
 // Note: Maximum nomination limit is set here -- 16.
 generate_solution_type!(
 	#[compact]
-	pub struct CompactAssignments::<NominatorIndex, ValidatorIndex, OffchainAccuracy>(16)
+	pub struct CompactAssignments::<VoterIndex = NominatorIndex, TargetIndex = ValidatorIndex, Accuracy = OffchainAccuracy>(16)
 );
 
 /// Data type used to index nominators in the compact type
@@ -310,7 +302,7 @@ pub type ChainAccuracy = Perbill;
 pub type OffchainAccuracy = PerU16;
 
 /// The result of an election round.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ElectionResult<AccountId, Balance: HasCompact> {
 	/// Flat list of validators who have been elected.
 	elected_stashes: Vec<AccountId>,
@@ -322,7 +314,7 @@ pub struct ElectionResult<AccountId, Balance: HasCompact> {
 }
 
 /// The status of the upcoming (offchain) election.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum ElectionStatus<BlockNumber> {
 	/// Nothing has and will happen for now. submission window is not open.
 	Closed,
@@ -335,7 +327,7 @@ pub enum ElectionStatus<BlockNumber> {
 /// Note that these values must reflect the __total__ number, not only those that are present in the
 /// solution. In short, these should be the same size as the size of the values dumped in
 /// `SnapshotValidators` and `SnapshotNominators`.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
 pub struct ElectionSize {
 	/// Number of validators in the snapshot of the current election round.
 	#[codec(compact)]
@@ -381,7 +373,7 @@ pub enum StakerStatus<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
@@ -398,7 +390,7 @@ impl<AccountId> Default for RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -415,7 +407,7 @@ impl Default for ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
@@ -440,7 +432,7 @@ impl<T: Config> StakingAmount for Module<T> {
 }
 
 /// The ledger of a (bonded) stash.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct StakingLedger<AccountId, Balance: HasCompact> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: AccountId,
@@ -577,7 +569,7 @@ where
 }
 
 /// A record of the nominations made by a specific account.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct Nominations<AccountId> {
 	/// The targets of nomination.
 	pub targets: Vec<AccountId>,
@@ -586,7 +578,7 @@ pub struct Nominations<AccountId> {
 }
 
 /// The amount of exposure (to slashing) than an individual nominator has.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	who: AccountId,
@@ -602,7 +594,7 @@ impl<AccountId, Balance: HasCompact> IndividualExposure<AccountId, Balance> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -616,7 +608,7 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, Default, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Default, RuntimeDebug)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
 	validator: AccountId,
@@ -631,7 +623,7 @@ pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 }
 
 /// Indicate how an election round was computed.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum ElectionCompute {
 	/// Result was forcefully computed on chain at the end of the session.
 	OnChain,
@@ -647,7 +639,7 @@ type NegativeImbalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -686,15 +678,16 @@ where
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
 	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-		<pallet_session::Module<T>>::disable(validator)
+		// CHECK
+		Ok(<pallet_session::Pallet<T>>::disable(validator))
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Module<T>>::validators()
+		<pallet_session::Pallet<T>>::validators()
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Module<T>>::prune_up_to(up_to);
+		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }
 
@@ -783,11 +776,11 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	type OffchainSolutionWeightLimit: Get<Weight>;
 
 	/// Extrinsic weight info
-	type WeightInfo: WeightInfo;
+	type WeightInfo: WeightInfo + ElectionWeightExt;
 }
 
 /// Mode of era-forcing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Forcing {
 	/// Not forcing anything - just let whatever happen.
@@ -809,7 +802,7 @@ impl Default for Forcing {
 // A value placed in storage that represents the current version of the Staking storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 // This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 enum Releases {
 	/// storage version pre-runtime v38
 	V0 = 0,
@@ -1202,7 +1195,7 @@ decl_module! {
 				// either current session final based on the plan, or we're forcing.
 				(Self::is_current_session_final() || Self::will_era_be_forced())
 			{
-				if let Some(next_session_change) = T::NextNewSession::estimate_next_new_session(now) {
+				if let (Some(next_session_change), _weight) = T::NextNewSession::estimate_next_new_session(now) {
 					if let Some(remaining) = next_session_change.checked_sub(&now) {
 						if remaining <= T::ElectionLookahead::get() && !remaining.is_zero() {
 							// create snapshot.
@@ -1224,7 +1217,6 @@ decl_module! {
 				} else {
 					log!(warn, "💸 Estimating next session change failed.");
 				}
-				add_weight(0, 0, T::NextNewSession::weight(now))
 			}
 			// For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
 			add_weight(3, 0, 0);
@@ -1969,7 +1961,7 @@ decl_module! {
 		///   - Initial solution is almost the same.
 		///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
 		/// # </weight>
-		#[weight = T::WeightInfo::submit_solution_better(
+		#[weight = T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -2003,7 +1995,7 @@ decl_module! {
 		/// # <weight>
 		/// See `crate::weight` module.
 		/// # </weight>
-		#[weight = T::WeightInfo::submit_solution_better(
+		#[weight = T::WeightInfo::submit_unsigned(
 			size.validators.into(),
 			size.nominators.into(),
 			compact.voter_count() as u32,
@@ -2244,16 +2236,16 @@ impl<T: Config> Module<T> {
 			let assignments = phragmen_result.assignments;
 
 			let staked_assignments =
-				sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
+				sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, Self::slashable_balance_of_fn())
+					.map_err(|_| {
+						log!(
+							error,
+							"💸 on-chain phragmen is failing due to a problem in the result. This is a bug."
+						)
+					})
+					.ok()?;
 
-			let supports = to_supports(&elected_stashes, &staked_assignments)
-				.map_err(|_| {
-					log!(
-						error,
-						"💸 on-chain phragmen is failing due to a problem in the result. This must be a bug."
-					)
-				})
-				.ok()?;
+			let supports = to_supports(&staked_assignments);
 
 			// collect exposures
 			let exposures = Self::collect_exposures(supports);
@@ -2515,7 +2507,7 @@ impl<T: Config> Module<T> {
 			sp_npos_elections::assignment_ratio_to_staked(assignments, Self::slashable_balance_of_fn());
 
 		// build the support map thereof in order to evaluate.
-		let supports = to_supports(&winners, &staked_assignments).map_err(|_| Error::<T>::OffchainElectionBogusEdge)?;
+		let supports = to_supports(&staked_assignments);
 
 		// Check if the score is the same as the claimed one.
 		let submitted_score = (&supports).evaluate();
@@ -2779,9 +2771,9 @@ impl<T: Config> Module<T> {
 
 	/// Clear all era information for given era.
 	fn clear_era_information(era_index: EraIndex) {
-		<ErasStakers<T>>::remove_prefix(era_index);
-		<ErasStakersClipped<T>>::remove_prefix(era_index);
-		<ErasValidatorPrefs<T>>::remove_prefix(era_index);
+		<ErasStakers<T>>::remove_prefix(era_index, None);
+		<ErasStakersClipped<T>>::remove_prefix(era_index, None);
+		<ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
 		<ErasTotalStake<T>>::remove(era_index);
 		ErasStartSessionIndex::remove(era_index);
 	}
@@ -2871,7 +2863,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] planning new_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			new_index
 		);
 		Self::new_session(new_index)
@@ -2880,7 +2872,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] starting start_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			start_index
 		);
 		Self::start_session(start_index)
@@ -2889,7 +2881,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] ending end_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			end_index
 		);
 		Self::end_session(end_index)
@@ -2948,7 +2940,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Module<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
@@ -2963,12 +2955,9 @@ where
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-	) -> Result<Weight, ()> {
-		if !Self::can_report() {
-			return Err(());
-		}
-
-		let reward_proportion = SlashRewardFraction::get();
+		_disable_strategy: DisableStrategy,
+	) -> Weight {
+		let reward_proportion = Self::slash_reward_fraction();
 		let mut consumed_weight: Weight = 0;
 		let mut add_db_reads_writes = |reads, writes| {
 			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -2978,8 +2967,8 @@ where
 			let active_era = Self::active_era();
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
-				// this offence need not be re-submitted.
-				return Ok(consumed_weight);
+				// This offence need not be re-submitted.
+				return consumed_weight;
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -2991,7 +2980,7 @@ where
 
 		let window_start = active_era.saturating_sub(T::BondingDuration::get());
 
-		// fast path for active-era report - most likely.
+		// Fast path for active-era report - most likely.
 		// `slash_session` cannot be in a future active era. It must be in `active_era` or before.
 		let slash_era = if slash_session >= active_era_start_session_index {
 			active_era
@@ -2999,7 +2988,7 @@ where
 			let eras = BondedEras::get();
 			add_db_reads_writes(1, 0);
 
-			// reverse because it's more likely to find reports from recent eras.
+			// Reverse because it's more likely to find reports from recent eras.
 			match eras
 				.iter()
 				.rev()
@@ -3007,8 +2996,8 @@ where
 				.next()
 			{
 				Some(&(ref slash_era, _)) => *slash_era,
-				// before bonding period. defensive - should be filtered out.
-				None => return Ok(consumed_weight),
+				// Before bonding period. defensive - should be filtered out.
+				None => return consumed_weight,
 			}
 		};
 
@@ -3053,7 +3042,7 @@ where
 				}
 				unapplied.reporters = details.reporters.clone();
 				if slash_defer_duration == 0 {
-					// apply right away.
+					// Apply right away.
 					slashing::apply_slash::<T>(unapplied);
 					{
 						let slash_cost = (6, 5);
@@ -3064,7 +3053,7 @@ where
 						);
 					}
 				} else {
-					// defer to end of some `slash_defer_duration` from now.
+					// Defer to end of some `slash_defer_duration` from now.
 					<Self as Store>::UnappliedSlashes::mutate(active_era, move |for_later| for_later.push(unapplied));
 					add_db_reads_writes(1, 1);
 				}
@@ -3073,11 +3062,7 @@ where
 			}
 		}
 
-		Ok(consumed_weight)
-	}
-
-	fn can_report() -> bool {
-		Self::era_election_status().is_closed()
+		consumed_weight
 	}
 }
 
@@ -3118,7 +3103,14 @@ where
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_election_solution_unsigned(_, _, score, era, _) = call {
+		if let Call::submit_election_solution_unsigned {
+			winners: _,
+			compact: _,
+			score,
+			era,
+			size: _,
+		} = call
+		{
 			use offchain_election::DEFAULT_LONGEVITY;
 
 			// discard solution not coming from the local OCW.
@@ -3167,7 +3159,14 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	}
 
 	fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-		if let Call::submit_election_solution_unsigned(_, _, score, era, _) = call {
+		if let Call::submit_election_solution_unsigned {
+			winners: _,
+			compact: _,
+			score,
+			era,
+			size: _,
+		} = call
+		{
 			// IMPORTANT NOTE: These checks are performed in the dispatch call itself, yet we need
 			// to duplicate them here to prevent a block producer from putting a previously
 			// validated, yet no longer valid solution on chain.
@@ -3208,5 +3207,25 @@ impl<T: Config> crml_support::FinalSessionTracker for Module<T> {
 	}
 	fn is_active_session_final() -> bool {
 		Self::is_active_session_final()
+	}
+}
+
+pub trait ElectionWeightExt {
+	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight;
+}
+
+impl ElectionWeightExt for () {
+	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
+		(0 as Weight)
+			// Standard Error: 5_000
+			.saturating_add((1_970_000 as Weight).saturating_mul(v as Weight))
+			// Standard Error: 10_000
+			.saturating_add((173_000 as Weight).saturating_mul(t as Weight))
+			// Standard Error: 18_000
+			.saturating_add((9_783_000 as Weight).saturating_mul(a as Weight))
+			// Standard Error: 27_000
+			.saturating_add((2_224_000 as Weight).saturating_mul(d as Weight))
+			.saturating_add(700_000 as Weight)
+			.saturating_add(1_000_000 as Weight)
 	}
 }

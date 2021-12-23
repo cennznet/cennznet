@@ -25,7 +25,7 @@ use frame_support::{
 };
 use sp_core::{
 	ecdsa::Signature,
-	offchain::{testing, OffchainExt},
+	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
 	Public, H256,
 };
 use sp_runtime::offchain::StorageKind;
@@ -48,8 +48,8 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		EthBridge: crml_eth_bridge::{Module, Call, Storage, Event, ValidateUnsigned},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 	}
 );
 
@@ -59,7 +59,7 @@ parameter_types! {
 impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
 	type BlockNumber = u64;
@@ -79,6 +79,7 @@ impl frame_system::Config for TestRuntime {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {
@@ -132,11 +133,11 @@ pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_next_session_final() -> (bool, bool) {
 		// at block 1, next session is final
-		(frame_system::Module::<TestRuntime>::block_number() == 1, false)
+		(frame_system::Pallet::<TestRuntime>::block_number() == 1, false)
 	}
 	fn is_active_session_final() -> bool {
 		// at block 2, the active session is final
-		frame_system::Module::<TestRuntime>::block_number() == 2
+		frame_system::Pallet::<TestRuntime>::block_number() == 2
 	}
 }
 
@@ -207,9 +208,9 @@ impl ExtBuilder {
 			.unwrap()
 			.into();
 		if self.next_session_final {
-			ext.execute_with(|| frame_system::Module::<TestRuntime>::set_block_number(1));
+			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
 		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Module::<TestRuntime>::set_block_number(2));
+			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(2));
 		}
 
 		ext
@@ -278,7 +279,8 @@ fn last_session_change() {
 fn eth_client_http_request() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
 	let mut t = sp_io::TestExternalities::default();
-	t.register_extension(OffchainExt::new(offchain));
+	t.register_extension(OffchainDbExt::new(offchain.clone()));
+	t.register_extension(OffchainWorkerExt::new(offchain));
 	// Set the ethereum http endpoint for OCW queries
 	t.execute_with(|| sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, b"ETH_HTTP", &MOCK_ETH_HTTP_URI));
 

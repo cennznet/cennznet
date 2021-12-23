@@ -17,8 +17,8 @@
 //! Extra trait implementations for the `GenericAsset` module
 
 use crate::{
-	AssetOptions, CheckedImbalance, Config, Error, Module, NegativeImbalance, PositiveImbalance,
-	SpendingAssetIdAuthority, StakingAssetIdAuthority,
+	AssetOptions, Config, Error, Module, NegativeImbalance, PositiveImbalance, SpendingAssetIdAuthority,
+	StakingAssetIdAuthority,
 };
 use crml_support::{AssetIdAuthority, MultiCurrency};
 use frame_support::{

@@ -64,6 +64,7 @@ pub fn ethy_peers_set_config() -> sc_network::config::NonDefaultSetConfig {
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 		},
+		fallback_names: vec![],
 	}
 }
 

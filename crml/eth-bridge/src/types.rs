@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
 use ethereum_types::{Bloom as H2048, U64};
+use scale_info::TypeInfo;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_runtime::RuntimeDebug;
@@ -39,7 +40,7 @@ pub type EthAddress = H160;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 /// Info required to claim an Ethereum event happened
 pub struct EventClaim {
 	/// The ethereum transaction hash
@@ -60,7 +61,7 @@ pub trait EthereumHttpApi {
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim
-#[derive(Decode, Encode, Debug, PartialEq, Clone)]
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EventClaimResult {
 	/// It's valid
 	Valid,
@@ -82,7 +83,7 @@ pub enum EventClaimResult {
 
 /// An independent notarization vote on a claim
 /// This is signed and shared with the runtime after verification by a particular validator
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct NotarizationPayload {
 	/// The message Id being notarized
 	pub event_claim_id: EventClaimId,
@@ -95,7 +96,7 @@ pub struct NotarizationPayload {
 
 /// Config for handling Ethereum messages
 /// Ethereum messages are simply events deposited at known contract addresses
-#[derive(Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Default, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct HandlerConfig {
 	/// The EVM event signature of the relevant event
 	pub event_signature: [u8; 32],
@@ -219,7 +220,7 @@ pub struct EthBlock {
 	pub uncles: Vec<H256>,
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize, TypeInfo)]
 pub struct EthResponse<'a, D> {
 	jsonrpc: &'a str,
 	id: u32,

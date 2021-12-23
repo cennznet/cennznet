@@ -180,7 +180,7 @@ where
 		Self::reward_by_ids(vec![(author, 20)])
 	}
 	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
+		Self::reward_by_ids(vec![(<pallet_authorship::Pallet<T>>::author(), 2), (author, 1)])
 	}
 }
 
@@ -215,7 +215,7 @@ impl<T: Config> OnEndEra for Module<T> {
 		let remainder = Self::schedule_reward_payouts(
 			era_validator_stashes,
 			next_reward.stakers_cut,
-			<frame_system::Module<T>>::block_number() + One::one(),
+			<frame_system::Pallet<T>>::block_number() + One::one(),
 			T::BlockPayoutInterval::get(),
 		);
 
@@ -377,7 +377,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					stakers_cut / (validators.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points) * stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * stakers_cut
 				};
 				remainder -= payout;
 				(validator, payout)
@@ -434,8 +434,7 @@ impl<T: Config> Module<T> {
 					// When no authorship points are recorded, divide the payout equally
 					payout.stakers_cut / (validator_commission_stake_map.len() as u32).into()
 				} else {
-					Perbill::from_rational_approximation(validator_reward_points, total_reward_points)
-						* payout.stakers_cut
+					Perbill::from_rational(validator_reward_points, total_reward_points) * payout.stakers_cut
 				};
 
 				if validator_total_payout.is_zero() {
@@ -489,15 +488,13 @@ impl<T: Config> Module<T> {
 
 		// Iterate all nominator staked amounts
 		for nominator_stake in &validator_stake.others {
-			let contribution_ratio =
-				Perbill::from_rational_approximation(nominator_stake.value, aggregate_validator_stake);
+			let contribution_ratio = Perbill::from_rational(nominator_stake.value, aggregate_validator_stake);
 			payouts.push((Self::payee(&nominator_stake.who), contribution_ratio * nominators_cut));
 		}
 
 		// Finally payout the validator. commission (`validator_cut`) + it's share of the `nominators_cut`
 		// As a validator always self-nominates using it's own stake.
-		let validator_contribution_ratio =
-			Perbill::from_rational_approximation(validator_stake.own, aggregate_validator_stake);
+		let validator_contribution_ratio = Perbill::from_rational(validator_stake.own, aggregate_validator_stake);
 
 		// this cannot overflow, `validator_cut` is a fraction of `reward`
 		payouts.push((
@@ -578,10 +575,10 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-			Authorship: pallet_authorship::{Module, Call, Storage},
-			Rewards: rewards::{Module, Call, Storage, Config, Event<T>},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Authorship: pallet_authorship::{Pallet, Call, Storage},
+			Rewards: rewards::{Pallet, Call, Storage, Config, Event<T>},
 		}
 	);
 
@@ -589,7 +586,7 @@ mod tests {
 		pub const BlockHashCount: u64 = 250;
 	}
 	impl frame_system::Config for Test {
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
 		type BlockLength = ();
 		type DbWeight = ();
@@ -611,6 +608,7 @@ mod tests {
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	impl crml_generic_asset::Config for Test {
@@ -847,7 +845,7 @@ mod tests {
 			Rewards::new_fiscal_era();
 
 			let events = System::events();
-			assert_eq!(events.last().unwrap().event, Event::rewards(RawEvent::NewFiscalEra(60)));
+			assert_eq!(events.last().unwrap().event, Event::Rewards(RawEvent::NewFiscalEra(60)));
 		});
 	}
 
@@ -859,7 +857,7 @@ mod tests {
 			Rewards::on_end_era(&vec![], 0, false);
 
 			let era_1_inflation_target = 14;
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
+			let expected_event = Event::Rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
 			assert!(System::events().iter().any(|record| record.event == expected_event));
 			System::reset_events();
 
@@ -867,7 +865,7 @@ mod tests {
 			Rewards::on_end_era(&vec![], 1, false);
 			Rewards::on_end_era(&vec![], 2, false);
 			assert!(!System::events().iter().any(|record| match record.event {
-				Event::rewards(RawEvent::NewFiscalEra(_)) => true,
+				Event::Rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
 			}));
 
@@ -881,7 +879,7 @@ mod tests {
 
 			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
-			let expected_event = Event::rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
+			let expected_event = Event::Rewards(RawEvent::NewFiscalEra(era_2_inflation_target));
 			assert!(System::events().iter().any(|record| record.event == expected_event));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_2_inflation_target);
 		});
@@ -907,7 +905,7 @@ mod tests {
 				// Trigger era end, new fiscal era should be enacted
 				Rewards::on_end_era(&vec![], 0, false);
 
-				let expected_event = Event::rewards(RawEvent::NewFiscalEra(14));
+				let expected_event = Event::Rewards(RawEvent::NewFiscalEra(14));
 				let events = System::events();
 				assert!(events.iter().any(|record| record.event == expected_event));
 
@@ -1080,7 +1078,7 @@ mod tests {
 			let mock_commission_stake_map = MockCommissionStakeInfo::new(
 				(1, 1_000),
 				vec![(2, 2_000), (3, 2_000)],
-				Perbill::from_rational_approximation(2u32, 1u32),
+				Perbill::from_rational(2u32, 1u32),
 			);
 
 			let reward = 1_000;
@@ -1099,7 +1097,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);
@@ -1261,7 +1259,7 @@ mod tests {
 			let (per_validator_payouts, _remainder) =
 				Rewards::calculate_per_validator_payouts(validator_total_payout, &validators, authoring_points.clone());
 
-			let validator_1_payout = Perbill::from_rational_approximation(
+			let validator_1_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_1)
@@ -1270,7 +1268,7 @@ mod tests {
 				authoring_points.total,
 			) * validator_total_payout;
 
-			let validator_2_payout = Perbill::from_rational_approximation(
+			let validator_2_payout = Perbill::from_rational(
 				authoring_points
 					.individual
 					.get(&validator_2)
@@ -1363,7 +1361,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let (validator_stash, validator_stake) = (13, 1_000);
 			let nominator_stakes = [(1_u64, 1_000_u64), (2, 2_000), (3, 500)];
-			let commission = Perbill::from_rational_approximation(5_u32, 100);
+			let commission = Perbill::from_rational(5_u32, 100);
 
 			let exposures = MockCommissionStakeInfo::new(
 				(validator_stash, validator_stake),
@@ -1389,7 +1387,7 @@ mod tests {
 				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
 				assert!(System::events()
 					.iter()
-					.find(|e| e.event == Event::rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.find(|e| e.event == Event::Rewards(RawEvent::EraStakerPayout(payee, amount)))
 					.is_some());
 				remainder = remainder.saturating_sub(amount);
 			}
@@ -1432,7 +1430,7 @@ mod tests {
 			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 
 			assert_eq!(ScheduledPayoutEra::get(), era);
@@ -1455,7 +1453,7 @@ mod tests {
 			assert_eq!(next_reward.transaction_fees, 1_000);
 			assert!(System::events()
 				.iter()
-				.find(|e| e.event == Event::rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
+				.find(|e| e.event == Event::Rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
 				.is_some());
 			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
 			assert!(ScheduledPayoutEra::get().is_zero());
@@ -1471,7 +1469,7 @@ mod tests {
 			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== Event::rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
 				.is_some());
 		})
 	}

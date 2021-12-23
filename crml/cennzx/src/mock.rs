@@ -50,9 +50,9 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		GenericAsset: crml_generic_asset::{Module, Call, Storage, Config<T>, Event<T>},
-		Cennzx: crml_cennzx::{Module, Call, Storage, Config<T>, Event<T>},
+		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -60,7 +60,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 impl frame_system::Config for Test {
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -82,6 +82,7 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {
@@ -142,7 +143,7 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 
 		// Run in the context of the first block
-		ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
+		ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 		ext
 	}
 }
@@ -237,7 +238,7 @@ macro_rules! assert_balance_eq (
 
 /// Returns the last recorded block event
 pub fn last_event() -> Event {
-	frame_system::Module::<Test>::events()
+	frame_system::Pallet::<Test>::events()
 		.pop()
 		.expect("Event expected")
 		.event

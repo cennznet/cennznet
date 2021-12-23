@@ -19,10 +19,12 @@ use crate::Config;
 use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
+
 // Counts enum variants at compile time
 use variant_count::VariantCount;
 
@@ -31,7 +33,7 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
 /// Denotes the metadata URI referencing scheme used by a series
 /// Enable token metadata URI construction by clients
-#[derive(Decode, Encode, Debug, Clone, PartialEq)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum MetadataScheme {
 	/// Series metadata is hosted by an HTTPS server
 	/// Inner value is the URI without trailing '/'
@@ -56,7 +58,7 @@ pub type NFTAttributeTypeId = u8;
 pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 
 /// Contains information of a collection (collection name, collection owner, royalties)
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CollectionInfo<AccountId> {
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
@@ -88,7 +90,7 @@ pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
 }
 
 /// Contains information for a particular token. Returns the attributes and owner
-#[derive(Eq, PartialEq, Decode, Encode, Default, Debug)]
+#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TokenInfo<AccountId> {
 	pub attributes: Vec<NFTAttributeValue>,
@@ -98,14 +100,14 @@ pub struct TokenInfo<AccountId> {
 }
 
 /// Reason for an NFT being locked (un-transferrable)
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub enum TokenLockReason {
 	/// Token is listed for sale
 	Listed(ListingId),
 }
 
 /// The supported attribute data types for an NFT
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, VariantCount, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum NFTAttributeValue {
 	I32(i32),
@@ -201,7 +203,7 @@ impl NFTAttributeValue {
 pub(crate) const MAX_ENTITLEMENTS: usize = 8;
 
 /// Reasons for an auction closure
-#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub enum AuctionClosureReason {
 	/// Auction expired with no bids
 	ExpiredNoBids,
@@ -212,7 +214,7 @@ pub enum AuctionClosureReason {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: Vec<(AccountId, Permill)>,
@@ -248,7 +250,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 }
 
 /// The listing response and cursor returned with the RPC getCollectionListing
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ListingResponseWrapper<AccountId> {
 	// List of listings to be returned
@@ -259,7 +261,7 @@ pub struct ListingResponseWrapper<AccountId> {
 }
 
 /// A type to encapsulate both auction listings and fixed price listings for RPC getCollectionListing
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ListingResponse<AccountId> {
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128"))]
@@ -291,14 +293,15 @@ pub fn serialize_u128_option<S: Serializer>(val: &Option<u128>, s: S) -> Result<
 }
 
 /// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
 	Auction(AuctionListing<T>),
 }
 
 /// Information about a marketplace
-#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct Marketplace<AccountId> {
 	/// The marketplace account
 	pub account: AccountId,
@@ -307,7 +310,8 @@ pub struct Marketplace<AccountId> {
 }
 
 /// Information about an auction listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
@@ -326,7 +330,8 @@ pub struct AuctionListing<T: Config> {
 }
 
 /// Information about a fixed price listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: <<T as Config>::MultiCurrency as MultiCurrency>::CurrencyId,
@@ -377,7 +382,7 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 // A value placed in storage that represents the current version of the NFT storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 // This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, TypeInfo)]
 pub enum Releases {
 	/// storage version pre-runtime v41
 	V0 = 0,
@@ -406,19 +411,19 @@ mod test {
 	#[test]
 	fn valid_royalties_plan() {
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.1))],
+			entitlements: vec![(1_u32, Permill::from_float(0.1))],
 		}
 		.validate());
 
 		// explicitally specifying zero royalties is odd but fine
 		assert!(RoyaltiesSchedule::<u32> {
-			entitlements: vec![(1_u32, Permill::from_fraction(0.0))],
+			entitlements: vec![(1_u32, Permill::from_float(0.0))],
 		}
 		.validate());
 
 		let plan = RoyaltiesSchedule::<u32> {
 			entitlements: vec![
-				(1_u32, Permill::from_fraction(1.01)), // saturates at 100%
+				(1_u32, Permill::from_float(1.01)), // saturates at 100%
 			],
 		};
 		assert_eq!(plan.entitlements[0].1, Permill::one());
@@ -429,10 +434,7 @@ mod test {
 	fn invalid_royalties_plan() {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
-			entitlements: vec![
-				(1_u32, Permill::from_fraction(0.2)),
-				(2_u32, Permill::from_fraction(0.81)),
-			],
+			entitlements: vec![(1_u32, Permill::from_float(0.2)), (2_u32, Permill::from_float(0.81)),],
 		}
 		.validate());
 	}
@@ -443,10 +445,7 @@ mod test {
 			let collection_name = b"test-collection".to_vec();
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![
-					(3_u64, Permill::from_fraction(0.2)),
-					(4_u64, Permill::from_fraction(0.3)),
-				],
+				entitlements: vec![(3_u64, Permill::from_float(0.2)), (4_u64, Permill::from_float(0.3))],
 			};
 			let collection_info = CollectionInfo {
 				name: collection_name,
@@ -477,7 +476,7 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
 			let series_attributes = vec![
 				NFTAttributeValue::I32(500),
@@ -533,7 +532,7 @@ mod test {
 			let collection_owner = 1_u64;
 			let buyer = 2_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_fraction(0.2))],
+				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
 			let token_id: TokenId = (0, 0, 0);
 
