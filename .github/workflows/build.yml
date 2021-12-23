@@ -40,7 +40,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-08-01
+          toolchain: nightly-2021-12-23
           components: rustfmt
           target: wasm32-unknown-unknown
           default: true
@@ -50,8 +50,8 @@ jobs:
         run: cargo check --locked
       - name: Test
         run: cargo test --all
-      - name: Benchmark (build only)
-        run: cargo check --features=runtime-benchmarks
+      #- name: Benchmark (build only)
+      #  run: cargo check --features=runtime-benchmarks
       - name: notify success
         if: ${{ success() }}
         uses: rtCamp/action-slack-notify@v2
