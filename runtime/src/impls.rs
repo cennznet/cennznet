@@ -191,7 +191,7 @@ mod tests {
 		let m = max_normal() as f64;
 		// block weight always truncated to max weight
 		let block_weight = (block_weight as f64).min(m);
-		let v: f64 = AdjustmentVariable::get().to_fraction();
+		let v: f64 = AdjustmentVariable::get().to_float();
 
 		// Ideal saturation in terms of weight
 		let ss = target() as f64;
@@ -201,7 +201,7 @@ mod tests {
 		let t1 = v * (s / m - ss / m);
 		let t2 = v.powi(2) * (s / m - ss / m).powi(2) / 2.0;
 		let next_float = previous_float * (1.0 + t1 + t2);
-		Multiplier::from_fraction(next_float)
+		Multiplier::from_float(next_float)
 	}
 
 	fn run_with_system_weight<F>(w: Weight, assertions: F)
@@ -274,7 +274,7 @@ mod tests {
 		// k > 533_333 ~ 18,5 days.
 		run_with_system_weight(0, || {
 			// start from 1, the default.
-			let mut fm = Multiplier::one();
+			let mut fm = Multiplier::from(1);
 			let mut iterations: u64 = 0;
 			loop {
 				let next = runtime_multiplier_update(fm);
@@ -295,7 +295,7 @@ mod tests {
 		// if every block in 24 hour period has a maximum weight then the multiplier should have increased
 		// to > ~23% by the end of the period.
 		run_with_system_weight(max_normal(), || {
-			let mut fm = Multiplier::one();
+			let mut fm = Multiplier::from(1);
 			// `DAYS` is a function of `SECS_PER_BLOCK`
 			// this function will be invoked `DAYS / SECS_PER_BLOCK` times, the original test from substrate assumes a
 			// 3 second block time
@@ -320,7 +320,7 @@ mod tests {
 
 		run_with_system_weight(block_weight, || {
 			// initial value configured on module
-			let mut fm = Multiplier::one();
+			let mut fm = Multiplier::from(1);
 			assert_eq!(fm, TransactionPayment::next_fee_multiplier());
 
 			let mut iterations: u64 = 0;
@@ -384,7 +384,7 @@ mod tests {
 	#[test]
 	fn weight_mul_grow_on_big_block() {
 		run_with_system_weight(target() * 2, || {
-			let mut original = Multiplier::zero();
+			let mut original = Multiplier::from(0);
 			let mut next = Multiplier::default();
 
 			(0..1_000).for_each(|_| {
@@ -443,8 +443,8 @@ mod tests {
 		.into_iter()
 		.for_each(|i| {
 			run_with_system_weight(i, || {
-				let next = runtime_multiplier_update(Multiplier::one());
-				let truth = truth_value_update(i, Multiplier::one());
+				let next = runtime_multiplier_update(Multiplier::from(1));
+				let truth = truth_value_update(i, Multiplier::from(1));
 				assert_eq_error_rate!(truth, next, Multiplier::from_inner(50_000_000));
 			});
 		});
