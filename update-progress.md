@@ -27,13 +27,13 @@ crml
 - [x] cennzx
     - [x] tests
 - [x] staking
-    - [] tests
+    - [x] tests
 - [x] ethy-gadget
     - [] tests
 - [x] cli
     - [x] tests
 - [x] runtime
-    - [] tests
+    - [x] tests
 
 *modules unused, removed to speed up update process
 

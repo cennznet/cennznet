@@ -25,7 +25,6 @@ use cennznet_runtime::{
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
-	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OnFinalize, OnInitialize},
 	IterableStorageMap,
@@ -38,7 +37,7 @@ use sp_runtime::{
 	Perbill,
 };
 use sp_staking::{
-	offence::{Offence, OffenceDetails, OnOffenceHandler},
+	offence::{DisableStrategy, Offence, OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
 mod common;
@@ -67,7 +66,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Staking::on_initialize(b);
 		Rewards::on_initialize(b);
 		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
-		pallet_babe::CurrentSlot::put(Slot::from(b as u64));
+		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
@@ -195,8 +194,16 @@ fn era_transaction_fees_collected() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer {
+		asset_id: CPAY_ASSET_ID,
+		to: bob(),
+		amount: 123,
+	});
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer {
+		asset_id: CPAY_ASSET_ID,
+		to: charlie(),
+		amount: 456,
+	});
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -245,8 +252,16 @@ fn era_transaction_fees_accrued() {
 	let validators = make_authority_keys(6);
 	let staked_amount = initial_balance / validators.len() as Balance;
 
-	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, bob(), 123));
-	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer(CPAY_ASSET_ID, charlie(), 456));
+	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer {
+		asset_id: CPAY_ASSET_ID,
+		to: bob(),
+		amount: 123,
+	});
+	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer {
+		asset_id: CPAY_ASSET_ID,
+		to: charlie(),
+		amount: 456,
+	});
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -301,11 +316,11 @@ fn elected_validators_receive_transaction_fee_reward() {
 	let initial_balance = 100_000_000 * DOLLARS;
 	let staked_amount = initial_balance / validators.len() as Balance;
 	let transfer_amount = 50;
-	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer(
-		CPAY_ASSET_ID,
-		bob(),
-		transfer_amount,
-	));
+	let runtime_call = Call::GenericAsset(crml_generic_asset::Call::transfer {
+		asset_id: CPAY_ASSET_ID,
+		to: bob(),
+		amount: transfer_amount,
+	});
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -547,11 +562,15 @@ fn slashed_cennz_goes_to_reporter() {
 			};
 
 			let slash_fraction = Perbill::from_percent(90);
-			assert_ok!(Staking::on_offence(
-				&[offence],
-				&[slash_fraction],
-				Staking::eras_start_session_index(active_era()).expect("session index exists"),
-			));
+			assert_eq!(
+				Staking::on_offence(
+					&[offence],
+					&[slash_fraction],
+					Staking::eras_start_session_index(active_era()).expect("session index exists"),
+					DisableStrategy::Never,
+				),
+				700000000
+			);
 
 			// Fast-forward eras so that the slash is applied
 			start_active_era(SlashDeferDuration::get() + 1);
