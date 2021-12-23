@@ -21,6 +21,7 @@ use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus}
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
+use frame_support::traits::GenesisBuild;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -138,7 +139,7 @@ impl ExtBuilder {
 
 		crml_staking::rewards::GenesisConfig {
 			development_fund_take: Perbill::from_percent(10),
-			inflation_rate: FixedU128::saturating_from_rational(8, 10),
+			inflation_rate: FixedU128::saturating_from_rational(8u32, 10u32),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
