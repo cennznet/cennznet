@@ -143,7 +143,7 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 
 		// Run in the context of the first block
-		ext.execute_with(|| frame_system::Module::<Test>::set_block_number(1));
+		ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 		ext
 	}
 }
@@ -238,7 +238,7 @@ macro_rules! assert_balance_eq (
 
 /// Returns the last recorded block event
 pub fn last_event() -> Event {
-	frame_system::Module::<Test>::events()
+	frame_system::Pallet::<Test>::events()
 		.pop()
 		.expect("Event expected")
 		.event

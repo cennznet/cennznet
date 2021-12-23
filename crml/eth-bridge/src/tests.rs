@@ -133,11 +133,11 @@ pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_next_session_final() -> (bool, bool) {
 		// at block 1, next session is final
-		(frame_system::Module::<TestRuntime>::block_number() == 1, false)
+		(frame_system::Pallet::<TestRuntime>::block_number() == 1, false)
 	}
 	fn is_active_session_final() -> bool {
 		// at block 2, the active session is final
-		frame_system::Module::<TestRuntime>::block_number() == 2
+		frame_system::Pallet::<TestRuntime>::block_number() == 2
 	}
 }
 
@@ -208,9 +208,9 @@ impl ExtBuilder {
 			.unwrap()
 			.into();
 		if self.next_session_final {
-			ext.execute_with(|| frame_system::Module::<TestRuntime>::set_block_number(1));
+			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
 		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Module::<TestRuntime>::set_block_number(2));
+			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(2));
 		}
 
 		ext

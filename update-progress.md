@@ -43,7 +43,7 @@ crml
 - cli deps updated to 0.10.0-dev
 - scale-info import required on most crml crates
 - scale-info derive `TypeInfo` needed on most types
-- warning: <frame_system::Module<T>> -> <frame_system::Pallet<T>>
+- warning: <frame_system::Pallet<T>> -> <frame_system::Pallet<T>>
 - new prelude imports for pallets: `frame_system::pallet_prelude::*` && `frame_support:pallet_prelude::*`
 - structs using T and deriving `TypeInfo` require `#[scale_info(skip_type_params(T))]`
 - For test runtimes, replace `Module` with `Pallet`

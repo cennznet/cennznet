@@ -599,7 +599,7 @@ decl_module! {
 				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
 
-			let listing_end_block = <frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+			let listing_end_block = <frame_system::Pallet<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
 			let listing = Listing::<T>::FixedPrice(
 				FixedPriceListing::<T> {
@@ -741,7 +741,7 @@ decl_module! {
 				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
 
-			let listing_end_block =<frame_system::Module<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+			let listing_end_block =<frame_system::Pallet<T>>::block_number().saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
 			ListingEndSchedule::<T>::insert(listing_end_block, listing_id, true);
 			let listing = Listing::<T>::Auction(
 				AuctionListing::<T> {
@@ -800,7 +800,7 @@ decl_module! {
 
 				// Auto extend auction if bid is made within certain amount of time of auction duration
 				let listing_end_block = listing.close;
-				let current_block = <frame_system::Module<T>>::block_number();
+				let current_block = <frame_system::Pallet<T>>::block_number();
 				let blocks_till_close = listing_end_block - current_block;
 				let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
 				if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
