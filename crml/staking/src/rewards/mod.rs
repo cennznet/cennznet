@@ -180,7 +180,7 @@ where
 		Self::reward_by_ids(vec![(author, 20)])
 	}
 	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Module<T>>::author(), 2), (author, 1)])
+		Self::reward_by_ids(vec![(<pallet_authorship::Pallet<T>>::author(), 2), (author, 1)])
 	}
 }
 
@@ -215,7 +215,7 @@ impl<T: Config> OnEndEra for Module<T> {
 		let remainder = Self::schedule_reward_payouts(
 			era_validator_stashes,
 			next_reward.stakers_cut,
-			<frame_system::Module<T>>::block_number() + One::one(),
+			<frame_system::Pallet<T>>::block_number() + One::one(),
 			T::BlockPayoutInterval::get(),
 		);
 
@@ -1097,7 +1097,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);

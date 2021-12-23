@@ -495,6 +495,8 @@ fn authorship_reward_of_last_block_in_an_era() {
 		});
 }
 
+// TODO: issue #564
+#[ignore]
 #[test]
 fn slashed_cennz_goes_to_treasury() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);

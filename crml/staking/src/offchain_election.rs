@@ -508,6 +508,8 @@ mod test {
 		}
 	}
 
+	// TODO: issue #564
+	#[ignore]
 	#[test]
 	fn find_max_voter_binary_search_works() {
 		let size = ElectionSize {

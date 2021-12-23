@@ -679,15 +679,15 @@ where
 {
 	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
 		// CHECK
-		Ok(<pallet_session::Module<T>>::disable(validator))
+		Ok(<pallet_session::Pallet<T>>::disable(validator))
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Module<T>>::validators()
+		<pallet_session::Pallet<T>>::validators()
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Module<T>>::prune_up_to(up_to);
+		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }
 
@@ -2863,7 +2863,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] planning new_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			new_index
 		);
 		Self::new_session(new_index)
@@ -2872,7 +2872,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] starting start_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			start_index
 		);
 		Self::start_session(start_index)
@@ -2881,7 +2881,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
 		log!(
 			trace,
 			"[{:?}] ending end_session({})",
-			<frame_system::Module<T>>::block_number(),
+			<frame_system::Pallet<T>>::block_number(),
 			end_index
 		);
 		Self::end_session(end_index)

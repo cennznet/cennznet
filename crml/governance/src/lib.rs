@@ -239,7 +239,7 @@ decl_module! {
 			let threshold = <Council<T>>::decode_len().unwrap_or(1) as u32 / 2;
 			if tally.yes > threshold {
 				if ProposalCalls::contains_key(proposal_id) {
-					let start_time: T::BlockNumber = <frame_system::Module<T>>::block_number();
+					let start_time: T::BlockNumber = <frame_system::Pallet<T>>::block_number();
 
 					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumDeliberation);
 					ProposalVotes::remove(proposal_id);
@@ -327,7 +327,7 @@ decl_module! {
 			ensure!(ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
 			Self::check_voter_account_validity(&origin)?;
-			let block_number = <frame_system::Module<T>>::block_number();
+			let block_number = <frame_system::Pallet<T>>::block_number();
 			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
 			// Enter vote in storage
@@ -478,7 +478,7 @@ impl<T: Config> Module<T> {
 			if ProposalCalls::contains_key(proposal_id) {
 				if T::Scheduler::schedule_named(
 					(GOVERNANCE_ID, proposal_id).encode(),
-					DispatchTime::At(<frame_system::Module<T>>::block_number() + proposal.enactment_delay),
+					DispatchTime::At(<frame_system::Pallet<T>>::block_number() + proposal.enactment_delay),
 					None,
 					63,
 					frame_system::RawOrigin::Root.into(),

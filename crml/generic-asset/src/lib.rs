@@ -905,8 +905,8 @@ impl<T: Config> Module<T> {
 			// Tell the system module we are "providing" the account
 			// This is only done so that FRAME pallets from substrate think
 			// this accounts "exists"
-			if <frame_system::Module<T>>::providers(&who).is_zero() {
-				<frame_system::Module<T>>::inc_providers(&who);
+			if <frame_system::Pallet<T>>::providers(&who).is_zero() {
+				<frame_system::Pallet<T>>::inc_providers(&who);
 			}
 			*balance = free
 		});
