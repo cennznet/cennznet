@@ -29,7 +29,7 @@ crml
 - [x] staking
     - [x] tests
 - [x] ethy-gadget
-    - [] tests
+    - [x] tests
 - [x] cli
     - [x] tests
 - [x] runtime

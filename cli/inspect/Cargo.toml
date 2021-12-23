@@ -13,11 +13,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.2.0" }
 derive_more = "0.99"
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate" }
-sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate"}
-sc-service = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate" }
-sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
-sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-client-api = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-executor = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6"}
+sc-service = { version = "0.10.0-dev", default-features = false, git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-core = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-runtime = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 structopt = "0.3.8"
