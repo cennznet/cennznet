@@ -16,6 +16,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
+use cennznet_primitives::types::Balance;
 
 /// Identifies proposals
 pub type ProposalId = u64;
@@ -54,8 +55,8 @@ pub enum ProposalStatusInfo {
 // Used to store votes on a referendum
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
 pub struct ReferendumVoteCount {
-	// u8 representing either a yes or no vote (0 for yes 1 for no)
-	pub vote: u8,
+	// weight of vote based on staked amount of an account
+	pub vote: Balance,
 }
 
 /// Votes on a proposal

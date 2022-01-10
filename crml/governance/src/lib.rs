@@ -134,7 +134,7 @@ decl_storage! {
 		/// Map from proposal Id to referendum votes
 		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVoteCount;
 		/// Running tally of referendum votes
-		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => u32;
+		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => Balance;
 		/// Map from proposal id to referendum start time
 		ReferendumStartTime get(fn referendum_start_time): map hasher(twox_64_concat) ProposalId => Option<T::BlockNumber>;
 		/// Ordered set of active council members
@@ -326,7 +326,8 @@ decl_module! {
 			ensure!(Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation), Error::<T>::ReferendumNotDeliberating);
 			ensure!(ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
-			Self::check_voter_account_validity(&origin)?;
+			let staked_amount: Balance = T::StakingAmount::active_balance(&origin);
+			Self::check_voter_account_validity(&origin, staked_amount)?;
 			let block_number = <frame_system::Pallet<T>>::block_number();
 			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
@@ -335,10 +336,10 @@ decl_module! {
 				proposal_id,
 				origin,
 				ReferendumVoteCount {
-					vote: 1, // 1 for no vote
+					vote: staked_amount,
 				}
 			);
-			ReferendumVetoSum::mutate(proposal_id, |n| *n += 1);
+			ReferendumVetoSum::mutate(proposal_id, |n| *n += staked_amount);
 			Ok(())
 		}
 
@@ -437,9 +438,8 @@ impl<T: Config> Module<T> {
 		Ok(())
 	}
 	/// Check whether an account is eligible to vote on a referendum
-	pub fn check_voter_account_validity(account: &T::AccountId) -> DispatchResult {
+	pub fn check_voter_account_validity(account: &T::AccountId, staked_amount: Balance) -> DispatchResult {
 		// Check the amount they have staked
-		let staked_amount: Balance = T::StakingAmount::active_balance(&account);
 		ensure!(
 			staked_amount > Self::min_voter_staked_amount(),
 			Error::<T>::NotEnoughStaked
@@ -462,10 +462,10 @@ impl<T: Config> Module<T> {
 				return;
 			}
 		};
-		let max_stakers: u32 = T::StakingAmount::count_nominators();
+		let total_staked: Balance = T::StakingAmount::total_staked();
 		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), max_stakers) >= Self::referendum_threshold() {
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), total_staked) >= Self::referendum_threshold() {
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());

@@ -426,8 +426,8 @@ impl<T: Config> StakingAmount for Module<T> {
 		Self::active_balance(controller)
 	}
 
-	fn count_nominators() -> u32 {
-		Self::count_nominators()
+	fn total_staked() -> Self::Balance {
+		Self::total_staked()
 	}
 }
 
@@ -2813,9 +2813,10 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	/// returns number of active nominators
-	pub fn count_nominators() -> u32 {
-		<SnapshotNominators<T>>::decode_len().unwrap_or_default() as u32
+	/// returns total staked from all nominators
+	pub fn total_staked() -> BalanceOf<T> {
+		let era = Self::current_era().unwrap_or(0);
+		Self::eras_total_stake(era)
 	}
 
 	/// Calculates the active staking balance of an account
