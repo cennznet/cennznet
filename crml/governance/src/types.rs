@@ -13,10 +13,10 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
-use cennznet_primitives::types::Balance;
 
 /// Identifies proposals
 pub type ProposalId = u64;

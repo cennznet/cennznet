@@ -464,7 +464,8 @@ impl<T: Config> Module<T> {
 		let total_staked: Balance = T::StakingAmount::total_staked();
 		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), total_staked) >= Self::referendum_threshold() {
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), total_staked) >= Self::referendum_threshold()
+		{
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
