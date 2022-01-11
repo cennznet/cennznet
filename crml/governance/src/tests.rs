@@ -514,18 +514,19 @@ fn end_referendum() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let new_account = 5_u64;
+		let call: <Test as Config>::Call = (Call::add_council_member::<Test>{new_member: new_account}).into();
+		let call = call.encode();
 		let proposal_id = setup_referendum(
 			proposal_account,
 			voting_account,
-			call.into(),
+			call,
 			justification_uri,
 			enactment_delay,
 		);
 
 		let end_block = 22000;
 		Governance::on_initialize(end_block);
-		// <pallet_scheduler::Pallet<Test> as OnInitialize<u64>>::on_initialize(end_block);
 
 		assert_eq!(
 			Governance::proposal_status(proposal_id),
@@ -541,9 +542,24 @@ fn end_referendum() {
 			),
 			Error::<Test>::ReferendumNotDeliberating
 		);
-		// Governance::on_initialize(end_block + enactment_delay);
-		// <pallet_scheduler::Pallet<Test> as OnInitialize<u64>>::on_initialize(end_block + enactment_delay);
+
+		// Manually call enact referendum
+		assert_ok!(Governance::enact_referendum(
+			frame_system::RawOrigin::Root.into(),
+			proposal_id
+		));
+
+		// Check that storage has changed and call enacted
+		assert_eq!(Governance::council(), vec![3, 4, 5]);
+		assert_eq!(
+			Governance::proposal_status(proposal_id),
+			Some(ProposalStatusInfo::ApprovedEnacted(true))
+		);
 		assert!(!ProposalCalls::contains_key(proposal_id));
+		assert!(!<Proposals<Test>>::contains_key(proposal_id));
+		assert!(!ReferendumVetoSum::contains_key(proposal_id));
+		assert!(!<ReferendumStartTime<Test>>::contains_key(proposal_id));
+
 	});
 }
 
