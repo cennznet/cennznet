@@ -1,5 +1,5 @@
 use super::*;
-use crate::mock::{Scheduler, ExtBuilder, Governance, MockStakingAmount, System, Test};
+use crate::mock::{ExtBuilder, Governance, MockStakingAmount, Test};
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::DispatchError;
 
@@ -515,7 +515,10 @@ fn end_referendum() {
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
 		let new_account = 5_u64;
-		let call: <Test as Config>::Call = (Call::add_council_member::<Test>{new_member: new_account}).into();
+		let call: <Test as Config>::Call = (Call::add_council_member::<Test> {
+			new_member: new_account,
+		})
+		.into();
 		let call = call.encode();
 		let proposal_id = setup_referendum(
 			proposal_account,
@@ -559,7 +562,6 @@ fn end_referendum() {
 		assert!(!<Proposals<Test>>::contains_key(proposal_id));
 		assert!(!ReferendumVetoSum::contains_key(proposal_id));
 		assert!(!<ReferendumStartTime<Test>>::contains_key(proposal_id));
-
 	});
 }
 
