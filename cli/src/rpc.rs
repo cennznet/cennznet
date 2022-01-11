@@ -19,26 +19,36 @@
 
 #![warn(missing_docs)]
 
-use std::sync::Arc;
-
 use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index};
 use cennznet_runtime::Runtime;
 use ethy_gadget::notification::EthyEventProofStream;
-use sc_client_api::AuxStore;
+use fc_rpc::{
+	EthApi, EthApiServer, EthBlockDataCache, EthFilterApi, EthFilterApiServer, EthPubSubApi, EthPubSubApiServer,
+	HexEncodedIdProvider, NetApi, NetApiServer, OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override,
+	SchemaV2Override, StorageOverride, Web3Api, Web3ApiServer,
+};
+use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
+use jsonrpc_pubsub::manager::SubscriptionManager;
+use pallet_ethereum::EthereumStorageSchema;
+use sc_client_api::{AuxStore, Backend, BlockchainEvents, StateBackend, StorageProvider};
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
+use sc_consensus_manual_seal::rpc::EngineCommand;
 use sc_finality_grandpa::{FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState};
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
+use sc_network::NetworkService;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
+use sc_transaction_pool::{ChainApi, Pool};
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_blockchain::{Backend as BlockchainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
+use std::{collections::BTreeMap, sync::Arc};
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -73,40 +83,95 @@ pub struct GrandpaDeps<B> {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, SC, B> {
+pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
+	/// Graph pool instance.
+	pub graph: Arc<Pool<A>>,
 	/// The SelectChain Strategy
 	pub select_chain: SC,
 	/// A copy of the chain spec.
 	pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
+	/// The Node authority flag
+	pub is_authority: bool,
 	/// BABE specific dependencies.
 	pub babe: BabeDeps,
 	/// Ethy specific dependencies.
 	pub ethy: EthyDeps,
 	/// GRANDPA specific dependencies.
-	pub grandpa: GrandpaDeps<B>,
+	pub grandpa: GrandpaDeps<BE>,
+	/// Network service
+	pub network: Arc<NetworkService<Block, Hash>>,
+	/// EthFilterApi pool.
+	pub filter_pool: Option<FilterPool>,
+	/// Backend.
+	pub backend: Arc<BE>,
+	/// Frontier Backend.
+	pub frontier_backend: Arc<fc_db::Backend<Block>>,
+	/// Manual seal command sink
+	pub command_sink: Option<futures::channel::mpsc::Sender<EngineCommand<Hash>>>,
+	/// Maximum number of logs in a query.
+	pub max_past_logs: u32,
+	/// Maximum fee history cache size.
+	pub fee_history_limit: u64,
+	/// Fee history cache.
+	pub fee_history_cache: FeeHistoryCache,
 }
 
 /// A IO handler that uses all Full RPC extensions.
 pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
-/// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, SC, B>(
-	deps: FullDeps<C, P, SC, B>,
-) -> Result<jsonrpc_core::IoHandler<sc_rpc_api::Metadata>, Box<dyn std::error::Error + Send + Sync>>
+#[allow(missing_docs)]
+pub fn overrides_handle<C, BE>(client: Arc<C>) -> Arc<OverrideHandle<Block>>
 where
+	C: ProvideRuntimeApi<Block> + StorageProvider<Block, BE> + AuxStore,
+	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
+	C: Send + Sync + 'static,
+	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+	BE: Backend<Block> + 'static,
+	BE::State: StateBackend<sp_runtime::traits::BlakeTwo256>,
+{
+	let mut overrides_map = BTreeMap::new();
+	overrides_map.insert(
+		EthereumStorageSchema::V1,
+		Box::new(SchemaV1Override::new(client.clone())) as Box<dyn StorageOverride<_> + Send + Sync>,
+	);
+	overrides_map.insert(
+		EthereumStorageSchema::V2,
+		Box::new(SchemaV2Override::new(client.clone())) as Box<dyn StorageOverride<_> + Send + Sync>,
+	);
+
+	Arc::new(OverrideHandle {
+		schemas: overrides_map,
+		fallback: Box::new(RuntimeApiStorageOverride::new(client.clone())),
+	})
+}
+
+/// Instantiate all Full RPC extensions.
+pub fn create_full<C, P, A, B, SC>(
+	deps: FullDeps<C, P, A, B, SC>,
+	subscription_task_executor: SubscriptionTaskExecutor,
+	overrides: Arc<OverrideHandle<Block>>,
+) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+where
+	A: ChainApi<Block = Block> + 'static,
+	B: Backend<Block> + 'static,
+	B::State: StateBackend<sp_runtime::traits::BlakeTwo256>,
+	B::Blockchain: BlockchainBackend<Block>,
 	C: ProvideRuntimeApi<Block>
+		+ AuxStore
+		+ BlockchainEvents<Block>
 		+ HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = BlockChainError>
-		+ AuxStore
+		+ StorageProvider<Block, B>
 		+ Send
 		+ Sync
 		+ 'static,
+	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -117,10 +182,8 @@ where
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: crml_generic_asset_rpc::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: crml_governance_rpc::GovernanceRuntimeApi<Block, AccountId>,
-	P: TransactionPool + 'static,
+	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
-	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
-	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
 	use crml_eth_wallet_rpc::{EthWallet, EthWalletApi};
@@ -135,12 +198,22 @@ where
 	let FullDeps {
 		client,
 		pool,
+		graph,
+		is_authority,
+		backend: _,
 		select_chain,
 		chain_spec,
 		deny_unsafe,
 		babe,
 		ethy,
 		grandpa,
+		network,
+		filter_pool,
+		command_sink: _,
+		frontier_backend,
+		max_past_logs,
+		fee_history_limit,
+		fee_history_cache,
 	} = deps;
 
 	let BabeDeps {
@@ -158,7 +231,7 @@ where
 
 	io.extend_with(SystemApi::to_delegate(FullSystem::new(
 		client.clone(),
-		pool,
+		pool.clone(),
 		deny_unsafe,
 	)));
 	io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(BabeRpcHandler::new(
@@ -188,7 +261,8 @@ where
 			shared_authority_set,
 			shared_epoch_changes,
 			deny_unsafe,
-		)?,
+		)
+		.expect("syncstate setup ok"),
 	));
 	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
 		client.clone(),
@@ -198,7 +272,55 @@ where
 	io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
 	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client.clone())));
 	io.extend_with(GovernanceApi::to_delegate(Governance::new(client.clone())));
-	io.extend_with(EthWalletApi::to_delegate(EthWallet::new(client)));
+	io.extend_with(EthWalletApi::to_delegate(EthWallet::new(client.clone())));
 
-	Ok(io)
+	// evm stuff
+	let block_data_cache = Arc::new(EthBlockDataCache::new(50, 50));
+
+	io.extend_with(EthApiServer::to_delegate(EthApi::new(
+		client.clone(),
+		pool.clone(),
+		graph.clone(),
+		cennznet_runtime::TransactionConverter,
+		network.clone(),
+		Default::default(),
+		overrides.clone(),
+		frontier_backend.clone(),
+		is_authority,
+		max_past_logs,
+		block_data_cache.clone(),
+		fee_history_limit,
+		fee_history_cache,
+	)));
+
+	if let Some(filter_pool) = filter_pool {
+		io.extend_with(EthFilterApiServer::to_delegate(EthFilterApi::new(
+			client.clone(),
+			frontier_backend,
+			filter_pool,
+			500_usize, // max stored filters
+			overrides.clone(),
+			max_past_logs,
+			block_data_cache.clone(),
+		)));
+	}
+
+	io.extend_with(NetApiServer::to_delegate(NetApi::new(
+		client.clone(),
+		network.clone(),
+		true,
+	)));
+	io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));
+	io.extend_with(EthPubSubApiServer::to_delegate(EthPubSubApi::new(
+		pool,
+		client.clone(),
+		network,
+		SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
+			HexEncodedIdProvider::default(),
+			Arc::new(subscription_task_executor),
+		),
+		overrides,
+	)));
+
+	io
 }

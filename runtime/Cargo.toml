@@ -18,7 +18,7 @@ sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae
 cennznet-runtime = { path = ".", features = ["integration_config"] }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive"] }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.102", optional = true, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
@@ -90,6 +90,16 @@ crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment
 crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
 crml-eth-wallet-rpc-runtime-api = { path = "../crml/eth-wallet/rpc/runtime-api", default-features = false }
 
+# EVM support
+fp-rpc = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fp-self-contained = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-base-fee = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-ethereum = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", version = "5.0.0-dev" }
 
@@ -152,6 +162,14 @@ std = [
 	"crml-support/std",
 	"crml-transaction-payment/std",
 	"crml-transaction-payment-rpc-runtime-api/std",
+	"fp-rpc/std",
+	"fp-self-contained/std",
+	"pallet-base-fee/std",
+	"pallet-ethereum/std",
+	"pallet-evm/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-simple/std",
+	"pallet-evm-precompile-sha3fips/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

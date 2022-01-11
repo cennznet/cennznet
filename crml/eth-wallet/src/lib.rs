@@ -1,5 +1,5 @@
 //! Kudos: https://github.com/PlasmNetwork/Astar/blob/08c4a9211836b929abcbad4ed33ede0f616a6423/frame/custom-signatures/
-//! Provides shims for Ethereum wallets (e.g. metamask) to interact with CENNZnet
+//! Provides shims for Ethereum wallets (e.g. metamask) to sign transactions compatible with the CENNZnet runtime
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::ethereum::{ecrecover, EthereumSignature};

@@ -20,7 +20,7 @@ sc-chain-spec = { version = "4.0.0-dev", git = "https://github.com/cennznet/subs
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sp-core = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-executor = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-service = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sp-inherents = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
@@ -41,6 +41,7 @@ sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/cennznet/subst
 
 # These dependencies are used for the node RPCs
 jsonrpc-core = "18.0.0"
+jsonrpc-pubsub = "18.0.0"
 node-inspect = { version = "0.9.0-dev", path = "./inspect" }
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
@@ -56,6 +57,7 @@ sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/cennznet/subst
 sc-sync-state-rpc = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-consensus-babe-rpc = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-consensus-manual-seal = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-finality-grandpa-rpc = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 sc-keystore = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
 
@@ -82,6 +84,13 @@ ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
 pallet-im-online = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+pallet-ethereum = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d", version = "4.0.0-dev" }
+pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d", version = "6.0.0-dev" }
+fc-db = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fc-mapping-sync = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fp-rpc = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }

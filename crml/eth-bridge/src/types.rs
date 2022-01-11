@@ -18,7 +18,7 @@
 use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
-use ethereum_types::{Bloom as H2048, U64};
+use ethereum_types::{Bloom, U64};
 use scale_info::TypeInfo;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -169,7 +169,7 @@ pub struct TransactionReceipt {
 	/// State root.
 	pub root: Option<H256>,
 	/// Logs bloom
-	pub logs_bloom: H2048,
+	pub logs_bloom: Bloom,
 	/// Transaction type, Some(1) for AccessList transaction, None for Legacy
 	#[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
 	pub transaction_type: Option<U64>,
@@ -193,7 +193,7 @@ pub struct EthBlock {
 	#[serde(rename = "sha3Uncles", skip_deserializing)]
 	pub sha3_uncles: H256,
 	#[serde(rename = "logsBloom", skip_deserializing)]
-	pub logs_bloom: Option<H2048>,
+	pub logs_bloom: Option<Bloom>,
 	#[serde(rename = "transactionsRoot", skip_deserializing)]
 	pub transactions_root: H256,
 	#[serde(rename = "stateRoot", skip_deserializing)]
