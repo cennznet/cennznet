@@ -88,7 +88,7 @@ fn add_council_member_not_root_should_fail() {
 #[test]
 fn set_minimum_stake_bond() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_minimum_council_stake: Balance = Balance::from(500_000_u32);
+		let new_minimum_council_stake: Balance = Balance::from(900_u32);
 		let account = 1_u64;
 
 		assert_noop!(
