@@ -131,7 +131,7 @@ decl_storage! {
 		ProposalVotes get(fn proposal_votes): map hasher(twox_64_concat) ProposalId => ProposalVoteInfo;
 		/// Map from proposal Id to status
 		ProposalStatus get(fn proposal_status): map hasher(twox_64_concat) ProposalId => Option<ProposalStatusInfo>;
-		/// Map from proposal Id to referendum votes
+		/// Map from proposal Id to VotingPower
 		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => VotingPower;
 		/// Running tally of referendum votes
 		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => Balance;

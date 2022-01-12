@@ -44,18 +44,18 @@ fn setup_referendum(
 #[test]
 fn add_council_member() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 3_u64;
-		setup_council_members(vec![account]);
+		let new_member_account = 3_u64;
+		setup_council_members(vec![new_member_account]);
 	});
 }
 
 #[test]
 fn add_council_member_not_enough_staked_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 1_u64;
+		let new_member_account = 1_u64;
 
 		assert_noop!(
-			Governance::add_council_member(frame_system::RawOrigin::Root.into(), account.into()),
+			Governance::add_council_member(frame_system::RawOrigin::Root.into(), new_member_account.into()),
 			Error::<Test>::NotEnoughStaked
 		);
 	});
@@ -64,10 +64,10 @@ fn add_council_member_not_enough_staked_should_fail() {
 #[test]
 fn add_council_member_not_enough_registrations_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 2_u64;
+		let new_member_account = 2_u64;
 
 		assert_noop!(
-			Governance::add_council_member(frame_system::RawOrigin::Root.into(), account.into()),
+			Governance::add_council_member(frame_system::RawOrigin::Root.into(), new_member_account.into()),
 			Error::<Test>::NotEnoughRegistrations
 		);
 	});
@@ -76,10 +76,13 @@ fn add_council_member_not_enough_registrations_should_fail() {
 #[test]
 fn add_council_member_not_root_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 3_u64;
+		let new_member_account = 3_u64;
 		let signing_account = 4_u64;
 		assert_noop!(
-			Governance::add_council_member(frame_system::RawOrigin::Signed(signing_account).into(), account.into()),
+			Governance::add_council_member(
+				frame_system::RawOrigin::Signed(signing_account).into(),
+				new_member_account.into()
+			),
 			DispatchError::BadOrigin
 		);
 	});
@@ -187,15 +190,15 @@ fn set_minimum_voter_staked_amount_not_root_should_fail() {
 #[test]
 fn submit_proposal() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 3_u64;
+		let proposal_account = 3_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
-		setup_council_members(vec![account]);
+		setup_council_members(vec![proposal_account]);
 
 		assert_ok!(Governance::submit_proposal(
-			frame_system::RawOrigin::Signed(account).into(),
+			frame_system::RawOrigin::Signed(proposal_account).into(),
 			call.into(),
 			justification_uri.clone(),
 			enactment_delay
@@ -203,12 +206,15 @@ fn submit_proposal() {
 
 		// Check storage has been updated
 		let expected_proposal = Proposal {
-			sponsor: account,
+			sponsor: proposal_account,
 			justification_uri,
 			enactment_delay,
 		};
 		let mut votes = ProposalVoteInfo::default();
-		votes.record_vote(Governance::council().binary_search(&account).unwrap() as u8, true);
+		votes.record_vote(
+			Governance::council().binary_search(&proposal_account).unwrap() as u8,
+			true,
+		);
 
 		assert_eq!(Governance::proposals(proposal_id), Some(expected_proposal));
 		assert_eq!(Governance::proposal_votes(proposal_id), votes);
@@ -224,14 +230,14 @@ fn submit_proposal() {
 #[test]
 fn submit_proposal_not_council_member_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = 3_u64;
+		let proposal_account = 3_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 
 		assert_noop!(
 			Governance::submit_proposal(
-				frame_system::RawOrigin::Signed(account).into(),
+				frame_system::RawOrigin::Signed(proposal_account).into(),
 				call.into(),
 				justification_uri,
 				enactment_delay
@@ -248,7 +254,7 @@ fn vote_yes_on_proposal_should_create_referendum() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
 		setup_council_members(vec![proposal_account, voting_account]);
 
@@ -283,7 +289,7 @@ fn vote_no_on_proposal_should_delete_proposal() {
 		let voting_account_2 = 5_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
 		setup_council_members(vec![proposal_account, voting_account, voting_account_2]);
 
@@ -323,7 +329,7 @@ fn vote_on_proposal_same_account_should_fail() {
 		let proposal_account = 3_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
 		setup_council_members(vec![proposal_account]);
 
@@ -352,7 +358,7 @@ fn vote_on_proposal_not_councilor_should_fail() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
 		setup_council_members(vec![proposal_account]);
 
@@ -400,7 +406,7 @@ fn vote_against_referendum() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = setup_referendum(
 			proposal_account,
 			voting_account,
@@ -437,7 +443,7 @@ fn vote_against_referendum_not_enough_staked_should_fail() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = setup_referendum(
 			proposal_account,
 			voting_account,
@@ -468,7 +474,7 @@ fn vote_against_referendum_not_enough_registrations_should_fail() {
 		let voting_account = 4_u64;
 		let justification_uri: Vec<u8> = vec![0];
 		let enactment_delay = 1;
-		let call = "0x1f021cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c";
+		let call = "0x123456"; // Invalid call
 		let proposal_id = setup_referendum(
 			proposal_account,
 			voting_account,
