@@ -13,13 +13,16 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
-use cennznet_primitives::types::Balance;
 
 /// Identifies proposals
 pub type ProposalId = u64;
+
+/// Voting power for a referendum
+pub type VotingPower = Balance;
 
 /// A governance proposal
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
@@ -50,13 +53,6 @@ pub enum ProposalStatusInfo {
 	Disapproved,
 	/// The proposal was voted against during the referendum phase
 	ReferendumVetoed,
-}
-
-// Used to store votes on a referendum
-#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
-pub struct ReferendumVoteCount {
-	// weight of vote based on staked amount of an account
-	pub vote: Balance,
 }
 
 /// Votes on a proposal

@@ -131,8 +131,8 @@ decl_storage! {
 		ProposalVotes get(fn proposal_votes): map hasher(twox_64_concat) ProposalId => ProposalVoteInfo;
 		/// Map from proposal Id to status
 		ProposalStatus get(fn proposal_status): map hasher(twox_64_concat) ProposalId => Option<ProposalStatusInfo>;
-		/// Map from proposal Id to referendum votes
-		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVoteCount;
+		/// Map from proposal Id to VotingPower
+		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => VotingPower;
 		/// Running tally of referendum votes
 		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => Balance;
 		/// Map from proposal id to referendum start time
@@ -144,7 +144,7 @@ decl_storage! {
 		/// Proposal bond amount in 'wei'
 		ProposalBond get(fn proposal_bond): Balance;
 		/// Minimum amount of staked CENNZ required to vote
-		MinVoterStakedAmount get(fn min_voter_staked_amount): Balance = 10_000;
+		MinVoterStakedAmount get(fn min_voter_staked_amount): Balance = 10_000_000;
 		/// Permill of vetos needed for a referendum to fail
 		ReferendumThreshold get(fn referendum_threshold): Permill = Permill::from_percent(33);
 		/// Minimum stake required to create a new council member
@@ -240,7 +240,6 @@ decl_module! {
 			if tally.yes > threshold {
 				if ProposalCalls::contains_key(proposal_id) {
 					let start_time: T::BlockNumber = <frame_system::Pallet<T>>::block_number();
-
 					ProposalStatus::insert(proposal_id, ProposalStatusInfo::ReferendumDeliberation);
 					ProposalVotes::remove(proposal_id);
 					ReferendumStartTime::<T>::insert(proposal_id, start_time);
@@ -323,21 +322,19 @@ decl_module! {
 			proposal_id: ProposalId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation), Error::<T>::ReferendumNotDeliberating);
-			ensure!(ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
+			ensure!(!ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
-			let staked_amount: Balance = T::StakingAmount::active_balance(&origin);
+			let staked_amount: VotingPower = T::StakingAmount::active_balance(&origin);
 			Self::check_voter_account_validity(&origin, staked_amount)?;
 			let block_number = <frame_system::Pallet<T>>::block_number();
-			let start_time = Self::referendum_start_time(proposal_id).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
 			// Enter vote in storage
 			ReferendumVotes::<T>::insert(
 				proposal_id,
 				origin,
-				ReferendumVoteCount {
-					vote: staked_amount,
-				}
+				staked_amount,
 			);
 			ReferendumVetoSum::mutate(proposal_id, |n| *n += staked_amount);
 			Ok(())
@@ -465,7 +462,8 @@ impl<T: Config> Module<T> {
 		let total_staked: Balance = T::StakingAmount::total_staked();
 		ReferendumVotes::<T>::remove_prefix(proposal_id, None);
 
-		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), total_staked) >= Self::referendum_threshold() {
+		if Permill::from_rational(Self::referendum_veto_sum(proposal_id), total_staked) >= Self::referendum_threshold()
+		{
 			// Too many veto votes, not going ahead
 			Self::deposit_event(Event::ReferendumVeto(proposal_id));
 			let _ = T::Currency::slash_reserved(&proposal.sponsor, Self::proposal_bond());
