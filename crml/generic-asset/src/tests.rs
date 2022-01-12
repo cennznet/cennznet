@@ -421,7 +421,12 @@ fn minimum_balance_is_existential_deposit() {
 			spending_asset_info
 		));
 		assert_eq!(StakingAssetCurrency::<Test>::minimum_balance(), stk_min);
-		assert_eq!(SpendingAssetCurrency::<Test>::minimum_balance(), spd_min);
+		assert_eq!(
+			<AssetCurrency<Test, SpendingAssetIdAuthority<Test>> as Currency<
+				<Test as frame_system::Config>::AccountId,
+			>>::minimum_balance(),
+			spd_min
+		);
 	});
 }
 
