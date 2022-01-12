@@ -21,6 +21,9 @@ use sp_std::prelude::*;
 /// Identifies proposals
 pub type ProposalId = u64;
 
+/// Voting power for a referendum
+pub type VotingPower = Balance;
+
 /// A governance proposal
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -50,13 +53,6 @@ pub enum ProposalStatusInfo {
 	Disapproved,
 	/// The proposal was voted against during the referendum phase
 	ReferendumVetoed,
-}
-
-// Used to store votes on a referendum
-#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo)]
-pub struct ReferendumVoteCount {
-	// weight of vote based on staked amount of an account
-	pub vote: Balance,
 }
 
 /// Votes on a proposal

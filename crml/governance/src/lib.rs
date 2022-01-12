@@ -132,7 +132,7 @@ decl_storage! {
 		/// Map from proposal Id to status
 		ProposalStatus get(fn proposal_status): map hasher(twox_64_concat) ProposalId => Option<ProposalStatusInfo>;
 		/// Map from proposal Id to referendum votes
-		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => ReferendumVoteCount;
+		ReferendumVotes get(fn referendum_votes): double_map hasher(twox_64_concat) ProposalId, hasher(twox_64_concat) T::AccountId => VotingPower;
 		/// Running tally of referendum votes
 		ReferendumVetoSum get(fn referendum_veto_sum): map hasher(twox_64_concat) ProposalId => Balance;
 		/// Map from proposal id to referendum start time
@@ -326,7 +326,7 @@ decl_module! {
 			ensure!(Self::proposal_status(proposal_id) == Some(ProposalStatusInfo::ReferendumDeliberation), Error::<T>::ReferendumNotDeliberating);
 			ensure!(!ReferendumVotes::<T>::contains_key(proposal_id, &origin), Error::<T>::DoubleVote);
 			// Validate council members identity and staking assets
-			let staked_amount: Balance = T::StakingAmount::active_balance(&origin);
+			let staked_amount: VotingPower = T::StakingAmount::active_balance(&origin);
 			Self::check_voter_account_validity(&origin, staked_amount)?;
 			let block_number = <frame_system::Pallet<T>>::block_number();
 			ensure!(block_number >= start_time, Error::<T>::ReferendumNotStarted);
@@ -334,9 +334,7 @@ decl_module! {
 			ReferendumVotes::<T>::insert(
 				proposal_id,
 				origin,
-				ReferendumVoteCount {
-					vote: staked_amount,
-				}
+				staked_amount,
 			);
 			ReferendumVetoSum::mutate(proposal_id, |n| *n += staked_amount);
 			Ok(())

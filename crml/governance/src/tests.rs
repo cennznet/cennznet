@@ -414,9 +414,7 @@ fn vote_against_referendum() {
 			frame_system::RawOrigin::Signed(non_councilor_account).into(),
 			proposal_id
 		));
-		let vote_count = ReferendumVoteCount {
-			vote: MockStakingAmount::active_balance(&non_councilor_account),
-		};
+		let vote_count = MockStakingAmount::active_balance(&non_councilor_account);
 		assert_eq!(
 			Governance::referendum_votes(proposal_id, &non_councilor_account),
 			vote_count
@@ -427,9 +425,7 @@ fn vote_against_referendum() {
 			frame_system::RawOrigin::Signed(proposal_account).into(),
 			proposal_id
 		));
-		let vote_count = ReferendumVoteCount {
-			vote: MockStakingAmount::active_balance(&proposal_account),
-		};
+		let vote_count = MockStakingAmount::active_balance(&proposal_account);
 		assert_eq!(Governance::referendum_votes(proposal_id, &proposal_account), vote_count);
 	});
 }
