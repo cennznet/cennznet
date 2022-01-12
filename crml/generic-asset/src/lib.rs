@@ -1205,44 +1205,55 @@ where
 }
 
 /// Trait for providing balance-inspection access to a fungible asset.
-impl<T: Config, U: AssetIdAuthority<AssetId = T::AssetId>> Inspect<T::AccountId> for AssetCurrency<T, U> {
+impl<T: Config> Inspect<T::AccountId> for AssetCurrency<T, SpendingAssetIdAuthority<T>> {
 	/// Scalar type for representing balance of an account.
 	type Balance = T::Balance;
 
 	/// The total amount of issuance in the system.
 	fn total_issuance() -> Self::Balance {
-		<Module<T>>::total_issuance(U::asset_id())
+		<Module<T>>::total_issuance(SpendingAssetIdAuthority::<T>::asset_id())
 	}
 
 	/// The minimum balance any single account may have.
 	fn minimum_balance() -> Self::Balance {
-		AssetMeta::<T>::get(U::asset_id())
+		AssetMeta::<T>::get(SpendingAssetIdAuthority::<T>::asset_id())
 			.existential_deposit()
 			.unique_saturated_into()
 	}
 
 	/// Get the balance of `who`.
 	fn balance(who: &T::AccountId) -> Self::Balance {
-		<Module<T>>::free_balance(U::asset_id(), &who)
+		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Self::Balance {
-		// TODO: check locks
-		<Module<T>>::free_balance(U::asset_id(), &who)
+		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
 	fn can_deposit(who: &T::AccountId, amount: Self::Balance) -> DepositConsequence {
-		// TODO: implement
-		DepositConsequence::BelowMinimum
+		match <Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who).checked_add(&amount) {
+			Some(balance) => {
+				if balance
+					< <AssetCurrency<T, SpendingAssetIdAuthority<T>> as Currency<T::AccountId>>::minimum_balance()
+				{
+					DepositConsequence::BelowMinimum
+				} else {
+					DepositConsequence::Success
+				}
+			}
+			None => DepositConsequence::Overflow,
+		}
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
 	/// the consequence.
 	fn can_withdraw(who: &T::AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
-		// TODO: implement
-		WithdrawConsequence::<Self::Balance>::NoFunds
+		match <Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who).checked_sub(&amount) {
+			Some(_) => WithdrawConsequence::<Self::Balance>::Success,
+			None => WithdrawConsequence::<Self::Balance>::NoFunds,
+		}
 	}
 }
 
