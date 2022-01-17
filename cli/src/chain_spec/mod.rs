@@ -447,8 +447,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 					// Using the full hex key, truncating to the first 20 bytes (the first 40 hex chars)
 					H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558").expect("internal H160 is valid; qed"),
 					pallet_evm::GenesisAccount {
-						balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
-							.expect("internal U256 is valid; qed"),
+						balance: U256::from_str("0xfffff").expect("internal U256 is valid; qed"),
 						code: Default::default(),
 						nonce: Default::default(),
 						storage: Default::default(),

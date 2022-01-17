@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		BlakeTwo256, Block as BlockT, Dispatchable, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys,
-		PostDispatchInfoOf, SaturatedConversion, Verify,
+		PostDispatchInfoOf, SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, FixedPointNumber,
@@ -69,7 +69,7 @@ use frame_system::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
+pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
 use cennznet_primitives::{
@@ -665,6 +665,14 @@ impl crml_eth_wallet::Config for Runtime {
 }
 
 // Start frontier/EVM stuff
+pub struct FixedGasPrice;
+impl FeeCalculator for FixedGasPrice {
+	fn min_gas_price() -> U256 {
+		// 1 wei CPAY per gas
+		U256::from(1)
+	}
+}
+
 pub struct BaseFeeThreshold;
 impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 	fn lower() -> Permill {
@@ -684,13 +692,14 @@ impl pallet_base_fee::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ChainId: u64 = 777;
+	// TODO: register at https://chainlist.org/
+	pub const ChainId: u64 = 3000;
 	pub BlockGasLimit: U256 = U256::from(u32::max_value());
 	pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
 }
 
 impl pallet_evm::Config for Runtime {
-	type FeeCalculator = BaseFee;
+	type FeeCalculator = FixedGasPrice;
 	type GasWeightMapping = ();
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
@@ -704,7 +713,6 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = ChainId;
 	type BlockGasLimit = BlockGasLimit;
-	// TODO: update to charge CPAY, https://github.com/PureStake/moonbeam/blob/157bb90842de547036fe89610b09e6f7d9a93efc/runtime/moonbeam/src/lib.rs#L396
 	type OnChargeTransaction = ();
 	// TODO: implement this (useful for block explorers?)
 	type FindAuthor = ();
@@ -1139,7 +1147,23 @@ impl_runtime_apis! {
 		}
 
 		fn account_basic(address: H160) -> EVMAccount {
-			EVM::account_basic(&address)
+			use pallet_evm::AddressMapping;
+			use frame_support::traits::tokens::fungible::Inspect;
+			let account_id = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address);
+
+			let nonce = frame_system::Pallet::<Runtime>::account_nonce(&account_id);
+			// keepalive `true` takes into account ExistentialDeposit as part of what's considered liquid balance.
+			let balance = <Runtime as pallet_evm::Config>::Currency::reducible_balance(&account_id, true);
+			// Ethereum tooling expects 18 decimal places
+			let balance = balance.saturating_mul(10_u128.pow(14));
+
+			EVMAccount {
+				nonce: U256::from(nonce),
+				balance: U256::from(balance),
+			}
+
+			// we override this implementation to scale up the balance decimal places
+			// EVM::account_basic(&address)
 		}
 
 		fn gas_price() -> U256 {
