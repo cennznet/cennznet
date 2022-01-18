@@ -1,0 +1,38 @@
+[package]
+name = "evm-precompiles"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+
+[dependencies]
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+cennznet-runtime = { path = "../../runtime", default-features = false }
+crml-nft = { path = "../../crml/nft", default-features = false }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+precompile-utils = { path = "../utils", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false, version = "4.0.0-dev" }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false, version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false, version = "4.0.0-dev" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false, version = "4.0.0-dev" }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false, version = "4.0.0-dev" }
+num_enum = { version = "0.5.3", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"cennznet-runtime/std",
+	"crml-nft/std",
+	"fp-evm/std",
+	"frame-support/std",
+	"frame-system/std",
+	"num_enum/std",
+	"precompile-utils/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

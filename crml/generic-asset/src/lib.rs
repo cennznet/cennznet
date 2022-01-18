@@ -1227,7 +1227,7 @@ impl<T: Config> Inspect<T::AccountId> for AssetCurrency<T, SpendingAssetIdAuthor
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
-	fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Self::Balance {
+	fn reducible_balance(who: &T::AccountId, _keep_alive: bool) -> Self::Balance {
 		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
 	}
 
