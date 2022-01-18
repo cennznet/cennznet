@@ -906,11 +906,23 @@ impl<T: Config> Module<T> {
 			let mut token_uri = sp_std::Writer::default();
 			match scheme {
 				MetadataScheme::Https(path) => {
-					write!(&mut token_uri, "{}/{}.json", core::str::from_utf8(&path).unwrap_or(""), token_id.2).expect("Not written");
-				},
+					write!(
+						&mut token_uri,
+						"{}/{}.json",
+						core::str::from_utf8(&path).unwrap_or(""),
+						token_id.2
+					)
+					.expect("Not written");
+				}
 				MetadataScheme::IpfsDir(dir_cid) => {
-					write!(&mut token_uri, "ipfs://{}/{}.json", core::str::from_utf8(&dir_cid).unwrap_or(""), token_id.2).expect("Not written");
-				},
+					write!(
+						&mut token_uri,
+						"ipfs://{}/{}.json",
+						core::str::from_utf8(&dir_cid).unwrap_or(""),
+						token_id.2
+					)
+					.expect("Not written");
+				}
 			}
 			token_uri.inner().clone()
 		} else {

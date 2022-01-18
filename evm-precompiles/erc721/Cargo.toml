@@ -1,5 +1,5 @@
 [package]
-name = "evm-precompiles"
+name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2018"
@@ -8,7 +8,6 @@ repository = "https://github.com/cennznet/cennznet"
 [dependencies]
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-cennznet-runtime = { path = "../../runtime", default-features = false }
 crml-nft = { path = "../../crml/nft", default-features = false }
 fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
@@ -25,7 +24,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
-	"cennznet-runtime/std",
 	"crml-nft/std",
 	"fp-evm/std",
 	"frame-support/std",

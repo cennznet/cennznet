@@ -54,9 +54,7 @@ fn read_bool() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: bool = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse bool");
+	let parsed: bool = reader.read(&mut gasometer).expect("to correctly parse bool");
 
 	assert_eq!(value, parsed);
 }
@@ -104,9 +102,7 @@ fn read_u128() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: u128 = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse u128");
+	let parsed: u128 = reader.read(&mut gasometer).expect("to correctly parse u128");
 
 	assert_eq!(value, parsed);
 }
@@ -130,9 +126,7 @@ fn read_u256() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: U256 = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse U256");
+	let parsed: U256 = reader.read(&mut gasometer).expect("to correctly parse U256");
 
 	assert_eq!(value, parsed);
 }
@@ -151,8 +145,7 @@ fn read_selector() {
 
 	let mut gasometer = Gasometer::new(None);
 	let (_, parsed_selector) =
-		EvmDataReader::new_with_selector::<FakeAction>(&mut gasometer, selector)
-			.expect("there is a selector");
+		EvmDataReader::new_with_selector::<FakeAction>(&mut gasometer, selector).expect("there is a selector");
 
 	assert_eq!(parsed_selector, FakeAction::Action1)
 }
@@ -165,9 +158,7 @@ fn read_u256_too_short() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output[0..31]);
-	let _: U256 = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse U256");
+	let _: U256 = reader.read(&mut gasometer).expect("to correctly parse U256");
 }
 
 #[test]
@@ -201,9 +192,7 @@ fn read_h256() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: H256 = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse H256");
+	let parsed: H256 = reader.read(&mut gasometer).expect("to correctly parse H256");
 
 	assert_eq!(value, parsed);
 }
@@ -220,9 +209,7 @@ fn read_h256_too_short() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output[0..31]);
-	let _: H256 = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse H256");
+	let _: H256 = reader.read(&mut gasometer).expect("to correctly parse H256");
 }
 
 #[test]
@@ -242,9 +229,7 @@ fn read_address() {
 
 	let mut gasometer = Gasometer::new(None);
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Address = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Address");
+	let parsed: Address = reader.read(&mut gasometer).expect("to correctly parse Address");
 
 	assert_eq!(value, parsed.0);
 }
@@ -288,9 +273,7 @@ fn read_h256_array() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Vec<H256> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<H256>");
+	let parsed: Vec<H256> = reader.read(&mut gasometer).expect("to correctly parse Vec<H256>");
 
 	assert_eq!(array, parsed);
 }
@@ -334,9 +317,7 @@ fn read_u256_array() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Vec<U256> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<H256>");
+	let parsed: Vec<U256> = reader.read(&mut gasometer).expect("to correctly parse Vec<H256>");
 
 	assert_eq!(array, parsed);
 }
@@ -379,9 +360,7 @@ fn read_address_array() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Vec<Address> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<H256>");
+	let parsed: Vec<Address> = reader.read(&mut gasometer).expect("to correctly parse Vec<H256>");
 
 	assert_eq!(array, parsed);
 }
@@ -419,10 +398,7 @@ fn write_address_nested_array() {
 			Address(H160::repeat_byte(0x22)),
 			Address(H160::repeat_byte(0x33)),
 		],
-		vec![
-			Address(H160::repeat_byte(0x44)),
-			Address(H160::repeat_byte(0x55)),
-		],
+		vec![Address(H160::repeat_byte(0x44)), Address(H160::repeat_byte(0x55))],
 	];
 	let writer_output = EvmDataWriter::new().write(array.clone()).build();
 	assert_eq!(writer_output.len(), 0x160);
@@ -434,14 +410,8 @@ fn write_address_nested_array() {
 
 	assert_eq!(reader.read::<U256>(gm).expect("read offset"), 0x20.into()); // 0x00
 	assert_eq!(reader.read::<U256>(gm).expect("read size"), 2.into()); // 0x20
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read 1st offset"),
-		0x40.into()
-	); // 0x40
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read 2st offset"),
-		0xc0.into()
-	); // 0x60
+	assert_eq!(reader.read::<U256>(gm).expect("read 1st offset"), 0x40.into()); // 0x40
+	assert_eq!(reader.read::<U256>(gm).expect("read 2st offset"), 0xc0.into()); // 0x60
 	assert_eq!(reader.read::<U256>(gm).expect("read 1st size"), 3.into()); // 0x80
 	assert_eq!(reader.read::<Address>(gm).expect("read 1-1"), array[0][0]); // 0xA0
 	assert_eq!(reader.read::<Address>(gm).expect("read 1-2"), array[0][1]); // 0xC0
@@ -459,10 +429,7 @@ fn read_address_nested_array() {
 			Address(H160::repeat_byte(0x22)),
 			Address(H160::repeat_byte(0x33)),
 		],
-		vec![
-			Address(H160::repeat_byte(0x44)),
-			Address(H160::repeat_byte(0x55)),
-		],
+		vec![Address(H160::repeat_byte(0x44)), Address(H160::repeat_byte(0x55))],
 	];
 	let writer_output = EvmDataWriter::new().write(array.clone()).build();
 
@@ -486,10 +453,7 @@ fn write_multiple_arrays() {
 
 	let array2 = vec![H256::repeat_byte(0x44), H256::repeat_byte(0x55)];
 
-	let writer_output = EvmDataWriter::new()
-		.write(array1.clone())
-		.write(array2.clone())
-		.build();
+	let writer_output = EvmDataWriter::new().write(array1.clone()).write(array2.clone()).build();
 
 	assert_eq!(writer_output.len(), 0x120);
 
@@ -498,14 +462,8 @@ fn write_multiple_arrays() {
 	let mut gm = Gasometer::new(None);
 	let gm = &mut gm;
 
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read 1st offset"),
-		0x40.into()
-	); // 0x00
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read 2nd offset"),
-		0xc0.into()
-	); // 0x20
+	assert_eq!(reader.read::<U256>(gm).expect("read 1st offset"), 0x40.into()); // 0x00
+	assert_eq!(reader.read::<U256>(gm).expect("read 2nd offset"), 0xc0.into()); // 0x20
 	assert_eq!(reader.read::<U256>(gm).expect("read 1st size"), 3.into()); // 0x40
 	assert_eq!(reader.read::<Address>(gm).expect("read 1-1"), array1[0]); // 0x60
 	assert_eq!(reader.read::<Address>(gm).expect("read 1-2"), array1[1]); // 0x80
@@ -525,10 +483,7 @@ fn read_multiple_arrays() {
 
 	let array2 = vec![H256::repeat_byte(0x44), H256::repeat_byte(0x55)];
 
-	let writer_output = EvmDataWriter::new()
-		.write(array1.clone())
-		.write(array2.clone())
-		.build();
+	let writer_output = EvmDataWriter::new().write(array1.clone()).write(array2.clone()).build();
 
 	// offset 0x20
 	// offset 0x40
@@ -541,14 +496,10 @@ fn read_multiple_arrays() {
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
 
-	let parsed: Vec<Address> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<Address>");
+	let parsed: Vec<Address> = reader.read(&mut gasometer).expect("to correctly parse Vec<Address>");
 	assert_eq!(array1, parsed);
 
-	let parsed: Vec<H256> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<H256>");
+	let parsed: Vec<H256> = reader.read(&mut gasometer).expect("to correctly parse Vec<H256>");
 	assert_eq!(array2, parsed);
 }
 
@@ -560,9 +511,7 @@ fn read_bytes() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Bytes = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Bytes");
+	let parsed: Bytes = reader.read(&mut gasometer).expect("to correctly parse Bytes");
 
 	assert_eq!(data, parsed.as_bytes());
 }
@@ -585,10 +534,7 @@ fn write_bytes() {
 	padded.resize(0x80, 0);
 
 	assert_eq!(reader.read::<U256>(gm).expect("read offset"), 32.into());
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read size"),
-		data.len().into()
-	);
+	assert_eq!(reader.read::<U256>(gm).expect("read size"), data.len().into());
 	let mut read = |e| reader.read::<H256>(gm).expect(e); // shorthand
 	assert_eq!(read("read part 1"), H256::from_slice(&padded[0x00..0x20]));
 	assert_eq!(read("read part 2"), H256::from_slice(&padded[0x20..0x40]));
@@ -604,9 +550,7 @@ fn read_string() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Bytes = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Bytes");
+	let parsed: Bytes = reader.read(&mut gasometer).expect("to correctly parse Bytes");
 
 	assert_eq!(data, parsed.as_str().expect("valid utf8"));
 }
@@ -629,10 +573,7 @@ fn write_string() {
 	padded.resize(0x80, 0);
 
 	assert_eq!(reader.read::<U256>(gm).expect("read offset"), 32.into());
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read size"),
-		data.len().into()
-	);
+	assert_eq!(reader.read::<U256>(gm).expect("read size"), data.len().into());
 	let mut read = |e| reader.read::<H256>(gm).expect(e); // shorthand
 	assert_eq!(read("read part 1"), H256::from_slice(&padded[0x00..0x20]));
 	assert_eq!(read("read part 2"), H256::from_slice(&padded[0x20..0x40]));
@@ -675,10 +616,7 @@ fn write_vec_bytes() {
 	assert_eq!(reader.read::<U256>(gm).expect("read offset"), 0xe0.into());
 
 	// Length of first bytes object
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read size"),
-		data.len().into()
-	);
+	assert_eq!(reader.read::<U256>(gm).expect("read size"), data.len().into());
 
 	// First byte objects data
 	let mut read = |e| reader.read::<H256>(gm).expect(e); // shorthand
@@ -688,10 +626,7 @@ fn write_vec_bytes() {
 	assert_eq!(read("read part 4"), H256::from_slice(&padded[0x60..0x80]));
 
 	// Length of second bytes object
-	assert_eq!(
-		reader.read::<U256>(gm).expect("read size"),
-		data.len().into()
-	);
+	assert_eq!(reader.read::<U256>(gm).expect("read size"), data.len().into());
 
 	// Second byte objects data
 	let mut read = |e| reader.read::<H256>(gm).expect(e); // shorthand
@@ -717,9 +652,7 @@ fn read_vec_of_bytes() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 	let mut gasometer = Gasometer::new(None);
-	let parsed: Vec<Bytes> = reader
-		.read(&mut gasometer)
-		.expect("to correctly parse Vec<u8>");
+	let parsed: Vec<Bytes> = reader.read(&mut gasometer).expect("to correctly parse Vec<u8>");
 
 	assert_eq!(vec![Bytes::from(&data[..]), Bytes::from(&data[..])], parsed);
 }
@@ -760,12 +693,7 @@ impl EvmData for MultiLocation {
 	}
 
 	fn write(writer: &mut EvmDataWriter, value: Self) {
-		writer.write_pointer(
-			EvmDataWriter::new()
-				.write(value.parents)
-				.write(value.interior)
-				.build(),
-		);
+		writer.write_pointer(EvmDataWriter::new().write(value.parents).write(value.interior).build());
 	}
 }
 
@@ -805,8 +733,7 @@ fn read_complex_solidity_function() {
 	let mut gm = Gasometer::new(None);
 	let gm = &mut gm;
 
-	let (mut reader, selector) =
-		EvmDataReader::new_with_selector::<Action>(gm, &data).expect("to read selector");
+	let (mut reader, selector) = EvmDataReader::new_with_selector::<Action>(gm, &data).expect("to read selector");
 
 	assert_eq!(selector, Action::TransferMultiAsset);
 	// asset
@@ -814,10 +741,7 @@ fn read_complex_solidity_function() {
 		reader.read::<MultiLocation>(gm).unwrap(),
 		MultiLocation {
 			parents: 1,
-			interior: vec![
-				Bytes::from(&hex!("00000003e8")[..]),
-				Bytes::from(&hex!("0403")[..]),
-			],
+			interior: vec![Bytes::from(&hex!("00000003e8")[..]), Bytes::from(&hex!("0403")[..]),],
 		}
 	);
 

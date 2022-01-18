@@ -47,10 +47,7 @@ pub fn keccak256(input: TokenStream) -> TokenStream {
 	let bytes = Bytes(hash.to_vec());
 	let eval_str = format!("{:?}", bytes);
 	let eval_ts: proc_macro2::TokenStream = eval_str.parse().unwrap_or_else(|_| {
-		panic!(
-			"Failed to parse the string \"{}\" to TokenStream.",
-			eval_str
-		);
+		panic!("Failed to parse the string \"{}\" to TokenStream.", eval_str);
 	});
 	quote!(#eval_ts).into()
 }
@@ -98,11 +95,8 @@ pub fn generate_function_selector(_: TokenStream, input: TokenStream) -> TokenSt
 		match variant.discriminant {
 			Some((_, Expr::Lit(ExprLit { lit, .. }))) => {
 				if let Lit::Str(lit_str) = lit {
-					let selector = u32::from_be_bytes(
-						Keccak256::digest(lit_str.value().as_ref())[..4]
-							.try_into()
-							.unwrap(),
-					);
+					let selector =
+						u32::from_be_bytes(Keccak256::digest(lit_str.value().as_ref())[..4].try_into().unwrap());
 					ident_expressions.push(variant.ident);
 					variant_expressions.push(Expr::Lit(ExprLit {
 						lit: Lit::Verbatim(Literal::u32_suffixed(selector)),

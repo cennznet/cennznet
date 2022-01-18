@@ -60,10 +60,7 @@ impl LogsBuilder {
 	/// Create a new builder with no logs.
 	/// Takes the address of the precompile (usualy `context.address`).
 	pub fn new(address: H160) -> Self {
-		Self {
-			logs: vec![],
-			address,
-		}
+		Self { logs: vec![], address }
 	}
 
 	/// Returns the logs array.
@@ -130,14 +127,7 @@ impl LogsBuilder {
 	}
 
 	/// Add a 4-topics log.
-	pub fn log4<D, T0, T1, T2, T3>(
-		mut self,
-		topic0: T0,
-		topic1: T1,
-		topic2: T2,
-		topic3: T3,
-		data: D,
-	) -> Self
+	pub fn log4<D, T0, T1, T2, T3>(mut self, topic0: T0, topic1: T1, topic2: T2, topic3: T3, data: D) -> Self
 	where
 		D: Into<Vec<u8>>,
 		T0: Into<H256>,
@@ -195,13 +185,10 @@ where
 		// computations.
 		let used_weight = call
 			.dispatch(origin)
-			.map_err(|e| {
-				gasometer.revert(alloc::format!("Dispatched call failed with error: {:?}", e))
-			})?
+			.map_err(|e| gasometer.revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?
 			.actual_weight;
 
-		let used_gas =
-			Runtime::GasWeightMapping::weight_to_gas(used_weight.unwrap_or(dispatch_info.weight));
+		let used_gas = Runtime::GasWeightMapping::weight_to_gas(used_weight.unwrap_or(dispatch_info.weight));
 
 		gasometer.record_cost(used_gas)?;
 
@@ -270,12 +257,9 @@ impl Gasometer {
 	/// Record cost, and return error if it goes out of gas.
 	#[must_use]
 	pub fn record_cost(&mut self, cost: u64) -> EvmResult {
-		self.used_gas = self
-			.used_gas
-			.checked_add(cost)
-			.ok_or(PrecompileFailure::Error {
-				exit_status: ExitError::OutOfGas,
-			})?;
+		self.used_gas = self.used_gas.checked_add(cost).ok_or(PrecompileFailure::Error {
+			exit_status: ExitError::OutOfGas,
+		})?;
 
 		match self.target_gas {
 			Some(gas_limit) if self.used_gas > gas_limit => Err(PrecompileFailure::Error {
@@ -296,17 +280,13 @@ impl Gasometer {
 		const G_LOGDATA: u64 = 8;
 		const G_LOGTOPIC: u64 = 375;
 
-		let topic_cost = G_LOGTOPIC
-			.checked_mul(topics as u64)
-			.ok_or(PrecompileFailure::Error {
-				exit_status: ExitError::OutOfGas,
-			})?;
+		let topic_cost = G_LOGTOPIC.checked_mul(topics as u64).ok_or(PrecompileFailure::Error {
+			exit_status: ExitError::OutOfGas,
+		})?;
 
-		let data_cost = G_LOGDATA
-			.checked_mul(data_len as u64)
-			.ok_or(PrecompileFailure::Error {
-				exit_status: ExitError::OutOfGas,
-			})?;
+		let data_cost = G_LOGDATA.checked_mul(data_len as u64).ok_or(PrecompileFailure::Error {
+			exit_status: ExitError::OutOfGas,
+		})?;
 
 		self.record_cost(G_LOG)?;
 		self.record_cost(topic_cost)?;
@@ -332,11 +312,9 @@ impl Gasometer {
 	pub fn remaining_gas(&self) -> EvmResult<Option<u64>> {
 		Ok(match self.target_gas {
 			None => None,
-			Some(gas_limit) => Some(gas_limit.checked_sub(self.used_gas).ok_or(
-				PrecompileFailure::Error {
-					exit_status: ExitError::OutOfGas,
-				},
-			)?),
+			Some(gas_limit) => Some(gas_limit.checked_sub(self.used_gas).ok_or(PrecompileFailure::Error {
+				exit_status: ExitError::OutOfGas,
+			})?),
 		})
 	}
 
@@ -359,12 +337,7 @@ impl Gasometer {
 	#[must_use]
 	/// Check that a function call is compatible with the context it is
 	/// called into.
-	pub fn check_function_modifier(
-		&self,
-		context: &Context,
-		is_static: bool,
-		modifier: FunctionModifier,
-	) -> EvmResult {
+	pub fn check_function_modifier(&self, context: &Context, is_static: bool, modifier: FunctionModifier) -> EvmResult {
 		if is_static && modifier != FunctionModifier::View {
 			return Err(self.revert("can't call non-static function in static context"));
 		}

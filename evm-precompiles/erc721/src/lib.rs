@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(test, feature(assert_matches))]
 
-use crml_nft::{CollectionId, SerialNumber, SeriesId, TokenId};
+use crml_nft::{CollectionId, SerialNumber, SeriesId};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -27,13 +27,13 @@ use frame_support::{
 	},
 };
 use pallet_evm::{AddressMapping, PrecompileSet};
-use precompile_utils::{
+pub use precompile_utils::{
 	error, keccak256, Address, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
 	LogsBuilder, RuntimeHelper,
 };
-use sp_core::{H160, U256};
-use sp_runtime::traits::{SaturatedConversion, StaticLookup, Zero};
-use sp_std::{convert::TryFrom, marker::PhantomData, vec};
+use sp_core::{H160, H256, U256};
+use sp_runtime::traits::SaturatedConversion;
+use sp_std::{marker::PhantomData, vec};
 
 // #[cfg(test)]
 // mod mock;
@@ -61,22 +61,25 @@ pub enum Action {
 	TokenURI = "tokenURI(uint256)",
 }
 
-/// This trait ensure we can convert AccountIds to AssetIdsl
-/// We will require Runtime to have this trait implemented
-pub trait ERC721IdConversion {
+/// Convert EVM addresses into NFT module identifiers and vice versa
+pub trait Erc721IdConversion {
 	/// ID type used by EVM
 	type EvmId;
 	/// ID type used by runtime
 	type RuntimeId;
 	// Get runtime Id from EVM id
-	fn evm_id_to_module_id(evm_id: Self::EvmId) -> Option<Self::RuntimeId>;
+	fn evm_id_to_runtime_id(evm_id: Self::EvmId) -> Option<Self::RuntimeId>;
 	// Get EVM id from runtime Id
 	fn runtime_id_to_evm_id(runtime_id: Self::RuntimeId) -> Self::EvmId;
 }
 
+/// Calls to contracts starting with this prefix will be shim'd to the CENNZnet NFT module
+/// via an ERC721 compliant interface (`Erc721PrecompileSet`)
+pub const NFT_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xA; 4];
+
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
-/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Moonbeam specific
+/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither CENNZnet specific
 /// 2048-4095 CENNZnet specific precompiles
 /// Asset precompiles can only fall between
 /// 	0xFFFFFFFF00000000000000000000000000000000 - 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -92,12 +95,12 @@ pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
+	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
-	Runtime::AccountId: EvmData,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
-	Runtime: ERC721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
+	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
 	fn execute(
@@ -109,7 +112,7 @@ where
 		is_static: bool,
 	) -> Option<EvmResult<PrecompileOutput>> {
 		// Convert target `address` into it's runtime NFT Id
-		if let Some((collection_id, series_id)) = Runtime::evm_id_to_module_id(Address(address)) {
+		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
 			// 'collection name' is empty when the collection doesn't exist yet
 			if !crml_nft::Pallet::<Runtime>::collection_name(collection_id).is_empty() {
 				let result = {
@@ -162,11 +165,11 @@ where
 	}
 
 	fn is_precompile(&self, address: H160) -> bool {
-		if let Some((collection_id, series_id)) = Runtime::evm_id_to_module_id(Address(address)) {
+		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
 			// existence check for the collection & series
-			// a name is set when a collection is created & the series issuance is non-zero
-			!crml_nft::Pallet::<Runtime>::collection_name(collection_id).is_empty()
-				&& crml_nft::Pallet::<Runtime>::series_issuance(collection_id, series_id) > 0
+			// series metadata is only set upon creation
+			// TODO: better to expose an 'exists' function
+			crml_nft::Pallet::<Runtime>::series_metadata_scheme(collection_id, series_id).is_some()
 		} else {
 			false
 		}
@@ -181,12 +184,12 @@ impl<Runtime> Erc721PrecompileSet<Runtime> {
 
 impl<Runtime> Erc721PrecompileSet<Runtime>
 where
+	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
-	Runtime::AccountId: EvmData,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
-	Runtime: ERC721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
+	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
 	/// Returns the CENNZnet address which owns the given token
@@ -212,8 +215,7 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Fetch info.
-		let owner_account_id: Runtime::AccountId =
-			crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into();
+		let owner_account_id = H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
 
 		// Build output.
 		Ok(PrecompileOutput {

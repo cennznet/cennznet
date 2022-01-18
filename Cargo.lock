@@ -840,9 +840,11 @@ dependencies = [
  "pallet-base-fee",
  "pallet-ethereum",
  "pallet-evm",
+ "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
+ "pallet-evm-precompiles-erc721",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -1928,25 +1930,6 @@ dependencies = [
  "evm-core",
  "evm-runtime",
  "primitive-types",
-]
-
-[[package]]
-name = "evm-precompiles"
-version = "2.0.0"
-dependencies = [
- "cennznet-runtime",
- "crml-nft",
- "fp-evm",
- "frame-support",
- "frame-system",
- "num_enum",
- "pallet-evm",
- "parity-scale-codec",
- "precompile-utils",
- "scale-info",
- "sp-core",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -4804,6 +4787,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompile-blake2"
+version = "2.0.0-dev"
+source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+dependencies = [
+ "fp-evm",
+ "sp-core",
+ "sp-io",
+]
+
+[[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
 source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
@@ -4834,6 +4827,24 @@ dependencies = [
  "ripemd160",
  "sp-core",
  "sp-io",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-erc721"
+version = "2.0.0"
+dependencies = [
+ "crml-nft",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

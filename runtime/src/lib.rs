@@ -99,7 +99,7 @@ pub mod impls;
 use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
 
 mod precompiles;
-use precompiles::FrontierPrecompiles;
+use precompiles::CENNZnetPrecompiles;
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -695,7 +695,7 @@ parameter_types! {
 	// TODO: register at https://chainlist.org/
 	pub const ChainId: u64 = 3000;
 	pub BlockGasLimit: U256 = U256::from(u32::max_value());
-	pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
+	pub PrecompilesValue: CENNZnetPrecompiles<Runtime> = CENNZnetPrecompiles::<_>::new();
 }
 
 impl pallet_evm::Config for Runtime {
@@ -709,7 +709,7 @@ impl pallet_evm::Config for Runtime {
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	// TODO: "precompiles" can invoke runtime methods e.g: https://github.com/PureStake/moonbeam/blob/157bb90842de547036fe89610b09e6f7d9a93efc/runtime/moonriver/src/precompiles.rs#L86-L159
-	type PrecompilesType = FrontierPrecompiles<Self>;
+	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = ChainId;
 	type BlockGasLimit = BlockGasLimit;

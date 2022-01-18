@@ -261,8 +261,7 @@ impl EvmDataWriter {
 			let free_space_offset = output.len() - offset_datum.offset_shift;
 
 			// Override dummy offset to the offset it will be in the final output.
-			U256::from(free_space_offset)
-				.to_big_endian(&mut output[offset_position..offset_position_end]);
+			U256::from(free_space_offset).to_big_endian(&mut output[offset_position..offset_position_end]);
 
 			// Append this data at the end of the current output.
 			output.append(&mut offset_datum.data);
@@ -419,8 +418,7 @@ impl EvmData for u8 {
 
 impl EvmData for bool {
 	fn read(reader: &mut EvmDataReader, gasometer: &mut Gasometer) -> EvmResult<Self> {
-		let h256 = H256::read(reader, gasometer)
-			.map_err(|_| gasometer.revert("tried to parse bool out of bounds"))?;
+		let h256 = H256::read(reader, gasometer).map_err(|_| gasometer.revert("tried to parse bool out of bounds"))?;
 
 		Ok(!h256.is_zero())
 	}
