@@ -300,14 +300,7 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			logs: LogsBuilder::new(context.address)
-				.log3(
-					SELECTOR_LOG_APPROVAL,
-					context.caller,
-					spender,
-					EvmDataWriter::new().write(amount).build(),
-				)
-				.build(),
+			logs: Default::default(),
 		})
 	}
 
