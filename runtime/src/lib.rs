@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		BlakeTwo256, Block as BlockT, Dispatchable, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys,
-		PostDispatchInfoOf, SaturatedConversion, StaticLookup, Verify,
+		PostDispatchInfoOf, SaturatedConversion, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, FixedPointNumber,
