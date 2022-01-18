@@ -75,21 +75,19 @@ pub trait Erc721IdConversion {
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet NFT module
 /// via an ERC721 compliant interface (`Erc721PrecompileSet`)
-pub const NFT_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xA; 4];
+pub const NFT_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xAA; 4];
 
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
 /// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither CENNZnet specific
 /// 2048-4095 CENNZnet specific precompiles
-/// Asset precompiles can only fall between
-/// 	0xFFFFFFFF00000000000000000000000000000000 - 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-/// The precompile for AssetId X, where X is a u128 (i.e.16 bytes), if 0XFFFFFFFF + Bytes(AssetId)
-/// In order to route the address to Erc20AssetsPrecompile<R>, we first check whether the AssetId
-/// exists in pallet-assets
-/// We cannot do this right now, so instead we check whether the total supply is zero. If so, we
-/// do not route to the precompiles
+/// NFT precompile addresses can only fall between
+/// 	0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+/// The precompile for NFT series (X,Y) where X & Y are a u32 (i.e.8 bytes), if 0XFFFFFFFF + Bytes(CollectionId) + Bytes(SeriesId)
+/// In order to route the address to Erc721Precompile<R>, we check whether the CollectionId + SeriesId
+/// exist in crml-nft pallet
 
-/// This means that every address that starts with 0xFFFFFFFF will go through an additional db read,
+/// This means that every address that starts with 0xAAAAAAAA will go through an additional db read,
 /// but the probability for this to happen is 2^-32 for random addresses
 pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 
@@ -166,10 +164,8 @@ where
 
 	fn is_precompile(&self, address: H160) -> bool {
 		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
-			// existence check for the collection & series
-			// series metadata is only set upon creation
-			// TODO: better to expose an 'exists' function
-			crml_nft::Pallet::<Runtime>::series_metadata_scheme(collection_id, series_id).is_some()
+			// route to NFT module only if the (collection, series) exists
+			crml_nft::Pallet::<Runtime>::series_exists(collection_id, series_id)
 		} else {
 			false
 		}
@@ -215,7 +211,8 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Fetch info.
-		let owner_account_id = H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
+		let owner_account_id =
+			H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
 
 		// Build output.
 		Ok(PrecompileOutput {
@@ -303,8 +300,14 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			// TODO: log transfer?
-			logs: Default::default(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_APPROVAL,
+					context.caller,
+					spender,
+					EvmDataWriter::new().write(amount).build(),
+				)
+				.build(),
 		})
 	}
 

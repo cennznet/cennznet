@@ -899,6 +899,10 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Return whether the series exists or not
+	pub fn series_exists(collection_id: CollectionId, series_id: SeriesId) -> bool {
+		SeriesMetadataScheme::contains_key(collection_id, series_id)
+	}
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721 metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
 		use core::fmt::Write;
