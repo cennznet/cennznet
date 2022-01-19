@@ -259,9 +259,16 @@ fn transfer() {
 		));
 
 		// test
+		let (collection_id, series_id, serial_number) = token_id;
 		let new_owner = 3_u64;
 		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
-		assert!(has_event(RawEvent::Transfer(token_owner, vec![token_id], new_owner)));
+		assert!(has_event(RawEvent::Transfer(
+			token_owner,
+			collection_id,
+			series_id,
+			vec![serial_number],
+			new_owner
+		)));
 
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), vec![token_id]);
@@ -1576,16 +1583,30 @@ fn transfer_batch() {
 		));
 
 		// test
-		let tokens = vec![
-			(collection_id, series_id, 0),
-			(collection_id, series_id, 1),
-			(collection_id, series_id, 2),
-		];
+		let tokens = vec![0, 1, 2];
 		let new_owner = 3_u64;
-		assert_ok!(Nft::transfer_batch(Some(token_owner).into(), tokens.clone(), new_owner,));
-		assert!(has_event(RawEvent::Transfer(token_owner, tokens.clone(), new_owner)));
+		assert_ok!(Nft::transfer_batch(
+			Some(token_owner).into(),
+			collection_id,
+			series_id,
+			tokens.clone(),
+			new_owner,
+		));
+		assert!(has_event(RawEvent::Transfer(
+			token_owner,
+			collection_id,
+			series_id,
+			tokens.clone(),
+			new_owner
+		)));
 
-		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), tokens);
+		assert_eq!(
+			Nft::collected_tokens(collection_id, &new_owner),
+			tokens
+				.iter()
+				.map(|sn| (collection_id, series_id, *sn))
+				.collect::<Vec<TokenId>>()
+		);
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
 	});
 }
@@ -1612,11 +1633,9 @@ fn transfer_batch_fails() {
 		assert_noop!(
 			Nft::transfer_batch(
 				Some(token_owner).into(),
-				vec![
-					(collection_id, series_id, 0),
-					(collection_id, series_id, 3),
-					(collection_id, series_id, 1),
-				],
+				collection_id,
+				series_id,
+				vec![0, 3, 1],
 				new_owner,
 			),
 			Error::<Test>::NoPermission
@@ -1626,11 +1645,9 @@ fn transfer_batch_fails() {
 		assert_noop!(
 			Nft::transfer_batch(
 				Some(token_owner + 1).into(),
-				vec![
-					(collection_id, series_id, 0),
-					(collection_id, series_id, 1),
-					(collection_id, series_id, 2),
-				],
+				collection_id,
+				series_id,
+				vec![0, 1, 2],
 				new_owner
 			),
 			Error::<Test>::NoPermission
@@ -1638,7 +1655,7 @@ fn transfer_batch_fails() {
 
 		// transfer empty ids should fail
 		assert_noop!(
-			Nft::transfer_batch(Some(token_owner).into(), vec![], new_owner),
+			Nft::transfer_batch(Some(token_owner).into(), collection_id, series_id, vec![], new_owner),
 			Error::<Test>::NoToken
 		);
 	});
