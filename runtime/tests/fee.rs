@@ -30,7 +30,7 @@ use common::mock::ExtBuilder;
 // Make signed transaction given a `Call`
 fn signed_tx(call: Call) -> UncheckedExtrinsic {
 	sign(CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(0, 0, None))),
+		signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 		function: call,
 	})
 }

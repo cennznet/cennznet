@@ -212,11 +212,11 @@ fn era_transaction_fees_collected() {
 		.build()
 		.execute_with(|| {
 			let xt_1 = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 				function: runtime_call_1.clone(),
 			});
 			let xt_2 = sign(CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(bob(), signed_extra(0, 0, None)),
 				function: runtime_call_2.clone(),
 			});
 
@@ -270,11 +270,11 @@ fn era_transaction_fees_accrued() {
 		.build()
 		.execute_with(|| {
 			let xt_1 = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 				function: runtime_call_1.clone(),
 			});
 			let xt_2 = sign(CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(bob(), signed_extra(0, 0, None)),
 				function: runtime_call_2.clone(),
 			});
 
@@ -333,7 +333,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 
 			// create a transaction
 			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 				function: runtime_call,
 			});
 			let tx_fee = extrinsic_fee_for(&xt);
