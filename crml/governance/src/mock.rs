@@ -110,15 +110,17 @@ impl StakingAmount for MockStakingAmount {
 
 	fn active_balance(controller: &Self::AccountId) -> Self::Balance {
 		match controller {
-			1 => 1_000_000,
+			1 => 1_000,
 			2 => 20_000_000,
 			3 => 30_000_000,
+			4 => 30_000_000,
+			5 => 30_000_000,
 			_ => 0,
 		}
 	}
 
-	fn count_nominators() -> u32 {
-		1
+	fn total_staked() -> Balance {
+		10_000_000
 	}
 }
 
@@ -131,6 +133,8 @@ impl RegistrationInfo for MockRegistrationImplementation {
 			1 => 2,
 			2 => 1,
 			3 => 3,
+			4 => 2,
+			5 => 2,
 			_ => 0,
 		}
 	}
@@ -139,7 +143,7 @@ impl RegistrationInfo for MockRegistrationImplementation {
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const MaxCouncilSize: u16 = 2;
+	pub const MaxCouncilSize: u16 = 3;
 }
 impl crate::Config for Test {
 	type Call = Call;
