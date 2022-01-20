@@ -44,7 +44,7 @@ fn generic_asset_transfer_works_without_fee_exchange() {
 		.build()
 		.execute_with(|| {
 			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, None))),
+				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 				function: runtime_call,
 			});
 
@@ -97,7 +97,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			});
 			// Create an extrinsic where the transaction fee is to be paid in CENNZ
 			let xt = sign(CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0, Some(fee_exchange)))),
+				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, Some(fee_exchange))),
 				function: runtime_call,
 			});
 

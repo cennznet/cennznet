@@ -46,7 +46,7 @@ use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 mod benchmarking;
 #[cfg(test)]
@@ -93,7 +93,7 @@ decl_event!(
 		/// Token(s) were created (collection, series id, quantity, owner)
 		CreateTokens(CollectionId, SeriesId, TokenCount, AccountId),
 		/// Token(s) were transferred (previous owner, token Ids, new owner)
-		Transfer(AccountId, Vec<TokenId>, AccountId),
+		Transfer(AccountId, CollectionId, SeriesId, Vec<SerialNumber>, AccountId),
 		/// Tokens were burned (collection, series id, serial numbers)
 		Burn(CollectionId, SeriesId, Vec<SerialNumber>),
 		/// A fixed price sale has been listed (collection, listing, marketplace_id)
@@ -152,6 +152,12 @@ decl_error! {
 		RoyaltiesProtection,
 		/// The account_id hasn't been registered as a marketplace
 		MarketplaceNotRegistered,
+		/// The series does not exist
+		NoSeries,
+		/// The Series name has been set
+		NameAlreadySet,
+		/// The metadata path is invalid (non-utf8 or empty)
+		InvalidMetadataPath
 	}
 }
 
@@ -168,12 +174,16 @@ decl_storage! {
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
 		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
+		/// Count of tokens owned by an address, supports ERC721 `balanceOf`
+		pub TokenBalance get(fn token_balance): map hasher(blake2_128_concat) T::AccountId => BTreeMap<(CollectionId, SeriesId), TokenCount>;
 		/// The next available marketplace id
 		pub NextMarketplaceId get(fn next_marketplace_id): MarketplaceId;
 		/// Map from marketplace account_id to royalties schedule
 		pub RegisteredMarketplaces get(fn registered_marketplaces): map hasher(twox_64_concat) MarketplaceId => Marketplace<T::AccountId>;
 		/// Map from (collection, series) to its attributes (deprecated)
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
+		/// Map from series to its human friendly name
+		pub SeriesName get(fn series_name): map hasher(twox_64_concat) (CollectionId, SeriesId) => CollectionNameType;
 		/// Map from (collection, series) to configured royalties schedule
 		pub SeriesRoyalties get(fn series_royalties): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a (collection, series) to its total issuance
@@ -295,6 +305,25 @@ decl_module! {
 			}
 		}
 
+		/// Set the name of a series
+		/// Caller must be the current collection owner
+		#[weight = T::WeightInfo::set_owner()]
+		fn set_series_name(origin, collection_id: CollectionId, series_id: SeriesId, name: CollectionNameType) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = Self::collection_owner(collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				ensure!(SeriesMetadataScheme::contains_key(collection_id, series_id), Error::<T>::NoSeries);
+				ensure!(!SeriesName::contains_key((collection_id, series_id)), Error::<T>::NameAlreadySet);
+				ensure!(!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize, Error::<T>::CollectionNameInvalid);
+				ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+
+				SeriesName::insert((collection_id, series_id), name);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
+		}
+
 		/// Flag an account as a marketplace
 		///
 		/// `marketplace_account` - if specified, this account will be registered
@@ -361,7 +390,7 @@ decl_module! {
 		///
 		/// `quantity` - number of tokens to mint now
 		/// `owner` - the token owner, defaults to the caller
-		/// `metadata_scheme` - The offchain metadata referencing scheme for tokens in this series
+		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this series
 		/// Caller must be the collection owner
 		#[weight = T::WeightInfo::mint_series(*quantity)]
 		#[transactional]
@@ -389,6 +418,7 @@ decl_module! {
 				Error::<T>::NoAvailableIds
 			);
 
+			let metadata_scheme = metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
 			SeriesMetadataScheme::insert(collection_id, series_id, metadata_scheme);
 
 			// Setup royalties
@@ -399,13 +429,10 @@ decl_module! {
 
 			// Now mint the series tokens
 			let owner = owner.unwrap_or(origin);
-			SeriesIssuance::insert(collection_id, series_id, quantity);
-			for serial_number in 0..quantity as SerialNumber {
-				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
-			}
+			Self::do_mint(&owner, collection_id, series_id, 0 as SerialNumber, quantity)?;
+
 			// will not overflow, asserted prior qed.
 			NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
-			NextSerialNumber::insert(collection_id, series_id, quantity as SerialNumber);
 
 			Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
 
@@ -455,29 +482,31 @@ decl_module! {
 		/// Caller must be the token owner
 		#[weight = T::WeightInfo::transfer()]
 		fn transfer(origin, token_id: TokenId, new_owner: T::AccountId) -> DispatchResult {
-			Self::transfer_batch(origin, vec![token_id], new_owner)
+			let (collection_id, series_id, serial_number) = token_id;
+			Self::transfer_batch(origin, collection_id, series_id, vec![serial_number], new_owner)
 		}
 
 		/// Transfer ownership of a batch of NFTs (atomic)
-		/// Tokens must be from the same collection
+		/// Tokens must be from the same series
 		/// Caller must be the token owner
 		#[weight = {
-			T::WeightInfo::transfer().saturating_mul(tokens.len() as Weight)
+			T::WeightInfo::transfer().saturating_mul(serial_numbers.len() as Weight)
 		}]
-		fn transfer_batch(origin, tokens: Vec<TokenId>, new_owner: T::AccountId) {
+		#[transactional]
+		fn transfer_batch(origin, collection_id: CollectionId, series_id: SeriesId, serial_numbers: Vec<SerialNumber>, new_owner: T::AccountId) {
 			let origin = ensure_signed(origin)?;
 
-			ensure!(tokens.len() > Zero::zero(), Error::<T>::NoToken);
-			for token_id in tokens.iter() {
-				ensure!(!TokenLocks::contains_key(token_id), Error::<T>::TokenListingProtection);
+			ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
+			for serial_number in serial_numbers.iter() {
+				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(
-					Self::token_owner((token_id.0, token_id.1), token_id.2) == origin,
+					Self::token_owner((collection_id, series_id), serial_number) == origin,
 					Error::<T>::NoPermission
 				);
 			}
-			Self::do_transfer_unchecked(&tokens, &new_owner);
+			let _ = Self::do_transfer_unchecked(collection_id, series_id, &serial_numbers, &origin, &new_owner)?;
 
-			Self::deposit_event(RawEvent::Transfer(origin, tokens, new_owner));
+			Self::deposit_event(RawEvent::Transfer(origin, collection_id, series_id, serial_numbers, new_owner));
 		}
 
 		/// Burn a token 🔥
@@ -490,7 +519,7 @@ decl_module! {
 		}
 
 		/// Burn some tokens 🔥
-		/// Tokens must be from the same collection and series
+		/// Tokens must be from the same series
 		///
 		/// Caller must be the token owner
 		/// Fails on duplicate serials
@@ -512,6 +541,22 @@ decl_module! {
 				<TokenOwner<T>>::remove((collection_id, series_id), serial_number);
 			}
 
+			let quantity = serial_numbers.len() as TokenCount;
+			let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(&origin, |balances| {
+				match (*balances).get_mut(&(collection_id, series_id)) {
+					Some(balance) => {
+						let new_balance = balance.saturating_sub(quantity);
+						if new_balance.is_zero() {
+							balances.remove(&(collection_id, series_id));
+						} else {
+							*balance = new_balance;
+						}
+						Ok(())
+					},
+					None => Err(Error::<T>::NoToken.into()),
+				}
+			})?;
+
 			if Self::series_issuance(collection_id, series_id).saturating_sub(serial_numbers.len() as TokenCount).is_zero() {
 				// this is the last of the tokens
 				SeriesAttributes::remove(collection_id, series_id);
@@ -519,7 +564,7 @@ decl_module! {
 				SeriesMetadataScheme::remove(collection_id, series_id);
 				<SeriesRoyalties<T>>::remove(collection_id, series_id);
 			} else {
-				SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_sub(serial_numbers.len() as TokenCount));
+				SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_sub(quantity));
 			}
 
 			Self::deposit_event(RawEvent::Burn(collection_id, series_id, serial_numbers));
@@ -556,7 +601,7 @@ decl_module! {
 		}
 
 		/// Sell a bundle of tokens at a fixed price
-		/// - Tokens must be from the same collection
+		/// - Tokens must be from the same series
 		/// - Tokens with individual royalties schedules cannot be sold with this method
 		///
 		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may purchase
@@ -635,7 +680,7 @@ decl_module! {
 					ensure!(&origin == buyer, Error::<T>::NoPermission);
 				}
 
-				let (collection_id, _series_id, _serial_number) = listing.tokens.get(0).ok_or_else(|| Error::<T>::NoToken)?;
+				let (collection_id, series_id, _serial_number) = listing.tokens.get(0).ok_or_else(|| Error::<T>::NoToken)?;
 
 				let royalty_fees = listing.royalties_schedule.calculate_total_entitlement();
 				if royalty_fees.is_zero() {
@@ -659,13 +704,13 @@ decl_module! {
 					}
 				}
 
-				// must not fail now that payment has been made
-				for token_id in listing.tokens.iter() {
+				let serial_numbers: Vec<SerialNumber> = listing.tokens.iter().map(|token_id| {
 					TokenLocks::remove(token_id);
-				}
+					token_id.2
+				}).collect();
 				OpenCollectionListings::remove(collection_id, listing_id);
 
-				Self::do_transfer_unchecked(&listing.tokens, &origin);
+				let _ = Self::do_transfer_unchecked(*collection_id, *series_id, &serial_numbers, &listing.seller, &origin)?;
 				Self::remove_fixed_price_listing(listing_id);
 
 				Self::deposit_event(RawEvent::FixedPriceSaleComplete(*collection_id, listing_id, origin));
@@ -700,7 +745,7 @@ decl_module! {
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
-		/// - Tokens must be from the same collection
+		/// - Tokens must be from the same series
 		/// - Tokens with individual royalties schedules cannot be sold in bundles
 		///
 		/// Caller must be the token owner
@@ -857,6 +902,41 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Return whether the series exists or not
+	pub fn series_exists(collection_id: CollectionId, series_id: SeriesId) -> bool {
+		SeriesMetadataScheme::contains_key(collection_id, series_id)
+	}
+	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721 metadata token_uri)
+	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
+		use core::fmt::Write;
+		if let Some(scheme) = Self::series_metadata_scheme(token_id.0, token_id.1) {
+			let mut token_uri = sp_std::Writer::default();
+			match scheme {
+				MetadataScheme::Http(path) => {
+					let path = core::str::from_utf8(&path).unwrap_or("");
+					write!(&mut token_uri, "http://{}/{}.json", path, token_id.2).expect("Not written");
+				}
+				MetadataScheme::Https(path) => {
+					let path = core::str::from_utf8(&path).unwrap_or("");
+					write!(&mut token_uri, "https://{}/{}.json", path, token_id.2).expect("Not written");
+				}
+				MetadataScheme::IpfsDir(dir_cid) => {
+					write!(
+						&mut token_uri,
+						"ipfs://{}/{}.json",
+						core::str::from_utf8(&dir_cid).unwrap_or(""),
+						token_id.2
+					)
+					.expect("Not written");
+				}
+			}
+			token_uri.inner().clone()
+		} else {
+			// should not happen
+			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
+			Default::default()
+		}
+	}
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
 	/// We're ok iff, all tokens in the bundle are from the:
 	/// 1) same collection and same series
@@ -901,10 +981,36 @@ impl<T: Config> Module<T> {
 	}
 	/// Transfer the given tokens from `current_owner` to `new_owner`
 	/// Does no verification
-	fn do_transfer_unchecked(tokens: &[TokenId], new_owner: &T::AccountId) {
-		for token_id in tokens.iter() {
-			<TokenOwner<T>>::insert((token_id.0, token_id.1), token_id.2, new_owner);
+	fn do_transfer_unchecked(
+		collection_id: CollectionId,
+		series_id: SeriesId,
+		serial_numbers: &[SerialNumber],
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		for serial_number in serial_numbers.iter() {
+			<TokenOwner<T>>::insert((collection_id, series_id), serial_number, new_owner);
 		}
+		let quantity = serial_numbers.len() as TokenCount;
+		let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(&current_owner, |balances| {
+			match (*balances).get_mut(&(collection_id, series_id)) {
+				Some(balance) => {
+					let new_balance = balance.saturating_sub(quantity);
+					if new_balance.is_zero() {
+						balances.remove(&(collection_id, series_id));
+					} else {
+						*balance = new_balance;
+					}
+					Ok(())
+				}
+				None => return Err(Error::NoToken.into()), // should not happen
+			}
+		});
+		<TokenBalance<T>>::mutate(&new_owner, |balances| {
+			*balances.entry((collection_id, series_id)).or_default() += quantity
+		});
+
+		Ok(())
 	}
 	/// Mint additional tokens in a series
 	fn do_mint(
@@ -921,6 +1027,10 @@ impl<T: Config> Module<T> {
 			<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
 		}
 
+		// update token balances
+		<TokenBalance<T>>::mutate(&owner, |balances| {
+			*balances.entry((collection_id, series_id)).or_default() += quantity
+		});
 		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
 		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
 
@@ -1052,10 +1162,10 @@ impl<T: Config> Module<T> {
 				>= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);
-
-		Self::do_transfer_unchecked(&listing.tokens, winner);
-
-		Ok(())
+		// all tokens have the same collection and series id
+		let (collection_id, series_id, _) = listing.tokens[0];
+		let serial_numbers: Vec<SerialNumber> = listing.tokens.iter().map(|id| id.2).collect();
+		Self::do_transfer_unchecked(collection_id, series_id, &serial_numbers, &listing.seller, &winner)
 	}
 	/// Get collection information from given collection_id
 	pub fn collection_info<AccountId>(collection_id: CollectionId) -> Option<CollectionInfo<T::AccountId>> {

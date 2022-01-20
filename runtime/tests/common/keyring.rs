@@ -17,7 +17,7 @@
 //! Test accounts and signing helpers
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange, Index};
-use cennznet_runtime::{CheckedExtrinsic, SignedExtra, UncheckedExtrinsic};
+use cennznet_runtime::{Address, Call, CheckedExtrinsic, SignedExtra, UncheckedExtrinsic};
 use codec::Encode;
 use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
@@ -72,7 +72,7 @@ pub fn signed_extra(
 /// Sign given `CheckedExtrinsic`.
 pub fn sign(xt: CheckedExtrinsic, spec_version: u32, tx_version: u32, genesis_hash: [u8; 32]) -> UncheckedExtrinsic {
 	match xt.signed {
-		Some((signed, extra)) => {
+		fp_self_contained::CheckedSignature::Signed(signed, extra) => {
 			let payload = (
 				xt.function,
 				extra.clone(),
@@ -91,14 +91,11 @@ pub fn sign(xt: CheckedExtrinsic, spec_version: u32, tx_version: u32, genesis_ha
 					}
 				})
 				.into();
-			UncheckedExtrinsic {
-				signature: Some((signed, signature, extra)),
-				function: payload.0,
-			}
+			fp_self_contained::UncheckedExtrinsic::new_signed(payload.0, signed, signature, extra)
 		}
-		None => UncheckedExtrinsic {
-			signature: None,
-			function: xt.function,
-		},
+		fp_self_contained::CheckedSignature::Unsigned => {
+			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function)
+		}
+		_ => unimplemented!(),
 	}
 }

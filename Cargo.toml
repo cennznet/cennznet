@@ -16,6 +16,7 @@ members = [
 	"cli",
 	"crml/*",
 	"ethy-gadget",
+	"evm-precompiles/*",
 	"primitives",
 	"runtime",
 ]
