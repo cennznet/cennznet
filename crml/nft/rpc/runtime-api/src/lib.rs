@@ -37,6 +37,9 @@ sp_api::decl_runtime_apis! {
 		/// Get collection info from a given collection
 		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>>;
 
+		/// Return the token metadata URI for a given token
+		fn token_uri(token_id: TokenId) -> Vec<u8>;
+
 		/// Get information of given token
 		fn token_info(
 		   collection_id: CollectionId,

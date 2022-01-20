@@ -42,6 +42,9 @@ pub trait NftApi<AccountId> {
 	#[rpc(name = "nft_getCollectionInfo")]
 	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
 
+	#[rpc(name = "nft_tokenUri")]
+	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>>;
+
 	#[rpc(name = "nft_getTokenInfo")]
 	fn token_info(
 		&self,
@@ -102,6 +105,17 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 		api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
+			code: ErrorCode::ServerError(Error::RuntimeError.into()),
+			message: "Unable to query collection nfts.".into(),
+			data: Some(format!("{:?}", e).into()),
+		})
+	}
+
+	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+		api.token_uri(&at, token_id).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection nfts.".into(),
 			data: Some(format!("{:?}", e).into()),

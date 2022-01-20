@@ -156,6 +156,8 @@ decl_error! {
 		NoSeries,
 		/// The Series name has been set
 		NameAlreadySet,
+		/// The metadata path is invalid (non-utf8 or empty)
+		InvalidMetadataPath
 	}
 }
 
@@ -416,6 +418,7 @@ decl_module! {
 				Error::<T>::NoAvailableIds
 			);
 
+			let metadata_scheme = metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
 			SeriesMetadataScheme::insert(collection_id, series_id, metadata_scheme);
 
 			// Setup royalties
@@ -909,14 +912,13 @@ impl<T: Config> Module<T> {
 		if let Some(scheme) = Self::series_metadata_scheme(token_id.0, token_id.1) {
 			let mut token_uri = sp_std::Writer::default();
 			match scheme {
+				MetadataScheme::Http(path) => {
+					let path = core::str::from_utf8(&path).unwrap_or("");
+					write!(&mut token_uri, "http://{}/{}.json", path, token_id.2).expect("Not written");
+				}
 				MetadataScheme::Https(path) => {
-					write!(
-						&mut token_uri,
-						"{}/{}.json",
-						core::str::from_utf8(&path).unwrap_or(""),
-						token_id.2
-					)
-					.expect("Not written");
+					let path = core::str::from_utf8(&path).unwrap_or("");
+					write!(&mut token_uri, "https://{}/{}.json", path, token_id.2).expect("Not written");
 				}
 				MetadataScheme::IpfsDir(dir_cid) => {
 					write!(

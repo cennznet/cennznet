@@ -665,6 +665,27 @@ impl crml_eth_wallet::Config for Runtime {
 }
 
 // Start frontier/EVM stuff
+
+/// Current approximation of the gas/s consumption considering
+/// EVM execution over compiled WASM (on 4.4Ghz CPU).
+/// Given the 500ms Weight, from which 75% only are used for transactions,
+/// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
+pub const GAS_PER_SECOND: u64 = 40_000_000;
+
+/// Approximate ratio of the amount of Weight per Gas.
+/// u64 works for approximations because Weight is a very small unit compared to gas.
+pub const WEIGHT_PER_GAS: u64 = WEIGHT_PER_SECOND / GAS_PER_SECOND;
+
+pub struct CENNZnetGasWeightMapping;
+
+impl pallet_evm::GasWeightMapping for CENNZnetGasWeightMapping {
+	fn gas_to_weight(gas: u64) -> Weight {
+		gas.saturating_mul(WEIGHT_PER_GAS)
+	}
+	fn weight_to_gas(weight: Weight) -> u64 {
+		u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
+	}
+}
 pub struct FixedGasPrice;
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> U256 {
@@ -694,13 +715,14 @@ impl pallet_base_fee::Config for Runtime {
 parameter_types! {
 	// TODO: register at https://chainlist.org/
 	pub const ChainId: u64 = 3000;
-	pub BlockGasLimit: U256 = U256::from(u32::max_value());
+	pub BlockGasLimit: U256
+		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
 	pub PrecompilesValue: CENNZnetPrecompiles<Runtime> = CENNZnetPrecompiles::<_>::new();
 }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = ();
+	type GasWeightMapping = CENNZnetGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
@@ -708,13 +730,14 @@ impl pallet_evm::Config for Runtime {
 	type Currency = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
-	// TODO: "precompiles" can invoke runtime methods e.g: https://github.com/PureStake/moonbeam/blob/157bb90842de547036fe89610b09e6f7d9a93efc/runtime/moonriver/src/precompiles.rs#L86-L159
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = ChainId;
 	type BlockGasLimit = BlockGasLimit;
+	// () implementation charges `T::Currency` i.e. `SpendingAssetCurrency` as configured here
 	type OnChargeTransaction = ();
-	// TODO: implement this (useful for block explorers?)
+	// TODO:
+	// Babe::authorities(Babe::find_author(digests)) into H160
 	type FindAuthor = ();
 }
 
@@ -1078,6 +1101,9 @@ impl_runtime_apis! {
 		   serial_number: SerialNumber,
 		) -> TokenInfo<AccountId> {
 		   Nft::token_info(collection_id, series_id, serial_number)
+		}
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Nft::token_uri(token_id)
 		}
 		fn collection_listings(
 			collection_id: CollectionId,

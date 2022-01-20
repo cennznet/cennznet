@@ -36,16 +36,57 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum MetadataScheme {
 	/// Series metadata is hosted by an HTTPS server
-	/// Inner value is the URI without trailing '/'
+	/// Inner value is the URI without protocol prefix 'https://' or trailing '/'
 	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
 	/// Https(b"example.com/metadata")
 	///
 	Https(Vec<u8>),
+	/// Series metadata is hosted by an unsecured HTTP server
+	/// Inner value is the URI without protocol prefix 'http://' or trailing '/'
+	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
+	/// Https(b"example.com/metadata")
+	///
+	Http(Vec<u8>),
 	/// Series metadata is hosted by an IPFS directory
 	/// Inner value is the directory's IPFS CID
 	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
 	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
 	IpfsDir(Vec<u8>),
+}
+
+impl MetadataScheme {
+	/// Returns the protocol prefix for this metadata URI type
+	pub fn prefix(&self) -> &'static str {
+		match self {
+			MetadataScheme::Http(_path) => "http://",
+			MetadataScheme::Https(_path) => "https://",
+			MetadataScheme::IpfsDir(_path) => "ipfs://",
+		}
+	}
+	/// Returns a sanitized version of the metadata URI
+	pub fn sanitize(&self) -> Result<Self, ()> {
+		let prefix = self.prefix();
+		let santitize_ = |path: Vec<u8>| {
+			if path.is_empty() {
+				return Err(());
+			}
+			// some best effort attempts to sanitize `path`
+			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
+			if path.ends_with("/") {
+				path = &path[..path.len() - 1];
+			}
+			if path.starts_with(prefix) {
+				path = &path[prefix.len()..];
+			}
+			Ok(path.as_bytes().to_vec())
+		};
+
+		Ok(match self.clone() {
+			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
+			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
+			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
+		})
+	}
 }
 
 /// Name of an NFT attribute
@@ -394,10 +435,39 @@ pub enum Releases {
 
 #[cfg(test)]
 mod test {
-	use super::{CollectionInfo, ListingResponse, NFTAttributeValue, RoyaltiesSchedule, TokenId, TokenInfo};
+	use super::{
+		CollectionInfo, ListingResponse, MetadataScheme, NFTAttributeValue, RoyaltiesSchedule, TokenId, TokenInfo,
+	};
 	use crate::mock::{AccountId, ExtBuilder};
 	use serde_json;
 	use sp_runtime::Permill;
+
+	#[test]
+
+	fn metadata_path_sanitize() {
+		// empty
+		assert_eq!(MetadataScheme::Http(b"".to_vec()).sanitize(), Err(()),);
+
+		// protocol strippred, trailling slash gone
+		assert_eq!(
+			MetadataScheme::Http(b" http://test.com/".to_vec()).sanitize(),
+			Ok(MetadataScheme::Http(b"test.com".to_vec()))
+		);
+		assert_eq!(
+			MetadataScheme::Https(b"https://test.com/ ".to_vec()).sanitize(),
+			Ok(MetadataScheme::Https(b"test.com".to_vec()))
+		);
+		assert_eq!(
+			MetadataScheme::IpfsDir(b"ipfs://notarealCIDblah/".to_vec()).sanitize(),
+			Ok(MetadataScheme::IpfsDir(b"notarealCIDblah".to_vec()))
+		);
+
+		// untouched
+		assert_eq!(
+			MetadataScheme::Http(b"test.com".to_vec()).sanitize(),
+			Ok(MetadataScheme::Http(b"test.com".to_vec()))
+		);
+	}
 
 	#[test]
 	fn valid_type_id_range() {

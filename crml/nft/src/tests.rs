@@ -272,6 +272,11 @@ fn transfer() {
 
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), vec![token_id]);
+		assert_eq!(Nft::token_balance(&token_owner).get(&(collection_id, series_id)), None);
+		assert_eq!(
+			Nft::token_balance(&new_owner).get(&(collection_id, series_id)),
+			Some(&1)
+		);
 	});
 }
 
@@ -346,6 +351,10 @@ fn burn() {
 		// test
 		assert_ok!(Nft::burn(Some(token_owner).into(), token_id));
 		assert!(has_event(RawEvent::Burn(collection_id, series_id, vec![0])));
+		assert_eq!(
+			Nft::token_balance(&token_owner).get(&(collection_id, series_id)),
+			Some(&2)
+		);
 
 		assert_ok!(Nft::burn_batch(
 			Some(token_owner).into(),
@@ -362,6 +371,7 @@ fn burn() {
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 1));
 		assert!(!<TokenOwner<Test>>::contains_key((collection_id, series_id), 2));
 		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
+		assert_eq!(Nft::token_balance(&token_owner).get(&(collection_id, series_id)), None);
 	});
 }
 
@@ -429,6 +439,7 @@ fn sell_bundle() {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		let quantity = 5;
+		let series_id = Nft::next_series_id(collection_id);
 
 		assert_ok!(Nft::mint_series(
 			Some(collection_owner).into(),
@@ -460,6 +471,14 @@ fn sell_bundle() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, 1_000);
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+		assert_eq!(
+			Nft::token_balance(&collection_owner).get(&(collection_id, series_id)),
+			Some(&2)
+		);
+		assert_eq!(
+			Nft::token_balance(&buyer).get(&(collection_id, series_id)),
+			Some(&(tokens.len() as TokenCount))
+		);
 	})
 }
 
@@ -1090,6 +1109,7 @@ fn auction_bundle() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
+		let series_id = Nft::next_series_id(collection_id);
 		let quantity = 5;
 
 		assert_ok!(Nft::mint_series(
@@ -1125,6 +1145,14 @@ fn auction_bundle() {
 		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+		assert_eq!(
+			Nft::token_balance(&collection_owner).get(&(collection_id, series_id)),
+			Some(&(2))
+		);
+		assert_eq!(
+			Nft::token_balance(&buyer).get(&(collection_id, series_id)),
+			Some(&(tokens.len() as TokenCount))
+		);
 	})
 }
 
@@ -1705,9 +1733,12 @@ fn mint_series() {
 				.map(|t| (collection_id, series_id, t))
 				.collect::<Vec<TokenId>>(),
 		);
+		assert_eq!(
+			Nft::token_balance(&token_owner).get(&(collection_id, series_id)),
+			Some(&(5))
+		);
 
 		// check we can mint some more
-
 		// mint token Ids 5-7
 		let additional_quantity = 3;
 		assert_ok!(Nft::mint_additional(
@@ -1717,6 +1748,10 @@ fn mint_series() {
 			additional_quantity,
 			Some(token_owner + 1), // new owner this time
 		));
+		assert_eq!(
+			Nft::token_balance(&token_owner + 1).get(&(collection_id, series_id)),
+			Some(&(3))
+		);
 		assert_eq!(
 			Nft::next_serial_number(collection_id, series_id),
 			quantity + additional_quantity
@@ -2041,5 +2076,60 @@ fn get_collection_listings_cursor_too_high() {
 		let (new_cursor, listings) = Nft::collection_listings(collection_id, cursor, limit);
 		assert_eq!(listings, vec![]);
 		assert_eq!(new_cursor, None);
+	});
+}
+
+#[test]
+fn token_uri_construction() {
+	ExtBuilder::default().build().execute_with(|| {
+		let owner = 1_u64;
+		let collection_id = setup_collection(owner);
+		let quantity = 5;
+		let series_id = Nft::next_series_id(collection_id);
+		// mint token Ids
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		assert_eq!(
+			Nft::token_uri((collection_id, series_id, 0)),
+			b"https://example.com/metadata/0.json".to_vec(),
+		);
+		assert_eq!(
+			Nft::token_uri((collection_id, series_id, 1)),
+			b"https://example.com/metadata/1.json".to_vec(),
+		);
+
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::Http(b"test.example.com/metadata".to_vec()),
+			None,
+		));
+
+		assert_eq!(
+			Nft::token_uri((collection_id, series_id + 1, 1)),
+			b"http://test.example.com/metadata/1.json".to_vec(),
+		);
+
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()),
+			None,
+		));
+		assert_eq!(
+			Nft::token_uri((collection_id, series_id + 2, 1)),
+			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1.json".to_vec(),
+		);
 	});
 }
