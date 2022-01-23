@@ -24,6 +24,7 @@ use frame_support::{
 	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_evm::AddressMapping;
 use smallvec::smallvec;
 use sp_runtime::Perbill;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -44,6 +45,48 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
+
+/// Find block author formatted for ethereum compat
+pub struct EthereumFindAuthor<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
+	fn find_author<'a, I>(digests: I) -> Option<H160>
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		F::find_author(digests).map(|author_index| {
+			let authority_id = Babe::authorities()[author_index as usize].clone();
+
+			// use first 20 bytes of the CENNZnet AccountId
+			H160::from_slice(&authority_id.0.to_raw_vec()[..20])
+		})
+	}
+}
+
+/// EVM to CENNZnet address mapping impl
+pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
+
+/// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
+/// Conversion process is:
+/// 1. AccountId Prefix: concat("cvm:", "0x00000000000000"), length: 11 byetes
+/// 2. EVM address: the original evm address, length: 20 bytes
+/// 3. CheckSum:  byte_xor(AccountId Prefix + EVM address), length: 1 byte
+impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
+where
+	AccountId: From<[u8; 32]>,
+{
+	fn into_account_id(address: H160) -> AccountId {
+		let mut raw_account = [0u8; 32];
+
+		raw_account[0..4].copy_from_slice(b"cvm:");
+		raw_account[11..31].copy_from_slice(&address[..]);
+
+		let checksum: u8 = raw_account[1..31].iter().fold(raw_account[0], |sum, &byte| sum ^ byte);
+
+		raw_account[31] = checksum;
+
+		raw_account.into()
+	}
+}
 
 /// Handles block transaction fees tracking them using the Rewards module
 pub struct DealWithFees;

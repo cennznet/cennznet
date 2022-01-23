@@ -96,7 +96,10 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{
+	DealWithFees, EthereumFindAuthor, PrefixedAddressMapping, ScheduledPayoutRunner, SlashFundsToTreasury,
+	WeightToCpayFee,
+};
 
 mod precompiles;
 use precompiles::CENNZnetPrecompiles;
@@ -726,7 +729,7 @@ impl pallet_evm::Config for Runtime {
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+	type AddressMapping = PrefixedAddressMapping<AccountId>;
 	type Currency = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
@@ -736,9 +739,7 @@ impl pallet_evm::Config for Runtime {
 	type BlockGasLimit = BlockGasLimit;
 	// () implementation charges `T::Currency` i.e. `SpendingAssetCurrency` as configured here
 	type OnChargeTransaction = ();
-	// TODO:
-	// Babe::authorities(Babe::find_author(digests)) into H160
-	type FindAuthor = ();
+	type FindAuthor = EthereumFindAuthor<Babe>;
 }
 
 impl pallet_ethereum::Config for Runtime {
