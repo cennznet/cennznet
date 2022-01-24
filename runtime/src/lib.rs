@@ -88,7 +88,7 @@ use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping, Runner};
+use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, Runner};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -97,8 +97,8 @@ use constants::{currency::*, time::*};
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	DealWithFees, EthereumFindAuthor, PrefixedAddressMapping, ScheduledPayoutRunner, SlashFundsToTreasury,
-	WeightToCpayFee,
+	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, PrefixedAddressMapping, ScheduledPayoutRunner,
+	SlashFundsToTreasury, WeightToCpayFee,
 };
 
 mod precompiles;
@@ -730,7 +730,7 @@ impl pallet_evm::Config for Runtime {
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
 	type AddressMapping = PrefixedAddressMapping<AccountId>;
-	type Currency = SpendingAssetCurrency<Self>;
+	type Currency = EvmCurrencyAdapter<SpendingAssetCurrency<Self>>;
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
@@ -1174,23 +1174,9 @@ impl_runtime_apis! {
 		}
 
 		fn account_basic(address: H160) -> EVMAccount {
-			use pallet_evm::AddressMapping;
-			use frame_support::traits::tokens::fungible::Inspect;
-			let account_id = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address);
-
-			let nonce = frame_system::Pallet::<Runtime>::account_nonce(&account_id);
-			// keepalive `true` takes into account ExistentialDeposit as part of what's considered liquid balance.
-			let balance = <Runtime as pallet_evm::Config>::Currency::reducible_balance(&account_id, true);
-			// Ethereum tooling expects 18 decimal places
-			let balance = balance.saturating_mul(10_u128.pow(14));
-
-			EVMAccount {
-				nonce: U256::from(nonce),
-				balance: U256::from(balance),
-			}
-
-			// we override this implementation to scale up the balance decimal places
-			// EVM::account_basic(&address)
+	  // this balance is scaled up so that eth tooling expecting an 18dp asset
+	  // is compatible with the 4dp cpay value
+			EVM::account_basic(&address)
 		}
 
 		fn gas_price() -> U256 {

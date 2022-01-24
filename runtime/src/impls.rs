@@ -1,4 +1,4 @@
-// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Techn ologies(UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -16,17 +16,26 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
+use crml_support::{H160, U256};
 use frame_support::{
-	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
+	pallet_prelude::*,
+	traits::{
+		tokens::{fungible::Inspect, DepositConsequence, WithdrawConsequence},
+		Contains, ContainsLengthBound, Currency, ExistenceRequirement, FindAuthor, Get, Imbalance, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
+	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_evm::AddressMapping;
 use smallvec::smallvec;
-use sp_runtime::Perbill;
+use sp_runtime::{
+	traits::{SaturatedConversion, Saturating, UniqueSaturatedInto},
+	ConsensusEngineId, Perbill, RuntimeAppPublic,
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -45,6 +54,120 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
+
+/// Adapts spending currency (CPAY) for use by the EVM
+/// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
+pub struct EvmCurrencyAdapter<I: Inspect<AccountId>>(PhantomData<I>);
+impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId> for EvmCurrencyAdapter<I> {
+	type Balance = Balance;
+
+	/// The total amount of issuance in the system.
+	fn total_issuance() -> Self::Balance {
+		<I as Inspect<AccountId>>::total_issuance()
+	}
+
+	/// The minimum balance any single account may have.
+	fn minimum_balance() -> Self::Balance {
+		<I as Inspect<AccountId>>::minimum_balance()
+	}
+
+	/// Get the balance of `who`.
+	fn balance(who: &AccountId) -> Self::Balance {
+		I::balance(who)
+	}
+
+	/// Get the maximum amount that `who` can withdraw/transfer successfully.
+	fn reducible_balance(who: &AccountId, keep_alive: bool) -> Self::Balance {
+		// Careful for overflow!
+		U256::from(I::reducible_balance(who, keep_alive))
+			.saturating_mul(U256::from(10_u128.pow(14)))
+			.saturated_into()
+	}
+
+	/// Returns `true` if the balance of `who` may be increased by `amount`.
+	fn can_deposit(who: &AccountId, amount: Self::Balance) -> DepositConsequence {
+		I::can_deposit(who, amount)
+	}
+
+	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
+	/// the consequence.
+	fn can_withdraw(who: &AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		I::can_withdraw(who, amount)
+	}
+}
+
+/// Currency impl for EVM usage
+/// It proxies to the inner curreny impl while leaving some sensitive and unused methods
+/// unimplemented
+impl<I: Inspect<AccountId> + Currency<AccountId>> Currency<AccountId> for EvmCurrencyAdapter<I> {
+	type Balance = <I as Currency<AccountId>>::Balance;
+	type PositiveImbalance = <I as Currency<AccountId>>::PositiveImbalance;
+	type NegativeImbalance = <I as Currency<AccountId>>::NegativeImbalance;
+
+	fn free_balance(who: &AccountId) -> Self::Balance {
+		I::free_balance(who)
+	}
+	fn total_issuance() -> Self::Balance {
+		<I as Currency<AccountId>>::total_issuance()
+	}
+	fn minimum_balance() -> Self::Balance {
+		<I as Currency<AccountId>>::minimum_balance()
+	}
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		I::total_balance(who)
+	}
+	fn transfer(
+		transactor: &AccountId,
+		dest: &AccountId,
+		value: Self::Balance,
+		req: ExistenceRequirement,
+	) -> DispatchResult {
+		I::transfer(transactor, dest, value, req)
+	}
+	fn ensure_can_withdraw(
+		who: &AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+		new_balance: Self::Balance,
+	) -> DispatchResult {
+		I::ensure_can_withdraw(who, amount, reasons, new_balance)
+	}
+	fn withdraw(
+		who: &AccountId,
+		value: Self::Balance,
+		reasons: WithdrawReasons,
+		req: ExistenceRequirement,
+	) -> Result<Self::NegativeImbalance, DispatchError> {
+		I::withdraw(who, value, reasons, req)
+	}
+	fn deposit_into_existing(
+		_who: &AccountId,
+		_value: Self::Balance,
+	) -> Result<Self::PositiveImbalance, DispatchError> {
+		unimplemented!();
+	}
+	fn deposit_creating(_who: &AccountId, _value: Self::Balance) -> Self::PositiveImbalance {
+		unimplemented!();
+	}
+	fn make_free_balance_be(
+		_who: &AccountId,
+		_balance: Self::Balance,
+	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
+		unimplemented!();
+	}
+	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
+		false
+	}
+	fn slash(_who: &AccountId, _value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		unimplemented!();
+	}
+	fn burn(mut _amount: Self::Balance) -> Self::PositiveImbalance {
+		unimplemented!();
+	}
+	fn issue(mut _amount: Self::Balance) -> Self::NegativeImbalance {
+		unimplemented!();
+	}
+}
 
 /// Find block author formatted for ethereum compat
 pub struct EthereumFindAuthor<F>(PhantomData<F>);

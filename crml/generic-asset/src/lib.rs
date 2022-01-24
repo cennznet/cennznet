@@ -1221,14 +1221,14 @@ impl<T: Config> Inspect<T::AccountId> for AssetCurrency<T, SpendingAssetIdAuthor
 			.unique_saturated_into()
 	}
 
-	/// Get the balance of `who`.
+	/// Get the balance of `who`
 	fn balance(who: &T::AccountId) -> Self::Balance {
 		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	fn reducible_balance(who: &T::AccountId, _keep_alive: bool) -> Self::Balance {
-		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
+		Self::balance(who)
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
