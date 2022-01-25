@@ -739,6 +739,7 @@ impl pallet_evm::Config for Runtime {
 	type BlockGasLimit = BlockGasLimit;
 	// () implementation charges `T::Currency` i.e. `SpendingAssetCurrency` as configured here
 	type OnChargeTransaction = ();
+	// This identifies author inorder to distribute tip fees
 	type FindAuthor = EthereumFindAuthor<Babe>;
 }
 

@@ -718,6 +718,7 @@ dependencies = [
  "crml-transaction-payment-rpc",
  "ethy-gadget",
  "ethy-gadget-rpc",
+ "fc-consensus",
  "fc-db",
  "fc-mapping-sync",
  "fc-rpc",

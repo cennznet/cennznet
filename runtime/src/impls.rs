@@ -16,7 +16,9 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{
+	BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, Treasury,
+};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
@@ -32,10 +34,7 @@ use frame_support::{
 };
 use pallet_evm::AddressMapping;
 use smallvec::smallvec;
-use sp_runtime::{
-	traits::{SaturatedConversion, Saturating, UniqueSaturatedInto},
-	ConsensusEngineId, Perbill, RuntimeAppPublic,
-};
+use sp_runtime::{traits::SaturatedConversion, ConsensusEngineId, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -55,6 +54,12 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
+/// Scale down input balance by 1e-14
+fn scale_down(value: Balance) -> Balance {
+	// truncates toward 0 so `value` < 10e14 will become 0
+	(value / 10_u128.pow(14)).saturated_into()
+}
+
 /// Adapts spending currency (CPAY) for use by the EVM
 /// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
 pub struct EvmCurrencyAdapter<I: Inspect<AccountId>>(PhantomData<I>);
@@ -72,21 +77,24 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	}
 
 	/// Get the balance of `who`.
+	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		I::balance(who)
+		Self::reducible_balance(who, true)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
+	/// Scaled up so values match expectations of an 18dp asset
 	fn reducible_balance(who: &AccountId, keep_alive: bool) -> Self::Balance {
 		// Careful for overflow!
-		U256::from(I::reducible_balance(who, keep_alive))
+		let raw = I::reducible_balance(who, keep_alive);
+		U256::from(raw)
 			.saturating_mul(U256::from(10_u128.pow(14)))
 			.saturated_into()
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(who: &AccountId, amount: Self::Balance) -> DepositConsequence {
-		I::can_deposit(who, amount)
+	fn can_deposit(_who: &AccountId, _amount: Self::Balance) -> DepositConsequence {
+		unimplemented!();
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
@@ -97,15 +105,24 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 }
 
 /// Currency impl for EVM usage
-/// It proxies to the inner curreny impl while leaving some sensitive and unused methods
+/// It proxies to the inner curreny impl while leaving some unused methods
 /// unimplemented
-impl<I: Inspect<AccountId> + Currency<AccountId>> Currency<AccountId> for EvmCurrencyAdapter<I> {
+impl<I> Currency<AccountId> for EvmCurrencyAdapter<I>
+where
+	I: Inspect<AccountId, Balance = Balance>,
+	I: Currency<
+		AccountId,
+		Balance = Balance,
+		PositiveImbalance = crml_generic_asset::PositiveImbalance<Runtime>,
+		NegativeImbalance = crml_generic_asset::NegativeImbalance<Runtime>,
+	>,
+{
 	type Balance = <I as Currency<AccountId>>::Balance;
 	type PositiveImbalance = <I as Currency<AccountId>>::PositiveImbalance;
 	type NegativeImbalance = <I as Currency<AccountId>>::NegativeImbalance;
 
 	fn free_balance(who: &AccountId) -> Self::Balance {
-		I::free_balance(who)
+		Self::balance(who)
 	}
 	fn total_issuance() -> Self::Balance {
 		<I as Currency<AccountId>>::total_issuance()
@@ -114,23 +131,18 @@ impl<I: Inspect<AccountId> + Currency<AccountId>> Currency<AccountId> for EvmCur
 		<I as Currency<AccountId>>::minimum_balance()
 	}
 	fn total_balance(who: &AccountId) -> Self::Balance {
-		I::total_balance(who)
+		Self::balance(who)
 	}
-	fn transfer(
-		transactor: &AccountId,
-		dest: &AccountId,
-		value: Self::Balance,
-		req: ExistenceRequirement,
-	) -> DispatchResult {
-		I::transfer(transactor, dest, value, req)
+	fn transfer(from: &AccountId, to: &AccountId, value: Self::Balance, req: ExistenceRequirement) -> DispatchResult {
+		I::transfer(from, to, scale_down(value), req)
 	}
 	fn ensure_can_withdraw(
-		who: &AccountId,
-		amount: Self::Balance,
-		reasons: WithdrawReasons,
-		new_balance: Self::Balance,
+		_who: &AccountId,
+		_amount: Self::Balance,
+		_reasons: WithdrawReasons,
+		_new_balance: Self::Balance,
 	) -> DispatchResult {
-		I::ensure_can_withdraw(who, amount, reasons, new_balance)
+		unimplemented!();
 	}
 	fn withdraw(
 		who: &AccountId,
@@ -138,22 +150,19 @@ impl<I: Inspect<AccountId> + Currency<AccountId>> Currency<AccountId> for EvmCur
 		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
-		I::withdraw(who, value, reasons, req)
+		I::withdraw(who, scale_down(value), reasons, req)
 	}
-	fn deposit_into_existing(
-		_who: &AccountId,
-		_value: Self::Balance,
-	) -> Result<Self::PositiveImbalance, DispatchError> {
-		unimplemented!();
+	fn deposit_into_existing(who: &AccountId, value: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
+		I::deposit_into_existing(who, scale_down(value))
 	}
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		I::deposit_creating(who, value)
+		I::deposit_creating(who, scale_down(value))
 	}
 	fn make_free_balance_be(
-		_who: &AccountId,
-		_balance: Self::Balance,
+		who: &AccountId,
+		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		unimplemented!();
+		I::make_free_balance_be(who, scale_down(balance))
 	}
 	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
 		false
@@ -177,10 +186,16 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
 	{
 		F::find_author(digests).map(|author_index| {
-			let authority_id = Babe::authorities()[author_index as usize].clone();
-
-			// use first 20 bytes of the CENNZnet AccountId
-			H160::from_slice(&authority_id.0.to_raw_vec()[..20])
+			if let Some(controller) = Session::validators().get(author_index as usize) {
+				// Take first 20 bytes of the CENNZnet AccountId
+				// NB: this matches the behaviour of `EnsureAddressTruncated`
+				// Thus the block author will be able to withdraw collected CPAY fees
+				// TODO: this should be converted to the validator stash or controller account
+				// the BABE session key of the validator: `let authority_id = Babe::authorities()[author_index as usize].clone();`
+				H160::from_slice(&AsRef::<[u8; 32]>::as_ref(controller)[..20])
+			} else {
+				H160::default()
+			}
 		})
 	}
 }
@@ -633,5 +648,16 @@ mod tests {
 		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
 		// check no issues at max. value
 		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());
+	}
+
+	#[test]
+	fn address_mapping() {
+		let address: AccountId = PrefixedAddressMapping::into_account_id(H160::from_slice(&hex_literal::hex!(
+			"a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"
+		)));
+		assert_eq!(
+			&AsRef::<[u8; 32]>::as_ref(&address),
+			&&hex_literal::hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a")
+		);
 	}
 }

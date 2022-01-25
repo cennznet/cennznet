@@ -20,6 +20,7 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use fc_consensus::FrontierBlockImport;
 use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
@@ -66,7 +67,13 @@ impl sc_executor::NativeExecutionDispatch for Executor {
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+/// GRANDPA block importer type
 type FullGrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
+/// BABE block importer type additionally wraps `FullGrandpaBlockImport`
+type FullBabeBlockImport = sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>;
+/// CENNZnet block importer type
+/// Provides GRANDPA, BABE, and Frontier block import protocols
+type CENNZnetBlockImport = FrontierBlockImport<Block, FullBabeBlockImport, FullClient>;
 /// The transaction pool type definition.
 pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
 
@@ -82,7 +89,7 @@ pub fn new_partial(
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			(
-				sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
+				CENNZnetBlockImport,
 				sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
 			),
@@ -153,10 +160,12 @@ pub fn new_partial(
 		client.clone(),
 	)?;
 
+	let wrapped_block_import = FrontierBlockImport::new(block_import, client.clone(), frontier_backend.clone());
+
 	let slot_duration = babe_link.config().slot_duration();
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
-		block_import.clone(),
+		wrapped_block_import.clone(),
 		Some(Box::new(justification_import)),
 		client.clone(),
 		select_chain.clone(),
@@ -178,7 +187,7 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let import_setup = (block_import, grandpa_link, babe_link);
+	let import_setup = (wrapped_block_import, grandpa_link, babe_link);
 	let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
 	let rpc_setup = shared_voter_state.clone();
 	let client = client.clone();
@@ -219,10 +228,7 @@ pub struct NewFullBase {
 pub fn new_full_base(
 	mut config: Configuration,
 	cli: &crate::cli::Cli,
-	with_startup_data: impl FnOnce(
-		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
-		&sc_consensus_babe::BabeLink<Block>,
-	),
+	with_startup_data: impl FnOnce(&CENNZnetBlockImport, &sc_consensus_babe::BabeLink<Block>),
 ) -> Result<NewFullBase, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
