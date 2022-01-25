@@ -33,6 +33,7 @@ use sp_runtime::{
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, prelude::*, result};
+use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber};
 
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
@@ -282,4 +283,17 @@ pub trait StakingAmount {
 	fn active_balance(controller: &Self::AccountId) -> Self::Balance;
 	/// Gets the total amount staked by all accounts
 	fn total_staked() -> Self::Balance;
+}
+
+/// The interface that states whether an account owns a token
+pub trait IsTokenOwner {
+    type AccountId;
+
+    /// Gets whether account owns NFT of (CollectionId, SeriesId, SerialNumber)
+    fn check_ownership(
+        account: &Self::AccountId,
+        collection_id: &CollectionId,
+        series_id: &SeriesId,
+        serial_number: &SerialNumber
+    ) -> bool;
 }

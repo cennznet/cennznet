@@ -18,10 +18,10 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::BlockNumber;
+use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber, BlockNumber};
 use codec::Codec;
 use crml_nft::{
-	CollectionId, CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper, SerialNumber, SeriesId,
+	CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper,
 	TokenId, TokenInfo,
 };
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};

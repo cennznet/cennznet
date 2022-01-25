@@ -16,7 +16,7 @@
 //! NFT module types
 
 use crate::Config;
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber, CollectionId, SeriesId, SerialNumber};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use scale_info::TypeInfo;
@@ -392,24 +392,12 @@ pub struct FixedPriceListing<T: Config> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-/// Auto-incrementing Uint
-/// Uniquely identifies a collection
-pub type CollectionId = u32;
-
 /// NFT colleciton moniker
 pub type CollectionNameType = Vec<u8>;
 
 /// Auto-incrementing Uint
-/// Uniquely identifies a series of tokens within a collection
-pub type SeriesId = u32;
-
-/// Auto-incrementing Uint
 /// Uniquely identifies a registered marketplace
 pub type MarketplaceId = u32;
-
-/// Auto-incrementing Uint
-/// Uniquely identifies a token within a series
-pub type SerialNumber = u32;
 
 /// Unique Id for a listing
 pub type ListingId = u128;

@@ -32,8 +32,8 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance};
-use crml_support::MultiCurrency;
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SeriesId, SerialNumber};
+use crml_support::{MultiCurrency, IsTokenOwner};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
@@ -58,6 +58,20 @@ use weights::WeightInfo;
 
 mod types;
 pub use types::*;
+
+// Interface for determining ownership of an NFT from some account
+impl<T: Config> IsTokenOwner for Module<T> {
+	type AccountId = T::AccountId;
+
+	fn check_ownership(
+		account: &Self::AccountId,
+		collection_id: &CollectionId,
+		series_id: &SeriesId,
+		serial_number: &SerialNumber
+	) -> bool {
+		&Self::token_owner((collection_id, series_id), serial_number) == account
+	}
+}
 
 pub trait Config: frame_system::Config {
 	/// The system event type

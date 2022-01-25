@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crml_nft::{CollectionId, SerialNumber, SeriesId};
+use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
