@@ -821,6 +821,7 @@ dependencies = [
  "crml-staking",
  "crml-staking-rpc-runtime-api",
  "crml-support",
+ "crml-token-approvals",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc-runtime-api",
  "fp-rpc",
@@ -1422,6 +1423,21 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-token-approvals"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
  "serde",
  "sp-runtime",
  "sp-std",
@@ -8484,21 +8500,6 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
-
-[[package]]
-name = "token-approvals"
-version = "2.0.0"
-dependencies = [
- "cennznet-primitives",
- "crml-support",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime",
- "sp-std",
-]
 
 [[package]]
 name = "tokio"

@@ -27,6 +27,7 @@ std = [
 	"scale-info/std",
 	"crml-nft/std",
 	"fp-evm/std",
+	"pallet-evm/std",
 	"frame-support/std",
 	"frame-system/std",
 	"num_enum/std",

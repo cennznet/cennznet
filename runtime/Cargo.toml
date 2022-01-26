@@ -89,6 +89,7 @@ crml-transaction-payment = { path = "../crml/transaction-payment", default-featu
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
 crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
 crml-eth-wallet-rpc-runtime-api = { path = "../crml/eth-wallet/rpc/runtime-api", default-features = false }
+crml-token-approvals = { path = "../crml/token-approvals", default-features = false }
 
 # EVM support
 fp-rpc = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
@@ -164,6 +165,7 @@ std = [
 	"crml-support/std",
 	"crml-transaction-payment/std",
 	"crml-transaction-payment-rpc-runtime-api/std",
+	"crml-token-approvals/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
 	"pallet-base-fee/std",
