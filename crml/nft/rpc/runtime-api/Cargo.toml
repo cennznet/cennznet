@@ -11,7 +11,7 @@ sp-api = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb5
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false }
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false }
 crml-nft = { path = "../../", default-features = false }
-cennznet-primitives = { path = "../../../../primitives" }
+cennznet-primitives = { path = "../../../../primitives", default-features = false}
 
 [dev-dependencies]
 serde_json = "1.0.41"
@@ -24,4 +24,5 @@ std = [
 	"sp-api/std",
 	"codec/std",
 	"sp-std/std",
+	"cennznet-primitives/std",
 ]

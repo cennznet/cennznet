@@ -12,6 +12,7 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! CENNZnet token approvals
 //!
@@ -26,8 +27,6 @@ use frame_system::pallet_prelude::*;
 use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-
-// use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchResult;
 use crml_support::{IsTokenOwner, MultiCurrency};
 use cennznet_primitives::types::{AssetId, Balance, CollectionId, SeriesId, SerialNumber};

@@ -1,5 +1,5 @@
 use crate::Runtime;
-use crml_nft::{CollectionId, SeriesId};
+use cennznet_primitives::types::{CollectionId, SeriesId};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;

@@ -853,7 +853,7 @@ construct_runtime!(
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		TokenApprovals: crml_token_approvals::{Pallet, Storage, Config<T>, Event<T>},
+		TokenApprovals: crml_token_approvals::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
