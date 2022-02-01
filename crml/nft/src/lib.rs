@@ -67,7 +67,7 @@ impl<T: Config> IsTokenOwner for Module<T> {
 		account: &Self::AccountId,
 		collection_id: &CollectionId,
 		series_id: &SeriesId,
-		serial_number: &SerialNumber
+		serial_number: &SerialNumber,
 	) -> bool {
 		&Self::token_owner((collection_id, series_id), serial_number) == account
 	}

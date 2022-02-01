@@ -9,6 +9,7 @@ repository = "https://github.com/cennznet/cennznet"
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 crml-nft = { path = "../../crml/nft", default-features = false }
+crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
 fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
 precompile-utils = { path = "../utils", default-features = false }
@@ -26,6 +27,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"crml-nft/std",
+	"crml-token-approvalse/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"frame-support/std",

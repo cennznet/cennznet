@@ -303,6 +303,57 @@ where
 		})
 	}
 
+	fn approve(
+		series_id_parts: (CollectionId, SeriesId),
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+		context: &Context,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		input.expect_arguments(gasometer, 2)?;
+
+		let to: H160 = input.read::<Address>(gasometer)?.into();
+		let from: H160 = input.read::<Address>(gasometer)?.into();
+		let serial_number = input.read::<U256>(gasometer)?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::max_value().into() {
+			return Err(error("expected token id <= 2^32").into());
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+
+		// Build call with origin.
+		if context.caller == from {
+			let from = Runtime::AddressMapping::into_account_id(context.caller);
+			let to = Runtime::AddressMapping::into_account_id(to);
+
+			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				Some(from).into(),
+				crml_token_approvals::Call::<Runtime>::erc721_approval {
+					caller: from,
+					operator_account: to,
+					token_id: (series_id_parts.0, series_id_parts.1, serial_number),
+				},
+				gasometer,
+			)?;
+		} else {
+			return Err(error("caller must be from").into());
+		};
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new().write(true).build(),
+			logs: Default::default(),
+		})
+	}
+
 	fn name(series_id_parts: (CollectionId, SeriesId), gasometer: &mut Gasometer) -> EvmResult<PrecompileOutput> {
 		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
