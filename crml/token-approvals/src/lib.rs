@@ -150,11 +150,11 @@ impl<T: Config> Module<T> {
         // Doesn't clear approvals on transfer, but based on account.
         //  This means that if you sell all NFTs in a collection, then buy another one, you don't need
         //  to set approval again
-        let mut current_approvals = Self::erc721_approvals_for_all(caller.clone(), (collection_id, series_id), operator_account.clone());
+        // let mut current_approvals = Self::erc721_approvals_for_all(caller.clone(), (collection_id, series_id));
         // Check if operator_account is in storage already
         // Add and sort?
         // Can use below if sorting isn't required
-        ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account);
+        ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account.clone());
 
         Self::deposit_event(RawEvent::NFTApprovalSetForAll(operator_account, collection_id, series_id));
         Ok(())

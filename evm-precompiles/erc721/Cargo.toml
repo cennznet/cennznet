@@ -27,7 +27,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"crml-nft/std",
-	"crml-token-approvalse/std",
+	"crml-token-approvals/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"frame-support/std",

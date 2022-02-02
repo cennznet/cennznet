@@ -93,7 +93,7 @@ pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -180,7 +180,7 @@ impl<Runtime> Erc721PrecompileSet<Runtime> {
 impl<Runtime> Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -330,17 +330,7 @@ where
 		if context.caller == from {
 			let from = Runtime::AddressMapping::into_account_id(context.caller);
 			let to = Runtime::AddressMapping::into_account_id(to);
-
-			// Dispatch call (if enough gas).
-			RuntimeHelper::<Runtime>::try_dispatch(
-				Some(from).into(),
-				crml_token_approvals::Call::<Runtime>::erc721_approval {
-					caller: from,
-					operator_account: to,
-					token_id: (series_id_parts.0, series_id_parts.1, serial_number),
-				},
-				gasometer,
-			)?;
+			<crml_token_approvals::Module<Runtime>>::erc721_approval(from, to, (series_id_parts.0, series_id_parts.1, serial_number));
 		} else {
 			return Err(error("caller must be from").into());
 		};
