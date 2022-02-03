@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber};
+use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber, TokenId};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -144,10 +144,10 @@ where
 						Action::Name => Self::name(series_id_parts, gasometer),
 						Action::Symbol => Self::symbol(series_id_parts, gasometer),
 						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
+						Action::Approve => Self::approve(series_id_parts, input, gasometer),
 						// TODO: implement approval stuff
 						Action::SafeTransferFrom
 						| Action::SafeTransferFromCallData
-						| Action::Approve
 						| Action::GetApproved
 						| Action::IsApprovedForAll
 						| Action::SetApprovalForAll => {
@@ -291,7 +291,7 @@ where
 			)?;
 		} else {
 			// TODO: use approval stuff..
-			return Err(error("caller must be from").into());
+			return Err(error("caller not approved").into());
 		};
 
 		// Build output.
@@ -326,11 +326,20 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		// Build call with origin.
 		if context.caller == from {
 			let from = Runtime::AddressMapping::into_account_id(context.caller);
 			let to = Runtime::AddressMapping::into_account_id(to);
-			<crml_token_approvals::Module<Runtime>>::erc721_approval(from, to, (series_id_parts.0, series_id_parts.1, serial_number));
+			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
+			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				None, //.into(),
+				crml_token_approvals::Call::<Runtime>::erc721_approval {
+					caller: from,
+					operator_account: to,
+					token_id,
+				},
+				gasometer,
+			)?;
 		} else {
 			return Err(error("caller must be from").into());
 		};

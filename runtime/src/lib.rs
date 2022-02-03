@@ -74,7 +74,7 @@ pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill, Perquintill};
 // CENNZnet only imports
 use cennznet_primitives::{
 	eth::crypto::AuthorityId as EthBridgeId,
-	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, CollectionId, SerialNumber, SeriesId},
+	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, CollectionId, SerialNumber, SeriesId, TokenId},
 };
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
@@ -83,7 +83,7 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionInfo, Listing, ListingId, TokenId, TokenInfo};
+use crml_nft::{CollectionInfo, Listing, ListingId, TokenInfo};
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
@@ -230,6 +230,7 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
+	/// What to do if an NFT is transferred
 	/// The data to be stored in an account.
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
@@ -252,6 +253,7 @@ impl crml_nft::Config for Runtime {
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
+	type OnTransferSubscription = TokenApprovals;
 }
 
 parameter_types! {

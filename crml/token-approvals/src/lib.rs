@@ -22,14 +22,14 @@
 //! to allow for easier precompiling of ERC-721 and ERC-20 tokens, this module handles approvals on CENNZnet
 //! for token transfers.
 
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, pallet_prelude::*};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
 use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchResult;
-use crml_support::{IsTokenOwner, MultiCurrency};
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SeriesId, SerialNumber};
+use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SeriesId, SerialNumber, TokenId};
 
 // Shows the approved account and amount for a generic asset
 // #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
@@ -48,6 +48,14 @@ pub trait Config: frame_system::Config {
     type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
     /// NFT ownership interface
     type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
+}
+
+impl<T: Config> OnTransferSubscriber for Module<T> {
+    /// Do anything that needs to be done after an NFT has been transferred
+    fn on_nft_transfer(token_id: TokenId) {
+        // Set approval to none
+        Self::remove_erc721_approval(token_id);
+    }
 }
 
 decl_event!(
@@ -97,37 +105,38 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event() = default;
 
+        /// Set approval for a single NFT
+        /// Mapping from token_id to operator
+        /// clears approval on transfer
+        #[weight = 16_000_000] //TODO Estimate correct gas
+        pub fn erc721_approval(
+            origin,
+            caller: T::AccountId,
+            operator_account: T::AccountId,
+            token_id: TokenId,
+        ) -> DispatchResult {
+            // mapping(uint256 => address) private _tokenApprovals;
+
+            let _ = ensure_none(origin)?;
+            ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+            // Check that origin owns NFT TODO: Check what happens if token doesn't exist
+            ensure!(T::IsTokenOwner::check_ownership(&caller, &token_id), Error::<T>::NotTokenOwner);
+            ERC721Approvals::<T>::insert(token_id, operator_account.clone());
+
+            Self::deposit_event(RawEvent::NFTApprovalSet(Some(operator_account), token_id));
+            Ok(())
+        }
 
 	}
 }
 
 impl<T: Config> Module<T> {
-    /// Set approval for a single NFT
-    /// Mapping from token_id to operator
-    /// clears approval on transfer
-    pub fn erc721_approval(
-        caller: T::AccountId,
-        operator_account: T::AccountId,
-        token_id: (CollectionId, SeriesId, SerialNumber),
-    ) -> DispatchResult {
-        // TODO: Focus on Approval
-        // mapping(uint256 => address) private _tokenApprovals;
-        // Figure out how to remove approval?
-        ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-        // Check that origin owns NFT TODO: Check what happens if token doesn't exist
-        ensure!(T::IsTokenOwner::check_ownership(&caller, &token_id.0, &token_id.1, &token_id.2), Error::<T>::NotTokenOwner);
-        ERC721Approvals::<T>::insert(token_id, operator_account.clone());
 
-        // Something like OnNewAccount() from runtime/lib which checks when an NFT is transferred
-
-        Self::deposit_event(RawEvent::NFTApprovalSet(Some(operator_account), token_id));
-        Ok(())
-    }
 
     /// Removes the approval of a single NFT
     /// Triggered by transferring the token
     pub fn remove_erc721_approval(
-        token_id: (CollectionId, SeriesId, SerialNumber)
+        token_id: TokenId
     ) -> DispatchResult {
         // Check that origin owns NFT
         ERC721Approvals::<T>::remove(token_id);

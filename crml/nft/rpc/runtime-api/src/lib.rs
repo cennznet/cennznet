@@ -19,8 +19,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use crml_nft::{CollectionInfo, Config, Listing, ListingId, TokenId, TokenInfo};
-use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber};
+use crml_nft::{CollectionInfo, Config, Listing, ListingId, TokenInfo};
+use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber, TokenId};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {

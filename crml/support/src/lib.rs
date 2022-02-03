@@ -33,7 +33,7 @@ use sp_runtime::{
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, prelude::*, result};
-use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber};
+use cennznet_primitives::types::TokenId;
 
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
@@ -289,11 +289,15 @@ pub trait StakingAmount {
 pub trait IsTokenOwner {
     type AccountId;
 
-    /// Gets whether account owns NFT of (CollectionId, SeriesId, SerialNumber)
+    /// Gets whether account owns NFT of TokenId
     fn check_ownership(
         account: &Self::AccountId,
-        collection_id: &CollectionId,
-        series_id: &SeriesId,
-        serial_number: &SerialNumber
+        token_id: &TokenId,
     ) -> bool;
+}
+
+/// The nft with the given token_id was transferred.
+pub trait OnTransferSubscriber {
+	/// The nft with the given token_id was transferred.
+	fn on_nft_transfer(token_id: &TokenId);
 }
