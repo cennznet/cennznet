@@ -52,7 +52,7 @@ pub trait Config: frame_system::Config {
 
 impl<T: Config> OnTransferSubscriber for Module<T> {
     /// Do anything that needs to be done after an NFT has been transferred
-    fn on_nft_transfer(token_id: TokenId) {
+    fn on_nft_transfer(token_id: &TokenId) {
         // Set approval to none
         Self::remove_erc721_approval(token_id);
     }
@@ -136,11 +136,11 @@ impl<T: Config> Module<T> {
     /// Removes the approval of a single NFT
     /// Triggered by transferring the token
     pub fn remove_erc721_approval(
-        token_id: TokenId
+        token_id: &TokenId
     ) -> DispatchResult {
         // Check that origin owns NFT
         ERC721Approvals::<T>::remove(token_id);
-        Self::deposit_event(RawEvent::NFTApprovalSet(None, token_id));
+        Self::deposit_event(RawEvent::NFTApprovalSet(None, *token_id));
         Ok(())
     }
 

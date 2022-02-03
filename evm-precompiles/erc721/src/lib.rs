@@ -95,7 +95,7 @@ where
 	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -144,7 +144,7 @@ where
 						Action::Name => Self::name(series_id_parts, gasometer),
 						Action::Symbol => Self::symbol(series_id_parts, gasometer),
 						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
-						Action::Approve => Self::approve(series_id_parts, input, gasometer),
+						Action::Approve => Self::approve(series_id_parts, input, gasometer, context),
 						// TODO: implement approval stuff
 						Action::SafeTransferFrom
 						| Action::SafeTransferFromCallData
@@ -182,7 +182,7 @@ where
 	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -332,7 +332,7 @@ where
 			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
-				None, //.into(),
+				None.into(),
 				crml_token_approvals::Call::<Runtime>::erc721_approval {
 					caller: from,
 					operator_account: to,
