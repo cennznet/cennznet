@@ -34,7 +34,10 @@ use frame_support::{
 };
 use pallet_evm::AddressMapping;
 use smallvec::smallvec;
-use sp_runtime::{traits::{SaturatedConversion, Zero}, ConsensusEngineId, Perbill};
+use sp_runtime::{
+	traits::{SaturatedConversion, Zero},
+	ConsensusEngineId, Perbill,
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -55,7 +58,7 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
 /// Constant factor for scaling CPAY to wei
-pub (crate) const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+pub(crate) const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
 
 /// Convert 18dp wei values to 4dp equivalents
 /// Most inputs are scaled down by 1e14

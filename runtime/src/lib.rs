@@ -88,7 +88,7 @@ use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
-use pallet_evm::{EvmConfig, Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, Runner};
+use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCalculator, Runner};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -97,9 +97,8 @@ use constants::{currency::*, time::*};
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-  CPAY_TO_WEI_FACTOR,
 	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, PrefixedAddressMapping, ScheduledPayoutRunner,
-	SlashFundsToTreasury, WeightToCpayFee,
+	SlashFundsToTreasury, WeightToCpayFee, CPAY_TO_WEI_FACTOR,
 };
 
 mod precompiles;
@@ -740,9 +739,9 @@ impl pallet_evm::Config for Runtime {
 	type OnChargeTransaction = ();
 	// This identifies author inorder to distribute tip fees
 	type FindAuthor = EthereumFindAuthor<Babe>;
-  // internal EVM config
+	// internal EVM config
 	fn config() -> &'static EvmConfig {
-	  &CENNZNET_EVM_CONFIG
+		&CENNZNET_EVM_CONFIG
 	}
 }
 
