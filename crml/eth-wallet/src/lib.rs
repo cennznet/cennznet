@@ -6,19 +6,20 @@ use crate::ethereum::{ecrecover, EthereumSignature};
 use codec::Encode;
 use crml_support::{TransactionFeeHandler, H160 as EthAddress};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
+	decl_error, decl_event, decl_module,
 	dispatch::{DispatchInfo, Dispatchable},
 	traits::{Get, UnfilteredDispatchable},
 	weights::GetDispatchInfo,
 	Parameter,
 };
 use frame_system::ensure_none;
+use pallet_evm::AddressMapping;
 use sp_runtime::{
 	traits::IdentifyAccount,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity, ValidTransaction,
 	},
-	DispatchResult, SaturatedConversion,
+	DispatchResult,
 };
 use sp_std::prelude::*;
 
@@ -29,6 +30,9 @@ pub mod ethereum;
 pub trait Config: frame_system::Config {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+
+	/// Maps Ethereum address to the CENNZnet format
+	type AddressMapping: AddressMapping<Self::AccountId>;
 
 	/// A signable call.
 	type Call: Parameter
@@ -50,12 +54,8 @@ pub trait Config: frame_system::Config {
 
 decl_error! {
 	pub enum Error for Module<T: Config> {
-		/// Signature decode fails.
-		DecodeFailure,
 		/// Signature & account mismatched.
 		InvalidSignature,
-		/// Nonce invalid
-		InvalidNonce,
 		/// Can't pay fees
 		CantPay,
 	}
@@ -71,14 +71,6 @@ decl_event!(
 	}
 );
 
-decl_storage! {
-	trait Store for Module<T: Config> as EthWallet {
-		/// Mapping from Ethereum address to a CENNZnet only transaction nonce
-		/// It may be higher than the CENNZnet system nonce for the same address
-		pub AddressNonce get(fn stored_address_nonce): map hasher(identity) EthAddress => u32
-	}
-}
-
 decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		type Error = Error<T>;
@@ -91,6 +83,7 @@ decl_module! {
 		}]
 		/// Execute a runtime `call` signed using `eth_sign`
 		/// Expects signature validates the payload `(call, nonce)`
+		/// 'nonce' is the value known by the cennznet mapped system pallet for `eth_address`
 		///
 		/// origin must be `none`
 		/// call - runtime call to execute
@@ -103,22 +96,14 @@ decl_module! {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			// check the known nonce for this ethereum address
-			let address_nonce = Self::stored_address_nonce(eth_address);
-			let message = &(&call, address_nonce).encode()[..];
+			// convert to CENNZnet address
+			let account = T::AddressMapping::into_account_id(eth_address);
+			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
+			let message = &(&call, nonce).encode()[..];
 
-			if let Some(public_key) = ecrecover(&signature, message, &eth_address) {
-				let account = T::Signer::from(public_key).into_account(); // CENNZnet address
-
-				// it's possible this account is used normally outside of eth signing-
-				// ensure highest known nonce is used
-				let system_nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-				let highest_nonce = sp_std::cmp::max(system_nonce.saturated_into(), address_nonce);
-				let new_nonce = highest_nonce.checked_add(1).ok_or(Error::<T>::InvalidNonce)?;
-
+			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
-				AddressNonce::insert(eth_address, new_nonce);
 				<frame_system::Pallet<T>>::inc_account_nonce(&account);
 
 				// execute the call
@@ -144,10 +129,6 @@ impl<T: Config> Module<T> {
 			.map(|_| ())
 			.map_err(|_| Error::<T>::CantPay.into())
 	}
-	/// Return the known CENNZnet nonce for a given Ethereum address
-	pub fn address_nonce(eth_address: &EthAddress) -> u32 {
-		Self::stored_address_nonce(eth_address)
-	}
 }
 
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
@@ -160,12 +141,13 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 			signature,
 		} = call
 		{
-			let address_nonce = Self::stored_address_nonce(eth_address);
-			let message = &(&call, address_nonce).encode()[..];
+			let account = T::AddressMapping::into_account_id(*eth_address);
+			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
+			let message = &(&call, nonce).encode()[..];
 			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
-					.and_provides((eth_address, address_nonce))
+					.and_provides((eth_address, nonce))
 					.longevity(64_u64)
 					.propagate(true)
 					.build();
@@ -331,18 +313,14 @@ mod tests {
 				remark: b"hello world".to_vec(),
 			}
 			.into();
-			let system_nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
-			let module_nonce = EthWallet::address_nonce(&eth_address);
-			assert_eq!(system_nonce as u32, module_nonce);
-			let signature =
-				EthereumSignature::try_from(eth_sign(&ECDSA_SEED, (call.clone(), module_nonce).encode().as_ref()))
-					.expect("valid sig");
+			let nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
+			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, (call.clone(), nonce).encode().as_ref()))
+				.expect("valid sig");
 
 			// execute the call
 			assert_ok!(EthWallet::call(Origin::none(), Box::new(call), eth_address, signature));
 
-			// nonces incremented
-			assert_eq!(EthWallet::address_nonce(&eth_address), module_nonce + 1,);
+			// nonce incremented
 			assert_eq!(
 				<frame_system::Pallet<Test>>::account_nonce(&cennznet_address),
 				system_nonce + 1,

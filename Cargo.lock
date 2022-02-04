@@ -707,7 +707,6 @@ dependencies = [
  "cennznet-runtime",
  "crml-cennzx-rpc",
  "crml-eth-bridge",
- "crml-eth-wallet-rpc",
  "crml-generic-asset",
  "crml-generic-asset-rpc",
  "crml-governance-rpc",
@@ -811,7 +810,6 @@ dependencies = [
  "crml-erc20-peg",
  "crml-eth-bridge",
  "crml-eth-wallet",
- "crml-eth-wallet-rpc-runtime-api",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
  "crml-governance",
@@ -1155,6 +1153,7 @@ dependencies = [
  "hex-literal",
  "libsecp256k1 0.6.0",
  "pallet-balances",
+ "pallet-evm",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1162,36 +1161,6 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "crml-eth-wallet-rpc"
-version = "2.0.0"
-dependencies = [
- "crml-eth-wallet",
- "crml-eth-wallet-rpc-runtime-api",
- "crml-support",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "parity-scale-codec",
- "sc-client-db",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
-]
-
-[[package]]
-name = "crml-eth-wallet-rpc-runtime-api"
-version = "2.0.0"
-dependencies = [
- "crml-eth-wallet",
- "crml-support",
- "parity-scale-codec",
- "sp-api",
  "sp-std",
 ]
 
@@ -1972,7 +1941,7 @@ dependencies = [
 [[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -1998,7 +1967,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fp-storage",
  "kvdb",
@@ -2014,7 +1983,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fc-consensus",
  "fc-db",
@@ -2032,7 +2001,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2078,7 +2047,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2176,7 +2145,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2190,7 +2159,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "evm",
  "parity-scale-codec",
@@ -2202,7 +2171,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2219,7 +2188,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "frame-support",
@@ -2236,7 +2205,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 
 [[package]]
 name = "frame-benchmarking"
@@ -4718,7 +4687,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4733,7 +4702,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -4762,7 +4731,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "evm",
  "evm-gasometer",
@@ -4790,7 +4759,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -4800,7 +4769,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fp-evm",
  "num",
@@ -4811,7 +4780,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -4822,12 +4791,30 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/cennznet/frontier?rev=471b8c3c311b169a3583082fd4499d22367dbd7d#471b8c3c311b169a3583082fd4499d22367dbd7d"
+source = "git+https://github.com/cennznet/frontier?rev=24cc355333c366efdfc01a66bbd4a212d50cfc49#24cc355333c366efdfc01a66bbd4a212d50cfc49"
 dependencies = [
  "fp-evm",
  "ripemd160",
  "sp-core",
  "sp-io",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-erc20"
+version = "2.0.0"
+dependencies = [
+ "crml-generic-asset",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

@@ -34,7 +34,7 @@ use frame_support::{
 };
 use pallet_evm::AddressMapping;
 use smallvec::smallvec;
-use sp_runtime::{traits::SaturatedConversion, ConsensusEngineId, Perbill};
+use sp_runtime::{traits::{SaturatedConversion, Zero}, ConsensusEngineId, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -54,10 +54,19 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
-/// Scale down input balance by 1e-14
-fn scale_down(value: Balance) -> Balance {
-	// truncates toward 0 so `value` < 10e14 will become 0
-	(value / 10_u128.pow(14)).saturated_into()
+/// Constant factor for scaling CPAY to wei
+pub (crate) const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+
+/// Convert 18dp wei values to 4dp equivalents
+/// Most inputs are scaled down by 1e14
+// values < 10e14 round to 1
+// 0 is unchanged
+fn scale_to_4dp(value: Balance) -> Balance {
+	if value.is_zero() {
+		value
+	} else {
+		sp_std::cmp::max(value / CPAY_TO_WEI_FACTOR, 1)
+	}
 }
 
 /// Adapts spending currency (CPAY) for use by the EVM
@@ -134,7 +143,7 @@ where
 		Self::balance(who)
 	}
 	fn transfer(from: &AccountId, to: &AccountId, value: Self::Balance, req: ExistenceRequirement) -> DispatchResult {
-		I::transfer(from, to, scale_down(value), req)
+		I::transfer(from, to, scale_to_4dp(value), req)
 	}
 	fn ensure_can_withdraw(
 		_who: &AccountId,
@@ -150,19 +159,19 @@ where
 		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
-		I::withdraw(who, scale_down(value), reasons, req)
+		I::withdraw(who, scale_to_4dp(value), reasons, req)
 	}
 	fn deposit_into_existing(who: &AccountId, value: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
-		I::deposit_into_existing(who, scale_down(value))
+		I::deposit_into_existing(who, scale_to_4dp(value))
 	}
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		I::deposit_creating(who, scale_down(value))
+		I::deposit_creating(who, scale_to_4dp(value))
 	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		I::make_free_balance_be(who, scale_down(balance))
+		I::make_free_balance_be(who, scale_to_4dp(balance))
 	}
 	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
 		false

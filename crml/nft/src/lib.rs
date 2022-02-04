@@ -265,6 +265,7 @@ decl_module! {
 					}
 				}
 
+				// TODO: Litho is using attributes for this...
 				let series_metadata_uris: Vec<(CollectionId, SeriesId, Vec<u8>)> = v1_storage::SeriesMetadataURI::drain().collect();
 				let write_count = series_metadata_uris.len();
 				for (collection, series, series_uri_path) in series_metadata_uris {
@@ -273,6 +274,7 @@ decl_module! {
 					}
 				}
 
+				// TODO: must update old listings with Marketplace Id
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 

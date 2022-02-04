@@ -88,18 +88,17 @@ crml-support = { path = "../crml/support", default-features = false }
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
 crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
-crml-eth-wallet-rpc-runtime-api = { path = "../crml/eth-wallet/rpc/runtime-api", default-features = false }
 
 # EVM support
-fp-rpc = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fp-self-contained = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-base-fee = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-ethereum = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+fp-rpc = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fp-self-contained = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-base-fee = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-ethereum = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 
 [build-dependencies]
@@ -117,7 +116,6 @@ std = [
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
 	"crml-eth-wallet/std",
-	"crml-eth-wallet-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-im-online/std",
@@ -152,7 +150,6 @@ std = [
 	"crml-erc20-peg/std",
 	"crml-eth-bridge/std",
 	"crml-eth-wallet/std",
-	"crml-eth-wallet-rpc-runtime-api/std",
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",
 	"crml-governance/std",
