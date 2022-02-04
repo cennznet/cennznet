@@ -274,7 +274,6 @@ decl_module! {
 					}
 				}
 
-				// TODO: must update old listings with Marketplace Id
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 
