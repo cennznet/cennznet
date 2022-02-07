@@ -217,21 +217,24 @@ pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
 
 /// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
 /// Conversion process is:
-/// 1. AccountId Prefix: concat("cvm:", "0x00000000000000"), length: 11 byetes
+/// 1. AccountId prefix: concat("cvm:", "0x00000000000000"), length: 11 bytes
 /// 2. EVM address: the original evm address, length: 20 bytes
-/// 3. CheckSum:  byte_xor(AccountId Prefix + EVM address), length: 1 byte
+/// 3. CheckSum:  byte_xor(AccountId prefix + EVM address), length: 1 byte
+///
+/// e.g.given input EVM address `0x9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903` -
+/// output `0x63766d3a000000000000009d6a93a45c9372cc46c9bacfbdb0a2a9398ca90310` cennznet address (hex-ified)
+/// breakdown:
+/// 63766d3a   00000000000000 9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903 10
+/// [ prefix ] [  padding  ]  [            ethereum address          ] [checksum]
 impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
 where
 	AccountId: From<[u8; 32]>,
 {
 	fn into_account_id(address: H160) -> AccountId {
 		let mut raw_account = [0u8; 32];
-
 		raw_account[0..4].copy_from_slice(b"cvm:");
 		raw_account[11..31].copy_from_slice(&address[..]);
-
 		let checksum: u8 = raw_account[1..31].iter().fold(raw_account[0], |sum, &byte| sum ^ byte);
-
 		raw_account[31] = checksum;
 
 		raw_account.into()
