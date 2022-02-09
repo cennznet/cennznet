@@ -690,7 +690,7 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 }
 
 /// fixed EIP-1559 'base fee'
-const FIXED_BASE_FEE: Balance = 15_000_000_000_000;
+const FIXED_BASE_FEE: Balance = 3_000_000_000_000;
 /// Fixed gas price schedule
 /// This is more consistent while the network block capacity is non-contentious
 pub struct FixedGasPrice;

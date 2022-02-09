@@ -182,6 +182,8 @@ decl_storage! {
 		pub RegisteredMarketplaces get(fn registered_marketplaces): map hasher(twox_64_concat) MarketplaceId => Marketplace<T::AccountId>;
 		/// Map from (collection, series) to its attributes (deprecated)
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
+		/// Map from series to its human friendly name
+		pub SeriesName get(fn series_name): map hasher(twox_64_concat) (CollectionId, SeriesId) => CollectionNameType;
 		/// Map from (collection, series) to configured royalties schedule
 		pub SeriesRoyalties get(fn series_royalties): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<RoyaltiesSchedule<T::AccountId>>;
 		/// Map from a (collection, series) to its total issuance
@@ -290,6 +292,25 @@ decl_module! {
 			if let Some(owner) = Self::collection_owner(collection_id) {
 				ensure!(owner == origin, Error::<T>::NoPermission);
 				<CollectionOwner<T>>::insert(collection_id, new_owner);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
+		}
+
+		/// Set the name of a series
+		/// Caller must be the current collection owner
+		#[weight = T::WeightInfo::set_owner()]
+		fn set_series_name(origin, collection_id: CollectionId, series_id: SeriesId, name: CollectionNameType) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = Self::collection_owner(collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				ensure!(SeriesMetadataScheme::contains_key(collection_id, series_id), Error::<T>::NoSeries);
+				ensure!(!SeriesName::contains_key((collection_id, series_id)), Error::<T>::NameAlreadySet);
+				ensure!(!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize, Error::<T>::CollectionNameInvalid);
+				ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+
+				SeriesName::insert((collection_id, series_id), name);
 				Ok(())
 			} else {
 				Err(Error::<T>::NoCollection.into())
