@@ -58,7 +58,7 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
 /// Constant factor for scaling CPAY to wei
-pub(crate) const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
 
 /// Convert 18dp wei values to 4dp equivalents
 /// Most inputs are scaled down by 1e14

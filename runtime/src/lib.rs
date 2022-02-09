@@ -98,7 +98,7 @@ use constants::{currency::*, time::*};
 pub mod impls;
 use impls::{
 	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, PrefixedAddressMapping, ScheduledPayoutRunner,
-	SlashFundsToTreasury, WeightToCpayFee, CPAY_TO_WEI_FACTOR,
+	SlashFundsToTreasury, WeightToCpayFee,
 };
 
 mod precompiles;

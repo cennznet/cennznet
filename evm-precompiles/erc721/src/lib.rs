@@ -74,7 +74,7 @@ pub trait Erc721IdConversion {
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet NFT module
 /// via an ERC721 compliant interface (`Erc721PrecompileSet`)
-pub const NFT_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xAA; 4];
+pub const ERC721_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xAA; 4];
 
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
