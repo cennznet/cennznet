@@ -837,6 +837,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
+ "precompile-utils",
  "scale-info",
  "serde",
  "smallvec",

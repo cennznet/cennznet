@@ -23,6 +23,7 @@ use codec::Encode;
 // - 'token' / 'asset' / 'currency' and
 // - 'balance' / 'value' / 'amount'
 // are used interchangeably as they make more sense in certain contexts.
+use cennznet_primitives::types::TokenId;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
@@ -33,7 +34,6 @@ use sp_runtime::{
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, prelude::*, result};
-use cennznet_primitives::types::TokenId;
 
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
@@ -287,13 +287,10 @@ pub trait StakingAmount {
 
 /// The interface that states whether an account owns a token
 pub trait IsTokenOwner {
-    type AccountId;
+	type AccountId;
 
-    /// Gets whether account owns NFT of TokenId
-    fn check_ownership(
-        account: &Self::AccountId,
-        token_id: &TokenId,
-    ) -> bool;
+	/// Gets whether account owns NFT of TokenId
+	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool;
 }
 
 /// The nft with the given token_id was transferred.

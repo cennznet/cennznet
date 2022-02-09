@@ -24,7 +24,7 @@ use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::Get,
 };
-use pallet_evm::{ExitRevert, GasWeightMapping, Log};
+use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Log};
 use sp_core::{H160, H256, U256};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -47,6 +47,11 @@ pub fn error<T: Into<alloc::borrow::Cow<'static, str>>>(text: T) -> PrecompileFa
 	PrecompileFailure::Error {
 		exit_status: ExitError::Other(text.into()),
 	}
+}
+
+/// trait for reversible address mapping from CENNZnet to Ethereum
+pub trait AddressMappingReversibleExt<A>: AddressMapping<A> {
+	fn from_account_id(address: A) -> H160;
 }
 
 /// Builder for PrecompileOutput.

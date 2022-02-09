@@ -74,7 +74,10 @@ pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill, Perquintill};
 // CENNZnet only imports
 use cennznet_primitives::{
 	eth::crypto::AuthorityId as EthBridgeId,
-	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature, CollectionId, SerialNumber, SeriesId, TokenId},
+	types::{
+		AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Header, Index, Moment, SerialNumber, SeriesId,
+		Signature, TokenId,
+	},
 };
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;

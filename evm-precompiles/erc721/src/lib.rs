@@ -16,19 +16,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{CollectionId, SeriesId, SerialNumber, TokenId};
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	traits::{
-		fungibles::{approvals::Inspect as ApprovalInspect, metadata::Inspect as MetadataInspect, Inspect},
-		OriginTrait,
-	},
+	traits::OriginTrait,
 };
 use pallet_evm::{AddressMapping, PrecompileSet};
 pub use precompile_utils::{
-	error, keccak256, Address, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
-	LogsBuilder, RuntimeHelper,
+	error, keccak256, Address, AddressMappingReversibleExt, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult,
+	FunctionModifier, Gasometer, LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::SaturatedConversion;
@@ -94,6 +91,7 @@ impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -145,10 +143,10 @@ where
 						Action::Symbol => Self::symbol(series_id_parts, gasometer),
 						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
 						Action::Approve => Self::approve(series_id_parts, input, gasometer, context),
+						Action::GetApproved => Self::get_approved(series_id_parts, input, gasometer),
 						// TODO: implement approval stuff
 						Action::SafeTransferFrom
 						| Action::SafeTransferFromCallData
-						| Action::GetApproved
 						| Action::IsApprovedForAll
 						| Action::SetApprovalForAll => {
 							return Some(Err(error("function not implemented yet").into()));
@@ -181,6 +179,7 @@ impl<Runtime> Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
 	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -349,6 +348,44 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
+			logs: Default::default(),
+		})
+	}
+
+	fn get_approved(
+		series_id_parts: (CollectionId, SeriesId),
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		input.expect_arguments(gasometer, 1)?;
+		let serial_number = input.read::<U256>(gasometer)?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::max_value().into() {
+			return Err(error("expected token id <= 2^32").into());
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let approved_account = crml_token_approvals::Module::<Runtime>::erc721_approvals((
+			series_id_parts.0,
+			series_id_parts.1,
+			serial_number,
+		));
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new()
+				.write::<Bytes>(
+					Runtime::AddressMapping::from_account_id(approved_account)
+						.as_bytes()
+						.into(),
+				)
+				.build(),
 			logs: Default::default(),
 		})
 	}

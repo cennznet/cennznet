@@ -33,6 +33,7 @@ use frame_support::{
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_evm::AddressMapping;
+use precompile_utils::AddressMappingReversibleExt;
 use smallvec::smallvec;
 use sp_runtime::{traits::SaturatedConversion, ConsensusEngineId, Perbill};
 use sp_std::{marker::PhantomData, prelude::*};
@@ -205,7 +206,7 @@ pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
 
 /// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
 /// Conversion process is:
-/// 1. AccountId Prefix: concat("cvm:", "0x00000000000000"), length: 11 byetes
+/// 1. AccountId Prefix: concat("cvm:", "0x00000000000000"), length: 11 bytes
 /// 2. EVM address: the original evm address, length: 20 bytes
 /// 3. CheckSum:  byte_xor(AccountId Prefix + EVM address), length: 1 byte
 impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
@@ -223,6 +224,27 @@ where
 		raw_account[31] = checksum;
 
 		raw_account.into()
+	}
+}
+
+impl<AccountId> AddressMappingReversibleExt<AccountId> for PrefixedAddressMapping<AccountId>
+where
+	AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+{
+	fn from_account_id(address: AccountId) -> H160 {
+		let mut check_prefix = [0u8; 11];
+		check_prefix[0..4].copy_from_slice(b"cvm:");
+
+		let raw_account: [u8; 32] = address.into();
+
+		return if raw_account[..11] == check_prefix {
+			let new_account: [u8; 20] = raw_account[11..31].try_into().expect("expected 32 bytes"); // Guaranteed in bounds
+			new_account.into()
+		} else if raw_account == [0u8; 32] {
+			H160::default()
+		} else {
+			b"crt:0000000000000000".into()
+		};
 	}
 }
 

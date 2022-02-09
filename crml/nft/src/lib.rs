@@ -32,8 +32,8 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SeriesId, SerialNumber, TokenId};
-use crml_support::{MultiCurrency, IsTokenOwner, OnTransferSubscriber};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
@@ -63,10 +63,7 @@ pub use types::*;
 impl<T: Config> IsTokenOwner for Module<T> {
 	type AccountId = T::AccountId;
 
-	fn check_ownership(
-		account: &Self::AccountId,
-		token_id: &TokenId,
-	) -> bool {
+	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool {
 		&Self::token_owner((token_id.0, token_id.1), token_id.2) == account
 	}
 }
