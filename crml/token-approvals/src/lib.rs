@@ -28,6 +28,10 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
@@ -104,14 +108,13 @@ decl_module! {
 
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-			// Check that origin owns NFT TODO: Check what happens if token doesn't exist
+			// Check that origin owns NFT
 			ensure!(T::IsTokenOwner::check_ownership(&caller, &token_id), Error::<T>::NotTokenOwner);
 			ERC721Approvals::<T>::insert(token_id, operator_account.clone());
 
 			Self::deposit_event(RawEvent::NFTApprovalSet(Some(operator_account), token_id));
 			Ok(())
 		}
-
 	}
 }
 
@@ -123,6 +126,8 @@ impl<T: Config> Module<T> {
 		ERC721Approvals::<T>::remove(token_id);
 		Self::deposit_event(RawEvent::NFTApprovalSet(None, *token_id));
 	}
+
+	//TODO ADD GETTER
 
 	/// Set approval for an account for an NFT series
 	/// Mapping from owner to operator approvals
