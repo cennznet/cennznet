@@ -5436,6 +5436,7 @@ dependencies = [
  "pallet-evm",
  "parity-scale-codec",
  "precompile-utils-macro",
+ "rlp",
  "sha3 0.9.1",
  "sp-core",
  "sp-io",

@@ -26,7 +26,7 @@ use precompile_utils::{
 	keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, LogsBuilder,
 	RuntimeHelper,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{SaturatedConversion, Zero};
 
 use sp_core::{H160, U256};
 use sp_std::{marker::PhantomData, vec};
@@ -126,13 +126,19 @@ where
 					match selector {
 						Action::TotalSupply => Self::total_supply(asset_id, input, gasometer),
 						Action::BalanceOf => Self::balance_of(asset_id, input, gasometer),
-						Action::Allowance => Self::allowance(asset_id, input, gasometer),
-						Action::Approve => Self::approve(asset_id, input, gasometer, context),
 						Action::Transfer => Self::transfer(asset_id, input, gasometer, context),
 						Action::TransferFrom => Self::transfer_from(asset_id, input, gasometer, context),
 						Action::Name => Self::name(asset_id, gasometer),
 						Action::Symbol => Self::symbol(asset_id, gasometer),
 						Action::Decimals => Self::decimals(asset_id, gasometer),
+						Action::Allowance | Action::Approve => {
+							Ok(PrecompileOutput {
+								exit_status: ExitSucceed::Returned,
+								cost: gasometer.used_gas(),
+								output: Default::default(),
+								logs: vec![],
+							})
+						}
 					}
 				};
 				return Some(result);
@@ -204,8 +210,12 @@ where
 		// Fetch info.
 		let amount: U256 = {
 			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-			// TODO: if its CENNZ we must check locks
-			crml_generic_asset::Pallet::<Runtime>::free_balance(asset_id, &owner).into()
+			// CENNZ tokens need stake
+			if asset_id.into() == 	crml_generic_asset::Pallet<Runtime>::staking_asset_id() {
+				crml_generic_asset::Pallet::<Runtime>::get_all_balances(&owner, asset_id).available.into()
+			} else {
+				crml_generic_asset::Pallet::<Runtime>::free_balance(asset_id, &owner).into()
+			}
 		};
 
 		// Build output.
@@ -217,12 +227,11 @@ where
 		})
 	}
 
-	fn allowance(
-		_asset_id: AssetId,
-		_input: &mut EvmDataReader,
-		_gasometer: &mut Gasometer,
-	) -> EvmResult<PrecompileOutput> {
-		unimplemented!();
+	//fn allowance(
+	//	_asset_id: AssetId,
+	//	_input: &mut EvmDataReader,
+	//	_gasometer: &mut Gasometer,
+	//) -> EvmResult<PrecompileOutput> {
 		// gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// // Read input.
@@ -247,15 +256,14 @@ where
 		// 	output: EvmDataWriter::new().write(amount).build(),
 		// 	logs: vec![],
 		// })
-	}
+	//}
 
-	fn approve(
-		_asset_id: AssetId,
-		_input: &mut EvmDataReader,
-		_gasometer: &mut Gasometer,
-		_context: &Context,
-	) -> EvmResult<PrecompileOutput> {
-		unimplemented!();
+	//fn approve(
+	//	_asset_id: AssetId,
+	//	_input: &mut EvmDataReader,
+	//	_gasometer: &mut Gasometer,
+	//	_context: &Context,
+	//) -> EvmResult<PrecompileOutput> {
 		// gasometer.record_log_costs_manual(3, 32)?;
 
 		// // Parse input.
@@ -298,7 +306,7 @@ where
 		// 		gasometer,
 		// 	)?;
 		// }
-		// // Build output.
+		// Build output.
 		// Ok(PrecompileOutput {
 		// 	exit_status: ExitSucceed::Returned,
 		// 	cost: gasometer.used_gas(),
@@ -312,7 +320,7 @@ where
 		// 		)
 		// 		.build(),
 		// })
-	}
+	//}
 
 	fn transfer(
 		asset_id: AssetId,
@@ -326,7 +334,7 @@ where
 		input.expect_arguments(gasometer, 2)?;
 
 		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let amount = input.read::<Balance>(gasometer)?;
+		let amount: Balance = input.read::<U256>(gasometer)?.saturated_into();
 
 		// Build call with origin.
 		{
@@ -369,7 +377,7 @@ where
 		input.expect_arguments(gasometer, 3)?;
 		let from: H160 = input.read::<Address>(gasometer)?.into();
 		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let amount = input.read::<Balance>(gasometer)?;
+		let amount: Balance = input.read::<U256>(gasometer)?.saturated_into();
 
 		{
 			let caller: Runtime::AccountId = Runtime::AddressMapping::into_account_id(context.caller);
@@ -379,8 +387,7 @@ where
 			// If caller is "from", it can spend as much as it wants from its own balance.
 			if caller != from {
 				// Dispatch call (if enough gas).
-				// TODO: provide an 'approved' or / delegated transfer in GA for this
-				// same as normal except log that is an approved  / delegated transfer
+				// TODO: check approvals
 				RuntimeHelper::<Runtime>::try_dispatch(
 					Some(caller).into(),
 					crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
