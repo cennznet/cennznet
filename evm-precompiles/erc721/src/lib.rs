@@ -16,25 +16,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
 };
 use pallet_evm::{AddressMapping, PrecompileSet};
-pub use precompile_utils::{
-	error, keccak256, Address, AddressMappingReversibleExt, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult,
-	FunctionModifier, Gasometer, LogsBuilder, RuntimeHelper,
-};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec};
-
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod tests;
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
+pub use precompile_utils::{
+	Address, AddressMappingReversibleExt, Bytes, error, EvmData, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier,
+	Gasometer, keccak256, LogsBuilder, RuntimeHelper,
+};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -273,9 +268,11 @@ where
 			return Err(error("expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id = (series_id_parts.0, series_id_parts.1, serial_number);
+		let approved_account: Runtime::AccountId = crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
-		if context.caller == from {
+		if context.caller == from || context.caller == Runtime::AddressMapping::from_account_id(approved_account) {
 			let from = Runtime::AddressMapping::into_account_id(context.caller);
 			let to = Runtime::AddressMapping::into_account_id(to);
 
@@ -283,13 +280,12 @@ where
 			RuntimeHelper::<Runtime>::try_dispatch(
 				Some(from).into(),
 				crml_nft::Call::<Runtime>::transfer {
-					token_id: (series_id_parts.0, series_id_parts.1, serial_number),
+					token_id,
 					new_owner: to,
 				},
 				gasometer,
 			)?;
 		} else {
-			// TODO: use approval stuff..
 			return Err(error("caller not approved").into());
 		};
 
