@@ -34,7 +34,10 @@ use frame_support::{
 };
 use pallet_evm::AddressMapping;
 use smallvec::smallvec;
-use sp_runtime::{traits::SaturatedConversion, ConsensusEngineId, Perbill};
+use sp_runtime::{
+	traits::{SaturatedConversion, Zero},
+	ConsensusEngineId, Perbill,
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -54,10 +57,19 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
-/// Scale down input balance by 1e-14
-fn scale_down(value: Balance) -> Balance {
-	// truncates toward 0 so `value` < 10e14 will become 0
-	(value / 10_u128.pow(14)).saturated_into()
+/// Constant factor for scaling CPAY to wei
+const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+
+/// Convert 18dp wei values to 4dp equivalents
+/// Most inputs are scaled down by 1e14
+// values < 10e14 round to 1
+// 0 is unchanged
+fn scale_to_4dp(value: Balance) -> Balance {
+	if value.is_zero() {
+		value
+	} else {
+		sp_std::cmp::max(value / CPAY_TO_WEI_FACTOR, 1)
+	}
 }
 
 /// Adapts spending currency (CPAY) for use by the EVM
@@ -134,7 +146,7 @@ where
 		Self::balance(who)
 	}
 	fn transfer(from: &AccountId, to: &AccountId, value: Self::Balance, req: ExistenceRequirement) -> DispatchResult {
-		I::transfer(from, to, scale_down(value), req)
+		I::transfer(from, to, scale_to_4dp(value), req)
 	}
 	fn ensure_can_withdraw(
 		_who: &AccountId,
@@ -150,19 +162,19 @@ where
 		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
-		I::withdraw(who, scale_down(value), reasons, req)
+		I::withdraw(who, scale_to_4dp(value), reasons, req)
 	}
 	fn deposit_into_existing(who: &AccountId, value: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
-		I::deposit_into_existing(who, scale_down(value))
+		I::deposit_into_existing(who, scale_to_4dp(value))
 	}
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		I::deposit_creating(who, scale_down(value))
+		I::deposit_creating(who, scale_to_4dp(value))
 	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		I::make_free_balance_be(who, scale_down(balance))
+		I::make_free_balance_be(who, scale_to_4dp(balance))
 	}
 	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
 		false
@@ -205,21 +217,24 @@ pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
 
 /// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
 /// Conversion process is:
-/// 1. AccountId Prefix: concat("cvm:", "0x00000000000000"), length: 11 byetes
+/// 1. AccountId prefix: concat("cvm:", "0x00000000000000"), length: 11 bytes
 /// 2. EVM address: the original evm address, length: 20 bytes
-/// 3. CheckSum:  byte_xor(AccountId Prefix + EVM address), length: 1 byte
+/// 3. CheckSum:  byte_xor(AccountId prefix + EVM address), length: 1 byte
+///
+/// e.g.given input EVM address `0x9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903` -
+/// output `0x63766d3a000000000000009d6a93a45c9372cc46c9bacfbdb0a2a9398ca90310` cennznet address (hex-ified)
+/// breakdown:
+/// 63766d3a   00000000000000 9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903 10
+/// [ prefix ] [  padding  ]  [            ethereum address          ] [checksum]
 impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
 where
 	AccountId: From<[u8; 32]>,
 {
 	fn into_account_id(address: H160) -> AccountId {
 		let mut raw_account = [0u8; 32];
-
 		raw_account[0..4].copy_from_slice(b"cvm:");
 		raw_account[11..31].copy_from_slice(&address[..]);
-
 		let checksum: u8 = raw_account[1..31].iter().fold(raw_account[0], |sum, &byte| sum ^ byte);
-
 		raw_account[31] = checksum;
 
 		raw_account.into()

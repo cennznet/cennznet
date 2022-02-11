@@ -71,7 +71,6 @@ cennznet-runtime = { path = "../runtime" }
 crml-eth-bridge = { path = "../crml/eth-bridge" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }
-crml-eth-wallet-rpc = { path = "../crml/eth-wallet/rpc" }
 crml-generic-asset = { path = "../crml/generic-asset" }
 crml-generic-asset-rpc = { path = "../crml/generic-asset/rpc" }
 crml-governance-rpc = { path = "../crml/governance/rpc" }
@@ -84,14 +83,14 @@ ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
 pallet-im-online = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
-pallet-ethereum = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d", version = "4.0.0-dev" }
-pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d", version = "6.0.0-dev" }
-fc-consensus = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fc-db = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fc-mapping-sync = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
-fp-rpc = { git = "https://github.com/cennznet/frontier", rev = "471b8c3c311b169a3583082fd4499d22367dbd7d" }
+pallet-ethereum = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49", version = "4.0.0-dev" }
+pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49", version = "6.0.0-dev" }
+fc-consensus = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fc-db = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fc-mapping-sync = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+fp-rpc = { git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }

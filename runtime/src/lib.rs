@@ -88,7 +88,7 @@ use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, Runner};
+use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCalculator, Runner};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -130,8 +130,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 47,
-	impl_version: 47,
+	spec_version: 48,
+	impl_version: 48,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -424,23 +424,6 @@ pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	items as Balance * 15 + (bytes as Balance) * 6
 }
 
-parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const DepositBase: Balance = deposit(1, 88);
-	// Additional storage item size of 32 bytes.
-	pub const DepositFactor: Balance = deposit(0, 32);
-	pub const MaxSignatories: u16 = 100;
-}
-impl pallet_multisig::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
-	type Currency = SpendingAssetCurrency<Self>;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
-	type MaxSignatories = MaxSignatories;
-	type WeightInfo = ();
-}
-
 impl pallet_sudo::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
@@ -662,6 +645,7 @@ parameter_types! {
 impl crml_eth_wallet::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type AddressMapping = PrefixedAddressMapping<AccountId>;
 	type TransactionFeeHandler = TransactionPayment;
 	type Signer = <Signature as Verify>::Signer;
 	type UnsignedPriority = EcdsaUnsignedPriority;
@@ -689,24 +673,30 @@ impl pallet_evm::GasWeightMapping for CENNZnetGasWeightMapping {
 		u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
 	}
 }
-pub struct FixedGasPrice;
-impl FeeCalculator for FixedGasPrice {
-	fn min_gas_price() -> U256 {
-		// 1 wei CPAY per gas
-		U256::from(1)
-	}
-}
 
+/// This is unused while CENNZnet fullness is inconsistent
 pub struct BaseFeeThreshold;
 impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 	fn lower() -> Permill {
 		Permill::zero()
 	}
 	fn ideal() -> Permill {
+		// blocks > 50% full trigger fee increase, < 50% full trigger fee decrease
 		Permill::from_parts(500_000)
 	}
 	fn upper() -> Permill {
-		Permill::from_parts(1_000_000)
+		Permill::one()
+	}
+}
+
+/// fixed EIP-1559 'base fee'
+const FIXED_BASE_FEE: Balance = 3_000_000_000_000;
+/// Fixed gas price schedule
+/// This is more consistent while the network block capacity is non-contentious
+pub struct FixedGasPrice;
+impl FeeCalculator for FixedGasPrice {
+	fn min_gas_price() -> U256 {
+		FIXED_BASE_FEE.into()
 	}
 }
 
@@ -722,6 +712,14 @@ parameter_types! {
 		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
 	pub PrecompilesValue: CENNZnetPrecompiles<Runtime> = CENNZnetPrecompiles::<_>::new();
 }
+
+/// Modified london config with higher contract create fee
+const fn cennznet_london() -> EvmConfig {
+	let mut c = EvmConfig::london();
+	c.gas_transaction_create = 3_000_000;
+	c
+}
+static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FixedGasPrice;
@@ -741,6 +739,10 @@ impl pallet_evm::Config for Runtime {
 	type OnChargeTransaction = ();
 	// This identifies author inorder to distribute tip fees
 	type FindAuthor = EthereumFindAuthor<Babe>;
+	// internal EVM config
+	fn config() -> &'static EvmConfig {
+		&CENNZNET_EVM_CONFIG
+	}
 }
 
 impl pallet_ethereum::Config for Runtime {
@@ -834,7 +836,6 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event},
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
 		TransactionPayment: crml_transaction_payment::{Pallet, Storage},
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 		Historical: session_historical::{Pallet},
 		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>},
@@ -934,12 +935,6 @@ impl_runtime_apis! {
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
-		}
-	}
-
-	impl crml_eth_wallet_rpc_runtime_api::EthWalletApi<Block> for Runtime {
-		fn address_nonce(eth_address: &H160) -> u32 {
-			EthWallet::address_nonce(eth_address)
 		}
 	}
 
