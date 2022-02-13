@@ -211,7 +211,7 @@ where
 		let amount: U256 = {
 			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
 			// CENNZ tokens need stake
-			if asset_id.into() == 	crml_generic_asset::Pallet<Runtime>::staking_asset_id() {
+			if asset_id.into() == (crml_generic_asset::Pallet<Runtime>::staking_asset_id()) {
 				crml_generic_asset::Pallet::<Runtime>::get_all_balances(&owner, asset_id).available.into()
 			} else {
 				crml_generic_asset::Pallet::<Runtime>::free_balance(asset_id, &owner).into()
