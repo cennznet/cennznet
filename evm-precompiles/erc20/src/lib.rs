@@ -131,14 +131,12 @@ where
 						Action::Name => Self::name(asset_id, gasometer),
 						Action::Symbol => Self::symbol(asset_id, gasometer),
 						Action::Decimals => Self::decimals(asset_id, gasometer),
-						Action::Allowance | Action::Approve => {
-							Ok(PrecompileOutput {
-								exit_status: ExitSucceed::Returned,
-								cost: gasometer.used_gas(),
-								output: Default::default(),
-								logs: vec![],
-							})
-						}
+						Action::Allowance | Action::Approve => Ok(PrecompileOutput {
+							exit_status: ExitSucceed::Returned,
+							cost: gasometer.used_gas(),
+							output: Default::default(),
+							logs: vec![],
+						}),
 					}
 				};
 				return Some(result);
@@ -212,7 +210,9 @@ where
 			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
 			// CENNZ tokens need stake
 			if asset_id.into() == (crml_generic_asset::Pallet::<Runtime>::staking_asset_id()) {
-				crml_generic_asset::Pallet::<Runtime>::get_all_balances(&owner, asset_id).available.into()
+				crml_generic_asset::Pallet::<Runtime>::get_all_balances(&owner, asset_id)
+					.available
+					.into()
 			} else {
 				crml_generic_asset::Pallet::<Runtime>::free_balance(asset_id, &owner).into()
 			}
@@ -232,30 +232,30 @@ where
 	//	_input: &mut EvmDataReader,
 	//	_gasometer: &mut Gasometer,
 	//) -> EvmResult<PrecompileOutput> {
-		// gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	// gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		// // Read input.
-		// input.expect_arguments(gasometer, 2)?;
+	// // Read input.
+	// input.expect_arguments(gasometer, 2)?;
 
-		// let owner: H160 = input.read::<Address>(gasometer)?.into();
-		// let spender: H160 = input.read::<Address>(gasometer)?.into();
+	// let owner: H160 = input.read::<Address>(gasometer)?.into();
+	// let spender: H160 = input.read::<Address>(gasometer)?.into();
 
-		// // Fetch info.
-		// let amount: U256 = {
-		// 	let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-		// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
+	// // Fetch info.
+	// let amount: U256 = {
+	// 	let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
+	// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
 
-		// 	// Fetch info.
-		// 	crml_approvals::Pallet::<Runtime>::allowance(asset_id, &owner, &spender).into()
-		// };
+	// 	// Fetch info.
+	// 	crml_approvals::Pallet::<Runtime>::allowance(asset_id, &owner, &spender).into()
+	// };
 
-		// // Build output.
-		// Ok(PrecompileOutput {
-		// 	exit_status: ExitSucceed::Returned,
-		// 	cost: gasometer.used_gas(),
-		// 	output: EvmDataWriter::new().write(amount).build(),
-		// 	logs: vec![],
-		// })
+	// // Build output.
+	// Ok(PrecompileOutput {
+	// 	exit_status: ExitSucceed::Returned,
+	// 	cost: gasometer.used_gas(),
+	// 	output: EvmDataWriter::new().write(amount).build(),
+	// 	logs: vec![],
+	// })
 	//}
 
 	//fn approve(
@@ -264,62 +264,62 @@ where
 	//	_gasometer: &mut Gasometer,
 	//	_context: &Context,
 	//) -> EvmResult<PrecompileOutput> {
-		// gasometer.record_log_costs_manual(3, 32)?;
+	// gasometer.record_log_costs_manual(3, 32)?;
 
-		// // Parse input.
-		// input.expect_arguments(gasometer, 2)?;
+	// // Parse input.
+	// input.expect_arguments(gasometer, 2)?;
 
-		// let spender: H160 = input.read::<Address>(gasometer)?.into();
-		// let amount: U256 = input.read(gasometer)?;
+	// let spender: H160 = input.read::<Address>(gasometer)?.into();
+	// let amount: U256 = input.read(gasometer)?;
 
-		// {
-		// 	let origin = Runtime::AddressMapping::into_account_id(context.caller);
-		// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
-		// 	// Amount saturate if too high.
-		// 	let amount: Balance =
-		// 		amount.try_into().unwrap_or_else(|_| Bounded::max_value());
+	// {
+	// 	let origin = Runtime::AddressMapping::into_account_id(context.caller);
+	// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
+	// 	// Amount saturate if too high.
+	// 	let amount: Balance =
+	// 		amount.try_into().unwrap_or_else(|_| Bounded::max_value());
 
-		// 	// Allowance read
-		// 	gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	// 	// Allowance read
+	// 	gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		// 	// If previous approval exists, we need to clean it
-		// 	if crml_approvals::Pallet::<Runtime>::allowance(asset_id, &origin, &spender)
-		// 		!= 0u32.into()
-		// 	{
-		// 		RuntimeHelper::<Runtime>::try_dispatch(
-		// 			Some(origin.clone()).into(),
-		// 			crml_approvals::Call::<Runtime>::cancel_approval {
-		// 				id: asset_id,
-		// 				delegate: Runtime::Lookup::unlookup(spender.clone()),
-		// 			},
-		// 			gasometer,
-		// 		)?;
-		// 	}
-		// 	// Dispatch call (if enough gas).
-		// 	RuntimeHelper::<Runtime>::try_dispatch(
-		// 		Some(origin).into(),
-		// 		crml_approvals::Call::<Runtime>::approve_transfer {
-		// 			id: asset_id,
-		// 			delegate: Runtime::Lookup::unlookup(spender),
-		// 			amount,
-		// 		},
-		// 		gasometer,
-		// 	)?;
-		// }
-		// Build output.
-		// Ok(PrecompileOutput {
-		// 	exit_status: ExitSucceed::Returned,
-		// 	cost: gasometer.used_gas(),
-		// 	output: EvmDataWriter::new().write(true).build(),
-		// 	logs: LogsBuilder::new(context.address)
-		// 		.log3(
-		// 			SELECTOR_LOG_APPROVAL,
-		// 			context.caller,
-		// 			spender,
-		// 			EvmDataWriter::new().write(amount).build(),
-		// 		)
-		// 		.build(),
-		// })
+	// 	// If previous approval exists, we need to clean it
+	// 	if crml_approvals::Pallet::<Runtime>::allowance(asset_id, &origin, &spender)
+	// 		!= 0u32.into()
+	// 	{
+	// 		RuntimeHelper::<Runtime>::try_dispatch(
+	// 			Some(origin.clone()).into(),
+	// 			crml_approvals::Call::<Runtime>::cancel_approval {
+	// 				id: asset_id,
+	// 				delegate: Runtime::Lookup::unlookup(spender.clone()),
+	// 			},
+	// 			gasometer,
+	// 		)?;
+	// 	}
+	// 	// Dispatch call (if enough gas).
+	// 	RuntimeHelper::<Runtime>::try_dispatch(
+	// 		Some(origin).into(),
+	// 		crml_approvals::Call::<Runtime>::approve_transfer {
+	// 			id: asset_id,
+	// 			delegate: Runtime::Lookup::unlookup(spender),
+	// 			amount,
+	// 		},
+	// 		gasometer,
+	// 	)?;
+	// }
+	// Build output.
+	// Ok(PrecompileOutput {
+	// 	exit_status: ExitSucceed::Returned,
+	// 	cost: gasometer.used_gas(),
+	// 	output: EvmDataWriter::new().write(true).build(),
+	// 	logs: LogsBuilder::new(context.address)
+	// 		.log3(
+	// 			SELECTOR_LOG_APPROVAL,
+	// 			context.caller,
+	// 			spender,
+	// 			EvmDataWriter::new().write(amount).build(),
+	// 		)
+	// 		.build(),
+	// })
 	//}
 
 	fn transfer(
