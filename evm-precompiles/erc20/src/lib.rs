@@ -198,7 +198,7 @@ where
 		input: &mut EvmDataReader,
 		gasometer: &mut Gasometer,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
 
 		// Read input.
 		input.expect_arguments(gasometer, 1)?;
@@ -208,8 +208,8 @@ where
 		// Fetch info.
 		let amount: U256 = {
 			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-			// CENNZ tokens need stake
-			if asset_id.into() == (crml_generic_asset::Pallet::<Runtime>::staking_asset_id()) {
+			// CENNZ tokens must consider staking locked amounts
+			if asset_id == crml_generic_asset::Pallet::<Runtime>::staking_asset_id() {
 				crml_generic_asset::Pallet::<Runtime>::get_all_balances(&owner, asset_id)
 					.available
 					.into()
