@@ -443,7 +443,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 					// seed: 0xab3fdbe7eca16f38e9f5ee81b9e23d01ef251ba4ae19225783e5921a4a8c5564 / uri: `//development`
 					H160::from_str("0x12B29179a7F858478Fde74f842126CdA5eA7AC35").expect("internal H160 is valid; qed"),
 					pallet_evm::GenesisAccount {
-						balance: U256::from_str("0xfffffff").expect("internal U256 is valid; qed"),
+						balance: U256::from_str("0xfffffffffffffffffffff").expect("internal U256 is valid; qed"),
 						code: Default::default(),
 						nonce: Default::default(),
 						storage: Default::default(),
