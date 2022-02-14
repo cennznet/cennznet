@@ -22,7 +22,7 @@ use crate::{
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
-use crml_support::{PrefixedAddressMapping, H160, U256};
+use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -32,7 +32,6 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_evm::AddressMapping;
 use smallvec::smallvec;
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},
