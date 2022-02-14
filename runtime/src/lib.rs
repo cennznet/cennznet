@@ -50,7 +50,7 @@ use static_assertions::const_assert;
 
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
-use crml_support::{H160, H256, U256};
+use crml_support::{PrefixedAddressMapping, H160, H256, U256};
 pub use frame_support::{
 	construct_runtime, debug,
 	dispatch::GetDispatchInfo,
@@ -97,8 +97,7 @@ use constants::{currency::*, time::*};
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, PrefixedAddressMapping, ScheduledPayoutRunner,
-	SlashFundsToTreasury, WeightToCpayFee,
+	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee,
 };
 
 mod precompiles;
@@ -128,7 +127,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 1,
 	// Per convention: if the runtime behavior changes, increment `spec_version`
 	// and set `impl_version` to equal spec_version. If only runtime
-	// implementation changes and behavior does not, then leave `spec_version` as
+	// implementation chabges and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
 	spec_version: 48,
 	impl_version: 48,

@@ -17,7 +17,6 @@
 use super::*;
 use hex_literal::hex;
 use sp_core::{H256, U256};
-use sp_std::convert::TryInto;
 
 fn u256_repeat_byte(byte: u8) -> U256 {
 	let value = H256::repeat_byte(byte);
@@ -384,7 +383,8 @@ fn read_address_array_size_too_big() {
 	match reader.read::<Vec<Address>>(&mut gasometer) {
 		Ok(_) => panic!("should not parse correctly"),
 		Err(PrecompileFailure::Revert { output: err, .. }) => {
-			assert_eq!(err, b"tried to parse H160 out of bounds")
+			// 69 = selector (4) + data offset padded (32) + length padded (32) + rlp string prefix (1)
+			assert_eq!(err[69..], b"tried to parse H160 out of bounds"[..])
 		}
 		Err(_) => panic!("unexpected error"),
 	}
@@ -833,4 +833,33 @@ fn check_function_modifier() {
 		gasometer.check_function_modifier(&context(0), false, FunctionModifier::View),
 		Ok(())
 	);
+}
+
+#[test]
+fn gas_meter_revert() {
+	let messages = vec![b"i'm running out of chakra".to_vec(), vec![], vec![99u8; 256]];
+	for message in messages {
+		let gasometer = Gasometer::new(None);
+		let res = gasometer.revert(&message);
+
+		if let PrecompileFailure::Revert { output, .. } = res {
+			// 'Error(string)' selector and data offset abi encoded, matches solidity `revert` call
+			let error_selector_data_offset: [u8; 36] =
+				hex_literal::hex!("08c379a00000000000000000000000000000000000000000000000000000000000000020");
+			assert_eq!(&error_selector_data_offset, &output[..36]);
+			// message length word padded
+			let rlp_message = rlp::encode(&message);
+			let rlp_message_length = rlp::encode(&message.len());
+			// message length byte encoded and followed by padding 0s
+			assert_eq!(rlp_message_length, &output[36..36 + rlp_message_length.len()]);
+			assert_eq!(
+				&vec![0_u8; 32 - rlp_message_length.len()],
+				&output[36 + rlp_message_length.len()..68]
+			);
+			// message rlp encoded
+			assert_eq!(&rlp_message, &output[68..]);
+		} else {
+			assert!(false, "expected PrecompileFailure::Revert");
+		}
+	}
 }

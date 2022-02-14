@@ -22,7 +22,7 @@ use crate::{
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex};
-use crml_support::{H160, U256};
+use crml_support::{PrefixedAddressMapping, H160, U256};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -209,35 +209,6 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 				H160::default()
 			}
 		})
-	}
-}
-
-/// EVM to CENNZnet address mapping impl
-pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
-
-/// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
-/// Conversion process is:
-/// 1. AccountId prefix: concat("cvm:", "0x00000000000000"), length: 11 bytes
-/// 2. EVM address: the original evm address, length: 20 bytes
-/// 3. CheckSum:  byte_xor(AccountId prefix + EVM address), length: 1 byte
-///
-/// e.g.given input EVM address `0x9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903` -
-/// output `0x63766d3a000000000000009d6a93a45c9372cc46c9bacfbdb0a2a9398ca90310` cennznet address (hex-ified)
-/// breakdown:
-/// 63766d3a   00000000000000 9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903 10
-/// [ prefix ] [  padding  ]  [            ethereum address          ] [checksum]
-impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
-where
-	AccountId: From<[u8; 32]>,
-{
-	fn into_account_id(address: H160) -> AccountId {
-		let mut raw_account = [0u8; 32];
-		raw_account[0..4].copy_from_slice(b"cvm:");
-		raw_account[11..31].copy_from_slice(&address[..]);
-		let checksum: u8 = raw_account[1..31].iter().fold(raw_account[0], |sum, &byte| sum ^ byte);
-		raw_account[31] = checksum;
-
-		raw_account.into()
 	}
 }
 
@@ -663,16 +634,5 @@ mod tests {
 		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
 		// check no issues at max. value
 		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());
-	}
-
-	#[test]
-	fn address_mapping() {
-		let address: AccountId = PrefixedAddressMapping::into_account_id(H160::from_slice(&hex_literal::hex!(
-			"a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"
-		)));
-		assert_eq!(
-			&AsRef::<[u8; 32]>::as_ref(&address),
-			&&hex_literal::hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a")
-		);
 	}
 }
