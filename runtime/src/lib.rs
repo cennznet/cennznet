@@ -681,7 +681,7 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 	}
 	fn ideal() -> Permill {
 		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
-		Permill::from_parts(5_000)
+		Permill::from_parts(50_000)
 	}
 	fn upper() -> Permill {
 		Permill::one()
