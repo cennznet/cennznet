@@ -690,22 +690,11 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 		Permill::zero()
 	}
 	fn ideal() -> Permill {
-		// blocks > 50% full trigger fee increase, < 50% full trigger fee decrease
-		Permill::from_parts(500_000)
+		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
+		Permill::from_parts(50_000)
 	}
 	fn upper() -> Permill {
 		Permill::one()
-	}
-}
-
-/// fixed EIP-1559 'base fee'
-const FIXED_BASE_FEE: Balance = 3_000_000_000_000;
-/// Fixed gas price schedule
-/// This is more consistent while the network block capacity is non-contentious
-pub struct FixedGasPrice;
-impl FeeCalculator for FixedGasPrice {
-	fn min_gas_price() -> U256 {
-		FIXED_BASE_FEE.into()
 	}
 }
 
@@ -731,7 +720,7 @@ const fn cennznet_london() -> EvmConfig {
 static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
 
 impl pallet_evm::Config for Runtime {
-	type FeeCalculator = FixedGasPrice;
+	type FeeCalculator = BaseFee;
 	type GasWeightMapping = CENNZnetGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
@@ -1186,7 +1175,7 @@ impl_runtime_apis! {
 		}
 
 		fn gas_price() -> U256 {
-			<Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price()
+			BaseFee::min_gas_price()
 		}
 
 		fn account_code_at(address: H160) -> Vec<u8> {
