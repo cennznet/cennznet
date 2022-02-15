@@ -74,7 +74,10 @@ pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill, Perquintill};
 // CENNZnet only imports
 use cennznet_primitives::{
 	eth::crypto::AuthorityId as EthBridgeId,
-	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature},
+	types::{
+		AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Header, Index, Moment, SerialNumber, SeriesId,
+		Signature, TokenId,
+	},
 };
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
@@ -83,7 +86,7 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{CollectionInfo, Listing, ListingId, TokenInfo};
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
@@ -229,6 +232,7 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
+	/// What to do if an NFT is transferred
 	/// The data to be stored in an account.
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
@@ -251,6 +255,7 @@ impl crml_nft::Config for Runtime {
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
+	type OnTransferSubscription = TokenApprovals;
 }
 
 parameter_types! {
@@ -615,6 +620,11 @@ impl crml_eth_bridge::Config for Runtime {
 	type FinalSessionTracker = Staking;
 }
 
+impl crml_token_approvals::Config for Runtime {
+	type MultiCurrency = GenericAsset;
+	type IsTokenOwner = Nft;
+}
+
 // transaction must have an event/log of the deposit
 // i.e. keccack256("Deposit(address,address,uint256,bytes32)")
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
@@ -847,6 +857,7 @@ construct_runtime!(
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+		TokenApprovals: crml_token_approvals::{Pallet, Call, Storage},
 	}
 );
 

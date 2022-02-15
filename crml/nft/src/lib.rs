@@ -32,8 +32,8 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance};
-use crml_support::MultiCurrency;
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
@@ -59,6 +59,15 @@ use weights::WeightInfo;
 mod types;
 pub use types::*;
 
+// Interface for determining ownership of an NFT from some account
+impl<T: Config> IsTokenOwner for Module<T> {
+	type AccountId = T::AccountId;
+
+	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool {
+		&Self::token_owner((token_id.0, token_id.1), token_id.2) == account
+	}
+}
+
 pub trait Config: frame_system::Config {
 	/// The system event type
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -70,6 +79,8 @@ pub trait Config: frame_system::Config {
 	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// Provides the public call to weight mapping
 	type WeightInfo: WeightInfo;
+	/// Handler for when an NFT has been transferred
+	type OnTransferSubscription: OnTransferSubscriber;
 }
 
 decl_event!(
@@ -351,7 +362,7 @@ decl_module! {
 		/// `metadata_base_uri` - Base URI for off-chain metadata for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(
+		pub fn create_collection(
 			origin,
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
@@ -387,7 +398,7 @@ decl_module! {
 		/// Caller must be the collection owner
 		#[weight = T::WeightInfo::mint_series(*quantity)]
 		#[transactional]
-		fn mint_series(
+		pub fn mint_series(
 			origin,
 			collection_id: CollectionId,
 			quantity: TokenCount,
@@ -983,6 +994,8 @@ impl<T: Config> Module<T> {
 	) -> DispatchResult {
 		for serial_number in serial_numbers.iter() {
 			<TokenOwner<T>>::insert((collection_id, series_id), serial_number, new_owner);
+			let token_id: TokenId = (collection_id, series_id, *serial_number);
+			T::OnTransferSubscription::on_nft_transfer(&token_id);
 		}
 		let quantity = serial_numbers.len() as TokenCount;
 		let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(&current_owner, |balances| {

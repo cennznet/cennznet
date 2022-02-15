@@ -18,12 +18,14 @@
 
 //! # Common crml types and traits
 
+use cennznet_primitives::types::TokenId;
 use codec::Encode;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
 };
 use pallet_evm::AddressMapping;
+use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating},
@@ -57,6 +59,29 @@ where
 		raw_account[31] = checksum;
 
 		raw_account.into()
+	}
+}
+
+impl<AccountId> AddressMappingReversibleExt<AccountId> for PrefixedAddressMapping<AccountId>
+where
+	AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+{
+	fn from_account_id(address: AccountId) -> H160 {
+		let mut check_prefix = [0u8; 11];
+		check_prefix[0..4].copy_from_slice(b"cvm:");
+
+		let raw_account: [u8; 32] = address.into();
+
+		return if raw_account[..11] == check_prefix {
+			let new_account: [u8; 20] = raw_account[11..31].try_into().expect("expected 32 bytes"); // Guaranteed in bounds
+			new_account.into()
+		} else if raw_account == [0u8; 32] {
+			H160::default()
+		} else {
+			let mut return_account = [0u8; 20];
+			return_account[0..4].copy_from_slice(b"crt:");
+			return_account.into()
+		};
 	}
 }
 
@@ -315,11 +340,26 @@ pub trait StakingAmount {
 	fn total_staked() -> Self::Balance;
 }
 
+/// The interface that states whether an account owns a token
+pub trait IsTokenOwner {
+	type AccountId;
+
+	/// Gets whether account owns NFT of TokenId
+	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool;
+}
+
+/// The nft with the given token_id was transferred.
+pub trait OnTransferSubscriber {
+	/// The nft with the given token_id was transferred.
+	fn on_nft_transfer(token_id: &TokenId);
+}
+
 #[cfg(test)]
 mod test {
 	use super::{PrefixedAddressMapping, H160};
 	use hex_literal::hex;
 	use pallet_evm::AddressMapping;
+	use precompile_utils::AddressMappingReversibleExt;
 	use sp_runtime::AccountId32;
 
 	#[test]
@@ -330,6 +370,37 @@ mod test {
 		assert_eq!(
 			AsRef::<[u8; 32]>::as_ref(&address),
 			&hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a")
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_eth() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from(hex!(
+			"63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"
+		)));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"))
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_raw() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from([0u8; 32]));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_cennz() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from(hex!(
+			"63766d3af24a2abf89f5c2a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"
+		)));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("6372743a00000000000000000000000000000000"))
 		);
 	}
 }

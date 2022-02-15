@@ -15,6 +15,7 @@
 
 use super::*;
 use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
 

@@ -1,6 +1,5 @@
 use crate::Runtime;
-use cennznet_primitives::types::AssetId;
-use crml_nft::{CollectionId, SeriesId};
+use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
@@ -111,7 +110,7 @@ impl Erc721IdConversion for Runtime {
 		let mut buf = [0u8; 20];
 		buf[0..4].copy_from_slice(ERC721_PRECOMPILE_ADDRESS_PREFIX);
 		buf[4..8].copy_from_slice(&series_id_parts.0.to_be_bytes());
-		buf[8..20].copy_from_slice(&series_id_parts.1.to_be_bytes());
+		buf[8..12].copy_from_slice(&series_id_parts.1.to_be_bytes());
 
 		H160::from(buf).into()
 	}

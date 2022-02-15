@@ -16,31 +16,26 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crml_nft::{CollectionId, SerialNumber, SeriesId};
-use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
+pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	traits::{
-		fungibles::{approvals::Inspect as ApprovalInspect, metadata::Inspect as MetadataInspect, Inspect},
-		OriginTrait,
-	},
+	traits::OriginTrait,
 };
-use pallet_evm::{AddressMapping, PrecompileSet};
+pub use pallet_evm::{AddressMapping, PrecompileSet};
 pub use precompile_utils::{
-	error, keccak256, Address, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
-	LogsBuilder, RuntimeHelper,
+	error, keccak256, Address, AddressMappingReversibleExt, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult,
+	FunctionModifier, Gasometer, LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec};
 
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod tests;
-
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
+
+/// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -93,9 +88,10 @@ pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -144,11 +140,11 @@ where
 						Action::Name => Self::name(series_id_parts, gasometer),
 						Action::Symbol => Self::symbol(series_id_parts, gasometer),
 						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
+						Action::Approve => Self::approve(series_id_parts, input, gasometer, context),
+						Action::GetApproved => Self::get_approved(series_id_parts, input, gasometer),
 						// TODO: implement approval stuff
 						Action::SafeTransferFrom
 						| Action::SafeTransferFromCallData
-						| Action::Approve
-						| Action::GetApproved
 						| Action::IsApprovedForAll
 						| Action::SetApprovalForAll => {
 							return Some(Err(error("function not implemented yet").into()));
@@ -180,9 +176,10 @@ impl<Runtime> Erc721PrecompileSet<Runtime> {
 impl<Runtime> Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -261,7 +258,69 @@ where
 		gasometer.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 2)?;
+		input.expect_arguments(gasometer, 3)?;
+
+		let to: H160 = input.read::<Address>(gasometer)?.into();
+		let from: H160 = input.read::<Address>(gasometer)?.into();
+		let serial_number = input.read::<U256>(gasometer)?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::max_value().into() {
+			return Err(error("expected token id <= 2^32").into());
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id = (series_id_parts.0, series_id_parts.1, serial_number);
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let approved_account: H160 = Runtime::AddressMapping::from_account_id(
+			crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id),
+		);
+
+		// Build call with origin.
+		if context.caller == from || context.caller == approved_account {
+			let from = Runtime::AddressMapping::into_account_id(from);
+			let to = Runtime::AddressMapping::into_account_id(to);
+
+			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				Some(from).into(),
+				crml_nft::Call::<Runtime>::transfer {
+					token_id,
+					new_owner: to,
+				},
+				gasometer,
+			)?;
+		} else {
+			return Err(error("caller not approved").into());
+		}
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new().write(true).build(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_TRANSFER,
+					context.caller,
+					to,
+					EvmDataWriter::new().write(serial_number).build(),
+				)
+				.build(),
+		})
+	}
+
+	fn approve(
+		series_id_parts: (CollectionId, SeriesId),
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+		context: &Context,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		input.expect_arguments(gasometer, 3)?;
 
 		let to: H160 = input.read::<Address>(gasometer)?.into();
 		let from: H160 = input.read::<Address>(gasometer)?.into();
@@ -275,22 +334,21 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		// Build call with origin.
 		if context.caller == from {
 			let from = Runtime::AddressMapping::into_account_id(context.caller);
 			let to = Runtime::AddressMapping::into_account_id(to);
-
+			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
-				Some(from).into(),
-				crml_nft::Call::<Runtime>::transfer {
-					token_id: (series_id_parts.0, series_id_parts.1, serial_number),
-					new_owner: to,
+				None.into(),
+				crml_token_approvals::Call::<Runtime>::erc721_approval {
+					caller: from,
+					operator_account: to,
+					token_id,
 				},
 				gasometer,
 			)?;
 		} else {
-			// TODO: use approval stuff..
 			return Err(error("caller must be from").into());
 		};
 
@@ -299,6 +357,51 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_APPROVAL,
+					context.caller,
+					to,
+					EvmDataWriter::new().write(serial_number).build(),
+				)
+				.build(),
+		})
+	}
+
+	fn get_approved(
+		series_id_parts: (CollectionId, SeriesId),
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		input.expect_arguments(gasometer, 1)?;
+		let serial_number = input.read::<U256>(gasometer)?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::max_value().into() {
+			return Err(error("expected token id <= 2^32").into());
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let approved_account = crml_token_approvals::Module::<Runtime>::erc721_approvals((
+			series_id_parts.0,
+			series_id_parts.1,
+			serial_number,
+		));
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new()
+				.write::<Bytes>(
+					Runtime::AddressMapping::from_account_id(approved_account)
+						.as_bytes()
+						.into(),
+				)
+				.build(),
 			logs: Default::default(),
 		})
 	}
