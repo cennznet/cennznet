@@ -78,7 +78,9 @@ where
 		} else if raw_account == [0u8; 32] {
 			H160::default()
 		} else {
-			b"crt:0000000000000000".into()
+			let mut return_account = [0u8; 20];
+			return_account[0..4].copy_from_slice(b"crt:");
+			return_account.into()
 		};
 	}
 }
@@ -357,6 +359,7 @@ mod test {
 	use super::{PrefixedAddressMapping, H160};
 	use hex_literal::hex;
 	use pallet_evm::AddressMapping;
+	use precompile_utils::AddressMappingReversibleExt;
 	use sp_runtime::AccountId32;
 
 	#[test]
@@ -367,6 +370,37 @@ mod test {
 		assert_eq!(
 			AsRef::<[u8; 32]>::as_ref(&address),
 			&hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a")
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_eth() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from(hex!(
+			"63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"
+		)));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"))
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_raw() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from([0u8; 32]));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
+		);
+	}
+
+	#[test]
+	fn reverse_address_mapping_from_cennz() {
+		let address: H160 = PrefixedAddressMapping::from_account_id(AccountId32::from(hex!(
+			"63766d3af24a2abf89f5c2a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"
+		)));
+		assert_eq!(
+			address,
+			H160::from_slice(&hex!("6372743a00000000000000000000000000000000"))
 		);
 	}
 }

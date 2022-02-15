@@ -272,10 +272,10 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (series_id_parts.0, series_id_parts.1, serial_number);
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let approved_account: H160 = Runtime::AddressMapping::from_account_id(
 			crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id),
 		);
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build call with origin.
 		if context.caller == from || context.caller == approved_account {
