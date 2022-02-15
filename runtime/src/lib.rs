@@ -97,6 +97,9 @@ use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, R
 pub mod constants;
 use constants::{currency::*, time::*};
 
+#[cfg(test)]
+pub use crate::tests::common::mock::ExtBuilder;
+
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{

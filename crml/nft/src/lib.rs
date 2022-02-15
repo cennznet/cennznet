@@ -369,7 +369,7 @@ decl_module! {
 		/// `metadata_base_uri` - Base URI for off-chain metadata for tokens in this collection
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the collection by default.
 		#[weight = T::WeightInfo::create_collection()]
-		fn create_collection(
+		pub fn create_collection(
 			origin,
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
@@ -405,7 +405,7 @@ decl_module! {
 		/// Caller must be the collection owner
 		#[weight = T::WeightInfo::mint_series(*quantity)]
 		#[transactional]
-		fn mint_series(
+		pub fn mint_series(
 			origin,
 			collection_id: CollectionId,
 			quantity: TokenCount,

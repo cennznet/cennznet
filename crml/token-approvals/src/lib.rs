@@ -97,7 +97,7 @@ decl_module! {
 		/// Set approval for a single NFT
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
-		#[weight = 16_000_000] //TODO Estimate correct gas
+		#[weight = 125_000_000]
 		pub fn erc721_approval(
 			origin,
 			caller: T::AccountId,
@@ -115,6 +115,30 @@ decl_module! {
 			Self::deposit_event(RawEvent::NFTApprovalSet(Some(operator_account), token_id));
 			Ok(())
 		}
+
+		// #[weight = 175_000_000]
+		// pub fn erc721_approval_for_all(
+		// 	origin,
+		// 	caller: T::AccountId,
+		// 	operator_account: T::AccountId,
+		// 	collection_id: CollectionId,
+		// 	series_id: SeriesId,
+		// ) -> DispatchResult {
+		// 	let _ = ensure_none(origin)?;
+		// 	// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		// 	ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+		// 	let approvals = Self::erc721_approvals_for_all(&caller, (collection_id, series_id));
+		// 	ensure!(!approvals.contains(&operator_account), Error::<T>::AlreadyApproved);
+		//
+		// 	ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account.clone());
+		//
+		// 	Self::deposit_event(RawEvent::NFTApprovalSetForAll(
+		// 		operator_account,
+		// 		collection_id,
+		// 		series_id,
+		// 	));
+		// 	Ok(())
+		// }
 	}
 }
 
@@ -125,36 +149,5 @@ impl<T: Config> Module<T> {
 		// Check that origin owns NFT
 		ERC721Approvals::<T>::remove(token_id);
 		Self::deposit_event(RawEvent::NFTApprovalSet(None, *token_id));
-	}
-
-	//TODO ADD GETTER
-
-	/// Set approval for an account for an NFT series
-	/// Mapping from owner to operator approvals
-	/// Doesn't clear approvals on transfer
-	pub fn erc721_approval_for_all(
-		caller: T::AccountId,
-		operator_account: T::AccountId,
-		collection_id: CollectionId,
-		series_id: SeriesId,
-	) -> DispatchResult {
-		// mapping(address => mapping(address => bool)) private _operatorApprovals;
-		ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-		// Mapping from one address to multiple addresses with approval (Can have more than one)
-		// Doesn't clear approvals on transfer, but based on account.
-		//  This means that if you sell all NFTs in a collection, then buy another one, you don't need
-		//  to set approval again
-		// let mut current_approvals = Self::erc721_approvals_for_all(caller.clone(), (collection_id, series_id));
-		// Check if operator_account is in storage already
-		// Add and sort?
-		// Can use below if sorting isn't required
-		ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account.clone());
-
-		Self::deposit_event(RawEvent::NFTApprovalSetForAll(
-			operator_account,
-			collection_id,
-			series_id,
-		));
-		Ok(())
 	}
 }

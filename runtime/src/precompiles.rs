@@ -97,7 +97,7 @@ impl Erc721IdConversion for Runtime {
 		let mut buf = [0u8; 20];
 		buf[0..4].copy_from_slice(NFT_PRECOMPILE_ADDRESS_PREFIX);
 		buf[4..8].copy_from_slice(&series_id_parts.0.to_be_bytes());
-		buf[8..20].copy_from_slice(&series_id_parts.1.to_be_bytes());
+		buf[8..12].copy_from_slice(&series_id_parts.1.to_be_bytes());
 
 		Address::from(H160::from(buf))
 	}

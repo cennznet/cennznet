@@ -19,7 +19,7 @@
 extern crate alloc;
 
 use crate::alloc::borrow::ToOwned;
-use fp_evm::{Context, ExitError, PrecompileFailure};
+pub use fp_evm::{Context, ExitError, PrecompileFailure};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::Get,

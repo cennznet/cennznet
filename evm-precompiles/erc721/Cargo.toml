@@ -21,6 +21,9 @@ sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb5
 num_enum = { version = "0.5.3", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 
+[dev-dependencies]
+cennznet-runtime = { path = "../../runtime" }
+
 [features]
 default = ["std"]
 std = [

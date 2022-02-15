@@ -4835,6 +4835,7 @@ name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
+ "cennznet-runtime",
  "crml-nft",
  "crml-token-approvals",
  "fp-evm",
