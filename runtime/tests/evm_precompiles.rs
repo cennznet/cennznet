@@ -14,8 +14,9 @@
 */
 
 use cennznet_primitives::types::{AccountId, CollectionId, SerialNumber, SeriesId};
-use cennznet_runtime::{impls::PrefixedAddressMapping, Nft, Runtime, TokenApprovals};
+use cennznet_runtime::{Nft, Runtime, TokenApprovals};
 use crml_nft::MetadataScheme;
+use crml_support::PrefixedAddressMapping;
 use frame_support::assert_ok;
 use pallet_evm_precompiles_erc721::{
 	Action, Address, AddressMapping, Context, Erc721IdConversion, Erc721PrecompileSet, EvmDataWriter, PrecompileSet,

@@ -25,6 +25,7 @@ use frame_support::{
 	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
 };
 use pallet_evm::AddressMapping;
+use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating},
@@ -58,6 +59,27 @@ where
 		raw_account[31] = checksum;
 
 		raw_account.into()
+	}
+}
+
+impl<AccountId> AddressMappingReversibleExt<AccountId> for PrefixedAddressMapping<AccountId>
+where
+	AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+{
+	fn from_account_id(address: AccountId) -> H160 {
+		let mut check_prefix = [0u8; 11];
+		check_prefix[0..4].copy_from_slice(b"cvm:");
+
+		let raw_account: [u8; 32] = address.into();
+
+		return if raw_account[..11] == check_prefix {
+			let new_account: [u8; 20] = raw_account[11..31].try_into().expect("expected 32 bytes"); // Guaranteed in bounds
+			new_account.into()
+		} else if raw_account == [0u8; 32] {
+			H160::default()
+		} else {
+			b"crt:0000000000000000".into()
+		};
 	}
 }
 

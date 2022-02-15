@@ -18,6 +18,7 @@ frame-system = { git = "https://github.com/cennznet/substrate", rev = "2db18f864
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
 impl-trait-for-tuples = "0.2.1"
 cennznet-primitives = { path = "../../primitives", default-features = false }
+precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
 hex-literal = { version = "0.3.1", default-features = false }
@@ -34,4 +35,5 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"cennznet-primitives/std",
+	"precompile-utils/std",
 ]
