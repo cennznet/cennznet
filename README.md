@@ -37,6 +37,8 @@ $ docker run \
     --unsafe-rpc-external
 ```
 
+`9944` is Websocket port, `9933` is the HTTP RPC port. Majority of DApps should use `9944`, which is accessible via `ws://localhost:9944`
+
 ### Run from Source
 
 Follow the steps to build and run a CENNZnet node from the source code.
