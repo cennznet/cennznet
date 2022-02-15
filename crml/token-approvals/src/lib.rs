@@ -24,7 +24,7 @@
 
 use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
 use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
@@ -35,8 +35,6 @@ mod tests;
 
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	/// Handles a multi-currency fungible asset system
 	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// NFT ownership interface
@@ -50,21 +48,6 @@ impl<T: Config> OnTransferSubscriber for Module<T> {
 		Self::remove_erc721_approval(token_id);
 	}
 }
-
-decl_event!(
-	pub enum Event<T>
-	where
-		<T as frame_system::Config>::AccountId,
-		CollectionId = CollectionId,
-		SeriesId = SeriesId,
-		SerialNumber = SerialNumber,
-	{
-		// Approval has been set (account_id, (collection_id, series_id, serial_number))
-		NFTApprovalSet(Option<AccountId>, (CollectionId, SeriesId, SerialNumber)),
-		// Approval has been set for series (account_id, collection_id, series_id)
-		NFTApprovalSetForAll(AccountId, CollectionId, SeriesId),
-	}
-);
 
 decl_error! {
 	/// Error for the token-approvals module.
@@ -90,10 +73,6 @@ decl_storage! {
 decl_module! {
 	/// The module declaration.
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		// Initializing events
-		// this is needed only if you are using events in your module
-		fn deposit_event() = default;
-
 		/// Set approval for a single NFT
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
@@ -111,8 +90,6 @@ decl_module! {
 			// Check that origin owns NFT
 			ensure!(T::IsTokenOwner::check_ownership(&caller, &token_id), Error::<T>::NotTokenOwner);
 			ERC721Approvals::<T>::insert(token_id, operator_account.clone());
-
-			Self::deposit_event(RawEvent::NFTApprovalSet(Some(operator_account), token_id));
 			Ok(())
 		}
 
@@ -132,11 +109,6 @@ decl_module! {
 		//
 		// 	ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account.clone());
 		//
-		// 	Self::deposit_event(RawEvent::NFTApprovalSetForAll(
-		// 		operator_account,
-		// 		collection_id,
-		// 		series_id,
-		// 	));
 		// 	Ok(())
 		// }
 	}
@@ -148,6 +120,5 @@ impl<T: Config> Module<T> {
 	pub fn remove_erc721_approval(token_id: &TokenId) {
 		// Check that origin owns NFT
 		ERC721Approvals::<T>::remove(token_id);
-		Self::deposit_event(RawEvent::NFTApprovalSet(None, *token_id));
 	}
 }

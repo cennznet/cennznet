@@ -14,11 +14,9 @@
 */
 
 use super::*;
-use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test, TokenApprovals};
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
-use crml_nft::MetadataScheme;
-use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
-use sp_runtime::Permill;
+use crate::mock::{ExtBuilder, Test, TokenApprovals};
+use cennznet_primitives::types::TokenId;
+use frame_support::{assert_noop, assert_ok};
 
 #[test]
 fn set_erc721_approval() {

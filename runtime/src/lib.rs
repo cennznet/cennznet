@@ -97,9 +97,6 @@ use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCa
 pub mod constants;
 use constants::{currency::*, time::*};
 
-#[cfg(test)]
-pub use crate::tests::common::mock::ExtBuilder;
-
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
@@ -624,7 +621,6 @@ impl crml_eth_bridge::Config for Runtime {
 }
 
 impl crml_token_approvals::Config for Runtime {
-	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type IsTokenOwner = Nft;
 }
@@ -861,7 +857,7 @@ construct_runtime!(
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		TokenApprovals: crml_token_approvals::{Pallet, Call, Storage, Event<T>},
+		TokenApprovals: crml_token_approvals::{Pallet, Call, Storage},
 	}
 );
 

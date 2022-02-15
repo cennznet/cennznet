@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Nft: crml_nft::{Pallet, Call, Storage, Event<T>},
-		TokenApprovals: token_approvals::{Pallet, Call, Storage, Event<T>},
+		TokenApprovals: token_approvals::{Pallet, Call, Storage},
 	}
 );
 
@@ -107,7 +107,6 @@ impl IsTokenOwner for MockTokenOwner {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type IsTokenOwner = MockTokenOwner;
 }

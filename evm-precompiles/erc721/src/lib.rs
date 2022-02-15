@@ -34,6 +34,9 @@ use sp_std::{marker::PhantomData, vec};
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
 
+/// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
+
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -272,6 +275,7 @@ where
 		let approved_account: H160 = Runtime::AddressMapping::from_account_id(
 			crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id),
 		);
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build call with origin.
 		if context.caller == from || context.caller == approved_account {
@@ -296,7 +300,14 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			logs: Default::default(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_TRANSFER,
+					context.caller,
+					to,
+					EvmDataWriter::new().write(serial_number).build(),
+				)
+				.build(),
 		})
 	}
 
@@ -346,7 +357,14 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			logs: Default::default(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_APPROVAL,
+					context.caller,
+					to,
+					EvmDataWriter::new().write(serial_number).build(),
+				)
+				.build(),
 		})
 	}
 
