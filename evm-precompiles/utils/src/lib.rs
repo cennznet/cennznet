@@ -190,7 +190,12 @@ where
 		// computations.
 		let used_weight = call
 			.dispatch(origin)
-			.map_err(|e| gasometer.revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?
+			.map_err(|e| {
+				gasometer.revert(alloc::format!(
+					"Dispatched call failed with error: {:?}",
+					e.error.stripped()
+				))
+			})?
 			.actual_weight;
 
 		let used_gas = Runtime::GasWeightMapping::weight_to_gas(used_weight.unwrap_or(dispatch_info.weight));
@@ -332,9 +337,27 @@ impl Gasometer {
 	/// This might be required if we format revert messages using user data.
 	#[must_use]
 	pub fn revert(&self, output: impl AsRef<[u8]>) -> PrecompileFailure {
+		// see: https://github.com/ethereum/solidity/pull/3364/files
+		// The provided string will be :ref:`abi-encoded <ABI>` as if it were a call to a function ``Error(string)``.
+		// In the above example, ``revert("Not enough Ether provided.");`` will cause the following hexadecimal data be
+		// set as error return data:
+		// 0x08c379a0                                                         // Function selector for Error(string)
+		// 0x0000000000000000000000000000000000000000000000000000000000000020 // Data offset
+		// 0x000000000000000000000000000000000000000000000000000000000000001a // String length
+		// 0x4e6f7420656e6f7567682045746865722070726f76696465642e000000000000 // String data
+		// 'Error(string)' selector and data offset abi encoded, matches solidity `revert` call
+		let error_selector_data_offset: [u8; 36] =
+			hex_literal::hex!("08c379a00000000000000000000000000000000000000000000000000000000000000020");
+		let message_length = rlp::encode(&output.as_ref().len());
+		let message = rlp::encode(&output.as_ref());
+		let mut revert_buf = vec![0_u8; 68 + message.len() as usize];
+		revert_buf[..36].copy_from_slice(&error_selector_data_offset);
+		revert_buf[36..36 + message_length.len()].copy_from_slice(&message_length);
+		revert_buf[68..].copy_from_slice(&message);
+
 		PrecompileFailure::Revert {
 			exit_status: ExitRevert::Reverted,
-			output: output.as_ref().to_owned(),
+			output: revert_buf,
 			cost: self.used_gas,
 		}
 	}

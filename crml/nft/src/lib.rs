@@ -276,18 +276,11 @@ decl_module! {
 					}
 				}
 
-				let series_metadata_uris: Vec<(CollectionId, SeriesId, Vec<u8>)> = v1_storage::SeriesMetadataURI::drain().collect();
-				let write_count = series_metadata_uris.len();
-				for (collection, series, series_uri_path) in series_metadata_uris {
-					if !series_uri_path.is_empty() {
-						SeriesMetadataScheme::insert(collection, series, MetadataScheme::Https(series_uri_path));
-					}
-				}
-
+				v1_storage::SeriesMetadataURI::remove_all(None);
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 
-				100_000 * write_count as Weight
+				6_000_000 as Weight
 			} else {
 				Zero::zero()
 			}

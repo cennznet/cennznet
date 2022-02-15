@@ -131,7 +131,6 @@ fn migration_v1_to_v2() {
 		v1_storage::IsSingleIssue::insert(0, 5, true);
 		v1_storage::CollectionMetadataURI::insert(1, v1_storage::MetadataBaseURI::Ipfs);
 		v1_storage::SeriesMetadataURI::insert(3, 0, b"https://api.example.com/tokens".to_vec());
-		v1_storage::SeriesMetadataURI::insert(3, 1, Vec::<u8>::default());
 
 		// run upgrade
 		StorageVersion::put(Releases::V1 as u32); // rollback to v1
@@ -139,11 +138,7 @@ fn migration_v1_to_v2() {
 
 		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
 		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
-		assert_eq!(
-			SeriesMetadataScheme::get(3, 0),
-			Some(MetadataScheme::Https(b"https://api.example.com/tokens".to_vec()))
-		);
-		assert!(!SeriesMetadataScheme::contains_key(3, 1),);
+		assert!(!v1_storage::SeriesMetadataURI::contains_key(3, 0),);
 		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
 	});
 }

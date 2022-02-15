@@ -18,22 +18,48 @@
 
 //! # Common crml types and traits
 
-use codec::Encode;
-// Note: in the following traits the terms:
-// - 'token' / 'asset' / 'currency' and
-// - 'balance' / 'value' / 'amount'
-// are used interchangeably as they make more sense in certain contexts.
 use cennznet_primitives::types::TokenId;
+use codec::Encode;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
 };
+use pallet_evm::AddressMapping;
 pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating},
 	DispatchError, DispatchResult,
 };
-use sp_std::{fmt::Debug, prelude::*, result};
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*, result};
+
+/// EVM to CENNZnet address mapping impl
+pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
+
+/// Converts 20 byte EVM address to 32 byte CENNZnet/substrate address
+/// Conversion process is:
+/// 1. AccountId prefix: concat("cvm:", "0x00000000000000"), length: 11 bytes
+/// 2. EVM address: the original evm address, length: 20 bytes
+/// 3. CheckSum:  byte_xor(AccountId prefix + EVM address), length: 1 byte
+///
+/// e.g.given input EVM address `0x9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903` -
+/// output `0x63766d3a000000000000009d6a93a45c9372cc46c9bacfbdb0a2a9398ca90310` cennznet address (hex-ified)
+/// breakdown:
+/// 63766d3a   00000000000000 9d6a93a45c9372cc46c9bacfbdb0a2a9398ca903 10
+/// [ prefix ] [  padding  ]  [            ethereum address          ] [checksum]
+impl<AccountId> AddressMapping<AccountId> for PrefixedAddressMapping<AccountId>
+where
+	AccountId: From<[u8; 32]>,
+{
+	fn into_account_id(address: H160) -> AccountId {
+		let mut raw_account = [0u8; 32];
+		raw_account[0..4].copy_from_slice(b"cvm:");
+		raw_account[11..31].copy_from_slice(&address[..]);
+		let checksum: u8 = raw_account[1..31].iter().fold(raw_account[0], |sum, &byte| sum ^ byte);
+		raw_account[31] = checksum;
+
+		raw_account.into()
+	}
+}
 
 /// Tracks the status of sessions in an era
 pub trait FinalSessionTracker {
@@ -93,6 +119,11 @@ pub trait EventClaimVerifier {
 	/// Returns a unique proof Id on success
 	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
 }
+
+// Note: in the following traits the terms:
+// - 'token' / 'asset' / 'currency' and
+// - 'balance' / 'value' / 'amount'
+// are used interchangeably as they make more sense in certain contexts.
 
 /// Something which provides an ID with authority from chain storage
 pub trait AssetIdAuthority {
@@ -297,4 +328,23 @@ pub trait IsTokenOwner {
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
 	fn on_nft_transfer(token_id: &TokenId);
+}
+
+#[cfg(test)]
+mod test {
+	use super::{PrefixedAddressMapping, H160};
+	use hex_literal::hex;
+	use pallet_evm::AddressMapping;
+	use sp_runtime::AccountId32;
+
+	#[test]
+	fn address_mapping() {
+		let address: AccountId32 = PrefixedAddressMapping::into_account_id(H160::from_slice(&hex!(
+			"a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"
+		)));
+		assert_eq!(
+			AsRef::<[u8; 32]>::as_ref(&address),
+			&hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a")
+		);
+	}
 }
