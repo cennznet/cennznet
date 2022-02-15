@@ -1093,6 +1093,7 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "parity-scale-codec",
  "scale-info",
  "serde",

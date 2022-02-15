@@ -21,6 +21,9 @@ use sp_std::prelude::*;
 /// Ethereum address type
 pub type EthAddress = H160;
 
+/// Deposit/Withdrawal Id
+pub type EventId = u64;
+
 /// A deposit event made by the ERC20 peg contract on Ethereum
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct Erc20DepositEvent {
@@ -35,7 +38,7 @@ pub struct Erc20DepositEvent {
 
 /// A withdraw message to prove and submit to Ethereum
 /// Allowing redemption of ERC20s
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct WithdrawMessage {
 	/// The ERC20 token address / type deposited
 	pub token_address: EthAddress,

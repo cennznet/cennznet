@@ -21,6 +21,9 @@ sp-core = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false }
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default-features = false }
 
+[dev-dependencies]
+hex-literal = "*"
+
 [features]
 default = ["std"]
 std = [

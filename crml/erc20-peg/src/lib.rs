@@ -16,7 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::{AssetId, Balance};
-use codec::Decode;
+use codec::{Decode, Encode};
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
@@ -25,11 +25,15 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
+	traits::{AccountIdConversion, Hash, Zero},
 	DispatchError,
 };
 use sp_std::prelude::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 mod types;
 use types::*;
 
@@ -62,6 +66,8 @@ decl_storage! {
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
 		CENNZDepositsActive get(fn cennz_deposit_active): bool;
+		/// Withdrawal hash set (scale encoded blake2(adddres (token), u256 (amount), address (beneficiary)))
+		Withdrawals get(fn withdrawals): map hasher(identity) T::Hash => ();
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -79,13 +85,13 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where AccountId = <T as frame_system::Config>::AccountId {
 		/// An erc20 deposit claim has started. (deposit Id, sender)
-		Erc20Claim(u64, AccountId),
+		Erc20Claim(EventId, AccountId),
 		/// A bridged erc20 deposit succeeded.(deposit Id, asset, amount, beneficiary)
-		Erc20Deposit(u64, AssetId, Balance, AccountId),
+		Erc20Deposit(EventId, AssetId, Balance, AccountId),
 		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (withdrawal Id, asset, amount, beneficiary)
-		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
+		Erc20Withdraw(EventId, AssetId, Balance, EthAddress),
 		/// A bridged erc20 deposit failed.(deposit Id)
-		Erc20DepositFail(u64),
+		Erc20DepositFail(EventId),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
 		/// ERC20 CENNZ deposits activated
@@ -154,7 +160,7 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::Erc20Claim(event_claim_id, origin));
 		}
 
-		#[weight = 50_000_000]
+		#[weight = 70_000_000]
 		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
 		/// Tokens will be burnt and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
@@ -175,6 +181,7 @@ decl_module! {
 				beneficiary
 			};
 			let event_proof_id = T::EthBridge::generate_event_proof(&message)?;
+			<Withdrawals<T>>::insert(T::Hashing::hash(&(message, event_proof_id).encode()[..]), ());
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}
