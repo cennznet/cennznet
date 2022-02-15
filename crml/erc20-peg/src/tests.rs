@@ -1,3 +1,8 @@
+use super::*;
+use crate::mock::{ExtBuilder, Erc20Peg, Test};
+use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
+use sp_runtime::DispatchError;
+
 #[test]
 fn deposit_claim() {
     // address is valid

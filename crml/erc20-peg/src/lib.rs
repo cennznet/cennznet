@@ -173,7 +173,16 @@ decl_module! {
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 
-			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			if asset_id == T::MultiCurrency::staking_currency() {
+				if Self::cennz_deposit_active() {
+					// CENNZ is transferred, never burned
+					// TODO: most CENNZnet native assets should not be burned when bridging rather locked
+					T::MultiCurrency::transfer(&origin, &T::PegPalletId::get().into_account(), asset_id, amount, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+				}
+			} else {
+				// Ethereum bridged tokens are burned for withdrawal
+				let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			}
 
 			let message = WithdrawMessage {
 				token_address: token_address.unwrap(),
@@ -198,8 +207,16 @@ decl_module! {
 		#[weight = 1_000_000]
 		#[transactional]
 		/// Activate ERC20 CENNZ deposits (requires governance)
+		/// This pallet should be prefunded with the CENNZ inorder to enable
 		pub fn activate_cennz_deposits(origin) {
 			ensure_root(origin)?;
+			ensure!(
+				T::MultiCurrency::free_balance(
+					&T::PegPalletId::get().into_account(),
+					T::MultiCurrency::staking_currency(),
+				) > 0,
+				Error::<T>::DepositsPaused,
+			);
 			CENNZDepositsActive::put(true);
 			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
 		}
@@ -249,14 +266,13 @@ impl<T: Config> Module<T> {
 
 		// (Governance): CENNZ is a special case since the supply is already 100% minted
 		// it must be transferred from the unclaimed wallet
-		let amount = verified_event.amount.as_u128();
+		let amount = verified_event.amount.as_u128(); // checked amount < u128 in `deposit_claim` qed.
 		if asset_id == T::MultiCurrency::staking_currency() && Self::cennz_deposit_active() {
 			let _result = T::MultiCurrency::transfer(
-				// TODO: decide upon: Treasury / Sudo::key() / Bridge,
 				&T::PegPalletId::get().into_account(),
 				&beneficiary,
 				asset_id,
-				amount, // checked amount < u128 in `deposit_claim` qed.
+				amount,
 				ExistenceRequirement::KeepAlive,
 			);
 		} else {
@@ -264,7 +280,7 @@ impl<T: Config> Module<T> {
 			let _imbalance = T::MultiCurrency::deposit_creating(
 				&beneficiary,
 				asset_id,
-				amount, // checked amount < u128 in `deposit_claim` qed.
+				amount,
 			);
 		}
 
