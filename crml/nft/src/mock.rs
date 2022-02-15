@@ -14,8 +14,9 @@
 */
 
 use crate as crml_nft;
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::types::{AssetId, Balance, TokenId};
 use crml_generic_asset::impls::TransferDustImbalance;
+use crml_support::OnTransferSubscriber;
 use frame_support::{parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
@@ -80,6 +81,11 @@ impl crml_generic_asset::Config for Test {
 	type WeightInfo = ();
 }
 
+pub struct MockTransferSubscriber;
+impl OnTransferSubscriber for MockTransferSubscriber {
+	fn on_nft_transfer(_token_id: &TokenId) {}
+}
+
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
@@ -90,6 +96,7 @@ impl crate::Config for Test {
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
+	type OnTransferSubscription = MockTransferSubscriber;
 }
 
 #[derive(Default)]
