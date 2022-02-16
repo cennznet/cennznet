@@ -14,7 +14,7 @@ serde = { version = "1.0.106", features = ["derive"], optional = true }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "24cc355333c366efdfc01a66bbd4a212d50cfc49" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "4879da8de4141a1bfb9706a71ae9ef9f82099dd5" }
 sp-io = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default_features = false }
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default_features = false }
 sp-core = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6", default_features = false }
