@@ -26,7 +26,6 @@ use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, S
 use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
-use sp_core::U256;
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
 
@@ -68,8 +67,8 @@ decl_storage! {
 		pub ERC721Approvals get(fn erc721_approvals): map hasher(twox_64_concat) (CollectionId, SeriesId, SerialNumber) => T::AccountId;
 		// Account with transfer approval for an NFT series of another account
 		pub ERC721ApprovalsForAll get(fn erc721_approvals_for_all): double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (CollectionId, SeriesId) => Vec<T::AccountId>;
-		// Mapping from account to an approved balance of another account
-		pub ERC20Approvals get(fn ERC20_approvals): double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) T::AccountId => U256;
+		// Mapping from account/ asset_id to an approved balance of another account
+		pub ERC20Approvals get(fn erc20_approvals): double_map hasher(twox_64_concat) (T::AccountId, AssetId), hasher(twox_64_concat) T::AccountId => Balance;
 	}
 }
 
@@ -97,20 +96,35 @@ decl_module! {
 			Ok(())
 		}
 
-		/// Set approval for a single NFT
-		/// Mapping from token_id to operator
-		/// clears approval on transfer
-		#[weight = 125_000_000]
+		/// Set approval for an account to transfer an amount of tokens on behalf of the caller
+		/// Mapping from caller to spender and amount
+		/// mapping(address => mapping(address => uint256)) private _allowances;
+		#[weight = 100_000_000]
 		pub fn erc20_approval(
 			origin,
 			caller: T::AccountId,
 			spender: T::AccountId,
-			amount: U256,
+			asset_id: AssetId,
+			amount: Balance,
 		) -> DispatchResult {
 			// mapping(address => mapping(address => uint256)) private _allowances;
 			let _ = ensure_none(origin)?;
-			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-			ERC20Approvals::<T>::insert(caller, spender, amount);
+			ensure!(caller != spender, Error::<T>::CallerNotOperator);
+			ERC20Approvals::<T>::insert((caller, asset_id), spender, amount);
+			Ok(())
+		}
+
+		/// Removes an approval over an account and asset_id
+		#[weight = 100_000_000]
+		pub fn erc20_remove_approval(
+			origin,
+			caller: T::AccountId,
+			spender: T::AccountId,
+			asset_id: AssetId,
+		) -> DispatchResult {
+			// mapping(address => mapping(address => uint256)) private _allowances;
+			let _ = ensure_none(origin)?;
+			ERC20Approvals::<T>::remove((caller, asset_id), spender);
 			Ok(())
 		}
 

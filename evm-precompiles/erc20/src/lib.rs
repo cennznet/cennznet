@@ -17,6 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::{AssetId, Balance};
+use core::convert::TryInto;
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::OriginTrait;
@@ -25,9 +26,8 @@ use precompile_utils::{
 	keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, LogsBuilder,
 	RuntimeHelper,
 };
-use sp_runtime::traits::{SaturatedConversion, Zero};
-
 use sp_core::{H160, U256};
+use sp_runtime::traits::{Bounded, Lookup, SaturatedConversion, Zero};
 use sp_std::{marker::PhantomData, vec};
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet GA module
@@ -76,10 +76,12 @@ pub struct Erc20PrecompileSet<Runtime>(PhantomData<Runtime>);
 
 impl<Runtime> PrecompileSet for Erc20PrecompileSet<Runtime>
 where
-	Runtime:
-		crml_generic_asset::Config<AssetId = AssetId, Balance = Balance> + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_generic_asset::Config<AssetId = AssetId, Balance = Balance>
+		+ pallet_evm::Config
+		+ frame_system::Config
+		+ crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_generic_asset::Call<Runtime>>,
+	Runtime::Call: From<crml_generic_asset::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -130,12 +132,8 @@ where
 						Action::Name => Self::name(asset_id, gasometer),
 						Action::Symbol => Self::symbol(asset_id, gasometer),
 						Action::Decimals => Self::decimals(asset_id, gasometer),
-						Action::Allowance | Action::Approve => Ok(PrecompileOutput {
-							exit_status: ExitSucceed::Returned,
-							cost: gasometer.used_gas(),
-							output: Default::default(),
-							logs: vec![],
-						}),
+						Action::Allowance => Self::allowance(asset_id, input, gasometer),
+						Action::Approve => Self::approve(asset_id, input, gasometer, context),
 					}
 				};
 				return Some(result);
@@ -162,10 +160,12 @@ impl<Runtime> Erc20PrecompileSet<Runtime> {
 
 impl<Runtime> Erc20PrecompileSet<Runtime>
 where
-	Runtime:
-		crml_generic_asset::Config<AssetId = AssetId, Balance = Balance> + pallet_evm::Config + frame_system::Config,
+	Runtime: crml_generic_asset::Config<AssetId = AssetId, Balance = Balance>
+		+ pallet_evm::Config
+		+ frame_system::Config
+		+ crml_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_generic_asset::Call<Runtime>>,
+	Runtime::Call: From<crml_generic_asset::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -226,100 +226,103 @@ where
 		})
 	}
 
-	//fn allowance(
-	//	_asset_id: AssetId,
-	//	_input: &mut EvmDataReader,
-	//	_gasometer: &mut Gasometer,
-	//) -> EvmResult<PrecompileOutput> {
-	// gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	fn allowance(
+		asset_id: AssetId,
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-	// // Read input.
-	// input.expect_arguments(gasometer, 2)?;
+		// Read input.
+		input.expect_arguments(gasometer, 2)?;
 
-	// let owner: H160 = input.read::<Address>(gasometer)?.into();
-	// let spender: H160 = input.read::<Address>(gasometer)?.into();
+		let owner: H160 = input.read::<Address>(gasometer)?.into();
+		let spender: H160 = input.read::<Address>(gasometer)?.into();
 
-	// // Fetch info.
-	// let amount: U256 = {
-	// 	let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-	// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
+		// Fetch info.
+		let amount: U256 = {
+			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
+			let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
 
-	// 	// Fetch info.
-	// 	crml_approvals::Pallet::<Runtime>::allowance(asset_id, &owner, &spender).into()
-	// };
+			// Fetch info.
+			crml_token_approvals::Module::<Runtime>::erc20_approvals((&owner, &asset_id), &spender).into()
+		};
 
-	// // Build output.
-	// Ok(PrecompileOutput {
-	// 	exit_status: ExitSucceed::Returned,
-	// 	cost: gasometer.used_gas(),
-	// 	output: EvmDataWriter::new().write(amount).build(),
-	// 	logs: vec![],
-	// })
-	//}
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new().write(amount).build(),
+			logs: vec![],
+		})
+	}
 
-	//fn approve(
-	//	_asset_id: AssetId,
-	//	_input: &mut EvmDataReader,
-	//	_gasometer: &mut Gasometer,
-	//	_context: &Context,
-	//) -> EvmResult<PrecompileOutput> {
-	// gasometer.record_log_costs_manual(3, 32)?;
+	fn approve(
+		asset_id: AssetId,
+		input: &mut EvmDataReader,
+		gasometer: &mut Gasometer,
+		context: &Context,
+	) -> EvmResult<PrecompileOutput> {
+		gasometer.record_log_costs_manual(3, 32)?;
 
-	// // Parse input.
-	// input.expect_arguments(gasometer, 2)?;
+		// Parse input.
+		input.expect_arguments(gasometer, 2)?;
 
-	// let spender: H160 = input.read::<Address>(gasometer)?.into();
-	// let amount: U256 = input.read(gasometer)?;
+		let spender: H160 = input.read::<Address>(gasometer)?.into();
+		let amount: U256 = input.read(gasometer)?;
 
-	// {
-	// 	let origin = Runtime::AddressMapping::into_account_id(context.caller);
-	// 	let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
-	// 	// Amount saturate if too high.
-	// 	let amount: Balance =
-	// 		amount.try_into().unwrap_or_else(|_| Bounded::max_value());
+		{
+			let origin: Runtime::AccountId = Runtime::AddressMapping::into_account_id(context.caller);
+			let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
+			// Amount saturate if too high.
+			let amount: Balance = amount.try_into().unwrap_or_else(|_| Bounded::max_value());
 
-	// 	// Allowance read
-	// 	gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			// Allowance read
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-	// 	// If previous approval exists, we need to clean it
-	// 	if crml_approvals::Pallet::<Runtime>::allowance(asset_id, &origin, &spender)
-	// 		!= 0u32.into()
-	// 	{
-	// 		RuntimeHelper::<Runtime>::try_dispatch(
-	// 			Some(origin.clone()).into(),
-	// 			crml_approvals::Call::<Runtime>::cancel_approval {
-	// 				id: asset_id,
-	// 				delegate: Runtime::Lookup::unlookup(spender.clone()),
-	// 			},
-	// 			gasometer,
-	// 		)?;
-	// 	}
-	// 	// Dispatch call (if enough gas).
-	// 	RuntimeHelper::<Runtime>::try_dispatch(
-	// 		Some(origin).into(),
-	// 		crml_approvals::Call::<Runtime>::approve_transfer {
-	// 			id: asset_id,
-	// 			delegate: Runtime::Lookup::unlookup(spender),
-	// 			amount,
-	// 		},
-	// 		gasometer,
-	// 	)?;
-	// }
-	// Build output.
-	// Ok(PrecompileOutput {
-	// 	exit_status: ExitSucceed::Returned,
-	// 	cost: gasometer.used_gas(),
-	// 	output: EvmDataWriter::new().write(true).build(),
-	// 	logs: LogsBuilder::new(context.address)
-	// 		.log3(
-	// 			SELECTOR_LOG_APPROVAL,
-	// 			context.caller,
-	// 			spender,
-	// 			EvmDataWriter::new().write(amount).build(),
-	// 		)
-	// 		.build(),
-	// })
-	//}
+			// If previous approval exists, we need to clean it
+			let current_approved_amount: Balance =
+				crml_token_approvals::Module::<Runtime>::erc20_approvals((&origin, &asset_id), &spender);
+			if current_approved_amount != Balance::zero() {
+				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+				RuntimeHelper::<Runtime>::try_dispatch(
+					None.into(),
+					crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
+						caller: origin.clone(),
+						asset_id,
+						spender: spender.clone(),
+					},
+					gasometer,
+				)?;
+			}
+			// Dispatch call (if enough gas).
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+			RuntimeHelper::<Runtime>::try_dispatch(
+				None.into(),
+				crml_token_approvals::Call::<Runtime>::erc20_approval {
+					caller: origin.clone(),
+					spender,
+					asset_id,
+					amount,
+				},
+				gasometer,
+			)?;
+		}
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			cost: gasometer.used_gas(),
+			output: EvmDataWriter::new().write(true).build(),
+			logs: LogsBuilder::new(context.address)
+				.log3(
+					SELECTOR_LOG_APPROVAL,
+					context.caller,
+					spender,
+					EvmDataWriter::new().write(amount).build(),
+				)
+				.build(),
+		})
+	}
 
 	fn transfer(
 		asset_id: AssetId,
