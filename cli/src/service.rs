@@ -301,6 +301,12 @@ pub fn new_full_base(
 	let fee_history_limit = cli.run.fee_history_limit;
 	let subscription_task_executor = sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
 	let overrides = crate::rpc::overrides_handle(client.clone());
+	let block_data_cache = Arc::new(fc_rpc::EthBlockDataCache::new(
+		task_manager.spawn_handle(),
+		overrides.clone(),
+		50,
+		50,
+	));
 	let (event_proof_sender, event_proof_stream) = ethy_gadget::notification::EthyEventProofStream::channel();
 
 	let rpc_extensions_builder = {
@@ -334,6 +340,7 @@ pub fn new_full_base(
 				network: network.clone(),
 				select_chain: select_chain.clone(),
 				chain_spec: chain_spec.cloned_box(),
+				block_data_cache: block_data_cache.clone(),
 				babe: node_rpc::BabeDeps {
 					babe_config: babe_config.clone(),
 					shared_epoch_changes: shared_epoch_changes.clone(),
