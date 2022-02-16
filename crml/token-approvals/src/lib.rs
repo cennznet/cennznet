@@ -28,7 +28,6 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
