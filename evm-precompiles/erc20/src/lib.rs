@@ -23,8 +23,8 @@ use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::OriginTrait;
 use pallet_evm::{AddressMapping, PrecompileSet};
 use precompile_utils::{
-	keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, LogsBuilder,
-	RuntimeHelper,
+	error, keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
+	LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, U256};
 use sp_runtime::traits::{Bounded, Lookup, SaturatedConversion, Zero};
@@ -241,9 +241,6 @@ where
 
 		// Fetch info.
 		let amount: U256 = {
-			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-			let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
-
 			// Fetch info.
 			crml_token_approvals::Module::<Runtime>::erc20_approvals((&owner, &asset_id), &spender).into()
 		};
@@ -272,8 +269,6 @@ where
 		let amount: U256 = input.read(gasometer)?;
 
 		{
-			let origin: Runtime::AccountId = Runtime::AddressMapping::into_account_id(context.caller);
-			let spender: Runtime::AccountId = Runtime::AddressMapping::into_account_id(spender);
 			// Amount saturate if too high.
 			let amount: Balance = amount.try_into().unwrap_or_else(|_| Bounded::max_value());
 
@@ -282,13 +277,13 @@ where
 
 			// If previous approval exists, we need to clean it
 			let current_approved_amount: Balance =
-				crml_token_approvals::Module::<Runtime>::erc20_approvals((&origin, &asset_id), &spender);
+				crml_token_approvals::Module::<Runtime>::erc20_approvals((&context.caller, &asset_id), &spender);
 			if current_approved_amount != Balance::zero() {
 				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
 				RuntimeHelper::<Runtime>::try_dispatch(
 					None.into(),
 					crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
-						caller: origin.clone(),
+						caller: context.caller.clone(),
 						asset_id,
 						spender: spender.clone(),
 					},
@@ -300,7 +295,7 @@ where
 			RuntimeHelper::<Runtime>::try_dispatch(
 				None.into(),
 				crml_token_approvals::Call::<Runtime>::erc20_approval {
-					caller: origin.clone(),
+					caller: context.caller.clone(),
 					spender,
 					asset_id,
 					amount,
@@ -381,29 +376,65 @@ where
 		let to: H160 = input.read::<Address>(gasometer)?.into();
 		let amount: Balance = input.read::<U256>(gasometer)?.saturated_into();
 
-		{
-			let caller: Runtime::AccountId = Runtime::AddressMapping::into_account_id(context.caller);
-			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
-			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
+		// If caller is "from", it can spend as much as it wants from its own balance.
+		if context.caller != from {
+			// Dispatch call (if enough gas).
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-			// If caller is "from", it can spend as much as it wants from its own balance.
-			if caller != from {
-				// Dispatch call (if enough gas).
-				// TODO: check approvals
-				RuntimeHelper::<Runtime>::try_dispatch(
-					Some(caller).into(),
-					crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
-					gasometer,
-				)?;
-			} else {
-				// Dispatch call (if enough gas).
+			let current_approved_amount: Balance =
+				crml_token_approvals::Module::<Runtime>::erc20_approvals((&from.clone(), &asset_id), &context.caller);
+			if current_approved_amount >= amount {
+				let new_approved_amount: Balance = current_approved_amount - amount;
+				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+
+				if new_approved_amount == Balance::zero() {
+					// New balance is 0, remove approval
+					RuntimeHelper::<Runtime>::try_dispatch(
+						None.into(),
+						crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
+							caller: from.clone(),
+							asset_id,
+							spender: context.caller,
+						},
+						gasometer,
+					)?;
+				} else {
+					// New balance has changed, update approval to represent difference
+					RuntimeHelper::<Runtime>::try_dispatch(
+						None.into(),
+						crml_token_approvals::Call::<Runtime>::erc20_approval {
+							caller: from.clone(),
+							spender: context.caller,
+							asset_id,
+							amount: new_approved_amount,
+						},
+						gasometer,
+					)?;
+				}
+
+				let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
+				let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
+				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+
 				RuntimeHelper::<Runtime>::try_dispatch(
 					Some(from).into(),
 					crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
 					gasometer,
 				)?;
+			} else {
+				return Err(error("caller not approved").into());
 			}
+		} else {
+			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
+			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
+			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				Some(from).into(),
+				crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
+				gasometer,
+			)?;
 		}
+
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,

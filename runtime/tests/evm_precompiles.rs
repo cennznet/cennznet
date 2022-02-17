@@ -18,10 +18,10 @@ use cennznet_runtime::{Nft, Runtime, TokenApprovals};
 use crml_nft::MetadataScheme;
 use crml_support::PrefixedAddressMapping;
 use frame_support::assert_ok;
+use hex_literal::hex;
 use pallet_evm_precompiles_erc721::{
 	Action, Address, AddressMapping, Context, Erc721IdConversion, Erc721PrecompileSet, EvmDataWriter, PrecompileSet,
 };
-
 use sp_core::{H160, U256};
 
 mod common;
@@ -134,7 +134,6 @@ fn erc721_approve_and_transfer() {
 		let approved_account_eth: H160 = b"test3000000000000000".into();
 		let new_owner_eth: H160 = b"test4000000000000000".into();
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
-		let approved_account: AccountId = PrefixedAddressMapping::into_account_id(approved_account_eth.clone());
 		let new_owner: AccountId = PrefixedAddressMapping::into_account_id(new_owner_eth.clone());
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
@@ -154,7 +153,7 @@ fn erc721_approve_and_transfer() {
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			approved_account.clone()
+			approved_account_eth.clone()
 		);
 
 		// Transfer NFT from approved account
@@ -177,7 +176,7 @@ fn erc721_approve_and_transfer() {
 		// Approval should be removed
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			AccountId::default()
+			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
 		);
 	})
 }
@@ -207,7 +206,7 @@ fn erc721_approve_caller_not_from_should_fail() {
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			AccountId::default()
+			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
 		);
 	})
 }
@@ -238,7 +237,7 @@ fn erc721_approve_caller_not_token_owner_should_fail() {
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			AccountId::default()
+			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
 		);
 	})
 }

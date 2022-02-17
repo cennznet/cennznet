@@ -22,12 +22,17 @@
 //! to allow for easier precompiling of ERC-721 and ERC-20 tokens, this module handles approvals on CENNZnet
 //! for token transfers.
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use codec::Decode;
+use crml_support::PrefixedAddressMapping;
 use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
+use pallet_evm::AddressMapping;
+use sp_core::H160;
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -36,9 +41,9 @@ mod tests;
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
 	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
+	type MultiCurrency: MultiCurrency<AccountId = AccountId, CurrencyId = AssetId, Balance = Balance>;
 	/// NFT ownership interface
-	type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
+	type IsTokenOwner: IsTokenOwner<AccountId = AccountId>;
 }
 
 impl<T: Config> OnTransferSubscriber for Module<T> {
@@ -63,11 +68,11 @@ decl_error! {
 decl_storage! {
 	trait Store for Module<T: Config> as TokenApprovals {
 		// Account with transfer approval for a single NFT
-		pub ERC721Approvals get(fn erc721_approvals): map hasher(twox_64_concat) (CollectionId, SeriesId, SerialNumber) => T::AccountId;
+		pub ERC721Approvals get(fn erc721_approvals): map hasher(twox_64_concat) (CollectionId, SeriesId, SerialNumber) => H160;
 		// Account with transfer approval for an NFT series of another account
-		pub ERC721ApprovalsForAll get(fn erc721_approvals_for_all): double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (CollectionId, SeriesId) => Vec<T::AccountId>;
+		pub ERC721ApprovalsForAll get(fn erc721_approvals_for_all): double_map hasher(twox_64_concat) H160, hasher(twox_64_concat) (CollectionId, SeriesId) => Vec<H160>;
 		// Mapping from account/ asset_id to an approved balance of another account
-		pub ERC20Approvals get(fn erc20_approvals): double_map hasher(twox_64_concat) (T::AccountId, AssetId), hasher(twox_64_concat) T::AccountId => Balance;
+		pub ERC20Approvals get(fn erc20_approvals): double_map hasher(twox_64_concat) (H160, AssetId), hasher(twox_64_concat) H160 => Balance;
 	}
 }
 
@@ -81,8 +86,8 @@ decl_module! {
 		#[weight = 125_000_000]
 		pub fn erc721_approval(
 			origin,
-			caller: T::AccountId,
-			operator_account: T::AccountId,
+			caller: H160,
+			operator_account: H160,
 			token_id: TokenId,
 		) -> DispatchResult {
 			// mapping(uint256 => address) private _tokenApprovals;
@@ -90,8 +95,9 @@ decl_module! {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT
-			ensure!(T::IsTokenOwner::check_ownership(&caller, &token_id), Error::<T>::NotTokenOwner);
-			ERC721Approvals::<T>::insert(token_id, operator_account);
+			let owner = PrefixedAddressMapping::into_account_id(caller);
+			ensure!(T::IsTokenOwner::check_ownership(&owner, &token_id), Error::<T>::NotTokenOwner);
+			ERC721Approvals::insert(token_id, operator_account);
 			Ok(())
 		}
 
@@ -101,15 +107,15 @@ decl_module! {
 		#[weight = 100_000_000]
 		pub fn erc20_approval(
 			origin,
-			caller: T::AccountId,
-			spender: T::AccountId,
+			caller: H160,
+			spender: H160,
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
 			// mapping(address => mapping(address => uint256)) private _allowances;
 			let _ = ensure_none(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
-			ERC20Approvals::<T>::insert((caller, asset_id), spender, amount);
+			ERC20Approvals::insert((caller, asset_id), spender, amount);
 			Ok(())
 		}
 
@@ -117,21 +123,21 @@ decl_module! {
 		#[weight = 100_000_000]
 		pub fn erc20_remove_approval(
 			origin,
-			caller: T::AccountId,
-			spender: T::AccountId,
+			caller: H160,
+			spender: H160,
 			asset_id: AssetId,
 		) -> DispatchResult {
 			// mapping(address => mapping(address => uint256)) private _allowances;
 			let _ = ensure_none(origin)?;
-			ERC20Approvals::<T>::remove((caller, asset_id), spender);
+			ERC20Approvals::remove((caller, asset_id), spender);
 			Ok(())
 		}
 
 		// #[weight = 175_000_000]
 		// pub fn erc721_approval_for_all(
 		// 	origin,
-		// 	caller: T::AccountId,
-		// 	operator_account: T::AccountId,
+		// 	caller: H160,
+		// 	operator_account: H160,
 		// 	collection_id: CollectionId,
 		// 	series_id: SeriesId,
 		// ) -> DispatchResult {
@@ -153,6 +159,6 @@ impl<T: Config> Module<T> {
 	/// Triggered by transferring the token
 	pub fn remove_erc721_approval(token_id: &TokenId) {
 		// Check that origin owns NFT
-		ERC721Approvals::<T>::remove(token_id);
+		ERC721Approvals::remove(token_id);
 	}
 }
