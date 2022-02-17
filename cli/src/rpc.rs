@@ -28,8 +28,8 @@ use fc_rpc::{
 	SchemaV2Override, StorageOverride, Web3Api, Web3ApiServer,
 };
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
+use fp_storage::EthereumStorageSchema;
 use jsonrpc_pubsub::manager::SubscriptionManager;
-use pallet_ethereum::EthereumStorageSchema;
 use sc_client_api::{AuxStore, Backend, BlockchainEvents, StateBackend, StorageProvider};
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
@@ -120,6 +120,8 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	pub fee_history_limit: u64,
 	/// Fee history cache.
 	pub fee_history_cache: FeeHistoryCache,
+	/// Cache for Ethereum block data.
+	pub block_data_cache: Arc<EthBlockDataCache<Block>>,
 }
 
 /// A IO handler that uses all Full RPC extensions.
@@ -172,6 +174,7 @@ where
 		+ Sync
 		+ 'static,
 	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+	C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -212,6 +215,7 @@ where
 		max_past_logs,
 		fee_history_limit,
 		fee_history_cache,
+		block_data_cache,
 	} = deps;
 
 	let BabeDeps {
@@ -272,13 +276,11 @@ where
 	io.extend_with(GovernanceApi::to_delegate(Governance::new(client.clone())));
 
 	// evm stuff
-	let block_data_cache = Arc::new(EthBlockDataCache::new(50, 50));
-
 	io.extend_with(EthApiServer::to_delegate(EthApi::new(
 		client.clone(),
 		pool.clone(),
 		graph.clone(),
-		cennznet_runtime::TransactionConverter,
+		Some(cennznet_runtime::TransactionConverter),
 		network.clone(),
 		Default::default(),
 		overrides.clone(),
@@ -296,7 +298,6 @@ where
 			frontier_backend,
 			filter_pool,
 			500_usize, // max stored filters
-			overrides.clone(),
 			max_past_logs,
 			block_data_cache.clone(),
 		)));

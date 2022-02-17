@@ -132,8 +132,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation chabges and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 48,
-	impl_version: 48,
+	spec_version: 49,
+	impl_version: 49,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -698,7 +698,13 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 	}
 }
 
+parameter_types! {
+	pub const DefaultBaseFeePerGas: u64 = 5_500_000_000_000; // 0.000055 CPAY per gas
+	pub const IsBaseFeeActive: bool = true;
+}
 impl pallet_base_fee::Config for Runtime {
+	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
+	type IsActive = IsBaseFeeActive;
 	type Event = Event;
 	type Threshold = BaseFeeThreshold;
 }
@@ -1160,6 +1166,14 @@ impl_runtime_apis! {
 	impl crml_staking_rpc_runtime_api::StakingApi<Block, AccountId> for Runtime {
 		fn accrued_payout(stash: &AccountId) -> u64 {
 			Staking::accrued_payout(stash) as u64
+		}
+	}
+
+	impl fp_rpc::ConvertTransactionRuntimeApi<Block> for Runtime {
+		fn convert_transaction(transaction: EthereumTransaction) -> <Block as BlockT>::Extrinsic {
+			UncheckedExtrinsic::new_unsigned(
+				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
+			)
 		}
 	}
 
