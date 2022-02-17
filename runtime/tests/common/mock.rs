@@ -22,7 +22,8 @@ use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
 use frame_support::traits::GenesisBuild;
-use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
+use hex_literal::hex;
+use sp_runtime::{AccountId32, FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
@@ -70,7 +71,8 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+		let eth_account = AccountId32::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie(), eth_account];
 		let initial_authorities = if self.initial_authorities.is_empty() {
 			make_authority_keys(DEFAULT_VALIDATOR_COUNT)
 		} else {

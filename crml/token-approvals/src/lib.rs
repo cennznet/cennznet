@@ -23,7 +23,6 @@
 //! for token transfers.
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-use codec::Decode;
 use crml_support::PrefixedAddressMapping;
 use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};

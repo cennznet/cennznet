@@ -18,16 +18,16 @@
 
 use cennznet_primitives::types::{AssetId, Balance};
 use core::convert::TryInto;
-use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::OriginTrait;
-use pallet_evm::{AddressMapping, PrecompileSet};
-use precompile_utils::{
+pub use pallet_evm::{AddressMapping, PrecompileSet};
+pub use precompile_utils::{
 	error, keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
 	LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, U256};
-use sp_runtime::traits::{Bounded, Lookup, SaturatedConversion, Zero};
+use sp_runtime::traits::{Bounded, SaturatedConversion, Zero};
 use sp_std::{marker::PhantomData, vec};
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet GA module
@@ -268,41 +268,22 @@ where
 		let spender: H160 = input.read::<Address>(gasometer)?.into();
 		let amount: U256 = input.read(gasometer)?;
 
-		{
-			// Amount saturate if too high.
-			let amount: Balance = amount.try_into().unwrap_or_else(|_| Bounded::max_value());
+		// Amount saturate if too high.
+		let amount: Balance = amount.try_into().unwrap_or_else(|_| Bounded::max_value());
 
-			// Allowance read
-			gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		// Dispatch call (if enough gas).
+		gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			None.into(),
+			crml_token_approvals::Call::<Runtime>::erc20_approval {
+				caller: context.caller.clone(),
+				spender,
+				asset_id,
+				amount,
+			},
+			gasometer,
+		)?;
 
-			// If previous approval exists, we need to clean it
-			let current_approved_amount: Balance =
-				crml_token_approvals::Module::<Runtime>::erc20_approvals((&context.caller, &asset_id), &spender);
-			if current_approved_amount != Balance::zero() {
-				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
-				RuntimeHelper::<Runtime>::try_dispatch(
-					None.into(),
-					crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
-						caller: context.caller.clone(),
-						asset_id,
-						spender: spender.clone(),
-					},
-					gasometer,
-				)?;
-			}
-			// Dispatch call (if enough gas).
-			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
-			RuntimeHelper::<Runtime>::try_dispatch(
-				None.into(),
-				crml_token_approvals::Call::<Runtime>::erc20_approval {
-					caller: context.caller.clone(),
-					spender,
-					asset_id,
-					amount,
-				},
-				gasometer,
-			)?;
-		}
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
