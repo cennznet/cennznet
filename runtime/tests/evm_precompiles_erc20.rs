@@ -25,6 +25,7 @@ use sp_core::{H160, U256};
 
 mod common;
 use common::mock::ExtBuilder;
+use precompile_utils::AddressMappingReversibleExt;
 
 const STAKING_ASSET_ID: AssetId = 16000;
 
@@ -41,13 +42,14 @@ fn setup_context(asset_id: AssetId, caller: H160) -> (H160, Context) {
 #[test]
 fn erc20_transfer() {
 	let initial_balance = 1000;
+	let caller = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![caller.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let caller_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let caller_eth = PrefixedAddressMapping::from_account_id(caller.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let caller: AccountId = PrefixedAddressMapping::into_account_id(caller_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
 
@@ -87,13 +89,14 @@ fn erc20_transfer() {
 #[test]
 fn erc20_transfer_from() {
 	let initial_balance = 1000;
+	let caller = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![caller.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let caller_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let caller_eth = PrefixedAddressMapping::from_account_id(caller.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let caller: AccountId = PrefixedAddressMapping::into_account_id(caller_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
 
@@ -134,13 +137,14 @@ fn erc20_transfer_from() {
 #[test]
 fn erc20_transfer_from_not_caller_should_fail() {
 	let initial_balance = 1000;
+	let caller = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![caller.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let caller_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let caller_eth = PrefixedAddressMapping::from_account_id(caller.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let caller: AccountId = PrefixedAddressMapping::into_account_id(caller_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
 
@@ -172,14 +176,15 @@ fn erc20_transfer_from_not_caller_should_fail() {
 #[test]
 fn erc20_approve_and_transfer() {
 	let initial_balance = 1000;
+	let owner = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![owner.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let owner: AccountId = PrefixedAddressMapping::into_account_id(owner_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let approved_amount: Balance = 200;
 			let transfer_amount: Balance = 100;
@@ -233,14 +238,15 @@ fn erc20_approve_and_transfer() {
 #[test]
 fn erc20_approve_and_transfer_removes_approval() {
 	let initial_balance = 1000;
+	let owner = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![owner.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let owner: AccountId = PrefixedAddressMapping::into_account_id(owner_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let approved_amount: Balance = 200;
 			let transfer_amount: Balance = 200; // The same as approved amount should clear approval
@@ -294,14 +300,15 @@ fn erc20_approve_and_transfer_removes_approval() {
 #[test]
 fn erc20_not_enough_approved_should_fail() {
 	let initial_balance = 1000;
+	let owner = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![owner.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
-			let owner: AccountId = PrefixedAddressMapping::into_account_id(owner_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let approved_amount: Balance = 100;
 			let transfer_amount: Balance = 101; // Higher than approved amount
@@ -356,11 +363,13 @@ fn erc20_not_enough_approved_should_fail() {
 #[test]
 fn erc20_update_existing_approval() {
 	let initial_balance = 1000;
+	let owner = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
+		.initialise_eth_accounts(vec![owner.clone()])
 		.initial_balance(initial_balance)
 		.build()
 		.execute_with(|| {
-			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let initial_approved_amount: Balance = 200;
 			let updated_approved_amount: Balance = 100;

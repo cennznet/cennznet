@@ -271,7 +271,6 @@ where
 		let amount: Balance = amount.saturated_into();
 
 		// Dispatch call (if enough gas).
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			None.into(),
 			crml_token_approvals::Call::<Runtime>::erc20_approval {
@@ -375,7 +374,6 @@ where
 				.checked_sub(amount)
 				.ok_or(error("Caller not approved for amount").into())?;
 
-			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
 			if new_approved_amount.is_zero() {
 				// New balance is 0, remove approval
 				RuntimeHelper::<Runtime>::try_dispatch(
@@ -403,7 +401,6 @@ where
 
 			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
 			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
-			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
 			RuntimeHelper::<Runtime>::try_dispatch(
 				Some(from).into(),
 				crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },

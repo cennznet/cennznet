@@ -16,14 +16,14 @@
 //! Mock runtime storage setup
 
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
 use frame_support::traits::GenesisBuild;
 use hex_literal::hex;
-use sp_runtime::{AccountId32, FixedPointNumber, FixedU128, Perbill};
+use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
 use crate::common::keyring::*;
@@ -39,6 +39,8 @@ pub struct ExtBuilder {
 	initial_authorities: Vec<AuthorityKeys>,
 	/// Whether to make authorities invulnerable
 	invulnerable: bool,
+	/// Ethereum accounts to endow
+	ethereum_accounts: Vec<AccountId>,
 }
 
 impl Default for ExtBuilder {
@@ -48,11 +50,16 @@ impl Default for ExtBuilder {
 			stash: 0,
 			initial_authorities: Default::default(),
 			invulnerable: true,
+			ethereum_accounts: vec![],
 		}
 	}
 }
 
 impl ExtBuilder {
+	pub fn initialise_eth_accounts(mut self, eth_accounts: Vec<AccountId>) -> Self {
+		self.ethereum_accounts = eth_accounts;
+		self
+	}
 	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
 		self
@@ -71,8 +78,8 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let eth_account = AccountId32::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
-		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie(), eth_account];
+		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+		endowed_accounts.extend(self.ethereum_accounts.clone());
 		let initial_authorities = if self.initial_authorities.is_empty() {
 			make_authority_keys(DEFAULT_VALIDATOR_COUNT)
 		} else {
@@ -165,8 +172,6 @@ fn runtime_mock_setup_works() {
 		.stash(amount)
 		.build()
 		.execute_with(|| {
-			let eth_account =
-				AccountId32::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 			let tests = vec![
 				(alice(), amount),
 				(bob(), amount),
@@ -174,7 +179,6 @@ fn runtime_mock_setup_works() {
 				(dave(), amount),
 				(eve(), amount),
 				(ferdie(), amount),
-				(eth_account, amount),
 			];
 			let assets = vec![CENNZ_ASSET_ID, CPAY_ASSET_ID];
 			for asset in &assets {
@@ -185,8 +189,8 @@ fn runtime_mock_setup_works() {
 					);
 					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, 123), 0)
 				}
-				// NOTE: 10 = 7 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
-				assert_eq!(GenericAsset::total_issuance(asset), amount * 10);
+				// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+				assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
 			}
 		});
 }
