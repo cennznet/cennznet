@@ -23,8 +23,7 @@
 //! for token transfers.
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-use crml_support::PrefixedAddressMapping;
-use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
+use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber, PrefixedAddressMapping};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
 use pallet_evm::AddressMapping;

@@ -165,6 +165,8 @@ fn runtime_mock_setup_works() {
 		.stash(amount)
 		.build()
 		.execute_with(|| {
+			let eth_account =
+				AccountId32::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 			let tests = vec![
 				(alice(), amount),
 				(bob(), amount),
@@ -172,6 +174,7 @@ fn runtime_mock_setup_works() {
 				(dave(), amount),
 				(eve(), amount),
 				(ferdie(), amount),
+				(eth_account, amount),
 			];
 			let assets = vec![CENNZ_ASSET_ID, CPAY_ASSET_ID];
 			for asset in &assets {
@@ -182,8 +185,8 @@ fn runtime_mock_setup_works() {
 					);
 					assert_eq!(<GenericAsset as MultiCurrency>::free_balance(&account, 123), 0)
 				}
-				// NOTE: 9 = 6 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
-				assert_eq!(GenericAsset::total_issuance(asset), amount * 9);
+				// NOTE: 10 = 7 pre-configured accounts + 3 ExtBuilder.validator_count (to generate stash accounts)
+				assert_eq!(GenericAsset::total_issuance(asset), amount * 10);
 			}
 		});
 }

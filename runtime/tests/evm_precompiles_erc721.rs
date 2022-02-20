@@ -18,7 +18,6 @@ use cennznet_runtime::{Nft, Runtime, TokenApprovals};
 use crml_nft::MetadataScheme;
 use crml_support::PrefixedAddressMapping;
 use frame_support::assert_ok;
-use hex_literal::hex;
 use pallet_evm_precompiles_erc721::{
 	Action, Address, AddressMapping, Context, Erc721IdConversion, Erc721PrecompileSet, EvmDataWriter, PrecompileSet,
 };
@@ -176,7 +175,7 @@ fn erc721_approve_and_transfer() {
 		// Approval should be removed
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
+			H160::default()
 		);
 	})
 }
@@ -206,7 +205,7 @@ fn erc721_approve_caller_not_from_should_fail() {
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
+			H160::default()
 		);
 	})
 }
@@ -237,7 +236,7 @@ fn erc721_approve_caller_not_token_owner_should_fail() {
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			H160::from_slice(&hex!("0000000000000000000000000000000000000000"))
+			H160::default()
 		);
 	})
 }

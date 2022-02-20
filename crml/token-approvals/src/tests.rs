@@ -35,7 +35,7 @@ fn set_erc721_approval() {
 #[test]
 fn set_erc721_approval_not_token_owner_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let caller = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let caller = H160::default();
 		let operator = H160::from_slice(&hex!("1000000000000000000000000000000000000000"));
 		let token_id: TokenId = (0, 0, 0);
 
@@ -79,7 +79,7 @@ fn erc721_approval_removed_on_transfer() {
 #[test]
 fn set_erc20_approval() {
 	ExtBuilder::default().build().execute_with(|| {
-		let caller = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let caller = H160::default();
 		let spender = H160::from_slice(&hex!("1000000000000000000000000000000000000000"));
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
@@ -99,8 +99,8 @@ fn set_erc20_approval() {
 #[test]
 fn set_erc20_approval_caller_is_operator_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let caller = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
-		let spender = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let caller = H160::default();
+		let spender = H160::default();
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -115,7 +115,7 @@ fn set_erc20_approval_caller_is_operator_should_fail() {
 #[test]
 fn remove_erc20_approval() {
 	ExtBuilder::default().build().execute_with(|| {
-		let caller = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let caller = H160::default();
 		let spender = H160::from_slice(&hex!("1000000000000000000000000000000000000000"));
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;

@@ -17,7 +17,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::{AssetId, Balance};
-use core::convert::TryInto;
 pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::OriginTrait;
@@ -27,7 +26,7 @@ pub use precompile_utils::{
 	LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, U256};
-use sp_runtime::traits::{Bounded, SaturatedConversion, Zero};
+use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::{marker::PhantomData, vec};
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet GA module
@@ -269,7 +268,7 @@ where
 		let amount: U256 = input.read(gasometer)?;
 
 		// Amount saturate if too high.
-		let amount: Balance = amount.try_into().unwrap_or_else(|_| Bounded::max_value());
+		let amount: Balance = amount.saturated_into();
 
 		// Dispatch call (if enough gas).
 		gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
@@ -358,57 +357,53 @@ where
 		let amount: Balance = input.read::<U256>(gasometer)?.saturated_into();
 
 		// If caller is "from", it can spend as much as it wants from its own balance.
-		if context.caller != from {
-			// Dispatch call (if enough gas).
-			gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
-			let current_approved_amount: Balance =
-				crml_token_approvals::Module::<Runtime>::erc20_approvals((&from.clone(), &asset_id), &context.caller);
-			if current_approved_amount >= amount {
-				let new_approved_amount: Balance = current_approved_amount - amount;
-				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
-
-				if new_approved_amount == Balance::zero() {
-					// New balance is 0, remove approval
-					RuntimeHelper::<Runtime>::try_dispatch(
-						None.into(),
-						crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
-							caller: from.clone(),
-							asset_id,
-							spender: context.caller,
-						},
-						gasometer,
-					)?;
-				} else {
-					// New balance has changed, update approval to represent difference
-					RuntimeHelper::<Runtime>::try_dispatch(
-						None.into(),
-						crml_token_approvals::Call::<Runtime>::erc20_approval {
-							caller: from.clone(),
-							spender: context.caller,
-							asset_id,
-							amount: new_approved_amount,
-						},
-						gasometer,
-					)?;
-				}
-
-				let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
-				let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
-				gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
-
-				RuntimeHelper::<Runtime>::try_dispatch(
-					Some(from).into(),
-					crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
-					gasometer,
-				)?;
-			} else {
-				return Err(error("caller not approved").into());
-			}
-		} else {
+		if context.caller == from {
 			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
 			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
 			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				Some(from).into(),
+				crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },
+				gasometer,
+			)?;
+		} else {
+			// caller not from, check if caller is approved
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let current_approved_amount: Balance =
+				crml_token_approvals::Module::<Runtime>::erc20_approvals((&from.clone(), &asset_id), &context.caller);
+			let new_approved_amount: Balance = current_approved_amount
+				.checked_sub(amount)
+				.ok_or(error("Caller not approved for amount").into())?;
+
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
+			if new_approved_amount.is_zero() {
+				// New balance is 0, remove approval
+				RuntimeHelper::<Runtime>::try_dispatch(
+					None.into(),
+					crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
+						caller: from.clone(),
+						asset_id,
+						spender: context.caller,
+					},
+					gasometer,
+				)?;
+			} else {
+				// New balance has changed, update approval to represent difference
+				RuntimeHelper::<Runtime>::try_dispatch(
+					None.into(),
+					crml_token_approvals::Call::<Runtime>::erc20_approval {
+						caller: from.clone(),
+						spender: context.caller,
+						asset_id,
+						amount: new_approved_amount,
+					},
+					gasometer,
+				)?;
+			}
+
+			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
+			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
+			gasometer.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost())?;
 			RuntimeHelper::<Runtime>::try_dispatch(
 				Some(from).into(),
 				crml_generic_asset::Call::<Runtime>::transfer { asset_id, to, amount },

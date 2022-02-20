@@ -39,6 +39,52 @@ fn setup_context(asset_id: AssetId, caller: H160) -> (H160, Context) {
 }
 
 #[test]
+fn erc20_transfer() {
+	let initial_balance = 1000;
+	ExtBuilder::default()
+		.initial_balance(initial_balance)
+		.build()
+		.execute_with(|| {
+			let caller_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let caller: AccountId = PrefixedAddressMapping::into_account_id(caller_eth.clone());
+			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
+			let transfer_amount: Balance = 100;
+
+			// Check initial balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&caller, STAKING_ASSET_ID),
+				initial_balance
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&receiver, STAKING_ASSET_ID),
+				0
+			);
+
+			let (address, context) = setup_context(STAKING_ASSET_ID, caller_eth);
+			let input_data = EvmDataWriter::new_with_selector(Action::Transfer)
+				.write::<Address>(receiver_eth.into())
+				.write::<U256>(transfer_amount.into())
+				.build();
+			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
+
+			assert_ok!(precompile_set
+				.execute(address.into(), &input_data, None, &context, false,)
+				.unwrap());
+
+			// Check final balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&caller, STAKING_ASSET_ID),
+				initial_balance - transfer_amount
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&receiver, STAKING_ASSET_ID),
+				transfer_amount
+			);
+		})
+}
+
+#[test]
 fn erc20_transfer_from() {
 	let initial_balance = 1000;
 	ExtBuilder::default()
@@ -180,6 +226,129 @@ fn erc20_approve_and_transfer() {
 			assert_eq!(
 				TokenApprovals::erc20_approvals((owner_eth, STAKING_ASSET_ID), approved_eth),
 				approved_amount - transfer_amount
+			);
+		})
+}
+
+#[test]
+fn erc20_approve_and_transfer_removes_approval() {
+	let initial_balance = 1000;
+	ExtBuilder::default()
+		.initial_balance(initial_balance)
+		.build()
+		.execute_with(|| {
+			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let owner: AccountId = PrefixedAddressMapping::into_account_id(owner_eth.clone());
+			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
+			let approved_amount: Balance = 200;
+			let transfer_amount: Balance = 200; // The same as approved amount should clear approval
+
+			// Set Approval
+			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
+				.write::<Address>(approved_eth.into())
+				.write::<U256>(approved_amount.into())
+				.build();
+			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
+			assert_ok!(precompile_set
+				.execute(address.into(), &input_data, None, &context, false)
+				.unwrap());
+
+			// Check approvals module
+			assert_eq!(
+				TokenApprovals::erc20_approvals((owner_eth, STAKING_ASSET_ID), approved_eth),
+				approved_amount
+			);
+
+			// Transfer
+			let (address, context) = setup_context(STAKING_ASSET_ID, approved_eth);
+			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
+				.write::<Address>(owner_eth.into())
+				.write::<Address>(receiver_eth.into())
+				.write::<U256>(transfer_amount.into())
+				.build();
+			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
+			assert_ok!(precompile_set
+				.execute(address.into(), &input_data, None, &context, false,)
+				.unwrap());
+
+			// Check final balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&owner, STAKING_ASSET_ID),
+				initial_balance - transfer_amount
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&receiver, STAKING_ASSET_ID),
+				transfer_amount
+			);
+			// Check approvals module has been updated after transfer
+			assert_eq!(
+				TokenApprovals::erc20_approvals((owner_eth, STAKING_ASSET_ID), approved_eth),
+				0
+			);
+		})
+}
+
+#[test]
+fn erc20_not_enough_approved_should_fail() {
+	let initial_balance = 1000;
+	ExtBuilder::default()
+		.initial_balance(initial_balance)
+		.build()
+		.execute_with(|| {
+			let owner_eth = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let owner: AccountId = PrefixedAddressMapping::into_account_id(owner_eth.clone());
+			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
+			let approved_amount: Balance = 100;
+			let transfer_amount: Balance = 101; // Higher than approved amount
+
+			// Set Approval
+			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
+				.write::<Address>(approved_eth.into())
+				.write::<U256>(approved_amount.into())
+				.build();
+			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
+			assert_ok!(precompile_set
+				.execute(address.into(), &input_data, None, &context, false)
+				.unwrap());
+
+			// Check approvals module
+			assert_eq!(
+				TokenApprovals::erc20_approvals((owner_eth, STAKING_ASSET_ID), approved_eth),
+				approved_amount
+			);
+
+			// Transfer
+			let (address, context) = setup_context(STAKING_ASSET_ID, approved_eth);
+			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
+				.write::<Address>(owner_eth.into())
+				.write::<Address>(receiver_eth.into())
+				.write::<U256>(transfer_amount.into())
+				.build();
+			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
+			assert!(precompile_set
+				.execute(address.into(), &input_data, None, &context, false,)
+				.unwrap()
+				.is_err());
+
+			// Check final balances
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&owner, STAKING_ASSET_ID),
+				initial_balance
+			);
+			assert_eq!(
+				<GenericAsset as MultiCurrency>::free_balance(&receiver, STAKING_ASSET_ID),
+				0
+			);
+			// Check approvals module hasn't changed
+			assert_eq!(
+				TokenApprovals::erc20_approvals((owner_eth, STAKING_ASSET_ID), approved_eth),
+				approved_amount
 			);
 		})
 }
