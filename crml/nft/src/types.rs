@@ -55,7 +55,6 @@ pub enum MetadataScheme {
 	/// Series metadata is hosted by an IPFS directory
 	/// Inner value is the shared IPFS CID, each token in the series shares the same CID
 	/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
-	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
 	IpfsShared(Vec<u8>),
 }
 
