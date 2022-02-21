@@ -704,6 +704,8 @@ name = "cennznet-cli"
 version = "2.1.0-rc3"
 dependencies = [
  "cennznet-primitives",
+ "cennznet-rpc-core-txpool",
+ "cennznet-rpc-txpool",
  "cennznet-runtime",
  "crml-cennzx-rpc",
  "crml-eth-bridge",
@@ -786,6 +788,7 @@ dependencies = [
 name = "cennznet-primitives"
 version = "2.0.0"
 dependencies = [
+ "ethereum",
  "frame-support",
  "libsecp256k1 0.6.0",
  "parity-scale-codec",
@@ -793,6 +796,42 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "cennznet-rpc-core-txpool"
+version = "0.6.0"
+dependencies = [
+ "ethereum",
+ "ethereum-types",
+ "fc-rpc-core",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "cennznet-rpc-txpool"
+version = "0.6.0"
+dependencies = [
+ "cennznet-primitives",
+ "cennznet-rpc-core-txpool",
+ "ethereum-types",
+ "fc-rpc",
+ "frame-system",
+ "jsonrpc-core",
+ "rlp",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "sha3 0.9.1",
+ "sp-api",
+ "sp-blockchain",
  "sp-io",
  "sp-runtime",
  "sp-std",

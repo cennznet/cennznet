@@ -1,0 +1,32 @@
+[package]
+name = "cennznet-rpc-txpool"
+authors = [ "Centrality Developers" ]
+edition = "2018"
+homepage = "https://cennz.net"
+license = "GPL-3.0-only"
+repository = "https://github.com/cennznet/cennznet"
+version = "0.6.0"
+
+[dependencies]
+jsonrpc-core = "18.0.0"
+rlp = "0.5"
+serde = { version = "1.0", features = [ "derive" ] }
+sha3 = "0.9"
+
+# Moonbeam
+cennznet-rpc-core-txpool = { path = "../../../rpc-core/txpool" }
+cennznet-primitives = { path = "../../../../primitives" }
+
+# Substrate
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-transaction-pool = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sc-transaction-pool-api = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "2db18f864ae2bb50e60e497b7ac2c521daf83af6" }
+
+# Frontier
+ethereum-types = "0.12.1"
+fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "4879da8de4141a1bfb9706a71ae9ef9f82099dd5" }

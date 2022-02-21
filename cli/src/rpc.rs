@@ -19,7 +19,10 @@
 
 #![warn(missing_docs)]
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index};
+use cennznet_primitives::{
+	txpool::TxPoolRuntimeApi,
+	types::{AccountId, AssetId, Balance, Block, BlockNumber, Hash, Index},
+};
 use cennznet_runtime::Runtime;
 use ethy_gadget::notification::EthyEventProofStream;
 use fc_rpc::{
@@ -184,9 +187,12 @@ where
 	C::Api: crml_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: crml_generic_asset_rpc::GenericAssetRuntimeApi<Block, AssetId, Balance, AccountId>,
 	C::Api: crml_governance_rpc::GovernanceRuntimeApi<Block, AccountId>,
+	C::Api: TxPoolRuntimeApi<Block>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
+	use cennznet_rpc_core_txpool::TxPoolServer;
+	use cennznet_rpc_txpool::TxPool;
 	use crml_cennzx_rpc::{Cennzx, CennzxApi};
 	use crml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
 	use crml_governance_rpc::{Governance, GovernanceApi};
@@ -319,6 +325,7 @@ where
 		),
 		overrides,
 	)));
+	io.extend_with(TxPoolServer::to_delegate(TxPool::new(client.clone(), graph.clone())));
 
 	io
 }

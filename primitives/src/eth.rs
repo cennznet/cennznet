@@ -13,9 +13,8 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! Ethereum bridge common types
-//! shared between crml/eth-bridge runtime & ethy-gadget client
-
+//! Ethereum common types
+//! shared between crml/eth-bridge runtime and ethy-gadget client
 use codec::{Decode, Encode};
 use sp_core::ecdsa::Public;
 use sp_runtime::{traits::Convert, KeyTypeId};
