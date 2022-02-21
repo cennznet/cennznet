@@ -16,7 +16,8 @@
 use crate as crml_erc20_peg;
 use cennznet_primitives::types::{AssetId, Balance};
 use crml_generic_asset::impls::TransferDustImbalance;
-use frame_support::{parameter_types, PalletId};
+use crml_support::{EthAbiCodec, EventClaimVerifier, H160};
+use frame_support::{pallet_prelude::*, parameter_types, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -83,16 +84,36 @@ impl crml_generic_asset::Config for Test {
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const PegPalletId: PalletId = PalletId(*b"py/er20peg");
-    pub const DepositEventSignature: [u8; 32] = const DEPOSIT_EVENT_SIGNATURE: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
+	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
+	pub const DepositEventSignature: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
 }
 impl crate::Config for Test {
-	type DepositEventSignature: Get<[u8; 32]>;
+	type DepositEventSignature = DepositEventSignature;
 	type Event = Event;
-    type EthBridge = MockEthBridge;
+	type EthBridge = MockEthBridge;
 	type MultiCurrency = GenericAsset;
 	type PegPalletId = PegPalletId;
-	type WeightInfo = ();
+}
+
+/// Mock ethereum bridge
+pub struct MockEthBridge;
+
+impl EventClaimVerifier for MockEthBridge {
+	/// Submit an event claim
+	fn submit_event_claim(
+		contract_address: &H160,
+		event_signature: &H256,
+		tx_hash: &H256,
+		event_data: &[u8],
+	) -> Result<u64, DispatchError> {
+		Ok(1)
+	}
+
+	/// Generate proof of the given message
+	/// Returns a unique proof Id on success
+	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError> {
+		Ok(2)
+	}
 }
 
 #[derive(Default)]

@@ -277,11 +277,7 @@ impl<T: Config> Module<T> {
 			);
 		} else {
 			// checked amount < u128 on `deposit_claim` qed.
-			let _imbalance = T::MultiCurrency::deposit_creating(
-				&beneficiary,
-				asset_id,
-				amount,
-			);
+			let _imbalance = T::MultiCurrency::deposit_creating(&beneficiary, asset_id, amount);
 		}
 
 		Ok((asset_id, amount, beneficiary))
