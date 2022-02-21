@@ -276,7 +276,6 @@ decl_module! {
 					}
 				}
 
-				v1_storage::SeriesMetadataURI::remove_all(None);
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 
@@ -930,6 +929,14 @@ impl<T: Config> Module<T> {
 						"ipfs://{}/{}.json",
 						core::str::from_utf8(&dir_cid).unwrap_or(""),
 						token_id.2
+					)
+					.expect("Not written");
+				}
+				MetadataScheme::IpfsShared(shared_cid) => {
+					write!(
+						&mut token_uri,
+						"ipfs://{}.json",
+						core::str::from_utf8(&shared_cid).unwrap_or("")
 					)
 					.expect("Not written");
 				}

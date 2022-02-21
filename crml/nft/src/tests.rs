@@ -138,7 +138,6 @@ fn migration_v1_to_v2() {
 
 		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
 		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
-		assert!(!v1_storage::SeriesMetadataURI::contains_key(3, 0),);
 		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
 	});
 }
@@ -2126,6 +2125,19 @@ fn token_uri_construction() {
 		assert_eq!(
 			Nft::token_uri((collection_id, series_id + 2, 1)),
 			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1.json".to_vec(),
+		);
+
+		assert_ok!(Nft::mint_series(
+			Some(owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::IpfsShared(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()),
+			None,
+		));
+		assert_eq!(
+			Nft::token_uri((collection_id, series_id + 3, 1)),
+			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.json".to_vec(),
 		);
 	});
 }
