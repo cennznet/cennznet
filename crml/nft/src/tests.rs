@@ -138,7 +138,6 @@ fn migration_v1_to_v2() {
 
 		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
 		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
-		assert!(!v1_storage::SeriesMetadataURI::contains_key(3, 0),);
 		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
 	});
 }
