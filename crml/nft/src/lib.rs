@@ -276,7 +276,6 @@ decl_module! {
 					}
 				}
 
-				v1_storage::SeriesMetadataURI::remove_all(None);
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 
