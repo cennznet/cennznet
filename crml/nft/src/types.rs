@@ -52,6 +52,11 @@ pub enum MetadataScheme {
 	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
 	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
 	IpfsDir(Vec<u8>),
+	/// Series metadata is hosted by an IPFS directory
+	/// Inner value is the shared IPFS CID
+	/// full metadata URI construction: `ipfs://<directory_CID>.json`
+	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
+	IpfsShared(Vec<u8>),
 }
 
 impl MetadataScheme {
@@ -61,6 +66,7 @@ impl MetadataScheme {
 			MetadataScheme::Http(_path) => "http://",
 			MetadataScheme::Https(_path) => "https://",
 			MetadataScheme::IpfsDir(_path) => "ipfs://",
+			MetadataScheme::IpfsShared(_path) => "ipfs://",
 		}
 	}
 	/// Returns a sanitized version of the metadata URI
@@ -85,6 +91,7 @@ impl MetadataScheme {
 			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
+			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
 		})
 	}
 }

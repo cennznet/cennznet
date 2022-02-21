@@ -933,6 +933,14 @@ impl<T: Config> Module<T> {
 					)
 					.expect("Not written");
 				}
+				MetadataScheme::IpfsShared(shared_cid) => {
+					write!(
+						&mut token_uri,
+						"ipfs://{}.json",
+						core::str::from_utf8(&shared_cid).unwrap_or("")
+					)
+					.expect("Not written");
+				}
 			}
 			token_uri.inner().clone()
 		} else {
