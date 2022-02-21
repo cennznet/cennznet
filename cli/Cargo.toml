@@ -68,6 +68,8 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/cenn
 # cennznet dependencies
 cennznet-primitives = { path = "../primitives" }
 cennznet-runtime = { path = "../runtime" }
+cennznet-rpc-core-txpool = { path = "rpc-core/txpool" }
+cennznet-rpc-txpool = { path = "./src/rpc/txpool" }
 crml-eth-bridge = { path = "../crml/eth-bridge" }
 # cennznet custom RPCs
 crml-cennzx-rpc = { path = "../crml/cennzx/rpc" }

@@ -15,10 +15,9 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Common types and traits used by CENNZnet node.
-
-#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod eth;
 pub mod traits;
+pub mod txpool;
 pub mod types;

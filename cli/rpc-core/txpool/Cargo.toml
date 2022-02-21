@@ -1,0 +1,19 @@
+[package]
+name = "cennznet-rpc-core-txpool"
+authors = [ "Centrality Developers" ]
+edition = "2018"
+homepage = "https://cennz.net"
+license = "GPL-3.0-only"
+repository = "https://github.com/cennznet/cennznet/"
+version = "0.6.0"
+
+[dependencies]
+ethereum = { version = "0.11.1", default-features = false, features = [ "with-codec" ] }
+ethereum-types = "0.12.1"
+jsonrpc-core = "18.0.0"
+jsonrpc-core-client = "18.0.0"
+jsonrpc-derive = "18.0.0"
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "4879da8de4141a1bfb9706a71ae9ef9f82099dd5" }
