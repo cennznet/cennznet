@@ -53,8 +53,8 @@ pub enum MetadataScheme {
 	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
 	IpfsDir(Vec<u8>),
 	/// Series metadata is hosted by an IPFS directory
-	/// Inner value is the shared IPFS CID
-	/// full metadata URI construction: `ipfs://<directory_CID>.json`
+	/// Inner value is the shared IPFS CID, each token in the series shares the same CID
+	/// full metadata URI construction: `ipfs://<shared_directory_CID>.json`
 	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
 	IpfsShared(Vec<u8>),
 }
