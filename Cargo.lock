@@ -1411,6 +1411,8 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
+ "hex-literal",
+ "pallet-evm",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -4828,6 +4830,7 @@ version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
+ "crml-token-approvals",
  "fp-evm",
  "frame-support",
  "frame-system",

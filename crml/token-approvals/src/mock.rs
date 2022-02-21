@@ -14,17 +14,17 @@
 */
 
 use crate as token_approvals;
-use cennznet_primitives::types::{AssetId, Balance, TokenId};
+use cennznet_primitives::types::{AccountId, AssetId, Balance, TokenId};
 use crml_generic_asset::impls::TransferDustImbalance;
 use crml_support::IsTokenOwner;
 use frame_support::{parameter_types, PalletId};
+use hex_literal::hex;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub type AccountId = u64;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -99,10 +99,11 @@ impl IsTokenOwner for MockTokenOwner {
 	type AccountId = AccountId;
 
 	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		match (account, token_id) {
-			(0, (0, 0, 0)) => true,
-			_ => false,
+		let test_account = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		if account == &test_account && token_id == &(0u32, 0u32, 0u32) {
+			return true;
 		}
+		return false;
 	}
 }
 

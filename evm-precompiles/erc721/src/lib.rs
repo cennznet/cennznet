@@ -273,9 +273,7 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (series_id_parts.0, series_id_parts.1, serial_number);
 		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let approved_account: H160 = Runtime::AddressMapping::from_account_id(
-			crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id),
-		);
+		let approved_account: H160 = crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
 		if context.caller == from || context.caller == approved_account {
@@ -335,8 +333,6 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		if context.caller == from {
-			let from = Runtime::AddressMapping::into_account_id(context.caller);
-			let to = Runtime::AddressMapping::into_account_id(to);
 			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -396,11 +392,7 @@ where
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
-				.write::<Bytes>(
-					Runtime::AddressMapping::from_account_id(approved_account)
-						.as_bytes()
-						.into(),
-				)
+				.write::<Bytes>(approved_account.as_bytes().into())
 				.build(),
 			logs: Default::default(),
 		})

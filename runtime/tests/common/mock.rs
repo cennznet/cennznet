@@ -16,12 +16,13 @@
 //! Mock runtime storage setup
 
 use cennznet_cli::chain_spec::{session_keys, AuthorityKeys};
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::types::{AccountId, Balance};
 use cennznet_runtime::{constants::asset::*, GenericAsset, Runtime, StakerStatus};
 use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
 use frame_support::traits::GenesisBuild;
+use hex_literal::hex;
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -38,6 +39,8 @@ pub struct ExtBuilder {
 	initial_authorities: Vec<AuthorityKeys>,
 	/// Whether to make authorities invulnerable
 	invulnerable: bool,
+	/// Ethereum accounts to endow
+	ethereum_accounts: Vec<AccountId>,
 }
 
 impl Default for ExtBuilder {
@@ -47,11 +50,16 @@ impl Default for ExtBuilder {
 			stash: 0,
 			initial_authorities: Default::default(),
 			invulnerable: true,
+			ethereum_accounts: vec![],
 		}
 	}
 }
 
 impl ExtBuilder {
+	pub fn initialise_eth_accounts(mut self, eth_accounts: Vec<AccountId>) -> Self {
+		self.ethereum_accounts = eth_accounts;
+		self
+	}
 	pub fn initial_balance(mut self, initial_balance: Balance) -> Self {
 		self.initial_balance = initial_balance;
 		self
@@ -71,6 +79,7 @@ impl ExtBuilder {
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut endowed_accounts = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+		endowed_accounts.extend(self.ethereum_accounts.clone());
 		let initial_authorities = if self.initial_authorities.is_empty() {
 			make_authority_keys(DEFAULT_VALIDATOR_COUNT)
 		} else {

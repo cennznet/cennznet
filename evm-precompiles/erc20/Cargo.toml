@@ -10,6 +10,7 @@ scale-info = { version = "1.0.0", default-features = false, features = ["derive"
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../../crml/generic-asset", default-features = false }
+crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
 fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "4879da8de4141a1bfb9706a71ae9ef9f82099dd5" }
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "4879da8de4141a1bfb9706a71ae9ef9f82099dd5" }
 precompile-utils = { path = "../utils", default-features = false }
@@ -25,8 +26,9 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cennznet-primitives/std",
-  "scale-info/std",
+  	"scale-info/std",
 	"crml-generic-asset/std",
+	"crml-token-approvals/std",
 	"fp-evm/std",
 	"frame-support/std",
 	"frame-system/std",
