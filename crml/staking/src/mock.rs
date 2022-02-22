@@ -278,6 +278,7 @@ parameter_types! {
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
 	pub OffchainSolutionWeightLimit: Weight = BlockWeights::get().max_block;
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 }
 
 thread_local! {
@@ -301,6 +302,7 @@ impl Config for Test {
 	type MaxIterations = MaxIterations;
 	type MinSolutionScoreBump = MinSolutionScoreBump;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type UnsignedPriority = UnsignedPriority;
 	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type WeightInfo = ();
@@ -742,7 +744,7 @@ pub(crate) fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy).unwrap();
 			return;
 		} else if bonded_era > era {
 			break;
@@ -755,7 +757,8 @@ pub(crate) fn on_offence_in_era(
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
 			disable_strategy,
-		);
+		)
+		.unwrap();
 	} else {
 		panic!("cannot slash in era {}", era);
 	}

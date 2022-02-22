@@ -1912,10 +1912,7 @@ fn garbage_collection_after_slashing() {
 
 			assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
 			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_some());
-			assert_eq!(
-				<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
-				&25_600
-			);
+			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount(), &25_600);
 
 			on_offence_now(
 				&[OffenceDetails {
@@ -1938,7 +1935,7 @@ fn garbage_collection_after_slashing() {
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
 			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
-			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
+			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount(), &0);
 		})
 }
 
@@ -2634,6 +2631,7 @@ mod offchain_election {
 			let limit: NominatorIndex = ValidatorIndex::max_value() as NominatorIndex + 1;
 			let ctrl = 1_000_000;
 			for i in 0..limit {
+				// TODO: failing here
 				bond_validator((1000 + i).into(), (1000 + i + ctrl).into(), 100);
 			}
 
@@ -3376,9 +3374,6 @@ mod offchain_election {
 			})
 	}
 
-	// FIX: snapshot not created
-	// TODO: issue #564
-	#[ignore]
 	#[test]
 	fn nomination_slash_filter_is_checked() {
 		// If a nominator has voted for someone who has been recently slashed, that particular
@@ -3528,9 +3523,6 @@ mod offchain_election {
 		})
 	}
 
-	// FIX: test did not panic as expected
-	// TODO: issue #564
-	#[ignore]
 	#[test]
 	#[should_panic]
 	fn offence_is_blocked_when_window_open() {
@@ -3690,7 +3682,7 @@ fn offences_weight_calculated_correctly() {
 		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(
 			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed),
-			zero_offence_weight
+			Ok(zero_offence_weight)
 		);
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
@@ -3715,7 +3707,7 @@ fn offences_weight_calculated_correctly() {
 				0,
 				DisableStrategy::WhenSlashed
 			),
-			n_offence_unapplied_weight
+			Ok(n_offence_unapplied_weight)
 		);
 
 		// On Offence with one offenders, Applied
@@ -3742,7 +3734,7 @@ fn offences_weight_calculated_correctly() {
 				0,
 				DisableStrategy::WhenSlashed
 			),
-			one_offence_unapplied_weight
+			Ok(one_offence_unapplied_weight)
 		);
 	});
 }

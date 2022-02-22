@@ -659,7 +659,7 @@ pub trait SessionInterface<AccountId>: frame_system::Config {
 	/// Returns `true` if new era should be forced at the end of this session.
 	/// This allows preventing a situation where there is too many validators
 	/// disabled and block production stalls.
-	fn disable_validator(validator: &AccountId) -> Result<bool, ()>;
+	fn disable_validator(validator_index: u32) -> bool;
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -677,9 +677,8 @@ where
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
-	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-		// CHECK
-		Ok(<pallet_session::Pallet<T>>::disable(validator))
+	fn disable_validator(validator_index: u32) -> bool {
+		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -775,6 +774,10 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	/// enough to fit in the block.
 	type OffchainSolutionWeightLimit: Get<Weight>;
 
+	/// The fraction of the validator set that is safe to be offending.
+	/// After the threshold is reached a new era will be forced.
+	type OffendingValidatorsThreshold: Get<Perbill>;
+
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo + ElectionWeightExt;
 }
@@ -832,6 +835,17 @@ decl_storage! {
 	trait Store for Module<T: Config> as Staking {
 		/// Minimum amount to bond.
 		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
+
+		/// Indices of validators that have offended in the active era and whether they are currently
+		/// disabled.
+		///
+		/// This value should be a superset of disabled validators since not all offences lead to the
+		/// validator being disabled (if there was no slash). This is needed to track the percentage of
+		/// validators that have offended in the current era, ensuring a new era is forced if
+		/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
+		/// whether a given validator has previously offended using binary search. It gets cleared when
+		/// the era ends.
+		pub OffendingValidators get(fn offending_validators): Vec<(u32, bool)>;
 
 		/// Number of eras to keep in history.
 		///
@@ -1066,6 +1080,9 @@ decl_event!(
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue. \[stash, amount\]
 		Withdrawn(AccountId, Balance),
+		/// One validator (and its nominators) has been slashed by the given amount.
+		/// \[validator, amount\]
+		Slashed(AccountId, Balance),
 	}
 );
 
@@ -1131,6 +1148,8 @@ decl_error! {
 		CallNotAllowed,
 		/// Incorrect previous history depth input provided.
 		IncorrectHistoryDepth,
+		/// Incorrect number of slashing spans provided.
+		IncorrectSlashingSpans,
 	}
 }
 
@@ -2757,7 +2776,7 @@ impl<T: Config> Module<T> {
 	fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		slashing::clear_stash_metadata::<T>(stash)?;
+		slashing::clear_stash_metadata::<T>(stash, 1000_u32)?;
 
 		<Bonded<T>>::remove(stash);
 		<Ledger<T>>::remove(&controller);
@@ -2941,7 +2960,8 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Result<Weight, ()>>
+	for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
@@ -2956,8 +2976,13 @@ where
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
-	) -> Weight {
+		disable_strategy: DisableStrategy,
+	) -> Result<Weight, ()> {
+		// matches `Self::can_report()` from older versions
+		if !Self::era_election_status().is_closed() {
+			return Err(());
+		}
+
 		let reward_proportion = Self::slash_reward_fraction();
 		let mut consumed_weight: Weight = 0;
 		let mut add_db_reads_writes = |reads, writes| {
@@ -2969,7 +2994,7 @@ where
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
 				// This offence need not be re-submitted.
-				return consumed_weight;
+				return Ok(consumed_weight);
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -2998,7 +3023,7 @@ where
 			{
 				Some(&(ref slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
-				None => return consumed_weight,
+				None => return Ok(consumed_weight),
 			}
 		};
 
@@ -3030,6 +3055,7 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
+				disable_strategy,
 			});
 
 			if let Some(mut unapplied) = unapplied {
@@ -3063,7 +3089,7 @@ where
 			}
 		}
 
-		consumed_weight
+		Ok(consumed_weight)
 	}
 }
 

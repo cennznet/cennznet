@@ -503,13 +503,11 @@ mod test {
 	}
 
 	impl crate::ElectionWeightExt for Staking {
-		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
-			v as Weight
+		fn submit_unsigned(v: u32, n: u32, a: u32, w: u32) -> Weight {
+			(0 * v + 0 * n + 1000 * a + 0 * w) as Weight
 		}
 	}
 
-	// TODO: issue #564
-	#[ignore]
 	#[test]
 	fn find_max_voter_binary_search_works() {
 		let size = ElectionSize {
