@@ -167,7 +167,17 @@ decl_module! {
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 
-			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			if asset_id == T::MultiCurrency::staking_currency() && Self::cennz_deposit_active() {
+				let _result = T::MultiCurrency::transfer(
+					&origin,
+					&T::PegPalletId::get().into_account(),
+					asset_id,
+					amount, // checked amount < u128 in `deposit_claim` qed.
+					ExistenceRequirement::KeepAlive,
+				);
+			} else {
+				let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			}
 
 			let message = WithdrawMessage {
 				token_address: token_address.unwrap(),
