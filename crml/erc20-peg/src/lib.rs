@@ -181,7 +181,7 @@ decl_module! {
 
 		#[weight = 1_000_000]
 		#[transactional]
-		pub fn rescue(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
+		pub fn uwu(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let _ = ensure_root(origin)?;
 
 			// there should be a known ERC20 address mapped for this asset
