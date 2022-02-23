@@ -3682,7 +3682,7 @@ fn offences_weight_calculated_correctly() {
 		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(
 			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed),
-			Ok(zero_offence_weight)
+			zero_offence_weight
 		);
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
@@ -3707,7 +3707,7 @@ fn offences_weight_calculated_correctly() {
 				0,
 				DisableStrategy::WhenSlashed
 			),
-			Ok(n_offence_unapplied_weight)
+			n_offence_unapplied_weight
 		);
 
 		// On Offence with one offenders, Applied
@@ -3734,7 +3734,7 @@ fn offences_weight_calculated_correctly() {
 				0,
 				DisableStrategy::WhenSlashed
 			),
-			Ok(one_offence_unapplied_weight)
+			one_offence_unapplied_weight
 		);
 	});
 }

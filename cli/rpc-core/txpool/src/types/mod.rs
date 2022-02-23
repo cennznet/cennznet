@@ -20,7 +20,6 @@ mod inspect;
 use ethereum::TransactionV2 as EthereumTransaction;
 use ethereum_types::{H160, H256, U256};
 use serde::Serialize;
-use serde::{de::Error, Deserialize, Deserializer};
 use std::collections::HashMap;
 
 pub use self::content::Transaction;

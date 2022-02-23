@@ -780,6 +780,11 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo + ElectionWeightExt;
+
+	// config here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L72
+	/// Full identification of the validator.
+	type IdentificationTuple: Parameter + Ord;
+	type WeightSoftLimit: Get<Weight>;
 }
 
 /// Mode of era-forcing.
@@ -830,6 +835,13 @@ impl From<u32> for Releases {
 		}
 	}
 }
+
+/// Type of data stored as a deferred offence
+pub type DeferredOffenceOf<T> = (
+	Vec<OffenceDetails<<T as frame_system::Config>::AccountId, <T as Config>::IdentificationTuple>>,
+	Vec<Perbill>,
+	SessionIndex,
+);
 
 decl_storage! {
 	trait Store for Module<T: Config> as Staking {
@@ -1015,6 +1027,11 @@ decl_storage! {
 		///
 		/// This is set to v2 for new networks.
 		StorageVersion build(|_: &GenesisConfig<T>| Releases::V2 as u32): u32;
+
+		// store here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L91
+		/// Deferred reports that have been rejected by the offence handler and need to be submitted
+		/// at a later time.
+		DeferredOffences get(fn deferred_offences): Vec<DeferredOffenceOf<T>>;
 	}
 	add_extra_genesis {
 		config(stakers):
@@ -1208,6 +1225,10 @@ decl_module! {
 				consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 				consumed_weight += weight;
 			};
+
+			// check if we can report any deffered offences
+			Self::offences_on_initialize(now);
+
 			if
 				// if we don't have any ongoing offchain compute.
 				Self::era_election_status().is_closed() &&
@@ -2048,6 +2069,34 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// lifted from older pallet-offences: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L122
+	/// submits deffered offence reports when
+	fn offences_on_initialize(now: T::BlockNumber) -> Weight {
+		// only decode storage if we can actually submit anything again.
+		if !Self::era_election_status().is_closed() {
+			return 0;
+		}
+
+		let limit = T::WeightSoftLimit::get();
+		let mut consumed = Weight::zero();
+
+		<DeferredOffences<T>>::mutate(|deferred| {
+			deferred.retain(|(offences, perbill, session)| {
+				if consumed >= limit {
+					true
+				} else {
+					// keep those that fail to be reported again. An error log is emitted here; this
+					// should not happen if staking's `can_report` is implemented properly.
+					// TODO: which disable strategy?
+					consumed += Self::on_offence(&offences, &perbill, *session, DisableStrategy::WhenSlashed);
+					false
+				}
+			})
+		});
+
+		consumed
+	}
+
 	/// The total balance that can be slashed from a stash account as of right now.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
@@ -2960,8 +3009,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Result<Weight, ()>>
-	for Pallet<T>
+impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
@@ -2972,15 +3020,20 @@ where
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
+	/// Handles an offence slashing or disabling the validator as necessary
+	/// Returns consumed weight
+	/// `0` weight signifies a deferred offence report. This is in order to provide
+	/// compatibility with the 'offchain_election' code used here as of cennznet 2.0.0 and the differences in substrate 4.0.0-dev staking
 	fn on_offence(
 		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
 		disable_strategy: DisableStrategy,
-	) -> Result<Weight, ()> {
+	) -> Weight {
 		// matches `Self::can_report()` from older versions
 		if !Self::era_election_status().is_closed() {
-			return Err(());
+			// TODO: store the deffered offence here
+			return Zero::zero();
 		}
 
 		let reward_proportion = Self::slash_reward_fraction();
@@ -2994,7 +3047,7 @@ where
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
 				// This offence need not be re-submitted.
-				return Ok(consumed_weight);
+				return consumed_weight
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -3023,7 +3076,7 @@ where
 			{
 				Some(&(ref slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
-				None => return Ok(consumed_weight),
+				None => return consumed_weight,
 			}
 		};
 
@@ -3089,7 +3142,7 @@ where
 			}
 		}
 
-		Ok(consumed_weight)
+		consumed_weight
 	}
 }
 

@@ -336,6 +336,9 @@ parameter_types! {
 		.get(DispatchClass::Normal)
 		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
 		.saturating_sub(BlockExecutionWeight::get());
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
+		RuntimeBlockWeights::get().max_block;
 }
 impl crml_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
@@ -356,7 +359,11 @@ impl crml_staking::Config for Runtime {
 	type Rewarder = Rewards;
 	type UnixTime = Timestamp;
 	type UnsignedPriority = StakingUnsignedPriority;
+	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type WeightInfo = ();
+	// provides deffered offence reporting see (https://github.com/cennznet/cennznet/pull/590)
+	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl_opaque_keys! {
