@@ -1151,13 +1151,16 @@ name = "crml-erc20-peg"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-generic-asset",
  "crml-support",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

@@ -32,6 +32,10 @@ use sp_std::prelude::*;
 
 mod types;
 use types::*;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 pub trait Config: frame_system::Config {
 	/// An onchain address for this pallet
@@ -156,7 +160,7 @@ decl_module! {
 
 		#[weight = 50_000_000]
 		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
-		/// Tokens will be burnt and a proof generated to allow redemption of tokens on Ethereum
+		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
@@ -166,8 +170,18 @@ decl_module! {
 			// otherwise there may be no liquidity on the Ethereum side of the peg
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-
-			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			let staking_currency = T::MultiCurrency::staking_currency();
+			if asset_id == staking_currency {
+				let _result = T::MultiCurrency::transfer(
+					&origin,
+					&T::PegPalletId::get().into_account(),
+					asset_id,
+					amount, // checked amount < u128 in `deposit_claim` qed.
+					ExistenceRequirement::KeepAlive,
+				)?;
+			} else {
+				let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			}
 
 			let message = WithdrawMessage {
 				token_address: token_address.unwrap(),
