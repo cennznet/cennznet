@@ -24,6 +24,13 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
+pub const CENNZ_ASSET_ID: AssetId = 16000;
+pub const CPAY_ASSET_ID: AssetId = 16001;
+pub const NEXT_ASSET_ID: AssetId = 17000;
+
+pub const STAKING_ASSET_ID: AssetId = CENNZ_ASSET_ID;
+pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
+
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -119,11 +126,22 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<Test>()
-			.unwrap()
-			.into();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
+		crml_generic_asset::GenesisConfig::<Test> {
+			assets: vec![CENNZ_ASSET_ID, CPAY_ASSET_ID],
+			initial_balance: 0,
+			endowed_accounts: vec![],
+			next_asset_id: NEXT_ASSET_ID,
+			staking_asset_id: STAKING_ASSET_ID,
+			spending_asset_id: SPENDING_ASSET_ID,
+			permissions: vec![],
+			asset_meta: vec![],
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			System::initialize(&1, &[0u8; 32].into(), &Default::default(), frame_system::InitKind::Full);
 		});

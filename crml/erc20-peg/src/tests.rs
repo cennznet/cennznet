@@ -47,7 +47,7 @@ fn on_deposit_mints() {
 		Erc20Peg::on_success(event_claim_id, &contract_address, &event_type, &claim.encode());
 
 		let beneficiary: AccountId = AccountId::decode(&mut &beneficiary.0[..]).unwrap();
-		let expected_asset_id = 0;
+		let expected_asset_id = 17000;
 		assert_eq!(GenericAsset::free_balance(expected_asset_id, &beneficiary), amount);
 		assert_eq!(Erc20Peg::erc20_to_asset(contract_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(contract_address));
@@ -114,8 +114,6 @@ fn cennz_withdraw_transfers() {
 			frame_system::RawOrigin::Root.into(),
 			true
 		));
-		assert_ok!(Erc20Peg::activate_cennz_deposits(frame_system::RawOrigin::Root.into()));
-		assert_eq!(Erc20Peg::cennz_deposit_active(), true);
 		assert_eq!(
 			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account()),
 			0,

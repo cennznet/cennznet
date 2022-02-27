@@ -171,7 +171,7 @@ decl_module! {
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 			let staking_currency = T::MultiCurrency::staking_currency();
-			if asset_id == staking_currency && Self::cennz_deposit_active() {
+			if asset_id == staking_currency {
 				let _result = T::MultiCurrency::transfer(
 					&origin,
 					&T::PegPalletId::get().into_account(),
