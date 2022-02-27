@@ -189,6 +189,8 @@ decl_error! {
 		/// The bridge is paused pending validator set changes (once every era / 24 hours)
 		/// It will reactive after ~10 minutes
 		BridgePaused,
+		/// Event has already been verified by the bridge contract
+		EventAlreadyVerified,
 	}
 }
 
@@ -226,6 +228,29 @@ decl_module! {
 		pub fn set_event_deadline(origin, seconds: u64) {
 			ensure_root(origin)?;
 			EventDeadlineSeconds::put(seconds);
+		}
+
+		#[weight = 1_000_000]
+		/// Issues new proof if withdrawal is expired but not yet verified
+		pub fn reissue_event_proof(origin, event_id: EventProofId) {
+			let origin = ensure_signed(origin)?;
+			// take a look at submit_notorization
+
+			// read from eth contract, check bool from EventId true/false
+			let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+			let request = GetEventIdValue::new(event_id, random_request_id as usize);
+			let response = Self::query_eth_client(Some(request)).map_err(|e| {
+			log!(error, "💎 read eth-rpc API error: {:?}", e);
+				<Error<T>>::HttpFetch
+			})?;
+
+			// TODO Check withdrawal/ event_id is expired
+
+			// Check bridge contract has not verified the event_id
+			ensure!(EventClaims::contains_key(event_id), Error::<T>::EventAlreadyVerified);
+
+			// TODO Issue new proof
+			// call generate_event_proof
 		}
 
 		#[weight = 1_000_000]
