@@ -16,7 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::{AssetId, Balance};
-use codec::Decode;
+use codec::{Decode, Encode};
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
@@ -195,12 +195,7 @@ decl_module! {
 			let event_proof_id: u64 = T::EthBridge::generate_event_proof(&message)?;
 
 			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
-			let mut buf = Vec::<u8>::with_capacity(141);
-			buf.extend_from_slice(&amount.to_le_bytes());
-			buf.extend_from_slice(&token_address.as_bytes());
-			buf.extend_from_slice(&beneficiary.as_bytes());
-			buf.extend_from_slice(&event_proof_id.to_le_bytes());
-			let withdrawal_hash: T::Hash = T::Hashing::hash(&buf);
+			let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message, event_proof_id).encode());
 			ActiveWithdrawals::<T>::insert(event_proof_id, withdrawal_hash);
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
