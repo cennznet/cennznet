@@ -257,33 +257,6 @@ impl GetTxReceiptRequest {
 	}
 }
 
-/// Request for 'eth_call'
-#[derive(Serialize, Debug)]
-pub struct GetEventIdValue {
-	#[serde(rename = "jsonrpc")]
-	/// The version of the JSON RPC spec
-	pub json_rpc: &'static str,
-	/// The method which is called
-	pub method: &'static str,
-	/// Arguments supplied to the method. Can be an empty Vec.
-	pub params: [H256; 1],
-	/// The id for the request
-	pub id: usize,
-}
-
-/// JSON-RPC method name for the request
-const METHOD_TX_CALL: &str = "eth_call";
-impl GetEventIdValue {
-	pub fn new(event_id: EventProofId, id: usize) -> Self {
-		Self {
-			json_rpc: JSONRPC,
-			method: METHOD_TX_CALL,
-			params: [event_id],
-			id,
-		}
-	}
-}
-
 const METHOD_GET_BLOCK_BY_NUMBER: &str = "eth_getBlockByNumber";
 /// Request for 'eth_blockNumber'
 #[derive(Serialize, Debug)]

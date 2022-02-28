@@ -24,6 +24,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::traits::Hash;
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchError,
@@ -58,6 +59,8 @@ decl_storage! {
 		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
+		/// Hash of withdrawal information
+		ActiveWithdrawals get(fn active_withdrawals): map hasher(twox_64_concat) u64 => T::Hash;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
@@ -166,15 +169,25 @@ decl_module! {
 			// otherwise there may be no liquidity on the Ethereum side of the peg
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
+			let token_address = token_address.unwrap();
 
 			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
 
 			let message = WithdrawMessage {
-				token_address: token_address.unwrap(),
+				token_address,
 				amount: amount.into(),
 				beneficiary
 			};
-			let event_proof_id = T::EthBridge::generate_event_proof(&message)?;
+			let event_proof_id: u64 = T::EthBridge::generate_event_proof(&message)?;
+
+			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
+			let mut buf = Vec::<u8>::with_capacity(141);
+			buf.extend_from_slice(&amount.to_le_bytes());
+			buf.extend_from_slice(&token_address.as_bytes());
+			buf.extend_from_slice(&beneficiary.as_bytes());
+			buf.extend_from_slice(&event_proof_id.to_le_bytes());
+			let withdrawal_hash: T::Hash = T::Hashing::hash(&buf);
+			ActiveWithdrawals::<T>::insert(event_proof_id, withdrawal_hash);
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}
