@@ -21,6 +21,8 @@ use sp_std::prelude::*;
 /// Ethereum address type
 pub type EthAddress = H160;
 
+//
+
 /// A deposit event made by the ERC20 peg contract on Ethereum
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct Erc20DepositEvent {

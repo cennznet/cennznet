@@ -15,7 +15,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{AssetId, Balance};
+use cennznet_primitives::{
+	eth::EventId,
+	types::{AssetId, Balance},
+};
 use codec::{Decode, Encode};
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
@@ -64,7 +67,7 @@ decl_storage! {
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Hash of withdrawal information
-		ActiveWithdrawals get(fn active_withdrawals): map hasher(twox_64_concat) u64 => T::Hash;
+		ActiveWithdrawals get(fn active_withdrawals): map hasher(twox_64_concat) EventId => T::Hash;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
@@ -192,7 +195,7 @@ decl_module! {
 				amount: amount.into(),
 				beneficiary
 			};
-			let event_proof_id: u64 = T::EthBridge::generate_event_proof(&message)?;
+			let event_proof_id: EventId = T::EthBridge::generate_event_proof(&message)?;
 
 			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
 			let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message, event_proof_id).encode());
