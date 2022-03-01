@@ -307,7 +307,8 @@ impl Config for Test {
 	type UnsignedPriority = UnsignedPriority;
 	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type WeightInfo = ();
-	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type SessionHistoricalType = Self;
+	type OnOffenceHandler = crate::Pallet<Self>;
 	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 

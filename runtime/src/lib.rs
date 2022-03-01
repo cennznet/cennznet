@@ -362,7 +362,8 @@ impl crml_staking::Config for Runtime {
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type WeightInfo = ();
 	// provides deffered offence reporting see (https://github.com/cennznet/cennznet/pull/590)
-	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type OnOffenceHandler = Staking;
+	type SessionHistoricalType = Self;
 	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 

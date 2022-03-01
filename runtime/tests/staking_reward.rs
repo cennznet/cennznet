@@ -19,8 +19,8 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator, Rewards, Runtime,
-	Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator, Offences, Rewards,
+	Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
@@ -64,6 +64,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
+		Offences::on_initialize(b);
 		Rewards::on_initialize(b);
 		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
 		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
@@ -567,7 +568,7 @@ fn slashed_cennz_goes_to_reporter() {
 					&[offence],
 					&[slash_fraction],
 					Staking::eras_start_session_index(active_era()).expect("session index exists"),
-					DisableStrategy::Never,
+					DisableStrategy::WhenSlashed,
 				),
 				700000000
 			);
@@ -592,7 +593,7 @@ fn slashed_cennz_goes_to_reporter() {
 }
 
 #[test]
-fn reward_shceduling() {
+fn reward_scheduling() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
 	ExtBuilder::default()
