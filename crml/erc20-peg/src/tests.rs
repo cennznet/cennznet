@@ -148,7 +148,7 @@ fn cennz_withdraw_transfers() {
 		};
 		let event_proof_id: u64 = <Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
 		let withdrawal_hash = <Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
-		assert_eq!(Erc20Peg::active_withdrawals(event_proof_id), withdrawal_hash);
+		assert_eq!(Erc20Peg::withdrawal_digests(event_proof_id), withdrawal_hash);
 	});
 }
 
@@ -186,6 +186,6 @@ fn withdraw() {
 		};
 		let event_proof_id: u64 = <Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
 		let withdrawal_hash = <Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
-		assert_eq!(Erc20Peg::active_withdrawals(event_proof_id), withdrawal_hash);
+		assert_eq!(Erc20Peg::withdrawal_digests(event_proof_id), withdrawal_hash);
 	});
 }

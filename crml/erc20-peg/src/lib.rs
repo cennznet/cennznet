@@ -67,7 +67,7 @@ decl_storage! {
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Hash of withdrawal information
-		ActiveWithdrawals get(fn active_withdrawals): map hasher(twox_64_concat) EventId => T::Hash;
+		WithdrawalDigests get(fn withdrawal_digests): map hasher(twox_64_concat) EventId => T::Hash;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
@@ -199,7 +199,7 @@ decl_module! {
 
 			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
 			let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message, event_proof_id).encode());
-			ActiveWithdrawals::<T>::insert(event_proof_id, withdrawal_hash);
+			WithdrawalDigests::<T>::insert(event_proof_id, withdrawal_hash);
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}
