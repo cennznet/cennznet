@@ -44,7 +44,12 @@ fn on_deposit_mints() {
 		};
 		let event_claim_id: u64 = 0;
 		let event_type: H256 = DepositEventSignature::get().into();
-		Erc20Peg::on_success(event_claim_id, &contract_address, &event_type, &claim.encode());
+		Erc20Peg::on_success(
+			event_claim_id,
+			&contract_address,
+			&event_type,
+			&crml_support::EthAbiCodec::encode(&claim),
+		);
 
 		let beneficiary: AccountId = AccountId::decode(&mut &beneficiary.0[..]).unwrap();
 		let expected_asset_id = 17000;
@@ -83,7 +88,12 @@ fn on_cennz_deposit_transfers() {
 		};
 		let event_claim_id: u64 = 0;
 		let event_type: H256 = DepositEventSignature::get().into();
-		Erc20Peg::on_success(event_claim_id, &contract_address, &event_type, &claim.encode());
+		Erc20Peg::on_success(
+			event_claim_id,
+			&contract_address,
+			&event_type,
+			&crml_support::EthAbiCodec::encode(&claim),
+		);
 
 		let beneficiary: AccountId = AccountId::decode(&mut &beneficiary.0[..]).unwrap();
 		assert_eq!(GenericAsset::free_balance(cennz_asset_id, &beneficiary), amount);
@@ -129,6 +139,16 @@ fn cennz_withdraw_transfers() {
 			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account()),
 			amount,
 		);
+
+		// Check withdrawal hash is stored correctly
+		let message = WithdrawMessage {
+			token_address: cennz_eth_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		let event_proof_id: u64 = <Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
+		let withdrawal_hash = <Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
+		assert_eq!(Erc20Peg::withdrawal_digests(event_proof_id), withdrawal_hash);
 	});
 }
 
@@ -157,5 +177,15 @@ fn withdraw() {
 			beneficiary
 		));
 		assert_eq!(GenericAsset::free_balance(asset_id, &origin), 0);
+
+		// Check withdrawal hash is stored correctly
+		let message = WithdrawMessage {
+			token_address: cennz_eth_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		let event_proof_id: u64 = <Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
+		let withdrawal_hash = <Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
+		assert_eq!(Erc20Peg::withdrawal_digests(event_proof_id), withdrawal_hash);
 	});
 }
