@@ -1372,7 +1372,6 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
- "pallet-offences",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",

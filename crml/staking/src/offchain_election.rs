@@ -504,6 +504,7 @@ mod test {
 
 	impl crate::ElectionWeightExt for Staking {
 		fn submit_unsigned(v: u32, n: u32, a: u32, w: u32) -> Weight {
+			// this calculation matches the value used in pallet-staking as of cennznet/2.0.0
 			(0 * v + 0 * n + 1000 * a + 0 * w) as Weight
 		}
 	}

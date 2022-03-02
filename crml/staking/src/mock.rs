@@ -749,6 +749,8 @@ pub(crate) fn on_offence_in_era(
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
 			let weight = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			// `on_offence` weight of 0 indicates the offence was deffered.
+			// In cennznet 2.0 the deferred condition is signalled with an `Err`
 			if weight.is_zero() {
 				panic!("cannot report offence")
 			}
@@ -765,6 +767,8 @@ pub(crate) fn on_offence_in_era(
 			Staking::eras_start_session_index(era).unwrap(),
 			disable_strategy,
 		);
+		// `on_offence` weight of 0 indicates the offence was deffered.
+		// In cennznet 2.0 the deferred condition is signalled with an `Err`
 		if weight.is_zero() {
 			panic!("cannot report offence")
 		}

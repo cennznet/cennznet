@@ -1235,7 +1235,6 @@ decl_module! {
 				consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 				consumed_weight += weight;
 			};
-
 			if
 				// if we don't have any ongoing offchain compute.
 				Self::era_election_status().is_closed() &&
@@ -1267,6 +1266,7 @@ decl_module! {
 			}
 
 			// check if we can report any deffered offences
+			// pallet-offences did this in its `on_initialize` in cennznet 2.0
 			Self::offences_on_initialize(now);
 
 			// For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
@@ -2836,6 +2836,8 @@ impl<T: Config> Module<T> {
 	fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
+		// 1000 is arbitrary. hard-coded instead of requiring caller to
+		// figure out the Detailss.
 		slashing::clear_stash_metadata::<T>(stash, 1000_u32)?;
 
 		<Bonded<T>>::remove(stash);

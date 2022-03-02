@@ -2631,7 +2631,6 @@ mod offchain_election {
 			let limit: NominatorIndex = ValidatorIndex::max_value() as NominatorIndex + 1;
 			let ctrl = 1_000_000;
 			for i in 0..limit {
-				// TODO: failing here
 				bond_validator((1000 + i).into(), (1000 + i + ctrl).into(), 100);
 			}
 
