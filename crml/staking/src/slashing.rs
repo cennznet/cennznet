@@ -621,7 +621,7 @@ pub fn do_slash<T: Config>(
 
 /// Apply a previously-unapplied slash.
 pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T::AccountId, BalanceOf<T>>) {
-	let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
+	let mut slashed_imbalance = T::Currency::issue(Zero::zero()); // returns a negative imbalance with asset ID
 	let mut reward_payout = unapplied_slash.payout;
 
 	do_slash::<T>(

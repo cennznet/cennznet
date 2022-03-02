@@ -26,7 +26,7 @@ use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use frame_support::{
 	storage::StorageValue,
-	traits::{Currency, Get, OnFinalize, OnInitialize},
+	traits::{Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
 	IterableStorageMap,
 };
 use pallet_im_online::UnresponsivenessOffence;
@@ -64,7 +64,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
-		Offences::on_initialize(b);
+		Staking::offchain_worker(b);
 		Rewards::on_initialize(b);
 		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
 		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
