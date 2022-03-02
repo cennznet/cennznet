@@ -22,6 +22,7 @@ use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
 use frame_support::traits::GenesisBuild;
+use sp_core::offchain::{testing, OffchainDbExt, OffchainWorkerExt};
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -158,6 +159,8 @@ impl ExtBuilder {
 			// This allows signed extrinsics to validate.
 			frame_system::Pallet::<Runtime>::set_parent_hash(GENESIS_HASH.into());
 		});
+		let (offchain, _state) = testing::TestOffchainExt::new();
+		ext.register_extension(OffchainWorkerExt::new(offchain));
 
 		ext
 	}
