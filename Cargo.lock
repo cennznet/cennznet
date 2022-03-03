@@ -694,14 +694,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.1.0-rc3"
+version = "2.1.0-rc4"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.1.0-rc3"
+version = "2.1.0-rc4"
 dependencies = [
  "cennznet-primitives",
  "cennznet-rpc-core-txpool",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.0.0"
+version = "2.1.0-rc4"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
