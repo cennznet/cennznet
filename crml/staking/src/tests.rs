@@ -1912,10 +1912,7 @@ fn garbage_collection_after_slashing() {
 
 			assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
 			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_some());
-			assert_eq!(
-				<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
-				&25_600
-			);
+			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount(), &25_600);
 
 			on_offence_now(
 				&[OffenceDetails {
@@ -1938,7 +1935,7 @@ fn garbage_collection_after_slashing() {
 			assert_ok!(Staking::reap_stash(Origin::none(), 11));
 
 			assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
-			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(), &0);
+			assert_eq!(<Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount(), &0);
 		})
 }
 
@@ -3376,9 +3373,6 @@ mod offchain_election {
 			})
 	}
 
-	// FIX: snapshot not created
-	// TODO: issue #564
-	#[ignore]
 	#[test]
 	fn nomination_slash_filter_is_checked() {
 		// If a nominator has voted for someone who has been recently slashed, that particular
@@ -3528,9 +3522,6 @@ mod offchain_election {
 		})
 	}
 
-	// FIX: test did not panic as expected
-	// TODO: issue #564
-	#[ignore]
 	#[test]
 	#[should_panic]
 	fn offence_is_blocked_when_window_open() {

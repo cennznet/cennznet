@@ -22,7 +22,7 @@ use core::convert::TryFrom;
 use crml_cennzx::{FeeRate, PerMillion, PerThousand};
 use crml_support::MultiCurrency;
 use frame_support::traits::GenesisBuild;
-use hex_literal::hex;
+use sp_core::offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt};
 use sp_runtime::{FixedPointNumber, FixedU128, Perbill};
 
 use crate::common::helpers::{make_authority_keys, GENESIS_HASH};
@@ -159,6 +159,13 @@ impl ExtBuilder {
 			// This allows signed extrinsics to validate.
 			frame_system::Pallet::<Runtime>::set_parent_hash(GENESIS_HASH.into());
 		});
+
+		// setup offchain worker for staking election and offence reports
+		let (offchain, _state) = testing::TestOffchainExt::new();
+		ext.register_extension(OffchainWorkerExt::new(offchain.clone()));
+		ext.register_extension(OffchainDbExt::new(offchain));
+		let (pool, _state) = testing::TestTransactionPoolExt::new();
+		ext.register_extension(TransactionPoolExt::new(pool));
 
 		ext
 	}

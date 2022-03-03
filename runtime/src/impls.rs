@@ -203,6 +203,18 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 				// Thus the block author will be able to withdraw collected CPAY fees
 				// TODO: this should be converted to the validator stash or controller account
 				// the BABE session key of the validator: `let authority_id = Babe::authorities()[author_index as usize].clone();`
+
+				// we know this is Sr type key for BABE
+				// 32 byte public key
+				// return `keccak_256(controller)[:20]`
+				// staking module should provide a method to withdraw cpay to the EVM address
+				// use to pay block author priority fee
+				// ```ignore
+				// 	fn pay_priority_fee(tip: U256) {
+				//		let account_id = T::AddressMapping::into_account_id(<Pallet<T>>::find_author());
+				// 		let _ = C::deposit_into_existing(&account_id, tip.low_u128().unique_saturated_into());
+				//	}
+				//```
 				H160::from_slice(&AsRef::<[u8; 32]>::as_ref(controller)[..20])
 			} else {
 				H160::default()

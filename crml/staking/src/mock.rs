@@ -278,6 +278,8 @@ parameter_types! {
 	pub const UnsignedPriority: u64 = 1 << 20;
 	pub const MinSolutionScoreBump: Perbill = Perbill::zero();
 	pub OffchainSolutionWeightLimit: Weight = BlockWeights::get().max_block;
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
+	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * BlockWeights::get().max_block;
 }
 
 thread_local! {
@@ -301,9 +303,13 @@ impl Config for Test {
 	type MaxIterations = MaxIterations;
 	type MinSolutionScoreBump = MinSolutionScoreBump;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type UnsignedPriority = UnsignedPriority;
 	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type WeightInfo = ();
+	type SessionHistoricalType = Self;
+	type OnOffenceHandler = crate::Pallet<Self>;
+	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -742,7 +748,12 @@ pub(crate) fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let weight = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			// `on_offence` weight of 0 indicates the offence was deffered.
+			// In cennznet 2.0 the deferred condition is signalled with an `Err`
+			if weight.is_zero() {
+				panic!("cannot report offence")
+			}
 			return;
 		} else if bonded_era > era {
 			break;
@@ -750,12 +761,17 @@ pub(crate) fn on_offence_in_era(
 	}
 
 	if Staking::active_era().unwrap().index == era {
-		let _ = Staking::on_offence(
+		let weight = Staking::on_offence(
 			offenders,
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
 			disable_strategy,
 		);
+		// `on_offence` weight of 0 indicates the offence was deffered.
+		// In cennznet 2.0 the deferred condition is signalled with an `Err`
+		if weight.is_zero() {
+			panic!("cannot report offence")
+		}
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
