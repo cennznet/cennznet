@@ -49,10 +49,10 @@ use cennznet_runtime::{constants::config::ETH_HTTP_URI, RuntimeApi};
 pub struct Executor;
 
 impl sc_executor::NativeExecutionDispatch for Executor {
-	type ExtendHostFunctions = (
-		cennznet_runtime::legacy_host_functions::storage::HostFunctions,
-		frame_benchmarking::benchmarking::HostFunctions,
-	);
+	#[cfg(feature = "runtime-benchmarks")]
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type ExtendHostFunctions = (cennznet_runtime::legacy_host_functions::storage::HostFunctions);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cennznet_runtime::api::dispatch(method, data)
