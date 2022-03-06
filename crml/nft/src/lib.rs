@@ -869,19 +869,6 @@ decl_module! {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			// let listing = Listing::<T>::FixedPrice(
-			// 	FixedPriceListing::<T> {
-			// 		payment_asset,
-			// 		fixed_price,
-			// 		close: listing_end_block,
-			// 		tokens: tokens.clone(),
-			// 		buyer: buyer.clone(),
-			// 		seller: origin.clone(),
-			// 		royalties_schedule,
-			// 		marketplace_id,
-			// 	}
-			// );
-
 			match Self::listings(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
 					ensure!(sale.seller == origin, Error::<T>::NoPermission);
