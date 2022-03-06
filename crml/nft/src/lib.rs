@@ -102,6 +102,8 @@ decl_event!(
 		FixedPriceSaleComplete(CollectionId, ListingId, AccountId),
 		/// A fixed price sale has closed without selling (collection, listing)
 		FixedPriceSaleClosed(CollectionId, ListingId),
+		///A fixed price sale has had its price updated (collection, listing)
+		FixedPriceSalePriceUpdated(CollectionId, ListingId),
 		/// An auction has opened (collection, listing, marketplace_id)
 		AuctionOpen(CollectionId, ListingId, Option<MarketplaceId>),
 		/// An auction has sold (collection, listing, payment asset, bid, new owner)
@@ -191,6 +193,8 @@ decl_storage! {
 		pub NextListingId get(fn next_listing_id): ListingId;
 		/// NFT sale/auction listings keyed by collection id and token id
 		pub Listings get(fn listings): map hasher(twox_64_concat) ListingId => Option<Listing<T>>;
+		/// Current price on fixed price listing
+		pub ListingCurrentFixedPrice get(fn current_price): map hasher(twox_64_concat) ListingId => Balance;
 		/// Map from collection to any open listings
 		pub OpenCollectionListings get(fn open_collection_listings): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) ListingId => bool;
 		/// Winning bids on open listings. keyed by collection id and token id
@@ -853,6 +857,35 @@ decl_module! {
 				None => {},
 			}
 		}
+
+		/// Update fixed price for a single token sale
+		///
+		/// `listing_id` id of the fixed price listing
+		/// `new_price` new fixed price
+		/// Caller must be the token owner
+		#[weight = T::WeightInfo::update_fixed_price()]
+		fn update_fixed_price (
+			origin,
+			listing_id: ListingId,
+			new_price: Balance
+		) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+
+			match Self::listings(listing_id) {
+				Some(Listing::<T>::FixedPrice(mut sale)) => {
+					ensure!(sale.seller == origin, Error::<T>::NoPermission);
+
+					sale.fixed_price = new_price;
+					let collection_id = sale.tokens[0].0;
+
+					Listings::mutate(listing_id, |listing| *listing = Some(Listing::<T>::FixedPrice(sale)));
+					Self::deposit_event(RawEvent::FixedPriceSalePriceUpdated(collection_id, listing_id));
+					Ok(())
+				},
+				Some(Listing::<T>::Auction(_)) => Err(Error::<T>::NotForFixedPriceSale.into()),
+				None => Err(Error::<T>::NotForFixedPriceSale.into()),
+			}
+        }
 	}
 }
 
