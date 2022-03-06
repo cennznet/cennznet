@@ -869,7 +869,7 @@ decl_module! {
 			listing_id: ListingId,
 			new_price: Balance
 		) -> DispatchResult {
-            let origin = ensure_signed(origin)?;
+			let origin = ensure_signed(origin)?;
 
 			match Self::listings(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
@@ -885,7 +885,7 @@ decl_module! {
 				Some(Listing::<T>::Auction(_)) => Err(Error::<T>::NotForFixedPriceSale.into()),
 				None => Err(Error::<T>::NotForFixedPriceSale.into()),
 			}
-        }
+		}
 	}
 }
 

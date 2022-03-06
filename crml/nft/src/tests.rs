@@ -692,7 +692,10 @@ fn updates_fixed_price() {
 			None
 		));
 		assert_ok!(Nft::update_fixed_price(Some(token_owner).into(), listing_id, 1_500));
-		assert!(has_event(RawEvent::FixedPriceSalePriceUpdated(collection_id, listing_id)));
+		assert!(has_event(RawEvent::FixedPriceSalePriceUpdated(
+			collection_id,
+			listing_id
+		)));
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: PAYMENT_ASSET,
