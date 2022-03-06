@@ -193,8 +193,6 @@ decl_storage! {
 		pub NextListingId get(fn next_listing_id): ListingId;
 		/// NFT sale/auction listings keyed by collection id and token id
 		pub Listings get(fn listings): map hasher(twox_64_concat) ListingId => Option<Listing<T>>;
-		/// Current price on fixed price listing
-		pub ListingCurrentFixedPrice get(fn current_price): map hasher(twox_64_concat) ListingId => Balance;
 		/// Map from collection to any open listings
 		pub OpenCollectionListings get(fn open_collection_listings): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) ListingId => bool;
 		/// Winning bids on open listings. keyed by collection id and token id
@@ -870,6 +868,19 @@ decl_module! {
 			new_price: Balance
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+
+			// let listing = Listing::<T>::FixedPrice(
+			// 	FixedPriceListing::<T> {
+			// 		payment_asset,
+			// 		fixed_price,
+			// 		close: listing_end_block,
+			// 		tokens: tokens.clone(),
+			// 		buyer: buyer.clone(),
+			// 		seller: origin.clone(),
+			// 		royalties_schedule,
+			// 		marketplace_id,
+			// 	}
+			// );
 
 			match Self::listings(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
