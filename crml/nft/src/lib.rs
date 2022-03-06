@@ -193,8 +193,6 @@ decl_storage! {
 		pub NextListingId get(fn next_listing_id): ListingId;
 		/// NFT sale/auction listings keyed by collection id and token id
 		pub Listings get(fn listings): map hasher(twox_64_concat) ListingId => Option<Listing<T>>;
-		/// Current price on fixed price listing
-		pub ListingCurrentFixedPrice get(fn current_price): map hasher(twox_64_concat) ListingId => Balance;
 		/// Map from collection to any open listings
 		pub OpenCollectionListings get(fn open_collection_listings): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) ListingId => bool;
 		/// Winning bids on open listings. keyed by collection id and token id
