@@ -21,7 +21,7 @@ use crate::{
 };
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use crml_staking::{rewards::RunScheduledPayout, EraIndex};
+use crml_staking::{rewards::RunScheduledPayout, EraIndex, StakingLedger};
 use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
@@ -32,7 +32,9 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_evm::{AddressMapping, OnChargeEVMTransaction};
 use smallvec::smallvec;
+use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},
 	ConsensusEngineId, Perbill,
@@ -220,6 +222,44 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 				H160::default()
 			}
 		})
+	}
+}
+
+/// Implements the transaction payment for a pallet implementing the `Currency`
+/// trait (eg. the pallet_balances) using an unbalance handler (implementing
+/// `OnUnbalanced`).
+/// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
+pub struct CENNZnetEVMCurrencyAdapter<T, C>(PhantomData<(T, C)>);
+
+impl<T, C> OnChargeEVMTransaction<T> for CENNZnetEVMCurrencyAdapter<T, C>
+where
+	T: pallet_evm::Config + crml_staking::Config,
+	C: Currency<<T as frame_system::Config>::AccountId>,
+	C::PositiveImbalance:
+		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::NegativeImbalance>,
+	C::NegativeImbalance:
+		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::PositiveImbalance>,
+{
+	type LiquidityInfo = Option<
+		<<T as pallet_evm::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance,
+	>;
+
+	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
+	}
+
+	fn correct_and_deposit_fee(who: &H160, corrected_fee: U256, already_withdrawn: Self::LiquidityInfo) {
+		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, already_withdrawn)
+	}
+
+	fn pay_priority_fee(tip: U256) {
+		let controller = T::AddressMapping::into_account_id(<pallet_evm::Pallet<T>>::find_author());
+		let staking_ledger = <crml_staking::Module<T>>::ledger(&controller);
+		// Pay tip to stash account if it exists, otherwise pay to controller account
+		let _ = match staking_ledger {
+			Some(ledger) => C::deposit_into_existing(&ledger.stash, tip.low_u128().unique_saturated_into()),
+			None => C::deposit_into_existing(&controller, tip.low_u128().unique_saturated_into()),
+		};
 	}
 }
 
