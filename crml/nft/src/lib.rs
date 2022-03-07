@@ -876,7 +876,7 @@ decl_module! {
 					sale.fixed_price = new_price;
 					let collection_id = sale.tokens[0].0;
 
-					Listings::mutate(listing_id, |listing| *listing = Some(Listing::<T>::FixedPrice(sale)));
+					Listings::insert(listing_id, Listing::<T>::FixedPrice(sale));
 					Self::deposit_event(RawEvent::FixedPriceSalePriceUpdated(collection_id, listing_id));
 					Ok(())
 				},
