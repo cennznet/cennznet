@@ -20,7 +20,6 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
-use fc_consensus::FrontierBlockImport;
 use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
@@ -52,7 +51,10 @@ impl sc_executor::NativeExecutionDispatch for Executor {
 	#[cfg(feature = "runtime-benchmarks")]
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ExtendHostFunctions = (cennznet_runtime::legacy_host_functions::storage::HostFunctions);
+	type ExtendHostFunctions = (
+		sp_io::SubstrateHostFunctions,
+		cennznet_runtime::legacy_host_functions::storage::HostFunctions,
+	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cennznet_runtime::api::dispatch(method, data)
@@ -72,8 +74,9 @@ type FullGrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<FullBacken
 /// BABE block importer type additionally wraps `FullGrandpaBlockImport`
 type FullBabeBlockImport = sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>;
 /// CENNZnet block importer type
-/// Provides GRANDPA, BABE, and Frontier block import protocols
-type CENNZnetBlockImport = FrontierBlockImport<Block, FullBabeBlockImport, FullClient>;
+/// Provides GRANDPA and BABE block import protocols
+/// Frontier is intentionally excluded see: https://github.com/cennznet/cennznet/issues/596
+type CENNZnetBlockImport = FullBabeBlockImport;
 /// The transaction pool type definition.
 pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
 
@@ -160,12 +163,10 @@ pub fn new_partial(
 		client.clone(),
 	)?;
 
-	let wrapped_block_import = FrontierBlockImport::new(block_import, client.clone(), frontier_backend.clone());
-
 	let slot_duration = babe_link.config().slot_duration();
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
-		wrapped_block_import.clone(),
+		block_import.clone(),
 		Some(Box::new(justification_import)),
 		client.clone(),
 		select_chain.clone(),
@@ -187,7 +188,7 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let import_setup = (wrapped_block_import, grandpa_link, babe_link);
+	let import_setup = (block_import, grandpa_link, babe_link);
 	let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
 	let rpc_setup = shared_voter_state.clone();
 	let client = client.clone();
