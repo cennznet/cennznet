@@ -699,6 +699,95 @@ fn sell_closes_on_schedule() {
 }
 
 #[test]
+fn updates_fixed_price() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		let listing_id = Nft::next_listing_id();
+		assert_ok!(Nft::sell(
+			Some(token_owner).into(),
+			token_id,
+			Some(5),
+			PAYMENT_ASSET,
+			1_000,
+			None,
+			None
+		));
+		assert_ok!(Nft::update_fixed_price(Some(token_owner).into(), listing_id, 1_500));
+		assert!(has_event(RawEvent::FixedPriceSalePriceUpdated(
+			collection_id,
+			listing_id
+		)));
+
+		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
+			payment_asset: PAYMENT_ASSET,
+			fixed_price: 1_500,
+			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+			buyer: Some(5),
+			seller: token_owner,
+			tokens: vec![token_id],
+			royalties_schedule: Default::default(),
+			marketplace_id: None,
+		});
+
+		let listing = Nft::listings(listing_id).expect("token is listed");
+		assert_eq!(listing, expected);
+	});
+}
+
+#[test]
+fn update_fixed_price_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (_, token_id, token_owner) = setup_token();
+		let payment_asset = PAYMENT_ASSET;
+		let reserve_price = 1_000;
+		let listing_id = Nft::next_listing_id();
+
+		// can't update, token not listed
+		assert_noop!(
+			Nft::update_fixed_price(Some(token_owner).into(), listing_id, 1_500),
+			Error::<Test>::NotForFixedPriceSale
+		);
+
+		assert_ok!(Nft::auction(
+			Some(token_owner).into(),
+			token_id,
+			payment_asset,
+			reserve_price,
+			Some(System::block_number() + 1),
+			None,
+		));
+
+		// can't update, listed for auction
+		assert_noop!(
+			Nft::update_fixed_price(Some(token_owner).into(), listing_id, 1_500),
+			Error::<Test>::NotForFixedPriceSale
+		);
+	});
+}
+
+#[test]
+fn update_fixed_price_fails_not_owner() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (_, token_id, token_owner) = setup_token();
+		let listing_id = Nft::next_listing_id();
+		assert_ok!(Nft::sell(
+			Some(token_owner).into(),
+			token_id,
+			Some(5),
+			PAYMENT_ASSET,
+			1_000,
+			None,
+			None
+		));
+
+		assert_noop!(
+			Nft::update_fixed_price(Some(token_owner + 1).into(), listing_id, 1_500),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
 fn register_marketplace() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account = 1;
