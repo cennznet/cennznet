@@ -17,11 +17,13 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, Treasury,
+	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
+	Treasury,
 };
 use cennznet_primitives::types::{AccountId, Balance};
+use codec::Input;
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use crml_staking::{rewards::RunScheduledPayout, EraIndex, StakingLedger};
+use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
 use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
@@ -32,7 +34,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_evm::{AddressMapping, OnChargeEVMTransaction};
+use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
@@ -253,13 +255,19 @@ where
 	}
 
 	fn pay_priority_fee(tip: U256) {
-		let controller = T::AddressMapping::into_account_id(<pallet_evm::Pallet<T>>::find_author());
-		let staking_ledger = <crml_staking::Module<T>>::ledger(&controller);
-		// Pay tip to stash account if it exists, otherwise pay to controller account
-		let _ = match staking_ledger {
-			Some(ledger) => C::deposit_into_existing(&ledger.stash, tip.low_u128().unique_saturated_into()),
-			None => C::deposit_into_existing(&controller, tip.low_u128().unique_saturated_into()),
-		};
+		let digest = System::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+		if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
+			if let Some(stash) = Session::validators().get(author_index as usize) {
+				//let stash = T::AccountId::decode(&mut AsRef::<[u8; 32]>::as_ref(&stash)).unwrap_or_default();
+				let pay_to: T::AccountId = Rewards::payee(&stash);
+				let _ = C::deposit_into_existing(&pay_to, tip.low_u128().unique_saturated_into());
+			} else {
+				log::debug!("Error processing priority fee, validator not found");
+			}
+		} else {
+			log::debug!("Error processing priority fee, block author not found");
+		}
 	}
 }
 

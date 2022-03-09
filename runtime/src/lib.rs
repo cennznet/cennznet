@@ -749,7 +749,7 @@ impl pallet_evm::Config for Runtime {
 	type ChainId = ChainId;
 	type BlockGasLimit = BlockGasLimit;
 	// () implementation charges `T::Currency` i.e. `SpendingAssetCurrency` as configured here
-	type OnChargeTransaction = CENNZnetEVMCurrencyAdapter<Self, EvmCurrencyAdapter<SpendingAssetCurrency<Self>>>;
+	type OnChargeTransaction = CENNZnetEVMCurrencyAdapter<Self, SpendingAssetCurrency<Self>>;
 	// This identifies author inorder to distribute tip fees
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
