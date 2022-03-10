@@ -504,6 +504,9 @@ impl<T: Config> Module<T> {
 				);
 				return EventClaimResult::UnexpectedData;
 			}
+			if log.address != contract_address {
+				return EventClaimResult::UnexpectedContractAddress;
+			}
 		} else {
 			return EventClaimResult::NoTxLogs;
 		}
