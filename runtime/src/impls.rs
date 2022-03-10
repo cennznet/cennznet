@@ -245,6 +245,7 @@ where
 	type LiquidityInfo = Option<
 		<<T as pallet_evm::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance,
 	>;
+	type AccountId32 = T::AccountId;
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
 		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
