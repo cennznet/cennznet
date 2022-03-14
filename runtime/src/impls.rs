@@ -17,11 +17,13 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, Treasury,
+	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
+	Treasury,
 };
 use cennznet_primitives::types::{AccountId, Balance};
+use codec::Input;
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use crml_staking::{rewards::RunScheduledPayout, EraIndex};
+use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
 use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
@@ -32,7 +34,9 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
+use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},
 	ConsensusEngineId, Perbill,
@@ -220,6 +224,51 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 				H160::default()
 			}
 		})
+	}
+}
+
+/// Implements the transaction payment for a pallet implementing the `Currency`
+/// trait (eg. the pallet_balances) using an unbalance handler (implementing
+/// `OnUnbalanced`).
+/// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
+pub struct CENNZnetEVMCurrencyAdapter<T, C>(PhantomData<(T, C)>);
+
+impl<T, C> OnChargeEVMTransaction<T> for CENNZnetEVMCurrencyAdapter<T, C>
+where
+	T: pallet_evm::Config + crml_staking::Config,
+	C: Currency<<T as frame_system::Config>::AccountId>,
+	C::PositiveImbalance:
+		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::NegativeImbalance>,
+	C::NegativeImbalance:
+		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::PositiveImbalance>,
+{
+	type LiquidityInfo = Option<
+		<<T as pallet_evm::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance,
+	>;
+	type AccountId32 = T::AccountId;
+
+	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
+	}
+
+	fn correct_and_deposit_fee(who: &H160, corrected_fee: U256, already_withdrawn: Self::LiquidityInfo) {
+		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, already_withdrawn)
+	}
+
+	fn pay_priority_fee(tip: U256) {
+		let digest = System::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+		if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
+			if let Some(stash) = Session::validators().get(author_index as usize) {
+				//let stash = T::AccountId::decode(&mut AsRef::<[u8; 32]>::as_ref(&stash)).unwrap_or_default();
+				let pay_to: T::AccountId = Rewards::payee(&stash);
+				let _ = C::deposit_into_existing(&pay_to, tip.low_u128().unique_saturated_into());
+			} else {
+				log::debug!("Error processing priority fee, validator not found");
+			}
+		} else {
+			log::debug!("Error processing priority fee, block author not found");
+		}
 	}
 }
 

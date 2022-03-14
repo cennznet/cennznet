@@ -100,7 +100,8 @@ use constants::{currency::*, time::*};
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee,
+	CENNZnetEVMCurrencyAdapter, DealWithFees, EthereumFindAuthor, EvmCurrencyAdapter, ScheduledPayoutRunner,
+	SlashFundsToTreasury, WeightToCpayFee,
 };
 
 mod precompiles;
@@ -749,7 +750,7 @@ impl pallet_evm::Config for Runtime {
 	type ChainId = ChainId;
 	type BlockGasLimit = BlockGasLimit;
 	// () implementation charges `T::Currency` i.e. `SpendingAssetCurrency` as configured here
-	type OnChargeTransaction = ();
+	type OnChargeTransaction = CENNZnetEVMCurrencyAdapter<Self, SpendingAssetCurrency<Self>>;
 	// This identifies author inorder to distribute tip fees
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
