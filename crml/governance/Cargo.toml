@@ -12,18 +12,18 @@ codec = { version = "2.0.0", package = "parity-scale-codec", default-features = 
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false  }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset"}
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c"}
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c"}
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
 
 [features]
 default = ["std"]

@@ -14,19 +14,19 @@ serde = { version = "1.0.106", features = ["derive"], optional = true }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "d73b35b68287e6928109c1815362a5d746719a54" }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
 
 [dev-dependencies]
 hex-literal = "0.3.1"
 libsecp256k1 = { version = "0.6.0" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
-sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default_features = false }
+pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
 
 [features]
 default = ["std"]

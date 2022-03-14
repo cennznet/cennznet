@@ -11,11 +11,11 @@ description = "Common crml types and traits"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"], optional = true }
 primitive-types = {version = "0.10.1", default-features = false, features = ["impl-codec", "impl-serde"] }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "d73b35b68287e6928109c1815362a5d746719a54" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
 impl-trait-for-tuples = "0.2.1"
 cennznet-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }

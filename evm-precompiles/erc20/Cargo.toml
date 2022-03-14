@@ -11,14 +11,14 @@ codec = { version = "2.0.0", package = "parity-scale-codec", default-features = 
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../../crml/generic-asset", default-features = false }
 crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
-fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "d73b35b68287e6928109c1815362a5d746719a54" }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "d73b35b68287e6928109c1815362a5d746719a54" }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
 precompile-utils = { path = "../utils", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false, version = "4.0.0-dev" }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false, version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false, version = "4.0.0-dev" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false, version = "4.0.0-dev" }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", default-features = false, version = "4.0.0-dev" }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 num_enum = { version = "0.5.3", default-features = false }
 
 [features]
