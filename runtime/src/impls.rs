@@ -21,7 +21,6 @@ use crate::{
 	Treasury,
 };
 use cennznet_primitives::types::{AccountId, Balance};
-use codec::Input;
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
 use crml_support::{H160, U256};
@@ -75,10 +74,10 @@ fn scale_to_4dp(value: Balance) -> Balance {
 	}
 }
 
-/// Adapts spending currency (CPAY) for use by the EVM
+/// Wraps spending currency (CPAY) for use by the EVM
 /// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
-pub struct EvmCurrencyAdapter<I: Inspect<AccountId>>(PhantomData<I>);
-impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId> for EvmCurrencyAdapter<I> {
+pub struct EvmCurrencyScaler<I: Inspect<AccountId>>(PhantomData<I>);
+impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId> for EvmCurrencyScaler<I> {
 	type Balance = Balance;
 
 	/// The total amount of issuance in the system.
@@ -122,7 +121,7 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 /// Currency impl for EVM usage
 /// It proxies to the inner curreny impl while leaving some unused methods
 /// unimplemented
-impl<I> Currency<AccountId> for EvmCurrencyAdapter<I>
+impl<I> Currency<AccountId> for EvmCurrencyScaler<I>
 where
 	I: Inspect<AccountId, Balance = Balance>,
 	I: Currency<
@@ -201,25 +200,10 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
 	{
 		F::find_author(digests).map(|author_index| {
-			if let Some(controller) = Session::validators().get(author_index as usize) {
-				// Take first 20 bytes of the CENNZnet AccountId
+			if let Some(stash) = Session::validators().get(author_index as usize) {
+				// Take first 20 bytes of the validator AccountId
 				// NB: this matches the behaviour of `EnsureAddressTruncated`
-				// Thus the block author will be able to withdraw collected CPAY fees
-				// TODO: this should be converted to the validator stash or controller account
-				// the BABE session key of the validator: `let authority_id = Babe::authorities()[author_index as usize].clone();`
-
-				// we know this is Sr type key for BABE
-				// 32 byte public key
-				// return `keccak_256(controller)[:20]`
-				// staking module should provide a method to withdraw cpay to the EVM address
-				// use to pay block author priority fee
-				// ```ignore
-				// 	fn pay_priority_fee(tip: U256) {
-				//		let account_id = T::AddressMapping::into_account_id(<Pallet<T>>::find_author());
-				// 		let _ = C::deposit_into_existing(&account_id, tip.low_u128().unique_saturated_into());
-				//	}
-				//```
-				H160::from_slice(&AsRef::<[u8; 32]>::as_ref(controller)[..20])
+				H160::from_slice(&AsRef::<[u8; 32]>::as_ref(stash)[..20])
 			} else {
 				H160::default()
 			}
@@ -231,21 +215,15 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 /// trait (eg. the pallet_balances) using an unbalance handler (implementing
 /// `OnUnbalanced`).
 /// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
-pub struct CENNZnetEVMCurrencyAdapter<T, C>(PhantomData<(T, C)>);
+pub struct CENNZnetOnChargeEVMTransaction<T>(PhantomData<T>);
 
-impl<T, C> OnChargeEVMTransaction<T> for CENNZnetEVMCurrencyAdapter<T, C>
+impl<T> OnChargeEVMTransaction<T> for CENNZnetOnChargeEVMTransaction<T>
 where
-	T: pallet_evm::Config + crml_staking::Config,
-	C: Currency<<T as frame_system::Config>::AccountId>,
-	C::PositiveImbalance:
-		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::NegativeImbalance>,
-	C::NegativeImbalance:
-		Imbalance<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance, Opposite = C::PositiveImbalance>,
+	T: pallet_evm::Config
+		+ frame_system::Config<AccountId = AccountId>
+		+ pallet_session::Config<ValidatorId = AccountId>,
 {
-	type LiquidityInfo = Option<
-		<<T as pallet_evm::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance,
-	>;
-	type AccountId32 = T::AccountId;
+	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
 		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
@@ -255,14 +233,17 @@ where
 		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, already_withdrawn)
 	}
 
+	/// Pay the validator's priority fees to its reward account
 	fn pay_priority_fee(tip: U256) {
 		let digest = System::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
-			if let Some(stash) = Session::validators().get(author_index as usize) {
-				//let stash = T::AccountId::decode(&mut AsRef::<[u8; 32]>::as_ref(&stash)).unwrap_or_default();
-				let pay_to: T::AccountId = Rewards::payee(&stash);
-				let _ = C::deposit_into_existing(&pay_to, tip.low_u128().unique_saturated_into());
+			if let Some(stash) = <pallet_session::Pallet<T>>::validators().get(author_index as usize) {
+				let pay_to = Rewards::payee(stash);
+				let _ = <T as pallet_evm::Config>::Currency::deposit_into_existing(
+					&pay_to,
+					tip.low_u128().unique_saturated_into(),
+				);
 			} else {
 				log::debug!("Error processing priority fee, validator not found");
 			}
