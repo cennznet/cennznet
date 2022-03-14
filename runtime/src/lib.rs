@@ -741,7 +741,7 @@ impl pallet_evm::Config for Runtime {
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
 	type AddressMapping = PrefixedAddressMapping<AccountId>;
-	type Currency = EvmCurrencyAdapter<SpendingAssetCurrency<Self>>;
+	type Currency = EvmCurrencyScaler<SpendingAssetCurrency<Self>>;
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
