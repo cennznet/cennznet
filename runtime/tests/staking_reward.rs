@@ -19,17 +19,27 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator, Offences, Rewards,
-	Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, Call, CheckedExtrinsic, EpochDuration, Ethereum, Executive, MaxNominatorRewardedPerValidator, Offences,
+	Rewards, Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury, EVM,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
+use crml_support::{PrefixedAddressMapping, H160, U256};
 use frame_support::{
+	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
 	IterableStorageMap,
 };
+use frame_system::pallet_prelude::OriginFor;
+use frame_system::RawOrigin;
+use hex_literal::hex;
+use pallet_ethereum::{AccessListItem, Transaction, TransactionAction};
+use pallet_evm::AddressMapping;
+use pallet_evm_precompiles_erc20::Action;
 use pallet_im_online::UnresponsivenessOffence;
+use precompile_utils::{Address, AddressMappingReversibleExt, EvmDataWriter};
+use rustc_hex::{FromHex, ToHex};
 use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
 use sp_core::{crypto::UncheckedFrom, H256};
 use sp_runtime::{
@@ -40,6 +50,7 @@ use sp_staking::{
 	offence::{DisableStrategy, Offence, OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
+use std::str::FromStr;
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
@@ -51,7 +62,64 @@ type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToRewa
 /// Alias for the runtime configured staking currency
 type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
 
+pub type SignedExtra = (frame_system::CheckSpecVersion<Runtime>,);
+
 pub const INIT_TIMESTAMP: u64 = 30_000;
+
+pub const ERC20_CONTRACT_BYTECODE: &str = include_str!("./res/erc20_contract_bytecode.txt");
+
+// An Ethereum Transaction
+pub struct EIP1559UnsignedTransaction {
+	pub nonce: U256,
+	pub max_priority_fee_per_gas: U256,
+	pub max_fee_per_gas: U256,
+	pub gas_limit: U256,
+	pub action: TransactionAction,
+	pub value: U256,
+	pub input: Vec<u8>,
+}
+
+impl EIP1559UnsignedTransaction {
+	pub fn sign(&self, secret: &H256, chain_id: Option<u64>) -> Transaction {
+		let secret = {
+			let mut sk: [u8; 32] = [0u8; 32];
+			sk.copy_from_slice(&secret[0..]);
+			libsecp256k1::SecretKey::parse(&sk).unwrap()
+		};
+		let chain_id = chain_id.unwrap_or(<Runtime as pallet_evm::Config>::ChainId::get());
+		let msg = ethereum::EIP1559TransactionMessage {
+			chain_id,
+			nonce: self.nonce,
+			max_priority_fee_per_gas: self.max_priority_fee_per_gas,
+			max_fee_per_gas: self.max_fee_per_gas,
+			gas_limit: self.gas_limit,
+			action: self.action,
+			value: self.value,
+			input: self.input.clone(),
+			access_list: vec![],
+		};
+		let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+
+		let (signature, recid) = libsecp256k1::sign(&signing_message, &secret);
+		let rs = signature.serialize();
+		let r = H256::from_slice(&rs[0..32]);
+		let s = H256::from_slice(&rs[32..64]);
+		Transaction::EIP1559(ethereum::EIP1559Transaction {
+			chain_id: msg.chain_id,
+			nonce: msg.nonce,
+			max_priority_fee_per_gas: msg.max_priority_fee_per_gas,
+			max_fee_per_gas: msg.max_fee_per_gas,
+			gas_limit: msg.gas_limit,
+			action: msg.action,
+			value: msg.value,
+			input: msg.input.clone(),
+			access_list: msg.access_list,
+			odd_y_parity: recid.serialize() != 0,
+			r,
+			s,
+		})
+	}
+}
 
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
@@ -722,5 +790,114 @@ fn accrued_payout_nominators() {
 			assert_eq!(RewardCurrency::free_balance(&stash(1)), accrued_1);
 			assert!(RewardCurrency::free_balance(&stash(2)).is_zero()); // stash(2) not the payee
 			assert_eq!(RewardCurrency::free_balance(&stash(9)), accrued_2); // stash(2) payee
+		});
+}
+
+#[test]
+fn block_author_receives_evm_priority_fee_reward() {
+	// Check priority fee is paid out to
+	let validators = make_authority_keys(6);
+	let initial_balance = 100_000_000 * DOLLARS;
+	let staked_amount = initial_balance / validators.len() as Balance;
+	// let transfer_amount = 50;
+	let alice = alice();
+
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(staked_amount)
+		.build()
+		.execute_with(|| {
+			// start from era 1
+			start_active_era(1);
+
+			let make_block_with_author = |author_index: u32| {
+				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
+				let header = set_author(header_of_last_block, author_index);
+				Executive::initialize_block(&header);
+				// add tx to block
+				// let r = Executive::apply_extrinsic(extrinsic);
+				// assert!(r.is_ok());
+			};
+
+			let initial_issuance = RewardCurrency::total_issuance();
+			make_block_with_author(0);
+
+			// Create Ethereum transaction
+			let priority_fee: u128 = 10000;
+			let t = EIP1559UnsignedTransaction {
+				nonce: U256::zero(),
+				max_priority_fee_per_gas: U256::from(priority_fee),
+				max_fee_per_gas: U256::from(1000000),
+				gas_limit: U256::from(0x100000),
+				action: pallet_ethereum::TransactionAction::Create,
+				value: U256::zero(),
+				input: FromHex::from_hex(ERC20_CONTRACT_BYTECODE).unwrap(),
+			};
+
+			let secret_key = H256::from_slice(&hex!(
+				"0x3d53e3c2162ba346648689696bde867f5089ba4e35eee5640f49d335b9a87f30"
+			));
+			let public = "0xac18d0324f95e43ff9c3c6dca2d5186033343f66ae502a965853419254fb7d06";
+			let tx = t.sign(alice.private_key, None);
+
+			let call = pallet_ethereum::Call::<Runtime>::transact { tx };
+			let source = call.check_self_contained().unwrap().unwrap();
+			let extrinsic = fp_self_contained::CheckedExtrinsic::<_, _, SignedExtra, _> {
+				signed: fp_self_contained::CheckedSignature::SelfContained(source),
+				function: Call::Ethereum(call),
+			};
+			use frame_support::weights::GetDispatchInfo as _;
+			let dispatch_info = extrinsic.get_dispatch_info();
+
+			assert_ok!(extrinsic.apply::<Runtime>(&dispatch_info, 0));
+
+			// create a transaction
+			// let xt = sign(CheckedExtrinsic {
+			// 	signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
+			// 	function: runtime_call,
+			// });
+			// let tx_fee = extrinsic_fee_for(&xt);
+
+			// NOTE: ignore block authoring points in this test so the payout will be equal
+			// block author distribution is checked in other tests
+			crml_staking::rewards::CurrentEraRewardPoints::<Runtime>::kill();
+
+			// let issuance_after_fees_burned = RewardCurrency::total_issuance();
+			// assert_eq!(issuance_after_fees_burned, initial_issuance - tx_fee);
+
+			// tx fees are tracked by the Rewards module
+			let reward_parts = Rewards::calculate_total_reward();
+			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.inflation);
+			assert_eq!(0, reward_parts.transaction_fees);
+			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.total);
+
+			// treasury has nothing at this point
+			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
+
+			// end era 1, reward payouts are scheduled
+			start_active_era(2);
+
+			// treasury is paid its cut of network tx fees
+			assert_eq!(0, reward_parts.treasury_cut);
+
+			// skip a few blocks to ensure payouts are made
+			advance_session();
+			advance_session();
+
+			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
+			let author_validator = validators[0].clone();
+			assert_eq!(
+				RewardCurrency::free_balance(&author_validator.0), // Get stash account
+				initial_balance + per_validator_reward_era_1 + priority_fee,
+			);
+			// for (stash, _, _, _, _, _, _) in &validators {
+			// 	assert_eq!(
+			// 		RewardCurrency::free_balance(stash),
+			// 		initial_balance + per_validator_reward_era_1 + priority_fee,
+			// 	)
+			// }
+
+			assert_eq!(RewardCurrency::free_balance(&Treasury::account_id()), 10);
 		});
 }

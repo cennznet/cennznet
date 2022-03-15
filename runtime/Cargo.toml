@@ -16,6 +16,8 @@ sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f001
 # This save us from cases such as 24 hour eras in staking/session tests.
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-749580481
 cennznet-runtime = { path = ".", features = ["integration_config"] }
+libsecp256k1 = { version = "0.5", features = ["static-context", "hmac"] }
+ethereum = { version = "0.11.1", default-features = false, features = ["with-codec"] }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive"] }
@@ -103,6 +105,7 @@ pallet-evm-precompile-sha3fips = { default-features = false, git = "https://gith
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
+rustc-hex = { version = "2.1.0", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = "ec4c632f00178131f8891d564bd9ae9742a7ec1c", version = "5.0.0-dev" }
@@ -177,6 +180,7 @@ std = [
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-erc721/std",
 	"precompile-utils/std",
+	"rustc-hex/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

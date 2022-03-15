@@ -211,9 +211,8 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	}
 }
 
-/// Implements the transaction payment for a pallet implementing the `Currency`
-/// trait (eg. the pallet_balances) using an unbalance handler (implementing
-/// `OnUnbalanced`).
+/// Implements transaction payments which handles withdrawing,
+/// refunding and depositing of transaction fees.
 /// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
 pub struct CENNZnetOnChargeEVMTransaction<T>(PhantomData<T>);
 
