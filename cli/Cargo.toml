@@ -11,10 +11,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 futures = "0.3.16"
+log = "0.4"
 serde = { version = "1.0.126", features = ["derive"] }
 structopt = { version = "0.3.8" }
 url = "2.2.2"
 
+serde_json = "1.0"
 sc-authority-discovery = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-chain-spec = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
@@ -86,13 +88,13 @@ ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 
 pallet-im-online = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3", version = "6.0.0-dev" }
-fc-db = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
-fc-mapping-sync = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
-fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
-fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
-fp-rpc = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
-fp-storage = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
+pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc", version = "6.0.0-dev" }
+fc-db = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+fc-mapping-sync = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+fp-rpc = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+fp-storage = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }

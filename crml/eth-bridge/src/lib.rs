@@ -532,10 +532,10 @@ impl<T: Config> Module<T> {
 			return EventClaimResult::NotEnoughConfirmations;
 		}
 
-		// we can calculate if the block is expired w some high degree of confidence
+		// we can calculate if the block is expired w some high degree of confidence without making a query.
 		// time since the event = block_confirmations * ~16 seconds avg
-		// `20` arbitrarily chosen by adding a few seconds to the average block time
-		if block_confirmations * 20 > Self::event_deadline_seconds() {
+		// using slightly less to be conservative
+		if block_confirmations * 14 > Self::event_deadline_seconds() {
 			return EventClaimResult::Expired;
 		}
 

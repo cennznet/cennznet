@@ -24,8 +24,8 @@ sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb14
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3", default-features = false }
-pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3", default-features = false }
+fp-evm = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc", default-features = false }
+pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc", default-features = false }
 
 [features]
 default = [ "std" ]

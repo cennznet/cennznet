@@ -29,4 +29,4 @@ sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1
 
 # Frontier
 ethereum-types = "0.12.1"
-fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "f1218c8cf807abad14dea162ad77f6cd3e0412e3" }
+fc-rpc = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
