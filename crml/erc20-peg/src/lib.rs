@@ -58,7 +58,7 @@ decl_storage! {
 		/// Map GA asset Id to ERC20 address
 		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
-		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat)  EthAddress => Option<(Vec<u8>, u8)>;
+		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
 		ClaimDelay get(fn claim_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
 		/// Block numbers where delayed deposit claims will be made
