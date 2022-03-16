@@ -286,19 +286,6 @@ decl_module! {
 			ClaimDelay::<T>::insert(asset_id, (min_balance, delay));
 			Self::deposit_event(<Event<T>>::ClaimDelaySet(asset_id, min_balance, delay));
 		}
-
-		// #[weight = 1_000_000]
-		// #[transactional]
-		// fn process_deposit_claim(origin, claim: Erc20DepositEvent, tx_hash: H256) {
-		// 	let _ = ensure_none(origin)?;
-		// 	let event_claim_id = T::EthBridge::submit_event_claim(
-		// 		&Self::contract_address().into(),
-		// 		&T::DepositEventSignature::get().into(),
-		// 		&tx_hash,
-		// 		&EthAbiCodec::encode(&claim),
-		// 	)?;
-		// 	Self::deposit_event(<Event<T>>::Erc20Claim(event_claim_id, origin));
-		// }
 	}
 }
 
