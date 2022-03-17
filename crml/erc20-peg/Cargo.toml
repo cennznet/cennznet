@@ -20,6 +20,11 @@ sp-core = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b94862
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba", default-features = false }
 
+[dev-dependencies]
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "d05b61e9b948621416a3c6eea2e10fd2f1b62aba" }
+crml-generic-asset = { path = "../generic-asset" }
+hex-literal = { version = "0.3.1", default-features = false }
+
 [features]
 default = ["std"]
 std = [

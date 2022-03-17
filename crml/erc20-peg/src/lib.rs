@@ -33,6 +33,10 @@ use sp_std::prelude::*;
 
 mod types;
 use types::*;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 pub trait Config: frame_system::Config {
 	/// An onchain address for this pallet

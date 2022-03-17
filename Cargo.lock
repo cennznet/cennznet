@@ -1246,12 +1246,15 @@ name = "crml-erc20-peg"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
+ "crml-generic-asset",
  "crml-support",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "parity-scale-codec",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -8932,7 +8935,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.3.23",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
