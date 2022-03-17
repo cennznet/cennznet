@@ -17,7 +17,9 @@
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-azalea-v1",
-  "properties": null,
+  "properties": {
+    "frontierGenesisBlockNumber": "12179483"
+  },
   "consensusEngine": null,
   "genesis": {
     "raw": {
