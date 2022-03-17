@@ -43,7 +43,7 @@ use rustc_hex::{FromHex, ToHex};
 use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
 use sp_core::{crypto::UncheckedFrom, H256};
 use sp_runtime::{
-	traits::{Header as HeaderT, Saturating, Zero},
+	traits::{Applyable, Header as HeaderT, Saturating, Zero},
 	Perbill,
 };
 use sp_staking::{
@@ -829,19 +829,19 @@ fn block_author_receives_evm_priority_fee_reward() {
 				nonce: U256::zero(),
 				max_priority_fee_per_gas: U256::from(priority_fee),
 				max_fee_per_gas: U256::from(1000000),
-				gas_limit: U256::from(0x100000),
+				gas_limit: U256::from(4000000),
 				action: pallet_ethereum::TransactionAction::Create,
 				value: U256::zero(),
 				input: FromHex::from_hex(ERC20_CONTRACT_BYTECODE).unwrap(),
 			};
 
 			let secret_key = H256::from_slice(&hex!(
-				"0x3d53e3c2162ba346648689696bde867f5089ba4e35eee5640f49d335b9a87f30"
+				"3d53e3c2162ba346648689696bde867f5089ba4e35eee5640f49d335b9a87f30"
 			));
-			let public = "0xac18d0324f95e43ff9c3c6dca2d5186033343f66ae502a965853419254fb7d06";
-			let tx = t.sign(alice.private_key, None);
+			// let public = "ac18d0324f95e43ff9c3c6dca2d5186033343f66ae502a965853419254fb7d06";
+			let transaction = t.sign(&secret_key, None);
 
-			let call = pallet_ethereum::Call::<Runtime>::transact { tx };
+			let call = pallet_ethereum::Call::<Runtime>::transact { transaction };
 			let source = call.check_self_contained().unwrap().unwrap();
 			let extrinsic = fp_self_contained::CheckedExtrinsic::<_, _, SignedExtra, _> {
 				signed: fp_self_contained::CheckedSignature::SelfContained(source),
