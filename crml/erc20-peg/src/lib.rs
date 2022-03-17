@@ -61,12 +61,8 @@ decl_storage! {
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
 		ClaimDelay get(fn claim_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
-		/// Block numbers where delayed deposit claims will be made
-		DepositClaimSchedule get(fn deposit_claim_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ClaimId => (Erc20DepositEvent, H256);
-		/// Block numbers where delayed withdrawals will be made
-		WithdrawalSchedule get(fn withdrawal_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ClaimId => WithdrawMessage;
-		/// Maps from claim id to caller account
-		ClaimCaller get(fn claim_caller): map hasher(twox_64_concat) ClaimId => T::AccountId;
+		/// Block numbers where delayed withdrawal or deposit claims will be made
+		ClaimSchedule get(fn claim_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ClaimId => Option<PendingClaim>;
 		/// The next available claim id for withdrawals and deposit claims
 		NextClaimId get(fn next_claim_id): ClaimId;
 		/// The peg contract address on Ethereum
@@ -94,6 +90,10 @@ decl_event! {
 	{
 		/// An erc20 deposit claim has started. (deposit Id, sender)
 		Erc20Claim(u64, AccountId),
+		/// An erc20 claim has been delayed.(claim_id, scheduled block, amount, beneficiary)
+		Erc20DepositDelayed(ClaimId, BlockNumber, Balance, AccountId),
+		/// A withdrawal has been delayed.(claim_id, scheduled block, amount, beneficiary)
+		Erc20WithdrawalDelayed(ClaimId, BlockNumber, Balance, EthAddress),
 		/// A bridged erc20 deposit succeeded.(deposit Id, asset, amount, beneficiary)
 		Erc20Deposit(u64, AssetId, Balance, AccountId),
 		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (withdrawal Id, asset, amount, beneficiary)
@@ -168,27 +168,26 @@ decl_module! {
 			ensure!(T::AccountId::decode(&mut &claim.beneficiary.0[..]).is_ok(), Error::<T>::InvalidAddress);
 
 			let asset_id = Self::erc20_to_asset(claim.token_address);
-			// TODO check whether it is required to have asset_id mapping
 			if asset_id.is_some() {
 				let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id.unwrap());
 				match claim_delay {
-					None => Self::process_deposit_claim(origin, claim, tx_hash),
 					Some((min_amount, delay)) => {
 						if U256::from(min_amount) > claim.amount {
-							Self::process_deposit_claim(origin, claim, tx_hash);
+							Self::process_deposit_claim(claim, tx_hash);
 						} else {
 							// Store deposit to be claimed later
 							let claim_id = NextClaimId::get();
 							let claim_block = <frame_system::Module<T>>::block_number().saturating_add(delay);
-							DepositClaimSchedule::<T>::insert(claim_block, claim_id, (claim, tx_hash));
-							ClaimCaller::<T>::insert(claim_id, origin);
+							ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
 							NextClaimId::mutate(|c| *c += 1);
+							Self::deposit_event(<Event<T>>::Erc20DepositDelayed(claim_id, claim_block, claim.amount.as_u128(), origin));
 						}
 					},
+					None => Self::process_deposit_claim(claim, tx_hash),
 				}
 			} else {
 				// Claim amount is below threshold or delay doesn't exist
-				Self::process_deposit_claim(origin, claim, tx_hash);
+				Self::process_deposit_claim(claim, tx_hash);
 			}
 		}
 
@@ -205,27 +204,34 @@ decl_module! {
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 
+			let _imbalance = T::MultiCurrency::withdraw(
+				&origin,
+				asset_id,
+				amount,
+				WithdrawReasons::empty(),
+				frame_support::traits::ExistenceRequirement::KeepAlive,
+			)?;
+
 			let message = WithdrawMessage {
 				token_address: token_address.unwrap(),
 				amount: amount.into(),
 				beneficiary,
 			};
-
 			let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
 			match claim_delay {
-				None => Self::process_withdrawal(origin, message, asset_id),
 				Some((min_amount, delay)) => {
 					if min_amount > amount {
-						Self::process_withdrawal(origin, message, asset_id);
+						Self::process_withdrawal(message, asset_id);
 					} else {
 						// Store withdrawal to be claimed later
 						let claim_id = NextClaimId::get();
 						let claim_block = <frame_system::Module<T>>::block_number().saturating_add(delay);
-						WithdrawalSchedule::<T>::insert(claim_block, claim_id, message);
-						ClaimCaller::<T>::insert(claim_id, origin);
+						ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message));
 						NextClaimId::mutate(|c| *c += 1);
+						Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(claim_id, claim_block, amount, beneficiary));
 					}
 				},
+				None => Self::process_withdrawal(message, asset_id),
 			}
 		}
 
@@ -293,60 +299,77 @@ impl<T: Config> Module<T> {
 	/// Process claims at a block after a delay
 	fn process_claims_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
-		for (claim_id, (deposit_claim, tx_hash)) in DepositClaimSchedule::<T>::drain_prefix(now).into_iter() {
+		for (_claim_id, pending_claim) in ClaimSchedule::<T>::drain_prefix(now).into_iter() {
 			removed += 1;
-			let who = ClaimCaller::<T>::take(claim_id);
-			Self::process_deposit_claim(who, deposit_claim, tx_hash);
-		}
-		for (claim_id, withdrawal_message) in WithdrawalSchedule::<T>::drain_prefix(now).into_iter() {
-			// Process withdrawal
-			// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
-			let who = ClaimCaller::<T>::take(claim_id);
-			let asset_id = Self::erc20_to_asset(withdrawal_message.token_address).unwrap_or_default();
-			Self::process_withdrawal(who, withdrawal_message, asset_id);
+			match pending_claim {
+				PendingClaim::Deposit((deposit_claim, tx_hash)) => {
+					Self::process_deposit_claim(deposit_claim, tx_hash);
+				}
+				PendingClaim::Withdrawal(withdrawal_message) => {
+					// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
+					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address).unwrap_or_default();
+					Self::process_withdrawal(withdrawal_message, asset_id);
+				}
+			}
 		}
 		removed
 	}
 
-	fn process_deposit_claim(who: T::AccountId, claim: Erc20DepositEvent, tx_hash: H256) {
+	fn process_deposit_claim(claim: Erc20DepositEvent, tx_hash: H256) {
 		let event_claim_id = T::EthBridge::submit_event_claim(
 			&Self::contract_address().into(),
 			&T::DepositEventSignature::get().into(),
 			&tx_hash,
 			&EthAbiCodec::encode(&claim),
 		);
-		// TODO figure out how to handle error cases
+		let beneficiary: T::AccountId = T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
 		match event_claim_id {
-			Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, who)),
-			_ => (),
+			Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
+			_ => {
+				// There was an error submitting an event claim. Could be that the bridge is down
+				// In this case, delay the deposit claim by 120 blocks
+				let claim_id = NextClaimId::get();
+				let claim_block =
+					<frame_system::Module<T>>::block_number().saturating_add(T::BlockNumber::from(FAILED_CLAIM_DELAY));
+				ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
+				NextClaimId::mutate(|c| *c += 1);
+				Self::deposit_event(<Event<T>>::Erc20DepositDelayed(
+					claim_id,
+					claim_block,
+					claim.amount.as_u128(),
+					beneficiary,
+				));
+			}
 		}
 	}
 
-	fn process_withdrawal(who: T::AccountId, message: WithdrawMessage, asset_id: AssetId) {
+	fn process_withdrawal(message: WithdrawMessage, asset_id: AssetId) {
 		let amount: Balance = message.amount.as_u128();
-		let imbalance = T::MultiCurrency::withdraw(
-			&who,
-			asset_id,
-			amount,
-			WithdrawReasons::empty(),
-			frame_support::traits::ExistenceRequirement::KeepAlive,
-		);
-		match imbalance {
-			Ok(_) => {
-				let event_proof_id = T::EthBridge::generate_event_proof(&message);
-				match event_proof_id {
-					Ok(proof_id) => {
-						Self::deposit_event(<Event<T>>::Erc20Withdraw(
-							proof_id,
-							asset_id,
-							amount,
-							message.beneficiary,
-						));
-					}
-					_ => (),
-				}
+		let event_proof_id = T::EthBridge::generate_event_proof(&message);
+		match event_proof_id {
+			Ok(proof_id) => {
+				Self::deposit_event(<Event<T>>::Erc20Withdraw(
+					proof_id,
+					asset_id,
+					amount,
+					message.beneficiary,
+				));
 			}
-			_ => (),
+			_ => {
+				// There was an error generating an event proof. Could be that the bridge is down
+				// In this case, delay the withdrawal by 120 blocks
+				let claim_id = NextClaimId::get();
+				let claim_block =
+					<frame_system::Module<T>>::block_number().saturating_add(T::BlockNumber::from(FAILED_CLAIM_DELAY));
+				ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message.clone()));
+				NextClaimId::mutate(|c| *c += 1);
+				Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(
+					claim_id,
+					claim_block,
+					amount,
+					message.beneficiary,
+				));
+			}
 		}
 	}
 

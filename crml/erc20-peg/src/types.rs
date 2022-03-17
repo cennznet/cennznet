@@ -23,6 +23,18 @@ pub type EthAddress = H160;
 /// Claim id used for distinguishing pending withdrawals/ deposit claims
 pub type ClaimId = u64;
 
+/// Delay for a reschedule of a pending claim if the interaction with the bridge fails
+pub const FAILED_CLAIM_DELAY: u8 = 120;
+
+/// A pending deposit or withdrawal
+#[derive(Debug, Clone, Encode, Decode, PartialEq)]
+pub enum PendingClaim {
+	/// A deposit claim (deposit_claim, tx_hash)
+	Deposit((Erc20DepositEvent, H256)),
+	/// A withdrawal (withdrawal_message)
+	Withdrawal(WithdrawMessage),
+}
+
 /// A deposit event made by the ERC20 peg contract on Ethereum
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode)]
 pub struct Erc20DepositEvent {
