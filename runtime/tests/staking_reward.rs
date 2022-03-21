@@ -805,7 +805,6 @@ fn block_author_receives_evm_priority_fee_reward() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
-			// start from era 1
 			start_active_era(1);
 			let make_block_with_author = |author_index: u32| {
 				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
@@ -840,27 +839,11 @@ fn block_author_receives_evm_priority_fee_reward() {
 			let dispatch_info = extrinsic.get_dispatch_info();
 			assert_ok!(extrinsic.apply::<Runtime>(&dispatch_info, 0));
 
-			// NOTE: ignore block authoring points in this test so the payout will be equal
-			// block author distribution is checked in other tests
-			crml_staking::rewards::CurrentEraRewardPoints::<Runtime>::kill();
-
-			let reward_parts = Rewards::calculate_total_reward();
-
-			// treasury has nothing at this point
-			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
-
-			// end era 1, reward payouts are scheduled
-			start_active_era(2);
-			// skip a few blocks to ensure payouts are made
-			advance_session();
-			advance_session();
-
-			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
 			let validators = <pallet_session::Pallet<Runtime>>::validators();
 			let actual_priority_fee = 384; // Actual priority fee based on used gas
 			assert_eq!(
 				RewardCurrency::free_balance(&validators[0].clone()), // Get stash account
-				initial_balance + per_validator_reward_era_1 + actual_priority_fee,
+				initial_balance + actual_priority_fee,
 			);
 		});
 }
