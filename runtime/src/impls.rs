@@ -211,9 +211,8 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	}
 }
 
-/// Implements the transaction payment for a pallet implementing the `Currency`
-/// trait (eg. the pallet_balances) using an unbalance handler (implementing
-/// `OnUnbalanced`).
+/// Implements transaction payments which handles withdrawing,
+/// refunding and depositing of transaction fees.
 /// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
 pub struct CENNZnetOnChargeEVMTransaction<T>(PhantomData<T>);
 
@@ -245,10 +244,10 @@ where
 					tip.low_u128().unique_saturated_into(),
 				);
 			} else {
-				log::debug!("Error processing priority fee, validator not found");
+				log::error!("Error processing priority fee, validator not found");
 			}
 		} else {
-			log::debug!("Error processing priority fee, block author not found");
+			log::error!("Error processing priority fee, block author not found");
 		}
 	}
 }

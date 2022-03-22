@@ -19,27 +19,34 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator, Offences, Rewards,
-	Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator,
+	Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
+use crml_support::{PrefixedAddressMapping, H160, U256};
 use frame_support::{
+	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
 	IterableStorageMap,
 };
+use hex_literal::hex;
+use pallet_ethereum::{Transaction, TransactionAction};
+use pallet_evm::{AddressMapping, GasWeightMapping};
 use pallet_im_online::UnresponsivenessOffence;
+use rustc_hex::FromHex;
 use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
 use sp_core::{crypto::UncheckedFrom, H256};
 use sp_runtime::{
-	traits::{Header as HeaderT, Saturating, Zero},
+	traits::{Applyable, Header as HeaderT, Saturating, Zero},
 	Perbill,
 };
 use sp_staking::{
 	offence::{DisableStrategy, Offence, OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
+
 mod common;
 
 use common::helpers::{extrinsic_fee_for, header_for_block_number, make_authority_keys, sign};
@@ -52,6 +59,61 @@ type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToRewa
 type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
+
+pub const ERC20_CONTRACT_BYTECODE: &str = include_str!("./res/erc20_contract_bytecode.txt");
+
+// An Ethereum Transaction
+pub struct EIP1559UnsignedTransaction {
+	pub nonce: U256,
+	pub max_priority_fee_per_gas: U256,
+	pub max_fee_per_gas: U256,
+	pub gas_limit: U256,
+	pub action: TransactionAction,
+	pub value: U256,
+	pub input: Vec<u8>,
+}
+
+impl EIP1559UnsignedTransaction {
+	pub fn sign(&self, secret: &H256, chain_id: Option<u64>) -> Transaction {
+		let secret = {
+			let mut sk: [u8; 32] = [0u8; 32];
+			sk.copy_from_slice(&secret[0..]);
+			libsecp256k1::SecretKey::parse(&sk).unwrap()
+		};
+		let chain_id = chain_id.unwrap_or(<Runtime as pallet_evm::Config>::ChainId::get());
+		let msg = ethereum::EIP1559TransactionMessage {
+			chain_id,
+			nonce: self.nonce,
+			max_priority_fee_per_gas: self.max_priority_fee_per_gas,
+			max_fee_per_gas: self.max_fee_per_gas,
+			gas_limit: self.gas_limit,
+			action: self.action,
+			value: self.value,
+			input: self.input.clone(),
+			access_list: vec![],
+		};
+		let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+
+		let (signature, recid) = libsecp256k1::sign(&signing_message, &secret);
+		let rs = signature.serialize();
+		let r = H256::from_slice(&rs[0..32]);
+		let s = H256::from_slice(&rs[32..64]);
+		Transaction::EIP1559(ethereum::EIP1559Transaction {
+			chain_id: msg.chain_id,
+			nonce: msg.nonce,
+			max_priority_fee_per_gas: msg.max_priority_fee_per_gas,
+			max_fee_per_gas: msg.max_fee_per_gas,
+			gas_limit: msg.gas_limit,
+			action: msg.action,
+			value: msg.value,
+			input: msg.input.clone(),
+			access_list: msg.access_list,
+			odd_y_parity: recid.serialize() != 0,
+			r,
+			s,
+		})
+	}
+}
 
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
@@ -722,5 +784,68 @@ fn accrued_payout_nominators() {
 			assert_eq!(RewardCurrency::free_balance(&stash(1)), accrued_1);
 			assert!(RewardCurrency::free_balance(&stash(2)).is_zero()); // stash(2) not the payee
 			assert_eq!(RewardCurrency::free_balance(&stash(9)), accrued_2); // stash(2) payee
+		});
+}
+
+#[test]
+fn block_author_receives_evm_priority_fee_reward() {
+	// Check priority fee is paid out to
+	let validators = make_authority_keys(6);
+	let initial_balance = 100_000_000 * DOLLARS;
+	let staked_amount = initial_balance / validators.len() as Balance;
+	let caller = H160::from_slice(&hex!("919b7aeee2ee14e5ceeee688736a38497d79c501"));
+	let caller_cennz: AccountId = PrefixedAddressMapping::into_account_id(caller.clone());
+
+	ExtBuilder::default()
+		.initialise_eth_accounts(vec![caller_cennz.clone()])
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(staked_amount)
+		.build()
+		.execute_with(|| {
+			start_active_era(1);
+			let make_block_with_author = |author_index: u32| {
+				let header_of_last_block = header_for_block_number((System::block_number() + 1).into());
+				let header = set_author(header_of_last_block, author_index);
+				Executive::initialize_block(&header);
+			};
+			make_block_with_author(0);
+
+			// Create Ethereum transaction
+			let priority_fee: u128 = 12_000_000_000;
+			let t = EIP1559UnsignedTransaction {
+				nonce: U256::zero(),
+				max_priority_fee_per_gas: U256::from(priority_fee),
+				max_fee_per_gas: U256::from(5_600_000_000_000_u64),
+				gas_limit: U256::from(4000000),
+				action: pallet_ethereum::TransactionAction::Create,
+				value: U256::zero(),
+				input: FromHex::from_hex(ERC20_CONTRACT_BYTECODE).unwrap(),
+			};
+			let secret_key = H256::from_slice(&hex!(
+				"3d53e3c2162ba346648689696bde867f5089ba4e35eee5640f49d335b9a87f30"
+			));
+			let transaction = t.sign(&secret_key, None);
+
+			let call = pallet_ethereum::Call::<Runtime>::transact { transaction };
+			let source = call.check_self_contained().unwrap().unwrap();
+			let extrinsic = fp_self_contained::CheckedExtrinsic::<_, _, SignedExtra, _> {
+				signed: fp_self_contained::CheckedSignature::SelfContained(source),
+				function: Call::Ethereum(call),
+			};
+			use frame_support::weights::GetDispatchInfo as _;
+			let dispatch_info = extrinsic.get_dispatch_info();
+			let res = extrinsic.apply::<Runtime>(&dispatch_info, 0);
+			// Calculate actual priority fee based on used gas
+			let actual_weight = res.unwrap().unwrap().actual_weight.unwrap();
+			let used_gas = CENNZnetGasWeightMapping::weight_to_gas(actual_weight.into());
+			let actual_priority_fee = (priority_fee * used_gas as u128) / 10_u128.pow(14);
+
+			// Get current validators (Can't use previous value as they have been sorted)
+			let validators = <pallet_session::Pallet<Runtime>>::validators();
+			assert_eq!(
+				RewardCurrency::free_balance(&validators[0].clone()), // Get stash account
+				initial_balance + actual_priority_fee,
+			);
 		});
 }

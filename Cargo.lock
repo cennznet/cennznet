@@ -863,6 +863,7 @@ dependencies = [
  "crml-token-approvals",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc-runtime-api",
+ "ethereum",
  "fp-rpc",
  "fp-self-contained",
  "frame-benchmarking",
@@ -874,6 +875,7 @@ dependencies = [
  "frame-try-runtime",
  "futures 0.3.17",
  "hex-literal",
+ "libsecp256k1 0.5.0",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -900,6 +902,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "precompile-utils",
+ "rustc-hex",
  "scale-info",
  "serde",
  "smallvec",
@@ -3931,6 +3934,25 @@ dependencies = [
  "rand 0.7.3",
  "sha2 0.8.2",
  "subtle 2.4.0",
+ "typenum",
+]
+
+[[package]]
+name = "libsecp256k1"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd1137239ab33b41aa9637a88a28249e5e70c40a42ccc92db7f12cc356c1fcd7"
+dependencies = [
+ "arrayref",
+ "base64 0.12.3",
+ "digest 0.9.0",
+ "hmac-drbg 0.3.0",
+ "libsecp256k1-core 0.2.2",
+ "libsecp256k1-gen-ecmult 0.2.1",
+ "libsecp256k1-gen-genmult 0.2.1",
+ "rand 0.7.3",
+ "serde",
+ "sha2 0.9.8",
  "typenum",
 ]
 
