@@ -250,9 +250,73 @@ fn deposit_claim_with_delay() {
 		);
 
 		// Try again next block with enough weight
-		Erc20Peg::on_idle(claim_block, 10_000_000);
+		Erc20Peg::on_idle(claim_block + 1, 10_000_000);
 		// Claim should be removed from storage
 		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+	});
+}
+
+#[test]
+fn multiple_deposit_claims_with_delay() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 100;
+		let beneficiary: H256 = H256::default();
+		let claim = Erc20DepositEvent {
+			token_address: cennz_eth_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		let tx_hash = H256::default();
+		let delay: u64 = 1000;
+
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		assert_ok!(Erc20Peg::set_claim_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			amount,
+			delay
+		));
+		let mut claim_ids: Vec<ClaimId> = vec![];
+		let num_claims = 10;
+		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
+
+		for i in 0..num_claims {
+			let claim_id = <NextClaimId>::get();
+			claim_ids.push(claim_id);
+			assert_ok!(Erc20Peg::deposit_claim(
+				Some(origin.clone()).into(),
+				tx_hash,
+				claim.clone()
+			));
+			// Check claim has been put into pending claims
+			assert_eq!(
+				Erc20Peg::claim_schedule(claim_block, claim_id),
+				Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
+			);
+		}
+
+		// Call on_idle with room for only 5 claims
+		// Weight in on_idle for one claim is 2_000_000
+		Erc20Peg::on_idle(claim_block, 11_000_000);
+		let mut changed_count = 0;
+		for i in 0..num_claims {
+			if Erc20Peg::claim_schedule(claim_block, claim_ids[i]) == None {
+				changed_count += 1;
+			}
+		}
+		assert_eq!(changed_count, 5);
+
+		// Call on idle for the next block, remaining claims should be removed
+		Erc20Peg::on_idle(claim_block + 1, 11_000_000);
+		for i in 0..num_claims {
+			assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_ids[i]), None);
+		}
 	});
 }
 
