@@ -135,11 +135,18 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// Check and process outstanding claims
-		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let removed_count = Self::process_claims_at(now);
-			// TODO Better weight estimates
-			1_000_000 * removed_count as Weight
+		// /// Check and process outstanding claims
+		// fn on_initialize(now: T::BlockNumber) -> Weight {
+		// 	let removed_count = Self::process_claims_at(now);
+		// 	// TODO Better weight estimates
+		// 	1_000_000 * removed_count as Weight
+		// }
+
+		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			let weight_each: Weight = 2_000_000;
+			let max_claims = (remaining_weight / weight_each).saturated_into::<u8>();
+			let removed_count = Self::process_claims_at(now, max_claims);
+			weight_each * removed_count as Weight
 		}
 
 		/// Activate/deactivate deposits (root only)
@@ -301,9 +308,10 @@ decl_module! {
 
 impl<T: Config> Module<T> {
 	/// Process claims at a block after a delay
-	fn process_claims_at(now: T::BlockNumber) -> u32 {
+	fn process_claims_at(now: T::BlockNumber, max_claims: u8) -> u32 {
 		let mut removed = 0_u32;
-		for (_claim_id, pending_claim) in ClaimSchedule::<T>::drain_prefix(now).into_iter() {
+		while removed < max_claims {
+			let (_claim_id, pending_claim) = ClaimSchedule::<T>::take(now)
 			removed += 1;
 			match pending_claim {
 				PendingClaim::Deposit((deposit_claim, tx_hash)) => {
@@ -316,6 +324,20 @@ impl<T: Config> Module<T> {
 				}
 			}
 		}
+
+		// for (_claim_id, pending_claim) in ClaimSchedule::<T>::drain_prefix(now).into_iter() {
+		// 	removed += 1;
+		// 	match pending_claim {
+		// 		PendingClaim::Deposit((deposit_claim, tx_hash)) => {
+		// 			Self::process_deposit_claim(deposit_claim, tx_hash);
+		// 		}
+		// 		PendingClaim::Withdrawal(withdrawal_message) => {
+		// 			// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
+		// 			let asset_id = Self::erc20_to_asset(withdrawal_message.token_address).unwrap_or_default();
+		// 			Self::process_withdrawal(withdrawal_message, asset_id);
+		// 		}
+		// 	}
+		// }
 		removed
 	}
 
