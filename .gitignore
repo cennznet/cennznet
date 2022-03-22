@@ -2,3 +2,4 @@ target/
 .vscode
 .wasm-binaries
 .DS_Store
+.idea/

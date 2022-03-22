@@ -20,7 +20,7 @@ use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, He
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
 	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator,
-	Rewards, Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
@@ -57,8 +57,6 @@ use common::mock::ExtBuilder;
 type RewardCurrency = <Runtime as crml_staking::rewards::Config>::CurrencyToReward;
 /// Alias for the runtime configured staking currency
 type StakeCurrency = <Runtime as crml_staking::Config>::Currency;
-
-pub type SignedExtra = (frame_system::CheckSpecVersion<Runtime>,);
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 
