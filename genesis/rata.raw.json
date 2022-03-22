@@ -6,7 +6,9 @@
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-rata-v1",
-  "properties": null,
+  "properties": {
+    "frontierGenesisBlockNumber": "2170000"
+  },
   "forkBlocks": null,
   "badBlocks": null,
   "consensusEngine": null,

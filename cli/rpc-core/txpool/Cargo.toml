@@ -16,4 +16,4 @@ jsonrpc-derive = "18.0.0"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 
-fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "d73b35b68287e6928109c1815362a5d746719a54" }
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }

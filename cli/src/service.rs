@@ -24,6 +24,7 @@ use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
 use futures::prelude::*;
+use log::{debug, warn};
 use sc_cli::SubstrateCli;
 use sc_client_api::{Backend, BlockchainEvents, ExecutorProvider};
 use sc_consensus_babe::SlotProportion;
@@ -35,6 +36,7 @@ use sp_core::offchain::OffchainStorage;
 use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::BTreeMap,
+	str::FromStr,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -368,10 +370,25 @@ pub fn new_full_base(
 		})
 	};
 
+	// load frontier sync block from the chain genesis config
+	// this signals the client to start mapping ethereum blocks from a set height.
+	// This is important for chains which were upgraded to include frontier, in suchcases
+	// clients should only scan back to the point of the first frontier digest/block (post runtime-upgrade).
+	//
+	// NB: default value of `0` will cause the node to rescan all blocks from current back to `0`
+	let frontier_sync_from = match config.chain_spec.properties().get("frontierGenesisBlockNumber") {
+		Some(serde_json::Value::String(number)) => u32::from_str(number).unwrap_or(0),
+		_ => 0,
+	};
+	if frontier_sync_from == 0 {
+		warn!(target: "mapping-sync", "scanning all blocks from latest back to genesis!\nthis should not happen outside of test environment!");
+	}
+	debug!(target: "mapping-sync", "starting frontier mapping sync from block: {}", frontier_sync_from);
+
 	let rpc_extensions_builder = rpc_extensions_builder;
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		config: config,
+		config,
 		backend: backend.clone(),
 		client: client.clone(),
 		keystore: keystore_container.sync_keystore(),
@@ -392,6 +409,8 @@ pub fn new_full_base(
 			client.clone(),
 			backend.clone(),
 			frontier_backend.clone(),
+			3,
+			frontier_sync_from,
 			SyncStrategy::Normal,
 		)
 		.for_each(|()| futures::future::ready(())),
