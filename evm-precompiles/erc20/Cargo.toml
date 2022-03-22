@@ -1,0 +1,40 @@
+[package]
+name = "pallet-evm-precompiles-erc20"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+
+[dependencies]
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+cennznet-primitives = { path = "../../primitives", default-features = false }
+crml-generic-asset = { path = "../../crml/generic-asset", default-features = false }
+crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+precompile-utils = { path = "../utils", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+num_enum = { version = "0.5.3", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cennznet-primitives/std",
+  	"scale-info/std",
+	"crml-generic-asset/std",
+	"crml-token-approvals/std",
+	"fp-evm/std",
+	"frame-support/std",
+	"frame-system/std",
+	"num_enum/std",
+	"precompile-utils/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

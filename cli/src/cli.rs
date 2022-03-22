@@ -1,5 +1,5 @@
 pub use sc_cli::Result;
-use sc_cli::{Error, KeySubcommand, RunCmd, SignCmd, VanityCmd, VerifyCmd};
+use sc_cli::{Error, KeySubcommand, SignCmd, VanityCmd, VerifyCmd};
 use structopt::StructOpt;
 
 /// Parse `uri`
@@ -8,8 +8,25 @@ fn parse_uri(uri: &str) -> Result<String> {
 	Ok(uri.into())
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
-pub struct EthClientOpts {
+pub struct RunCmd {
+	#[allow(missing_docs)]
+	#[structopt(flatten)]
+	pub base: sc_cli::RunCmd,
+
+	/// Maximum number of logs in a query.
+	#[structopt(long, default_value = "10000")]
+	pub max_past_logs: u32,
+
+	/// Maximum fee history cache size.
+	#[structopt(long, default_value = "2048")]
+	pub fee_history_limit: u64,
+
+	/// The dynamic-fee pallet target gas price set by block author
+	#[structopt(long, default_value = "1")]
+	pub target_gas_price: u64,
+
 	/// Ethereum JSON-RPC client endpoint
 	#[structopt(parse(try_from_str = parse_uri), long = "eth-http", about = "Ethereum client JSON-RPC endpoint")]
 	pub eth_http: Option<String>,
@@ -21,8 +38,6 @@ pub struct Cli {
 	pub subcommand: Option<Subcommand>,
 	#[structopt(flatten)]
 	pub run: RunCmd,
-	#[structopt(flatten)]
-	pub eth_opts: EthClientOpts,
 }
 
 #[derive(Debug, StructOpt)]

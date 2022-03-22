@@ -20,16 +20,12 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-use codec::Encode;
-use sp_std::prelude::*;
-
+use codec::{Decode, Encode};
 use crml_generic_asset_rpc_runtime_api;
 use pallet_authority_discovery;
-use pallet_grandpa::fg_primitives;
-use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_session;
-use pallet_session::historical as session_historical;
+use pallet_session::{self, historical as session_historical};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
@@ -39,11 +35,13 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys, SaturatedConversion, Verify,
+		BlakeTwo256, Block as BlockT, Dispatchable, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys,
+		PostDispatchInfoOf, SaturatedConversion, Verify,
 	},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, FixedPointNumber,
 };
+use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -52,11 +50,12 @@ use static_assertions::const_assert;
 
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
+use crml_support::{PrefixedAddressMapping, H160, H256, U256};
 pub use frame_support::{
 	construct_runtime, debug,
-	dispatch::marker::PhantomData,
+	dispatch::GetDispatchInfo,
 	ord_parameter_types, parameter_types,
-	traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
+	traits::{Currency, FindAuthor, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, TransactionPriority, Weight,
@@ -70,12 +69,15 @@ use frame_system::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
+pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill, Perquintill};
 
 // CENNZnet only imports
 use cennznet_primitives::{
 	eth::crypto::AuthorityId as EthBridgeId,
-	types::{AccountId, AssetId, Balance, BlockNumber, Hash, Header, Index, Moment, Signature},
+	types::{
+		AccountId, AssetId, Balance, BlockNumber, CollectionId, Hash, Header, Index, Moment, SerialNumber, SeriesId,
+		Signature, TokenId,
+	},
 };
 pub use crml_cennzx::{ExchangeAddressGenerator, FeeRate, PerMillion, PerThousand};
 use crml_cennzx_rpc_runtime_api::CennzxResult;
@@ -84,9 +86,12 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionId, CollectionInfo, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{CollectionInfo, Listing, ListingId, TokenInfo};
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+use fp_rpc::TransactionStatus;
+use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
+use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCalculator, Runner};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -94,7 +99,13 @@ use constants::{currency::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{DealWithFees, ScheduledPayoutRunner, SlashFundsToTreasury, WeightToCpayFee};
+use impls::{
+	CENNZnetOnChargeEVMTransaction, DealWithFees, EthereumFindAuthor, EvmCurrencyScaler, ScheduledPayoutRunner,
+	SlashFundsToTreasury, WeightToCpayFee,
+};
+
+mod precompiles;
+use precompiles::CENNZnetPrecompiles;
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -114,16 +125,17 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 }
 
 /// Runtime version.
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cennznet"),
 	impl_name: create_runtime_str!("cennznet-node"),
 	authoring_version: 1,
 	// Per convention: if the runtime behavior changes, increment `spec_version`
 	// and set `impl_version` to equal spec_version. If only runtime
-	// implementation changes and behavior does not, then leave `spec_version` as
+	// implementation chabges and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 45,
-	impl_version: 45,
+	spec_version: 53,
+	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
 };
@@ -222,6 +234,7 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
+	/// What to do if an NFT is transferred
 	/// The data to be stored in an account.
 	type AccountData = ();
 	/// Weight information for the extrinsics of this pallet.
@@ -244,6 +257,7 @@ impl crml_nft::Config for Runtime {
 	type MaxAttributeLength = MaxAttributeLength;
 	type DefaultListingDuration = DefaultListingDuration;
 	type WeightInfo = ();
+	type OnTransferSubscription = TokenApprovals;
 }
 
 parameter_types! {
@@ -317,13 +331,16 @@ parameter_types! {
 	pub const MaxNominatorRewardedPerValidator: u32 = 128;
 	// Allow election solution computation during the entire last session (~10 minutes)
 	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
-	// maximum phragemn iterations
+	// maximum phragmen iterations
 	pub const MaxIterations: u32 = 10;
 	pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
 	pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
 		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
 		.saturating_sub(BlockExecutionWeight::get());
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
+		RuntimeBlockWeights::get().max_block;
 }
 impl crml_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
@@ -344,7 +361,12 @@ impl crml_staking::Config for Runtime {
 	type Rewarder = Rewards;
 	type UnixTime = Timestamp;
 	type UnsignedPriority = StakingUnsignedPriority;
+	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type WeightInfo = ();
+	// provides deffered offence reporting see (https://github.com/cennznet/cennznet/pull/590)
+	type OnOffenceHandler = Staking;
+	type SessionHistoricalType = Self;
+	type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl_opaque_keys! {
@@ -414,23 +436,6 @@ impl crml_transaction_payment::Config for Runtime {
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	items as Balance * 15 + (bytes as Balance) * 6
-}
-
-parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const DepositBase: Balance = deposit(1, 88);
-	// Additional storage item size of 32 bytes.
-	pub const DepositFactor: Balance = deposit(0, 32);
-	pub const MaxSignatories: u16 = 100;
-}
-impl pallet_multisig::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
-	type Currency = SpendingAssetCurrency<Self>;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
-	type MaxSignatories = MaxSignatories;
-	type WeightInfo = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -625,6 +630,11 @@ impl crml_eth_bridge::Config for Runtime {
 	type FinalSessionTracker = Staking;
 }
 
+impl crml_token_approvals::Config for Runtime {
+	type MultiCurrency = GenericAsset;
+	type IsTokenOwner = Nft;
+}
+
 // transaction must have an event/log of the deposit
 // i.e. keccack256("Deposit(address,address,uint256,bytes32)")
 const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
@@ -654,10 +664,120 @@ parameter_types! {
 impl crml_eth_wallet::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type AddressMapping = PrefixedAddressMapping<AccountId>;
 	type TransactionFeeHandler = TransactionPayment;
 	type Signer = <Signature as Verify>::Signer;
 	type UnsignedPriority = EcdsaUnsignedPriority;
 }
+
+// Start frontier/EVM stuff
+
+/// Current approximation of the gas/s consumption considering
+/// EVM execution over compiled WASM (on 4.4Ghz CPU).
+/// Given the 500ms Weight, from which 75% only are used for transactions,
+/// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
+pub const GAS_PER_SECOND: u64 = 40_000_000;
+
+/// Approximate ratio of the amount of Weight per Gas.
+/// u64 works for approximations because Weight is a very small unit compared to gas.
+pub const WEIGHT_PER_GAS: u64 = WEIGHT_PER_SECOND / GAS_PER_SECOND;
+
+pub struct CENNZnetGasWeightMapping;
+
+impl pallet_evm::GasWeightMapping for CENNZnetGasWeightMapping {
+	fn gas_to_weight(gas: u64) -> Weight {
+		gas.saturating_mul(WEIGHT_PER_GAS)
+	}
+	fn weight_to_gas(weight: Weight) -> u64 {
+		u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
+	}
+}
+
+/// This is unused while CENNZnet fullness is inconsistent
+pub struct BaseFeeThreshold;
+impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
+	fn lower() -> Permill {
+		Permill::zero()
+	}
+	fn ideal() -> Permill {
+		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
+		Permill::from_parts(50_000)
+	}
+	fn upper() -> Permill {
+		Permill::one()
+	}
+}
+
+parameter_types! {
+	pub const DefaultBaseFeePerGas: u64 = 5_500_000_000_000; // 0.000055 CPAY per gas
+	pub const IsBaseFeeActive: bool = true;
+}
+impl pallet_base_fee::Config for Runtime {
+	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
+	type IsActive = IsBaseFeeActive;
+	type Event = Event;
+	type Threshold = BaseFeeThreshold;
+}
+
+parameter_types! {
+	pub const ChainId: u64 = 3000;
+	pub BlockGasLimit: U256
+		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
+	pub PrecompilesValue: CENNZnetPrecompiles<Runtime> = CENNZnetPrecompiles::<_>::new();
+}
+
+/// Modified london config with higher contract create fee
+const fn cennznet_london() -> EvmConfig {
+	let mut c = EvmConfig::london();
+	c.gas_transaction_create = 3_000_000;
+	c
+}
+static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
+
+impl pallet_evm::Config for Runtime {
+	type FeeCalculator = BaseFee;
+	type GasWeightMapping = CENNZnetGasWeightMapping;
+	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
+	type CallOrigin = EnsureAddressTruncated;
+	type WithdrawOrigin = EnsureAddressTruncated;
+	type AddressMapping = PrefixedAddressMapping<AccountId>;
+	type Currency = EvmCurrencyScaler<SpendingAssetCurrency<Self>>;
+	type Event = Event;
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
+	type PrecompilesType = CENNZnetPrecompiles<Self>;
+	type PrecompilesValue = PrecompilesValue;
+	type ChainId = ChainId;
+	type BlockGasLimit = BlockGasLimit;
+	type OnChargeTransaction = CENNZnetOnChargeEVMTransaction<Self>;
+	type FindAuthor = EthereumFindAuthor<Babe>;
+	// internal EVM config
+	fn config() -> &'static EvmConfig {
+		&CENNZNET_EVM_CONFIG
+	}
+}
+
+impl pallet_ethereum::Config for Runtime {
+	type Event = Event;
+	type StateRoot = pallet_ethereum::IntermediateStateRoot;
+}
+
+pub struct TransactionConverter;
+
+impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
+	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_unsigned(pallet_ethereum::Call::<Runtime>::transact { transaction }.into())
+	}
+}
+
+impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConverter {
+	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> sp_runtime::OpaqueExtrinsic {
+		let extrinsic =
+			UncheckedExtrinsic::new_unsigned(pallet_ethereum::Call::<Runtime>::transact { transaction }.into());
+		let encoded = extrinsic.encode();
+		sp_runtime::OpaqueExtrinsic::decode(&mut &encoded[..]).expect("Encoded extrinsic is always valid")
+	}
+}
+// end frontier/EVM stuff
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
@@ -710,32 +830,36 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		// Give modules fixed indexes in the runtime
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 1,
-		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 2,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
-		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
-		Authorship: pallet_authorship::{Pallet, Call, Storage} = 5,
-		Staking: crml_staking::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 6,
-		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 8,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 10,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 12,
-		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 13,
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>} = 14,
-		Utility: pallet_utility::{Pallet, Call, Event} = 15,
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 16,
-		TransactionPayment: crml_transaction_payment::{Pallet, Storage} = 17,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 18,
-		Historical: session_historical::{Pallet} = 20,
-		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
-		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>} = 29,
-		Nft: crml_nft::{Pallet, Call, Storage, Event<T>} = 30,
-		Governance: crml_governance::{Pallet, Call, Storage, Event} = 31,
-		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned} = 32,
-		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>} = 33,
-		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned} = 34,
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Authorship: pallet_authorship::{Pallet, Call, Storage},
+		Staking: crml_staking::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
+		Offences: pallet_offences::{Pallet, Storage, Event},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned},
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config},
+		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Event},
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
+		TransactionPayment: crml_transaction_payment::{Pallet, Storage},
+		Historical: session_historical::{Pallet},
+		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>},
+		Nft: crml_nft::{Pallet, Call, Storage, Event<T>},
+		Governance: crml_governance::{Pallet, Call, Storage, Event},
+		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
+		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>},
+		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned},
+		// EVM support
+		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
+		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+		TokenApprovals: crml_token_approvals::{Pallet, Call, Storage},
 	}
 );
 
@@ -759,11 +883,11 @@ pub type SignedExtra = (
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic = fp_self_contained::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+pub type CheckedExtrinsic = fp_self_contained::CheckedExtrinsic<AccountId, Call, SignedExtra, H160>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
 	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
@@ -823,12 +947,6 @@ impl_runtime_apis! {
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
-		}
-	}
-
-	impl crml_eth_wallet_rpc_runtime_api::EthWalletApi<Block> for Runtime {
-		fn address_nonce(eth_address: &crml_support::H160) -> u32 {
-			EthWallet::address_nonce(eth_address)
 		}
 	}
 
@@ -993,6 +1111,9 @@ impl_runtime_apis! {
 		) -> TokenInfo<AccountId> {
 		   Nft::token_info(collection_id, series_id, serial_number)
 		}
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Nft::token_uri(token_id)
+		}
 		fn collection_listings(
 			collection_id: CollectionId,
 			offset: u128,
@@ -1055,6 +1176,171 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl fp_rpc::ConvertTransactionRuntimeApi<Block> for Runtime {
+		fn convert_transaction(transaction: EthereumTransaction) -> <Block as BlockT>::Extrinsic {
+			UncheckedExtrinsic::new_unsigned(
+				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
+			)
+		}
+	}
+
+	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+		fn chain_id() -> u64 {
+			<Runtime as pallet_evm::Config>::ChainId::get()
+		}
+
+		fn account_basic(address: H160) -> EVMAccount {
+	  // this balance is scaled up so that eth tooling expecting an 18dp asset
+	  // is compatible with the 4dp cpay value
+			EVM::account_basic(&address)
+		}
+
+		fn gas_price() -> U256 {
+			BaseFee::min_gas_price()
+		}
+
+		fn account_code_at(address: H160) -> Vec<u8> {
+			EVM::account_codes(address)
+		}
+
+		fn author() -> H160 {
+			<pallet_evm::Pallet<Runtime>>::find_author()
+		}
+
+		fn storage_at(address: H160, index: U256) -> H256 {
+			let mut tmp = [0u8; 32];
+			index.to_big_endian(&mut tmp);
+			EVM::account_storages(address, H256::from_slice(&tmp[..]))
+		}
+
+		fn call(
+			from: H160,
+			to: H160,
+			data: Vec<u8>,
+			value: U256,
+			gas_limit: U256,
+			max_fee_per_gas: Option<U256>,
+			max_priority_fee_per_gas: Option<U256>,
+			nonce: Option<U256>,
+			estimate: bool,
+			access_list: Option<Vec<(H160, Vec<H256>)>>,
+		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+			let config = if estimate {
+				let mut config = <Runtime as pallet_evm::Config>::config().clone();
+				config.estimate = true;
+				Some(config)
+			} else {
+				None
+			};
+
+			<Runtime as pallet_evm::Config>::Runner::call(
+				from,
+				to,
+				data,
+				value,
+				gas_limit.low_u64(),
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				nonce,
+				access_list.unwrap_or_default(),
+				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+			).map_err(|err| err.into())
+		}
+
+		fn create(
+			from: H160,
+			data: Vec<u8>,
+			value: U256,
+			gas_limit: U256,
+			max_fee_per_gas: Option<U256>,
+			max_priority_fee_per_gas: Option<U256>,
+			nonce: Option<U256>,
+			estimate: bool,
+			access_list: Option<Vec<(H160, Vec<H256>)>>,
+		) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
+			let config = if estimate {
+				let mut config = <Runtime as pallet_evm::Config>::config().clone();
+				config.estimate = true;
+				Some(config)
+			} else {
+				None
+			};
+
+			<Runtime as pallet_evm::Config>::Runner::create(
+				from,
+				data,
+				value,
+				gas_limit.low_u64(),
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				nonce,
+				access_list.unwrap_or_default(),
+				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+			).map_err(|err| err.into())
+		}
+
+		fn current_transaction_statuses() -> Option<Vec<TransactionStatus>> {
+			Ethereum::current_transaction_statuses()
+		}
+
+		fn current_block() -> Option<pallet_ethereum::Block> {
+			Ethereum::current_block()
+		}
+
+		fn current_receipts() -> Option<Vec<pallet_ethereum::Receipt>> {
+			Ethereum::current_receipts()
+		}
+
+		fn current_all() -> (
+			Option<pallet_ethereum::Block>,
+			Option<Vec<pallet_ethereum::Receipt>>,
+			Option<Vec<TransactionStatus>>
+		) {
+			(
+				Ethereum::current_block(),
+				Ethereum::current_receipts(),
+				Ethereum::current_transaction_statuses()
+			)
+		}
+
+		fn extrinsic_filter(
+			xts: Vec<<Block as BlockT>::Extrinsic>,
+		) -> Vec<EthereumTransaction> {
+			xts.into_iter().filter_map(|xt| match xt.0.function {
+				Call::Ethereum(transact { transaction }) => Some(transaction),
+				_ => None
+			}).collect::<Vec<EthereumTransaction>>()
+		}
+
+		fn elasticity() -> Option<Permill> {
+			Some(BaseFee::elasticity())
+		}
+	}
+
+	impl cennznet_primitives::txpool::TxPoolRuntimeApi<Block> for Runtime {
+		fn extrinsic_filter(
+			xts_ready: Vec<<Block as BlockT>::Extrinsic>,
+			xts_future: Vec<<Block as BlockT>::Extrinsic>,
+		) -> cennznet_primitives::txpool::TxPoolResponse {
+			cennznet_primitives::txpool::TxPoolResponse {
+				ready: xts_ready
+					.into_iter()
+					.filter_map(|xt| match xt.0.function {
+						Call::Ethereum(transact { transaction }) => Some(transaction),
+						_ => None,
+					})
+					.collect(),
+				future: xts_future
+					.into_iter()
+					.filter_map(|xt| match xt.0.function {
+						Call::Ethereum(transact { transaction }) => Some(transaction),
+						_ => None,
+					})
+					.collect(),
+			}
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn dispatch_benchmark(
@@ -1086,5 +1372,80 @@ impl_runtime_apis! {
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
 		}
+	}
+}
+
+impl fp_self_contained::SelfContainedCall for Call {
+	type SignedInfo = H160;
+
+	fn is_self_contained(&self) -> bool {
+		match self {
+			Call::Ethereum(call) => call.is_self_contained(),
+			_ => false,
+		}
+	}
+
+	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
+		match self {
+			Call::Ethereum(call) => call.check_self_contained(),
+			_ => None,
+		}
+	}
+
+	fn validate_self_contained(&self, signed_info: &Self::SignedInfo) -> Option<TransactionValidity> {
+		match self {
+			Call::Ethereum(ref call) => Some(validate_self_contained_inner(&self, &call, signed_info)),
+			_ => None,
+		}
+	}
+
+	fn pre_dispatch_self_contained(&self, info: &Self::SignedInfo) -> Option<Result<(), TransactionValidityError>> {
+		match self {
+			Call::Ethereum(call) => call.pre_dispatch_self_contained(info),
+			_ => None,
+		}
+	}
+
+	fn apply_self_contained(
+		self,
+		info: Self::SignedInfo,
+	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
+		match self {
+			call @ Call::Ethereum(pallet_ethereum::Call::transact { .. }) => {
+				Some(call.dispatch(Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(info))))
+			}
+			_ => None,
+		}
+	}
+}
+
+fn validate_self_contained_inner(
+	call: &Call,
+	eth_call: &pallet_ethereum::Call<Runtime>,
+	signed_info: &<Call as fp_self_contained::SelfContainedCall>::SignedInfo,
+) -> TransactionValidity {
+	if let pallet_ethereum::Call::transact { ref transaction } = eth_call {
+		// Previously, ethereum transactions were contained in an unsigned
+		// extrinsic, we now use a new form of dedicated extrinsic defined by
+		// frontier, but to keep the same behavior as before, we must perform
+		// the controls that were performed on the unsigned extrinsic.
+		use sp_runtime::traits::SignedExtension as _;
+		let input_len = match transaction {
+			pallet_ethereum::Transaction::Legacy(t) => t.input.len(),
+			pallet_ethereum::Transaction::EIP2930(t) => t.input.len(),
+			pallet_ethereum::Transaction::EIP1559(t) => t.input.len(),
+		};
+		let extra_validation = SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
+		// Then, do the controls defined by the ethereum pallet.
+		use fp_self_contained::SelfContainedCall as _;
+		let self_contained_validation = eth_call
+			.validate_self_contained(signed_info)
+			.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??;
+
+		Ok(extra_validation.combine_with(self_contained_validation))
+	} else {
+		Err(TransactionValidityError::Unknown(
+			sp_runtime::transaction_validity::UnknownTransaction::CannotLookup,
+		))
 	}
 }

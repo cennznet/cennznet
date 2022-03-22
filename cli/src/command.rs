@@ -68,9 +68,9 @@ pub fn run() -> sc_cli::Result<()> {
 
 	match &cli.subcommand {
 		None => {
-			let runner = cli.create_runner(&cli.run)?;
+			let runner = cli.create_runner(&cli.run.base)?;
 			runner.run_node_until_exit(|config| async move {
-				service::new_full(config, cli.eth_opts.eth_http).map_err(sc_cli::Error::Service)
+				service::new_full(config, &cli).map_err(sc_cli::Error::Service)
 			})
 		}
 		Some(Subcommand::Inspect(cmd)) => {

@@ -18,12 +18,9 @@
 
 use std::sync::Arc;
 
-use cennznet_primitives::types::BlockNumber;
+use cennznet_primitives::types::{BlockNumber, CollectionId, SerialNumber, SeriesId, TokenId};
 use codec::Codec;
-use crml_nft::{
-	CollectionId, CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper, SerialNumber, SeriesId,
-	TokenId, TokenInfo,
-};
+use crml_nft::{CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper, TokenInfo};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
@@ -41,6 +38,9 @@ pub trait NftApi<AccountId> {
 
 	#[rpc(name = "nft_getCollectionInfo")]
 	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
+
+	#[rpc(name = "nft_tokenUri")]
+	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>>;
 
 	#[rpc(name = "nft_getTokenInfo")]
 	fn token_info(
@@ -102,6 +102,17 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 		api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
+			code: ErrorCode::ServerError(Error::RuntimeError.into()),
+			message: "Unable to query collection nfts.".into(),
+			data: Some(format!("{:?}", e).into()),
+		})
+	}
+
+	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+		api.token_uri(&at, token_id).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection nfts.".into(),
 			data: Some(format!("{:?}", e).into()),

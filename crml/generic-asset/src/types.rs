@@ -99,6 +99,10 @@ impl AssetInfo {
 		}
 	}
 
+	pub fn symbol(&self) -> Vec<u8> {
+		self.symbol.clone()
+	}
+
 	pub fn existential_deposit(&self) -> u64 {
 		self.existential_deposit
 	}

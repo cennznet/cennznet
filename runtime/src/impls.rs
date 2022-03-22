@@ -1,4 +1,4 @@
-// Copyright 2018-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
+// Copyright 2018-2021 Parity Techn ologies(UK) Ltd. and Centrality Investments Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -16,16 +16,30 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, SessionsPerEra, Staking, Treasury};
+use crate::{
+	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
+	Treasury,
+};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use crml_staking::{rewards::RunScheduledPayout, EraIndex};
+use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
+use crml_support::{H160, U256};
 use frame_support::{
-	traits::{Contains, ContainsLengthBound, Currency, Get, Imbalance, OnUnbalanced},
+	pallet_prelude::*,
+	traits::{
+		tokens::{fungible::Inspect, DepositConsequence, WithdrawConsequence},
+		Contains, ContainsLengthBound, Currency, ExistenceRequirement, FindAuthor, Get, Imbalance, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
+	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
-use sp_runtime::Perbill;
+use sp_runtime::traits::UniqueSaturatedInto;
+use sp_runtime::{
+	traits::{SaturatedConversion, Zero},
+	ConsensusEngineId, Perbill,
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Runs scheduled payouts for the rewards module.
@@ -44,6 +58,199 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
+
+/// Constant factor for scaling CPAY to wei
+const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+
+/// Convert 18dp wei values to 4dp equivalents
+/// Most inputs are scaled down by 1e14
+// values < 10e14 round to 1
+// 0 is unchanged
+fn scale_to_4dp(value: Balance) -> Balance {
+	if value.is_zero() {
+		value
+	} else {
+		sp_std::cmp::max(value / CPAY_TO_WEI_FACTOR, 1)
+	}
+}
+
+/// Wraps spending currency (CPAY) for use by the EVM
+/// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
+pub struct EvmCurrencyScaler<I: Inspect<AccountId>>(PhantomData<I>);
+impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId> for EvmCurrencyScaler<I> {
+	type Balance = Balance;
+
+	/// The total amount of issuance in the system.
+	fn total_issuance() -> Self::Balance {
+		<I as Inspect<AccountId>>::total_issuance()
+	}
+
+	/// The minimum balance any single account may have.
+	fn minimum_balance() -> Self::Balance {
+		<I as Inspect<AccountId>>::minimum_balance()
+	}
+
+	/// Get the balance of `who`.
+	/// Scaled up so values match expectations of an 18dp asset
+	fn balance(who: &AccountId) -> Self::Balance {
+		Self::reducible_balance(who, true)
+	}
+
+	/// Get the maximum amount that `who` can withdraw/transfer successfully.
+	/// Scaled up so values match expectations of an 18dp asset
+	fn reducible_balance(who: &AccountId, keep_alive: bool) -> Self::Balance {
+		// Careful for overflow!
+		let raw = I::reducible_balance(who, keep_alive);
+		U256::from(raw)
+			.saturating_mul(U256::from(10_u128.pow(14)))
+			.saturated_into()
+	}
+
+	/// Returns `true` if the balance of `who` may be increased by `amount`.
+	fn can_deposit(_who: &AccountId, _amount: Self::Balance) -> DepositConsequence {
+		unimplemented!();
+	}
+
+	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
+	/// the consequence.
+	fn can_withdraw(who: &AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		I::can_withdraw(who, amount)
+	}
+}
+
+/// Currency impl for EVM usage
+/// It proxies to the inner curreny impl while leaving some unused methods
+/// unimplemented
+impl<I> Currency<AccountId> for EvmCurrencyScaler<I>
+where
+	I: Inspect<AccountId, Balance = Balance>,
+	I: Currency<
+		AccountId,
+		Balance = Balance,
+		PositiveImbalance = crml_generic_asset::PositiveImbalance<Runtime>,
+		NegativeImbalance = crml_generic_asset::NegativeImbalance<Runtime>,
+	>,
+{
+	type Balance = <I as Currency<AccountId>>::Balance;
+	type PositiveImbalance = <I as Currency<AccountId>>::PositiveImbalance;
+	type NegativeImbalance = <I as Currency<AccountId>>::NegativeImbalance;
+
+	fn free_balance(who: &AccountId) -> Self::Balance {
+		Self::balance(who)
+	}
+	fn total_issuance() -> Self::Balance {
+		<I as Currency<AccountId>>::total_issuance()
+	}
+	fn minimum_balance() -> Self::Balance {
+		<I as Currency<AccountId>>::minimum_balance()
+	}
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		Self::balance(who)
+	}
+	fn transfer(from: &AccountId, to: &AccountId, value: Self::Balance, req: ExistenceRequirement) -> DispatchResult {
+		I::transfer(from, to, scale_to_4dp(value), req)
+	}
+	fn ensure_can_withdraw(
+		_who: &AccountId,
+		_amount: Self::Balance,
+		_reasons: WithdrawReasons,
+		_new_balance: Self::Balance,
+	) -> DispatchResult {
+		unimplemented!();
+	}
+	fn withdraw(
+		who: &AccountId,
+		value: Self::Balance,
+		reasons: WithdrawReasons,
+		req: ExistenceRequirement,
+	) -> Result<Self::NegativeImbalance, DispatchError> {
+		I::withdraw(who, scale_to_4dp(value), reasons, req)
+	}
+	fn deposit_into_existing(who: &AccountId, value: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
+		I::deposit_into_existing(who, scale_to_4dp(value))
+	}
+	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
+		I::deposit_creating(who, scale_to_4dp(value))
+	}
+	fn make_free_balance_be(
+		who: &AccountId,
+		balance: Self::Balance,
+	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
+		I::make_free_balance_be(who, scale_to_4dp(balance))
+	}
+	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
+		false
+	}
+	fn slash(_who: &AccountId, _value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		unimplemented!();
+	}
+	fn burn(mut _amount: Self::Balance) -> Self::PositiveImbalance {
+		unimplemented!();
+	}
+	fn issue(mut _amount: Self::Balance) -> Self::NegativeImbalance {
+		unimplemented!();
+	}
+}
+
+/// Find block author formatted for ethereum compat
+pub struct EthereumFindAuthor<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
+	fn find_author<'a, I>(digests: I) -> Option<H160>
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		F::find_author(digests).map(|author_index| {
+			if let Some(stash) = Session::validators().get(author_index as usize) {
+				// Take first 20 bytes of the validator AccountId
+				// NB: this matches the behaviour of `EnsureAddressTruncated`
+				H160::from_slice(&AsRef::<[u8; 32]>::as_ref(stash)[..20])
+			} else {
+				H160::default()
+			}
+		})
+	}
+}
+
+/// Implements transaction payments which handles withdrawing,
+/// refunding and depositing of transaction fees.
+/// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
+pub struct CENNZnetOnChargeEVMTransaction<T>(PhantomData<T>);
+
+impl<T> OnChargeEVMTransaction<T> for CENNZnetOnChargeEVMTransaction<T>
+where
+	T: pallet_evm::Config
+		+ frame_system::Config<AccountId = AccountId>
+		+ pallet_session::Config<ValidatorId = AccountId>,
+{
+	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
+
+	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
+	}
+
+	fn correct_and_deposit_fee(who: &H160, corrected_fee: U256, already_withdrawn: Self::LiquidityInfo) {
+		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, already_withdrawn)
+	}
+
+	/// Pay the validator's priority fees to its reward account
+	fn pay_priority_fee(tip: U256) {
+		let digest = System::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+		if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
+			if let Some(stash) = <pallet_session::Pallet<T>>::validators().get(author_index as usize) {
+				let pay_to = Rewards::payee(stash);
+				let _ = <T as pallet_evm::Config>::Currency::deposit_into_existing(
+					&pay_to,
+					tip.low_u128().unique_saturated_into(),
+				);
+			} else {
+				log::error!("Error processing priority fee, validator not found");
+			}
+		} else {
+			log::error!("Error processing priority fee, block author not found");
+		}
+	}
+}
 
 /// Handles block transaction fees tracking them using the Rewards module
 pub struct DealWithFees;

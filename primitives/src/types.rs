@@ -71,6 +71,21 @@ pub type Block = generic::Block<Header, OpaqueExtrinsic>;
 /// Block ID.
 pub type BlockId = generic::BlockId<Block>;
 
+/// Auto-incrementing Uint
+/// Uniquely identifies a collection
+pub type CollectionId = u32;
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a series of tokens within a collection
+pub type SeriesId = u32;
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a token within a series
+pub type SerialNumber = u32;
+
+/// Global unique token identifier
+pub type TokenId = (CollectionId, SeriesId, SerialNumber);
+
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]

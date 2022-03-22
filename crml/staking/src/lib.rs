@@ -659,7 +659,7 @@ pub trait SessionInterface<AccountId>: frame_system::Config {
 	/// Returns `true` if new era should be forced at the end of this session.
 	/// This allows preventing a situation where there is too many validators
 	/// disabled and block production stalls.
-	fn disable_validator(validator: &AccountId) -> Result<bool, ()>;
+	fn disable_validator(validator_index: u32) -> bool;
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -677,9 +677,8 @@ where
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
-	fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-		// CHECK
-		Ok(<pallet_session::Pallet<T>>::disable(validator))
+	fn disable_validator(validator_index: u32) -> bool {
+		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -775,8 +774,22 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	/// enough to fit in the block.
 	type OffchainSolutionWeightLimit: Get<Weight>;
 
+	/// The fraction of the validator set that is safe to be offending.
+	/// After the threshold is reached a new era will be forced.
+	type OffendingValidatorsThreshold: Get<Perbill>;
+
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo + ElectionWeightExt;
+
+	// config here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L72
+	type OnOffenceHandler: OnOffenceHandler<
+		Self::AccountId,
+		pallet_session::historical::IdentificationTuple<Self::SessionHistoricalType>,
+		Weight,
+	>;
+	type SessionHistoricalType: pallet_session::historical::Config<AccountId = Self::AccountId>;
+
+	type WeightSoftLimit: Get<Weight>;
 }
 
 /// Mode of era-forcing.
@@ -828,10 +841,33 @@ impl From<u32> for Releases {
 	}
 }
 
+/// Type of data stored as a deferred offence
+pub type DeferredOffenceOf<T> = (
+	Vec<
+		OffenceDetails<
+			<T as frame_system::Config>::AccountId,
+			pallet_session::historical::IdentificationTuple<<T as Config>::SessionHistoricalType>,
+		>,
+	>,
+	Vec<Perbill>,
+	SessionIndex,
+);
+
 decl_storage! {
 	trait Store for Module<T: Config> as Staking {
 		/// Minimum amount to bond.
 		MinimumBond get(fn minimum_bond) config(): BalanceOf<T>;
+
+		/// Indices of validators that have offended in the active era and whether they are currently
+		/// disabled.
+		///
+		/// This value should be a superset of disabled validators since not all offences lead to the
+		/// validator being disabled (if there was no slash). This is needed to track the percentage of
+		/// validators that have offended in the current era, ensuring a new era is forced if
+		/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
+		/// whether a given validator has previously offended using binary search. It gets cleared when
+		/// the era ends.
+		pub OffendingValidators get(fn offending_validators): Vec<(u32, bool)>;
 
 		/// Number of eras to keep in history.
 		///
@@ -1001,6 +1037,11 @@ decl_storage! {
 		///
 		/// This is set to v2 for new networks.
 		StorageVersion build(|_: &GenesisConfig<T>| Releases::V2 as u32): u32;
+
+		// store here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L91
+		/// Deferred reports that have been rejected by the offence handler and need to be submitted
+		/// at a later time.
+		DeferredOffences get(fn deferred_offences): Vec<DeferredOffenceOf<T>>;
 	}
 	add_extra_genesis {
 		config(stakers):
@@ -1066,6 +1107,9 @@ decl_event!(
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue. \[stash, amount\]
 		Withdrawn(AccountId, Balance),
+		/// One validator (and its nominators) has been slashed by the given amount.
+		/// \[validator, amount\]
+		Slashed(AccountId, Balance),
 	}
 );
 
@@ -1131,6 +1175,8 @@ decl_error! {
 		CallNotAllowed,
 		/// Incorrect previous history depth input provided.
 		IncorrectHistoryDepth,
+		/// Incorrect number of slashing spans provided.
+		IncorrectSlashingSpans,
 	}
 }
 
@@ -1218,6 +1264,11 @@ decl_module! {
 					log!(warn, "💸 Estimating next session change failed.");
 				}
 			}
+
+			// check if we can report any deffered offences
+			// pallet-offences did this in its `on_initialize` in cennznet 2.0
+			Self::offences_on_initialize(now);
+
 			// For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
 			add_weight(3, 0, 0);
 			// Additional read from `on_finalize`
@@ -2029,6 +2080,34 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// lifted from older pallet-offences: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L122
+	/// submits deffered offence reports when
+	fn offences_on_initialize(_now: T::BlockNumber) -> Weight {
+		// if we can't report then exit
+		if !Self::era_election_status().is_closed() {
+			return 0;
+		}
+
+		let limit = T::WeightSoftLimit::get();
+		let mut consumed = Weight::zero();
+
+		<DeferredOffences<T>>::mutate(|deferred| {
+			deferred.retain(|(offences, perbill, session)| {
+				if consumed >= limit {
+					true
+				} else {
+					// keep those that fail to be reported again. An error log is emitted here; this
+					// should not happen if staking's `can_report` is implemented properly.
+					consumed +=
+						T::OnOffenceHandler::on_offence(&offences, &perbill, *session, DisableStrategy::WhenSlashed);
+					false
+				}
+			})
+		});
+
+		consumed
+	}
+
 	/// The total balance that can be slashed from a stash account as of right now.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
@@ -2757,7 +2836,9 @@ impl<T: Config> Module<T> {
 	fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		slashing::clear_stash_metadata::<T>(stash)?;
+		// 1000 is arbitrary. hard-coded instead of requiring caller to
+		// figure out the Detailss.
+		slashing::clear_stash_metadata::<T>(stash, 1000_u32)?;
 
 		<Bonded<T>>::remove(stash);
 		<Ledger<T>>::remove(&controller);
@@ -2941,10 +3022,13 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 }
 
 /// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config> OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight> for Pallet<T>
+impl<T: Config>
+	OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T::SessionHistoricalType>, Weight>
+	for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
+	T::SessionHistoricalType: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+	T::SessionHistoricalType: pallet_session::historical::Config<
 		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
 		FullIdentificationOf = ExposureOf<T>,
 	>,
@@ -2952,12 +3036,25 @@ where
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
+	/// Handles an offence slashing or disabling the validator as necessary
+	/// Returns consumed weight
+	/// `0` weight signifies a deferred offence report. This is in order to provide
+	/// compatibility with the 'offchain_election' code used here as of cennznet 2.0.0 and the differences in substrate 4.0.0-dev staking
 	fn on_offence(
-		offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
+		offenders: &[OffenceDetails<
+			T::AccountId,
+			pallet_session::historical::IdentificationTuple<T::SessionHistoricalType>,
+		>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
+		disable_strategy: DisableStrategy,
 	) -> Weight {
+		// matches `!Self::can_report()` from older versions
+		if !Self::era_election_status().is_closed() {
+			<DeferredOffences<T>>::mutate(|d| d.push((offenders.to_vec(), slash_fraction.to_vec(), slash_session)));
+			return Zero::zero();
+		}
+
 		let reward_proportion = Self::slash_reward_fraction();
 		let mut consumed_weight: Weight = 0;
 		let mut add_db_reads_writes = |reads, writes| {
@@ -3030,6 +3127,7 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
+				disable_strategy,
 			});
 
 			if let Some(mut unapplied) = unapplied {

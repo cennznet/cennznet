@@ -18,8 +18,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use codec::Codec;
-use crml_nft::{CollectionId, CollectionInfo, Config, Listing, ListingId, SerialNumber, SeriesId, TokenId, TokenInfo};
+use crml_nft::{CollectionInfo, Config, Listing, ListingId, TokenInfo};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -36,6 +37,9 @@ sp_api::decl_runtime_apis! {
 
 		/// Get collection info from a given collection
 		fn collection_info(collection_id: CollectionId) -> Option<CollectionInfo<AccountId>>;
+
+		/// Return the token metadata URI for a given token
+		fn token_uri(token_id: TokenId) -> Vec<u8>;
 
 		/// Get information of given token
 		fn token_info(

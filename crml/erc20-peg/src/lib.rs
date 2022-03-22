@@ -15,8 +15,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{AssetId, Balance};
-use codec::Decode;
+use cennznet_primitives::{
+	eth::EventId,
+	types::{AssetId, Balance},
+};
+use codec::{Decode, Encode};
 use crml_support::{EventClaimSubscriber, EventClaimVerifier, MultiCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
@@ -24,6 +27,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::traits::Hash;
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchError,
@@ -32,6 +36,10 @@ use sp_std::prelude::*;
 
 mod types;
 use types::*;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 pub trait Config: frame_system::Config {
 	/// An onchain address for this pallet
@@ -58,6 +66,8 @@ decl_storage! {
 		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
+		/// Hash of withdrawal information
+		WithdrawalDigests get(fn withdrawal_digests): map hasher(twox_64_concat) EventId => T::Hash;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
 		/// Whether CENNZ deposits are active
@@ -156,7 +166,7 @@ decl_module! {
 
 		#[weight = 50_000_000]
 		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
-		/// Tokens will be burnt and a proof generated to allow redemption of tokens on Ethereum
+		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
@@ -166,15 +176,30 @@ decl_module! {
 			// otherwise there may be no liquidity on the Ethereum side of the peg
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-
-			let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::empty(), frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			let token_address = token_address.unwrap();
+			let staking_currency = T::MultiCurrency::staking_currency();
+			if asset_id == staking_currency {
+				let _result = T::MultiCurrency::transfer(
+					&origin,
+					&T::PegPalletId::get().into_account(),
+					asset_id,
+					amount, // checked amount < u128 in `deposit_claim` qed.
+					ExistenceRequirement::KeepAlive,
+				)?;
+			} else {
+				let _imbalance = T::MultiCurrency::withdraw(&origin, asset_id, amount, WithdrawReasons::TRANSFER, frame_support::traits::ExistenceRequirement::KeepAlive)?;
+			}
 
 			let message = WithdrawMessage {
-				token_address: token_address.unwrap(),
+				token_address,
 				amount: amount.into(),
 				beneficiary
 			};
-			let event_proof_id = T::EthBridge::generate_event_proof(&message)?;
+			let event_proof_id: EventId = T::EthBridge::generate_event_proof(&message)?;
+
+			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
+			let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message, event_proof_id).encode());
+			WithdrawalDigests::<T>::insert(event_proof_id, withdrawal_hash);
 
 			Self::deposit_event(<Event<T>>::Erc20Withdraw(event_proof_id, asset_id, amount, beneficiary));
 		}

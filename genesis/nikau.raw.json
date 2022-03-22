@@ -6,7 +6,9 @@
   ],
   "telemetryEndpoints": null,
   "protocolId": "cennznet-nikau-v1",
-  "properties": null,
+  "properties": {
+    "frontierGenesisBlockNumber": "2298800"
+  },
   "consensusEngine": null,
   "genesis": {
     "raw": {

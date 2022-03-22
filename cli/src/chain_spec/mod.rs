@@ -19,12 +19,12 @@
 use cennznet_primitives::{eth::crypto::AuthorityId as EthBridgeId, types::Block};
 use cennznet_runtime::constants::{asset::*, currency::*};
 use cennznet_runtime::{
-	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, Erc20PegConfig, FeeRate, GenericAssetConfig,
-	GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AssetInfo, AuthorityDiscoveryConfig, BabeConfig, CennzxConfig, EVMConfig, Erc20PegConfig, EthereumConfig, FeeRate,
+	GenericAssetConfig, GrandpaConfig, ImOnlineConfig, PerMillion, PerThousand, RewardsConfig, SessionConfig,
+	SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
-use crml_support::H160;
+use crml_support::{H160, U256};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	FixedPointNumber, FixedU128, Perbill,
 };
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
@@ -434,6 +434,24 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			inflation_rate: FixedU128::saturating_from_rational(8, 10),
 		},
 		erc_20_peg: Erc20PegConfig { erc20s },
+		base_fee: Default::default(),
+		ethereum: EthereumConfig {},
+		evm: EVMConfig {
+			accounts: {
+				let mut map = BTreeMap::new();
+				map.insert(
+					// seed: 0xab3fdbe7eca16f38e9f5ee81b9e23d01ef251ba4ae19225783e5921a4a8c5564 / uri: `//development`
+					H160::from_str("0x12B29179a7F858478Fde74f842126CdA5eA7AC35").expect("internal H160 is valid; qed"),
+					pallet_evm::GenesisAccount {
+						balance: U256::from_str("0xfffffffffffffffffffff").expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				map
+			},
+		},
 	}
 }
 

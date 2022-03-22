@@ -113,6 +113,7 @@ use frame_support::pallet_prelude::*;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::{
+		tokens::{fungible::Inspect, DepositConsequence, WithdrawConsequence},
 		BalanceStatus, Currency, ExistenceRequirement, Imbalance, IsType, LockIdentifier, LockableCurrency,
 		OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
@@ -989,23 +990,25 @@ where
 	type PositiveImbalance = PositiveImbalance<T>;
 	type NegativeImbalance = NegativeImbalance<T>;
 
-	fn total_balance(who: &T::AccountId) -> Self::Balance {
-		Self::free_balance(&who) + Self::reserved_balance(&who)
-	}
-
+	/// Get the balance of `who`.
 	fn free_balance(who: &T::AccountId) -> Self::Balance {
 		<Module<T>>::free_balance(U::asset_id(), &who)
 	}
 
-	/// Returns the total staking asset issuance
+	/// The total amount of issuance in the system.
 	fn total_issuance() -> Self::Balance {
 		<Module<T>>::total_issuance(U::asset_id())
 	}
 
+	/// The minimum balance any single account may have.
 	fn minimum_balance() -> Self::Balance {
 		AssetMeta::<T>::get(U::asset_id())
 			.existential_deposit()
 			.unique_saturated_into()
+	}
+
+	fn total_balance(who: &T::AccountId) -> Self::Balance {
+		Self::free_balance(&who) + Self::reserved_balance(&who)
 	}
 
 	fn transfer(
@@ -1038,7 +1041,7 @@ where
 		Self::ensure_can_withdraw(who, value, reasons, new_balance)?;
 
 		// `free` balance should be freed if set to a dust amount
-		if new_balance < Self::minimum_balance() {
+		if new_balance < <Self as Currency<T::AccountId>>::minimum_balance() {
 			let amount = <FreeBalance<T>>::take(U::asset_id(), who);
 			if amount > Zero::zero() {
 				T::OnDustImbalance::on_nonzero_unbalanced(NegativeImbalance::new(amount, U::asset_id()));
@@ -1198,6 +1201,59 @@ where
 
 	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
 		<Module<T>>::remove_lock(id, U::asset_id(), who)
+	}
+}
+
+/// Trait for providing balance-inspection access to a fungible asset.
+impl<T: Config> Inspect<T::AccountId> for AssetCurrency<T, SpendingAssetIdAuthority<T>> {
+	/// Scalar type for representing balance of an account.
+	type Balance = T::Balance;
+
+	/// The total amount of issuance in the system.
+	fn total_issuance() -> Self::Balance {
+		<Module<T>>::total_issuance(SpendingAssetIdAuthority::<T>::asset_id())
+	}
+
+	/// The minimum balance any single account may have.
+	fn minimum_balance() -> Self::Balance {
+		AssetMeta::<T>::get(SpendingAssetIdAuthority::<T>::asset_id())
+			.existential_deposit()
+			.unique_saturated_into()
+	}
+
+	/// Get the balance of `who`
+	fn balance(who: &T::AccountId) -> Self::Balance {
+		<Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who)
+	}
+
+	/// Get the maximum amount that `who` can withdraw/transfer successfully.
+	fn reducible_balance(who: &T::AccountId, _keep_alive: bool) -> Self::Balance {
+		Self::balance(who)
+	}
+
+	/// Returns `true` if the balance of `who` may be increased by `amount`.
+	fn can_deposit(who: &T::AccountId, amount: Self::Balance) -> DepositConsequence {
+		match <Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who).checked_add(&amount) {
+			Some(balance) => {
+				if balance
+					< <AssetCurrency<T, SpendingAssetIdAuthority<T>> as Currency<T::AccountId>>::minimum_balance()
+				{
+					DepositConsequence::BelowMinimum
+				} else {
+					DepositConsequence::Success
+				}
+			}
+			None => DepositConsequence::Overflow,
+		}
+	}
+
+	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
+	/// the consequence.
+	fn can_withdraw(who: &T::AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		match <Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who).checked_sub(&amount) {
+			Some(_) => WithdrawConsequence::<Self::Balance>::Success,
+			None => WithdrawConsequence::<Self::Balance>::NoFunds,
+		}
 	}
 }
 
