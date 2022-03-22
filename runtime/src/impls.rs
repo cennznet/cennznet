@@ -244,10 +244,10 @@ where
 					tip.low_u128().unique_saturated_into(),
 				);
 			} else {
-				log::debug!("Error processing priority fee, validator not found");
+				log::error!("Error processing priority fee, validator not found");
 			}
 		} else {
-			log::debug!("Error processing priority fee, block author not found");
+			log::error!("Error processing priority fee, block author not found");
 		}
 	}
 }

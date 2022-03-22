@@ -19,8 +19,8 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator, Rewards, Runtime,
-	Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator,
+	Rewards, Runtime, Session, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
@@ -33,7 +33,7 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_ethereum::{Transaction, TransactionAction};
-use pallet_evm::AddressMapping;
+use pallet_evm::{AddressMapping, GasWeightMapping};
 use pallet_im_online::UnresponsivenessOffence;
 use rustc_hex::FromHex;
 use sp_consensus_babe::{digests, AuthorityIndex, Slot, BABE_ENGINE_ID};
@@ -814,11 +814,11 @@ fn block_author_receives_evm_priority_fee_reward() {
 			make_block_with_author(0);
 
 			// Create Ethereum transaction
-			let priority_fee: u128 = 10_000_000_000;
+			let priority_fee: u128 = 12_000_000_000;
 			let t = EIP1559UnsignedTransaction {
 				nonce: U256::zero(),
 				max_priority_fee_per_gas: U256::from(priority_fee),
-				max_fee_per_gas: U256::from(5600000000000_u64),
+				max_fee_per_gas: U256::from(5_600_000_000_000_u64),
 				gas_limit: U256::from(4000000),
 				action: pallet_ethereum::TransactionAction::Create,
 				value: U256::zero(),
@@ -837,10 +837,14 @@ fn block_author_receives_evm_priority_fee_reward() {
 			};
 			use frame_support::weights::GetDispatchInfo as _;
 			let dispatch_info = extrinsic.get_dispatch_info();
-			assert_ok!(extrinsic.apply::<Runtime>(&dispatch_info, 0));
+			let res = extrinsic.apply::<Runtime>(&dispatch_info, 0);
+			// Calculate actual priority fee based on used gas
+			let actual_weight = res.unwrap().unwrap().actual_weight.unwrap();
+			let used_gas = CENNZnetGasWeightMapping::weight_to_gas(actual_weight.into());
+			let actual_priority_fee = (priority_fee * used_gas as u128) / 10_u128.pow(14);
 
+			// Get current validators (Can't use previous value as they have been sorted)
 			let validators = <pallet_session::Pallet<Runtime>>::validators();
-			let actual_priority_fee = 384; // Actual priority fee based on used gas
 			assert_eq!(
 				RewardCurrency::free_balance(&validators[0].clone()), // Get stash account
 				initial_balance + actual_priority_fee,
