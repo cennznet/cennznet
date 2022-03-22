@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: ${{ GITHUB_REF }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
       - name: Build 🛠 & Publish 🐳
         env:
