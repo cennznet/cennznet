@@ -151,7 +151,7 @@ decl_module! {
 
 		/// Check and process outstanding claims
 		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
-			let weight_each: Weight = 2_000_000;
+			let weight_each: Weight = 50_000_000;
 			let max_claims = (remaining_weight / weight_each).saturated_into::<u8>();
 			let removed_count = Self::process_claims_at(now, max_claims);
 			weight_each * removed_count as Weight
@@ -247,10 +247,6 @@ decl_module! {
 				amount: amount.into(),
 				beneficiary,
 			};
-
-			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
-			// let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message, event_proof_id).encode());
-			// WithdrawalDigests::<T>::insert(event_proof_id, withdrawal_hash);
 
 			let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
 			match claim_delay {

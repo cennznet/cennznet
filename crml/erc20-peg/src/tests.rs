@@ -242,15 +242,15 @@ fn deposit_claim_with_delay() {
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
-		// Simulating no weight left in block, claim shouldn't be removed
-		Erc20Peg::on_idle(claim_block, 0);
+		// Simulating not enough weight left in block, claim shouldn't be removed
+		Erc20Peg::on_idle(claim_block, 49_000_000);
 		assert_eq!(
 			Erc20Peg::claim_schedule(claim_block, claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 		);
 
 		// Try again next block with enough weight
-		Erc20Peg::on_idle(claim_block + 1, 10_000_000);
+		Erc20Peg::on_idle(claim_block + 1, 50_000_000);
 		// Claim should be removed from storage
 		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
 	});
@@ -303,7 +303,7 @@ fn multiple_deposit_claims_with_delay() {
 
 		// Call on_idle with room for only 5 claims
 		// Weight in on_idle for one claim is 2_000_000
-		Erc20Peg::on_idle(claim_block, 11_000_000);
+		Erc20Peg::on_idle(claim_block, 250_000_000);
 		let mut changed_count = 0;
 		for i in 0..num_claims {
 			if Erc20Peg::claim_schedule(claim_block, claim_ids[i]) == None {
@@ -313,7 +313,7 @@ fn multiple_deposit_claims_with_delay() {
 		assert_eq!(changed_count, 5);
 
 		// Call on idle for the next block, remaining claims should be removed
-		Erc20Peg::on_idle(claim_block + 1, 11_000_000);
+		Erc20Peg::on_idle(claim_block + 1, 250_000_000);
 		for i in 0..num_claims {
 			assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_ids[i]), None);
 		}
@@ -369,7 +369,7 @@ fn withdraw_with_delay() {
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
-		Erc20Peg::on_idle(claim_block, 10_000_000);
+		Erc20Peg::on_idle(claim_block, 50_000_000);
 		// Claim should be removed from storage
 		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
 	});
