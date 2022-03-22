@@ -330,19 +330,6 @@ impl<T: Config> Module<T> {
 			ClaimSchedule::<T>::remove(block, claim_id);
 		}
 
-		// for (_claim_id, pending_claim) in ClaimSchedule::<T>::drain_prefix(now).into_iter() {
-		// 	removed += 1;
-		// 	match pending_claim {
-		// 		PendingClaim::Deposit((deposit_claim, tx_hash)) => {
-		// 			Self::process_deposit_claim(deposit_claim, tx_hash);
-		// 		}
-		// 		PendingClaim::Withdrawal(withdrawal_message) => {
-		// 			// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
-		// 			let asset_id = Self::erc20_to_asset(withdrawal_message.token_address).unwrap_or_default();
-		// 			Self::process_withdrawal(withdrawal_message, asset_id);
-		// 		}
-		// 	}
-		// }
 		removed
 	}
 
