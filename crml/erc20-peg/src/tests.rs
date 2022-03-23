@@ -2,7 +2,7 @@ use super::*;
 use crate::mock::{DepositEventSignature, Erc20Peg, ExtBuilder, GenericAsset, PegPalletId, Test};
 use cennznet_primitives::types::AccountId;
 use crml_support::MultiCurrency;
-use frame_support::{assert_ok, traits::OnIdle};
+use frame_support::{assert_noop, assert_ok, traits::OnIdle};
 use hex_literal::hex;
 
 #[test]
@@ -70,7 +70,7 @@ fn on_cennz_deposit_transfers() {
 		let amount: Balance = 100;
 
 		let cennz_asset_id: AssetId = <Test as Config>::MultiCurrency::staking_currency();
-		let cennz_eth_address: EthAddress = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let cennz_eth_address: EthAddress = H160::default();
 		<Erc20ToAssetId>::insert(cennz_eth_address, cennz_asset_id);
 		assert_ok!(Erc20Peg::activate_cennz_deposits(frame_system::RawOrigin::Root.into()));
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(
@@ -113,7 +113,7 @@ fn cennz_withdraw_transfers() {
 		let origin: AccountId =
 			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 		let cennz_asset_id: AssetId = <Test as Config>::MultiCurrency::staking_currency();
-		let cennz_eth_address: EthAddress = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let cennz_eth_address: EthAddress = H160::default();
 		<AssetIdToErc20>::insert(cennz_asset_id, cennz_eth_address);
 
 		let amount: Balance = 100;
@@ -158,7 +158,7 @@ fn withdraw() {
 		let origin: AccountId =
 			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 		let asset_id: AssetId = 1;
-		let cennz_eth_address: EthAddress = H160::from_slice(&hex!("0000000000000000000000000000000000000000"));
+		let cennz_eth_address: EthAddress = H160::default();
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 
 		let amount: Balance = 100;
@@ -242,15 +242,17 @@ fn deposit_claim_with_delay() {
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
+		// Simulating block before with enough weight, claim shouldn't be removed
+		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 0);
 		// Simulating not enough weight left in block, claim shouldn't be removed
-		Erc20Peg::on_idle(claim_block, 49_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block, 40_000_000), 0);
 		assert_eq!(
 			Erc20Peg::claim_schedule(claim_block, claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 		);
 
 		// Try again next block with enough weight
-		Erc20Peg::on_idle(claim_block + 1, 50_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 50_000_000), 50_000_000);
 		// Claim should be removed from storage
 		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
 	});
@@ -286,7 +288,7 @@ fn multiple_deposit_claims_with_delay() {
 		let num_claims = 10;
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 
-		for i in 0..num_claims {
+		for _ in 0..num_claims {
 			let claim_id = <NextClaimId>::get();
 			claim_ids.push(claim_id);
 			assert_ok!(Erc20Peg::deposit_claim(
@@ -303,7 +305,7 @@ fn multiple_deposit_claims_with_delay() {
 
 		// Call on_idle with room for only 5 claims
 		// Weight in on_idle for one claim is 2_000_000
-		Erc20Peg::on_idle(claim_block, 250_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block, 290_000_000), 250_000_000);
 		let mut changed_count = 0;
 		for i in 0..num_claims {
 			if Erc20Peg::claim_schedule(claim_block, claim_ids[i]) == None {
@@ -313,10 +315,44 @@ fn multiple_deposit_claims_with_delay() {
 		assert_eq!(changed_count, 5);
 
 		// Call on idle for the next block, remaining claims should be removed
-		Erc20Peg::on_idle(claim_block + 1, 250_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 500_000_000), 250_000_000);
 		for i in 0..num_claims {
 			assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_ids[i]), None);
 		}
+	});
+}
+
+#[test]
+fn deposit_claim_less_than_delay_goes_through() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 100;
+		let beneficiary: H256 = H256::default();
+		let claim = Erc20DepositEvent {
+			token_address: cennz_eth_address,
+			amount: (amount - 1).into(),
+			beneficiary,
+		};
+		let tx_hash = H256::default();
+		let delay: u64 = 1000;
+
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		assert_ok!(Erc20Peg::set_claim_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			amount,
+			delay
+		));
+		let claim_id = <NextClaimId>::get();
+		assert_ok!(Erc20Peg::deposit_claim(Some(origin).into(), tx_hash, claim.clone()));
+		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		// Check claim has not been put into pending claims
+		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
 	});
 }
 
@@ -369,8 +405,83 @@ fn withdraw_with_delay() {
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
-		Erc20Peg::on_idle(claim_block, 50_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block, 900_000_000), 50_000_000);
 		// Claim should be removed from storage
 		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+	});
+}
+
+#[test]
+fn withdraw_less_than_delay_goes_through() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 100;
+		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+		let delay: u64 = 1000;
+		let _ = <Test as Config>::MultiCurrency::deposit_creating(&origin, asset_id, amount);
+
+		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		assert_ok!(Erc20Peg::activate_withdrawals(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
+
+		assert_ok!(Erc20Peg::set_claim_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			amount,
+			delay
+		));
+
+		let claim_id = <NextClaimId>::get();
+		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		assert_ok!(Erc20Peg::withdraw(
+			Some(origin.clone()).into(),
+			asset_id,
+			amount - 1,
+			beneficiary
+		));
+		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+	});
+}
+
+#[test]
+fn withdraw_unsupported_asset_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let amount: Balance = 100;
+		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+
+		assert_ok!(Erc20Peg::activate_withdrawals(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
+
+		assert_noop!(
+			Erc20Peg::withdraw(Some(origin.clone()).into(), asset_id, amount, beneficiary),
+			Error::<Test>::UnsupportedAsset
+		);
+	});
+}
+
+#[test]
+fn withdraw_not_active_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let amount: Balance = 100;
+		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+
+		assert_noop!(
+			Erc20Peg::withdraw(Some(origin.clone()).into(), asset_id, amount, beneficiary),
+			Error::<Test>::WithdrawalsPaused
+		);
 	});
 }

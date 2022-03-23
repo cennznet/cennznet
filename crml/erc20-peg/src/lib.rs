@@ -222,8 +222,8 @@ decl_module! {
 			// otherwise there may be no liquidity on the Ethereum side of the peg
 			let token_address = Self::asset_to_erc20(asset_id);
 			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-
 			let token_address = token_address.unwrap();
+
 			if asset_id == T::MultiCurrency::staking_currency() {
 				let _result = T::MultiCurrency::transfer(
 					&origin,
@@ -327,7 +327,6 @@ impl<T: Config> Module<T> {
 			}
 			ClaimSchedule::<T>::remove(block, claim_id);
 		}
-
 		removed
 	}
 
