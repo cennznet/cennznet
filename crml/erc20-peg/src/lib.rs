@@ -74,8 +74,12 @@ decl_storage! {
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
 		ClaimDelay get(fn claim_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
-		/// Block numbers where delayed withdrawal or deposit claims will be made
-		ClaimSchedule get(fn claim_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ClaimId => Option<PendingClaim>;
+		/// Map from claim id to claim
+		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) ClaimId => Option<PendingClaim>;
+		/// Map from block number to claims scheduled for that block
+		ClaimSchedule get(fn claim_schedule): map hasher(twox_64_concat) T::BlockNumber => Option<Vec<ClaimId>>;
+		/// The blocks with claims that are ready to be processed
+		ReadyBlocks get(fn ready_blocks): Option<Vec<T::BlockNumber>>;
 		/// The next available claim id for withdrawals and deposit claims
 		NextClaimId get(fn next_claim_id): ClaimId;
 		/// Hash of withdrawal information
@@ -151,12 +155,14 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// Check and process outstanding claims
-		// fn on_initialize(now: T::BlockNumber) -> Weight {
-		// 	let weight_each: Weight = 2_000_000;
-		// 	let max_claims: u8 = 10;
-		// 	let removed_count = Self::process_claims_at(now, max_claims);
-		// 	weight_each * removed_count as Weight
-		// }
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let weight: u64 = 0;
+			if let Some(claims) = claim_schedule(now) {
+				ReadyBlocks::<T>::insert(now, claims);
+				weight += 10_000_000;
+			}
+			weight as Weight
+		}
 
 		/// Check and process outstanding claims
 		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
@@ -207,7 +213,12 @@ decl_module! {
 							return Ok(());
 						}
 						let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-						ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
+						PendingClaims::insert(claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
+						if let Some(exisiting_claims) = claim_schedule(claim_block) {
+							ClaimSchedule::<T>::insert(claim_block, existing_claims.push(claim_id));
+						} else {
+							ClaimSchedule::<T>::insert(claim_block, vec![claim_id]);
+						}
 						NextClaimId::put(claim_id + 1);
 						Self::deposit_event(<Event<T>>::Erc20DepositDelayed(claim_id, claim_block, claim.amount.as_u128(), origin));
 						return Ok(());
@@ -259,14 +270,19 @@ decl_module! {
 			let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
 			if let Some((min_amount, delay)) = claim_delay {
 				if min_amount <= amount {
-					// Store withdrawal to be claimed later
+					// TODO Move to helper function for scheduling claims
 					let claim_id = NextClaimId::get();
 					if !claim_id.checked_add(One::one()).is_some() {
 						Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
 						  return Ok(());
 					}
 					let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-					ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message));
+					PendingClaims::insert(claim_id, PendingClaim::Withdrawal(message));
+					if let Some(exisiting_claims) = claim_schedule(claim_block) {
+						ClaimSchedule::<T>::insert(claim_block, existing_claims.push(claim_id));
+					} else {
+						ClaimSchedule::<T>::insert(claim_block, vec![claim_id]);
+					}
 					NextClaimId::put(claim_id + 1);
 					Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(claim_id, claim_block, amount, beneficiary));
 					return Ok(());
