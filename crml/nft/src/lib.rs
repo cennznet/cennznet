@@ -204,6 +204,8 @@ decl_storage! {
 		pub SeriesIssuance get(fn series_issuance): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId =>  TokenCount;
 		/// Map from a token series to its metadata reference scheme
 		pub SeriesMetadataScheme get(fn series_metadata_scheme): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<MetadataScheme>;
+		/// DEPRECATED: Migrate to seriesMetadataScheme. Read-only for NFTs created in v46
+		pub SeriesMetadataUri get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
 		/// The next available collection Id
 		NextCollectionId get(fn next_collection_id): CollectionId;
 		/// The next group Id within an NFT collection
@@ -317,6 +319,22 @@ decl_module! {
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
+		}
+
+		/// Set the owner of a collection
+		/// Caller must be the current collection owner
+		#[weight = T::WeightInfo::set_owner()]
+		fn migrate_to_metadata_scheme(origin, collection_id: CollectionId, series_id: SeriesId, scheme: MetadataScheme) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = Self::collection_owner(collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				// anti-rug
+				ensure!(SeriesMetadataScheme::get(collection_id, series_id).is_none(), Error::<T>::NoPermission);
+				SeriesMetadataScheme::insert(collection_id, series_id, scheme);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
 		}
 
 		/// Set the owner of a collection

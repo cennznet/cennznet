@@ -101,6 +101,60 @@ fn setup_token_with_royalties(
 }
 
 #[test]
+fn migrate_to_metadata_scheme() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_token();
+		let collection_owner = 1;
+		let series_id = token_id.1;
+
+		// not owner
+		assert_noop!(
+			Nft::migrate_to_metadata_scheme(
+				Some(token_owner + 1).into(),
+				collection_id,
+				series_id,
+				MetadataScheme::IpfsShared(b"qwerty".to_vec()),
+			),
+			Error::<Test>::NoPermission
+		);
+
+		// metadata already set
+		assert_noop!(
+			Nft::migrate_to_metadata_scheme(
+				Some(token_owner).into(),
+				collection_id,
+				series_id,
+				MetadataScheme::IpfsShared(b"qwerty".to_vec()),
+			),
+			Error::<Test>::NoPermission
+		);
+
+		// create a series, remove the metadatascheme, set it using migrate_to_metadata_scheme
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			5,
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+		SeriesMetadataScheme::remove(collection_id, series_id + 1);
+		// metadata already set
+		assert_ok!(Nft::migrate_to_metadata_scheme(
+			Some(collection_owner).into(),
+			collection_id,
+			series_id + 1,
+			MetadataScheme::IpfsShared(b"qwerty".to_vec()),
+		));
+
+		assert_eq!(
+			SeriesMetadataScheme::get(collection_id, series_id + 1),
+			Some(MetadataScheme::IpfsShared(b"qwerty".to_vec())),
+		)
+	});
+}
+
+#[test]
 fn migration_v1_to_v2() {
 	use frame_support::traits::OnRuntimeUpgrade;
 	use migration::v1_storage;
