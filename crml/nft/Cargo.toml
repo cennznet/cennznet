@@ -43,3 +43,36 @@ std = [
 	"scale-info/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
+
+fixedPrice sale
+0x01813e0000204bbc0000000000000000000000000094ca00008eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a480400000000000000000000000000
+decodes fine
+ api.createType('CrmlNftListing', '0x01813e0000204bbc0000000000000000000000000094ca00008eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a480400000000000000000000000000').toHuman()
+{
+  Auction: {
+    paymentAsset: '16,001',
+    reservePrice: '12,340,000',
+    close: '51,860',
+    seller: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+    tokens: [ [Array] ],
+    royaltiesSchedule: { entitlements: [] },
+    marketplaceId: null
+  }
+}
+
+// removing fc gives empty tokens..
+
+ api.createType('CrmlNftListing', '0x01813e0000204bbc0000000000000000000000000094ca00008eaf04151687736326c9fea17e255287613693c912909cb226aa4794f26a480400000000000000000000000000').toHuman()
+
+>  api.createType('CrmlNftListing', '0x01813e0000204bbc0000000000000000000000000094ca00008eaf04151687736326c9fea17e255287613693c912909cb226aa4794f26a480400000000000000000000000000').toHuman()
+{
+  Auction: {
+    paymentAsset: '16,001',
+    reservePrice: '12,340,000',
+    close: '51,860',
+    seller: '5FHneW46xGXgs5mUiveU2WPtfsjh8n796e7rne3NpNEeZWnn',
+    tokens: [],
+    royaltiesSchedule: { entitlements: [] },
+    marketplaceId: null
+  }
+}

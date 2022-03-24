@@ -56,6 +56,7 @@ mod tests;
 mod weights;
 use weights::WeightInfo;
 
+mod migration;
 mod types;
 pub use types::*;
 
@@ -252,36 +253,58 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_runtime_upgrade() -> Weight {
+			use migration::v1_storage;
+			use frame_support::IterableStorageMap;
+
 			if StorageVersion::get() == Releases::V1 as u32 {
 				StorageVersion::put(Releases::V2 as u32);
-
-				#[allow(dead_code)]
-				mod v1_storage {
-					use sp_std::prelude::*;
-					use super::{Config, CollectionId, SeriesId};
-					use codec::{Encode, Decode};
-					use scale_info::TypeInfo;
-
-					#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-					pub enum MetadataBaseURI {
-						Ipfs,
-						Https(Vec<u8>),
-					}
-
-					pub struct Module<T>(sp_std::marker::PhantomData<T>);
-					frame_support::decl_storage! {
-						trait Store for Module<T: Config> as Nft {
-							pub IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
-							pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
-							pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
-						}
-					}
-				}
-
 				v1_storage::CollectionMetadataURI::remove_all(None);
 				v1_storage::IsSingleIssue::remove_all(None);
 
-				6_000_000 as Weight
+				let listings: Vec<(ListingId, v1_storage::Listing<T>)> = v1_storage::Listings::<T>::iter().collect();
+				let weight = listings.len() as Weight;
+				for (listing_id, listing) in listings {
+					let listing_migrated = match listing {
+						v1_storage::Listing::<T>::FixedPrice(v1_storage::FixedPriceListing {
+							fixed_price,
+							close,
+							payment_asset,
+							seller,
+							buyer,
+							tokens,
+							royalties_schedule,
+						}) => types::Listing::<T>::FixedPrice(types::FixedPriceListing {
+							fixed_price,
+							close,
+							payment_asset,
+							seller,
+							buyer,
+							tokens,
+							royalties_schedule,
+							marketplace_id: None,
+						}),
+						v1_storage::Listing::<T>::Auction(v1_storage::AuctionListing {
+							reserve_price,
+							close,
+							payment_asset,
+							seller,
+							tokens,
+							royalties_schedule,
+						}) => types::Listing::<T>::Auction(types::AuctionListing {
+							reserve_price,
+							close,
+							payment_asset,
+							seller,
+							tokens,
+							royalties_schedule,
+							marketplace_id: None,
+						}),
+					};
+					Listings::insert(listing_id, listing_migrated);
+				}
+
+				log!(warn, "🃏 listings migrated");
+				return 6_000_000 as Weight + weight * 100_000;
 			} else {
 				Zero::zero()
 			}

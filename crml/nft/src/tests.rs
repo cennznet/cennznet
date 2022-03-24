@@ -103,34 +103,36 @@ fn setup_token_with_royalties(
 #[test]
 fn migration_v1_to_v2() {
 	use frame_support::traits::OnRuntimeUpgrade;
-
-	#[allow(dead_code)]
-	mod v1_storage {
-		use super::{CollectionId, Config, SeriesId};
-		use codec::{Decode, Encode};
-		use scale_info::TypeInfo;
-
-		#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-		pub enum MetadataBaseURI {
-			Ipfs,
-			Https(Vec<u8>),
-		}
-
-		pub struct Module<T>(sp_std::marker::PhantomData<T>);
-		frame_support::decl_storage! {
-			trait Store for Module<T: Config> as Nft {
-				pub IsSingleIssue get(fn is_single_issue): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => bool;
-				pub CollectionMetadataURI get(fn collection_metadata_uri): map hasher(twox_64_concat) CollectionId => Option<MetadataBaseURI>;
-				pub SeriesMetadataURI get(fn series_metadata_uri): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Option<Vec<u8>>;
-			}
-		}
-	}
+	use migration::v1_storage;
 
 	ExtBuilder::default().build().execute_with(|| {
 		// setup old values
 		v1_storage::IsSingleIssue::insert(0, 5, true);
 		v1_storage::CollectionMetadataURI::insert(1, v1_storage::MetadataBaseURI::Ipfs);
 		v1_storage::SeriesMetadataURI::insert(3, 0, b"https://api.example.com/tokens".to_vec());
+		v1_storage::Listings::insert(
+			123,
+			v1_storage::Listing::<Test>::FixedPrice(v1_storage::FixedPriceListing::<Test> {
+				payment_asset: PAYMENT_ASSET,
+				fixed_price: 1_000,
+				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				buyer: Some(5),
+				tokens: vec![(55, 2, 2)],
+				seller: 7,
+				royalties_schedule: Default::default(),
+			}),
+		);
+		v1_storage::Listings::insert(
+			124,
+			v1_storage::Listing::<Test>::Auction(v1_storage::AuctionListing::<Test> {
+				payment_asset: PAYMENT_ASSET,
+				reserve_price: 1_000,
+				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				tokens: vec![(56, 1, 1)],
+				seller: 7,
+				royalties_schedule: Default::default(),
+			}),
+		);
 
 		// run upgrade
 		StorageVersion::put(Releases::V1 as u32); // rollback to v1
@@ -138,6 +140,31 @@ fn migration_v1_to_v2() {
 
 		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
 		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
+		assert_eq!(
+			Listings::<Test>::get(123).expect("listing exists"),
+			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
+				payment_asset: PAYMENT_ASSET,
+				fixed_price: 1_000,
+				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				buyer: Some(5),
+				tokens: vec![(55, 2, 2)],
+				seller: 7,
+				royalties_schedule: Default::default(),
+				marketplace_id: None,
+			}),
+		);
+		assert_eq!(
+			Listings::<Test>::get(124).expect("listing exists"),
+			Listing::<Test>::Auction(AuctionListing::<Test> {
+				payment_asset: PAYMENT_ASSET,
+				reserve_price: 1_000,
+				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				tokens: vec![(56, 1, 1)],
+				seller: 7,
+				royalties_schedule: Default::default(),
+				marketplace_id: None,
+			}),
+		);
 		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
 	});
 }
