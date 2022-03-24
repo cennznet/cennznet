@@ -422,8 +422,6 @@ pub enum Releases {
 	V1 = 1,
 	// storage version > runtime v46
 	V2 = 2,
-	// storage version > runtime v53
-	V3 = 3,
 }
 
 #[cfg(test)]
