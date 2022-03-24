@@ -139,7 +139,8 @@ fn migrate_to_metadata_scheme() {
 			None,
 		));
 		SeriesMetadataScheme::remove(collection_id, series_id + 1);
-		// metadata already set
+
+		// metadata update ok
 		assert_ok!(Nft::migrate_to_metadata_scheme(
 			Some(collection_owner).into(),
 			collection_id,

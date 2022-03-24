@@ -330,7 +330,8 @@ decl_module! {
 				ensure!(owner == origin, Error::<T>::NoPermission);
 				// anti-rug
 				ensure!(SeriesMetadataScheme::get(collection_id, series_id).is_none(), Error::<T>::NoPermission);
-				SeriesMetadataScheme::insert(collection_id, series_id, scheme);
+				let sanitized_scheme = scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+				SeriesMetadataScheme::insert(collection_id, series_id, sanitized_scheme);
 				Ok(())
 			} else {
 				Err(Error::<T>::NoCollection.into())
