@@ -121,6 +121,8 @@ decl_event! {
 		CENNZDepositsActive,
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
 		ClaimDelaySet(AssetId, Balance, BlockNumber),
+		/// There are no more claim ids available, they've been exhausted
+		NoAvailableClaimIds,
 	}
 }
 
@@ -200,7 +202,10 @@ decl_module! {
 					if U256::from(min_amount) <= claim.amount {
 						// Store deposit to be claimed later
 						let claim_id = NextClaimId::get();
-						ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+						if !claim_id.checked_add(One::one()).is_some() {
+							Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
+							return Ok(());
+						}
 						let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 						ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
 						NextClaimId::put(claim_id + 1);
@@ -256,8 +261,10 @@ decl_module! {
 				if min_amount <= amount {
 					// Store withdrawal to be claimed later
 					let claim_id = NextClaimId::get();
-					ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
-					ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+					if !claim_id.checked_add(One::one()).is_some() {
+						Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
+						  return Ok(());
+					}
 					let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 					ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message));
 					NextClaimId::put(claim_id + 1);
@@ -355,7 +362,7 @@ impl<T: Config> Module<T> {
 				// In this case, delay the deposit claim by 120 blocks
 				let claim_id = NextClaimId::get();
 				if !claim_id.checked_add(One::one()).is_some() {
-					log::error!("📌 No available claim ids");
+					Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
 					return;
 				}
 				let claim_block = <frame_system::Pallet<T>>::block_number()
@@ -394,7 +401,7 @@ impl<T: Config> Module<T> {
 				// In this case, delay the withdrawal by 120 blocks
 				let claim_id = NextClaimId::get();
 				if !claim_id.checked_add(One::one()).is_some() {
-					log::error!("📌 No available claim ids");
+					Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
 					return;
 				}
 				let claim_block = <frame_system::Pallet<T>>::block_number()
