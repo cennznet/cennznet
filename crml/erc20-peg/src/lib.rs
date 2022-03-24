@@ -28,10 +28,13 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::{traits::Hash, SaturatedConversion};
 use sp_runtime::{
 	traits::{AccountIdConversion, Saturating, Zero},
 	DispatchError,
+};
+use sp_runtime::{
+	traits::{Hash, One},
+	SaturatedConversion,
 };
 use sp_std::prelude::*;
 
@@ -47,6 +50,8 @@ pub trait Config: frame_system::Config {
 	type PegPalletId: Get<PalletId>;
 	/// The EVM event signature of a deposit
 	type DepositEventSignature: Get<[u8; 32]>;
+	/// Failed claim delay length
+	type FailedClaimDelay: Get<u32>;
 	/// Submits event claims for Ethereum
 	type EthBridge: EventClaimVerifier;
 	/// Currency functions
@@ -132,7 +137,9 @@ decl_error! {
 		/// Withdrawals are inactive
 		WithdrawalsPaused,
 		/// Withdrawals of this asset are not supported
-		UnsupportedAsset
+		UnsupportedAsset,
+		/// There are no more claim ids available, they've been exhausted
+		NoAvailableIds,
 	}
 }
 
@@ -189,25 +196,21 @@ decl_module! {
 			let asset_id = Self::erc20_to_asset(claim.token_address);
 			if asset_id.is_some() {
 				let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id.unwrap());
-				match claim_delay {
-					Some((min_amount, delay)) => {
-						if U256::from(min_amount) > claim.amount {
-							Self::process_deposit_claim(claim, tx_hash);
-						} else {
-							// Store deposit to be claimed later
-							let claim_id = NextClaimId::get();
-							let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-							ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
-							NextClaimId::mutate(|c| *c += 1);
-							Self::deposit_event(<Event<T>>::Erc20DepositDelayed(claim_id, claim_block, claim.amount.as_u128(), origin));
-						}
-					},
-					None => Self::process_deposit_claim(claim, tx_hash),
-				}
-			} else {
-				// Claim amount is below threshold or delay doesn't exist
-				Self::process_deposit_claim(claim, tx_hash);
+				if let Some((min_amount, delay)) = claim_delay {
+					if U256::from(min_amount) <= claim.amount {
+						// Store deposit to be claimed later
+						let claim_id = NextClaimId::get();
+						ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+						let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
+						ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
+						NextClaimId::put(claim_id + 1);
+						Self::deposit_event(<Event<T>>::Erc20DepositDelayed(claim_id, claim_block, claim.amount.as_u128(), origin));
+						return Ok(());
+					}
+				};
 			}
+			// process deposit immediately
+			Self::process_deposit_claim(claim, tx_hash);
 		}
 
 		#[weight = 60_000_000]
@@ -237,7 +240,7 @@ decl_module! {
 					&origin,
 					asset_id,
 					amount,
-					WithdrawReasons::empty(),
+					WithdrawReasons::TRANSFER,
 					frame_support::traits::ExistenceRequirement::KeepAlive,
 				)?;
 			}
@@ -249,21 +252,21 @@ decl_module! {
 			};
 
 			let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
-			match claim_delay {
-				Some((min_amount, delay)) => {
-					if min_amount > amount {
-						Self::process_withdrawal(message, asset_id);
-					} else {
-						// Store withdrawal to be claimed later
-						let claim_id = NextClaimId::get();
-						let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-						ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message));
-						NextClaimId::mutate(|c| *c += 1);
-						Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(claim_id, claim_block, amount, beneficiary));
-					}
-				},
-				None => Self::process_withdrawal(message, asset_id),
-			}
+			if let Some((min_amount, delay)) = claim_delay {
+				if min_amount <= amount {
+					// Store withdrawal to be claimed later
+					let claim_id = NextClaimId::get();
+					ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+					ensure!(claim_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+					let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
+					ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message));
+					NextClaimId::put(claim_id + 1);
+					Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(claim_id, claim_block, amount, beneficiary));
+					return Ok(());
+				}
+			};
+			// process withdrawal immediately
+			Self::process_withdrawal(message, asset_id);
 		}
 
 		#[weight = 1_000_000]
@@ -321,8 +324,15 @@ impl<T: Config> Module<T> {
 				}
 				PendingClaim::Withdrawal(withdrawal_message) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
-					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address).unwrap_or_default();
-					Self::process_withdrawal(withdrawal_message, asset_id);
+					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
+					if asset_id.is_some() {
+						Self::process_withdrawal(withdrawal_message, asset_id.unwrap());
+					} else {
+						log::error!(
+							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
+							withdrawal_message
+						);
+					}
 				}
 			}
 			ClaimSchedule::<T>::remove(block, claim_id);
@@ -340,14 +350,18 @@ impl<T: Config> Module<T> {
 		let beneficiary: T::AccountId = T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
 		match event_claim_id {
 			Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
-			_ => {
+			Err(_) => {
 				// There was an error submitting an event claim. Could be that the bridge is down
 				// In this case, delay the deposit claim by 120 blocks
 				let claim_id = NextClaimId::get();
-				let claim_block =
-					<frame_system::Pallet<T>>::block_number().saturating_add(T::BlockNumber::from(FAILED_CLAIM_DELAY));
+				if !claim_id.checked_add(One::one()).is_some() {
+					log::error!("📌 No available claim ids");
+					return;
+				}
+				let claim_block = <frame_system::Pallet<T>>::block_number()
+					.saturating_add(T::BlockNumber::from(T::FailedClaimDelay::get()));
 				ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Deposit((claim.clone(), tx_hash)));
-				NextClaimId::mutate(|c| *c += 1);
+				NextClaimId::put(claim_id + 1);
 				Self::deposit_event(<Event<T>>::Erc20DepositDelayed(
 					claim_id,
 					claim_block,
@@ -375,14 +389,18 @@ impl<T: Config> Module<T> {
 					message.beneficiary,
 				));
 			}
-			_ => {
+			Err(_) => {
 				// There was an error generating an event proof. Could be that the bridge is down
 				// In this case, delay the withdrawal by 120 blocks
 				let claim_id = NextClaimId::get();
-				let claim_block =
-					<frame_system::Pallet<T>>::block_number().saturating_add(T::BlockNumber::from(FAILED_CLAIM_DELAY));
+				if !claim_id.checked_add(One::one()).is_some() {
+					log::error!("📌 No available claim ids");
+					return;
+				}
+				let claim_block = <frame_system::Pallet<T>>::block_number()
+					.saturating_add(T::BlockNumber::from(T::FailedClaimDelay::get()));
 				ClaimSchedule::<T>::insert(claim_block, claim_id, PendingClaim::Withdrawal(message.clone()));
-				NextClaimId::mutate(|c| *c += 1);
+				NextClaimId::put(claim_id + 1);
 				Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(
 					claim_id,
 					claim_block,

@@ -24,9 +24,6 @@ pub type EthAddress = H160;
 /// Claim id used for distinguishing pending withdrawals/ deposit claims
 pub type ClaimId = u64;
 
-/// Delay for a reschedule of a pending claim if the interaction with the bridge fails
-pub const FAILED_CLAIM_DELAY: u8 = 120;
-
 /// A pending deposit or withdrawal
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 pub enum PendingClaim {
