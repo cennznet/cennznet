@@ -32,38 +32,36 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-pub use pallet::*;
+pub use frame_system::pallet::*;
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
-use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
-	pallet_prelude::*,
-	storage::IterableStorageDoubleMap,
-	traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
-	transactional,
-};
-use frame_system::pallet_prelude::*;
-use sp_runtime::{
-	traits::{One, Saturating, Zero},
-	DispatchResult, PerThing, Permill,
-};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
-mod tests;
-mod weights;
-use weights::WeightInfo;
+pub mod tests;
+pub mod types;
+pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 	use self::log;
+	use super::*;
+	use crate::types::*;
+	use crate::weights::WeightInfo;
+	use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+	use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
+	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
+		transactional,
+	};
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::{
+		traits::{One, Saturating, Zero},
+		PerThing, Permill,
+	};
+	use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 	// Interface for determining ownership of an NFT from some account
 	impl<T: Config> IsTokenOwner for Pallet<T> {
@@ -77,6 +75,7 @@ pub mod pallet {
 	type OriginFor<T> = <T as frame_system::Config>::Origin;
 	type AccountOf<T> = <T as frame_system::Config>::AccountId;
 	type BalanceOf<T> = <<T as Config>::MultiCurrency as MultiCurrency>::Balance;
+	type Reason = AuctionClosureReason;
 
 	/// The maximum number of attributes in an NFT collection schema
 	pub const MAX_SCHEMA_FIELDS: u32 = 16;
@@ -120,13 +119,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
-	pub enum Event<T: Config>
-	where
-		CollectionNameType: CollectionNameType,
-		TokenCount: TokenCount,
-		ListingId: ListingId,
-		MarketplaceId: MarketplaceId,
-	{
+	pub enum Event<T: Config> {
 		/// A new token collection was created (collection, name, owner)
 		CreateCollection(CollectionId, CollectionNameType, AccountOf<T>),
 		/// A new series of tokens was created (collection, series id, quantity, owner)
@@ -340,7 +333,7 @@ pub mod pallet {
 	pub(super) type StorageVersion<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(Default, Serialize, Deserialize)]
+	#[derive(Default)]
 	pub struct GenesisConfig {}
 
 	#[pallet::genesis_build]
@@ -367,7 +360,6 @@ pub mod pallet {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			use frame_support::IterableStorageMap;
 			use migration::v1_storage;
 
 			if StorageVersion::get() == Releases::V1 as u32 {
@@ -441,10 +433,10 @@ pub mod pallet {
 				ensure!(owner == origin, Error::<T>::NoPermission);
 				// anti-rug
 				ensure!(
-					SeriesMetadataScheme::get(collection_id, series_id).is_none(),
+					SeriesMetadataScheme::<T>::get(collection_id, series_id).is_none(),
 					Error::<T>::NoPermission
 				);
-				SeriesMetadataScheme::insert(collection_id, series_id, scheme);
+				SeriesMetadataScheme::<T>::insert(collection_id, series_id, scheme);
 				Ok(().into())
 			} else {
 				Err(Error::<T>::NoCollection.into())
@@ -482,11 +474,11 @@ pub mod pallet {
 			if let Some(owner) = Self::collection_owner(collection_id) {
 				ensure!(owner == origin, Error::<T>::NoPermission);
 				ensure!(
-					SeriesMetadataScheme::contains_key(collection_id, series_id),
+					<SeriesMetadataScheme<T>>::contains_key(collection_id, series_id),
 					Error::<T>::NoSeries
 				);
 				ensure!(
-					!SeriesName::contains_key((collection_id, series_id)),
+					!<SeriesName<T>>::contains_key((collection_id, series_id)),
 					Error::<T>::NameAlreadySet
 				);
 				ensure!(
@@ -495,7 +487,7 @@ pub mod pallet {
 				);
 				ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 
-				SeriesName::insert((collection_id, series_id), name);
+				<SeriesName<T>>::insert((collection_id, series_id), name);
 				Ok(().into())
 			} else {
 				Err(Error::<T>::NoCollection.into())
@@ -524,7 +516,7 @@ pub mod pallet {
 				account: marketplace_account.clone(),
 				entitlement,
 			};
-			let next_marketplace_id = NextMarketplaceId::get();
+			let next_marketplace_id = NextMarketplaceId::<T>::get();
 			ensure!(
 				next_marketplace_id.checked_add(One::one()).is_some(),
 				Error::<T>::NoAvailableIds
@@ -535,7 +527,7 @@ pub mod pallet {
 				entitlement,
 				marketplace_id,
 			));
-			NextMarketplaceId::mutate(|i| *i += 1);
+			<NextMarketplaceId<T>>::mutate(|i| *i += 1);
 			Ok(().into())
 		}
 
@@ -559,7 +551,7 @@ pub mod pallet {
 			);
 			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 
-			let collection_id = NextCollectionId::get();
+			let collection_id = <NextCollectionId<T>>::get();
 			ensure!(
 				collection_id.checked_add(One::one()).is_some(),
 				Error::<T>::NoAvailableIds
@@ -571,8 +563,8 @@ pub mod pallet {
 				<CollectionRoyalties<T>>::insert(collection_id, royalties_schedule);
 			}
 			<CollectionOwner<T>>::insert(collection_id, &origin);
-			CollectionName::insert(collection_id, &name);
-			NextCollectionId::mutate(|c| *c += 1);
+			<CollectionName<T>>::insert(collection_id, &name);
+			<NextCollectionId<T>>::mutate(|c| *c += 1);
 
 			Self::deposit_event(Event::CreateCollection(collection_id, name, origin));
 
@@ -612,7 +604,7 @@ pub mod pallet {
 			let metadata_scheme = metadata_scheme
 				.sanitize()
 				.map_err(|_| Error::<T>::InvalidMetadataPath)?;
-			SeriesMetadataScheme::insert(collection_id, series_id, metadata_scheme);
+			SeriesMetadataScheme::<T>::insert(collection_id, series_id, metadata_scheme);
 
 			// Setup royalties
 			if let Some(royalties_schedule) = royalties_schedule {
@@ -625,7 +617,7 @@ pub mod pallet {
 			Self::do_mint(&owner, collection_id, series_id, 0 as SerialNumber, quantity)?;
 
 			// will not overflow, asserted prior qed.
-			NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
+			<NextSeriesId<T>>::mutate(collection_id, |i| *i += SeriesId::one());
 
 			Self::deposit_event(Event::CreateSeries(collection_id, series_id, quantity, owner));
 
@@ -703,7 +695,7 @@ pub mod pallet {
 			ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
 			for serial_number in serial_numbers.iter() {
 				ensure!(
-					!TokenLocks::contains_key((collection_id, series_id, serial_number)),
+					!<TokenLocks<T>>::contains_key((collection_id, series_id, serial_number)),
 					Error::<T>::TokenListingProtection
 				);
 				ensure!(
@@ -757,7 +749,7 @@ pub mod pallet {
 
 			for serial_number in serial_numbers.iter() {
 				ensure!(
-					!TokenLocks::contains_key((collection_id, series_id, serial_number)),
+					!<TokenLocks<T>>::contains_key((collection_id, series_id, serial_number)),
 					Error::<T>::TokenListingProtection
 				);
 				ensure!(
@@ -788,12 +780,12 @@ pub mod pallet {
 				.is_zero()
 			{
 				// this is the last of the tokens
-				SeriesAttributes::remove(collection_id, series_id);
-				SeriesIssuance::remove(collection_id, series_id);
-				SeriesMetadataScheme::remove(collection_id, series_id);
+				<SeriesAttributes<T>>::remove(collection_id, series_id);
+				<SeriesIssuance<T>>::remove(collection_id, series_id);
+				<SeriesMetadataScheme<T>>::remove(collection_id, series_id);
 				<SeriesRoyalties<T>>::remove(collection_id, series_id);
 			} else {
-				SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_sub(quantity));
+				<SeriesIssuance<T>>::mutate(collection_id, series_id, |q| *q = q.saturating_sub(quantity));
 			}
 
 			Self::deposit_event(Event::Burn(collection_id, series_id, serial_numbers));
@@ -871,14 +863,14 @@ pub mod pallet {
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(
-					!TokenLocks::contains_key((collection_id, series_id, serial_number)),
+					!<TokenLocks<T>>::contains_key((collection_id, series_id, serial_number)),
 					Error::<T>::TokenListingProtection
 				);
 				ensure!(
 					Self::token_owner((collection_id, series_id), serial_number) == origin,
 					Error::<T>::NoPermission
 				);
-				TokenLocks::insert(
+				<TokenLocks<T>>::insert(
 					(collection_id, series_id, serial_number),
 					TokenLockReason::Listed(listing_id),
 				);
@@ -898,9 +890,9 @@ pub mod pallet {
 				marketplace_id: marketplace_id.clone(),
 			});
 
-			OpenCollectionListings::insert(bundle_collection_id, listing_id, true);
-			Listings::insert(listing_id, listing);
-			NextListingId::mutate(|i| *i += 1);
+			<OpenCollectionListings<T>>::insert(bundle_collection_id, listing_id, true);
+			<Listings<T>>::insert(listing_id, listing);
+			<NextListingId<T>>::mutate(|i| *i += 1);
 
 			Self::deposit_event(Event::FixedPriceSaleListed(
 				bundle_collection_id,
@@ -975,11 +967,11 @@ pub mod pallet {
 					.tokens
 					.iter()
 					.map(|token_id| {
-						TokenLocks::remove(token_id);
+						<TokenLocks<T>>::remove(token_id);
 						token_id.2
 					})
 					.collect();
-				OpenCollectionListings::remove(collection_id, listing_id);
+				<OpenCollectionListings<T>>::remove(collection_id, listing_id);
 
 				let _ =
 					Self::do_transfer_unchecked(*collection_id, *series_id, &serial_numbers, &listing.seller, &origin)?;
@@ -1056,14 +1048,14 @@ pub mod pallet {
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(
-					!TokenLocks::contains_key((collection_id, series_id, serial_number)),
+					!<TokenLocks<T>>::contains_key((collection_id, series_id, serial_number)),
 					Error::<T>::TokenListingProtection
 				);
 				ensure!(
 					Self::token_owner((collection_id, series_id), serial_number) == origin,
 					Error::<T>::NoPermission
 				);
-				TokenLocks::insert(
+				<TokenLocks<T>>::insert(
 					(collection_id, series_id, serial_number),
 					TokenLockReason::Listed(listing_id),
 				);
@@ -1082,9 +1074,9 @@ pub mod pallet {
 				marketplace_id: marketplace_id.clone(),
 			});
 
-			OpenCollectionListings::insert(bundle_collection_id, listing_id, true);
-			Listings::insert(listing_id, listing);
-			NextListingId::mutate(|i| *i += 1);
+			<OpenCollectionListings<T>>::insert(bundle_collection_id, listing_id, true);
+			<Listings<T>>::insert(listing_id, listing);
+			<NextListingId<T>>::mutate(|i| *i += 1);
 
 			Self::deposit_event(Event::AuctionOpen(
 				bundle_collection_id,
@@ -1110,8 +1102,8 @@ pub mod pallet {
 				}
 
 				// check user has the requisite funds to make this bid
-				let balance: BalanceOf<T> = T::MultiCurrency::free_balance(&origin, listing.payment_asset);
-				if let Some(balance_after_bid) = balance::checked_sub(&amount) {
+				let balance = T::MultiCurrency::free_balance(&origin, listing.payment_asset);
+				if let Some(balance_after_bid) = balance.checked_sub(amount) {
 					// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 					// - `amount` is unused
 					// - if there are multiple locks on user asset this could return true inaccurately
@@ -1169,10 +1161,10 @@ pub mod pallet {
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
 					for token_id in sale.tokens.iter() {
-						TokenLocks::remove(token_id);
+						<TokenLocks<T>>::remove(token_id);
 					}
 					let collection_id = sale.tokens[0].0;
-					OpenCollectionListings::remove(collection_id, listing_id);
+					<OpenCollectionListings<T>>::remove(collection_id, listing_id);
 
 					Self::deposit_event(Event::FixedPriceSaleClosed(collection_id, listing_id));
 					Ok(().into())
@@ -1186,10 +1178,10 @@ pub mod pallet {
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(auction.close, listing_id);
 					for token_id in auction.tokens.iter() {
-						TokenLocks::remove(token_id);
+						<TokenLocks<T>>::remove(token_id);
 					}
 					let collection_id = auction.tokens[0].0;
-					OpenCollectionListings::remove(collection_id, listing_id);
+					<OpenCollectionListings<T>>::remove(collection_id, listing_id);
 
 					Self::deposit_event(Event::AuctionClosed(
 						collection_id,
@@ -1198,7 +1190,7 @@ pub mod pallet {
 					));
 					Ok(().into())
 				}
-				None => Err(Error::<T>::NotForSale)
+				None => Err(Error::<T>::NotForSale.into()),
 			}
 		}
 
@@ -1235,7 +1227,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Return whether the series exists or not
 		pub fn series_exists(collection_id: CollectionId, series_id: SeriesId) -> bool {
-			SeriesMetadataScheme::contains_key(collection_id, series_id)
+			<SeriesMetadataScheme<T>>::contains_key(collection_id, series_id)
 		}
 		/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721 metadata token_uri)
 		pub fn token_uri(token_id: TokenId) -> Vec<u8> {
@@ -1372,8 +1364,8 @@ pub mod pallet {
 			<TokenBalance<T>>::mutate(&owner, |balances| {
 				*balances.entry((collection_id, series_id)).or_default() += quantity
 			});
-			SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-			NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+			<SeriesIssuance<T>>::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+			<NextSerialNumber<T>>::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
 
 			Ok(().into())
 		}
@@ -1413,27 +1405,27 @@ pub mod pallet {
 		/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships changes are made for winning bids
 		/// Metadata for listings will be removed from storage
 		/// Returns the number of listings removed
-		fn close_listings_at(now: T::BlockNumber) -> u32 {
+		fn close_listings_at<'a>(now: T::BlockNumber) -> u32 {
 			let mut removed = 0_u32;
 			for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
 				match Listings::<T>::take(listing_id) {
 					Some(Listing::FixedPrice(listing)) => {
 						// release listed tokens
 						for token_id in listing.tokens.iter() {
-							TokenLocks::remove(token_id);
+							<TokenLocks<T>>::remove(token_id);
 						}
 						let listing_collection_id = listing.tokens[0].0;
-						OpenCollectionListings::remove(listing_collection_id, listing_id);
+						<OpenCollectionListings<T>>::remove(listing_collection_id, listing_id);
 
 						Self::deposit_event(Event::FixedPriceSaleClosed(listing_collection_id, listing_id));
 					}
 					Some(Listing::Auction(listing)) => {
 						// release listed tokens
 						for token_id in listing.tokens.iter() {
-							TokenLocks::remove(token_id);
+							<TokenLocks<T>>::remove(token_id);
 						}
 						let listing_collection_id = listing.tokens[0].0;
-						OpenCollectionListings::remove(listing_collection_id, listing_id);
+						<OpenCollectionListings<T>>::remove(listing_collection_id, listing_id);
 
 						if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(listing_id) {
 							if let Err(err) = Self::settle_auction(&listing, &winner, hammer_price) {
@@ -1554,7 +1546,7 @@ pub mod pallet {
 			cursor: u128,
 			limit: u16,
 		) -> (Option<u128>, Vec<(ListingId, Listing<T>)>) {
-			let mut listing_ids = OpenCollectionListings::iter_prefix(collection_id)
+			let mut listing_ids = <OpenCollectionListings<T>>::iter_prefix(collection_id)
 				.map(|(listing_id, _)| listing_id)
 				.collect::<Vec<u128>>();
 			listing_ids.sort();
