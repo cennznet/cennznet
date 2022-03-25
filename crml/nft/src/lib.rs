@@ -50,7 +50,6 @@ pub mod pallet {
 	use crate::weights::WeightInfo;
 	use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
 	use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
-	use frame_support::pallet_prelude::*;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
@@ -91,7 +90,7 @@ pub mod pallet {
 	macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: crate::LOG_TARGET,
+			target: self::LOG_TARGET,
 			$patter $(, $values)*
 		)
 	};
