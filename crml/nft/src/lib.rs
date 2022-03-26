@@ -385,7 +385,8 @@ pub mod pallet {
 					SeriesMetadataScheme::<T>::get(collection_id, series_id).is_none(),
 					Error::<T>::NoPermission
 				);
-				SeriesMetadataScheme::<T>::insert(collection_id, series_id, scheme);
+				let sanitized_scheme = scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+				SeriesMetadataScheme::<T>::insert(collection_id, series_id, sanitized_scheme);
 				Ok(().into())
 			} else {
 				Err(Error::<T>::NoCollection.into())
