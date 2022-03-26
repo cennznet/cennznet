@@ -64,6 +64,10 @@ impl From<&[u8]> for Bytes {
 	}
 }
 
+impl From<[u8;4]> for Bytes {
+	fn from(a: [u8;4]) -> Self { Self(a.to_vec()) }
+}
+
 impl From<&str> for Bytes {
 	fn from(a: &str) -> Self {
 		a.as_bytes().into()

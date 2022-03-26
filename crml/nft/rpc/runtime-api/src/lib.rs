@@ -20,14 +20,14 @@
 
 use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use codec::Codec;
-use crml_nft::{CollectionInfo, Config, Listing, ListingId, TokenInfo};
+use crml_nft::pallet::{CollectionInfo, Config, Listing, ListingId, TokenInfo};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
 	pub trait NftApi<AccountId, T> where
 		AccountId: Codec,
-		T: Config,
+		T: Config + crml_nft::pallet::Config,
 	{
 		/// Find all the tokens owned by `who` in a given collection
 		fn collected_tokens(
