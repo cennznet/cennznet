@@ -15,10 +15,10 @@
 
 //! NFT module types
 
-use crate::Config;
+use crate::pallet::Config;
 use cennznet_primitives::types::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
 use codec::{Decode, Encode};
-use crml_support::MultiCurrency;
+pub use crml_support::MultiCurrency;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};

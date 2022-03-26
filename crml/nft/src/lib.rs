@@ -34,22 +34,21 @@
 
 pub use frame_system::pallet::*;
 
-pub mod benchmarking;
+mod benchmarking;
+mod migration;
 #[cfg(test)]
-pub mod mock;
+mod mock;
 #[cfg(test)]
-pub mod tests;
+mod tests;
 pub mod types;
-pub mod weights;
+mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use self::log;
 	use super::*;
-	use crate::types::*;
-	use crate::weights::WeightInfo;
-	use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-	use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
+	pub use crate::{types::*, weights::WeightInfo};
+	pub use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+	pub use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
@@ -90,11 +89,13 @@ pub mod pallet {
 	macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: self::LOG_TARGET,
+			target: crate::pallet::LOG_TARGET,
 			$patter $(, $values)*
 		)
 	};
 	}
+
+	pub(crate) use log;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -359,60 +360,9 @@ pub mod pallet {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			use migration::v1_storage;
+			use crate::migration;
 
-			if StorageVersion::get() == Releases::V1 as u32 {
-				StorageVersion::put(Releases::V2 as u32);
-				v1_storage::CollectionMetadataURI::remove_all(None);
-				v1_storage::IsSingleIssue::remove_all(None);
-
-				let listings: Vec<(ListingId, v1_storage::Listing<T>)> = v1_storage::Listings::<T>::iter().collect();
-				let weight = listings.len() as Weight;
-				for (listing_id, listing) in listings {
-					let listing_migrated = match listing {
-						v1_storage::Listing::<T>::FixedPrice(v1_storage::FixedPriceListing {
-							fixed_price,
-							close,
-							payment_asset,
-							seller,
-							buyer,
-							tokens,
-							royalties_schedule,
-						}) => Listing::<T>::FixedPrice(FixedPriceListing {
-							fixed_price,
-							close,
-							payment_asset,
-							seller,
-							buyer,
-							tokens,
-							royalties_schedule,
-							marketplace_id: None,
-						}),
-						v1_storage::Listing::<T>::Auction(v1_storage::AuctionListing {
-							reserve_price,
-							close,
-							payment_asset,
-							seller,
-							tokens,
-							royalties_schedule,
-						}) => Listing::<T>::Auction(AuctionListing {
-							reserve_price,
-							close,
-							payment_asset,
-							seller,
-							tokens,
-							royalties_schedule,
-							marketplace_id: None,
-						}),
-					};
-					Listings::insert(listing_id, listing_migrated);
-				}
-
-				log!(warn, "🃏 listings migrated");
-				return 6_000_000 as Weight + weight * 100_000;
-			} else {
-				Zero::zero()
-			}
+			migration::migrate_to_v2::<T>()
 		}
 	}
 
@@ -671,7 +621,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let (collection_id, series_id, serial_number) = token_id;
-			Self::transfer_batch(origin, collection_id, series_id, vec![serial_number], new_owner);
+			Self::transfer_batch(origin, collection_id, series_id, vec![serial_number], new_owner)?;
 			Ok(().into())
 		}
 
@@ -720,7 +670,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::burn())]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResultWithPostInfo {
 			let (collection_id, series_id, serial_number) = token_id;
-			Self::burn_batch(origin, collection_id, series_id, vec![serial_number]);
+			Self::burn_batch(origin, collection_id, series_id, vec![serial_number])?;
 			Ok(().into())
 		}
 
@@ -1005,7 +955,7 @@ pub mod pallet {
 				reserve_price,
 				duration,
 				marketplace_id,
-			);
+			)?;
 			Ok(().into())
 		}
 
@@ -1427,10 +1377,11 @@ pub mod pallet {
 						<OpenCollectionListings<T>>::remove(listing_collection_id, listing_id);
 
 						if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(listing_id) {
-							if let Err(err) = Self::settle_auction(&listing, &winner, hammer_price) {
+							if let Err(_err) = Self::settle_auction(&listing, &winner, hammer_price) {
 								// auction settlement failed despite our prior validations.
 								// release winning bid funds
-								log!(error, "🃏 auction settlement failed: {:?}", err.into());
+								// todo!("impl into to log error");
+								// log!(error, "🃏 auction settlement failed: {:?}", err.into());
 								T::MultiCurrency::unreserve(&winner, listing.payment_asset, hammer_price);
 
 								// listing metadata is removed by now.
