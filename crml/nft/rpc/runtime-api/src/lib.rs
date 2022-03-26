@@ -27,7 +27,7 @@ sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
 	pub trait NftApi<AccountId, T> where
 		AccountId: Codec,
-		T: Config + crml_nft::pallet::Config,
+		T: Config,
 	{
 		/// Find all the tokens owned by `who` in a given collection
 		fn collected_tokens(
