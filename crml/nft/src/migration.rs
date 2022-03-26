@@ -1,8 +1,10 @@
 #[allow(dead_code)]
-use crate::pallet::{AuctionListing, FixedPriceListing, Listing, Listings, StorageVersion, CollectionId, Config, SeriesId, log};
+use crate::pallet::{
+	log, AuctionListing, CollectionId, Config, FixedPriceListing, Listing, Listings, SeriesId, StorageVersion,
+};
 use crate::types::{ListingId, MultiCurrency, Releases, RoyaltiesSchedule};
 use cennznet_primitives::types::TokenId;
-use frame_support::{IterableStorageMap, StoragePrefixedMap, weights::Weight};
+use frame_support::{weights::Weight, IterableStorageMap, StoragePrefixedMap};
 use sp_runtime::traits::Zero;
 use sp_std::prelude::*;
 
