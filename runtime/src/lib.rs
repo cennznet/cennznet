@@ -86,7 +86,7 @@ pub use crml_generic_asset::{
 	StakingAssetCurrency,
 };
 use crml_governance::{ProposalId, ProposalVoteInfo};
-use crml_nft::{CollectionInfo, Listing, ListingId, TokenInfo};
+use crml_nft::pallet::{CollectionInfo, Listing, ListingId, TokenInfo};
 use crml_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
@@ -251,7 +251,7 @@ parameter_types! {
 	/// Only applies to string/vec allocated types
 	pub const MaxAttributeLength: u8 = 140;
 }
-impl crml_nft::Config for Runtime {
+impl crml_nft::pallet::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type MaxAttributeLength = MaxAttributeLength;
@@ -850,7 +850,7 @@ construct_runtime!(
 		Historical: session_historical::{Pallet},
 		Cennzx: crml_cennzx::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Rewards: crml_staking_rewards::{Pallet, Call, Storage, Config, Event<T>},
-		Nft: crml_nft::{Pallet, Call, Storage, Event<T>},
+		Nft: crml_nft::pallet::{Pallet, Call, Storage, Event<T>},
 		Governance: crml_governance::{Pallet, Call, Storage, Event},
 		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>},
