@@ -2,7 +2,10 @@ use super::*;
 use crate::mock::{DepositEventSignature, Erc20Peg, ExtBuilder, GenericAsset, PegPalletId, Test};
 use cennznet_primitives::types::AccountId;
 use crml_support::MultiCurrency;
-use frame_support::{assert_noop, assert_ok, traits::OnIdle};
+use frame_support::{
+	assert_noop, assert_ok,
+	traits::{OnIdle, OnInitialize},
+};
 use hex_literal::hex;
 
 #[test]
@@ -236,25 +239,33 @@ fn deposit_claim_with_delay() {
 		assert_ok!(Erc20Peg::deposit_claim(Some(origin).into(), tx_hash, claim.clone()));
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		// Check claim has been put into pending claims
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
 		assert_eq!(
-			Erc20Peg::claim_schedule(claim_block, claim_id),
+			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
 		// Simulating block before with enough weight, claim shouldn't be removed
-		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 0);
+		assert_eq!(Erc20Peg::on_initialize(claim_block - 1), 10_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 10_000_000);
 		// Simulating not enough weight left in block, claim shouldn't be removed
-		assert_eq!(Erc20Peg::on_idle(claim_block, 40_000_000), 0);
+		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
+		assert_eq!(Erc20Peg::ready_blocks(), Some(vec![claim_block]));
+
+		assert_eq!(Erc20Peg::on_idle(claim_block, 40_000_000), 10_000_000);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
 		assert_eq!(
-			Erc20Peg::claim_schedule(claim_block, claim_id),
+			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 		);
 
 		// Try again next block with enough weight
-		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 50_000_000), 50_000_000);
+		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 55_000_000), 60_000_000);
 		// Claim should be removed from storage
-		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
 
@@ -298,27 +309,30 @@ fn multiple_deposit_claims_with_delay() {
 			));
 			// Check claim has been put into pending claims
 			assert_eq!(
-				Erc20Peg::claim_schedule(claim_block, claim_id),
+				Erc20Peg::pending_claims(claim_id),
 				Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 			);
 		}
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(claim_ids.clone()));
 
 		// Call on_idle with room for only 5 claims
 		// Weight in on_idle for one claim is 2_000_000
-		assert_eq!(Erc20Peg::on_idle(claim_block, 290_000_000), 250_000_000);
+		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block, 290_000_000), 260_000_000);
 		let mut changed_count = 0;
 		for i in 0..num_claims {
-			if Erc20Peg::claim_schedule(claim_block, claim_ids[i]) == None {
+			if Erc20Peg::pending_claims(claim_ids[i]) == None {
 				changed_count += 1;
 			}
 		}
 		assert_eq!(changed_count, 5);
 
-		// Call on idle for the next block, remaining claims should be removed
-		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 500_000_000), 250_000_000);
+		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 500_000_000), 260_000_000);
 		for i in 0..num_claims {
-			assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_ids[i]), None);
+			assert_eq!(Erc20Peg::pending_claims(claim_ids[i]), None);
 		}
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
 	});
 }
 
@@ -352,7 +366,8 @@ fn deposit_claim_less_than_delay_goes_through() {
 		assert_ok!(Erc20Peg::deposit_claim(Some(origin).into(), tx_hash, claim.clone()));
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		// Check claim has not been put into pending claims
-		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
 
@@ -398,16 +413,19 @@ fn withdraw_with_delay() {
 			amount: amount.into(),
 			beneficiary,
 		};
-		// Check claim has been put into pending claims
+
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
 		assert_eq!(
-			Erc20Peg::claim_schedule(claim_block, claim_id),
+			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Withdrawal(message))
 		);
 		// Check claim id has been increased
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
-		assert_eq!(Erc20Peg::on_idle(claim_block, 900_000_000), 50_000_000);
+		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block, 900_000_000), 60_000_000);
 		// Claim should be removed from storage
-		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
 
@@ -445,7 +463,8 @@ fn withdraw_less_than_delay_goes_through() {
 			amount - 1,
 			beneficiary
 		));
-		assert_eq!(Erc20Peg::claim_schedule(claim_block, claim_id), None);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
 
