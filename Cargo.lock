@@ -841,7 +841,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.1.0-rc4"
+version = "2.1.1"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
