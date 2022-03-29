@@ -239,7 +239,7 @@ fn deposit_claim_with_delay() {
 		assert_ok!(Erc20Peg::deposit_claim(Some(origin).into(), tx_hash, claim.clone()));
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		// Check claim has been put into pending claims
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), vec![claim_id]);
 		assert_eq!(
 			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
@@ -248,13 +248,13 @@ fn deposit_claim_with_delay() {
 		assert_eq!(<NextClaimId>::get(), claim_id + 1);
 		// Simulating block before with enough weight, claim shouldn't be removed
 		assert_eq!(Erc20Peg::on_initialize(claim_block - 1), 10_000_000);
-		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 10_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 0);
 		// Simulating not enough weight left in block, claim shouldn't be removed
 		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
-		assert_eq!(Erc20Peg::ready_blocks(), Some(vec![claim_block]));
+		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
 
 		assert_eq!(Erc20Peg::on_idle(claim_block, 40_000_000), 10_000_000);
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), vec![claim_id]);
 		assert_eq!(
 			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
@@ -264,8 +264,13 @@ fn deposit_claim_with_delay() {
 		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
 		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 55_000_000), 60_000_000);
 		// Claim should be removed from storage
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		let empty_blocks: Vec<u64> = vec![];
+		assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
+		let empty_claims: Vec<ClaimId> = vec![];
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
+		let empty_blocks: Vec<u64> = vec![];
+		assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
 	});
 }
 
@@ -313,7 +318,7 @@ fn multiple_deposit_claims_with_delay() {
 				Some(PendingClaim::Deposit((claim.clone(), tx_hash)))
 			);
 		}
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(claim_ids.clone()));
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), claim_ids.clone());
 
 		// Call on_idle with room for only 5 claims
 		// Weight in on_idle for one claim is 2_000_000
@@ -332,7 +337,8 @@ fn multiple_deposit_claims_with_delay() {
 		for i in 0..num_claims {
 			assert_eq!(Erc20Peg::pending_claims(claim_ids[i]), None);
 		}
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		let empty_claims: Vec<u64> = vec![];
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 	});
 }
 
@@ -366,7 +372,8 @@ fn deposit_claim_less_than_delay_goes_through() {
 		assert_ok!(Erc20Peg::deposit_claim(Some(origin).into(), tx_hash, claim.clone()));
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		// Check claim has not been put into pending claims
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		let empty_claims: Vec<ClaimId> = vec![];
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
@@ -414,7 +421,7 @@ fn withdraw_with_delay() {
 			beneficiary,
 		};
 
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), Some(vec![claim_id]));
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), vec![claim_id]);
 		assert_eq!(
 			Erc20Peg::pending_claims(claim_id),
 			Some(PendingClaim::Withdrawal(message))
@@ -424,7 +431,8 @@ fn withdraw_with_delay() {
 		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
 		assert_eq!(Erc20Peg::on_idle(claim_block, 900_000_000), 60_000_000);
 		// Claim should be removed from storage
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		let empty_claims: Vec<ClaimId> = vec![];
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }
@@ -463,7 +471,8 @@ fn withdraw_less_than_delay_goes_through() {
 			amount - 1,
 			beneficiary
 		));
-		assert_eq!(Erc20Peg::claim_schedule(claim_block), None);
+		let empty_claims: Vec<ClaimId> = vec![];
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 		assert_eq!(Erc20Peg::pending_claims(claim_id), None);
 	});
 }

@@ -77,9 +77,9 @@ decl_storage! {
 		/// Map from claim id to claim
 		PendingClaims get(fn pending_claims): map hasher(twox_64_concat) ClaimId => Option<PendingClaim>;
 		/// Map from block number to claims scheduled for that block
-		ClaimSchedule get(fn claim_schedule): map hasher(twox_64_concat) T::BlockNumber => Option<Vec<ClaimId>>;
+		ClaimSchedule get(fn claim_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<ClaimId>;
 		/// The blocks with claims that are ready to be processed
-		ReadyBlocks get(fn ready_blocks): Option<Vec<T::BlockNumber>>;
+		ReadyBlocks get(fn ready_blocks): Vec<T::BlockNumber>;
 		/// The next available claim id for withdrawals and deposit claims
 		NextClaimId get(fn next_claim_id): ClaimId;
 		/// Hash of withdrawal information
@@ -156,51 +156,69 @@ decl_module! {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let mut weight: u64 = 10_000_000;
 			if ClaimSchedule::<T>::contains_key(now) {
-				match Self::ready_blocks() {
-					Some(mut blocks) => {
-						// TODO Check that ready_blocks doesn't overflow
-						blocks.push(now);
-						ReadyBlocks::<T>::put(blocks);
-					},
-					None => ReadyBlocks::<T>::put(vec![now]),
-				}
+				ReadyBlocks::<T>::append(now);
 				weight += 10_000_000;
 			}
 			weight as Weight
 		}
 
 		/// Check and process outstanding claims
-		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = 10_000_000;
+
 			// Ensure we have enough weight to perform the initial read
 			if remaining_weight <= initial_read_cost {
 				return 0;
 			}
-			// Check if there are any blocks pending, else return early
-			let ready_blocks = Self::ready_blocks();
-			if !ready_blocks.is_some() {
-				return initial_read_cost;
+			// Check that there are blocks in ready_blocks
+			if ReadyBlocks::<T>::decode_len().is_none() {
+				return 0;
 			}
-			let mut ready_blocks: Vec<T::BlockNumber> = ready_blocks.unwrap();
+
 			// Process as many claims as we can
 			let weight_each: Weight = 50_000_000;
 			let max_claims = (remaining_weight / weight_each).saturated_into::<u8>();
+			let mut ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
 
-			let mut processed_claims: u8 = 0;
+			// Total claims processed in this block
+			let mut total_processed_claims: u8 = 0;
+			// Count of blocks where all claims have been processed
+			let mut completed_blocks_count: u8 = 0;
+			// index for ready_blocks vec
+			let mut block_index = 0;
 
-			if ready_blocks[0] <= now {
-				while processed_claims < max_claims && !ready_blocks.is_empty() {
-					if ClaimSchedule::<T>::contains_key(ready_blocks[0]) {
-						processed_claims += Self::process_claims_at(ready_blocks[0], max_claims - processed_claims);
-					} else {
-						ready_blocks.remove(0);
-					}
+			while total_processed_claims < max_claims && block_index < ready_blocks.len() {
+				let max_remaining_claims = max_claims - total_processed_claims;
+				let mut claim_schedule = Self::claim_schedule(ready_blocks[block_index]);
+				// Total claims processed for this ready_blocks block
+				let mut processed_claims_at_block = 0;
+
+				// Process as many claims from the currently selected block as possible
+				claim_schedule.clone().into_iter().take(max_remaining_claims.into()).for_each(|claim_id| {
+					Self::process_claim(claim_id);
+					total_processed_claims += 1;
+					processed_claims_at_block += 1;
+				});
+
+				// Clear storage and increase iterators
+				if processed_claims_at_block >= claim_schedule.len() as u8 {
+					completed_blocks_count += 1;
+					ClaimSchedule::<T>::remove(ready_blocks[block_index]);
+					block_index += 1;
+				} else {
+					ClaimSchedule::<T>::insert(ready_blocks[block_index], claim_schedule.split_off(processed_claims_at_block.into()));
 				}
-				// Update ready blocks
-				ReadyBlocks::<T>::put(ready_blocks);
 			}
-
-			initial_read_cost + weight_each * processed_claims as Weight
+			// Update ready blocks
+			if completed_blocks_count != 0 {
+				if completed_blocks_count >= ready_blocks.len() as u8 {
+					let new_ready_blocks: Vec<T::BlockNumber> = vec![];
+					ReadyBlocks::<T>::put(new_ready_blocks);
+				} else {
+					ReadyBlocks::<T>::put(ready_blocks.split_off(completed_blocks_count.into()));
+				}
+			}
+			initial_read_cost + weight_each * total_processed_claims as Weight
 		}
 
 		/// Activate/deactivate deposits (root only)
@@ -225,7 +243,7 @@ decl_module! {
 		pub fn deposit_claim(origin, tx_hash: H256, claim: Erc20DepositEvent) {
 			// Note: require caller to provide the `claim` so we don't need to handle the-
 			// complexities of notaries reporting differing deposit events
-			let origin = ensure_signed(origin)?;
+			let _origin = ensure_signed(origin)?;
 			ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
 			// fail a claim early for an amount that is too large
 			ensure!(claim.amount < U256::from(u128::max_value()), Error::<T>::InvalidAmount);
@@ -337,46 +355,26 @@ decl_module! {
 
 impl<T: Config> Module<T> {
 	/// Process claims at a block after a delay
-	fn process_claims_at(now: T::BlockNumber, max_claims: u8) -> u8 {
-		let claim_ids = Self::claim_schedule(now);
-		if !claim_ids.is_some() {
-			return 0;
-		}
-		let mut claim_ids = claim_ids.unwrap();
-		let mut removed = 0_u8;
-
-		while removed < max_claims && !claim_ids.is_empty() {
-			// process claim id at claim_ids[0]
-			removed += 1;
-			if let Some(pending_claim) = PendingClaims::take(claim_ids[0]) {
-				match pending_claim {
-					PendingClaim::Deposit((deposit_claim, tx_hash)) => {
-						Self::process_deposit_claim(deposit_claim, tx_hash);
-					}
-					PendingClaim::Withdrawal(withdrawal_message) => {
-						// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
-						let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
-						if asset_id.is_some() {
-							Self::process_withdrawal(withdrawal_message, asset_id.unwrap());
-						} else {
-							log::error!(
-								"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
-								withdrawal_message
-							);
-						}
+	fn process_claim(claim_id: ClaimId) {
+		if let Some(pending_claim) = PendingClaims::take(claim_id) {
+			match pending_claim {
+				PendingClaim::Deposit((deposit_claim, tx_hash)) => {
+					Self::process_deposit_claim(deposit_claim, tx_hash);
+				}
+				PendingClaim::Withdrawal(withdrawal_message) => {
+					// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
+					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
+					if asset_id.is_some() {
+						Self::process_withdrawal(withdrawal_message, asset_id.unwrap());
+					} else {
+						log::error!(
+							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
+							withdrawal_message
+						);
 					}
 				}
 			}
-			// Remove processed claim id, clean storage if empty
-			claim_ids.remove(0);
 		}
-		// Update claim schedule storage
-		if claim_ids.is_empty() {
-			ClaimSchedule::<T>::remove(now);
-		} else {
-			ClaimSchedule::<T>::insert(now, claim_ids);
-		}
-		removed
 	}
 
 	fn process_deposit_claim(claim: Erc20DepositEvent, tx_hash: H256) {
@@ -438,12 +436,7 @@ impl<T: Config> Module<T> {
 		let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		PendingClaims::insert(claim_id, &pending_claim);
 		// Modify ClaimSchedule with new claim_id
-		if let Some(mut existing_claims) = Self::claim_schedule(claim_block) {
-			existing_claims.push(claim_id);
-			ClaimSchedule::<T>::insert(claim_block, existing_claims);
-		} else {
-			ClaimSchedule::<T>::insert(claim_block, vec![claim_id]);
-		}
+		ClaimSchedule::<T>::append(claim_block, claim_id);
 		NextClaimId::put(claim_id + 1);
 
 		// Throw event for delayed claim
