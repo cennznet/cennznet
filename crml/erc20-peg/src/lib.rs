@@ -191,7 +191,7 @@ decl_module! {
 				let max_remaining_claims = max_claims - total_processed_claims;
 				let mut claim_schedule = Self::claim_schedule(ready_blocks[block_index]);
 				// Total claims processed for this ready_blocks block
-				let mut processed_claims_at_block = 0;
+				let mut processed_claims_at_block: u8 = 0;
 
 				// Process as many claims from the currently selected block as possible
 				claim_schedule.clone().into_iter().take(max_remaining_claims.into()).for_each(|claim_id| {
@@ -201,7 +201,7 @@ decl_module! {
 				});
 
 				// Clear storage and increase iterators
-				if processed_claims_at_block >= claim_schedule.len() as u8 {
+				if processed_claims_at_block as usize >= claim_schedule.len() {
 					completed_blocks_count += 1;
 					ClaimSchedule::<T>::remove(ready_blocks[block_index]);
 					block_index += 1;

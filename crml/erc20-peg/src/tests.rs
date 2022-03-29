@@ -301,7 +301,8 @@ fn multiple_deposit_claims_with_delay() {
 			delay
 		));
 		let mut claim_ids: Vec<ClaimId> = vec![];
-		let num_claims = 10;
+		// Try deposit more claims than u8::MAX
+		let num_claims: u64 = 300;
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
 
 		for _ in 0..num_claims {
@@ -323,19 +324,25 @@ fn multiple_deposit_claims_with_delay() {
 		// Call on_idle with room for only 5 claims
 		// Weight in on_idle for one claim is 2_000_000
 		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
-		assert_eq!(Erc20Peg::on_idle(claim_block, 290_000_000), 260_000_000);
+		assert_eq!(
+			Erc20Peg::on_idle(claim_block, num_claims * 50_000_000),
+			u8::MAX as u64 * 50_000_000 + 10_000_000
+		);
 		let mut changed_count = 0;
 		for i in 0..num_claims {
-			if Erc20Peg::pending_claims(claim_ids[i]) == None {
+			if Erc20Peg::pending_claims(claim_ids[i as usize]) == None {
 				changed_count += 1;
 			}
 		}
-		assert_eq!(changed_count, 5);
+		assert_eq!(changed_count, u8::MAX);
 
 		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
-		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 500_000_000), 260_000_000);
+		assert_eq!(
+			Erc20Peg::on_idle(claim_block + 1, num_claims * 50_000_000),
+			(num_claims - u8::MAX as u64) * 50_000_000 + 10_000_000
+		);
 		for i in 0..num_claims {
-			assert_eq!(Erc20Peg::pending_claims(claim_ids[i]), None);
+			assert_eq!(Erc20Peg::pending_claims(claim_ids[i as usize]), None);
 		}
 		let empty_claims: Vec<u64> = vec![];
 		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
