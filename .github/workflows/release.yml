@@ -49,8 +49,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.wasm
-          asset_name: cennznet_runtime.compact.wasm
+          asset_path: ./target/debug/wbuild/cennznet-runtime/cennznet_runtime.compact.compressed.wasm
+          # TODO: Add spec_version to filename
+          asset_name: cennznet_runtime.compact.compressed.wasm
           asset_content_type: application/wasm
   on-success:
     needs: release-to-github
