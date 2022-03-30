@@ -165,7 +165,6 @@ decl_module! {
 		/// Check and process outstanding claims
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = 10_000_000;
-
 			// Ensure we have enough weight to perform the initial read
 			if remaining_weight <= initial_read_cost {
 				return 0;
@@ -177,48 +176,34 @@ decl_module! {
 
 			// Process as many claims as we can
 			let weight_each: Weight = 50_000_000;
-			let max_claims = (remaining_weight / weight_each).saturated_into::<u8>();
+			let max_claims = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
 			let mut ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
-
 			// Total claims processed in this block
-			let mut total_processed_claims: u8 = 0;
+			let mut processed_claim_count: u8 = 0;
 			// Count of blocks where all claims have been processed
-			let mut completed_blocks_count: u8 = 0;
-			// index for ready_blocks vec
-			let mut block_index = 0;
+			let mut processed_block_count: u8 = 0;
 
-			while total_processed_claims < max_claims && block_index < ready_blocks.len() {
-				let max_remaining_claims = max_claims - total_processed_claims;
-				let mut claim_schedule = Self::claim_schedule(ready_blocks[block_index]);
-				// Total claims processed for this ready_blocks block
-				let mut processed_claims_at_block: u8 = 0;
-
-				// Process as many claims from the currently selected block as possible
-				claim_schedule.clone().into_iter().take(max_remaining_claims.into()).for_each(|claim_id| {
+			for block in ready_blocks.iter() {
+				let mut claim_ids = ClaimSchedule::<T>::take(block);
+				let remaining_claims = (max_claims - processed_claim_count) as usize;
+				if claim_ids.len() > remaining_claims {
+					// Update storage with unprocessed claims
+					ClaimSchedule::<T>::insert(block, claim_ids.split_off(remaining_claims));
+				} else {
+					processed_block_count += 1;
+				}
+				// Process remaining claims from block
+				for claim_id in claim_ids {
 					Self::process_claim(claim_id);
-					total_processed_claims += 1;
-					processed_claims_at_block += 1;
-				});
+				}
+				processed_claim_count += claim_ids.len();
+				if processed_claim_count >= max_claims {
+					break;
+				}
+			}
 
-				// Clear storage and increase iterators
-				if processed_claims_at_block as usize >= claim_schedule.len() {
-					completed_blocks_count += 1;
-					ClaimSchedule::<T>::remove(ready_blocks[block_index]);
-					block_index += 1;
-				} else {
-					ClaimSchedule::<T>::insert(ready_blocks[block_index], claim_schedule.split_off(processed_claims_at_block.into()));
-				}
-			}
-			// Update ready blocks
-			if completed_blocks_count != 0 {
-				if completed_blocks_count >= ready_blocks.len() as u8 {
-					let new_ready_blocks: Vec<T::BlockNumber> = vec![];
-					ReadyBlocks::<T>::put(new_ready_blocks);
-				} else {
-					ReadyBlocks::<T>::put(ready_blocks.split_off(completed_blocks_count.into()));
-				}
-			}
-			initial_read_cost + weight_each * total_processed_claims as Weight
+			ReadyBlocks::<T>::put(ready_blocks.split_off(processed_block_count.into()));
+			initial_read_cost + weight_each * processed_claim_count as Weight
 		}
 
 		/// Activate/deactivate deposits (root only)

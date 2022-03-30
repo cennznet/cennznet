@@ -251,9 +251,8 @@ fn deposit_claim_with_delay() {
 		assert_eq!(Erc20Peg::on_idle(claim_block - 1, 100_000_000), 0);
 		// Simulating not enough weight left in block, claim shouldn't be removed
 		assert_eq!(Erc20Peg::on_initialize(claim_block), 20_000_000);
-		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
-
 		assert_eq!(Erc20Peg::on_idle(claim_block, 40_000_000), 10_000_000);
+		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
 		assert_eq!(Erc20Peg::claim_schedule(claim_block), vec![claim_id]);
 		assert_eq!(
 			Erc20Peg::pending_claims(claim_id),
@@ -262,7 +261,7 @@ fn deposit_claim_with_delay() {
 
 		// Try again next block with enough weight
 		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
-		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 55_000_000), 60_000_000);
+		assert_eq!(Erc20Peg::on_idle(claim_block + 1, 60_000_000), 60_000_000);
 		// Claim should be removed from storage
 		let empty_blocks: Vec<u64> = vec![];
 		assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
@@ -335,6 +334,8 @@ fn multiple_deposit_claims_with_delay() {
 			}
 		}
 		assert_eq!(changed_count, u8::MAX);
+		assert_eq!(Erc20Peg::claim_schedule(claim_block), claim_ids[u8::MAX as usize..]);
+		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
 
 		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), 10_000_000);
 		assert_eq!(
@@ -344,6 +345,8 @@ fn multiple_deposit_claims_with_delay() {
 		for i in 0..num_claims {
 			assert_eq!(Erc20Peg::pending_claims(claim_ids[i as usize]), None);
 		}
+		let empty_blocks: Vec<u64> = vec![];
+		assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
 		let empty_claims: Vec<u64> = vec![];
 		assert_eq!(Erc20Peg::claim_schedule(claim_block), empty_claims);
 	});
