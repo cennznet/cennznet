@@ -192,11 +192,11 @@ decl_module! {
 				} else {
 					processed_block_count += 1;
 				}
+				processed_claim_count += claim_ids.len() as u8;
 				// Process remaining claims from block
-				for claim_id in claim_ids.clone() {
+				for claim_id in claim_ids {
 					Self::process_claim(claim_id);
 				}
-				processed_claim_count += claim_ids.len() as u8;
 				if processed_claim_count >= max_claims {
 					break;
 				}
