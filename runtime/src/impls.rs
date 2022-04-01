@@ -59,18 +59,19 @@ const MAX_VALIDATORS: u32 = 7; // low value for integration tests
 // failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
 static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
-/// Constant factor for scaling CPAY to wei
-const CPAY_TO_WEI_FACTOR: Balance = 10_u128.pow(14);
+/// Constant factor for scaling CPAY to its smallest indivisible unit
+const CPAY_UNIT_VALUE: Balance = 10_u128.pow(14);
 
 /// Convert 18dp wei values to 4dp equivalents
-/// Most inputs are scaled down by 1e14
-// values < 10e14 round to 1
-// 0 is unchanged
+/// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
 fn scale_to_4dp(value: Balance) -> Balance {
-	if value.is_zero() {
-		value
+	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
+	if remainder.is_zero() {
+		quotient
 	} else {
-		sp_std::cmp::max(value / CPAY_TO_WEI_FACTOR, 1)
+		// if value has a fractional part < CPAY unit value
+		// it is lost in this divide operation
+		quotient + 1
 	}
 }
 
@@ -102,7 +103,7 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 		// Careful for overflow!
 		let raw = I::reducible_balance(who, keep_alive);
 		U256::from(raw)
-			.saturating_mul(U256::from(10_u128.pow(14)))
+			.saturating_mul(U256::from(CPAY_UNIT_VALUE))
 			.saturated_into()
 	}
 
@@ -423,6 +424,24 @@ mod tests {
 			System::set_block_consumed_resources(w, 0);
 			assertions()
 		});
+	}
+
+	#[test]
+	fn wei_to_cpay_units_scaling() {
+		let amounts_18 = vec![
+			1000050000000000000u128, // fractional bits <  0.0001
+			1000000000000000001u128, // fractional bits <  0.0001
+			1000100000000000000u128, // fractional bits at 0.0001
+			1000000000000000000u128, // no fractional bits < 0.0001
+			999u128,                 // entirely < 0.0001
+			1u128,
+			0u128,
+		];
+		let amounts_4 = vec![10001_u128, 10001, 10001, 10000, 1, 1, 0];
+		for (amount_18, amount_4) in amounts_18.into_iter().zip(amounts_4.into_iter()) {
+			println!("{:?}/{:?}", amount_18, amount_4);
+			assert_eq!(scale_to_4dp(amount_18), amount_4);
+		}
 	}
 
 	#[test]
