@@ -32,19 +32,19 @@ describe('GA precompiles', () => {
     console.log(`signer address=${cennznetSigner.address}`);
   });
 
-  // it('name, symbol, decimals', async () => {
-  //   expect(
-  //     await cennzToken.decimals()
-  //   ).to.equal(4);
+  it('name, symbol, decimals', async () => {
+    expect(
+      await cennzToken.decimals()
+    ).to.equal(4);
 
-  //   expect(
-  //     await cennzToken.name()
-  //   ).to.equal("CENNZ");
+    expect(
+      await cennzToken.name()
+    ).to.equal("CENNZ");
 
-  //   expect(
-  //     await cennzToken.symbol()
-  //   ).to.equal("CENNZ");
-  // });
+    expect(
+      await cennzToken.symbol()
+    ).to.equal("CENNZ");
+  });
 
   it('approve and transferFrom', async () => {
     let walletCENNZ = await cennzToken.balanceOf(cennznetSigner.address);

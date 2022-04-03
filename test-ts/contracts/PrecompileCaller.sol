@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 // Calls GA CENNZ precompile
 contract PrecompileCaller {
     // derived CENNZ token address on testnets (AssetId 16000)
-    // CcccccCc (prefix) + 00003e80 (assetId) + padding
+    // cccccccc (prefix) + 00003e80 (assetId) + padding
     // run through web3.utils.toChecksumAddress(..)
     address cennz = 0xcCccccCc00003E80000000000000000000000000;
 

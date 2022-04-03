@@ -62,9 +62,9 @@ static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const CPAY_UNIT_VALUE: Balance = 10_u128.pow(14);
 
-/// Convert 18dp wei values to 4dp equivalents
+/// Convert 18dp wei values to 4dp equivalents (CPAY)
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
-fn scale_to_4dp(value: Balance) -> Balance {
+pub fn scale_to_4dp(value: Balance) -> Balance {
 	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
 	if remainder.is_zero() {
 		quotient
