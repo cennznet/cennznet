@@ -19,6 +19,7 @@
 use super::{config_genesis, get_account_id_from_seed, get_authority_keys_from_seed, CENNZnetChainSpec, NetworkKeys};
 use sc_service::ChainType;
 use sp_core::sr25519;
+use std::str::FromStr;
 
 fn network_keys() -> NetworkKeys {
 	let endowed_accounts = vec![
@@ -36,6 +37,9 @@ fn network_keys() -> NetworkKeys {
 		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		// this is the dervied ss58 address for the development evm address ('0x12B29179a7F858478Fde74f842126CdA5eA7AC35')
+		sp_runtime::AccountId32::from_str("5EK7n4pa3FcCGoxvnJ4Qghe4xHJLJyNT6vsPWEJaSWUiTCVp")
+			.expect("address is valid ss58"),
 	];
 	let initial_authorities = vec![get_authority_keys_from_seed("Alice")];
 	let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");

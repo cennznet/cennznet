@@ -14,12 +14,14 @@
 */
 
 use crate as crml_eth_bridge;
-use crate::{Config, Module};
+use crate::{Config, Error, Module};
 use cennznet_primitives::eth::crypto::AuthorityId;
-use crml_support::{EventClaimSubscriber, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml};
+use crml_support::{
+	EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml,
+};
 use frame_support::traits::OneSessionHandler;
 use frame_support::{
-	parameter_types,
+	assert_noop, assert_ok, parameter_types,
 	storage::StorageValue,
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
@@ -224,6 +226,26 @@ const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
 struct TestRequest {
 	message: String,
+}
+
+#[test]
+fn tracks_pending_claims() {
+	ExtBuilder::default().build().execute_with(|| {
+		let contract_address = H160::from_low_u64_be(11);
+		let event_signature = H256::from_low_u64_be(22);
+		let tx_hash = H256::from_low_u64_be(33);
+		let event_data = [1u8, 2, 3, 4, 5];
+		assert_ok!(Module::<TestRuntime>::submit_event_claim(
+			&contract_address,
+			&event_signature,
+			&tx_hash,
+			&event_data
+		));
+		assert_noop!(
+			Module::<TestRuntime>::submit_event_claim(&contract_address, &event_signature, &tx_hash, &event_data),
+			Error::<TestRuntime>::DuplicateClaim
+		);
+	});
 }
 
 #[test]

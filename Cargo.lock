@@ -694,14 +694,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cennznet-primitives",
  "cennznet-rpc-core-txpool",
@@ -841,7 +841,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.1.0-rc4"
+version = "2.1.1"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "crml-nft-rpc"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cennznet-primitives",
  "crml-nft",
@@ -1356,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "crml-nft-rpc-runtime-api"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cennznet-primitives",
  "crml-nft",

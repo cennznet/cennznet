@@ -134,7 +134,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation chabges and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 53,
+	spec_version: 57,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -724,7 +724,13 @@ impl pallet_base_fee::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ChainId: u64 = 3000;
+	/// Ethereum ChainId
+	/// 2999 (local/dev/default)
+	/// 3000 (mainnet)
+	/// 3001 (nikau)
+	/// 3002 (rata)
+	/// NB: Configured on live chains via one-time setStorage tx at key `:EthereumChainId:`
+	pub storage EthereumChainId: u64 = 2_999;
 	pub BlockGasLimit: U256
 		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
 	pub PrecompilesValue: CENNZnetPrecompiles<Runtime> = CENNZnetPrecompiles::<_>::new();
@@ -750,7 +756,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
-	type ChainId = ChainId;
+	type ChainId = EthereumChainId;
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = CENNZnetOnChargeEVMTransaction<Self>;
 	type FindAuthor = EthereumFindAuthor<Babe>;

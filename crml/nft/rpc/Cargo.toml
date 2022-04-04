@@ -1,7 +1,7 @@
 
 [package]
 name = "crml-nft-rpc"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["Centrality Developers <developers@centrality.ai>"]
 edition = "2018"
 license = "GPL-3.0"
