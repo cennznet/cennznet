@@ -23,6 +23,7 @@ where
 		Self(Default::default())
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
+		// TODO: precompute this
 		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026]
 			.into_iter()
 			.map(|x| hash(x))
@@ -76,7 +77,10 @@ impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
 	}
 
 	fn is_precompile(&self, address: H160) -> bool {
+		let routing_prefix = &address.to_fixed_bytes()[0..4];
 		Self::used_addresses().contains(&address)
+			|| routing_prefix == ERC20_PRECOMPILE_ADDRESS_PREFIX
+			|| routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX
 	}
 }
 
@@ -126,9 +130,9 @@ impl Erc20IdConversion for Runtime {
 		let (prefix_part, id_part) = h160_address.as_fixed_bytes().split_at(4);
 
 		if prefix_part == ERC20_PRECOMPILE_ADDRESS_PREFIX {
-			let mut buf = [0u8; 16];
-			buf.copy_from_slice(id_part);
-			let asset_id = AssetId::from_be_bytes(buf[0..4].try_into().ok()?);
+			let mut buf = [0u8; 4];
+			buf.copy_from_slice(&id_part[..4]);
+			let asset_id = AssetId::from_be_bytes(buf);
 
 			Some(asset_id)
 		} else {

@@ -24,7 +24,7 @@ use cennznet_runtime::{
 	SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use core::convert::TryFrom;
-use crml_support::{H160, U256};
+use crml_support::H160;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	FixedPointNumber, FixedU128, Perbill,
 };
-use std::{collections::BTreeMap, str::FromStr};
+use std::str::FromStr;
 
 pub use cennznet_primitives::types::{AccountId, Balance, Signature};
 pub use cennznet_runtime::GenesisConfig;
@@ -437,20 +437,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 		base_fee: Default::default(),
 		ethereum: EthereumConfig {},
 		evm: EVMConfig {
-			accounts: {
-				let mut map = BTreeMap::new();
-				map.insert(
-					// seed: 0xab3fdbe7eca16f38e9f5ee81b9e23d01ef251ba4ae19225783e5921a4a8c5564 / uri: `//development`
-					H160::from_str("0x12B29179a7F858478Fde74f842126CdA5eA7AC35").expect("internal H160 is valid; qed"),
-					pallet_evm::GenesisAccount {
-						balance: U256::from_str("0xfffffffffffffffffffff").expect("internal U256 is valid; qed"),
-						code: Default::default(),
-						nonce: Default::default(),
-						storage: Default::default(),
-					},
-				);
-				map
-			},
+			accounts: Default::default(),
 		},
 	}
 }

@@ -839,7 +839,7 @@ fn block_author_receives_evm_priority_fee_reward() {
 			// Calculate actual priority fee based on used gas
 			let actual_weight = res.unwrap().unwrap().actual_weight.unwrap();
 			let used_gas = CENNZnetGasWeightMapping::weight_to_gas(actual_weight.into());
-			let actual_priority_fee = (priority_fee * used_gas as u128) / 10_u128.pow(14);
+			let actual_priority_fee = cennznet_runtime::impls::scale_to_4dp(priority_fee * used_gas as u128);
 
 			// Get current validators (Can't use previous value as they have been sorted)
 			let validators = <pallet_session::Pallet<Runtime>>::validators();
