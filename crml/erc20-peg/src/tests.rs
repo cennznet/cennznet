@@ -1,5 +1,5 @@
 use super::*;
-use crate::mock::{DepositEventSignature, Erc20Peg, ExtBuilder, GenericAsset, PegPalletId, Test};
+use crate::mock::{DepositEventSignature, Erc20Peg, ExtBuilder, GenericAsset, PegPalletId, System, Test};
 use cennznet_primitives::types::AccountId;
 use crml_support::MultiCurrency;
 use frame_support::{
@@ -385,6 +385,82 @@ fn multiple_deposit_claims_with_delay() {
 		assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
 		let empty_claims: Vec<u64> = vec![];
 		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), empty_claims);
+	});
+}
+
+#[test]
+fn many_deposit_claims_with_delay() {
+	ExtBuilder::default().build().execute_with(|| {
+		let origin: AccountId =
+			AccountId::from(hex!("0000000000000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 100;
+		let beneficiary: H256 = H256::default();
+		let claim = Erc20DepositEvent {
+			token_address: cennz_eth_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		let tx_hash = H256::default();
+		let delay: u64 = 1000;
+		let delayed_claim_weight: Weight = DbWeight::get()
+			.reads(8 as Weight)
+			.saturating_add(DbWeight::get().writes(10 as Weight));
+
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		assert_ok!(Erc20Peg::set_claim_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			amount,
+			delay
+		));
+		let mut claim_ids: Vec<ClaimId> = vec![];
+		// Try deposit more claims than u8::MAX
+		let num_claims: u64 = 50;
+		let claim_block = System::block_number() + delay;
+		let mut claim_blocks: Vec<u64> = vec![];
+
+		for i in 0..num_claims {
+			let claim_id = <NextDelayedClaimId>::get();
+			claim_ids.push(claim_id);
+			assert_ok!(Erc20Peg::deposit_claim(
+				Some(origin.clone()).into(),
+				tx_hash,
+				claim.clone()
+			));
+			assert_eq!(
+				Erc20Peg::delayed_claim_schedule(claim_block + i),
+				vec![claim_id.clone()]
+			);
+
+			// Go to next block
+			claim_blocks.push(claim_block + i);
+			System::set_block_number(System::block_number() + 1);
+		}
+
+		for i in 0..num_claims {
+			// Go through each block and process claim
+			assert_eq!(
+				Erc20Peg::on_initialize(claim_blocks[i as usize]),
+				DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
+			);
+			assert_eq!(
+				Erc20Peg::on_idle(
+					claim_blocks[i as usize],
+					delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+				),
+				delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+			);
+			// Check storage is removed at this block
+			assert_eq!(Erc20Peg::delayed_claims(claim_ids[i as usize]), None);
+			let empty_blocks: Vec<u64> = vec![];
+			assert_eq!(Erc20Peg::ready_blocks(), empty_blocks);
+			let empty_claims: Vec<u64> = vec![];
+			assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), empty_claims);
+		}
 	});
 }
 

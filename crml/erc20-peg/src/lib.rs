@@ -176,7 +176,8 @@ decl_module! {
 				return 0;
 			}
 			// Check that there are blocks in ready_blocks
-			if ReadyBlocks::<T>::decode_len().is_none() {
+			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
+			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
 				return 0;
 			}
 
