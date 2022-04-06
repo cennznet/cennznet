@@ -209,7 +209,7 @@ decl_module! {
 				}
 			}
 
-			ReadyBlocks::<T>::put(ready_blocks.split_off(processed_block_count.into()));
+			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
 			initial_read_cost + weight_each * processed_claim_count as Weight
 		}
 
