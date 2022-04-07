@@ -16,7 +16,7 @@ sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false  }
 crml-support = { path = "../support", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "dc41b4322e109265b7e12e01719dba24e1b96bdc" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 
 [dev-dependencies]
