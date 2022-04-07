@@ -19,8 +19,9 @@ use cennznet_cli::chain_spec::AuthorityKeys;
 use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, Header};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
-	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, EpochDuration, Executive, MaxNominatorRewardedPerValidator,
-	Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration, Staking, System, Timestamp, Treasury,
+	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, DefaultBaseFeePerGas, EpochDuration, Executive,
+	MaxNominatorRewardedPerValidator, Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration,
+	Staking, System, Timestamp, Treasury,
 };
 use codec::Encode;
 use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
@@ -816,8 +817,8 @@ fn block_author_receives_evm_priority_fee_reward() {
 			let t = EIP1559UnsignedTransaction {
 				nonce: U256::zero(),
 				max_priority_fee_per_gas: U256::from(priority_fee),
-				max_fee_per_gas: U256::from(5_600_000_000_000_u64),
-				gas_limit: U256::from(4000000),
+				max_fee_per_gas: U256::from(DefaultBaseFeePerGas::get()),
+				gas_limit: U256::from(4_000_000),
 				action: pallet_ethereum::TransactionAction::Create,
 				value: U256::zero(),
 				input: FromHex::from_hex(ERC20_CONTRACT_BYTECODE).unwrap(),
