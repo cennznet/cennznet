@@ -737,7 +737,7 @@ parameter_types! {
 /// Modified london config with higher contract create fee
 const fn cennznet_london() -> EvmConfig {
 	let mut c = EvmConfig::london();
-	c.gas_transaction_create = 3_000_000;
+	c.gas_transaction_create = 2_000_000;
 	c
 }
 static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
