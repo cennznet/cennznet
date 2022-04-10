@@ -448,10 +448,6 @@ pub(crate) mod tests {
 	use sc_service::ChainType;
 	use sp_runtime::BuildStorage;
 
-	fn new_test_ext() -> sp_io::TestExternalities {
-		sp_io::TestExternalities::new_empty()
-	}
-
 	fn local_testnet_genesis_instant_single() -> GenesisConfig {
 		let endowed_accounts = vec![
 			get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -519,8 +515,6 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_create_development_chain_spec() {
-		new_test_ext().execute_with(|| {
-			dev::config().build_storage().unwrap();
-		});
+		dev::config().build_storage().unwrap();
 	}
 }
