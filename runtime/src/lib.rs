@@ -709,7 +709,9 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 }
 
 parameter_types! {
-	pub const DefaultBaseFeePerGas: u64 = 5_500_000_000_000; // 0.000055 CPAY per gas
+	/// Floor network base fee per gas
+	/// 0.00015 CPAY per gas
+	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const IsBaseFeeActive: bool = true;
 }
 impl pallet_base_fee::Config for Runtime {
@@ -722,9 +724,9 @@ impl pallet_base_fee::Config for Runtime {
 parameter_types! {
 	/// Ethereum ChainId
 	/// 2999 (local/dev/default)
-	/// 3000 (mainnet)
+	/// 3000 (rata)
 	/// 3001 (nikau)
-	/// 3002 (rata)
+	/// 21337 (mainnet)
 	/// NB: Configured on live chains via one-time setStorage tx at key `:EthereumChainId:`
 	pub storage EthereumChainId: u64 = 2_999;
 	pub BlockGasLimit: U256
@@ -735,7 +737,7 @@ parameter_types! {
 /// Modified london config with higher contract create fee
 const fn cennznet_london() -> EvmConfig {
 	let mut c = EvmConfig::london();
-	c.gas_transaction_create = 3_000_000;
+	c.gas_transaction_create = 2_000_000;
 	c
 }
 static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();

@@ -17,10 +17,14 @@
 
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, CheckedExtrinsic, TransactionPayment, UncheckedExtrinsic,
+	BaseFee, Call, CheckedExtrinsic, DefaultBaseFeePerGas, System, TransactionPayment, UncheckedExtrinsic,
 };
 use codec::Encode;
-use frame_support::weights::GetDispatchInfo;
+use frame_support::{
+	traits::OnFinalize,
+	weights::{DispatchClass, GetDispatchInfo},
+};
+use sp_core::U256;
 
 mod common;
 use common::helpers::sign;
@@ -33,6 +37,21 @@ fn signed_tx(call: Call) -> UncheckedExtrinsic {
 		signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 		function: call,
 	})
+}
+
+#[test]
+fn should_not_decrease_base_fee_below_default() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Register empty block.
+		System::register_extra_weight_unchecked(0, DispatchClass::Normal);
+		BaseFee::on_finalize(System::block_number());
+		// Expect fee to stay at `DefaultBaseFeePerGas`
+		assert_eq!(BaseFee::base_fee_per_gas(), U256::from(DefaultBaseFeePerGas::get()));
+
+		// Aaand again..
+		BaseFee::on_finalize(System::block_number() + 1);
+		assert_eq!(BaseFee::base_fee_per_gas(), U256::from(DefaultBaseFeePerGas::get()));
+	});
 }
 
 // These following tests may be used to inspect transaction fee values.
