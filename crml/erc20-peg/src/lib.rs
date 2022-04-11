@@ -52,8 +52,6 @@ pub trait Config: frame_system::Config {
 	type PegPalletId: Get<PalletId>;
 	/// The EVM event signature of a deposit
 	type DepositEventSignature: Get<[u8; 32]>;
-	/// Failed claim delay length
-	type FailedClaimDelay: Get<u32>;
 	/// Submits event claims for Ethereum
 	type EthBridge: EventClaimVerifier;
 	/// Currency functions
@@ -184,7 +182,7 @@ decl_module! {
 			// Process as many claims as we can
 			let weight_each: Weight = DbWeight::get().reads(8 as Weight).saturating_add(DbWeight::get().writes(10 as Weight));
 			let max_claims = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
-			let mut ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
+			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
 			// Total claims processed in this block
 			let mut processed_claim_count: u8 = 0;
 			// Count of blocks where all claims have been processed

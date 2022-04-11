@@ -91,7 +91,6 @@ parameter_types! {
 	pub const MaxAttributeLength: u8 = 140;
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
 	pub const DepositEventSignature: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-	pub const FailedClaimDelay: u32 = 120;
 }
 impl crate::Config for Test {
 	type DepositEventSignature = DepositEventSignature;
@@ -99,7 +98,6 @@ impl crate::Config for Test {
 	type EthBridge = MockEthBridge;
 	type MultiCurrency = GenericAsset;
 	type PegPalletId = PegPalletId;
-	type FailedClaimDelay = FailedClaimDelay;
 }
 
 /// Mock ethereum bridge

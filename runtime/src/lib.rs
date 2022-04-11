@@ -644,15 +644,11 @@ parameter_types! {
 	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
-	/// The length of an era
-	pub const FailedClaimDelay: u32 = SessionsPerEra::get() as u32;
 }
 impl crml_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;
 	type DepositEventSignature = DepositEventSignature;
-	/// The delay time for a failed claim
-	type FailedClaimDelay = FailedClaimDelay;
 	/// Runtime currency system
 	type MultiCurrency = GenericAsset;
 	/// PalletId/Account for this module
