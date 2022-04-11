@@ -31,6 +31,7 @@ mod tests;
 mod types;
 use types::*;
 
+use cennznet_primitives::eth::Message;
 use cennznet_primitives::{
 	eth::{ConsensusLog, ValidatorSet, ETHY_ENGINE_ID},
 	types::BlockNumber,
@@ -44,7 +45,9 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
 	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
-	transactional, Parameter,
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	Parameter,
 };
 use frame_system::{
 	offchain::{CreateSignedTransaction, SubmitTransaction},
@@ -119,6 +122,8 @@ decl_storage! {
 		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => (EthHash, EventTypeId);
 		/// Event data for a given claim
 		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
+		/// Event claims to be processed once bridge has been re-enabled
+		DelayedEventClaims get (fn delayed_event_claims): map hasher(twox_64_concat) EventClaimId => Option<Message>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -201,6 +206,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			let mut weight: Weight = 0;
 			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
@@ -212,10 +218,19 @@ decl_module! {
 				ProcessedTxBuckets::remove_prefix(expired_bucket_index, None);
 
 				// TODO: better estimate
-				50_000_000_u64
-			} else {
-				Zero::zero()
+				weight += 50_000_000 as Weight;
 			}
+
+			if !Self::bridge_paused() {
+				weight = weight.saturating_add(DbWeight::get().reads(1 as Weight));
+				for (event_proof_id, packed_event_with_id) in DelayedEventClaims::iter().take(5) {
+					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
+					DelayedEventClaims::remove(event_proof_id);
+					weight = weight.saturating_add(DbWeight::get().writes(2 as Weight));
+				}
+			}
+
+			weight
 		}
 
 		#[weight = 100_000]
@@ -433,7 +448,6 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 	}
 
 	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
-		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		let event_proof_id = Self::next_proof_id();
 
 		// TODO: does this support multiple consensus logs in a block?
@@ -444,14 +458,14 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 			&EthAbiCodec::encode(&event_proof_id)[..],
 		]
 		.concat();
-		let log: DigestItem = DigestItem::Consensus(
-			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
+		// ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
+		if Self::bridge_paused() {
+			// Delay proof
+			DelayedEventClaims::insert(event_proof_id, packed_event_with_id);
+			return Err(Error::<T>::BridgePaused.into());
+		}
 
-		NextProofId::put(event_proof_id.wrapping_add(1));
-
+		Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 		Ok(event_proof_id)
 	}
 }
@@ -763,6 +777,16 @@ impl<T: Config> Module<T> {
 				log_notary_change(new.as_ref());
 			}
 		}
+	}
+
+	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
+		let log: DigestItem = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+
+		NextProofId::put(event_proof_id.wrapping_add(1));
 	}
 }
 
