@@ -160,6 +160,8 @@ decl_storage! {
 		BridgePaused get(fn bridge_paused): bool;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventConfirmations get(fn event_confirmations): u64 = 3;
+		/// The maximum number of delayed events that can be processed in on_initialize()
+		DelayedEventsPerBlock get(fn delayed_events_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 	}
@@ -223,7 +225,7 @@ decl_module! {
 
 			if !Self::bridge_paused() {
 				weight = weight.saturating_add(DbWeight::get().reads(1 as Weight));
-				for (event_proof_id, packed_event_with_id) in DelayedEventClaims::iter().take(5) {
+				for (event_proof_id, packed_event_with_id) in DelayedEventClaims::iter().take(Self::delayed_events_per_block() as usize) {
 					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 					DelayedEventClaims::remove(event_proof_id);
 					weight = weight.saturating_add(DbWeight::get().writes(2 as Weight));
@@ -245,6 +247,13 @@ decl_module! {
 		pub fn set_event_deadline(origin, seconds: u64) {
 			ensure_root(origin)?;
 			EventDeadlineSeconds::put(seconds);
+		}
+
+		#[weight = 100_000]
+		/// Set max number of delayed events that can be processed in a block
+		pub fn set_delayed_events_per_block(origin, count: u8) {
+			ensure_root(origin)?;
+			DelayedEventsPerBlock::put(count);
 		}
 
 		#[weight = 1_000_000]
