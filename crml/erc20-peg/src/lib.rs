@@ -34,7 +34,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-mod types;
+pub mod types;
 use types::*;
 #[cfg(test)]
 mod mock;

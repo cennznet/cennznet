@@ -28,6 +28,7 @@ sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+crml-erc20-peg = { path = "../erc20-peg" }
 
 [features]
 default = ["std"]

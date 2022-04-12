@@ -13,17 +13,20 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::BridgePaused;
 use crate as crml_eth_bridge;
-use crate::{Config, Error, Module};
+use crate::{types::EventProofId, Config, Error, Module};
 use cennznet_primitives::eth::crypto::AuthorityId;
+use crml_erc20_peg::types::WithdrawMessage;
 use crml_support::{
-	EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml,
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160,
+	H256 as H256Crml,
 };
-use frame_support::traits::OneSessionHandler;
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
 	storage::StorageValue,
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{OnInitialize, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{
 	ecdsa::Signature,
@@ -340,6 +343,123 @@ fn eth_client_http_request() {
 			}
 		);
 	})
+}
+
+#[test]
+fn delayed_event_proof() {
+	ExtBuilder::default().build().execute_with(|| {
+		let contract_address = H160::from_low_u64_be(11);
+		let beneficiary = H160::from_low_u64_be(22);
+		let amount = 200u64;
+		let message = WithdrawMessage {
+			token_address: contract_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		BridgePaused::put(true);
+		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
+
+		let event_proof_id = Module::<TestRuntime>::next_proof_id();
+		let packed_event_with_id = [
+			&message.encode()[..],
+			&EthAbiCodec::encode(&Module::<TestRuntime>::validator_set().id)[..],
+			&EthAbiCodec::encode(&event_proof_id)[..],
+		]
+		.concat();
+
+		// Generate event proof
+		assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+		// Ensure event has been added to delayed claims
+		assert_eq!(
+			Module::<TestRuntime>::delayed_event_claims(event_proof_id),
+			Some(packed_event_with_id)
+		);
+		assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+
+		// Re-enable bridge
+		BridgePaused::put(false);
+		// initialize pallet and initiate event proof
+		let expected_weight: Weight = DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(2 as Weight);
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			expected_weight
+		);
+		// Ensure event has been removed from delayed claims
+		assert_eq!(Module::<TestRuntime>::delayed_event_claims(event_proof_id), None);
+	});
+}
+
+#[test]
+fn multiple_delayed_event_proof() {
+	ExtBuilder::default().build().execute_with(|| {
+		let contract_address = H160::from_low_u64_be(11);
+		let beneficiary = H160::from_low_u64_be(22);
+		let amount = 200u64;
+		let message = WithdrawMessage {
+			token_address: contract_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+		BridgePaused::put(true);
+		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
+
+		let max_delayed_events = Module::<TestRuntime>::delayed_events_per_block();
+		let event_count: u8 = max_delayed_events * 2;
+		let mut event_ids: Vec<EventProofId> = vec![];
+
+		for _ in 0..event_count {
+			let event_proof_id = Module::<TestRuntime>::next_proof_id();
+			event_ids.push(event_proof_id);
+			let packed_event_with_id = [
+				&message.encode()[..],
+				&EthAbiCodec::encode(&Module::<TestRuntime>::validator_set().id)[..],
+				&EthAbiCodec::encode(&event_proof_id)[..],
+			]
+			.concat();
+			// Generate event proof
+			assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(
+				Module::<TestRuntime>::delayed_event_claims(event_proof_id),
+				Some(packed_event_with_id)
+			);
+			assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		BridgePaused::put(false);
+		// initialize pallet and initiate event proof
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+		);
+
+		let mut removed_count = 0;
+		for i in 0..event_count {
+			// Ensure event has been removed from delayed claims
+			if Module::<TestRuntime>::delayed_event_claims(event_ids[i as usize]) == None {
+				removed_count += 1;
+			}
+		}
+		// Should have only processed max amount
+		assert_eq!(removed_count, max_delayed_events);
+
+		// Now initialize next block and process the rest
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 2),
+			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+		);
+
+		let mut removed_count = 0;
+		for i in 0..event_count {
+			// Ensure event has been removed from delayed claims
+			if Module::<TestRuntime>::delayed_event_claims(event_ids[i as usize]) == None {
+				removed_count += 1;
+			}
+		}
+		// All events should have now been processed
+		assert_eq!(removed_count, event_count);
+	});
 }
 
 #[test]

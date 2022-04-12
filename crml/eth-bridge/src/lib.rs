@@ -176,6 +176,8 @@ decl_event! {
 		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_id`
 		AuthoritySetChange(EventProofId, u64),
+		/// Generating event proof delayed as bridge is paused
+		ProofDelayed(EventProofId),
 	}
 }
 
@@ -458,6 +460,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 
 	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
 		let event_proof_id = Self::next_proof_id();
+		NextProofId::put(event_proof_id.wrapping_add(1));
 
 		// TODO: does this support multiple consensus logs in a block?
 		// save this for `on_finalize` and insert many
@@ -467,14 +470,16 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 			&EthAbiCodec::encode(&event_proof_id)[..],
 		]
 		.concat();
+
 		// ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		if Self::bridge_paused() {
 			// Delay proof
 			DelayedEventClaims::insert(event_proof_id, packed_event_with_id);
-			return Err(Error::<T>::BridgePaused.into());
+			Self::deposit_event(Event::ProofDelayed(event_proof_id));
+		} else {
+			Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 		}
 
-		Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 		Ok(event_proof_id)
 	}
 }
@@ -794,8 +799,6 @@ impl<T: Config> Module<T> {
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-
-		NextProofId::put(event_proof_id.wrapping_add(1));
 	}
 }
 
