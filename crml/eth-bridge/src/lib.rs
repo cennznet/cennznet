@@ -120,10 +120,10 @@ decl_storage! {
 		ActivationThreshold get(fn activation_threshold) config(): Percent = Percent::from_parts(66);
 		/// Queued event claims, awaiting notarization
 		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => (EthHash, EventTypeId);
-		/// Event data for a given claim
+		/// Event data for a given proof
 		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
-		/// Event claims to be processed once bridge has been re-enabled
-		DelayedEventClaims get (fn delayed_event_claims): map hasher(twox_64_concat) EventClaimId => Option<Message>;
+		/// Event proofs to be processed once bridge has been re-enabled
+		DelayedEventProofs get (fn delayed_event_proofs): map hasher(twox_64_concat) EventClaimId => Option<Message>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -161,7 +161,7 @@ decl_storage! {
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventConfirmations get(fn event_confirmations): u64 = 3;
 		/// The maximum number of delayed events that can be processed in on_initialize()
-		DelayedEventsPerBlock get(fn delayed_events_per_block): u8 = 5;
+		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 	}
@@ -226,11 +226,11 @@ decl_module! {
 			}
 
 			if !Self::bridge_paused() {
-				weight = weight.saturating_add(DbWeight::get().reads(1 as Weight));
-				for (event_proof_id, packed_event_with_id) in DelayedEventClaims::iter().take(Self::delayed_events_per_block() as usize) {
+				let max_delayed_events = Self::delayed_event_proofs_per_block();
+				weight = weight.saturating_add(DbWeight::get().reads(2 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				for (event_proof_id, packed_event_with_id) in DelayedEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
-					DelayedEventClaims::remove(event_proof_id);
-					weight = weight.saturating_add(DbWeight::get().writes(2 as Weight));
+					DelayedEventProofs::remove(event_proof_id);
 				}
 			}
 
@@ -253,9 +253,9 @@ decl_module! {
 
 		#[weight = 100_000]
 		/// Set max number of delayed events that can be processed in a block
-		pub fn set_delayed_events_per_block(origin, count: u8) {
+		pub fn set_delayed_event_proofs_per_block(origin, count: u8) {
 			ensure_root(origin)?;
-			DelayedEventsPerBlock::put(count);
+			DelayedEventProofsPerBlock::put(count);
 		}
 
 		#[weight = 1_000_000]
@@ -474,7 +474,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		// ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		if Self::bridge_paused() {
 			// Delay proof
-			DelayedEventClaims::insert(event_proof_id, packed_event_with_id);
+			DelayedEventProofs::insert(event_proof_id, packed_event_with_id);
 			Self::deposit_event(Event::ProofDelayed(event_proof_id));
 		} else {
 			Self::do_generate_event_proof(event_proof_id, packed_event_with_id);

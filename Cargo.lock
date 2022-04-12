@@ -1175,7 +1175,6 @@ name = "crml-eth-bridge"
 version = "1.0.0"
 dependencies = [
  "cennznet-primitives",
- "crml-erc20-peg",
  "crml-support",
  "ethereum-types",
  "frame-support",
