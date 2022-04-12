@@ -38,6 +38,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
 	Percent,
 };
+use std::marker::PhantomData;
 
 type SessionIndex = u32;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -192,14 +193,11 @@ where
 }
 
 // Mock withdraw message from ERC20-Peg
-struct MockWithdrawMessage {
-	value: u32,
-}
+struct MockWithdrawMessage<TestRuntime>(PhantomData<TestRuntime>);
 
-impl EthAbiCodec for MockWithdrawMessage {
+impl EthAbiCodec for MockWithdrawMessage<TestRuntime> {
 	fn encode(&self) -> Vec<u8> {
-		let buf = [0_u8; 32 * 3];
-		buf.to_vec()
+		[0_u8; 32 * 3].to_vec()
 	}
 
 	fn decode(_data: &[u8]) -> Option<Self> {
@@ -363,7 +361,7 @@ fn eth_client_http_request() {
 #[test]
 fn delayed_event_proof() {
 	ExtBuilder::default().build().execute_with(|| {
-		let message = MockWithdrawMessage { value: 20 };
+		let message = MockWithdrawMessage { 0: Default::default() };
 		BridgePaused::put(true);
 		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
 
@@ -402,7 +400,7 @@ fn delayed_event_proof() {
 #[test]
 fn multiple_delayed_event_proof() {
 	ExtBuilder::default().build().execute_with(|| {
-		let message = MockWithdrawMessage { value: 20 };
+		let message = MockWithdrawMessage { 0: Default::default() };
 		BridgePaused::put(true);
 		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
 
