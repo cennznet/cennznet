@@ -210,7 +210,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut weight: Weight = 0;
+			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
 			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
@@ -225,6 +225,9 @@ decl_module! {
 				weight += 50_000_000 as Weight;
 			}
 
+			if DelayedEventProofs::iter().count() == 0 {
+				return weight;
+			}
 			if !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				weight = weight.saturating_add(DbWeight::get().reads(2 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
@@ -233,7 +236,6 @@ decl_module! {
 					DelayedEventProofs::remove(event_proof_id);
 				}
 			}
-
 			weight
 		}
 
