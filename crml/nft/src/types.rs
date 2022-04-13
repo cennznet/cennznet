@@ -31,6 +31,19 @@ use variant_count::VariantCount;
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
+/// OfferId type used to distinguish different offers on NFTs
+pub type OfferId = u64;
+
+/// Holds information relating to NFT offers
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub struct Offer<AccountId> {
+	pub token_id: TokenId,
+	pub asset_id: AssetId,
+	pub amount: Balance,
+	pub buyer: AccountId,
+	pub marketplace_id: Option<MarketplaceId>,
+}
+
 /// Denotes the metadata URI referencing scheme used by a series
 /// Enable token metadata URI construction by clients
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]

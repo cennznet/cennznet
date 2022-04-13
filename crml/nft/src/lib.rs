@@ -97,6 +97,7 @@ decl_event!(
 		CollectionNameType = CollectionNameType,
 		Permill = Permill,
 		MarketplaceId = MarketplaceId,
+		OfferId = OfferId,
 	{
 		/// A new token collection was created (collection, name, owner)
 		CreateCollection(CollectionId, CollectionNameType, AccountId),
@@ -126,6 +127,14 @@ decl_event!(
 		Bid(CollectionId, ListingId, Balance),
 		/// An account has been registered as a marketplace (account, entitlement, marketplace_id)
 		RegisteredMarketplace(AccountId, Permill, MarketplaceId),
+		/// An offer has been made on an NFT (offer_id, amount, asset_id, marketplace_id, buyer)
+		OfferMade(OfferId, Balance, AssetId, Option<MarketplaceId>, AccountId),
+		/// An offer has been accepted (offer_id)
+		OfferAccepted(OfferId),
+		/// An offer has been rejected (offer_id)
+		OfferRejected(OfferId),
+		/// An offer has been cancelled (offer_id)
+		OfferCancelled(OfferId),
 	}
 );
 
@@ -171,7 +180,13 @@ decl_error! {
 		/// The Series name has been set
 		NameAlreadySet,
 		/// The metadata path is invalid (non-utf8 or empty)
-		InvalidMetadataPath
+		InvalidMetadataPath,
+		/// No offer exists for the given OfferId
+		InvalidOffer,
+		/// The signer is not the buyer
+		NotBuyer,
+		/// The signer owns the token and can't make an offer
+		IsTokenOwner,
 	}
 }
 
@@ -223,6 +238,12 @@ decl_storage! {
 		pub ListingWinningBid get(fn listing_winning_bid): map hasher(twox_64_concat) ListingId => Option<(T::AccountId, Balance)>;
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
+		/// Map from offer_id to the information related to the offer
+		pub Offers get(fn offers): map hasher(twox_64_concat) OfferId => Option<Offer<T::AccountId>>;
+		/// Maps from token_id to a vector of offer_ids on that token
+		pub TokenOffers get(fn token_offers): map hasher(twox_64_concat) TokenId => Vec<OfferId>;
+		/// The next available offer_id
+		pub NextOfferId get(fn next_offer_id): OfferId;
 		/// Version of this module's storage schema
 		StorageVersion build(|_: &GenesisConfig| Releases::V2 as u32): u32;
 	}
@@ -972,6 +993,140 @@ decl_module! {
 				},
 				Some(Listing::<T>::Auction(_)) => Err(Error::<T>::NotForFixedPriceSale.into()),
 				None => Err(Error::<T>::NotForFixedPriceSale.into()),
+			}
+		}
+
+		/// Create an offer on a token
+		/// Locks funds until offer is accepted, rejected or cancelled
+		#[weight = 0]
+		fn make_offer (
+			origin,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+			marketplace_id: Option<MarketplaceId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) != origin, Error::<T>::IsTokenOwner);
+			let offer_id = Self::next_offer_id();
+			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
+			// TODO ensure the token_id is not currently in an auction
+
+			// check user has the requisite funds to make this offer
+			let balance = T::MultiCurrency::free_balance(&origin, asset_id);
+			if let Some(balance_after_bid) = balance.checked_sub(amount) {
+				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
+				// - `amount` is unused
+				// - if there are multiple locks on user asset this could return true inaccurately
+				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, asset_id, amount, WithdrawReasons::RESERVE, balance_after_bid)?;
+			}
+
+			// try lock funds
+			T::MultiCurrency::reserve(&origin, asset_id, amount)?;
+
+			let mut token_offers = Self::token_offers(token_id);
+			token_offers.push(offer_id);
+			TokenOffers::insert(token_id, token_offers);
+
+			let new_offer = Offer {
+				token_id,
+				asset_id,
+				amount,
+				buyer: origin.clone(),
+				marketplace_id,
+			};
+			Offers::<T>::insert(offer_id, new_offer);
+			NextOfferId::mutate(|i| *i += 1);
+
+			Self::deposit_event(RawEvent::OfferMade(offer_id, amount, asset_id, marketplace_id, origin));
+			Ok(())
+		}
+
+		/// Cancels an offer on a token
+		/// Caller must be the offer buyer
+		#[weight = 0]
+		fn cancel_offer (
+			origin,
+			offer_id: OfferId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			let offer = Self::offers(offer_id);
+			if let Some(offer) = Self::offers(offer_id) {
+				ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
+				T::MultiCurrency::unreserve(&origin, offer.asset_id, offer.amount);
+				Offers::<T>::remove(offer_id);
+				TokenOffers::remove(offer.token_id);
+				Self::deposit_event(RawEvent::OfferCancelled(offer_id));
+				Ok(())
+			} else {
+				Err(Error::<T>::InvalidOffer.into())
+			}
+		}
+
+		/// Accepts an offer on a token
+		/// Caller must be token owner
+		#[weight = 0]
+		fn accept_offer (
+			origin,
+			offer_id: OfferId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(offer) = Self::offers(offer_id) {
+				let token_id = offer.token_id;
+				ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
+
+				let royalties_schedule = Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
+				let for_royalties = royalties_schedule.calculate_total_entitlement() * offer.amount;
+				let mut for_seller = offer.amount;
+
+				// do royalty payments
+				if !for_royalties.is_zero() {
+					let entitlements = royalties_schedule.entitlements.clone();
+					for (who, entitlement) in entitlements.into_iter() {
+						let royalty = entitlement * offer.amount;
+						let _ = T::MultiCurrency::repatriate_reserved(&offer.buyer, offer.asset_id, &who, royalty)?;
+						for_seller -= royalty;
+					}
+				}
+
+				let seller_balance = T::MultiCurrency::free_balance(&origin, offer.asset_id);
+				let _ = T::MultiCurrency::repatriate_reserved(&offer.buyer, offer.asset_id, &origin, for_seller)?;
+
+				// The implementation of `repatriate_reserved` may take less than the required amount and succeed
+				// this should not happen but could for reasons outside the control of this module
+				ensure!(
+					T::MultiCurrency::free_balance(&origin, offer.asset_id)
+						>= seller_balance.saturating_add(for_seller),
+					Error::<T>::InternalPayment
+				);
+				Self::do_transfer_unchecked(token_id.0, token_id.1, &vec![token_id.2], &origin, &offer.buyer);
+				Self::deposit_event(RawEvent::OfferAccepted(offer_id));
+				Ok(())
+			} else {
+				Err(Error::<T>::InvalidOffer.into())
+			}
+		}
+
+		/// Rejects an offer on a token
+		/// Caller must be token owner
+		#[weight = 0]
+		fn reject_offer (
+			origin,
+			offer_id: OfferId,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(offer) = Self::offers(offer_id) {
+				let token_id = offer.token_id;
+				ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
+				T::MultiCurrency::unreserve(&offer.buyer, offer.asset_id, offer.amount);
+				Offers::<T>::remove(offer_id);
+				TokenOffers::remove(offer.token_id);
+				Self::deposit_event(RawEvent::OfferRejected(offer_id));
+				Ok(())
+			} else {
+				Err(Error::<T>::InvalidOffer.into())
 			}
 		}
 	}
