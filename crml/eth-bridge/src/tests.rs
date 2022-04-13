@@ -13,17 +13,21 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::BridgePaused;
 use crate as crml_eth_bridge;
-use crate::{Config, Error, Module};
+use crate::{types::EventProofId, Config, Error, Module};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{
-	EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml,
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160,
+	H256 as H256Crml,
 };
-use frame_support::traits::OneSessionHandler;
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok,
+	dispatch::DispatchError,
+	parameter_types,
 	storage::StorageValue,
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{OnInitialize, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{
 	ecdsa::Signature,
@@ -36,6 +40,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
 	Percent,
 };
+use std::marker::PhantomData;
 
 type SessionIndex = u32;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -186,6 +191,19 @@ where
 		nonce: u64,
 	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
 		Some((call, (nonce, ())))
+	}
+}
+
+// Mock withdraw message from ERC20-Peg
+struct MockWithdrawMessage<TestRuntime>(PhantomData<TestRuntime>);
+
+impl EthAbiCodec for MockWithdrawMessage<TestRuntime> {
+	fn encode(&self) -> Vec<u8> {
+		[0_u8; 32 * 3].to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
 	}
 }
 
@@ -340,6 +358,204 @@ fn eth_client_http_request() {
 			}
 		);
 	})
+}
+
+#[test]
+fn generate_event_proof() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Test generating event proof without delay
+		let message = MockWithdrawMessage { 0: Default::default() };
+		let event_proof_id = Module::<TestRuntime>::next_proof_id();
+
+		// Generate event proof
+		assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+		// Ensure event has not been added to delayed claims
+		assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_proof_id), None);
+		assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+		// On initialize should return 0 weight as there are no pending proofs
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			DbWeight::get().reads(1 as Weight)
+		);
+	});
+}
+
+#[test]
+fn delayed_event_proof() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = MockWithdrawMessage { 0: Default::default() };
+		BridgePaused::put(true);
+		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
+
+		let event_proof_id = Module::<TestRuntime>::next_proof_id();
+		let packed_event_with_id = [
+			&message.encode()[..],
+			&EthAbiCodec::encode(&Module::<TestRuntime>::validator_set().id)[..],
+			&EthAbiCodec::encode(&event_proof_id)[..],
+		]
+		.concat();
+
+		// Generate event proof
+		assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+		// Ensure event has been added to delayed claims
+		assert_eq!(
+			Module::<TestRuntime>::delayed_event_proofs(event_proof_id),
+			Some(packed_event_with_id)
+		);
+		assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+
+		// Re-enable bridge
+		BridgePaused::put(false);
+		// initialize pallet and initiate event proof
+		let max_delayed_events = Module::<TestRuntime>::delayed_event_proofs_per_block() as u64;
+		let expected_weight: Weight =
+			DbWeight::get().reads(3 as Weight) + DbWeight::get().writes(2 as Weight) * max_delayed_events;
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			expected_weight
+		);
+		// Ensure event has been removed from delayed claims
+		assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_proof_id), None);
+	});
+}
+
+#[test]
+fn multiple_delayed_event_proof() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = MockWithdrawMessage { 0: Default::default() };
+		BridgePaused::put(true);
+		assert_eq!(Module::<TestRuntime>::bridge_paused(), true);
+
+		let max_delayed_events = Module::<TestRuntime>::delayed_event_proofs_per_block();
+		let event_count: u8 = max_delayed_events * 2;
+		let mut event_ids: Vec<EventProofId> = vec![];
+		let mut packed_event_with_ids = vec![];
+		for _ in 0..event_count {
+			let event_proof_id = Module::<TestRuntime>::next_proof_id();
+			event_ids.push(event_proof_id);
+			let packed_event_with_id = [
+				&message.encode()[..],
+				&EthAbiCodec::encode(&Module::<TestRuntime>::validator_set().id)[..],
+				&EthAbiCodec::encode(&event_proof_id)[..],
+			]
+			.concat();
+			packed_event_with_ids.push(packed_event_with_id.clone());
+			// Generate event proof
+			assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(
+				Module::<TestRuntime>::delayed_event_proofs(event_proof_id),
+				Some(packed_event_with_id)
+			);
+			assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		BridgePaused::put(false);
+		// initialize pallet and initiate event proof
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			DbWeight::get().reads(3 as Weight) + DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+		);
+
+		let mut removed_count = 0;
+		for i in 0..event_count {
+			// Ensure event has been removed from delayed claims
+			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]) == None {
+				removed_count += 1;
+			} else {
+				assert_eq!(
+					Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]),
+					Some(packed_event_with_ids[i as usize].clone())
+				)
+			}
+		}
+		// Should have only processed max amount
+		assert_eq!(removed_count, max_delayed_events);
+
+		// Now initialize next block and process the rest
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 2),
+			DbWeight::get().reads(3 as Weight) + DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+		);
+
+		let mut removed_count = 0;
+		for i in 0..event_count {
+			// Ensure event has been removed from delayed claims
+			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]) == None {
+				removed_count += 1;
+			}
+		}
+		// All events should have now been processed
+		assert_eq!(removed_count, event_count);
+	});
+}
+
+#[test]
+fn set_delayed_event_proofs_per_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Check that it starts as default value
+		assert_eq!(Module::<TestRuntime>::delayed_event_proofs_per_block(), 5);
+		let new_max_delayed_events: u8 = 10;
+		assert_ok!(Module::<TestRuntime>::set_delayed_event_proofs_per_block(
+			frame_system::RawOrigin::Root.into(),
+			new_max_delayed_events
+		));
+		assert_eq!(
+			Module::<TestRuntime>::delayed_event_proofs_per_block(),
+			new_max_delayed_events
+		);
+
+		let message = MockWithdrawMessage { 0: Default::default() };
+		let mut event_ids: Vec<EventProofId> = vec![];
+		BridgePaused::put(true);
+
+		for _ in 0..new_max_delayed_events {
+			let event_proof_id = Module::<TestRuntime>::next_proof_id();
+			event_ids.push(event_proof_id);
+			let packed_event_with_id = [
+				&message.encode()[..],
+				&EthAbiCodec::encode(&Module::<TestRuntime>::validator_set().id)[..],
+				&EthAbiCodec::encode(&event_proof_id)[..],
+			]
+			.concat();
+			// Generate event proof
+			assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(
+				Module::<TestRuntime>::delayed_event_proofs(event_proof_id),
+				Some(packed_event_with_id)
+			);
+			assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		BridgePaused::put(false);
+		// initialize pallet and initiate event proof
+		assert_eq!(
+			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
+			DbWeight::get().reads(3 as Weight) + DbWeight::get().writes(2 as Weight) * new_max_delayed_events as u64
+		);
+
+		for i in 0..new_max_delayed_events {
+			// Ensure event has been removed from delayed claims
+			assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]), None);
+		}
+	});
+}
+
+#[test]
+fn set_delayed_event_proofs_per_block_not_root_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Check that it starts as default value
+		assert_eq!(Module::<TestRuntime>::delayed_event_proofs_per_block(), 5);
+		let new_value: u8 = 10;
+		assert_noop!(
+			Module::<TestRuntime>::set_delayed_event_proofs_per_block(frame_system::RawOrigin::None.into(), new_value),
+			DispatchError::BadOrigin
+		);
+		assert_eq!(Module::<TestRuntime>::delayed_event_proofs_per_block(), 5);
+	});
 }
 
 #[test]
