@@ -88,10 +88,10 @@ pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime: crml_nft::pallet::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::pallet::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -107,7 +107,7 @@ where
 		// Convert target `address` into it's runtime NFT Id
 		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
 			// 'collection name' is empty when the collection doesn't exist yet
-			if !crml_nft::Pallet::<Runtime>::collection_name(collection_id).is_empty() {
+			if !crml_nft::pallet::Pallet::<Runtime>::collection_name(collection_id).is_empty() {
 				let result = {
 					let mut gasometer = Gasometer::new(target_gas);
 					let gasometer = &mut gasometer;
@@ -160,7 +160,7 @@ where
 	fn is_precompile(&self, address: H160) -> bool {
 		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
 			// route to NFT module only if the (collection, series) exists
-			crml_nft::Pallet::<Runtime>::series_exists(collection_id, series_id)
+			crml_nft::pallet::Pallet::<Runtime>::series_exists(collection_id, series_id)
 		} else {
 			false
 		}
@@ -176,10 +176,10 @@ impl<Runtime> Erc721PrecompileSet<Runtime> {
 impl<Runtime> Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
-	Runtime: crml_nft::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
+	Runtime: crml_nft::pallet::Config + pallet_evm::Config + frame_system::Config + crml_token_approvals::Config,
 	Runtime::AddressMapping: AddressMappingReversibleExt<Runtime::AccountId>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<crml_nft::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<crml_nft::pallet::Call<Runtime>> + From<crml_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -208,7 +208,7 @@ where
 
 		// Fetch info.
 		let owner_account_id =
-			H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
+			H256::from(crml_nft::pallet::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
 
 		// Build output.
 		Ok(PrecompileOutput {
@@ -232,12 +232,13 @@ where
 		let owner: H160 = input.read::<Address>(gasometer)?.into();
 
 		// Fetch info.
-		let amount: U256 = {
+		let amount: Bytes = {
 			let owner: Runtime::AccountId = Runtime::AddressMapping::into_account_id(owner);
-			(*crml_nft::Pallet::<Runtime>::token_balance(&owner)
+			crml_nft::pallet::Pallet::<Runtime>::token_balance(&owner)
 				.get(&series_id_parts)
-				.unwrap_or(&0))
-			.into()
+				.unwrap_or(&0)
+				.to_be_bytes()
+				.into()
 		};
 
 		// Build output.
@@ -283,7 +284,7 @@ where
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
 				Some(from).into(),
-				crml_nft::Call::<Runtime>::transfer {
+				crml_nft::pallet::Call::<Runtime>::transfer {
 					token_id,
 					new_owner: to,
 				},
@@ -407,7 +408,7 @@ where
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
-					crml_nft::Pallet::<Runtime>::series_name(series_id_parts)
+					crml_nft::pallet::Pallet::<Runtime>::series_name(series_id_parts)
 						.as_slice()
 						.into(),
 				)
@@ -426,7 +427,7 @@ where
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
 					// TODO: returns same as `name`
-					crml_nft::Pallet::<Runtime>::series_name(series_id_parts)
+					crml_nft::pallet::Pallet::<Runtime>::series_name(series_id_parts)
 						.as_slice()
 						.into(),
 				)
@@ -459,9 +460,13 @@ where
 			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
-					crml_nft::Pallet::<Runtime>::token_uri((series_id_parts.0, series_id_parts.1, serial_number))
-						.as_slice()
-						.into(),
+					crml_nft::pallet::Pallet::<Runtime>::token_uri((
+						series_id_parts.0,
+						series_id_parts.1,
+						serial_number,
+					))
+					.as_slice()
+					.into(),
 				)
 				.build(),
 			logs: Default::default(),
