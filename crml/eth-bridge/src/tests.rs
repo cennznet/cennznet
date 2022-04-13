@@ -429,7 +429,7 @@ fn multiple_delayed_event_proof() {
 		let max_delayed_events = Module::<TestRuntime>::delayed_event_proofs_per_block();
 		let event_count: u8 = max_delayed_events * 2;
 		let mut event_ids: Vec<EventProofId> = vec![];
-
+		let mut packed_event_with_ids = vec![];
 		for _ in 0..event_count {
 			let event_proof_id = Module::<TestRuntime>::next_proof_id();
 			event_ids.push(event_proof_id);
@@ -439,6 +439,7 @@ fn multiple_delayed_event_proof() {
 				&EthAbiCodec::encode(&event_proof_id)[..],
 			]
 			.concat();
+			packed_event_with_ids.push(packed_event_with_id.clone());
 			// Generate event proof
 			assert_ok!(Module::<TestRuntime>::generate_event_proof(&message));
 			// Ensure event has been added to delayed claims
@@ -462,6 +463,11 @@ fn multiple_delayed_event_proof() {
 			// Ensure event has been removed from delayed claims
 			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]) == None {
 				removed_count += 1;
+			} else {
+				assert_eq!(
+					Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]),
+					Some(packed_event_with_ids[i as usize].clone())
+				)
 			}
 		}
 		// Should have only processed max amount

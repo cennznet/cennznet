@@ -225,7 +225,7 @@ decl_module! {
 				weight += 50_000_000 as Weight;
 			}
 
-			if DelayedEventProofs::iter().count() == 0 {
+			if DelayedEventProofs::iter().next().is_none() {
 				return weight;
 			}
 			if !Self::bridge_paused() {
@@ -473,7 +473,6 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		]
 		.concat();
 
-		// ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		if Self::bridge_paused() {
 			// Delay proof
 			DelayedEventProofs::insert(event_proof_id, packed_event_with_id);
