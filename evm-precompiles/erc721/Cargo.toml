@@ -6,18 +6,18 @@ edition = "2018"
 repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.1.0", default-features = false }
 crml-nft = { path = "../../crml/nft", default-features = false }
 crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
-fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "9fac81fceb918665de2e25a1ff7d5398cb2f8aba" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "9fac81fceb918665de2e25a1ff7d5398cb2f8aba" }
 precompile-utils = { path = "../utils", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 

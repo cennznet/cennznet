@@ -21,8 +21,6 @@ use sp_core::ecdsa::Public;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::{convert::TryInto, prelude::*};
 
-use self::crypto::AuthoritySignature;
-
 /// The `ConsensusEngineId` of ETHY.
 pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
 
@@ -84,7 +82,7 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 pub struct EthyEcdsaToEthereum;
 impl Convert<Public, Option<[u8; 20]>> for EthyEcdsaToEthereum {
 	fn convert(a: Public) -> Option<[u8; 20]> {
-		use sp_core::crypto::Public;
+		use sp_core::crypto::ByteArray;
 		let compressed_key = a.as_slice();
 
 		libsecp256k1::PublicKey::parse_slice(compressed_key, Some(libsecp256k1::PublicKeyFormat::Compressed))
@@ -159,7 +157,7 @@ pub struct EventProof {
 impl EventProof {
 	/// Return the number of collected signatures.
 	pub fn signature_count(&self) -> usize {
-		let empty_sig = AuthoritySignature::default();
+		let empty_sig = sp_core::ecdsa::Signature { 0: [0u8; 65] }.into();
 		self.signatures.iter().filter(|x| x != &&empty_sig).count()
 	}
 }

@@ -14,18 +14,18 @@ sha3 = { version = "0.9", default-features = false }
 precompile-utils-macro = { path = "macro" }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.2", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.1.0", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
 hex-literal = { version = "*", default-features = false }
 rlp = { version = "*", default-features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52", default-features = false }
-pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52", default-features = false }
+fp-evm = { git = "https://github.com/cennznet/frontier", rev = "9fac81fceb918665de2e25a1ff7d5398cb2f8aba", default-features = false }
+pallet-evm = { git = "https://github.com/cennznet/frontier", rev = "9fac81fceb918665de2e25a1ff7d5398cb2f8aba", default-features = false }
 
 [features]
 default = [ "std" ]

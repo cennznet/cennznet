@@ -8,22 +8,22 @@ repository = "https://github.com/cennznet/cennznet"
 description = "A runtime module for decentralized governance of the CENNZnet protocol"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.1.0", default-features = false }
 serde = { version = "1.0.102", optional = true }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false  }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset"}
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747"}
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747"}
 
 [features]
 default = ["std"]

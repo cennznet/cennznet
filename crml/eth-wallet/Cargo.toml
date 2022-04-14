@@ -11,22 +11,22 @@ description = "FRAME pallet for eth_sign extrinsics"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0", features = ["derive"], default-features = false }
 serde = { version = "1.0.106", features = ["derive"], optional = true }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "9fac81fceb918665de2e25a1ff7d5398cb2f8aba" }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
 
 [dev-dependencies]
 hex-literal = "0.3.1"
 libsecp256k1 = { version = "0.6.0" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
+sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default_features = false }
 
 [features]
 default = ["std"]

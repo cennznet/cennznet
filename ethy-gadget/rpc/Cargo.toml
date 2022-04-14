@@ -16,13 +16,13 @@ jsonrpc-core-client = "18.0.0"
 jsonrpc-derive = "18.0.0"
 jsonrpc-pubsub = "18.0.0"
 
-codec = { version = "2.2.0", package = "parity-scale-codec", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.1.0", features = ["derive"] }
 
-sc-client-api = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-rpc = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-utils = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sc-client-api = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sc-rpc = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sc-utils = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 
 ethy-gadget = { path = "../." }
 cennznet-primitives = { path = "../../primitives" }

@@ -8,15 +8,15 @@ repository = "https://github.com/cennznet/cennznet"
 description = "RPC interface for the governance module."
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0" }
+codec = { package = "parity-scale-codec", version = "3.1.0" }
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = "18.0.0"
 jsonrpc-derive = "18.0.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sc-client-db = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-rpc = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 crml-governance = { path = "../" }
 crml-governance-rpc-runtime-api = { path = "runtime-api" }

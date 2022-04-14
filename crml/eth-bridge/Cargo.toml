@@ -8,26 +8,26 @@ license = "GPL-3.0"
 
 [dependencies]
 parking_lot = "0.11.1"
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.1.0", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
-ethereum-types = { version = "0.12.1", default-features = false, features = ["serialize", "codec"] }
+ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
 hex = { version = "0.4.3", default-features = false }
 
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-io = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747", default-features = false }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 
 [features]
 default = ["std"]

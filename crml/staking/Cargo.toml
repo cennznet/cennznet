@@ -10,35 +10,35 @@ description = "CENNZnet staking pallet"
 static_assertions = "1.1.0"
 serde = { version = "1.0.102", optional = true }
 log = { version = "0.4.14", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-frame-support = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-frame-system = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-authorship = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-application-crypto = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-io = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-npos-elections = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+codec = { package = "parity-scale-codec", version = "3.1.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+frame-support = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+frame-system = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+pallet-authorship = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+pallet-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-application-crypto = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-io = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-npos-elections = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 crml-support = { default-features = false, path = "../support" }
 
 [dev-dependencies]
 hex = "0.4"
 parking_lot = "0.11.1"
 rand_chacha = { version = "0.2" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-staking-reward-curve = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-timestamp = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+pallet-staking-reward-curve = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+pallet-timestamp = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 crml-generic-asset = { path = "../generic-asset" }
 crml-support = { path = "../support" }
-sp-storage = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-tracing = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-substrate-test-utils = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-storage = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+sp-tracing = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
+substrate-test-utils = { git = "https://github.com/cennznet/substrate", rev = "254219721084b533626ffa16b74c415771d46747" }
 
 [features]
 migrate = []
