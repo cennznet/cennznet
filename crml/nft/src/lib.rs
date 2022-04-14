@@ -183,10 +183,14 @@ decl_error! {
 		InvalidMetadataPath,
 		/// No offer exists for the given OfferId
 		InvalidOffer,
-		/// The signer is not the buyer
+		/// The caller is not the buyer
 		NotBuyer,
-		/// The signer owns the token and can't make an offer
+		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
+		/// Offer amount needs to be greater than 0
+		ZeroOffer,
+		/// Cannot make an offer on a token up for auction
+		TokenOnAuction,
 	}
 }
 
@@ -1007,12 +1011,18 @@ decl_module! {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 			ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) != origin, Error::<T>::IsTokenOwner);
 			let offer_id = Self::next_offer_id();
 			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-			// TODO ensure the token_id is not currently in an auction
-
+			// ensure the token_id is not currently in an auction
+			if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
+				match Self::listings(listing_id) {
+					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
+					None | Some(Listing::<T>::FixedPrice(_)) => (),
+				}
+			}
 			// check user has the requisite funds to make this offer
 			let balance = T::MultiCurrency::free_balance(&origin, asset_id);
 			if let Some(balance_after_bid) = balance.checked_sub(amount) {
@@ -1052,7 +1062,6 @@ decl_module! {
 			offer_id: OfferId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let offer = Self::offers(offer_id);
 			if let Some(offer) = Self::offers(offer_id) {
 				ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
 				T::MultiCurrency::unreserve(&origin, offer.asset_id, offer.amount);
@@ -1101,7 +1110,14 @@ decl_module! {
 						>= seller_balance.saturating_add(for_seller),
 					Error::<T>::InternalPayment
 				);
-				Self::do_transfer_unchecked(token_id.0, token_id.1, &vec![token_id.2], &origin, &offer.buyer);
+				Self::do_transfer_unchecked(token_id.0, token_id.1, &vec![token_id.2], &origin, &offer.buyer)?;
+
+				// Clean storage
+				Offers::<T>::remove(offer_id);
+				let mut token_offers = Self::token_offers(token_id);
+				token_offers.retain(|&x| x != offer_id);
+				TokenOffers::insert(token_id, token_offers);
+
 				Self::deposit_event(RawEvent::OfferAccepted(offer_id));
 				Ok(())
 			} else {
