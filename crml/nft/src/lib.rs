@@ -1023,7 +1023,7 @@ decl_module! {
 					None | Some(Listing::<T>::FixedPrice(_)) => (),
 				}
 			}
-			// check user has the requisite funds to make this offer
+			// check user has the required funds to make this offer
 			let balance = T::MultiCurrency::free_balance(&origin, asset_id);
 			if let Some(balance_after_bid) = balance.checked_sub(amount) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
