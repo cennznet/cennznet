@@ -191,6 +191,8 @@ decl_error! {
 		ZeroOffer,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
+		/// This offer type has not yet been implemented
+		OfferTypeNotImplemented,
 	}
 }
 
@@ -243,7 +245,7 @@ decl_storage! {
 		/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is scheduled to close.
 		pub ListingEndSchedule get(fn listing_end_schedule): double_map hasher(twox_64_concat) T::BlockNumber, hasher(twox_64_concat) ListingId => bool;
 		/// Map from offer_id to the information related to the offer
-		pub Offers get(fn offers): map hasher(twox_64_concat) OfferId => Option<Offer<T::AccountId>>;
+		pub Offers get(fn offers): map hasher(twox_64_concat) OfferId => Option<OfferType<T::AccountId>>;
 		/// Maps from token_id to a vector of offer_ids on that token
 		pub TokenOffers get(fn token_offers): map hasher(twox_64_concat) TokenId => Vec<OfferId>;
 		/// The next available offer_id
@@ -1003,7 +1005,7 @@ decl_module! {
 		/// Create an offer on a token
 		/// Locks funds until offer is accepted, rejected or cancelled
 		#[weight = 0]
-		fn make_offer (
+		fn make_simple_offer (
 			origin,
 			token_id: TokenId,
 			amount: Balance,
@@ -1035,18 +1037,16 @@ decl_module! {
 
 			// try lock funds
 			T::MultiCurrency::reserve(&origin, asset_id, amount)?;
-
-			let mut token_offers = Self::token_offers(token_id);
-			token_offers.push(offer_id);
-			TokenOffers::insert(token_id, token_offers);
-
-			let new_offer = Offer {
-				token_id,
-				asset_id,
-				amount,
-				buyer: origin.clone(),
-				marketplace_id,
-			};
+			TokenOffers::append(token_id, offer_id);
+			let new_offer = OfferType::<T::AccountId>::Simple(
+				SimpleOffer{
+					token_id,
+					asset_id,
+					amount,
+					buyer: origin.clone(),
+					marketplace_id,
+				}
+			);
 			Offers::<T>::insert(offer_id, new_offer);
 			NextOfferId::mutate(|i| *i += 1);
 
@@ -1062,13 +1062,18 @@ decl_module! {
 			offer_id: OfferId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			if let Some(offer) = Self::offers(offer_id) {
-				ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
-				T::MultiCurrency::unreserve(&origin, offer.asset_id, offer.amount);
-				Offers::<T>::remove(offer_id);
-				TokenOffers::remove(offer.token_id);
-				Self::deposit_event(RawEvent::OfferCancelled(offer_id));
-				Ok(())
+			if let Some(offer_type) = Self::offers(offer_id) {
+				match offer_type {
+					OfferType::Simple(offer) => {
+						ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
+						T::MultiCurrency::unreserve(&origin, offer.asset_id, offer.amount);
+						Offers::<T>::remove(offer_id);
+						TokenOffers::remove(offer.token_id);
+						Self::deposit_event(RawEvent::OfferCancelled(offer_id));
+						Ok(())
+					}
+					_ => Err(Error::<T>::OfferTypeNotImplemented.into())
+				}
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
 			}
@@ -1082,65 +1087,40 @@ decl_module! {
 			offer_id: OfferId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			if let Some(offer) = Self::offers(offer_id) {
-				let token_id = offer.token_id;
-				ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
+			if let Some(offer_type) = Self::offers(offer_id) {
+				match offer_type {
+					OfferType::Simple(offer) => {
+						let token_id = offer.token_id;
+						ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
 
-				let royalties_schedule = Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
-				let for_royalties = royalties_schedule.calculate_total_entitlement() * offer.amount;
-				let mut for_seller = offer.amount;
+						let royalties_schedule = Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
 
-				// do royalty payments
-				if !for_royalties.is_zero() {
-					let entitlements = royalties_schedule.entitlements.clone();
-					for (who, entitlement) in entitlements.into_iter() {
-						let royalty = entitlement * offer.amount;
-						let _ = T::MultiCurrency::repatriate_reserved(&offer.buyer, offer.asset_id, &who, royalty)?;
-						for_seller -= royalty;
+						if let Err(err) = Self::process_token_payment(
+							&offer.buyer,
+							&origin,
+							offer.asset_id,
+							vec![offer.token_id],
+							offer.amount,
+							royalties_schedule,
+						) {
+							// offer settlement failed despite our prior validations.
+							// release winning bid funds
+							log!(error, "🃏 bid settlement failed: {:?}", err);
+							T::MultiCurrency::unreserve(&offer.buyer, offer.asset_id, offer.amount);
+
+						} else {
+							// offer settlement success
+							// Clean storage
+							Offers::<T>::remove(offer_id);
+							TokenOffers::mutate(token_id, |offers| offers.retain(|&x| x != offer_id));
+
+							Self::deposit_event(RawEvent::OfferAccepted(offer_id));
+						}
+
+						Ok(())
 					}
+					_ => Err(Error::<T>::OfferTypeNotImplemented.into())
 				}
-
-				let seller_balance = T::MultiCurrency::free_balance(&origin, offer.asset_id);
-				let _ = T::MultiCurrency::repatriate_reserved(&offer.buyer, offer.asset_id, &origin, for_seller)?;
-
-				// The implementation of `repatriate_reserved` may take less than the required amount and succeed
-				// this should not happen but could for reasons outside the control of this module
-				ensure!(
-					T::MultiCurrency::free_balance(&origin, offer.asset_id)
-						>= seller_balance.saturating_add(for_seller),
-					Error::<T>::InternalPayment
-				);
-				Self::do_transfer_unchecked(token_id.0, token_id.1, &vec![token_id.2], &origin, &offer.buyer)?;
-
-				// Clean storage
-				Offers::<T>::remove(offer_id);
-				let mut token_offers = Self::token_offers(token_id);
-				token_offers.retain(|&x| x != offer_id);
-				TokenOffers::insert(token_id, token_offers);
-
-				Self::deposit_event(RawEvent::OfferAccepted(offer_id));
-				Ok(())
-			} else {
-				Err(Error::<T>::InvalidOffer.into())
-			}
-		}
-
-		/// Rejects an offer on a token
-		/// Caller must be token owner
-		#[weight = 0]
-		fn reject_offer (
-			origin,
-			offer_id: OfferId,
-		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			if let Some(offer) = Self::offers(offer_id) {
-				let token_id = offer.token_id;
-				ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
-				T::MultiCurrency::unreserve(&offer.buyer, offer.asset_id, offer.amount);
-				Offers::<T>::remove(offer_id);
-				TokenOffers::remove(offer.token_id);
-				Self::deposit_event(RawEvent::OfferRejected(offer_id));
-				Ok(())
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
 			}
@@ -1352,7 +1332,14 @@ impl<T: Config> Module<T> {
 					OpenCollectionListings::remove(listing_collection_id, listing_id);
 
 					if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(listing_id) {
-						if let Err(err) = Self::settle_auction(&listing, &winner, hammer_price) {
+						if let Err(err) = Self::process_token_payment(
+							&winner,
+							&listing.seller,
+							listing.payment_asset,
+							listing.tokens,
+							hammer_price,
+							listing.royalties_schedule,
+						) {
 							// auction settlement failed despite our prior validations.
 							// release winning bid funds
 							log!(error, "🃏 auction settlement failed: {:?}", err);
@@ -1391,38 +1378,44 @@ impl<T: Config> Module<T> {
 
 		removed
 	}
-	/// Settle an auction listing (guaranteed to be atomic).
+	/// Settle an auction listing or accepted offer
+	/// (guaranteed to be atomic).
 	/// - transfer funds from winning bidder to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
-	#[transactional]
-	fn settle_auction(listing: &AuctionListing<T>, winner: &T::AccountId, hammer_price: Balance) -> DispatchResult {
-		let for_royalties = listing.royalties_schedule.calculate_total_entitlement() * hammer_price;
-		let mut for_seller = hammer_price;
+	fn process_token_payment(
+		buyer: &T::AccountId,
+		seller: &T::AccountId,
+		asset_id: AssetId,
+		token_ids: Vec<TokenId>,
+		amount: Balance,
+		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+	) -> DispatchResult {
+		let for_royalties = royalties_schedule.calculate_total_entitlement() * amount;
+		let mut for_seller = amount;
 
 		// do royalty payments
 		if !for_royalties.is_zero() {
-			let entitlements = listing.royalties_schedule.entitlements.clone();
+			let entitlements = royalties_schedule.entitlements.clone();
 			for (who, entitlement) in entitlements.into_iter() {
-				let royalty = entitlement * hammer_price;
-				let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &who, royalty)?;
+				let royalty = entitlement * amount;
+				let _ = T::MultiCurrency::repatriate_reserved(buyer, asset_id, &who, royalty)?;
 				for_seller -= royalty;
 			}
 		}
 
-		let seller_balance = T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset);
-		let _ = T::MultiCurrency::repatriate_reserved(&winner, listing.payment_asset, &listing.seller, for_seller)?;
+		let seller_balance = T::MultiCurrency::free_balance(seller, asset_id);
+		let _ = T::MultiCurrency::repatriate_reserved(buyer, asset_id, seller, for_seller)?;
 
 		// The implementation of `repatriate_reserved` may take less than the required amount and succeed
 		// this should not happen but could for reasons outside the control of this module
 		ensure!(
-			T::MultiCurrency::free_balance(&listing.seller, listing.payment_asset)
-				>= seller_balance.saturating_add(for_seller),
+			T::MultiCurrency::free_balance(seller, asset_id) >= seller_balance.saturating_add(for_seller),
 			Error::<T>::InternalPayment
 		);
 		// all tokens have the same collection and series id
-		let (collection_id, series_id, _) = listing.tokens[0];
-		let serial_numbers: Vec<SerialNumber> = listing.tokens.iter().map(|id| id.2).collect();
-		Self::do_transfer_unchecked(collection_id, series_id, &serial_numbers, &listing.seller, &winner)
+		let (collection_id, series_id, _) = token_ids[0];
+		let serial_numbers: Vec<SerialNumber> = token_ids.iter().map(|id| id.2).collect();
+		Self::do_transfer_unchecked(collection_id, series_id, &serial_numbers, seller, &buyer)
 	}
 	/// Get collection information from given collection_id
 	pub fn collection_info<AccountId>(collection_id: CollectionId) -> Option<CollectionInfo<T::AccountId>> {

@@ -102,22 +102,22 @@ fn setup_token_with_royalties(
 }
 
 /// Create an offer on a token. Return offer_id, offer
-fn make_new_offer(
+fn make_new_simple_offer(
 	offer_amount: Balance,
 	token_id: TokenId,
 	buyer: AccountId,
 	marketplace_id: Option<MarketplaceId>,
-) -> (OfferId, Offer<AccountId>) {
+) -> (OfferId, SimpleOffer<AccountId>) {
 	let next_offer_id = Nft::next_offer_id();
 
-	assert_ok!(Nft::make_offer(
+	assert_ok!(Nft::make_simple_offer(
 		Some(buyer).into(),
 		token_id,
 		offer_amount,
 		PAYMENT_ASSET,
 		marketplace_id
 	));
-	let offer = Offer {
+	let offer = SimpleOffer {
 		token_id,
 		asset_id: PAYMENT_ASSET,
 		amount: offer_amount,
@@ -128,7 +128,7 @@ fn make_new_offer(
 	// Check storage has been updated
 	assert_eq!(Nft::next_offer_id(), next_offer_id + 1);
 	assert_eq!(Nft::token_offers(token_id), vec![next_offer_id]);
-	assert_eq!(Nft::offers(next_offer_id), Some(offer.clone()));
+	assert_eq!(Nft::offers(next_offer_id), Some(OfferType::Simple(offer.clone())));
 	assert!(has_event(RawEvent::OfferMade(
 		next_offer_id,
 		offer_amount,
@@ -2354,7 +2354,7 @@ fn token_uri_construction() {
 }
 
 #[test]
-fn make_offer() {
+fn make_simple_offer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
 		let buyer: u64 = 3;
@@ -2363,7 +2363,7 @@ fn make_offer() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
 		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), 0);
 
-		make_new_offer(offer_amount, token_id, buyer, None);
+		make_new_simple_offer(offer_amount, token_id, buyer, None);
 		// Check funds have been locked
 		assert_eq!(
 			GenericAsset::free_balance(PAYMENT_ASSET, &buyer),
@@ -2374,7 +2374,7 @@ fn make_offer() {
 }
 
 #[test]
-fn make_offer_insufficient_funds_should_fail() {
+fn make_simple_offer_insufficient_funds_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
 		let buyer: u64 = 3;
@@ -2383,7 +2383,7 @@ fn make_offer_insufficient_funds_should_fail() {
 		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &buyer), 0);
 
 		assert_noop!(
-			Nft::make_offer(Some(buyer).into(), token_id, offer_amount, PAYMENT_ASSET, None),
+			Nft::make_simple_offer(Some(buyer).into(), token_id, offer_amount, PAYMENT_ASSET, None),
 			crml_generic_asset::Error::<Test>::InsufficientBalance
 		);
 
@@ -2398,14 +2398,38 @@ fn make_offer_insufficient_funds_should_fail() {
 }
 
 #[test]
-fn make_offer_token_owner_should_fail() {
+fn make_simple_offer_zero_amount_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (_, token_id, _) = setup_token();
+		let buyer: u64 = 3;
+		let offer_amount: Balance = 0;
+		let next_offer_id = Nft::next_offer_id();
+		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &buyer), 0);
+
+		assert_noop!(
+			Nft::make_simple_offer(Some(buyer).into(), token_id, offer_amount, PAYMENT_ASSET, None),
+			Error::<Test>::ZeroOffer
+		);
+
+		// Check storage has not been updated
+		assert_eq!(Nft::next_offer_id(), next_offer_id);
+		let empty_offer_vector: Vec<OfferId> = vec![];
+		assert_eq!(Nft::token_offers(token_id), empty_offer_vector);
+		assert_eq!(Nft::offers(next_offer_id), None);
+		// Check funds have not been locked
+		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), 0);
+	});
+}
+
+#[test]
+fn make_simple_offer_token_owner_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
 		let offer_amount: Balance = 100;
 		let next_offer_id = Nft::next_offer_id();
 
 		assert_noop!(
-			Nft::make_offer(Some(token_owner).into(), token_id, offer_amount, PAYMENT_ASSET, None),
+			Nft::make_simple_offer(Some(token_owner).into(), token_id, offer_amount, PAYMENT_ASSET, None),
 			Error::<Test>::IsTokenOwner
 		);
 
@@ -2420,7 +2444,7 @@ fn make_offer_token_owner_should_fail() {
 }
 
 #[test]
-fn make_offer_on_fixed_price_listing() {
+fn make_simple_offer_on_fixed_price_listing() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
 		let buyer: u64 = 3;
@@ -2440,7 +2464,7 @@ fn make_offer_on_fixed_price_listing() {
 			None,
 		));
 
-		make_new_offer(offer_amount, token_id, buyer, None);
+		make_new_simple_offer(offer_amount, token_id, buyer, None);
 		// Check funds have been locked
 		assert_eq!(
 			GenericAsset::free_balance(PAYMENT_ASSET, &buyer),
@@ -2451,7 +2475,7 @@ fn make_offer_on_fixed_price_listing() {
 }
 
 #[test]
-fn make_offer_on_auction_should_fail() {
+fn make_simple_offer_on_auction_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
 		let buyer: u64 = 3;
@@ -2473,7 +2497,7 @@ fn make_offer_on_auction_should_fail() {
 
 		let next_offer_id = Nft::next_offer_id();
 		assert_noop!(
-			Nft::make_offer(Some(buyer).into(), token_id, offer_amount, PAYMENT_ASSET, None),
+			Nft::make_simple_offer(Some(buyer).into(), token_id, offer_amount, PAYMENT_ASSET, None),
 			Error::<Test>::TokenOnAuction
 		);
 
@@ -2497,7 +2521,7 @@ fn cancel_offer() {
 		let initial_balance_buyer: Balance = 1000;
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
 
-		let (offer_id, _) = make_new_offer(offer_amount, token_id, buyer, None);
+		let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 		assert_ok!(Nft::cancel_offer(Some(buyer).into(), offer_id));
 
 		assert!(has_event(RawEvent::OfferCancelled(offer_id)));
@@ -2522,12 +2546,12 @@ fn cancel_offer_not_buyer_should_fail() {
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
 		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), 0);
 
-		let (offer_id, offer) = make_new_offer(offer_amount, token_id, buyer, None);
+		let (offer_id, offer) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 		assert_noop!(Nft::cancel_offer(Some(4).into(), offer_id), Error::<Test>::NotBuyer);
 
 		// Check storage has not been removed
 		assert_eq!(Nft::token_offers(token_id), vec![offer_id]);
-		assert_eq!(Nft::offers(offer_id), Some(offer));
+		assert_eq!(Nft::offers(offer_id), Some(OfferType::Simple(offer.clone())));
 		// Check funds have not been unlocked
 		assert_eq!(
 			GenericAsset::free_balance(PAYMENT_ASSET, &buyer),
@@ -2546,7 +2570,7 @@ fn accept_offer() {
 		let initial_balance_buyer: Balance = 1000;
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
 
-		let (offer_id, _) = make_new_offer(offer_amount, token_id, buyer, None);
+		let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 		assert_ok!(Nft::accept_offer(Some(token_owner).into(), offer_id));
 		assert!(has_event(RawEvent::OfferAccepted(offer_id)));
 
@@ -2582,7 +2606,7 @@ fn accept_offer_pays_marketplace_royalties() {
 			entitlements
 		));
 
-		let (offer_id, _) = make_new_offer(offer_amount, token_id, buyer, Some(marketplace_id));
+		let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, Some(marketplace_id));
 		assert_ok!(Nft::accept_offer(Some(token_owner).into(), offer_id));
 		assert!(has_event(RawEvent::OfferAccepted(offer_id)));
 
@@ -2616,61 +2640,12 @@ fn accept_offer_not_token_owner_should_fail() {
 		let initial_balance_buyer: Balance = 1000;
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
 
-		let (offer_id, offer) = make_new_offer(offer_amount, token_id, buyer, None);
+		let (offer_id, offer) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 		assert_noop!(Nft::accept_offer(Some(4).into(), offer_id), Error::<Test>::NoPermission);
 
 		// Check storage has not been removed
 		assert_eq!(Nft::token_offers(token_id), vec![offer_id]);
-		assert_eq!(Nft::offers(offer_id), Some(offer));
-		// Check funds have not been transferred
-		assert_eq!(
-			GenericAsset::free_balance(PAYMENT_ASSET, &buyer),
-			initial_balance_buyer - offer_amount
-		);
-		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), offer_amount);
-		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &token_owner), 0);
-	});
-}
-
-#[test]
-fn reject_offer() {
-	ExtBuilder::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
-		let buyer: u64 = 3;
-		let offer_amount: Balance = 100;
-		let initial_balance_buyer: Balance = 1000;
-		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
-
-		let (offer_id, _) = make_new_offer(offer_amount, token_id, buyer, None);
-		assert_ok!(Nft::reject_offer(Some(token_owner).into(), offer_id));
-		assert!(has_event(RawEvent::OfferRejected(offer_id)));
-
-		// Check storage has been removed
-		let empty_offer_vector: Vec<OfferId> = vec![];
-		assert_eq!(Nft::token_offers(token_id), empty_offer_vector);
-		assert_eq!(Nft::offers(offer_id), None);
-		// Check funds have not been transferred
-		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &buyer), initial_balance_buyer);
-		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), 0);
-		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &token_owner), 0);
-	});
-}
-
-#[test]
-fn reject_offer_not_buyer_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
-		let buyer: u64 = 3;
-		let offer_amount: Balance = 100;
-		let initial_balance_buyer: Balance = 1000;
-		let _ = <Test as Config>::MultiCurrency::deposit_creating(&buyer, PAYMENT_ASSET, initial_balance_buyer);
-
-		let (offer_id, offer) = make_new_offer(offer_amount, token_id, buyer, None);
-		assert_noop!(Nft::reject_offer(Some(4).into(), offer_id), Error::<Test>::NoPermission);
-
-		// Check storage has not been removed
-		assert_eq!(Nft::token_offers(token_id), vec![offer_id]);
-		assert_eq!(Nft::offers(offer_id), Some(offer));
+		assert_eq!(Nft::offers(offer_id), Some(OfferType::Simple(offer.clone())));
 		// Check funds have not been transferred
 		assert_eq!(
 			GenericAsset::free_balance(PAYMENT_ASSET, &buyer),

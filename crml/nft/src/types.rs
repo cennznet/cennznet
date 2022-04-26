@@ -36,7 +36,7 @@ pub type OfferId = u64;
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub struct Offer<AccountId> {
+pub struct SimpleOffer<AccountId> {
 	pub token_id: TokenId,
 	pub asset_id: AssetId,
 	pub amount: Balance,
@@ -44,6 +44,13 @@ pub struct Offer<AccountId> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub enum OfferType<AccountId> {
+	Simple(SimpleOffer<AccountId>),
+	// future
+	Deadline,
+	Trade,
+}
 /// Denotes the metadata URI referencing scheme used by a series
 /// Enable token metadata URI construction by clients
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
