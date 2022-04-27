@@ -191,8 +191,6 @@ decl_error! {
 		ZeroOffer,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
-		/// This offer type has not yet been implemented
-		OfferTypeNotImplemented,
 	}
 }
 
@@ -1004,7 +1002,8 @@ decl_module! {
 
 		/// Create an offer on a token
 		/// Locks funds until offer is accepted, rejected or cancelled
-		#[weight = 0]
+		#[weight = T::WeightInfo::make_simple_offer()]
+		#[transactional]
 		fn make_simple_offer (
 			origin,
 			token_id: TokenId,
@@ -1056,7 +1055,7 @@ decl_module! {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
-		#[weight = 0]
+		#[weight = T::WeightInfo::cancel_offer()]
 		fn cancel_offer (
 			origin,
 			offer_id: OfferId,
@@ -1072,7 +1071,6 @@ decl_module! {
 						Self::deposit_event(RawEvent::OfferCancelled(offer_id));
 						Ok(())
 					}
-					_ => Err(Error::<T>::OfferTypeNotImplemented.into())
 				}
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
@@ -1081,7 +1079,8 @@ decl_module! {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
-		#[weight = 0]
+		#[weight = T::WeightInfo::accept_offer()]
+		#[transactional]
 		fn accept_offer (
 			origin,
 			offer_id: OfferId,
@@ -1094,32 +1093,21 @@ decl_module! {
 						ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
 
 						let royalties_schedule = Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
-
-						if let Err(err) = Self::process_token_payment(
+						Self::process_token_payment(
 							&offer.buyer,
 							&origin,
 							offer.asset_id,
 							vec![offer.token_id],
 							offer.amount,
 							royalties_schedule,
-						) {
-							// offer settlement failed despite our prior validations.
-							// release winning bid funds
-							log!(error, "🃏 bid settlement failed: {:?}", err);
-							T::MultiCurrency::unreserve(&offer.buyer, offer.asset_id, offer.amount);
+						)?;
 
-						} else {
-							// offer settlement success
-							// Clean storage
-							Offers::<T>::remove(offer_id);
-							TokenOffers::mutate(token_id, |offers| offers.retain(|&x| x != offer_id));
-
-							Self::deposit_event(RawEvent::OfferAccepted(offer_id));
-						}
-
+						// Clean storage
+						Offers::<T>::remove(offer_id);
+						TokenOffers::mutate(token_id, |offers| offers.binary_search(&offer_id).map(|idx| offers.remove(idx)).unwrap());
+						Self::deposit_event(RawEvent::OfferAccepted(offer_id));
 						Ok(())
 					}
-					_ => Err(Error::<T>::OfferTypeNotImplemented.into())
 				}
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
@@ -1382,6 +1370,7 @@ impl<T: Config> Module<T> {
 	/// (guaranteed to be atomic).
 	/// - transfer funds from winning bidder to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
+	#[transactional]
 	fn process_token_payment(
 		buyer: &T::AccountId,
 		seller: &T::AccountId,

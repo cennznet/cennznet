@@ -47,9 +47,6 @@ pub struct SimpleOffer<AccountId> {
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
-	// future
-	Deadline,
-	Trade,
 }
 /// Denotes the metadata URI referencing scheme used by a series
 /// Enable token metadata URI construction by clients
