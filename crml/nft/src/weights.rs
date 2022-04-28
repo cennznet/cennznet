@@ -21,6 +21,9 @@ pub trait WeightInfo {
 	fn bid() -> Weight;
 	fn cancel_sale() -> Weight;
 	fn update_fixed_price() -> Weight;
+	fn make_simple_offer() -> Weight;
+	fn cancel_offer() -> Weight;
+	fn accept_offer() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -84,5 +87,20 @@ impl WeightInfo for () {
 		(16_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
+	fn make_simple_offer() -> Weight {
+		(165_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(10 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
+	}
+	fn cancel_offer() -> Weight {
+		(60_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(3 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
+	}
+	fn accept_offer() -> Weight {
+		(477_000_000 as Weight)
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(9 as Weight))
 	}
 }
