@@ -1067,7 +1067,7 @@ decl_module! {
 						ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
 						T::MultiCurrency::unreserve(&origin, offer.asset_id, offer.amount);
 						Offers::<T>::remove(offer_id);
-						TokenOffers::remove(offer.token_id);
+						TokenOffers::mutate(offer.token_id, |offers| offers.binary_search(&offer_id).map(|idx| offers.remove(idx)).unwrap());
 						Self::deposit_event(RawEvent::OfferCancelled(offer_id));
 						Ok(())
 					}
@@ -1093,7 +1093,7 @@ decl_module! {
 						ensure!(Self::token_owner((token_id.0, token_id.1), token_id.2) == origin, Error::<T>::NoPermission);
 
 						let royalties_schedule = Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
-						Self::process_token_payment(
+						Self::process_payment_and_transfer(
 							&offer.buyer,
 							&origin,
 							offer.asset_id,
@@ -1320,7 +1320,7 @@ impl<T: Config> Module<T> {
 					OpenCollectionListings::remove(listing_collection_id, listing_id);
 
 					if let Some((winner, hammer_price)) = ListingWinningBid::<T>::take(listing_id) {
-						if let Err(err) = Self::process_token_payment(
+						if let Err(err) = Self::process_payment_and_transfer(
 							&winner,
 							&listing.seller,
 							listing.payment_asset,
@@ -1371,7 +1371,7 @@ impl<T: Config> Module<T> {
 	/// - transfer funds from winning bidder to entitled royalty accounts and seller
 	/// - transfer ownership to the winning bidder
 	#[transactional]
-	fn process_token_payment(
+	fn process_payment_and_transfer(
 		buyer: &T::AccountId,
 		seller: &T::AccountId,
 		asset_id: AssetId,
