@@ -65,7 +65,11 @@ impl<T: Config> IsTokenOwner for Module<T> {
 	type AccountId = T::AccountId;
 
 	fn check_ownership(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		&Self::token_owner((token_id.0, token_id.1), token_id.2) == account
+		if let Some(owner) = &Self::token_owner((token_id.0, token_id.1), token_id.2) {
+			owner == account
+		} else {
+			false
+		}
 	}
 }
 
@@ -187,13 +191,13 @@ decl_storage! {
 		pub TokenLocks get(fn token_locks): map hasher(twox_64_concat) TokenId => Option<TokenLockReason>;
 		/// Map from a token to its owner
 		/// The token Id is split in this map to allow better indexing (collection, series) + (serial number)
-		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => T::AccountId;
+		pub TokenOwner get(fn token_owner): double_map hasher(twox_64_concat) (CollectionId, SeriesId), hasher(twox_64_concat) SerialNumber => Option<T::AccountId>;
 		/// Count of tokens owned by an address, supports ERC721 `balanceOf`
 		pub TokenBalance get(fn token_balance): map hasher(blake2_128_concat) T::AccountId => BTreeMap<(CollectionId, SeriesId), TokenCount>;
 		/// The next available marketplace id
 		pub NextMarketplaceId get(fn next_marketplace_id): MarketplaceId;
 		/// Map from marketplace account_id to royalties schedule
-		pub RegisteredMarketplaces get(fn registered_marketplaces): map hasher(twox_64_concat) MarketplaceId => Marketplace<T::AccountId>;
+		pub RegisteredMarketplaces get(fn registered_marketplaces): map hasher(twox_64_concat) MarketplaceId => Option<Marketplace<T::AccountId>>;
 		/// Map from (collection, series) to its attributes (deprecated)
 		pub SeriesAttributes get(fn series_attributes): double_map hasher(twox_64_concat) CollectionId, hasher(twox_64_concat) SeriesId => Vec<NFTAttributeValue>;
 		/// Map from series to its human friendly name
@@ -547,7 +551,7 @@ decl_module! {
 			for serial_number in serial_numbers.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
 				ensure!(
-					Self::token_owner((collection_id, series_id), serial_number) == origin,
+					Self::token_owner((collection_id, series_id), serial_number) == Some(origin.clone()),
 					Error::<T>::NoPermission
 				);
 			}
@@ -584,7 +588,7 @@ decl_module! {
 
 			for serial_number in serial_numbers.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
-				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
+				ensure!(Self::token_owner((collection_id, series_id), serial_number) == Some(origin.clone()), Error::<T>::NoPermission);
 				<TokenOwner<T>>::remove((collection_id, series_id), serial_number);
 			}
 
@@ -687,7 +691,7 @@ decl_module! {
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
-				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
+				ensure!(Self::token_owner((collection_id, series_id), serial_number) == Some(origin.clone()), Error::<T>::NoPermission);
 				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
 
@@ -829,7 +833,7 @@ decl_module! {
 			let (bundle_collection_id, _series_id, _serial_number) = tokens[0];
 			for (collection_id, series_id, serial_number) in tokens.iter() {
 				ensure!(!TokenLocks::contains_key((collection_id, series_id, serial_number)), Error::<T>::TokenListingProtection);
-				ensure!(Self::token_owner((collection_id, series_id), serial_number) == origin, Error::<T>::NoPermission);
+				ensure!(Self::token_owner((collection_id, series_id), serial_number) == Some(origin.clone()), Error::<T>::NoPermission);
 				TokenLocks::insert((collection_id, series_id, serial_number), TokenLockReason::Listed(listing_id));
 			}
 
@@ -1045,14 +1049,15 @@ impl<T: Config> Module<T> {
 		}
 		// series schedule takes priority if it exists
 		let mut royalties = Self::series_royalties(bundle_collection_id, bundle_series_id)
-			.unwrap_or_else(|| Self::collection_royalties(bundle_collection_id).unwrap_or_else(Default::default));
+			.unwrap_or_else(|| Self::collection_royalties(bundle_collection_id).unwrap_or_default());
 		let royalties = match marketplace_id {
 			Some(marketplace_id) => {
 				ensure!(
 					<RegisteredMarketplaces<T>>::contains_key(marketplace_id),
 					Error::<T>::MarketplaceNotRegistered
 				);
-				let marketplace = Self::registered_marketplaces(marketplace_id);
+				// the storage key exists checked above, its value should be `Some`
+				let marketplace = Self::registered_marketplaces(marketplace_id).unwrap();
 				royalties
 					.entitlements
 					.push((marketplace.account, marketplace.entitlement));
@@ -1256,7 +1261,7 @@ impl<T: Config> Module<T> {
 	/// Get collection information from given collection_id
 	pub fn collection_info<AccountId>(collection_id: CollectionId) -> Option<CollectionInfo<T::AccountId>> {
 		let name = Self::collection_name(&collection_id);
-		let owner = Self::collection_owner(&collection_id).unwrap_or(Default::default());
+		let owner = Self::collection_owner(&collection_id);
 
 		if name.is_empty() {
 			None

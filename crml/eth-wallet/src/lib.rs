@@ -3,17 +3,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::ethereum::{ecrecover, EthereumSignature};
-use codec::Encode;
-use crml_support::{TransactionFeeHandler, H160 as EthAddress};
+use crml_support::TransactionFeeHandler;
 use frame_support::{
 	decl_error, decl_event, decl_module,
 	dispatch::{DispatchInfo, Dispatchable},
-	traits::{Get, UnfilteredDispatchable},
+	traits::Get,
 	weights::GetDispatchInfo,
 	Parameter,
 };
 use frame_system::ensure_none;
 use pallet_evm::AddressMapping;
+use sp_core::{Encode, H160 as EthAddress};
 use sp_runtime::{
 	traits::IdentifyAccount,
 	transaction_validity::{
@@ -36,9 +36,9 @@ pub trait Config: frame_system::Config {
 
 	/// A signable call.
 	type Call: Parameter
-		+ Dispatchable<Info = DispatchInfo>
-		+ UnfilteredDispatchable<Origin = Self::Origin>
-		+ GetDispatchInfo;
+		+ Dispatchable<Origin = Self::Origin, Info = DispatchInfo>
+		+ GetDispatchInfo
+		+ From<frame_system::Call<Self>>;
 
 	/// Provides transaction fee handling
 	type TransactionFeeHandler: TransactionFeeHandler<AccountId = Self::AccountId, Call = <Self as Config>::Call>;
@@ -90,7 +90,7 @@ decl_module! {
 		/// account - signed by this account
 		fn call(
 			origin,
-			call: Box<<T as Config>::Call> ,
+			call: Box<<T as Config>::Call>,
 			eth_address: EthAddress,
 			signature: EthereumSignature,
 		) -> DispatchResult {

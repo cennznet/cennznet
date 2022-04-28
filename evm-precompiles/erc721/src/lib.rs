@@ -207,8 +207,10 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Fetch info.
-		let owner_account_id =
-			H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
+		let owner_account_id: H256 = match crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number) {
+			Some(owner) => owner.into(),
+			None => H256::default(),
+		};
 
 		// Build output.
 		Ok(PrecompileOutput {

@@ -110,7 +110,7 @@ pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 pub struct CollectionInfo<AccountId> {
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
 	pub name: CollectionNameType,
-	pub owner: AccountId,
+	pub owner: Option<AccountId>,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
 	pub royalties: Vec<(AccountId, Permill)>,
 }
@@ -141,7 +141,7 @@ pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TokenInfo<AccountId> {
 	pub attributes: Vec<NFTAttributeValue>,
-	pub owner: AccountId,
+	pub owner: Option<AccountId>,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
 	pub royalties: Vec<(AccountId, Permill)>,
 }
@@ -261,10 +261,16 @@ pub enum AuctionClosureReason {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: Vec<(AccountId, Permill)>,
+}
+
+impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
+	fn default() -> Self {
+		RoyaltiesSchedule::<AccountId> { entitlements: vec![] }
+	}
 }
 
 impl<AccountId> RoyaltiesSchedule<AccountId> {
@@ -348,7 +354,7 @@ pub enum Listing<T: Config> {
 }
 
 /// Information about a marketplace
-#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct Marketplace<AccountId> {
 	/// The marketplace account
 	pub account: AccountId,
