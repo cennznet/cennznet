@@ -93,7 +93,7 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
-	/// Proxy remote call requests to the bridge pallet
+	/// Proxy remote call requests to the eth-wallet pallet
 	fn set_fee_asset(
 		input: &mut EvmDataReader,
 		gasometer: &mut Gasometer,
