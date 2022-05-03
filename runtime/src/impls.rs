@@ -17,10 +17,11 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
-	Treasury,
+	Babe, BlockPayoutInterval, Cennzx, EpochDuration, EthWallet, Identity, Rewards, Runtime, Session, SessionsPerEra,
+	Staking, System, Treasury,
 };
-use cennznet_primitives::types::{AccountId, Balance};
+use cennznet_primitives::traits::BuyFeeAsset;
+use cennznet_primitives::types::{AccountId, Balance, FeeExchange};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
 use crml_support::{H160, U256};
@@ -33,12 +34,12 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_evm::OnChargeEVMTransaction;
+use pallet_evm::{AddressMapping, OnChargeEVMTransaction};
 use smallvec::smallvec;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},
-	ConsensusEngineId, Perbill,
+	ConsensusEngineId, Perbill, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -221,11 +222,26 @@ impl<T> OnChargeEVMTransaction<T> for CENNZnetOnChargeEVMTransaction<T>
 where
 	T: pallet_evm::Config
 		+ frame_system::Config<AccountId = AccountId>
-		+ pallet_session::Config<ValidatorId = AccountId>,
+		+ pallet_session::Config<ValidatorId = AccountId>
+		+ crml_eth_wallet::Config,
 {
 	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		let payment_asset = EthWallet::evm_payment_asset(who);
+		if let Some(asset) = payment_asset {
+			// User has a custom payment asset setup for their account.
+			// Create new fee_exchange using 5% for max_payment (fee * 1.05)
+			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(*who);
+			let fee: u128 = fee.low_u128().unique_saturated_into();
+			let max_payment = fee.saturating_add(Permill::from_parts(50_000) * fee);
+			let exchange = FeeExchange::new_v1(asset, max_payment);
+			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
+			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, fee, &exchange).map_err(|_| {
+				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
+				pallet_evm::Error::<T>::WithdrawFailed
+			})?;
+		};
 		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
 	}
 

@@ -15,18 +15,21 @@
 
 //! Extrinsic extension integration tests (fee exchange)
 
-use cennznet_primitives::types::{FeeExchange, FeeExchangeV1};
+use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
+	impls::CENNZnetOnChargeEVMTransaction,
+	Call, Cennzx, CheckedExtrinsic, EthWallet, Executive, GenericAsset, Origin, Runtime,
 };
-use crml_support::MultiCurrency;
+use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, U256};
 use frame_support::assert_ok;
-
+use hex_literal::hex;
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
 use common::keyring::{alice, bob, signed_extra};
 use common::mock::ExtBuilder;
+use pallet_evm::{AddressMapping, OnChargeEVMTransaction};
+use sp_runtime::Permill;
 
 #[test]
 fn generic_asset_transfer_works_without_fee_exchange() {
@@ -124,5 +127,58 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
 			);
+		});
+}
+
+#[test]
+fn evm_call_works_with_fee_exchange() {
+	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
+	let cennznet_address: AccountId = PrefixedAddressMapping::into_account_id(eth_address);
+	let initial_balance = 1000 * DOLLARS;
+	let initial_liquidity = 500 * DOLLARS;
+	let fee: U256 = (10 * DOLLARS).into();
+
+	ExtBuilder::default()
+		.initial_balance(initial_balance)
+		.initialise_eth_accounts(vec![cennznet_address.clone()])
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Alice sets up CENNZ <> CPAY liquidity
+			assert_ok!(Cennzx::add_liquidity(
+				Origin::signed(alice()),
+				CENNZ_ASSET_ID,
+				initial_liquidity, // min. liquidity
+				initial_liquidity, // liquidity CENNZ
+				initial_liquidity, // liquidity CPAY
+			));
+
+			assert_ok!(EthWallet::set_payment_asset(
+				Origin::signed(cennznet_address.clone()),
+				Some(CENNZ_ASSET_ID)
+			));
+
+			let cpay_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID);
+			let cennz_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
+
+			// Call withdraw_fee directly without needing to create an Ethereum EVM call
+			assert_ok!(CENNZnetOnChargeEVMTransaction::<Runtime>::withdraw_fee(
+				&eth_address,
+				fee
+			));
+
+			let fee = fee.low_u128();
+			assert_eq!(
+				cpay_balance_before + fee - 1,
+				<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID)
+			);
+
+			// Check CENNZ balance is above slippage amount
+			let max_payment = fee.saturating_add(Permill::from_parts(50_000) * fee);
+			let min_payment = fee.saturating_sub(Permill::from_parts(50_000) * fee);
+
+			let cennz_balance_after = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
+			assert_eq!(cennz_balance_after >= cennz_balance_before - max_payment, true);
+			assert_eq!(cennz_balance_after <= cennz_balance_before - min_payment, true);
 		});
 }
