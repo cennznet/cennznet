@@ -2631,6 +2631,13 @@ impl<T: Config> Module<T> {
 				Self::start_era(start_session);
 			}
 		}
+
+		// disable all offending validators that have been disabled for the whole era
+		for (index, disabled) in Self::offending_validators() {
+			if disabled {
+				T::SessionInterface::disable_validator(index);
+			}
+		}
 	}
 
 	/// End a session potentially ending an era.
@@ -2692,6 +2699,8 @@ impl<T: Config> Module<T> {
 			.collect::<Vec<T::AccountId>>();
 
 		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, WasEndEraForced::take());
+		// Clear offending validators.
+		OffendingValidators::kill();
 	}
 
 	/// Plan a new era. Return the potential new staking set.
