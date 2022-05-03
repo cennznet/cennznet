@@ -10,7 +10,6 @@ use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
 use pallet_evm_precompiles_fee_payment::FeePaymentPrecompile;
-
 use sp_core::H160;
 use sp_std::{convert::TryInto, marker::PhantomData};
 

@@ -102,10 +102,8 @@ where
 		// Parse input.
 		input.expect_arguments(gasometer, 1)?;
 		let payment_asset: u32 = input.read::<U256>(gasometer)?.saturated_into();
-
 		let origin = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(*caller);
 
-		// New balance has changed, update approval to represent difference
 		RuntimeHelper::<Runtime>::try_dispatch(
 			Some(origin).into(),
 			crml_eth_wallet::Call::<Runtime>::set_payment_asset {
