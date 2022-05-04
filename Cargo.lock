@@ -889,6 +889,7 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-fee-payment",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -4919,6 +4920,25 @@ dependencies = [
  "cennznet-primitives",
  "crml-nft",
  "crml-token-approvals",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-fee-payment"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-eth-wallet",
  "fp-evm",
  "frame-support",
  "frame-system",
