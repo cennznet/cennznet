@@ -31,6 +31,7 @@ mod tests;
 mod types;
 use types::*;
 
+use cennznet_primitives::eth::Message;
 use cennznet_primitives::{
 	eth::{ConsensusLog, ValidatorSet, ETHY_ENGINE_ID},
 	types::BlockNumber,
@@ -44,7 +45,9 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
 	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
-	transactional, Parameter,
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	Parameter,
 };
 use frame_system::{
 	offchain::{CreateSignedTransaction, SubmitTransaction},
@@ -117,8 +120,10 @@ decl_storage! {
 		ActivationThreshold get(fn activation_threshold) config(): Percent = Percent::from_parts(66);
 		/// Queued event claims, awaiting notarization
 		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => (EthHash, EventTypeId);
-		/// Event data for a given claim
+		/// Event data for a given proof
 		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
+		/// Event proofs to be processed once bridge has been re-enabled
+		DelayedEventProofs get (fn delayed_event_proofs): map hasher(twox_64_concat) EventClaimId => Option<Message>;
 		/// Notarizations for queued messages
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -155,6 +160,8 @@ decl_storage! {
 		BridgePaused get(fn bridge_paused): bool;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventConfirmations get(fn event_confirmations): u64 = 3;
+		/// The maximum number of delayed events that can be processed in on_initialize()
+		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 	}
@@ -169,6 +176,8 @@ decl_event! {
 		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_id`
 		AuthoritySetChange(EventProofId, u64),
+		/// Generating event proof delayed as bridge is paused
+		ProofDelayed(EventProofId),
 	}
 }
 
@@ -201,6 +210,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
 			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
@@ -212,10 +222,21 @@ decl_module! {
 				ProcessedTxBuckets::remove_prefix(expired_bucket_index, None);
 
 				// TODO: better estimate
-				50_000_000_u64
-			} else {
-				Zero::zero()
+				weight += 50_000_000 as Weight;
 			}
+
+			if DelayedEventProofs::iter().next().is_none() {
+				return weight;
+			}
+			if !Self::bridge_paused() {
+				let max_delayed_events = Self::delayed_event_proofs_per_block();
+				weight = weight.saturating_add(DbWeight::get().reads(2 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				for (event_proof_id, packed_event_with_id) in DelayedEventProofs::iter().take(max_delayed_events as usize) {
+					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
+					DelayedEventProofs::remove(event_proof_id);
+				}
+			}
+			weight
 		}
 
 		#[weight = 100_000]
@@ -230,6 +251,13 @@ decl_module! {
 		pub fn set_event_deadline(origin, seconds: u64) {
 			ensure_root(origin)?;
 			EventDeadlineSeconds::put(seconds);
+		}
+
+		#[weight = 100_000]
+		/// Set max number of delayed events that can be processed in a block
+		pub fn set_delayed_event_proofs_per_block(origin, count: u8) {
+			ensure_root(origin)?;
+			DelayedEventProofsPerBlock::put(count);
 		}
 
 		#[weight = 1_000_000]
@@ -433,8 +461,8 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 	}
 
 	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
-		ensure!(!Self::bridge_paused(), Error::<T>::BridgePaused);
 		let event_proof_id = Self::next_proof_id();
+		NextProofId::put(event_proof_id.wrapping_add(1));
 
 		// TODO: does this support multiple consensus logs in a block?
 		// save this for `on_finalize` and insert many
@@ -444,13 +472,14 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 			&EthAbiCodec::encode(&event_proof_id)[..],
 		]
 		.concat();
-		let log: DigestItem = DigestItem::Consensus(
-			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
 
-		NextProofId::put(event_proof_id.wrapping_add(1));
+		if Self::bridge_paused() {
+			// Delay proof
+			DelayedEventProofs::insert(event_proof_id, packed_event_with_id);
+			Self::deposit_event(Event::ProofDelayed(event_proof_id));
+		} else {
+			Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
+		}
 
 		Ok(event_proof_id)
 	}
@@ -763,6 +792,14 @@ impl<T: Config> Module<T> {
 				log_notary_change(new.as_ref());
 			}
 		}
+	}
+
+	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
+		let log: DigestItem = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
 	}
 }
 
