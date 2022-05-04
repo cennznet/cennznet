@@ -16,7 +16,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use fp_evm::Precompile;
+use cennznet_primitives::types::AssetId;
+pub use fp_evm::Precompile;
 pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -74,7 +75,7 @@ where
 		}
 
 		match selector {
-			Action::SetFeeAsset => Self::set_fee_asset(input, gasometer, &context.address),
+			Action::SetFeeAsset => Self::set_fee_asset(input, gasometer, &context.caller),
 		}
 	}
 }
@@ -101,7 +102,7 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		// Parse input.
 		input.expect_arguments(gasometer, 1)?;
-		let payment_asset: u32 = input.read::<U256>(gasometer)?.saturated_into();
+		let payment_asset: AssetId = input.read::<U256>(gasometer)?.saturated_into();
 		let origin = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(*caller);
 
 		RuntimeHelper::<Runtime>::try_dispatch(
