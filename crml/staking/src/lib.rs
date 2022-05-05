@@ -2178,18 +2178,28 @@ impl<T: Config> Module<T> {
 
 	/// Calculate the next accrued payout for a stash id (a payee) without affecting the storage.
 	pub fn accrued_payout(stash: &T::AccountId) -> BalanceOf<T> {
-		let era_index = Self::active_era().map(|e| e.index).unwrap_or(0);
-		let validator_commission_stake_map = ErasValidatorPrefs::<T>::iter_prefix(&era_index)
+		let (active_era_start, active_era_index) = match Self::active_era() {
+			Some(ActiveEraInfo {
+				index,
+				start: Some(start),
+			}) => (start, index),
+			None | Some(ActiveEraInfo { index: _, start: None }) => return Zero::zero(),
+		};
+
+		let validator_commission_stake_map = ErasValidatorPrefs::<T>::iter_prefix(&active_era_index)
 			.map(|(validator_stash, prefs)| {
 				(
 					validator_stash.clone(),
 					prefs.commission,
-					Self::eras_stakers_clipped(era_index, validator_stash),
+					Self::eras_stakers_clipped(active_era_index, validator_stash),
 				)
 			})
 			.collect::<Vec<(_, _, _)>>();
 
-		T::Rewarder::calculate_individual_reward(stash, validator_commission_stake_map.as_slice())
+		let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+		let era_duration_ms = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
+
+		T::Rewarder::calculate_individual_reward(stash, era_duration_ms, validator_commission_stake_map.as_slice())
 	}
 
 	/// Update the ledger for a controller.
@@ -2698,7 +2708,16 @@ impl<T: Config> Module<T> {
 			.map(|(stash, _prefs)| stash)
 			.collect::<Vec<T::AccountId>>();
 
-		T::Rewarder::on_end_era(validators.as_slice(), active_era.index, WasEndEraForced::take());
+		let active_era_start = active_era.start.unwrap_or(0);
+		let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+		let era_duration_ms = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
+		T::Rewarder::on_end_era(
+			validators.as_slice(),
+			active_era.index,
+			era_duration_ms,
+			WasEndEraForced::take(),
+		);
+
 		// Clear offending validators.
 		OffendingValidators::kill();
 	}

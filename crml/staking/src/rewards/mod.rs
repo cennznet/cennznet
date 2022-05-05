@@ -189,18 +189,9 @@ impl<T: Config> OnEndEra for Module<T> {
 	/// A staking era has ended
 	/// Check if we have a new fiscal era starting
 	/// Schedule a staking reward payout
-	fn on_end_era(era_validator_stashes: &[T::AccountId], era_index: EraIndex, is_forced: bool) {
-		// if it's a forced era, don't pay a reward. more than likely something unusual happened
-		// only the nominators + validators who are removed from the next era will miss out on rewards
-		// additionally, to calculate inflation properly we must consider era duration i.e. (bring back reward curve).
-		if is_forced {
-			let deferred_reward = Self::calculate_total_reward();
-			Self::deposit_event(RawEvent::EraPayoutDeferred(deferred_reward.transaction_fees));
-			return;
-		}
-
+	fn on_end_era(era_validator_stashes: &[T::AccountId], era_index: EraIndex, era_duration_ms: u64, _is_forced: bool) {
 		// calculate reward before changing fiscal era
-		let next_reward = Self::calculate_total_reward();
+		let next_reward = Self::calculate_total_reward(era_duration_ms);
 
 		// Check if fiscal era should renew
 		if ForceFiscalEra::get() {
@@ -240,27 +231,29 @@ impl<T: Config> OnEndEra for Module<T> {
 impl<T: Config> RewardCalculation for Module<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
+	// 24 hour eras in milliseconds
+	const FULL_ERA_DURATION: u64 = 1_000 * 3600 * 24;
 
-	/// Calculate the total reward payout as of right now (i.e. for an entire staking era)
-	fn calculate_total_reward() -> RewardParts<Self::Balance> {
-		RewardParts::new(
-			Self::target_inflation_per_staking_era(),
-			Self::transaction_fee_pot(),
-			Self::development_fund_take(),
-		)
+	/// Calculate the total reward payout, considering the length of the era
+	fn calculate_total_reward(era_duration_ms: u64) -> RewardParts<Self::Balance> {
+		let inflation =
+			Perbill::from_rational(era_duration_ms, Self::FULL_ERA_DURATION) * Self::target_inflation_per_staking_era();
+		RewardParts::new(inflation, Self::transaction_fee_pot(), Self::development_fund_take())
 	}
 
-	/// Calculate the reward payout (accrued as of right now) for the given stash.
+	/// Calculate the reward payout (accrued as of right now) for the given stash and era duration
 	fn calculate_individual_reward(
 		stash: &Self::AccountId,
+		era_duration_ms: u64,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
 		let mut payee_cut: Self::Balance = Zero::zero();
 
-		let (_, _, payouts) =
-			Self::calculate_payouts_filtered(validator_commission_stake_map, |validator, exposure| {
-				stash != validator && !exposure.others.iter().any(|x| &x.who == stash)
-			});
+		let (_, _, payouts) = Self::calculate_payouts_filtered(
+			validator_commission_stake_map,
+			era_duration_ms,
+			|validator, exposure| stash != validator && !exposure.others.iter().any(|x| &x.who == stash),
+		);
 		let payee = Self::payee(stash);
 		payouts.into_iter().for_each(|(account, payout)| {
 			if account == payee {
@@ -401,12 +394,13 @@ impl<T: Config> Module<T> {
 	/// ```
 	fn calculate_payouts_filtered<F>(
 		validator_commission_stake_map: &[(T::AccountId, Perbill, Exposure<T::AccountId, BalanceOf<T>>)],
+		era_duration_ms: u64,
 		filter: F,
 	) -> (BalanceOf<T>, BalanceOf<T>, Vec<(T::AccountId, BalanceOf<T>)>)
 	where
 		F: Fn(&T::AccountId, &Exposure<T::AccountId, BalanceOf<T>>) -> bool,
 	{
-		let payout = <Self as RewardCalculation>::calculate_total_reward();
+		let payout = <Self as RewardCalculation>::calculate_total_reward(era_duration_ms);
 
 		if payout.total.is_zero() {
 			return (Zero::zero(), Zero::zero(), vec![]);
@@ -854,7 +848,8 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			// There should be an event for a new fiscal era on era 0 (due to ext builder setup)
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
-			Rewards::on_end_era(&vec![], 0, false);
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
+			Rewards::on_end_era(&vec![], 0, era_duration_ms, false);
 
 			let era_1_inflation_target = 14;
 			let expected_event = Event::Rewards(RawEvent::NewFiscalEra(era_1_inflation_target));
@@ -862,8 +857,8 @@ mod tests {
 			System::reset_events();
 
 			// No fiscal era events are expected for the following eras
-			Rewards::on_end_era(&vec![], 1, false);
-			Rewards::on_end_era(&vec![], 2, false);
+			Rewards::on_end_era(&vec![], 1, era_duration_ms, false);
+			Rewards::on_end_era(&vec![], 2, era_duration_ms, false);
 			assert!(!System::events().iter().any(|record| match record.event {
 				Event::Rewards(RawEvent::NewFiscalEra(_)) => true,
 				_ => false,
@@ -873,9 +868,9 @@ mod tests {
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 11, 100));
 			assert_eq!(Rewards::target_inflation_per_staking_era(), era_1_inflation_target);
 
-			Rewards::on_end_era(&vec![], 3, false);
-			Rewards::on_end_era(&vec![], 4, false);
-			Rewards::on_end_era(&vec![], 5, false);
+			Rewards::on_end_era(&vec![], 3, era_duration_ms, false);
+			Rewards::on_end_era(&vec![], 4, era_duration_ms, false);
+			Rewards::on_end_era(&vec![], 5, era_duration_ms, false);
 
 			let era_2_inflation_target = 23;
 			// The newly set inflation rate is going to take effect with a new fiscal era
@@ -891,6 +886,7 @@ mod tests {
 			.set_inflation_rate((1, 100))
 			.build()
 			.execute_with(|| {
+				let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
 				// set a new annual inflation rate
 				assert_ok!(Rewards::set_inflation_rate(Origin::root(), 7, 100));
 				// the default fiscal rate should still be in effect 1%
@@ -903,7 +899,7 @@ mod tests {
 				assert_eq!(Rewards::target_inflation_per_staking_era(), 2);
 
 				// Trigger era end, new fiscal era should be enacted
-				Rewards::on_end_era(&vec![], 0, false);
+				Rewards::on_end_era(&vec![], 0, era_duration_ms, false);
 
 				let expected_event = Event::Rewards(RawEvent::NewFiscalEra(14));
 				let events = System::events();
@@ -938,12 +934,13 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let tx_fees = 10;
 			let base_inflation = 20;
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
 
 			// the basic reward model on CENNZnet is base inflation + fees
 			TransactionFeePot::<Test>::put(tx_fees);
 			TargetInflationPerStakingEra::<Test>::put(base_inflation);
 
-			let next_reward = Rewards::calculate_total_reward();
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms);
 			assert_eq!(tx_fees, next_reward.transaction_fees,);
 			assert_eq!(base_inflation, next_reward.inflation,);
 			assert_eq!(base_inflation + tx_fees, next_reward.total);
@@ -958,7 +955,7 @@ mod tests {
 
 			// no tx fees, still rewards based on inflation
 			TransactionFeePot::<Test>::put(0);
-			let next_reward = Rewards::calculate_total_reward();
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms);
 			assert!(next_reward.transaction_fees.is_zero());
 			assert_eq!(base_inflation, next_reward.inflation);
 			assert_eq!(base_inflation, next_reward.total);
@@ -966,10 +963,22 @@ mod tests {
 			// no inflation, still rewards tx fees
 			TransactionFeePot::<Test>::put(tx_fees);
 			TargetInflationPerStakingEra::<Test>::put(0);
-			let next_reward = Rewards::calculate_total_reward();
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms);
 			assert_eq!(tx_fees, next_reward.transaction_fees);
 			assert!(next_reward.inflation.is_zero());
 			assert_eq!(tx_fees, next_reward.total);
+
+			// Era duration cases
+			// longer than max era duraiton, inflation saturates at 100%
+			TargetInflationPerStakingEra::<Test>::put(base_inflation);
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms + 36_000);
+			assert_eq!(next_reward.inflation, base_inflation);
+			// inflation reward is 0
+			let next_reward = Rewards::calculate_total_reward(0);
+			assert!(next_reward.inflation.is_zero());
+			// era duraiton is halved => inflation reward is halved
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms / 2);
+			assert_eq!(next_reward.inflation, base_inflation / 2);
 		});
 	}
 
@@ -1154,7 +1163,8 @@ mod tests {
 			let fee_payout = 1_000_000;
 			Rewards::note_transaction_fees(fee_payout);
 
-			let total_payout = Rewards::calculate_total_reward();
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
+			let total_payout = Rewards::calculate_total_reward(era_duration_ms);
 
 			// According to the authorship reward points
 			let staked_on_1_reward_share = Perbill::from_percent(30) * total_payout.stakers_cut;
@@ -1171,9 +1181,11 @@ mod tests {
 			let reward_to_5 = nominated_2_reward_share / 4 + nominated_3_reward_share / 6;
 			let reward_to_6 = nominated_3_reward_share / 3 + 1; // + 1 is needed due to the integer calculation inaccuracy
 
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
 			assert_eq!(
 				Rewards::calculate_individual_reward(
 					&4,
+					era_duration_ms,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_4
@@ -1181,6 +1193,7 @@ mod tests {
 			assert_eq!(
 				Rewards::calculate_individual_reward(
 					&5,
+					era_duration_ms,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_5
@@ -1188,6 +1201,7 @@ mod tests {
 			assert_eq!(
 				Rewards::calculate_individual_reward(
 					&6,
+					era_duration_ms,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_6
@@ -1197,6 +1211,7 @@ mod tests {
 			assert_eq!(
 				Rewards::calculate_individual_reward(
 					&1,
+					era_duration_ms,
 					&[stake_map_1.as_tuple(), stake_map_2.as_tuple(), stake_map_3.as_tuple()]
 				),
 				reward_to_1
@@ -1216,6 +1231,7 @@ mod tests {
 			assert!(
 				Rewards::calculate_individual_reward(
 					&4,
+					<Rewards as RewardCalculation>::FULL_ERA_DURATION,
 					&[
 						MockCommissionStakeInfo::new((1, 1_000), vec![(4, 1_000)], Perbill::from_percent(10))
 							.as_tuple()
@@ -1251,8 +1267,9 @@ mod tests {
 			Rewards::note_author(validator_1);
 			Rewards::note_author(validator_2);
 			Rewards::note_uncle(validator_2, 1); // 2 points to the actual author here validator_1, 1 point to validator_2
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
 
-			let validator_total_payout = Rewards::calculate_total_reward().stakers_cut;
+			let validator_total_payout = Rewards::calculate_total_reward(era_duration_ms).stakers_cut;
 
 			let validators = vec![validator_1, validator_2, validator_3];
 			let authoring_points = CurrentEraRewardPoints::<Test>::get();
@@ -1411,11 +1428,12 @@ mod tests {
 	fn on_end_era() {
 		ExtBuilder::default().build().execute_with(|| {
 			Rewards::note_transaction_fees(1_111);
+			let era_duration_ms = <Rewards as RewardCalculation>::FULL_ERA_DURATION;
 
-			let next_reward = Rewards::calculate_total_reward();
+			let next_reward = Rewards::calculate_total_reward(era_duration_ms);
 			let era = 2;
 			let validators = [11, 22, 33];
-			Rewards::on_end_era(&validators, era, false);
+			Rewards::on_end_era(&validators, era, era_duration_ms, false);
 
 			// treasury is paid
 			assert_eq!(
@@ -1437,40 +1455,6 @@ mod tests {
 			// Storage reset for next era
 			assert!(!TransactionFeePot::<Test>::exists());
 			assert!(!CurrentEraRewardPoints::<Test>::exists());
-		})
-	}
-
-	#[test]
-	fn on_end_era_forced() {
-		ExtBuilder::default().build().execute_with(|| {
-			Rewards::note_transaction_fees(1_000);
-			let validators = [11, 22, 33];
-			let era = 2;
-
-			// Forced era: do nothing
-			Rewards::on_end_era(&validators, era, true);
-			let next_reward = Rewards::calculate_total_reward();
-			assert_eq!(next_reward.transaction_fees, 1_000);
-			assert!(System::events()
-				.iter()
-				.find(|e| e.event == Event::Rewards(RawEvent::EraPayoutDeferred(next_reward.transaction_fees)))
-				.is_some());
-			assert!(ScheduledPayouts::<Test>::iter().count().is_zero());
-			assert!(ScheduledPayoutEra::get().is_zero());
-
-			// Normal era: payouts scheduled
-			Rewards::note_transaction_fees(2_000);
-			let next_reward = Rewards::calculate_total_reward();
-			Rewards::on_end_era(&validators, era + 1, false);
-
-			assert!(TransactionFeePot::<Test>::get().is_zero());
-			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
-			assert_eq!(ScheduledPayoutEra::get(), era + 1);
-			assert!(System::events()
-				.iter()
-				.find(|e| e.event
-					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
-				.is_some());
 		})
 	}
 }

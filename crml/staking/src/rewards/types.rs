@@ -35,7 +35,13 @@ pub trait RunScheduledPayout {
 pub trait OnEndEra {
 	type AccountId;
 	/// Receives the stash addresses of the validator set and the `era_index` which is finishing
-	fn on_end_era(_validator_stashes: &[Self::AccountId], _era_index: EraIndex, _is_forced: bool) {}
+	fn on_end_era(
+		_validator_stashes: &[Self::AccountId],
+		_era_index: EraIndex,
+		_era_duration_ms: u64,
+		_is_forced: bool,
+	) {
+	}
 }
 
 /// Detailed parts of a total reward
@@ -79,14 +85,17 @@ pub trait RewardCalculation {
 	type AccountId;
 	/// The system balance type
 	type Balance: Copy + HasCompact + AtLeast32BitUnsigned;
+	/// The maximum era duration in milliseconds
+	const FULL_ERA_DURATION: u64;
 
 	/// Calculate the value of the next reward payout as of right now.
 	/// i.e this amount would be distributed on reward payout
-	fn calculate_total_reward() -> RewardParts<Self::Balance>;
-	/// Calculate the next reward payout (accrued as of right now) for the given stash id.
+	fn calculate_total_reward(era_duration_ms: u64) -> RewardParts<Self::Balance>;
+	/// Calculate the next reward payout (accrued as of right now) for the given stash id and era duration.
 	/// Requires commission rates and exposures for the relevant validator set
 	fn calculate_individual_reward(
 		stash: &Self::AccountId,
+		era_duration_ms: u64,
 		validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance;
 }
