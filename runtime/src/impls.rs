@@ -273,7 +273,6 @@ where
 	}
 }
 
-#[derive(Default)]
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
 /// complete the transaction
@@ -305,8 +304,12 @@ where
 		if target == H160::from_low_u64_be(FEE_PREFERENCES_PRECOMPILE) {
 			// Transaction is to set transaction fee preferences
 			// We should exchange the asset for CPAY to allow the transaction to go through
-			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(source);
-			let payment_asset: AssetId = rlp::decode::<AssetId>(&input[4..]).unwrap_or_default();
+			// Return "WithdrawFailed" error if asset_id is invalid
+			// TODO: More descriptive error handling
+			let payment_asset: AssetId = match rlp::decode::<AssetId>(&input[4..]) {
+				Ok(asset) => asset,
+				_ => return Err(Self::Error::WithdrawFailed),
+			};
 			let base_fee = T::FeeCalculator::min_gas_price();
 
 			// Calculate gas price for transaction to use for exchanging into CPAY
@@ -315,7 +318,7 @@ where
 					ensure!(max_fee_per_gas >= base_fee, Self::Error::GasPriceTooLow);
 					max_fee_per_gas
 				}
-				None => Default::default(),
+				None => return Err(Self::Error::GasPriceTooLow),
 			};
 			let max_base_fee = max_fee_per_gas
 				.checked_mul(U256::from(gas_limit))
@@ -336,6 +339,7 @@ where
 			let max_payment = total_fee.saturating_add(Permill::from_parts(50_000) * total_fee);
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
+			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(source);
 			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
 				pallet_evm::Error::<T>::WithdrawFailed

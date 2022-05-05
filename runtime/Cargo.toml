@@ -135,6 +135,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
+	"rlp/std",
 	"serde",
 	"sp-api/std",
 	"sp-authority-discovery/std",
