@@ -9,7 +9,7 @@ use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
-use pallet_evm_precompiles_fee_payment::FeePaymentPrecompile;
+use pallet_evm_precompiles_fee_payment::{FeePaymentPrecompile, FEE_PREFERENCES_PRECOMPILE};
 use sp_core::H160;
 use sp_std::{convert::TryInto, marker::PhantomData};
 
@@ -53,7 +53,7 @@ impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
 			a if a == hash(1024) => Some(Sha3FIPS256::execute(input, target_gas, context, is_static)),
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
-			a if a == hash(1211) => Some(FeePaymentPrecompile::<Runtime>::execute(
+			a if a == hash(FEE_PREFERENCES_PRECOMPILE) => Some(FeePaymentPrecompile::<Runtime>::execute(
 				input, target_gas, context, is_static,
 			)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {

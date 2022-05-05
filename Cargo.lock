@@ -903,6 +903,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "precompile-utils",
+ "rlp",
  "rustc-hex",
  "scale-info",
  "serde",
