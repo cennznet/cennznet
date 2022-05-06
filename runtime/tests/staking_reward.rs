@@ -23,11 +23,10 @@ use cennznet_runtime::{
 	MaxNominatorRewardedPerValidator, Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration,
 	Staking, System, Timestamp, Treasury,
 };
-use codec::Encode;
-use crml_staking::{EraIndex, HandlePayee, RewardCalculation, StakingLedger};
+use codec::{Decode, Encode};
+use crml_staking::{ActiveEra, ActiveEraInfo, EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use crml_support::{PrefixedAddressMapping, H160, U256};
 use frame_support::{
-	assert_ok,
 	storage::StorageValue,
 	traits::{Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
 	IterableStorageMap,
@@ -122,14 +121,24 @@ impl EIP1559UnsignedTransaction {
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
+	println!("call run to block: {:?}", n);
 	Staking::on_finalize(System::block_number());
 	for b in (System::block_number() + 1)..=n {
+		println!(
+			"start block: {:?}, era: {:?}, session: {:?}",
+			b,
+			active_era(),
+			Session::current_index()
+		);
 		System::set_block_number(b);
+		// The real config creates 120 blocks a session
+		// The integration test config creates 12 blocks a session for speed
+		// advancing the timestamp in-step with the real config (`* 10`) ensures the inflation reward calculations are accurate
+		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK * 10 + INIT_TIMESTAMP);
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
 		Staking::offchain_worker(b);
 		Rewards::on_initialize(b);
-		Timestamp::set_timestamp(b as u64 * MILLISECS_PER_BLOCK + INIT_TIMESTAMP);
 		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
 		if b != n {
 			Staking::on_finalize(System::block_number());
@@ -275,6 +284,7 @@ fn era_transaction_fees_collected() {
 		.stash(staked_amount)
 		.build()
 		.execute_with(|| {
+			let era_duration_ms = Rewards::FULL_ERA_DURATION;
 			let xt_1 = sign(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
 				function: runtime_call_1.clone(),
@@ -285,19 +295,21 @@ fn era_transaction_fees_collected() {
 			});
 
 			// Start with 0 transaction rewards
-			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
+			assert!(Rewards::calculate_total_reward(era_duration_ms)
+				.transaction_fees
+				.is_zero());
 
 			// Apply first extrinsic and check transaction rewards
 			let r = Executive::apply_extrinsic(xt_1.clone());
 			assert!(r.is_ok());
 			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
+			assert_eq!(Rewards::calculate_total_reward(era_duration_ms).transaction_fees, 0);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
 			assert!(r2.is_ok());
 			era1_tx_fees += extrinsic_fee_for(&xt_2);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
+			assert_eq!(Rewards::calculate_total_reward(era_duration_ms).transaction_fees, 0);
 
 			// Advancing sessions shouldn't change transaction rewards storage
 			advance_session();
@@ -305,76 +317,14 @@ fn era_transaction_fees_collected() {
 			start_active_era(1);
 
 			// At the start of the next era, transaction rewards should be cleared
-			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
+			assert!(Rewards::calculate_total_reward(era_duration_ms)
+				.transaction_fees
+				.is_zero());
 		});
 }
 
 #[test]
-fn era_transaction_fees_accrued() {
-	// Check era transaction fees are tracked
-	let initial_balance = 10_000 * DOLLARS;
-	let validators = make_authority_keys(6);
-	let staked_amount = initial_balance / validators.len() as Balance;
-
-	let runtime_call_1 = Call::GenericAsset(crml_generic_asset::Call::transfer {
-		asset_id: CPAY_ASSET_ID,
-		to: bob(),
-		amount: 123,
-	});
-	let runtime_call_2 = Call::GenericAsset(crml_generic_asset::Call::transfer {
-		asset_id: CPAY_ASSET_ID,
-		to: charlie(),
-		amount: 456,
-	});
-
-	ExtBuilder::default()
-		.initial_authorities(validators.as_slice())
-		.initial_balance(initial_balance)
-		.stash(staked_amount)
-		.build()
-		.execute_with(|| {
-			let xt_1 = sign(CheckedExtrinsic {
-				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
-				function: runtime_call_1.clone(),
-			});
-			let xt_2 = sign(CheckedExtrinsic {
-				signed: fp_self_contained::CheckedSignature::Signed(bob(), signed_extra(0, 0, None)),
-				function: runtime_call_2.clone(),
-			});
-
-			// Start with 0 transaction rewards
-			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
-
-			// Apply first extrinsic and check transaction rewards
-			let r = Executive::apply_extrinsic(xt_1.clone());
-			assert!(r.is_ok());
-			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
-
-			// Apply second extrinsic and check transaction rewards
-			let r2 = Executive::apply_extrinsic(xt_2.clone());
-			assert!(r2.is_ok());
-			era1_tx_fees += extrinsic_fee_for(&xt_2);
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
-
-			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
-			start_active_era(1);
-			// rewards have accrued
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
-
-			crml_staking::ForceEra::put(crml_staking::Forcing::ForceNew);
-			start_active_era(2);
-			// rewards have accrued
-			assert_eq!(Rewards::calculate_total_reward().transaction_fees, 0);
-
-			start_active_era(3);
-			// rewards paid out on normal era
-			assert!(Rewards::calculate_total_reward().transaction_fees.is_zero());
-		});
-}
-
-#[test]
-fn elected_validators_receive_transaction_fee_reward() {
+fn elected_validators_do_not_receive_transaction_fees() {
 	// Check block transaction fees are distributed to validators along with inflation
 	let validators = make_authority_keys(6);
 	let initial_balance = 100_000_000 * DOLLARS;
@@ -394,7 +344,7 @@ fn elected_validators_receive_transaction_fee_reward() {
 		.execute_with(|| {
 			// start from era 1
 			start_active_era(1);
-
+			let era1_start_ms = Timestamp::now();
 			// create a transaction
 			let xt = sign(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(alice(), signed_extra(0, 0, None)),
@@ -421,25 +371,26 @@ fn elected_validators_receive_transaction_fee_reward() {
 			let issuance_after_fees_burned = RewardCurrency::total_issuance();
 			assert_eq!(issuance_after_fees_burned, initial_issuance - tx_fee);
 
-			// tx fees are tracked by the Rewards module
-			let reward_parts = Rewards::calculate_total_reward();
-			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.inflation);
-			assert_eq!(0, reward_parts.transaction_fees);
-			assert_eq!(Rewards::target_inflation_per_staking_era(), reward_parts.total);
-
 			// treasury has nothing at this point
 			assert!(RewardCurrency::free_balance(&Treasury::account_id()).is_zero());
 
 			// end era 1, reward payouts are scheduled
 			start_active_era(2);
-
+			// tx fees are tracked by the Rewards module
+			let era_duration_ms = Timestamp::now() - era1_start_ms;
+			let reward_parts = Rewards::calculate_total_reward(era_duration_ms);
+			assert_eq!(
+				Perbill::from_rational(era_duration_ms, Rewards::FULL_ERA_DURATION)
+					* Rewards::target_inflation_per_staking_era(),
+				reward_parts.inflation
+			);
+			assert_eq!(0, reward_parts.transaction_fees);
+			assert_eq!(reward_parts.inflation, reward_parts.total);
 			// treasury is paid its cut of network tx fees
 			assert_eq!(0, reward_parts.treasury_cut);
 
-			// skip a few blocks to ensure payouts are made
-			advance_session();
-			advance_session();
-
+			// trigger payouts
+			run_to_block(System::block_number() + 20);
 			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
 			for (stash, _, _, _, _, _, _) in &validators {
 				assert_eq!(
@@ -448,7 +399,10 @@ fn elected_validators_receive_transaction_fee_reward() {
 				)
 			}
 
-			assert_eq!(RewardCurrency::free_balance(&Treasury::account_id()), 10);
+			assert_eq!(
+				RewardCurrency::free_balance(&Treasury::account_id()),
+				reward_parts.total - (per_validator_reward_era_1 * validators.len() as Balance)
+			);
 		});
 }
 
@@ -459,6 +413,7 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 	let validators = make_authority_keys(6);
 	let initial_balance = 100_000_000 * DOLLARS;
 	let staked_amount = initial_balance / validators.len() as Balance;
+	let era_duration_ms = Rewards::FULL_ERA_DURATION;
 
 	ExtBuilder::default()
 		.initial_authorities(validators.as_slice())
@@ -468,12 +423,13 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 		.execute_with(|| {
 			let initial_reward_issuance = RewardCurrency::total_issuance();
 			// start era 1, era 0 has no reward
-			assert!(Rewards::calculate_total_reward().total.is_zero());
+			assert!(Rewards::calculate_total_reward(era_duration_ms).total.is_zero());
 			start_active_era(1);
+			let era1_start_ms = Timestamp::now();
 			assert_eq!(RewardCurrency::total_issuance(), initial_reward_issuance);
 
 			// inflation kicks in here
-			let total_reward_era_1 = Rewards::calculate_total_reward().total;
+			let total_reward_era_1 = Rewards::calculate_total_reward(era_duration_ms).total;
 			assert!(total_reward_era_1 > 0);
 
 			// make a block this era
@@ -485,13 +441,10 @@ fn elected_validators_receive_rewards_according_to_authorship_points() {
 			let header = set_author(header_of_last_block, author_index.clone() as u32);
 			Executive::initialize_block(&header);
 
-			let total_reward_era_1 = Rewards::calculate_total_reward().total;
-			// rewards are earned by inflation only as there are no transactions
-			assert_eq!(total_reward_era_1, Rewards::target_inflation_per_staking_era());
-
 			// start era 2
 			start_active_era(2);
-			// skip a few blocks to ensure payouts are made
+			let total_reward_era_1 = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).total;
+			// skip a few blocks to ensure payouts are made for era 1
 			advance_session();
 
 			for (stash, _controller, _, _, _, _, _) in &validators {
@@ -527,8 +480,11 @@ fn authorship_reward_of_last_block_in_an_era() {
 		.build()
 		.execute_with(|| {
 			// start era 1, era 0 has no reward
-			assert!(Rewards::calculate_total_reward().total.is_zero());
+			assert!(Rewards::calculate_total_reward(Rewards::FULL_ERA_DURATION)
+				.total
+				.is_zero());
 			start_active_era(1);
+			let era1_start_ms = Timestamp::now();
 
 			let final_session_of_era_index = Session::current_index() + SessionsPerEra::get() - 1;
 			start_session(final_session_of_era_index);
@@ -546,15 +502,15 @@ fn authorship_reward_of_last_block_in_an_era() {
 			let author_reward_balance_before_adding_block = RewardCurrency::free_balance(&author_stash_id);
 			Executive::initialize_block(&header);
 
-			let total_reward_era_1 = Rewards::calculate_total_reward().total;
 			// next era
 			advance_session();
+			let staker_reward_era_1 = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).stakers_cut;
 			assert_eq!(active_era(), 2);
 			// trigger payout
 			advance_session();
 			assert_eq!(
 				RewardCurrency::free_balance(&author_stash_id),
-				author_reward_balance_before_adding_block + total_reward_era_1
+				author_reward_balance_before_adding_block + staker_reward_era_1
 			);
 		});
 }
@@ -625,6 +581,7 @@ fn slashed_cennz_goes_to_reporter() {
 				reporters: vec![reporter.clone()],
 			};
 
+			// report offence
 			let slash_fraction = Perbill::from_percent(90);
 			assert_eq!(
 				Staking::on_offence(
@@ -633,11 +590,11 @@ fn slashed_cennz_goes_to_reporter() {
 					Staking::eras_start_session_index(active_era()).expect("session index exists"),
 					DisableStrategy::WhenSlashed,
 				),
-				700000000
+				700_000_000
 			);
 
 			// Fast-forward eras so that the slash is applied
-			start_active_era(SlashDeferDuration::get() + 1);
+			start_active_era(active_era() + SlashDeferDuration::get() + 1);
 
 			// offender CENNZ funds are slashed
 			let total_slash = slash_fraction * initial_balance;
@@ -666,10 +623,12 @@ fn reward_scheduling() {
 		.build()
 		.execute_with(|| {
 			start_active_era(1);
+			let era1_start_ms = Timestamp::now();
 			// era 0 has no reward
 			start_active_era(2);
 			// era 1 reward payouts should be scheduled
-			let per_validator_reward = Rewards::calculate_total_reward().stakers_cut / validators.len() as Balance;
+			let per_validator_reward = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).stakers_cut
+				/ validators.len() as Balance;
 
 			assert_eq!(crml_staking::rewards::ScheduledPayoutEra::get(), 1,);
 			let scheduled_payouts = crml_staking::rewards::ScheduledPayouts::<Runtime>::iter()
@@ -711,12 +670,13 @@ fn max_nominators_rewarded() {
 			start_active_era(2);
 			// nominations are active now
 			start_active_era(3);
-			// nominations should be paid out
-			// skip blocks to ensure payout
+			// nominations should be paid out (era 2)
+			// skip blocks to ensure payouts are made
 			advance_session();
 
 			// paid rewards
 			for n in 1..=MaxNominatorRewardedPerValidator::get() {
+				println!("{:?}", n);
 				assert!(RewardCurrency::free_balance(&stash(n)) > Zero::zero());
 			}
 
@@ -736,12 +696,23 @@ fn accrued_payout_simple() {
 		.build()
 		.execute_with(|| {
 			start_active_era(1);
-			let reward_parts = Rewards::calculate_total_reward();
+			// finalize the last era block to set ActiveEra info
+			advance_session();
+			// set the timestamp to simulate full era duration
+			Timestamp::set_timestamp(Timestamp::now() + Rewards::FULL_ERA_DURATION);
+			let reward_parts = Rewards::calculate_total_reward(Rewards::FULL_ERA_DURATION);
 			let per_validator_reward_era_1 = reward_parts.stakers_cut / validators.len() as Balance;
 			assert_eq!(
 				per_validator_reward_era_1,
 				Staking::accrued_payout(&Session::validators()[0])
 			);
+
+			// empty start time or empty active era info return 0
+			let active_era_no_start_time = ActiveEraInfo::decode(&mut &[0_u8, 0, 0, 0, 0][..]).expect("it decodes");
+			ActiveEra::put(active_era_no_start_time);
+			assert!(Staking::accrued_payout(&Session::validators()[0]).is_zero());
+			ActiveEra::kill();
+			assert!(Staking::accrued_payout(&Session::validators()[0]).is_zero());
 		});
 }
 
@@ -758,6 +729,7 @@ fn accrued_payout_nominators() {
 			// era 0 has no reward
 			start_active_era(1);
 
+			// setup nominator stakes for next era
 			// integer IDs for nominators addresses
 			let stash = |n: u32| -> AccountId { AccountId::unchecked_from(H256::from_low_u64_be(n as u64 + 10_000)) };
 
@@ -770,21 +742,40 @@ fn accrued_payout_nominators() {
 			// set payee differently
 			Rewards::set_payee(&stash(2), &stash(9));
 
+			// start era 2
 			// nominations are active now we should see reward accruing
 			start_active_era(2);
-			let accrued_1 = Staking::accrued_payout(&stash(1));
-			let accrued_2 = Staking::accrued_payout(&stash(2));
-			assert!(accrued_1 > Zero::zero());
-			assert!(accrued_2 > Zero::zero());
 
-			// Payout era 2
-			start_active_era(3);
-			// ensure payout blocks are triggered
-			advance_session();
+			// after first block there is some reward accruing
+			run_to_block(System::block_number() + 1);
+			let accrued_1_block_1 = Staking::accrued_payout(&stash(1));
+			let accrued_2_block_1 = Staking::accrued_payout(&stash(2));
+			assert!(accrued_1_block_1 > Zero::zero());
+			assert!(accrued_2_block_1 > Zero::zero());
 
-			assert_eq!(RewardCurrency::free_balance(&stash(1)), accrued_1);
+			// reward continues to accrue as time passes / blocks are made
+			run_to_block(System::block_number() + 1);
+			let accrued_1_block_2 = Staking::accrued_payout(&stash(1));
+			let accrued_2_block_2 = Staking::accrued_payout(&stash(2));
+			assert!(accrued_1_block_2 > accrued_1_block_1);
+			assert!(accrued_2_block_2 > accrued_2_block_1);
+
+			// Run to last block of the era (blocks_per_sesssion * sessions_per_era - the 2 blocks executed already) - 1
+			run_to_block(
+				System::block_number() + EpochDuration::get() as BlockNumber * SessionsPerEra::get() as BlockNumber
+					- 2 as BlockNumber - 1 as BlockNumber,
+			);
+			// Calculate final era payouts
+			// manually add the per block reward for the current block (+2)
+			let accrued_1_era2 = Staking::accrued_payout(&stash(1)) + 2;
+			let accrued_2_era2 = Staking::accrued_payout(&stash(2)) + 2;
+
+			// End era 2 and trigger payouts
+			run_to_block(System::block_number() + 10);
+
+			assert_eq!(RewardCurrency::free_balance(&stash(1)), accrued_1_era2);
 			assert!(RewardCurrency::free_balance(&stash(2)).is_zero()); // stash(2) not the payee
-			assert_eq!(RewardCurrency::free_balance(&stash(9)), accrued_2); // stash(2) payee
+			assert_eq!(RewardCurrency::free_balance(&stash(9)), accrued_2_era2); // stash(2) payee
 		});
 }
 

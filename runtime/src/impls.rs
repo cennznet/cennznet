@@ -608,6 +608,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn weight_mul_grow_on_big_block() {
 		run_with_system_weight(target() * 2, || {
 			let mut original = Multiplier::from(0);
