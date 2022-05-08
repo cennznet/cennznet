@@ -45,16 +45,6 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-/// Runs scheduled payouts for the rewards module.
-pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
-
-#[allow(dead_code)]
-#[cfg(not(feature = "integration_config"))]
-const MAX_VALIDATORS: u32 = 5_000;
-#[allow(dead_code)]
-#[cfg(feature = "integration_config")]
-const MAX_VALIDATORS: u32 = 7; // low value for integration tests
-
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const CPAY_UNIT_VALUE: Balance = 10_u128.pow(14);
 
@@ -279,6 +269,9 @@ impl<T: crml_governance::Config> crml_support::RegistrationInfo for Registration
 		}
 	}
 }
+
+/// Runs scheduled payouts for the rewards module.
+pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
 
 impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRunner<T> {
 	type AccountId = AccountId;

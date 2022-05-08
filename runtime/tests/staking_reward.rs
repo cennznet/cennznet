@@ -20,16 +20,16 @@ use cennznet_primitives::types::{AccountId, Balance, BlockNumber, DigestItem, He
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, time::MILLISECS_PER_BLOCK},
 	Babe, CENNZnetGasWeightMapping, Call, CheckedExtrinsic, DefaultBaseFeePerGas, EpochDuration, Executive,
-	MaxNominatorRewardedPerValidator, Rewards, Runtime, Session, SessionsPerEra, SignedExtra, SlashDeferDuration,
-	Staking, System, Timestamp, Treasury,
+	MaxNominatorRewardedPerValidator, Rewards, Runtime, RuntimeBlockWeights, Session, SessionsPerEra, SignedExtra,
+	SlashDeferDuration, Staking, System, Timestamp, Treasury,
 };
 use codec::{Decode, Encode};
 use crml_staking::{ActiveEra, ActiveEraInfo, EraIndex, HandlePayee, RewardCalculation, StakingLedger};
 use crml_support::{PrefixedAddressMapping, H160, U256};
 use frame_support::{
 	storage::StorageValue,
-	traits::{Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
-	IterableStorageMap,
+	traits::{Currency, Get, OffchainWorker, OnFinalize, OnIdle, OnInitialize},
+	IterableStorageDoubleMap,
 };
 use hex_literal::hex;
 use pallet_ethereum::{Transaction, TransactionAction};
@@ -140,6 +140,8 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Staking::offchain_worker(b);
 		Rewards::on_initialize(b);
 		<pallet_babe::CurrentSlot<Runtime>>::put(Slot::from(b as u64));
+		// fix idle block weight at 40%
+		Rewards::on_idle(b, Perbill::from_percent(40_u32) * RuntimeBlockWeights::get().max_block);
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
@@ -610,66 +612,6 @@ fn slashed_cennz_goes_to_reporter() {
 				total_slash - reporter_fee
 			);
 		});
-}
-
-#[test]
-fn reward_scheduling() {
-	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
-	let initial_balance = 1_000 * DOLLARS;
-	ExtBuilder::default()
-		.initial_authorities(validators.as_slice())
-		.initial_balance(initial_balance)
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			start_active_era(1);
-			let era1_start_ms = Timestamp::now();
-			// era 0 has no reward
-			start_active_era(2);
-			// era 1 reward payouts should be scheduled
-			let per_validator_reward = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).stakers_cut
-				/ validators.len() as Balance;
-
-			assert_eq!(crml_staking::rewards::ScheduledPayoutEra::get(), 1,);
-			let scheduled_payouts = crml_staking::rewards::ScheduledPayouts::<Runtime>::iter()
-				.collect::<Vec<(BlockNumber, (AccountId, Balance))>>();
-			for (_block, (who, amount)) in scheduled_payouts.into_iter() {
-				assert!(Session::validators().iter().find(|v| *v == &who).is_some());
-				assert_eq!(amount, per_validator_reward);
-			}
-		})
-}
-
-#[test]
-fn reward_scheduling_short_era() {
-	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
-	let initial_balance = 1_000 * DOLLARS;
-	ExtBuilder::default()
-		.initial_authorities(validators.as_slice())
-		.initial_balance(initial_balance)
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			start_active_era(1);
-			let era1_start_ms = Timestamp::now();
-			// era 0 has no reward
-			start_active_era(2);
-			// era 1 reward payouts should be scheduled
-			let per_validator_reward = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).stakers_cut
-				/ validators.len() as Balance;
-
-			ForceEra::put(Forcing::ForceNew);
-			// start active era 3 early
-			advance_session();
-			assert_eq!(active_era(), 3);
-
-			let scheduled_payouts = crml_staking::rewards::ScheduledPayouts::<Runtime>::iter()
-				.collect::<Vec<(BlockNumber, (AccountId, Balance, EraIndex))>>();
-			for (_block, (who, amount, era)) in scheduled_payouts.into_iter() {
-				assert!(Session::validators().iter().find(|v| *v == &who).is_some());
-				assert_eq!(amount, per_validator_reward);
-			}
-		})
 }
 
 #[test]

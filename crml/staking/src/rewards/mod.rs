@@ -95,7 +95,7 @@ decl_storage! {
 		/// Scheduled payout amounts keyed by (era, validator stash)
 		pub ScheduledPayoutAmounts: double_map hasher(twox_64_concat) EraIndex, hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 		/// Scheduled payout eras and # of payouts to be made
-		ScheduledPayoutErasAndCounts: Vec<(EraIndex, u32)>;
+		pub ScheduledPayoutErasAndCounts: Vec<(EraIndex, u32)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
