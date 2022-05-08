@@ -294,6 +294,7 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 		use crml_staking::rewards::WeightInfo;
 
 		// payouts for previous era
+		// TODO: add the read weight..
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
@@ -305,9 +306,22 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 			payout_era,
 		);
 
-		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount);
+		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount, payout_era);
 
 		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
+	}
+
+	// Return weight estimate of given payout
+	fn estimate_run_payout_weight(
+		validator_stash: &Self::AccountId,
+		_amount: Self::Balance,
+		payout_era: EraIndex,
+	) -> Weight {
+		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
+		// + 1 read for the estimate
+		// + 2 reads for exposure and commission on the real real execution
+		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32)
+			.saturating_add(DbWeight::get().reads(3 as Weight));
 	}
 }
 

@@ -24,7 +24,7 @@ use crml_support::NotarizationRewardHandler;
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	traits::{Currency, Get, Imbalance},
-	weights::{DispatchClass, Weight},
+	weights::{constants::RocksDbWeight as DbWeight, DispatchClass, Weight},
 	PalletId,
 };
 use frame_system::{self as system, ensure_root};
@@ -55,8 +55,6 @@ pub trait Config: frame_system::Config {
 	type TreasuryPalletId: Get<PalletId>;
 	/// The number of historical eras for which tx fee payout info should be retained.
 	type HistoricalPayoutEras: Get<u16>;
-	/// The gap between subsequent payouts (in number of blocks)
-	type BlockPayoutInterval: Get<Self::BlockNumber>;
 	/// The number of staking eras in a fiscal era.
 	type FiscalEraLength: Get<u32>;
 	/// Handles running a scheduled payout
@@ -71,12 +69,10 @@ decl_event!(
 		Balance = BalanceOf<T>,
 		AccountId = <T as frame_system::Config>::AccountId,
 	{
-		/// Staker payout (nominator/validator account, amount)
-		EraStakerPayout(AccountId, Balance),
-		/// Era reward payout the total (amount to treasury, amount to stakers)
-		EraPayout(Balance, Balance),
-		/// Era ended abruptly e.g. due to early re-election, this amount will be deferred to the next full era
-		EraPayoutDeferred(Balance),
+		/// Staker payout (era, nominator/validator account, amount)
+		EraStakerPayout(EraIndex, AccountId, Balance),
+		/// Era reward payout the total (era, amount to treasury, amount to stakers)
+		EraPayout(EraIndex, Balance, Balance),
 		/// A fiscal era has begun with the parameter (target_inflation_per_staking_era)
 		NewFiscalEra(Balance),
 	}
@@ -95,10 +91,10 @@ decl_storage! {
 		/// Where the reward payment should be made. Keyed by stash.
 		// TODO: migrate to blake2 to prevent trie unbalancing
 		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
-		/// Upcoming reward payouts scheduled for block number to a validator and it's stakers of amount earned in era
-		pub ScheduledPayouts: map hasher(twox_64_concat) T::BlockNumber => Option<(T::AccountId, BalanceOf<T>)>;
-		/// The era index for current payouts
-		pub ScheduledPayoutEra get(fn scheduled_payout_era): EraIndex;
+		/// Scheduled payout amounts keyed by (era, validator stash)
+		pub ScheduledPayoutAmounts: double_map hasher(twox_64_concat) EraIndex, hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
+		/// Scheduled payout eras and # of payouts to be made
+		ScheduledPayoutErasAndCounts: Vec<(EraIndex, u32)>;
 		/// The amount of new reward tokens that will be minted on every staking era in order to
 		/// approximate the inflation rate. We calculate the target inflation based on
 		/// T::CurrencyToReward::TotalIssuance() at the beginning of a fiscal era.
@@ -146,16 +142,50 @@ decl_module! {
 			ForceFiscalEra::put(true);
 		}
 
-		fn on_initialize(now: T::BlockNumber) -> Weight {
-			// payouts are scheduled to happen on quantized block intervals such that only blocks where-
-			// `now` % `BlockPayoutInterval` == 0 will ever have a payout. see `schedule_reward_payouts`
-			if (now % T::BlockPayoutInterval::get()).is_zero() {
-				if let Some((validator_stash, amount)) = ScheduledPayouts::<T>::take(now) {
-					return T:: ScheduledPayoutRunner::run_payout(&validator_stash, amount, Self::scheduled_payout_era())
+		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			// +1 read  `SchedulePayoutErasAndCounts` and +1 write to update it at the end
+			let mut consumed_weight = DbWeight::get().reads(1) + DbWeight::get().writes(1);
+			if remaining_weight.checked_sub(consumed_weight).is_none() {
+				return consumed_weight;
+			}
+
+			let mut payout_eras_and_counts = ScheduledPayoutErasAndCounts::get();
+			if payout_eras_and_counts.is_empty() {
+				return consumed_weight;
+			}
+			let (payout_era, mut payouts_left) = payout_eras_and_counts[0];
+			let mut payouts_complete: Vec<T::AccountId> = vec![];
+
+			// run until `remaining_weight` is consumed or the era's payouts are finished, whichever happens first
+			for (validator_stash, amount) in ScheduledPayoutAmounts::<T>::iter_prefix(payout_era) {
+				// TODO: this will drain the elem regardless of success or failure..
+				// +1 read on each loop and the write to remove it from storage later
+				consumed_weight += DbWeight::get().reads(1) + DbWeight::get().writes(1);
+				let estimated_weight = T::ScheduledPayoutRunner::estimate_run_payout_weight(&validator_stash, amount, payout_era);
+				if let Some(_) = remaining_weight.checked_sub(consumed_weight + estimated_weight) {
+					consumed_weight += T::ScheduledPayoutRunner::run_payout(&validator_stash, amount, payout_era);
+					payouts_complete.push(validator_stash);
+					payouts_left -= 1;
+				} else {
+					// exhausted idle weight
+					break;
 				}
 			}
 
-			Zero::zero()
+			// update era payout counts
+			if payouts_left.is_zero() {
+				// no payouts left for the era
+				ScheduledPayoutErasAndCounts::put(payout_eras_and_counts[1..].to_vec());
+			} else {
+				payout_eras_and_counts[0].1 = payouts_left;
+				ScheduledPayoutErasAndCounts::put(payout_eras_and_counts);
+			}
+			// remove completed payouts
+			for stash in payouts_complete {
+				ScheduledPayoutAmounts::<T>::remove(payout_era, stash);
+			}
+
+			return consumed_weight;
 		}
 	}
 }
@@ -201,14 +231,8 @@ impl<T: Config> OnEndEra for Module<T> {
 			Self::new_fiscal_era();
 		}
 
-		ScheduledPayoutEra::put(era_index);
 		// Setup staker payments 💪, delayed by 1 block
-		let remainder = Self::schedule_reward_payouts(
-			era_validator_stashes,
-			next_reward.stakers_cut,
-			<frame_system::Pallet<T>>::block_number() + One::one(),
-			T::BlockPayoutInterval::get(),
-		);
+		let remainder = Self::schedule_reward_payouts(era_validator_stashes, next_reward.stakers_cut, era_index);
 
 		// Deduct taxes from network spending
 		let _ = T::CurrencyToReward::deposit_creating(
@@ -216,7 +240,11 @@ impl<T: Config> OnEndEra for Module<T> {
 			next_reward.treasury_cut + remainder,
 		);
 
-		Self::deposit_event(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut));
+		Self::deposit_event(RawEvent::EraPayout(
+			era_index,
+			next_reward.treasury_cut,
+			next_reward.stakers_cut,
+		));
 
 		// Future tracking for dynamic inflation
 		Self::note_fee_payout(next_reward.transaction_fees);
@@ -296,30 +324,26 @@ impl<T: Config> Module<T> {
 	/// Call at the end of a staking era to schedule the calculation and distribution of rewards to stakers.
 	/// Returns a remainder, the amount indivisble by the stakers
 	///
-	/// Payouts will be scheduled `interval` blocks apart, starting from `earliest_block` number at the earliest.
-	/// The real start block will be quantized to begin at the next block number `b` where `b` % `interval` is 0
-	/// This allows more efficient scheduling checks elsewhere.
+	/// Payouts will be processed later consuming idle block weight
 	///
 	/// Requires `O(validators)` writes
 	fn schedule_reward_payouts(
 		validators: &[T::AccountId],
 		total_staker_payout: BalanceOf<T>,
-		earliest_block: T::BlockNumber,
-		interval: T::BlockNumber,
+		era: EraIndex,
 	) -> BalanceOf<T> {
-		let start_block: T::BlockNumber = quantize_forward::<T>(earliest_block, interval);
-
 		// Calculate the necessary total payout for each validator and it's stakers
 		let (per_validator_payouts, remainder) =
 			Self::calculate_per_validator_payouts(total_staker_payout, validators, Self::current_era_points());
 
 		// Schedule the payouts for future blocks
-		for (index, (stash, amount)) in per_validator_payouts.iter().enumerate() {
-			ScheduledPayouts::<T>::insert(
-				start_block + T::BlockNumber::from(index as u32) * interval,
-				(stash, amount),
-			);
+		for (stash, amount) in per_validator_payouts.iter() {
+			ScheduledPayoutAmounts::<T>::insert(era, stash, amount);
 		}
+		ScheduledPayoutErasAndCounts::mutate(|v| {
+			v.push((era, validators.len() as u32));
+			*v = v.clone();
+		});
 
 		remainder
 	}
@@ -331,6 +355,7 @@ impl<T: Config> Module<T> {
 		validator_commission: Perbill,
 		exposures: &Exposure<T::AccountId, BalanceOf<T>>,
 		total_payout: BalanceOf<T>,
+		era: EraIndex,
 	) {
 		if total_payout.is_zero() {
 			return;
@@ -340,7 +365,7 @@ impl<T: Config> Module<T> {
 			Self::calculate_npos_payouts(validator_stash, validator_commission, exposures, total_payout)
 		{
 			total_payout_imbalance.subsume(T::CurrencyToReward::deposit_creating(&Self::payee(&stash), amount));
-			Self::deposit_event(RawEvent::EraStakerPayout(stash, amount));
+			Self::deposit_event(RawEvent::EraStakerPayout(era, stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
 		T::CurrencyToReward::deposit_creating(&T::TreasuryPalletId::get().into_account(), remainder);
@@ -532,18 +557,15 @@ impl<T: Config> Module<T> {
 	}
 }
 
-/// Starting from `start` returns the next highest number divisible by `interval`
-fn quantize_forward<T: Config>(start: T::BlockNumber, interval: T::BlockNumber) -> T::BlockNumber {
-	(start + interval) - (start % interval)
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::{rewards, IndividualExposure};
 	use crml_generic_asset::impls::TransferDustImbalance;
 	use frame_support::{
-		assert_err, assert_noop, assert_ok, parameter_types, traits::Currency, PalletId, StorageValue,
+		assert_err, assert_noop, assert_ok, parameter_types,
+		traits::{Currency, OnIdle},
+		PalletId, StorageValue,
 	};
 	use pallet_authorship::EventHandler;
 	use sp_core::H256;
@@ -623,11 +645,9 @@ mod tests {
 	parameter_types! {
 		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 		pub const HistoricalPayoutEras: u16 = 7;
-		pub const BlockPayoutInterval: <Test as frame_system::Config>::BlockNumber = 3;
 		pub const FiscalEraLength: u32 = 5;
 	}
 	impl Config for Test {
-		type BlockPayoutInterval = BlockPayoutInterval;
 		type CurrencyToReward = crml_generic_asset::SpendingAssetCurrency<Self>;
 		type Event = Event;
 		type FiscalEraLength = FiscalEraLength;
@@ -647,7 +667,15 @@ mod tests {
 		/// Make a payout to stash for the given era
 		fn run_payout(stash: &Self::AccountId, amount: Self::Balance, _era_index: EraIndex) -> Weight {
 			let _ = T::CurrencyToReward::deposit_creating(stash, amount);
-			return Zero::zero();
+			return 1_000 as Weight;
+		}
+
+		fn estimate_run_payout_weight(
+			_validator_stash: &Self::AccountId,
+			_amount: Self::Balance,
+			_era_index: EraIndex,
+		) -> Weight {
+			return 1_000 as Weight;
 		}
 	}
 
@@ -733,14 +761,6 @@ mod tests {
 		fn as_tuple(&self) -> (AccountId, Perbill, Exposure<AccountId, Balance>) {
 			(self.validator_stash, self.commission, self.exposures.clone())
 		}
-	}
-
-	#[test]
-	fn quantize_forward_cases() {
-		// schedules forward
-		assert_eq!(quantize_forward::<Test>(100, 5), 105);
-		// schedules forward
-		assert_eq!(quantize_forward::<Test>(103, 5), 105);
 	}
 
 	#[test]
@@ -1329,8 +1349,9 @@ mod tests {
 	}
 
 	#[test]
-	fn schedule_reward_payouts_by_block_interval() {
+	fn schedule_reward_payouts_per_era() {
 		ExtBuilder::default().build().execute_with(|| {
+			let era = 1;
 			let validator_stashes = [11_u64, 21, 31];
 			let [validator_1, validator_2, validator_3] = validator_stashes;
 
@@ -1340,37 +1361,150 @@ mod tests {
 			}
 
 			let total_validator_reward = 1_000_000;
-			// schedule payouts to start as early as block 28
-			let earliest_block = 28;
-			let _remainder = Rewards::schedule_reward_payouts(
-				&validator_stashes,
-				total_validator_reward,
-				earliest_block,
-				BlockPayoutInterval::get(),
-			);
-
-			// payouts should start at block 30 because the interval is 3
-			let start_block = quantize_forward::<Test>(earliest_block, BlockPayoutInterval::get());
+			let _remainder = Rewards::schedule_reward_payouts(&validator_stashes, total_validator_reward, era);
 
 			// 1 payout for each validator
-			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validator_stashes.len());
-
-			// payouts are scheduled at the configured block interval
 			assert_eq!(
-				ScheduledPayouts::<Test>::get(start_block).unwrap(),
-				(validator_1, total_validator_reward / 3)
+				ScheduledPayoutAmounts::<Test>::iter_prefix(era).count(),
+				validator_stashes.len()
+			);
+			assert_eq!(
+				ScheduledPayoutErasAndCounts::get(),
+				vec![(era, validator_stashes.len() as u32)]
+			);
+
+			// payout storage is set
+			assert_eq!(
+				ScheduledPayoutAmounts::<Test>::get(era, validator_1),
+				total_validator_reward / 3,
 			);
 
 			assert_eq!(
-				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get()).unwrap(),
-				(validator_2, total_validator_reward / 3)
+				ScheduledPayoutAmounts::<Test>::get(era, validator_2),
+				total_validator_reward / 3,
 			);
 
 			assert_eq!(
-				ScheduledPayouts::<Test>::get(start_block + BlockPayoutInterval::get() * 2).unwrap(),
-				(validator_3, total_validator_reward / 3)
+				ScheduledPayoutAmounts::<Test>::get(era, validator_3),
+				total_validator_reward / 3,
 			);
 		})
+	}
+
+	#[test]
+	fn on_idle_payouts() {
+		ExtBuilder::default().build().execute_with(|| {
+			// setup
+			let (era_1, era_2) = (1, 2);
+			let validator_stashes = [11_u64, 21, 31];
+			let [validator_1, validator_2, validator_3] = validator_stashes;
+			let [validator_1_initial_balance, validator_2_initial_balance, validator_3_initial_balance] = [
+				<Test as Config>::CurrencyToReward::free_balance(&validator_1),
+				<Test as Config>::CurrencyToReward::free_balance(&validator_2),
+				<Test as Config>::CurrencyToReward::free_balance(&validator_3),
+			];
+			// Setup reward points (equal split)
+			for stash in &validator_stashes {
+				Rewards::note_author(*stash);
+			}
+			let total_validator_reward_era_1 = 1_000_000;
+			let _remainder_1 =
+				Rewards::schedule_reward_payouts(&validator_stashes, total_validator_reward_era_1, era_1);
+
+			// setup era 2 w 2 validators only
+			// Setup reward points (equal split)
+			CurrentEraRewardPoints::<Test>::kill();
+			for stash in &validator_stashes[1..] {
+				Rewards::note_author(*stash);
+			}
+			let total_validator_reward_era_2 = 500_000;
+			let _remainder_2 =
+				Rewards::schedule_reward_payouts(&validator_stashes[1..], total_validator_reward_era_2, era_2);
+
+			// test
+			let single_payout_weight = DbWeight::get().writes(2)
+				+ DbWeight::get().reads(2)
+				+ MockPayoutRunner::<Test>::estimate_run_payout_weight(&1_u64, 1, era_1);
+			// block 5 enough space to make 1 era 1 payout
+			let consumed = Rewards::on_idle(5, single_payout_weight);
+			println!("{:?}", single_payout_weight);
+			println!("{:?}", consumed);
+			assert_eq!(
+				ScheduledPayoutErasAndCounts::get(),
+				vec![
+					(era_1, validator_stashes.len() as u32 - 1),
+					(era_2, validator_stashes.len() as u32 - 1)
+				]
+			);
+			assert_eq!(
+				ScheduledPayoutAmounts::<Test>::iter_prefix(era_1)
+					.collect::<Vec<(AccountId, Balance)>>()
+					.len(),
+				2,
+			);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_1),
+				validator_1_initial_balance + total_validator_reward_era_1 / 3
+			);
+
+			// not enough space to do any payments
+			Rewards::on_idle(6, 1_000);
+			assert_eq!(
+				ScheduledPayoutErasAndCounts::get(),
+				vec![
+					(era_1, validator_stashes.len() as u32 - 1),
+					(era_2, validator_stashes.len() as u32 - 1)
+				]
+			);
+
+			// finish era 1 payouts
+			let consumed = Rewards::on_idle(7, single_payout_weight * 2);
+			println!("{:?}", single_payout_weight * 2);
+			println!("{:?}", consumed);
+			assert_eq!(
+				ScheduledPayoutErasAndCounts::get(),
+				vec![(era_2, validator_stashes.len() as u32 - 1)]
+			);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_2),
+				validator_2_initial_balance + total_validator_reward_era_1 / 3
+			);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_3),
+				validator_3_initial_balance + total_validator_reward_era_1 / 3
+			);
+
+			// finish era 2 payouts
+			let consumed = Rewards::on_idle(8, single_payout_weight * 2);
+			println!("{:?}", single_payout_weight * 2);
+			println!("{:?}", consumed);
+			assert!(ScheduledPayoutAmounts::<Test>::iter().count().is_zero());
+			assert!(ScheduledPayoutErasAndCounts::get().is_empty());
+
+			// payouts made
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_1),
+				validator_1_initial_balance + total_validator_reward_era_1 / 3
+			);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_2),
+				validator_2_initial_balance + total_validator_reward_era_1 / 3 + total_validator_reward_era_2 / 2
+			);
+			assert_eq!(
+				<Test as Config>::CurrencyToReward::free_balance(&validator_3),
+				validator_3_initial_balance + total_validator_reward_era_1 / 3 + total_validator_reward_era_2 / 2
+			);
+
+			// no payouts scheduled
+			assert_eq!(
+				Rewards::on_idle(9, 1_000_000),
+				DbWeight::get().reads(1) + DbWeight::get().writes(1)
+			);
+			assert!(ScheduledPayoutAmounts::<Test>::iter()
+				.collect::<Vec<(u32, AccountId, Balance)>>()
+				.is_empty());
+			assert!(ScheduledPayoutErasAndCounts::get().is_empty());
+		});
 	}
 
 	#[test]
@@ -1387,13 +1521,13 @@ mod tests {
 			)
 			.exposures;
 			let initial_issuance = <Test as Config>::CurrencyToReward::total_issuance();
-
+			let era = 1;
 			// check different payee account support (nominator 3)
 			Rewards::set_payee(&3, &8);
 
 			// Execute the payout for this validator and it's nominators
 			let payout = 1_033_221;
-			Rewards::process_reward_payout(&validator_stash, commission, &exposures, payout);
+			Rewards::process_reward_payout(&validator_stash, commission, &exposures, payout, era);
 
 			// Assume these are the correct values based on other unit tests
 			let expected_payouts = Rewards::calculate_npos_payouts(&validator_stash, commission, &exposures, payout);
@@ -1404,7 +1538,7 @@ mod tests {
 				assert_eq!(<Test as Config>::CurrencyToReward::free_balance(&payee), amount);
 				assert!(System::events()
 					.iter()
-					.find(|e| e.event == Event::Rewards(RawEvent::EraStakerPayout(payee, amount)))
+					.find(|e| e.event == Event::Rewards(RawEvent::EraStakerPayout(era, payee, amount)))
 					.is_some());
 				remainder = remainder.saturating_sub(amount);
 			}
@@ -1443,15 +1577,18 @@ mod tests {
 			);
 
 			// payouts scheduled for each validator
-			assert_eq!(ScheduledPayouts::<Test>::iter().count(), validators.len());
+			assert_eq!(ScheduledPayoutErasAndCounts::get()[0].1, validators.len() as u32);
 
 			assert!(System::events()
 				.iter()
 				.find(|e| e.event
-					== Event::Rewards(RawEvent::EraPayout(next_reward.treasury_cut, next_reward.stakers_cut)))
+					== Event::Rewards(RawEvent::EraPayout(
+						era,
+						next_reward.treasury_cut,
+						next_reward.stakers_cut
+					)))
 				.is_some());
 
-			assert_eq!(ScheduledPayoutEra::get(), era);
 			// Storage reset for next era
 			assert!(!TransactionFeePot::<Test>::exists());
 			assert!(!CurrentEraRewardPoints::<Test>::exists());

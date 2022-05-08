@@ -641,6 +641,38 @@ fn reward_scheduling() {
 }
 
 #[test]
+fn reward_scheduling_short_era() {
+	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
+	let initial_balance = 1_000 * DOLLARS;
+	ExtBuilder::default()
+		.initial_authorities(validators.as_slice())
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			start_active_era(1);
+			let era1_start_ms = Timestamp::now();
+			// era 0 has no reward
+			start_active_era(2);
+			// era 1 reward payouts should be scheduled
+			let per_validator_reward = Rewards::calculate_total_reward(Timestamp::now() - era1_start_ms).stakers_cut
+				/ validators.len() as Balance;
+
+			ForceEra::put(Forcing::ForceNew);
+			// start active era 3 early
+			advance_session();
+			assert_eq!(active_era(), 3);
+
+			let scheduled_payouts = crml_staking::rewards::ScheduledPayouts::<Runtime>::iter()
+				.collect::<Vec<(BlockNumber, (AccountId, Balance, EraIndex))>>();
+			for (_block, (who, amount, era)) in scheduled_payouts.into_iter() {
+				assert!(Session::validators().iter().find(|v| *v == &who).is_some());
+				assert_eq!(amount, per_validator_reward);
+			}
+		})
+}
+
+#[test]
 fn max_nominators_rewarded() {
 	let validators: Vec<AuthorityKeys> = make_authority_keys(6);
 	let initial_balance = 1_000 * DOLLARS;
@@ -676,7 +708,6 @@ fn max_nominators_rewarded() {
 
 			// paid rewards
 			for n in 1..=MaxNominatorRewardedPerValidator::get() {
-				println!("{:?}", n);
 				assert!(RewardCurrency::free_balance(&stash(n)) > Zero::zero());
 			}
 
