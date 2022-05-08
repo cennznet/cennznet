@@ -51,8 +51,7 @@ jobs:
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: ${{ env.tarpaulin-vers }}
-          args: '--avoid-cfg-tarpaulin --verbose --all-features --bin cennznet --timeout 120'
+          args: '--bin=cennznet --avoid-cfg-tarpaulin --all'
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0
         with:
