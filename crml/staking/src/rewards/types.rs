@@ -22,6 +22,14 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
 
+/// Storage releases
+pub enum Releases {
+	// Version 0 pre (2.1.0 / runtime 57)
+	V0 = 0,
+	// Version 1 post (2.1.0 / runtime 57)
+	V1 = 1,
+}
+
 /// Something that can run payouts
 /// nb: need information from staking module and rewards module to execute a payout after the fact
 pub trait RunScheduledPayout {

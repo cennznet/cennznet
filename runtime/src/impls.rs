@@ -16,13 +16,13 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{
-	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
-	Treasury,
-};
+use crate::{Babe, Identity, Rewards, Runtime, Session, Staking, System, Treasury};
 use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
-use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
+use crml_staking::{
+	rewards::{RunScheduledPayout, WeightInfo},
+	EraIndex, HandlePayee,
+};
 use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
@@ -31,7 +31,10 @@ use frame_support::{
 		Contains, ContainsLengthBound, Currency, ExistenceRequirement, FindAuthor, Get, Imbalance, OnUnbalanced,
 		SignedImbalance, WithdrawReasons,
 	},
-	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	weights::{
+		constants::RocksDbWeight as DbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+		WeightToFeePolynomial,
+	},
 };
 use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
@@ -46,18 +49,11 @@ use sp_std::{marker::PhantomData, prelude::*};
 pub struct ScheduledPayoutRunner<T: crml_staking::rewards::Config>(PhantomData<T>);
 
 #[allow(dead_code)]
-/// The max. number of validator payouts per era based on runtime config
-const MAX_PAYOUT_CAPACITY: u32 = SessionsPerEra::get() * EpochDuration::get() as u32 / BlockPayoutInterval::get();
-
-#[allow(dead_code)]
 #[cfg(not(feature = "integration_config"))]
 const MAX_VALIDATORS: u32 = 5_000;
 #[allow(dead_code)]
 #[cfg(feature = "integration_config")]
 const MAX_VALIDATORS: u32 = 7; // low value for integration tests
-
-// failure here means a bad config or a new reward scaling solution should be sought if validator count is expected to be > 5_000
-static_assertions::const_assert!(MAX_PAYOUT_CAPACITY > MAX_VALIDATORS);
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const CPAY_UNIT_VALUE: Balance = 10_u128.pow(14);
@@ -289,12 +285,10 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 	type Balance = Balance;
 
 	/// Feed exposure info from staking to run reward calculations
-	/// This is called by Rewards on_initialize at scheduled intervals
+	/// This is triggered by Rewards `on_idle`
 	fn run_payout(validator_stash: &Self::AccountId, amount: Self::Balance, payout_era: EraIndex) -> Weight {
-		use crml_staking::rewards::WeightInfo;
-
 		// payouts for previous era
-		// TODO: add the read weight..
+		let consumed_weight = DbWeight::get().reads(2);
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
@@ -308,7 +302,7 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 
 		Rewards::process_reward_payout(&validator_stash, commission, &exposures, amount, payout_era);
 
-		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32);
+		return consumed_weight.saturating_add(T::WeightInfo::process_reward_payouts(exposures.others.len() as u32));
 	}
 
 	// Return weight estimate of given payout
@@ -319,9 +313,9 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 	) -> Weight {
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		// + 1 read for the estimate
-		// + 2 reads for exposure and commission on the real real execution
+		// + 2 reads for exposure and commission on the real execution
 		return T::WeightInfo::process_reward_payouts(exposures.others.len() as u32)
-			.saturating_add(DbWeight::get().reads(3 as Weight));
+			.saturating_add(DbWeight::get().reads(2 as Weight));
 	}
 }
 

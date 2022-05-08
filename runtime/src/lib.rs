@@ -583,10 +583,8 @@ impl pallet_treasury::Config for Runtime {
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
 	pub const FiscalEraLength: u32 = 365;
-	pub const BlockPayoutInterval: u32 = 3;
 }
 impl crml_staking_rewards::Config for Runtime {
-	type BlockPayoutInterval = BlockPayoutInterval;
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type FiscalEraLength = FiscalEraLength;

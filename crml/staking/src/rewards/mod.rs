@@ -35,6 +35,7 @@ use sp_runtime::{
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 mod default_weights;
+mod migration;
 mod types;
 pub use types::*;
 
@@ -107,6 +108,8 @@ decl_storage! {
 		ForceFiscalEra get(fn force_fiscal_era): bool = false;
 		/// Authorship rewards for the current active era.
 		pub CurrentEraRewardPoints get(fn current_era_points): EraRewardPoints<T::AccountId>;
+		/// Version of this module's storage schema
+		StorageVersion build(|_: &GenesisConfig| Releases::V1 as u32): u32;
 	}
 }
 
@@ -142,6 +145,14 @@ decl_module! {
 			ForceFiscalEra::put(true);
 		}
 
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get() == Releases::V0 as u32 {
+				migration::do_v0_to_v1::<T>()
+			} else {
+				Zero::zero()
+			}
+		}
+
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			// +1 read  `SchedulePayoutErasAndCounts` and +1 write to update it at the end
 			let mut consumed_weight = DbWeight::get().reads(1) + DbWeight::get().writes(1);
@@ -154,17 +165,16 @@ decl_module! {
 				return consumed_weight;
 			}
 			let (payout_era, mut payouts_left) = payout_eras_and_counts[0];
-			let mut payouts_complete: Vec<T::AccountId> = vec![];
+			let mut payouts_completed: Vec<T::AccountId> = vec![];
 
 			// run until `remaining_weight` is consumed or the era's payouts are finished, whichever happens first
 			for (validator_stash, amount) in ScheduledPayoutAmounts::<T>::iter_prefix(payout_era) {
-				// TODO: this will drain the elem regardless of success or failure..
-				// +1 read on each loop and the write to remove it from storage later
+				// +1 read on each loop and +1 write to remove it from storage later
 				consumed_weight += DbWeight::get().reads(1) + DbWeight::get().writes(1);
 				let estimated_weight = T::ScheduledPayoutRunner::estimate_run_payout_weight(&validator_stash, amount, payout_era);
 				if let Some(_) = remaining_weight.checked_sub(consumed_weight + estimated_weight) {
 					consumed_weight += T::ScheduledPayoutRunner::run_payout(&validator_stash, amount, payout_era);
-					payouts_complete.push(validator_stash);
+					payouts_completed.push(validator_stash);
 					payouts_left -= 1;
 				} else {
 					// exhausted idle weight
@@ -181,7 +191,7 @@ decl_module! {
 				ScheduledPayoutErasAndCounts::put(payout_eras_and_counts);
 			}
 			// remove completed payouts
-			for stash in payouts_complete {
+			for stash in payouts_completed {
 				ScheduledPayoutAmounts::<T>::remove(payout_era, stash);
 			}
 
@@ -1592,6 +1602,55 @@ mod tests {
 			// Storage reset for next era
 			assert!(!TransactionFeePot::<Test>::exists());
 			assert!(!CurrentEraRewardPoints::<Test>::exists());
+		})
+	}
+
+	#[test]
+	fn migrate_to_v1() {
+		use frame_support::traits::OnRuntimeUpgrade;
+
+		ExtBuilder::default().build().execute_with(|| {
+			use migration::storage_v0;
+
+			// migration #1 scheduled paymetns exist
+			StorageVersion::put(Releases::V0 as u32);
+			storage_v0::ScheduledPayoutEra::put(5);
+			storage_v0::ScheduledPayouts::<Test>::insert(3, (11, 1_000));
+			storage_v0::ScheduledPayouts::<Test>::insert(5, (2, 2_000));
+			storage_v0::ScheduledPayouts::<Test>::insert(7, (40, 123));
+
+			// run migration
+			Rewards::on_runtime_upgrade();
+			assert_eq!(StorageVersion::get(), Releases::V1 as u32);
+			assert_eq!(ScheduledPayoutErasAndCounts::get(), vec![(5, 3)]);
+			let payouts = ScheduledPayoutAmounts::<Test>::iter().collect::<Vec<(EraIndex, AccountId, Balance)>>();
+			assert_eq!(
+				payouts,
+				vec![
+					(5 as EraIndex, 11 as AccountId, 1_000 as Balance),
+					(5, 40, 123),
+					(5, 2, 2_000),
+				]
+			);
+			assert!(storage_v0::ScheduledPayoutEra::get().is_zero());
+			assert!(storage_v0::ScheduledPayouts::<Test>::iter()
+				.collect::<Vec<(u64, (AccountId, Balance))>>()
+				.is_empty());
+
+			// migration #2
+			// there are no scheduled payments
+			ScheduledPayoutAmounts::<Test>::remove_all(None);
+			ScheduledPayoutErasAndCounts::kill();
+			storage_v0::ScheduledPayoutEra::put(5);
+			StorageVersion::put(Releases::V0 as u32);
+
+			// migrate
+			Rewards::on_runtime_upgrade();
+			assert_eq!(StorageVersion::get(), Releases::V1 as u32);
+			assert!(ScheduledPayoutErasAndCounts::get().is_empty());
+			assert!(storage_v0::ScheduledPayoutEra::get().is_zero());
+			let payouts = ScheduledPayoutAmounts::<Test>::iter().collect::<Vec<(EraIndex, AccountId, Balance)>>();
+			assert!(payouts.is_empty());
 		})
 	}
 }
