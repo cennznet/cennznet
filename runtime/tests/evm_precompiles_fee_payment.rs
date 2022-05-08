@@ -17,9 +17,7 @@ use cennznet_primitives::types::AssetId;
 use cennznet_runtime::{EthWallet, Runtime};
 use frame_support::assert_ok;
 use hex_literal::hex;
-use pallet_evm_precompiles_fee_payment::{
-	Action, Context, EvmDataWriter, FeePaymentPrecompile, Precompile, FEE_PREFERENCES_PRECOMPILE,
-};
+use pallet_evm_precompiles_fee_payment::{Action, Context, EvmDataWriter, FeePaymentPrecompile, Precompile, FEE_PROXY};
 use sp_core::{H160, U256};
 
 mod common;
@@ -30,7 +28,7 @@ fn set_payment_asset() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 		let payment_asset: AssetId = 12;
-		let address = H160::from_low_u64_be(FEE_PREFERENCES_PRECOMPILE);
+		let address = H160::from_low_u64_be(FEE_PROXY);
 		let context = Context {
 			address,
 			caller,

@@ -34,11 +34,12 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use hex_literal::hex;
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator, OnChargeEVMTransaction,
 	Runner as RunnerT,
 };
-use pallet_evm_precompiles_fee_payment::FEE_PREFERENCES_PRECOMPILE;
+use pallet_evm_precompiles_fee_payment::FEE_PROXY;
 use smallvec::smallvec;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
@@ -232,20 +233,6 @@ where
 	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
-		let payment_asset = EthWallet::evm_payment_asset(who);
-		if let Some(asset) = payment_asset {
-			// User has a custom payment asset setup for their account.
-			// Create new fee_exchange using 5% for max_payment (fee * 1.05)
-			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(*who);
-			let fee: u128 = fee.low_u128().unique_saturated_into();
-			let max_payment = fee.saturating_add(Permill::from_parts(50_000) * fee);
-			let exchange = FeeExchange::new_v1(asset, max_payment);
-			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, fee, &exchange).map_err(|_| {
-				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				pallet_evm::Error::<T>::WithdrawFailed
-			})?;
-		};
 		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
 	}
 
@@ -283,6 +270,83 @@ where
 	_marker: PhantomData<T>,
 }
 
+impl<T> FeePreferencesRunner<T>
+where
+	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
+{
+	/// Decodes the input for call_with_fee_preferences
+	fn decode_input(
+		input: Vec<u8>,
+	) -> Result<(AssetId, u32, H160, Vec<u8>), <FeePreferencesRunner<T> as RunnerT<T>>::Error> {
+		// Check that function selector is for call_with_fee_preferences method
+		ensure!(
+			input[..4].as_ref() == hex!("15946350"),
+			<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed
+		);
+		// Decode input for payment asset and slippage
+		let rlp = rlp::Rlp::new(&input[..4]);
+		ensure!(
+			rlp.is_list(),
+			<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed
+		);
+
+		let payment_asset = match rlp::decode::<AssetId>(rlp.at(0).unwrap().as_raw()) {
+			Ok(asset) => asset,
+			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+		};
+		let slippage = match rlp::decode::<u32>(rlp.at(1).unwrap().as_raw()) {
+			Ok(slippage) => slippage,
+			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+		};
+		let new_target = match rlp::decode::<H160>(rlp.at(2).unwrap().as_raw()) {
+			Ok(target) => target,
+			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+		};
+		let new_input = match rlp::decode::<Vec<u8>>(rlp.at(3).unwrap().as_raw()) {
+			Ok(input) => input,
+			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+		};
+		Ok((payment_asset, slippage, new_target, new_input))
+	}
+
+	/// Calculate gas price for transaction to use for exchanging asset into CPAY
+	fn calculate_total_gas(
+		gas_limit: u64,
+		max_fee_per_gas: Option<U256>,
+		max_priority_fee_per_gas: Option<U256>,
+	) -> Result<u128, <FeePreferencesRunner<T> as RunnerT<T>>::Error> {
+		let base_fee = T::FeeCalculator::min_gas_price();
+
+		let max_fee_per_gas = match max_fee_per_gas {
+			Some(max_fee_per_gas) => {
+				ensure!(
+					max_fee_per_gas >= base_fee,
+					<FeePreferencesRunner<T> as RunnerT<T>>::Error::GasPriceTooLow
+				);
+				max_fee_per_gas
+			}
+			None => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::GasPriceTooLow),
+		};
+		let max_base_fee = max_fee_per_gas
+			.checked_mul(U256::from(gas_limit))
+			.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?;
+		let max_priority_fee = if let Some(max_priority_fee) = max_priority_fee_per_gas {
+			max_priority_fee
+				.checked_mul(U256::from(gas_limit))
+				.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?
+		} else {
+			U256::zero()
+		};
+		let total_fee: u128 = max_base_fee
+			.checked_add(max_priority_fee)
+			.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?
+			.low_u128()
+			.unique_saturated_into();
+
+		Ok(total_fee)
+	}
+}
+
 impl<T> RunnerT<T> for FeePreferencesRunner<T>
 where
 	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
@@ -301,42 +365,19 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		config: &EvmConfig,
 	) -> Result<CallInfo, Self::Error> {
-		if target == H160::from_low_u64_be(FEE_PREFERENCES_PRECOMPILE) {
-			// Transaction is to set transaction fee preferences
-			// We should exchange the asset for CPAY to allow the transaction to go through
-			// Return "WithdrawFailed" error if asset_id is invalid
-			// TODO: More descriptive error handling
-			let payment_asset: AssetId = match rlp::decode::<AssetId>(&input[4..]) {
-				Ok(asset) => asset,
-				_ => return Err(Self::Error::WithdrawFailed),
-			};
-			let base_fee = T::FeeCalculator::min_gas_price();
+		// These values may change if we are using the fee_preferences precompile
+		let mut input = input;
+		let mut target = target;
 
-			// Calculate gas price for transaction to use for exchanging into CPAY
-			let max_fee_per_gas = match max_fee_per_gas {
-				Some(max_fee_per_gas) => {
-					ensure!(max_fee_per_gas >= base_fee, Self::Error::GasPriceTooLow);
-					max_fee_per_gas
-				}
-				None => return Err(Self::Error::GasPriceTooLow),
-			};
-			let max_base_fee = max_fee_per_gas
-				.checked_mul(U256::from(gas_limit))
-				.ok_or(Self::Error::FeeOverflow)?;
-			let max_priority_fee = if let Some(max_priority_fee) = max_priority_fee_per_gas {
-				max_priority_fee
-					.checked_mul(U256::from(gas_limit))
-					.ok_or(Self::Error::FeeOverflow)?
-			} else {
-				U256::zero()
-			};
-			let total_fee: u128 = max_base_fee
-				.checked_add(max_priority_fee)
-				.ok_or(Self::Error::FeeOverflow)?
-				.low_u128()
-				.unique_saturated_into();
+		// Check if we are calling with fee preferences
+		if target == H160::from_low_u64_be(FEE_PROXY) {
+			let (payment_asset, slippage, new_target, new_input) = Self::decode_input(input)?;
+			// set input and target to new input and actual target for passthrough
+			input = new_input;
+			target = new_target;
 
-			let max_payment = total_fee.saturating_add(Permill::from_parts(50_000) * total_fee);
+			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)?;
+			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(source);

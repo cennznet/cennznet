@@ -39,7 +39,7 @@ pub enum Action {
 }
 
 // Precompile address for fee preferences
-pub const FEE_PREFERENCES_PRECOMPILE: u64 = 1211;
+pub const FEE_PROXY: u64 = 1211;
 
 /// Provides access to the eth-wallet pallet
 pub struct FeePaymentPrecompile<Runtime>(PhantomData<Runtime>);
