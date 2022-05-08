@@ -50,6 +50,12 @@ jobs:
         run: cargo check --locked
       - name: Test
         run: cargo test --all
+      - name: CodeCov
+        uses: codecov/codecov-action@v2
+        with:
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
       - name: notify success
