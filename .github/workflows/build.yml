@@ -50,6 +50,13 @@ jobs:
         run: cargo check --locked
       - name: Test
         run: cargo test --all
+      - name: CodeCov
+        uses: codecov/codecov-action@v2
+        with:
+          name: codecov-cennznet
+          files: ./coverage1.xml
+          fail_ci_if_error: false
+          verbose: true
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
       - name: notify success
