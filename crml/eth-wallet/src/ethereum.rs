@@ -41,6 +41,8 @@ impl sp_std::convert::TryFrom<Vec<u8>> for EthereumSignature {
 
 /// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
 pub fn signable_message(what: &[u8]) -> Vec<u8> {
+	//let msg: &[u8] = Decode::decode(&mut &*what).unwrap();
+	// let mut l = msg.len();
 	let mut l = what.len();
 	let mut rev = Vec::new();
 	while l > 0 {
@@ -49,6 +51,7 @@ pub fn signable_message(what: &[u8]) -> Vec<u8> {
 	}
 	let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
 	v.extend(rev.into_iter().rev());
+	// v.extend_from_slice(msg);
 	v.extend_from_slice(what);
 	v
 }
@@ -59,7 +62,8 @@ pub fn ecrecover<L: Lazy<[u8]>>(
 	mut msg: L,
 	address: &EthAddress,
 ) -> Option<ecdsa::Public> {
-	let msg = keccak_256(&signable_message(&msg.get()));
+	let msgDecode: &[u8] = Decode::decode(&mut &*msg.get()).unwrap();
+	let msg = keccak_256(&signable_message(&msgDecode));
 	if let Some(public) = secp256k1_ecdsa_recover_compressed(&signature.0, &msg).ok() {
 		let public = ecdsa::Public { 0: public };
 		if let Some(address_) = cennznet_primitives::eth::EthyEcdsaToEthereum::convert(public.clone()) {
@@ -78,7 +82,9 @@ impl Verify for EthereumSignature {
 	type Signer = <MultiSignature as Verify>::Signer;
 
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, account: &<Self::Signer as IdentifyAccount>::AccountId) -> bool {
-		let msg = keccak_256(&signable_message(&msg.get()));
+		 //let msg = keccak_256(&signable_message(&msg.get()));
+		let msgDecode: &[u8] = Decode::decode(&mut &*msg.get()).unwrap();
+		let msg = keccak_256(&signable_message(msgDecode));
 		match secp256k1_ecdsa_recover_compressed(&self.0, &msg).ok() {
 			Some(public) => {
 				let signer = Self::Signer::from(ecdsa::Public::from_raw(public));
