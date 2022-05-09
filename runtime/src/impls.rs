@@ -17,8 +17,8 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	Babe, BlockPayoutInterval, Cennzx, EpochDuration, EthWallet, Identity, Rewards, Runtime, Session, SessionsPerEra,
-	Staking, System, Treasury,
+	Babe, BlockPayoutInterval, Cennzx, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking,
+	System, Treasury,
 };
 use cennznet_primitives::traits::BuyFeeAsset;
 use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange};
@@ -260,6 +260,12 @@ where
 	}
 }
 
+pub enum FeePreferencesError {
+	WithdrawFailed,
+	GasPriceTooLow,
+	FeeOverflow,
+}
+
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
 /// complete the transaction
@@ -275,36 +281,31 @@ where
 	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
 {
 	/// Decodes the input for call_with_fee_preferences
-	fn decode_input(
-		input: Vec<u8>,
-	) -> Result<(AssetId, u32, H160, Vec<u8>), <FeePreferencesRunner<T> as RunnerT<T>>::Error> {
+	fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
 		// Check that function selector is for call_with_fee_preferences method
 		ensure!(
 			input[..4].as_ref() == hex!("15946350"),
-			<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed
+			FeePreferencesError::WithdrawFailed
 		);
 		// Decode input for payment asset and slippage
 		let rlp = rlp::Rlp::new(&input[..4]);
-		ensure!(
-			rlp.is_list(),
-			<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed
-		);
+		ensure!(rlp.is_list(), FeePreferencesError::WithdrawFailed);
 
 		let payment_asset = match rlp::decode::<AssetId>(rlp.at(0).unwrap().as_raw()) {
 			Ok(asset) => asset,
-			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+			_ => return Err(FeePreferencesError::WithdrawFailed),
 		};
 		let slippage = match rlp::decode::<u32>(rlp.at(1).unwrap().as_raw()) {
 			Ok(slippage) => slippage,
-			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+			_ => return Err(FeePreferencesError::WithdrawFailed),
 		};
 		let new_target = match rlp::decode::<H160>(rlp.at(2).unwrap().as_raw()) {
 			Ok(target) => target,
-			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+			_ => return Err(FeePreferencesError::WithdrawFailed),
 		};
 		let new_input = match rlp::decode::<Vec<u8>>(rlp.at(3).unwrap().as_raw()) {
 			Ok(input) => input,
-			_ => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::WithdrawFailed),
+			_ => return Err(FeePreferencesError::WithdrawFailed),
 		};
 		Ok((payment_asset, slippage, new_target, new_input))
 	}
@@ -314,32 +315,29 @@ where
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
 		max_priority_fee_per_gas: Option<U256>,
-	) -> Result<u128, <FeePreferencesRunner<T> as RunnerT<T>>::Error> {
+	) -> Result<u128, FeePreferencesError> {
 		let base_fee = T::FeeCalculator::min_gas_price();
 
 		let max_fee_per_gas = match max_fee_per_gas {
 			Some(max_fee_per_gas) => {
-				ensure!(
-					max_fee_per_gas >= base_fee,
-					<FeePreferencesRunner<T> as RunnerT<T>>::Error::GasPriceTooLow
-				);
+				ensure!(max_fee_per_gas >= base_fee, FeePreferencesError::GasPriceTooLow);
 				max_fee_per_gas
 			}
-			None => return Err(<FeePreferencesRunner<T> as RunnerT<T>>::Error::GasPriceTooLow),
+			None => return Err(FeePreferencesError::GasPriceTooLow),
 		};
 		let max_base_fee = max_fee_per_gas
 			.checked_mul(U256::from(gas_limit))
-			.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?;
+			.ok_or(FeePreferencesError::FeeOverflow)?;
 		let max_priority_fee = if let Some(max_priority_fee) = max_priority_fee_per_gas {
 			max_priority_fee
 				.checked_mul(U256::from(gas_limit))
-				.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?
+				.ok_or(FeePreferencesError::FeeOverflow)?
 		} else {
 			U256::zero()
 		};
 		let total_fee: u128 = max_base_fee
 			.checked_add(max_priority_fee)
-			.ok_or(<FeePreferencesRunner<T> as RunnerT<T>>::Error::FeeOverflow)?
+			.ok_or(FeePreferencesError::FeeOverflow)?
 			.low_u128()
 			.unique_saturated_into();
 
@@ -371,19 +369,26 @@ where
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY) {
-			let (payment_asset, slippage, new_target, new_input) = Self::decode_input(input)?;
+			let (payment_asset, slippage, new_target, new_input) =
+				Self::decode_input(input).map_err(|_| Self::Error::WithdrawFailed)?;
 			// set input and target to new input and actual target for passthrough
 			input = new_input;
 			target = new_target;
 
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)?;
+			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas).map_err(
+				|err| match err {
+					FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
+					FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
+					FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
+				},
+			)?;
 			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(source);
 			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				pallet_evm::Error::<T>::WithdrawFailed
+				Self::Error::WithdrawFailed
 			})?;
 		}
 
