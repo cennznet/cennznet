@@ -9,7 +9,7 @@ description = "A runtime module for decentralized governance of the CENNZnet pro
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-serde = { version = "1.0.102", optional = true }
+serde = { version = "1.0.102", optional = true, default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
 frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }

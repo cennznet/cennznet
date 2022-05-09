@@ -10,7 +10,7 @@ description = "FRAME pallet for eth_sign extrinsics"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0", features = ["derive"], default-features = false }
-serde = { version = "1.0.106", features = ["derive"], optional = true }
+serde = { version = "1.0.106", features = ["derive"], optional = true, default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
