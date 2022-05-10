@@ -99,7 +99,7 @@ decl_module! {
 			// convert to CENNZnet address
 			let account = T::AddressMapping::into_account_id(eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let prefix = "data:application-octet;base64";
+			let prefix = "data:application-octet;base64,";
 			let msg =  base64::encode(&(&call, nonce).encode()[..]);
 			let full_msg = &[prefix.as_bytes(), msg.as_bytes()].concat()[..];
 			if let Some(_public_key) = ecrecover(&signature, full_msg, &eth_address) {
@@ -144,7 +144,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		{
 			let account = T::AddressMapping::into_account_id(*eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let prefix = "data:application-octet;base64";
+			let prefix = "data:application-octet;base64,";
 			let msg = base64::encode(&(&call, nonce).encode()[..]);
 			let full_msg = &[prefix.as_bytes(), msg.as_bytes()].concat()[..];
 
@@ -320,7 +320,7 @@ mod tests {
 			.into();
 			let nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
 			let msg = base64::encode((call.clone(), nonce).encode());
-			let prefix = "data:application-octet;base64";
+			let prefix = "data:application-octet;base64,";
 			let full_msg = &[prefix.as_bytes(), msg.as_bytes()].concat()[..];
 			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, full_msg.as_ref())).expect("valid sig");
 
