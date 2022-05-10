@@ -99,9 +99,8 @@ decl_module! {
 			// convert to CENNZnet address
 			let account = T::AddressMapping::into_account_id(eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			let message = base64::encode(&(&call, nonce).encode()[..]);
+			if let Some(_public_key) = ecrecover(&signature, message.as_bytes(), &eth_address) {
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
 				<frame_system::Pallet<T>>::inc_account_nonce(&account);
@@ -143,8 +142,10 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		{
 			let account = T::AddressMapping::into_account_id(*eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			// let message = base64::encode(fullMsg);
+
+			let message = base64::encode(&(&call, nonce).encode()[..]);
+			if let Some(_public_key) = ecrecover(&signature, message.as_bytes(), &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
 					.and_provides((eth_address, nonce))

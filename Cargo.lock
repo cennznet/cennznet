@@ -1196,6 +1196,7 @@ dependencies = [
 name = "crml-eth-wallet"
 version = "2.0.0"
 dependencies = [
+ "base64 0.13.0",
  "cennznet-primitives",
  "crml-support",
  "frame-support",
