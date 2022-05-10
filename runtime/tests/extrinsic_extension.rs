@@ -18,17 +18,19 @@
 use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	impls::CENNZnetOnChargeEVMTransaction,
-	Call, Cennzx, CheckedExtrinsic, EthWallet, Executive, GenericAsset, Origin, Runtime,
+	impls::{scale_to_4dp, FeePreferencesRunner},
+	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin, Runtime,
 };
-use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, U256};
+use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
 use frame_support::assert_ok;
 use hex_literal::hex;
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
 use common::keyring::{alice, bob, signed_extra};
 use common::mock::ExtBuilder;
-use pallet_evm::{AddressMapping, OnChargeEVMTransaction};
+use pallet_evm::{AddressMapping, EvmConfig, Runner as RunnerT};
+use pallet_evm_precompiles_fee_payment::FEE_PROXY;
+use rlp::RlpStream;
 use sp_runtime::Permill;
 
 #[test]
@@ -136,7 +138,6 @@ fn evm_call_works_with_fee_exchange() {
 	let cennznet_address: AccountId = PrefixedAddressMapping::into_account_id(eth_address);
 	let initial_balance = 1000 * DOLLARS;
 	let initial_liquidity = 500 * DOLLARS;
-	let fee: U256 = (10 * DOLLARS).into();
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
@@ -153,29 +154,63 @@ fn evm_call_works_with_fee_exchange() {
 				initial_liquidity, // liquidity CPAY
 			));
 
-			assert_ok!(EthWallet::set_payment_asset(
-				Origin::signed(cennznet_address.clone()),
-				Some(CENNZ_ASSET_ID)
-			));
-
 			let cpay_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID);
 			let cennz_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
+			let target = H160::from_low_u64_be(FEE_PROXY);
 
-			// Call withdraw_fee directly without needing to create an Ethereum EVM call
-			assert_ok!(CENNZnetOnChargeEVMTransaction::<Runtime>::withdraw_fee(
-				&eth_address,
-				fee
+			// Create input
+			let prefix = hex!("15946350").to_vec();
+			let slippage: u32 = 50; // Per thousand (5%)
+			let new_target = H160::from_low_u64_be(100);
+			let new_input: Vec<u8> = vec![0];
+			let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+			rlp_stream
+				.append(&prefix)
+				.append(&CENNZ_ASSET_ID)
+				.append(&slippage)
+				.append(&new_target)
+				.append(&new_input);
+			let input = rlp_stream.out().to_vec();
+
+			let value = U256::from(0u64);
+			let gas_limit: u64 = 100000;
+			let max_fee_per_gas = U256::from(20000000000000u64);
+			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let config: EvmConfig = EvmConfig::frontier();
+
+			assert_ok!(<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
+				eth_address,
+				target,
+				input,
+				value,
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+				None,
+				access_list,
+				&config
 			));
 
-			let fee = fee.low_u128();
+			// CPAY balance should be unchanged, all CPAY swapped should be used to pay gas
 			assert_eq!(
-				cpay_balance_before + fee - 1,
+				cpay_balance_before,
 				<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID)
 			);
 
-			// Check CENNZ balance is above slippage amount
-			let max_payment = fee.saturating_add(Permill::from_parts(50_000) * fee);
-			let min_payment = fee.saturating_sub(Permill::from_parts(50_000) * fee);
+			// Calculate expected fee for transaction
+			let expected_fee = scale_to_4dp(
+				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+					gas_limit,
+					Some(max_fee_per_gas),
+					Some(max_priority_fee_per_gas),
+				)
+				.unwrap(),
+			);
+
+			// Check CENNZ balance has changed within slippage amount, this should have been used to pay fees
+			let max_payment = expected_fee.saturating_add(Permill::from_rational(slippage, 1000) * expected_fee);
+			let min_payment = expected_fee.saturating_sub(Permill::from_rational(slippage, 1000) * expected_fee);
 
 			let cennz_balance_after = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
 			assert_eq!(cennz_balance_after >= cennz_balance_before - max_payment, true);
