@@ -18,11 +18,11 @@
 use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	impls::{scale_to_4dp, FeePreferencesRunner},
+	impls::{scale_to_4dp, FeePreferencesError, FeePreferencesRunner},
 	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin, Runtime,
 };
 use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
@@ -133,7 +133,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 }
 
 #[test]
-fn evm_call_works_with_fee_exchange() {
+fn evm_call_with_fee_preferences() {
 	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
 	let cennznet_address: AccountId = PrefixedAddressMapping::into_account_id(eth_address);
 	let initial_balance = 1000 * DOLLARS;
@@ -156,7 +156,6 @@ fn evm_call_works_with_fee_exchange() {
 
 			let cpay_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID);
 			let cennz_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
-			let target = H160::from_low_u64_be(FEE_PROXY);
 
 			// Create input
 			let prefix = hex!("15946350").to_vec();
@@ -172,18 +171,16 @@ fn evm_call_works_with_fee_exchange() {
 				.append(&new_input);
 			let input = rlp_stream.out().to_vec();
 
-			let value = U256::from(0u64);
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
 			let config: EvmConfig = EvmConfig::frontier();
-
 			assert_ok!(<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
 				eth_address,
-				target,
+				H160::from_low_u64_be(FEE_PROXY),
 				input,
-				value,
+				U256::from(0u64),
 				gas_limit,
 				Some(max_fee_per_gas),
 				Some(max_priority_fee_per_gas),
@@ -216,4 +213,206 @@ fn evm_call_works_with_fee_exchange() {
 			assert_eq!(cennz_balance_after >= cennz_balance_before - max_payment, true);
 			assert_eq!(cennz_balance_after <= cennz_balance_before - min_payment, true);
 		});
+}
+
+#[test]
+fn decode_input() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create input
+		let prefix = hex!("15946350").to_vec();
+		let slippage: u32 = 50; // Per thousand (5%)
+		let new_target = H160::from_low_u64_be(100);
+		let new_input: Vec<u8> = vec![0];
+		let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+		rlp_stream
+			.append(&prefix)
+			.append(&CENNZ_ASSET_ID)
+			.append(&slippage)
+			.append(&new_target)
+			.append(&new_input);
+		let input = rlp_stream.out().to_vec();
+
+		assert_ok!(<FeePreferencesRunner<Runtime>>::decode_input(input));
+	});
+}
+
+#[test]
+fn decode_input_with_invalid_input_length_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create input
+		let prefix = hex!("15946350").to_vec();
+		let slippage: u32 = 50; // Per thousand (5%)
+		let new_target = H160::from_low_u64_be(100);
+		let mut rlp_stream: RlpStream = RlpStream::new_list(4);
+		rlp_stream
+			.append(&prefix)
+			.append(&CENNZ_ASSET_ID)
+			.append(&slippage)
+			.append(&new_target);
+		let input = rlp_stream.out().to_vec();
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::decode_input(input),
+			FeePreferencesError::WithdrawFailed
+		);
+	});
+}
+
+#[test]
+fn decode_input_with_invalid_prefix_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create input
+		let prefix = hex!("00000000").to_vec();
+		let slippage: u32 = 50; // Per thousand (5%)
+		let new_target = H160::from_low_u64_be(100);
+		let new_input: Vec<u8> = vec![0];
+		let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+		rlp_stream
+			.append(&prefix)
+			.append(&CENNZ_ASSET_ID)
+			.append(&slippage)
+			.append(&new_target)
+			.append(&new_input);
+		let input = rlp_stream.out().to_vec();
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::decode_input(input),
+			FeePreferencesError::WithdrawFailed
+		);
+	});
+}
+
+#[test]
+fn decode_input_with_invalid_slippage_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create input
+		let prefix = hex!("15946350").to_vec();
+		let slippage = H160::default(); // Per thousand (5%)
+		let new_target = H160::from_low_u64_be(100);
+		let new_input: Vec<u8> = vec![0];
+		let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+		rlp_stream
+			.append(&prefix)
+			.append(&CENNZ_ASSET_ID)
+			.append(&slippage)
+			.append(&new_target)
+			.append(&new_input);
+		let input = rlp_stream.out().to_vec();
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::decode_input(input),
+			FeePreferencesError::WithdrawFailed
+		);
+	});
+}
+
+#[test]
+fn decode_input_with_invalid_target_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create input
+		let prefix = hex!("15946350").to_vec();
+		let slippage: u32 = 50; // Per thousand (5%)
+		let new_target = "";
+		let new_input: Vec<u8> = vec![0];
+		let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+		rlp_stream
+			.append(&prefix)
+			.append(&CENNZ_ASSET_ID)
+			.append(&slippage)
+			.append(&new_target)
+			.append(&new_input);
+		let input = rlp_stream.out().to_vec();
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::decode_input(input),
+			FeePreferencesError::WithdrawFailed
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(20000000000000u64);
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_ok!(<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+			gas_limit,
+			Some(max_fee_per_gas),
+			Some(max_priority_fee_per_gas),
+		));
+	});
+}
+
+#[test]
+fn calculate_total_gas_low_max_fee_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(200000u64);
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::GasPriceTooLow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_no_max_fee_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = None;
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				max_fee_per_gas,
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::GasPriceTooLow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_max_fee_too_large_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::MAX;
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::FeeOverflow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(20000000000000u64);
+		let max_priority_fee_per_gas = U256::MAX;
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::FeeOverflow
+		);
+	});
 }

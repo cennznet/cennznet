@@ -260,7 +260,7 @@ where
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum FeePreferencesError {
 	WithdrawFailed,
 	GasPriceTooLow,
@@ -282,7 +282,7 @@ where
 	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
 {
 	/// Decodes the input for call_with_fee_preferences
-	fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
+	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
 		let rlp = rlp::Rlp::new(&input);
 		ensure!(rlp.is_list(), FeePreferencesError::WithdrawFailed);
 		ensure!(rlp.item_count() == Ok(5), FeePreferencesError::WithdrawFailed);
