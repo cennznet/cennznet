@@ -216,6 +216,65 @@ fn evm_call_with_fee_preferences() {
 }
 
 #[test]
+fn evm_call_with_fee_preferences_no_balance_should_fail() {
+	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
+	let cennznet_address: AccountId = PrefixedAddressMapping::into_account_id(eth_address);
+	let initial_balance = 1000 * DOLLARS;
+	let initial_liquidity = 500 * DOLLARS;
+
+	ExtBuilder::default()
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Alice sets up CENNZ <> CPAY liquidity
+			assert_ok!(Cennzx::add_liquidity(
+				Origin::signed(alice()),
+				CENNZ_ASSET_ID,
+				initial_liquidity, // min. liquidity
+				initial_liquidity, // liquidity CENNZ
+				initial_liquidity, // liquidity CPAY
+			));
+
+			// Create input
+			let prefix = hex!("15946350").to_vec();
+			let slippage: u32 = 50; // Per thousand (5%)
+			let new_target = H160::from_low_u64_be(100);
+			let new_input: Vec<u8> = vec![0];
+			let mut rlp_stream: RlpStream = RlpStream::new_list(5);
+			rlp_stream
+				.append(&prefix)
+				.append(&CENNZ_ASSET_ID)
+				.append(&slippage)
+				.append(&new_target)
+				.append(&new_input);
+			let input = rlp_stream.out().to_vec();
+
+			let gas_limit: u64 = 100000;
+			let max_fee_per_gas = U256::from(20000000000000u64);
+			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let config: EvmConfig = EvmConfig::frontier();
+			assert_eq!(
+				<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
+					eth_address,
+					H160::from_low_u64_be(FEE_PROXY),
+					input,
+					U256::from(0u64),
+					gas_limit,
+					Some(max_fee_per_gas),
+					Some(max_priority_fee_per_gas),
+					None,
+					access_list,
+					&config
+				)
+				.is_err(),
+				true
+			);
+		});
+}
+
+#[test]
 fn decode_input() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Create input
