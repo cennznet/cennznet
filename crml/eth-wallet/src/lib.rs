@@ -317,8 +317,7 @@ mod tests {
 			.into();
 			let nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
 			let msg = base64::encode((call.clone(), nonce).encode());
-			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, msg.as_ref()))
-				.expect("valid sig");
+			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, msg.as_ref())).expect("valid sig");
 
 			// execute the call
 			assert_ok!(EthWallet::call(Origin::none(), Box::new(call), eth_address, signature));
