@@ -18,10 +18,11 @@
 
 //! # Common crml types and traits
 
-use cennznet_primitives::types::TokenId;
+use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
 use codec::Encode;
 use frame_support::{
 	dispatch::GetDispatchInfo,
+	pallet_prelude::DispatchResultWithPostInfo,
 	traits::{ExistenceRequirement, Imbalance, SignedImbalance, WithdrawReasons},
 };
 use pallet_evm::AddressMapping;
@@ -100,6 +101,16 @@ pub trait EthAbiCodec: Sized {
 	fn encode(&self) -> Vec<u8>;
 	/// Decode `Self` from Eth log data
 	fn decode(data: &[u8]) -> Option<Self>;
+}
+
+impl EthAbiCodec for U256 {
+	fn encode(&self) -> Vec<u8> {
+		Into::<[u8; 32]>::into(*self).to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
+	}
 }
 
 impl EthAbiCodec for u64 {
@@ -352,6 +363,57 @@ pub trait IsTokenOwner {
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
 	fn on_nft_transfer(token_id: &TokenId);
+}
+
+/// Provides an oracle for ethereum chain state
+pub trait EthereumStateOracle {
+	/// EVM address type
+	type Address;
+	/// An Unsinged int uniquely identifying remote call requests
+	type RequestId;
+	/// Issues a request to the oracle to perform a remote 'eth_call'
+	/// on the connected Ethereum chain.
+	///
+	/// `caller` - The calling address on CENNZnet*
+	/// `destination` - The remote contract address on Ethereum
+	/// `input_data` - evm 'input' data for the remote 'eth_call'
+	/// `callback_signature` -Function selector for callback execution
+	/// `callback_gas_limit` - Gas limit for callback execution
+	/// `fee_preferences` - Options for paying callback fees in non-default currency
+	/// `bounty` - A bounty for fulfilment of the request
+	///
+	/// *The caller must implement the callback ABI `function remoteCallReceiver(uint256 reqId, bytes returnData)`
+	///
+	/// Returns a unique request Id
+	fn new_request(
+		_caller: &Self::Address,
+		_destination: &Self::Address,
+		_input_data: &[u8],
+		_callback_signature: &[u8; 4],
+		_callback_gas_limit: u64,
+		fee_preferences: Option<FeePreferences>,
+		bounty: Balance,
+	) -> Self::RequestId;
+}
+
+/// Provides an interface to invoke a contract execution
+pub trait ContractExecutor {
+	/// EVM address type
+	type Address;
+	/// Execute `target` contract with given input
+	///
+	/// `caller` - address that originated the callback
+	/// `target` - contract address to receive callback
+	/// `input_data` - passed to evm as 'input'. it should encode the callback function selector
+	/// `gas_limit` - gas limit for callback execution
+	///
+	/// Returns consumed weight & result of execution
+	fn execute(
+		_caller: &Self::Address,
+		_target: &Self::Address,
+		_input_data: &[u8],
+		_gas_limit: u64,
+	) -> DispatchResultWithPostInfo;
 }
 
 #[cfg(test)]

@@ -1,6 +1,10 @@
-use crate::constants::evm::FEE_PROXY;
-use crate::Runtime;
+use crate::{
+	constants::evm::FEE_PROXY,
+	Runtime,
+};
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
+use crml_support::{ContractExecutor, H160, U256};
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
@@ -10,8 +14,8 @@ use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
-use sp_core::H160;
-use sp_std::{convert::TryInto, marker::PhantomData};
+use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
+use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
 /// CENNZnet specific EVM precompiles
 pub struct CENNZnetPrecompiles<R>(PhantomData<R>);
@@ -31,7 +35,11 @@ where
 			.collect()
 	}
 }
-impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
+impl<R> PrecompileSet for CENNZnetPrecompiles<R>
+where
+	StateOraclePrecompile<R>: Precompile,
+	R: pallet_evm::Config,
+{
 	fn execute(
 		&self,
 		address: H160,
@@ -54,6 +62,9 @@ impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
 			a if a == hash(FEE_PROXY) => None,
+			a if a == hash(27572) => Some(StateOraclePrecompile::<R>::execute(
+				input, target_gas, context, is_static,
+			)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
 				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(
 					&Erc721PrecompileSet::<Runtime>::new(),
@@ -148,5 +159,48 @@ impl Erc20IdConversion for Runtime {
 		buf[4..8].copy_from_slice(&asset_id.to_be_bytes());
 
 		H160::from(buf).into()
+	}
+}
+
+/// Handles dispatching callbacks to the EVM after state oracle requests are fulfilled
+pub struct StateOracleCallbackExecutor<
+	R: frame_system::Config<Origin = Origin> + pallet_evm::Config + pallet_base_fee::Config,
+>(PhantomData<R>);
+
+impl<R> ContractExecutor for StateOracleCallbackExecutor<R>
+where
+	R: frame_system::Config<Origin = Origin> + pallet_evm::Config + pallet_base_fee::Config,
+{
+	type Address = H160;
+	/// Transfer funds from the caller to the state oracle address and execute the contract callback
+	fn execute(
+		_caller: &Self::Address,
+		target: &Self::Address,
+		callback_input: &[u8],
+		callback_gas_limit: u64,
+	) -> DispatchResultWithPostInfo {
+		let max_fee_per_gas = <pallet_base_fee::Pallet<R>>::base_fee_per_gas() * callback_gas_limit;
+		let max_priority_fee_per_gas = 1 * callback_gas_limit;
+		let value = U256::zero();
+		// TODO: use some const
+		// state oracle precompile address
+		let state_oracle_evm_address = hash(27572);
+		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(
+			state_oracle_evm_address,
+		));
+		let nonce = <pallet_evm::Pallet<R>>::account_basic(&state_oracle_evm_address).nonce;
+
+		<pallet_evm::Pallet<R>>::call(
+			origin,
+			state_oracle_evm_address,
+			*target,
+			callback_input.to_vec(),
+			value,
+			callback_gas_limit,
+			max_fee_per_gas,
+			Some(U256::from(max_priority_fee_per_gas)),
+			Some(nonce),
+			vec![],
+		)
 	}
 }

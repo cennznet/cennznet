@@ -1,0 +1,42 @@
+[package]
+name = "pallet-evm-precompiles-state-oracle"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/cennznet/cennznet"
+
+[dependencies]
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+precompile-utils = { path = "../utils", default-features = false }
+frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+num_enum = { version = "0.5.3", default-features = false }
+crml-support = { path = "../../crml/support", default-features = false }
+cennznet-primitives = { path = "../../primitives", default-features = false }
+crml-eth-state-oracle = { path = "../../crml/eth-state-oracle", default-features = false }
+
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"fp-evm/std",
+	"pallet-evm/std",
+	"frame-support/std",
+	"frame-system/std",
+	"num_enum/std",
+	"precompile-utils/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"cennznet-primitives/std",
+	"crml-eth-state-oracle/std",
+	"crml-support/std",
+]

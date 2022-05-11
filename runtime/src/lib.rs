@@ -105,7 +105,7 @@ use impls::{
 };
 
 mod precompiles;
-use precompiles::CENNZnetPrecompiles;
+use precompiles::{CENNZnetPrecompiles, StateOracleCallbackExecutor};
 
 pub mod runner;
 use runner::FeePreferencesRunner;
@@ -631,6 +631,26 @@ impl crml_eth_bridge::Config for Runtime {
 	type FinalSessionTracker = Staking;
 }
 
+/// Returns min gas price according to network base fee
+pub struct MinGasPriceGetter;
+impl frame_support::traits::Get<u64> for MinGasPriceGetter {
+	fn get() -> u64 {
+		BaseFee::min_gas_price().saturated_into()
+	}
+}
+parameter_types! {
+	/// The number of blocks a state oracle response can be challenged for
+	pub storage ChallengePeriod: BlockNumber = 5;
+}
+impl crml_eth_state_oracle::Config for Runtime {
+	type AddressMapping = PrefixedAddressMapping<Self::AccountId>;
+	type ChallengePeriod = ChallengePeriod;
+	type Event = Event;
+	type ContractExecutor = StateOracleCallbackExecutor<Self>;
+	type MultiCurrency = GenericAsset;
+	type MinGasPrice = MinGasPriceGetter;
+}
+
 impl crml_token_approvals::Config for Runtime {
 	type MultiCurrency = GenericAsset;
 	type IsTokenOwner = Nft;
@@ -864,6 +884,7 @@ construct_runtime!(
 		Governance: crml_governance::{Pallet, Call, Storage, Event},
 		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
 		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned},
 		// EVM support
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},

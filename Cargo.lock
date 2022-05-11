@@ -871,6 +871,7 @@ dependencies = [
  "crml-cennzx-rpc-runtime-api",
  "crml-erc20-peg",
  "crml-eth-bridge",
+ "crml-eth-state-oracle",
  "crml-eth-wallet",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
@@ -911,6 +912,7 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-state-oracle",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -1208,6 +1210,25 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "crml-eth-state-oracle"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-generic-asset",
+ "crml-support",
+ "ethereum-types 0.12.1",
+ "frame-support",
+ "frame-system",
+ "pallet-evm",
+ "parity-scale-codec 2.3.1",
+ "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5012,6 +5033,26 @@ dependencies = [
  "cennznet-primitives",
  "crml-nft",
  "crml-token-approvals",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec 2.3.1",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-state-oracle"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-eth-state-oracle",
+ "crml-support",
  "fp-evm",
  "frame-support",
  "frame-system",
