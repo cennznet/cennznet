@@ -25,6 +25,7 @@ use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
 use crml_support::{H160, H256, U256};
+use ethabi::{ParamType, Token};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -262,9 +263,12 @@ where
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum FeePreferencesError {
+	InvalidFunctionSelector,
 	WithdrawFailed,
 	GasPriceTooLow,
 	FeeOverflow,
+	InvalidInputArguments,
+	FailedToDecodeInput,
 }
 
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
@@ -283,32 +287,32 @@ where
 {
 	/// Decodes the input for call_with_fee_preferences
 	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
-		let rlp = rlp::Rlp::new(&input);
-		ensure!(rlp.is_list(), FeePreferencesError::WithdrawFailed);
-		ensure!(rlp.item_count() == Ok(5), FeePreferencesError::WithdrawFailed);
+		ensure!(
+			input[..4] == hex!("ccf39ea9").to_vec(),
+			FeePreferencesError::InvalidFunctionSelector
+		);
 
-		let prefix = match rlp::decode::<Vec<u8>>(rlp.at(0).unwrap().as_raw()) {
-			Ok(prefix) => prefix,
-			_ => return Err(FeePreferencesError::WithdrawFailed),
-		};
-		// Check that function selector is for call_with_fee_preferences method
-		ensure!(prefix == hex!("15946350").to_vec(), FeePreferencesError::WithdrawFailed);
+		let types = [
+			ParamType::Uint(32),
+			ParamType::Uint(32),
+			ParamType::Address,
+			ParamType::Bytes,
+		];
+		let tokens = ethabi::decode(&types, &input[4..]);
 
-		let payment_asset = match rlp::decode::<AssetId>(rlp.at(1).unwrap().as_raw()) {
-			Ok(asset) => asset,
-			_ => return Err(FeePreferencesError::WithdrawFailed),
-		};
-		let slippage = match rlp::decode::<u32>(rlp.at(2).unwrap().as_raw()) {
-			Ok(slippage) => slippage,
-			_ => return Err(FeePreferencesError::WithdrawFailed),
-		};
-		let new_target = match rlp::decode::<H160>(rlp.at(3).unwrap().as_raw()) {
-			Ok(target) => target,
-			_ => return Err(FeePreferencesError::WithdrawFailed),
-		};
-		let new_input = match rlp::decode::<Vec<u8>>(rlp.at(4).unwrap().as_raw()) {
-			Ok(input) => input,
-			_ => return Err(FeePreferencesError::WithdrawFailed),
+		let (payment_asset, slippage, new_target, new_input) = match tokens {
+			Ok(token_vec) => match &token_vec[..] {
+				[Token::Uint(payment_asset), Token::Uint(slippage), Token::Address(new_target), Token::Bytes(new_input)] => {
+					(
+						payment_asset.clone().low_u128().saturated_into::<AssetId>(),
+						slippage.clone().low_u128().saturated_into::<u32>(),
+						H160::from(new_target.clone().to_fixed_bytes()),
+						new_input.clone().to_vec(),
+					)
+				}
+				_ => return Err(FeePreferencesError::InvalidInputArguments),
+			},
+			_ => return Err(FeePreferencesError::FailedToDecodeInput),
 		};
 		Ok((payment_asset, slippage, new_target, new_input))
 	}
@@ -383,6 +387,7 @@ where
 					FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
 					FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
 					FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
+					_ => Self::Error::WithdrawFailed,
 				},
 			)?;
 			let total_fee = scale_to_4dp(total_fee);
