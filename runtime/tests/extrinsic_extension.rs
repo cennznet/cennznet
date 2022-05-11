@@ -298,3 +298,90 @@ fn decode_input_invalid_input_args_should_fail() {
 		assert_noop!(<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()), FeePreferencesError::FailedToDecodeInput);
 	});
 }
+
+#[test]
+fn calculate_total_gas() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(20000000000000u64);
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_ok!(<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+			gas_limit,
+			Some(max_fee_per_gas),
+			Some(max_priority_fee_per_gas),
+		));
+	});
+}
+
+#[test]
+fn calculate_total_gas_low_max_fee_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(200000u64);
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::GasPriceTooLow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_no_max_fee_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = None;
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				max_fee_per_gas,
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::GasPriceTooLow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_max_fee_too_large_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::MAX;
+		let max_priority_fee_per_gas = U256::from(1000000u64);
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::FeeOverflow
+		);
+	});
+}
+
+#[test]
+fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let gas_limit: u64 = 100000;
+		let max_fee_per_gas = U256::from(20000000000000u64);
+		let max_priority_fee_per_gas = U256::MAX;
+
+		assert_noop!(
+			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				gas_limit,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			),
+			FeePreferencesError::FeeOverflow
+		);
+	});
+}
