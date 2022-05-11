@@ -26,6 +26,9 @@ use sp_std::prelude::*;
 /// Ethereum-compatible signatures (eth_sign API call).
 pub mod ethereum;
 
+/// Prefix to be appended to payload before verifying signature
+const PREFIX_PAYLOAD_DATA: &str = "data:application/octet-stream;base64,";
+
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
 	/// The overarching event type.
@@ -99,9 +102,9 @@ decl_module! {
 			// convert to CENNZnet address
 			let account = T::AddressMapping::into_account_id(eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			let msg =  base64::encode(&(&call, nonce).encode()[..]);
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+			if let Some(_public_key) = ecrecover(&signature, full_msg, &eth_address) {
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
 				<frame_system::Pallet<T>>::inc_account_nonce(&account);
@@ -143,8 +146,10 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		{
 			let account = T::AddressMapping::into_account_id(*eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			let msg = base64::encode(&(&call, nonce).encode()[..]);
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+
+			if let Some(_public_key) = ecrecover(&signature, full_msg, &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
 					.and_provides((eth_address, nonce))
@@ -315,8 +320,9 @@ mod tests {
 			}
 			.into();
 			let nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
-			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, (call.clone(), nonce).encode().as_ref()))
-				.expect("valid sig");
+			let msg = base64::encode((call.clone(), nonce).encode());
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, full_msg.as_ref())).expect("valid sig");
 
 			// execute the call
 			assert_ok!(EthWallet::call(Origin::none(), Box::new(call), eth_address, signature));
