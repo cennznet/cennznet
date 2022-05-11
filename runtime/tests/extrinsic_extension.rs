@@ -235,20 +235,9 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 				initial_liquidity, // liquidity CPAY
 			));
 
-			// Create input
-			let prefix = hex!("15946350").to_vec();
-			let slippage: u32 = 50; // Per thousand (5%)
-			let new_target = H160::from_low_u64_be(100);
-			let new_input: Vec<u8> = vec![0];
-			let mut rlp_stream: RlpStream = RlpStream::new_list(5);
-			rlp_stream
-				.append(&prefix)
-				.append(&CENNZ_ASSET_ID)
-				.append(&slippage)
-				.append(&new_target)
-				.append(&new_input);
-			let input = rlp_stream.out().to_vec();
-
+			// Create input parameters for call
+			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			let input = abi.to_vec();
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
