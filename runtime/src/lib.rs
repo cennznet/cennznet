@@ -95,7 +95,7 @@ use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCa
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{currency::*, time::*};
+use constants::{currency::*, evm::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
@@ -105,8 +105,10 @@ use impls::{
 };
 
 mod precompiles;
-use crate::impls::FeePreferencesRunner;
 use precompiles::CENNZnetPrecompiles;
+
+pub mod runner;
+use runner::FeePreferencesRunner;
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;

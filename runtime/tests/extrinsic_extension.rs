@@ -132,6 +132,7 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 		});
 }
 
+// TODO, test with no liquidity
 #[test]
 fn evm_call_with_fee_preferences() {
 	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
@@ -157,25 +158,15 @@ fn evm_call_with_fee_preferences() {
 			let cpay_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID);
 			let cennz_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
 
-			// Create input
-			let prefix = hex!("15946350").to_vec();
-			let slippage: u32 = 50; // Per thousand (5%)
-			let new_target = H160::from_low_u64_be(100);
-			let new_input: Vec<u8> = vec![0];
-			let mut rlp_stream: RlpStream = RlpStream::new_list(5);
-			rlp_stream
-				.append(&prefix)
-				.append(&CENNZ_ASSET_ID)
-				.append(&slippage)
-				.append(&new_target)
-				.append(&new_input);
-			let input = rlp_stream.out().to_vec();
-
+			// Create input parameters for call
+			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			let input = abi.to_vec();
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let config: EvmConfig = EvmConfig::frontier();
+			let config: EvmConfig = CENNZNET_EVM_CONFIG;
+			// TODO call pallet_evm::call() instead, simulates a real call
 			assert_ok!(<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
@@ -195,6 +186,8 @@ fn evm_call_with_fee_preferences() {
 				<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID)
 			);
 
+			// TODO Check that input gets passed through to the real life contract (Defined in abi, 1122334455....)
+			// TODO Target another precompile as the target address, rather than
 			// Calculate expected fee for transaction
 			let expected_fee = scale_to_4dp(
 				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
@@ -235,6 +228,8 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 				initial_liquidity, // liquidity CPAY
 			));
 
+			// TODO, check contract didn't execute and no CENNZ was transferred
+
 			// Create input parameters for call
 			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
 			let input = abi.to_vec();
@@ -242,7 +237,7 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let config: EvmConfig = EvmConfig::frontier();
+			let config: EvmConfig = CENNZNET_EVM_CONFIG;
 			assert_eq!(
 				<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
 					eth_address,
@@ -260,128 +255,4 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 				true
 			);
 		});
-}
-
-#[test]
-fn decode_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Abi generated from below parameters using the following function name:
-		// callWithFeePreferences
-		// abi can be easily generated here https://abi.hashex.org/
-		let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-		let exp_payment_asset: u32 = 0;
-		let exp_slippage: u32 = 50;
-		let exp_target = H160::from_slice(&hex!("1122334455667788991122334455667788990000"));
-		let exp_input: Vec<u8> = hex!("1234567890").to_vec();
-		let (payment_asset, slippage, new_target, new_input) = <FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()).unwrap();
-
-		// Ensure the values decode correctly
-		assert_eq!(payment_asset, exp_payment_asset);
-		assert_eq!(slippage, exp_slippage);
-		assert_eq!(new_target, exp_target);
-		assert_eq!(new_input, exp_input);
-	});
-}
-
-#[test]
-fn decode_input_invalid_function_selector_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let abi = hex!("11111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-		assert_noop!(<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()), FeePreferencesError::InvalidFunctionSelector);
-	});
-}
-
-#[test]
-fn decode_input_invalid_input_args_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000");
-		assert_noop!(<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()), FeePreferencesError::FailedToDecodeInput);
-	});
-}
-
-#[test]
-fn calculate_total_gas() {
-	ExtBuilder::default().build().execute_with(|| {
-		let gas_limit: u64 = 100000;
-		let max_fee_per_gas = U256::from(20000000000000u64);
-		let max_priority_fee_per_gas = U256::from(1000000u64);
-
-		assert_ok!(<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-			gas_limit,
-			Some(max_fee_per_gas),
-			Some(max_priority_fee_per_gas),
-		));
-	});
-}
-
-#[test]
-fn calculate_total_gas_low_max_fee_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let gas_limit: u64 = 100000;
-		let max_fee_per_gas = U256::from(200000u64);
-		let max_priority_fee_per_gas = U256::from(1000000u64);
-
-		assert_noop!(
-			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-			),
-			FeePreferencesError::GasPriceTooLow
-		);
-	});
-}
-
-#[test]
-fn calculate_total_gas_no_max_fee_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let gas_limit: u64 = 100000;
-		let max_fee_per_gas = None;
-		let max_priority_fee_per_gas = U256::from(1000000u64);
-
-		assert_noop!(
-			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-				gas_limit,
-				max_fee_per_gas,
-				Some(max_priority_fee_per_gas),
-			),
-			FeePreferencesError::GasPriceTooLow
-		);
-	});
-}
-
-#[test]
-fn calculate_total_gas_max_fee_too_large_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let gas_limit: u64 = 100000;
-		let max_fee_per_gas = U256::MAX;
-		let max_priority_fee_per_gas = U256::from(1000000u64);
-
-		assert_noop!(
-			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-			),
-			FeePreferencesError::FeeOverflow
-		);
-	});
-}
-
-#[test]
-fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		let gas_limit: u64 = 100000;
-		let max_fee_per_gas = U256::from(20000000000000u64);
-		let max_priority_fee_per_gas = U256::MAX;
-
-		assert_noop!(
-			<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-			),
-			FeePreferencesError::FeeOverflow
-		);
-	});
 }

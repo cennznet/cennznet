@@ -17,15 +17,13 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	Babe, BlockPayoutInterval, Cennzx, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking,
-	System, Treasury,
+	Babe, BlockPayoutInterval, EpochDuration, Identity, Rewards, Runtime, Session, SessionsPerEra, Staking, System,
+	Treasury,
 };
-use cennznet_primitives::traits::BuyFeeAsset;
-use cennznet_primitives::types::{AccountId, AssetId, Balance, FeeExchange};
+use cennznet_primitives::types::{AccountId, Balance};
 use crml_generic_asset::{NegativeImbalance, StakingAssetCurrency};
 use crml_staking::{rewards::RunScheduledPayout, EraIndex, HandlePayee};
-use crml_support::{H160, H256, U256};
-use ethabi::{ParamType, Token};
+use crml_support::{H160, U256};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -35,17 +33,12 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use hex_literal::hex;
-use pallet_evm::{
-	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator, OnChargeEVMTransaction,
-	Runner as RunnerT,
-};
-use pallet_evm_precompiles_fee_payment::FEE_PROXY;
+use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},
-	ConsensusEngineId, Perbill, Permill,
+	ConsensusEngineId, Perbill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -258,211 +251,6 @@ where
 		} else {
 			log::error!("Error processing priority fee, block author not found");
 		}
-	}
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum FeePreferencesError {
-	InvalidFunctionSelector,
-	WithdrawFailed,
-	GasPriceTooLow,
-	FeeOverflow,
-	InvalidInputArguments,
-	FailedToDecodeInput,
-}
-
-/// CENNZnet implementation of the evm runner which handles the case where users are attempting
-/// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
-/// complete the transaction
-pub struct FeePreferencesRunner<T>
-where
-	T: pallet_evm::Config + crml_eth_wallet::Config,
-{
-	_marker: PhantomData<T>,
-}
-
-impl<T> FeePreferencesRunner<T>
-where
-	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
-{
-	/// Decodes the input for call_with_fee_preferences
-	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
-		ensure!(
-			input[..4] == hex!("ccf39ea9").to_vec(),
-			FeePreferencesError::InvalidFunctionSelector
-		);
-
-		let types = [
-			ParamType::Uint(32),
-			ParamType::Uint(32),
-			ParamType::Address,
-			ParamType::Bytes,
-		];
-		let tokens = ethabi::decode(&types, &input[4..]);
-
-		let (payment_asset, slippage, new_target, new_input) = match tokens {
-			Ok(token_vec) => match &token_vec[..] {
-				[Token::Uint(payment_asset), Token::Uint(slippage), Token::Address(new_target), Token::Bytes(new_input)] => {
-					(
-						payment_asset.clone().low_u128().saturated_into::<AssetId>(),
-						slippage.clone().low_u128().saturated_into::<u32>(),
-						H160::from(new_target.clone().to_fixed_bytes()),
-						new_input.clone().to_vec(),
-					)
-				}
-				_ => return Err(FeePreferencesError::InvalidInputArguments),
-			},
-			_ => return Err(FeePreferencesError::FailedToDecodeInput),
-		};
-		Ok((payment_asset, slippage, new_target, new_input))
-	}
-
-	/// Calculate gas price for transaction to use for exchanging asset into CPAY
-	pub fn calculate_total_gas(
-		gas_limit: u64,
-		max_fee_per_gas: Option<U256>,
-		max_priority_fee_per_gas: Option<U256>,
-	) -> Result<Balance, FeePreferencesError> {
-		let base_fee = T::FeeCalculator::min_gas_price();
-
-		let max_fee_per_gas = match max_fee_per_gas {
-			Some(max_fee_per_gas) => {
-				ensure!(max_fee_per_gas >= base_fee, FeePreferencesError::GasPriceTooLow);
-				max_fee_per_gas
-			}
-			None => return Err(FeePreferencesError::GasPriceTooLow),
-		};
-		let max_base_fee = max_fee_per_gas
-			.checked_mul(U256::from(gas_limit))
-			.ok_or(FeePreferencesError::FeeOverflow)?;
-		let max_priority_fee = if let Some(max_priority_fee) = max_priority_fee_per_gas {
-			max_priority_fee
-				.checked_mul(U256::from(gas_limit))
-				.ok_or(FeePreferencesError::FeeOverflow)?
-		} else {
-			U256::zero()
-		};
-		let total_fee: Balance = max_base_fee
-			.checked_add(max_priority_fee)
-			.ok_or(FeePreferencesError::FeeOverflow)?
-			.low_u128()
-			.unique_saturated_into();
-
-		Ok(total_fee)
-	}
-}
-
-impl<T> RunnerT<T> for FeePreferencesRunner<T>
-where
-	T: pallet_evm::Config + crml_eth_wallet::Config<AccountId = AccountId>,
-{
-	type Error = pallet_evm::Error<T>;
-
-	fn call(
-		source: H160,
-		target: H160,
-		input: Vec<u8>,
-		value: U256,
-		gas_limit: u64,
-		max_fee_per_gas: Option<U256>,
-		max_priority_fee_per_gas: Option<U256>,
-		nonce: Option<U256>,
-		access_list: Vec<(H160, Vec<H256>)>,
-		config: &EvmConfig,
-	) -> Result<CallInfo, Self::Error> {
-		// These values may change if we are using the fee_preferences precompile
-		let mut input = input;
-		let mut target = target;
-
-		// Check if we are calling with fee preferences
-		if target == H160::from_low_u64_be(FEE_PROXY) {
-			let (payment_asset, slippage, new_target, new_input) =
-				Self::decode_input(input).map_err(|_| Self::Error::WithdrawFailed)?;
-			// set input and target to new input and actual target for passthrough
-			input = new_input;
-			target = new_target;
-
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas).map_err(
-				|err| match err {
-					FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
-					FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
-					FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
-					_ => Self::Error::WithdrawFailed,
-				},
-			)?;
-			let total_fee = scale_to_4dp(total_fee);
-			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
-			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
-			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-			let account = <T as crml_eth_wallet::Config>::AddressMapping::into_account_id(source);
-			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
-				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				Self::Error::WithdrawFailed
-			})?;
-		}
-
-		<Runner<T> as RunnerT<T>>::call(
-			source,
-			target,
-			input,
-			value,
-			gas_limit,
-			max_fee_per_gas,
-			max_priority_fee_per_gas,
-			nonce,
-			access_list,
-			config,
-		)
-	}
-
-	fn create(
-		source: H160,
-		init: Vec<u8>,
-		value: U256,
-		gas_limit: u64,
-		max_fee_per_gas: Option<U256>,
-		max_priority_fee_per_gas: Option<U256>,
-		nonce: Option<U256>,
-		access_list: Vec<(H160, Vec<H256>)>,
-		config: &EvmConfig,
-	) -> Result<CreateInfo, Self::Error> {
-		<Runner<T> as RunnerT<T>>::create(
-			source,
-			init,
-			value,
-			gas_limit,
-			max_fee_per_gas,
-			max_priority_fee_per_gas,
-			nonce,
-			access_list,
-			config,
-		)
-	}
-
-	fn create2(
-		source: H160,
-		init: Vec<u8>,
-		salt: H256,
-		value: U256,
-		gas_limit: u64,
-		max_fee_per_gas: Option<U256>,
-		max_priority_fee_per_gas: Option<U256>,
-		nonce: Option<U256>,
-		access_list: Vec<(H160, Vec<H256>)>,
-		config: &EvmConfig,
-	) -> Result<CreateInfo, Self::Error> {
-		<Runner<T> as RunnerT<T>>::create2(
-			source,
-			init,
-			salt,
-			value,
-			gas_limit,
-			max_fee_per_gas,
-			max_priority_fee_per_gas,
-			nonce,
-			access_list,
-			config,
-		)
 	}
 }
 
