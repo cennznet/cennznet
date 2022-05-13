@@ -924,7 +924,6 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec 2.3.1",
  "precompile-utils",
- "rlp",
  "rustc-hex",
  "scale-info",
  "serde",

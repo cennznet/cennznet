@@ -25,7 +25,7 @@ where
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
 		// TODO: precompute this
-		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, 1211]
+		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY]
 			.into_iter()
 			.map(|x| hash(x))
 			.collect()

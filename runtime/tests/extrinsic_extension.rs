@@ -22,6 +22,7 @@ use cennznet_runtime::{
 };
 use crml_support::MultiCurrency;
 use frame_support::assert_ok;
+
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
 use common::keyring::{alice, bob, signed_extra};
