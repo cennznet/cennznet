@@ -743,7 +743,8 @@ const fn cennznet_london() -> EvmConfig {
 	c.gas_transaction_create = 2_000_000;
 	c
 }
-static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
+
+pub static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;

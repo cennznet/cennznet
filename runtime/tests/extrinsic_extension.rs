@@ -15,23 +15,17 @@
 
 //! Extrinsic extension integration tests (fee exchange)
 
-use cennznet_primitives::types::{AccountId, FeeExchange, FeeExchangeV1};
+use cennznet_primitives::types::{FeeExchange, FeeExchangeV1};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*},
-	impls::{scale_to_4dp, FeePreferencesError, FeePreferencesRunner},
-	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin, Runtime,
+	Call, Cennzx, CheckedExtrinsic, Executive, GenericAsset, Origin,
 };
-use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
-use frame_support::{assert_noop, assert_ok};
-use hex_literal::hex;
+use crml_support::MultiCurrency;
+use frame_support::assert_ok;
 mod common;
 use common::helpers::{extrinsic_fee_for, header, sign};
 use common::keyring::{alice, bob, signed_extra};
 use common::mock::ExtBuilder;
-use pallet_evm::{AddressMapping, EvmConfig, Runner as RunnerT};
-use pallet_evm_precompiles_fee_payment::FEE_PROXY;
-use rlp::RlpStream;
-use sp_runtime::Permill;
 
 #[test]
 fn generic_asset_transfer_works_without_fee_exchange() {
@@ -128,131 +122,6 @@ fn generic_asset_transfer_works_with_fee_exchange() {
 			assert_eq!(
 				<GenericAsset as MultiCurrency>::free_balance(&bob(), CPAY_ASSET_ID),
 				initial_balance + transfer_amount
-			);
-		});
-}
-
-// TODO, test with no liquidity
-#[test]
-fn evm_call_with_fee_preferences() {
-	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
-	let cennznet_address: AccountId = PrefixedAddressMapping::into_account_id(eth_address);
-	let initial_balance = 1000 * DOLLARS;
-	let initial_liquidity = 500 * DOLLARS;
-
-	ExtBuilder::default()
-		.initial_balance(initial_balance)
-		.initialise_eth_accounts(vec![cennznet_address.clone()])
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			// Alice sets up CENNZ <> CPAY liquidity
-			assert_ok!(Cennzx::add_liquidity(
-				Origin::signed(alice()),
-				CENNZ_ASSET_ID,
-				initial_liquidity, // min. liquidity
-				initial_liquidity, // liquidity CENNZ
-				initial_liquidity, // liquidity CPAY
-			));
-
-			let cpay_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID);
-			let cennz_balance_before = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
-
-			// Create input parameters for call
-			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-			let input = abi.to_vec();
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let config: EvmConfig = CENNZNET_EVM_CONFIG;
-			// TODO call pallet_evm::call() instead, simulates a real call
-			assert_ok!(<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
-				eth_address,
-				H160::from_low_u64_be(FEE_PROXY),
-				input,
-				U256::from(0u64),
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-				None,
-				access_list,
-				&config
-			));
-
-			// CPAY balance should be unchanged, all CPAY swapped should be used to pay gas
-			assert_eq!(
-				cpay_balance_before,
-				<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID)
-			);
-
-			// TODO Check that input gets passed through to the real life contract (Defined in abi, 1122334455....)
-			// TODO Target another precompile as the target address, rather than
-			// Calculate expected fee for transaction
-			let expected_fee = scale_to_4dp(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-				)
-				.unwrap(),
-			);
-
-			// Check CENNZ balance has changed within slippage amount, this should have been used to pay fees
-			let max_payment = expected_fee.saturating_add(Permill::from_rational(slippage, 1000) * expected_fee);
-			let min_payment = expected_fee.saturating_sub(Permill::from_rational(slippage, 1000) * expected_fee);
-
-			let cennz_balance_after = <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID);
-			assert_eq!(cennz_balance_after >= cennz_balance_before - max_payment, true);
-			assert_eq!(cennz_balance_after <= cennz_balance_before - min_payment, true);
-		});
-}
-
-#[test]
-fn evm_call_with_fee_preferences_no_balance_should_fail() {
-	let eth_address: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
-	let initial_balance = 1000 * DOLLARS;
-	let initial_liquidity = 500 * DOLLARS;
-
-	ExtBuilder::default()
-		.initial_balance(initial_balance)
-		.stash(initial_balance)
-		.build()
-		.execute_with(|| {
-			// Alice sets up CENNZ <> CPAY liquidity
-			assert_ok!(Cennzx::add_liquidity(
-				Origin::signed(alice()),
-				CENNZ_ASSET_ID,
-				initial_liquidity, // min. liquidity
-				initial_liquidity, // liquidity CENNZ
-				initial_liquidity, // liquidity CPAY
-			));
-
-			// TODO, check contract didn't execute and no CENNZ was transferred
-
-			// Create input parameters for call
-			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-			let input = abi.to_vec();
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let config: EvmConfig = CENNZNET_EVM_CONFIG;
-			assert_eq!(
-				<FeePreferencesRunner<Runtime> as RunnerT<Runtime>>::call(
-					eth_address,
-					H160::from_low_u64_be(FEE_PROXY),
-					input,
-					U256::from(0u64),
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-					None,
-					access_list,
-					&config
-				)
-				.is_err(),
-				true
 			);
 		});
 }

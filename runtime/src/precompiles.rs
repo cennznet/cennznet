@@ -1,3 +1,4 @@
+use crate::runner::FEE_PROXY;
 use crate::Runtime;
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
@@ -9,7 +10,6 @@ use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
-use pallet_evm_precompiles_fee_payment::FEE_PROXY;
 use sp_core::H160;
 use sp_std::{convert::TryInto, marker::PhantomData};
 

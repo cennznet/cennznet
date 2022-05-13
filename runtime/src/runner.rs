@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
+use crate::{constants::asset::SPENDING_ASSET_ID, impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange},
@@ -25,14 +25,12 @@ use frame_support::ensure;
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
-use pallet_evm_precompiles_fee_payment::FEE_PROXY;
 use sp_runtime::{
 	traits::{SaturatedConversion, UniqueSaturatedInto},
 	Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-// TODO Put tests at bottom of file
 #[derive(Debug, Eq, PartialEq)]
 pub enum FeePreferencesError {
 	InvalidFunctionSelector,
@@ -43,6 +41,9 @@ pub enum FeePreferencesError {
 	FailedToDecodeInput,
 	InvalidPaymentAsset,
 }
+
+// Precompile address for fee preferences
+pub const FEE_PROXY: u64 = 1211;
 
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
@@ -159,23 +160,25 @@ where
 			input = new_input;
 			target = new_target;
 
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas).map_err(
-				|err| match err {
-					FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
-					FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
-					FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
-					_ => Self::Error::WithdrawFailed,
-				},
-			)?;
-			let total_fee = scale_to_4dp(total_fee);
-			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
-			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
-			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
-				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				Self::Error::WithdrawFailed
-			})?;
+			// If payment_asset isn't CPAY, calculate gas and exchange for payment asset
+			if payment_asset != SPENDING_ASSET_ID {
+				let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
+					.map_err(|err| match err {
+						FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
+						FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
+						FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
+						_ => Self::Error::WithdrawFailed,
+					})?;
+				let total_fee = scale_to_4dp(total_fee);
+				let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
+				let exchange = FeeExchange::new_v1(payment_asset, max_payment);
+				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
+				let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+				<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
+					// Using general error to cover all cases due to fixed return type of pallet_evm::Error
+					Self::Error::WithdrawFailed
+				})?;
+			}
 		}
 
 		<Runner<T> as RunnerT<T>>::call(
@@ -246,62 +249,79 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::common::mock::ExtBuilder;
 	use crate::Runtime;
 	use frame_support::{assert_noop, assert_ok};
 	use hex_literal::hex;
 
 	#[test]
 	fn decode_input() {
-		ExtBuilder::default().build().execute_with(|| {
-            // Abi generated from below parameters using the following function name:
-            // callWithFeePreferences
-            // abi can be easily generated here https://abi.hashex.org/
-            let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-            let exp_payment_asset: u32 = 0;
-            let exp_slippage: u32 = 50;
-            let exp_target = H160::from_slice(&hex!("1122334455667788991122334455667788990000"));
-            let exp_input: Vec<u8> = hex!("1234567890").to_vec();
-            let (payment_asset, slippage, new_target, new_input) = <FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()).unwrap();
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			// Abi generated from below parameters using the following function name:
+			// callWithFeePreferences
+			// abi can be easily generated here https://abi.hashex.org/
+			let abi = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
+			let exp_payment_asset: u32 = 16000;
+			let exp_slippage: u32 = 50;
+			let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
+			let exp_input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
+			let (payment_asset, slippage, new_target, new_input) =
+				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()).unwrap();
 
-            // Ensure the values decode correctly
-            assert_eq!(payment_asset, exp_payment_asset);
-            assert_eq!(slippage, exp_slippage);
-            assert_eq!(new_target, exp_target);
-            assert_eq!(new_input, exp_input);
-        });
+			// Ensure the values decode correctly
+			assert_eq!(payment_asset, exp_payment_asset);
+			assert_eq!(slippage, exp_slippage);
+			assert_eq!(new_target, exp_target);
+			assert_eq!(new_input, exp_input);
+		});
 	}
 
 	#[test]
 	fn decode_input_invalid_function_selector_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
-            let abi = hex!("11111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
-            assert_noop!(<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()), FeePreferencesError::InvalidFunctionSelector);
-        });
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let abi = hex!("11111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			assert_noop!(
+				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				FeePreferencesError::InvalidFunctionSelector
+			);
+		});
 	}
 
 	#[test]
 	fn decode_input_empty_input_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let abi = hex!("");
 			assert_noop!(
 				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
-				FeePreferencesError::FailedToDecodeInput
+				FeePreferencesError::InvalidInputArguments
 			);
 		});
 	}
 
 	#[test]
 	fn decode_input_invalid_input_args_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
-            let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000");
-            assert_noop!(<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()), FeePreferencesError::FailedToDecodeInput);
-        });
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000");
+			assert_noop!(
+			<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				FeePreferencesError::FailedToDecodeInput
+			);
+		});
+	}
+
+	#[test]
+	fn decode_input_zero_payment_asset_should_fail() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			assert_noop!(
+				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				FeePreferencesError::InvalidPaymentAsset
+			);
+		});
 	}
 
 	#[test]
 	fn calculate_total_gas() {
-		ExtBuilder::default().build().execute_with(|| {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
@@ -316,7 +336,7 @@ mod tests {
 
 	#[test]
 	fn calculate_total_gas_low_max_fee_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(200000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
@@ -334,7 +354,7 @@ mod tests {
 
 	#[test]
 	fn calculate_total_gas_no_max_fee_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = None;
 			let max_priority_fee_per_gas = U256::from(1000000u64);
@@ -351,11 +371,11 @@ mod tests {
 	}
 
 	#[test]
-	fn calculate_total_gas_max_fee_too_large_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
+	fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::MAX;
-			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let max_fee_per_gas = U256::from(20000000000000u64);
+			let max_priority_fee_per_gas = U256::MAX;
 
 			assert_noop!(
 				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
@@ -369,11 +389,11 @@ mod tests {
 	}
 
 	#[test]
-	fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
-		ExtBuilder::default().build().execute_with(|| {
+	fn calculate_total_gas_max_fee_too_large_should_fail() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::MAX;
+			let max_fee_per_gas = U256::MAX;
+			let max_priority_fee_per_gas = U256::from(1000000u64);
 
 			assert_noop!(
 				<FeePreferencesRunner<Runtime>>::calculate_total_gas(

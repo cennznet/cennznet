@@ -3,20 +3,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::ethereum::{ecrecover, EthereumSignature};
-use cennznet_primitives::types::AssetId;
 use codec::Encode;
 use crml_support::{TransactionFeeHandler, H160 as EthAddress};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
+	decl_error, decl_event, decl_module,
 	dispatch::{DispatchInfo, Dispatchable},
-	ensure,
 	traits::{Get, UnfilteredDispatchable},
 	weights::GetDispatchInfo,
 	Parameter,
 };
-use frame_system::{ensure_none, ensure_signed};
+use frame_system::ensure_none;
 use pallet_evm::AddressMapping;
-use precompile_utils::AddressMappingReversibleExt;
 use sp_runtime::{
 	traits::IdentifyAccount,
 	transaction_validity::{
@@ -29,13 +26,16 @@ use sp_std::prelude::*;
 /// Ethereum-compatible signatures (eth_sign API call).
 pub mod ethereum;
 
+/// Prefix to be appended to payload before verifying signature
+const PREFIX_PAYLOAD_DATA: &str = "data:application/octet-stream;base64,";
+
 /// The module's configuration trait.
 pub trait Config: frame_system::Config {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
 	/// Maps Ethereum address to the CENNZnet format
-	type AddressMapping: AddressMappingReversibleExt<Self::AccountId>;
+	type AddressMapping: AddressMapping<Self::AccountId>;
 
 	/// A signable call.
 	type Call: Parameter
@@ -61,8 +61,6 @@ decl_error! {
 		InvalidSignature,
 		/// Can't pay fees
 		CantPay,
-		/// Address must be an ethereum address
-		InvalidAddress,
 	}
 }
 
@@ -73,13 +71,6 @@ decl_event!(
 	{
 		/// A call just executed. (Ethereum Address, CENNZnet Address, Result)
 		Execute(EthAddress, AccountId, DispatchResult),
-	}
-);
-
-decl_storage!(
-	trait Store for Module<T: Config> as EthWallet {
-		/// Payment asset for EVM transactions
-		pub EVMPaymentAsset get (fn evm_payment_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 	}
 );
 
@@ -111,9 +102,9 @@ decl_module! {
 			// convert to CENNZnet address
 			let account = T::AddressMapping::into_account_id(eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			let msg =  base64::encode(&(&call, nonce).encode()[..]);
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+			if let Some(_public_key) = ecrecover(&signature, full_msg, &eth_address) {
 				// Pay fee, increment nonce
 				let _ = Self::pay_fee(&call, &account)?;
 				<frame_system::Pallet<T>>::inc_account_nonce(&account);
@@ -127,24 +118,6 @@ decl_module! {
 			} else {
 				Err(Error::<T>::InvalidSignature)?
 			}
-		}
-
-		#[weight = 0]
-		pub fn set_payment_asset(origin, payment_asset: Option<AssetId>) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			let eth_address: EthAddress = T::AddressMapping::from_account_id(origin.clone());
-
-			// Check that eth address is a valid ethereum address
-			// Note that native 32 byte CENNZnet addresses will fail
-			let mut return_account = [0u8; 20];
-			return_account[0..4].copy_from_slice(b"crt:");
-			ensure!(eth_address != return_account.into(), Error::<T>::InvalidAddress);
-
-			match payment_asset {
-				Some(asset) => EVMPaymentAsset::insert(eth_address, asset),
-				None => EVMPaymentAsset::remove(eth_address),
-			}
-			Ok(())
 		}
 	}
 }
@@ -173,8 +146,10 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		{
 			let account = T::AddressMapping::into_account_id(*eth_address);
 			let nonce = <frame_system::Pallet<T>>::account_nonce(account.clone());
-			let message = &(&call, nonce).encode()[..];
-			if let Some(_public_key) = ecrecover(&signature, message, &eth_address) {
+			let msg = base64::encode(&(&call, nonce).encode()[..]);
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+
+			if let Some(_public_key) = ecrecover(&signature, full_msg, &eth_address) {
 				return ValidTransaction::with_tag_prefix("EthWallet")
 					.priority(T::UnsignedPriority::get())
 					.and_provides((eth_address, nonce))
@@ -345,8 +320,9 @@ mod tests {
 			}
 			.into();
 			let nonce = <frame_system::Pallet<Test>>::account_nonce(&cennznet_address);
-			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, (call.clone(), nonce).encode().as_ref()))
-				.expect("valid sig");
+			let msg = base64::encode((call.clone(), nonce).encode());
+			let full_msg = &[PREFIX_PAYLOAD_DATA.as_bytes(), msg.as_bytes()].concat()[..];
+			let signature = EthereumSignature::try_from(eth_sign(&ECDSA_SEED, full_msg.as_ref())).expect("valid sig");
 
 			// execute the call
 			assert_ok!(EthWallet::call(Origin::none(), Box::new(call), eth_address, signature));
@@ -359,51 +335,6 @@ mod tests {
 
 			// fee payment triggered
 			assert_eq!(storage::unhashed::get(&MOCK_FEE_PAID), Some(1u32),);
-		});
-	}
-
-	#[test]
-	fn set_payment_asset() {
-		new_test_ext().execute_with(|| {
-			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
-			let cennznet_address = <Test as Config>::AddressMapping::into_account_id(eth_address);
-			let asset_id = 2;
-			// This should succeed as the account is an Ethereum address
-			assert_ok!(EthWallet::set_payment_asset(
-				Origin::signed(cennznet_address),
-				Some(asset_id)
-			));
-
-			assert_eq!(EthWallet::evm_payment_asset(eth_address), Some(asset_id));
-		});
-	}
-
-	#[test]
-	fn remove_payment_asset() {
-		new_test_ext().execute_with(|| {
-			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
-			let cennznet_address = <Test as Config>::AddressMapping::into_account_id(eth_address);
-			let asset_id = 2;
-			assert_ok!(EthWallet::set_payment_asset(
-				Origin::signed(cennznet_address.clone()),
-				Some(asset_id)
-			));
-
-			// Set payment asset as None should remove pairing from storage
-			assert_ok!(EthWallet::set_payment_asset(Origin::signed(cennznet_address), None));
-			assert_eq!(EthWallet::evm_payment_asset(eth_address), None);
-		});
-	}
-
-	#[test]
-	fn set_payment_asset_invalid_address_should_fail() {
-		new_test_ext().execute_with(|| {
-			let alice = sp_keyring::AccountKeyring::Alice.into();
-			// This should fail as the account is a native CENNZnet account, not an Ethereum address
-			assert_err!(
-				EthWallet::set_payment_asset(Origin::signed(alice), Some(2)),
-				Error::<Test>::InvalidAddress
-			);
-		});
+		})
 	}
 }
