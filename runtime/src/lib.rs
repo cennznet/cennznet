@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation chabges and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 57,
+	spec_version: 58,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -586,10 +586,8 @@ impl pallet_treasury::Config for Runtime {
 parameter_types! {
 	pub const HistoricalPayoutEras: u16 = 7;
 	pub const FiscalEraLength: u32 = 365;
-	pub const BlockPayoutInterval: u32 = 3;
 }
 impl crml_staking_rewards::Config for Runtime {
-	type BlockPayoutInterval = BlockPayoutInterval;
 	type CurrencyToReward = SpendingAssetCurrency<Self>;
 	type Event = Event;
 	type FiscalEraLength = FiscalEraLength;

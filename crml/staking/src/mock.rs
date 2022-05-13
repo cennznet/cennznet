@@ -94,7 +94,12 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 
 pub fn is_disabled(controller: AccountId) -> bool {
 	let stash = Staking::ledger(&controller).unwrap().stash;
-	SESSION.with(|d| d.borrow().1.contains(&stash))
+	let validator_index = match Session::validators().iter().position(|v| *v == stash) {
+		Some(index) => index as u32,
+		None => return false,
+	};
+
+	Session::disabled_validators().contains(&validator_index)
 }
 
 pub struct Offset;
@@ -330,6 +335,7 @@ pub struct ExtBuilder {
 	validator_pool: bool,
 	nominate: bool,
 	validator_count: u32,
+	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	minimum_validator_count: u32,
 	minimum_bond: Balance,
 	slash_defer_duration: EraIndex,
@@ -356,6 +362,7 @@ impl Default for ExtBuilder {
 			slash_defer_duration: 0,
 			minimum_bond: One::one(),
 			fair: true,
+			status: Default::default(),
 			num_validators: None,
 			invulnerables: vec![],
 			has_stakers: true,
@@ -381,6 +388,10 @@ impl ExtBuilder {
 	}
 	pub fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
+		self
+	}
+	pub fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
+		self.status.insert(who, status);
 		self
 	}
 	pub fn minimum_validator_count(mut self, count: u32) -> Self {
@@ -509,6 +520,14 @@ impl ExtBuilder {
 					StakerStatus::<AccountId>::Nominator(nominated),
 				),
 			];
+			// replace any of the status if needed.
+			self.status.into_iter().for_each(|(stash, status)| {
+				let (_, _, _, ref mut prev_status) = stakers
+					.iter_mut()
+					.find(|s| s.0 == stash)
+					.expect("set_status staker should exist; qed");
+				*prev_status = status;
+			});
 		}
 		let _ = crate::GenesisConfig::<Test> {
 			stakers,
@@ -1019,11 +1038,13 @@ pub struct NoopRewarder<T: Config>(sp_std::marker::PhantomData<T>);
 impl<T: Config> RewardCalculation for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
-	fn calculate_total_reward() -> RewardParts<Self::Balance> {
+	const FULL_ERA_DURATION: u64 = 1;
+	fn calculate_total_reward(_era_duration_ms: u64) -> RewardParts<Self::Balance> {
 		RewardParts::new(Zero::zero(), Zero::zero(), Perbill::one())
 	}
 	fn calculate_individual_reward(
 		_stash: &Self::AccountId,
+		_era_duration_ms: u64,
 		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
 		Zero::zero()
