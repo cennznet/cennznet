@@ -207,8 +207,7 @@ impl<T> OnChargeEVMTransaction<T> for CENNZnetOnChargeEVMTransaction<T>
 where
 	T: pallet_evm::Config
 		+ frame_system::Config<AccountId = AccountId>
-		+ pallet_session::Config<ValidatorId = AccountId>
-		+ crml_eth_wallet::Config,
+		+ pallet_session::Config<ValidatorId = AccountId>,
 {
 	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
 

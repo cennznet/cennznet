@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{constants::asset::SPENDING_ASSET_ID, impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
+use crate::{constants::evm::FEE_PROXY, impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange},
@@ -42,8 +42,16 @@ pub enum FeePreferencesError {
 	InvalidPaymentAsset,
 }
 
-// Precompile address for fee preferences
-pub const FEE_PROXY: u64 = 1211;
+impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
+	fn into(self: Self) -> pallet_evm::Error<T> {
+		match self {
+			FeePreferencesError::WithdrawFailed => pallet_evm::Error::WithdrawFailed,
+			FeePreferencesError::GasPriceTooLow => pallet_evm::Error::GasPriceTooLow,
+			FeePreferencesError::FeeOverflow => pallet_evm::Error::FeeOverflow,
+			_ => pallet_evm::Error::WithdrawFailed,
+		}
+	}
+}
 
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
@@ -123,7 +131,6 @@ where
 		let total_fee: Balance = max_base_fee
 			.checked_add(max_priority_fee)
 			.ok_or(FeePreferencesError::FeeOverflow)?
-			.low_u128()
 			.unique_saturated_into();
 
 		Ok(total_fee)
@@ -160,25 +167,17 @@ where
 			input = new_input;
 			target = new_target;
 
-			// If payment_asset isn't CPAY, calculate gas and exchange for payment asset
-			if payment_asset != SPENDING_ASSET_ID {
-				let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
-					.map_err(|err| match err {
-						FeePreferencesError::WithdrawFailed => Self::Error::WithdrawFailed,
-						FeePreferencesError::GasPriceTooLow => Self::Error::GasPriceTooLow,
-						FeePreferencesError::FeeOverflow => Self::Error::FeeOverflow,
-						_ => Self::Error::WithdrawFailed,
-					})?;
-				let total_fee = scale_to_4dp(total_fee);
-				let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
-				let exchange = FeeExchange::new_v1(payment_asset, max_payment);
-				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-				<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
-					// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-					Self::Error::WithdrawFailed
-				})?;
-			}
+			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
+				.map_err(|err| err.into())?;
+			let total_fee = scale_to_4dp(total_fee);
+			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
+			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
+			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
+			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
+				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
+				Self::Error::WithdrawFailed
+			})?;
 		}
 
 		<Runner<T> as RunnerT<T>>::call(

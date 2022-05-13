@@ -1,4 +1,4 @@
-use crate::runner::FEE_PROXY;
+use crate::constants::evm::FEE_PROXY;
 use crate::Runtime;
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
