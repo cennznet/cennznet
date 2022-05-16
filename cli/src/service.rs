@@ -45,7 +45,7 @@ use crate::rpc as node_rpc;
 use cennznet_primitives::types::Block;
 use cennznet_runtime::{constants::config::ETH_HTTP_URI, RuntimeApi};
 
-// Declare an instance of the native executor named `ExecutorDispatch`. Include the wasm binary as
+// Declare an instance of the native executor named `Executor`. Include the wasm binary as
 // the equivalent wasm code.
 pub struct Executor;
 

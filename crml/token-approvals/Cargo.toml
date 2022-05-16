@@ -40,3 +40,4 @@ std = [
     "pallet-evm/std",
     "sp-core/std",
 ]
+try-runtime = ["frame-support/try-runtime"]
