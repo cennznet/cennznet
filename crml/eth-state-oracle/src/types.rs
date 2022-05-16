@@ -1,4 +1,3 @@
-use cennznet_primitives::types::FeePreferences;
 /* Copyright 2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
@@ -13,10 +12,14 @@ use cennznet_primitives::types::FeePreferences;
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-use cennznet_primitives::types::Balance;
+use cennznet_primitives::types::{Balance, FeePreferences};
 use codec::{Decode, Encode};
 pub use crml_support::{H160 as EthAddress, H256, U256};
 use scale_info::TypeInfo;
+use sp_std::{convert::TryInto, prelude::*};
+
+/// Identifies remote call challenges
+pub type ChallengeId = u64;
 
 /// Identifies remote call requests
 pub type RequestId = U256;
@@ -24,8 +27,6 @@ pub type RequestId = U256;
 /// Details of a remote 'eth_call' request
 #[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct CallRequest {
-	/// Digest (blake256) of the input data for the remote call
-	pub input_digest: [u8; 32],
 	/// Destination address for the remote call
 	pub destination: EthAddress,
 	/// CENNZnet evm address of the caller
@@ -38,15 +39,25 @@ pub struct CallRequest {
 	pub fee_preferences: Option<FeePreferences>,
 	/// A bounty for fulfiling the request successfully
 	pub bounty: Balance,
+	/// unix timestamp in seconds the request was placed
+	pub timestamp: u64,
 }
 
 /// Reported response of an executed remote call
 #[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct CallResponse<AccountId> {
-	/// Digest (blake256) of the return data
-	pub return_data_digest: [u8; 32],
+	/// The call 'returndata'
+	/// It is solidity abi encoded as `bytes32` i.e 0 padded right or truncated to 32 bytes
+	pub return_data: [u8; 32],
 	/// The ethereum block number where the result was recorded
 	pub eth_block_number: u64,
 	/// Address of the relayer that reported this
 	pub reporter: AccountId,
+}
+
+/// Infallibly transforms input vec into an ethereum abi encoded `bytes32`
+pub fn return_data_to_bytes32(raw: Vec<u8>) -> [u8; 32] {
+	let mut x = raw.clone();
+	x.resize(32, 0_u8);
+	return x.as_slice().try_into().unwrap();
 }

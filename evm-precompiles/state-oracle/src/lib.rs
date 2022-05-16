@@ -25,7 +25,10 @@ pub use precompile_utils::{
 	LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, H256, U256};
-use sp_runtime::Permill;
+use sp_runtime::{
+	traits::{UniqueSaturatedInto, Zero},
+	Permill,
+};
 use sp_std::{convert::TryInto, marker::PhantomData};
 
 #[precompile_utils::generate_function_selector]
@@ -41,11 +44,11 @@ pub enum Action {
 }
 
 /// Provides access to the state oracle pallet
-pub struct StateOraclePrecompile<Runtime>(PhantomData<Runtime>);
+pub struct StateOraclePrecompile<T>(PhantomData<T>);
 
-impl<Runtime> Precompile for StateOraclePrecompile<Runtime>
+impl<T> Precompile for StateOraclePrecompile<T>
 where
-	Runtime: pallet_evm::Config + frame_system::Config + crml_eth_state_oracle::Config,
+	T: EthereumStateOracle<Address = H160, RequestId = U256>,
 {
 	fn execute(
 		input: &[u8],
@@ -74,21 +77,21 @@ where
 		}
 
 		match selector {
-			Action::RemoteCall => Self::remote_call(input, gasometer, &context.address),
-			Action::RemoteCallWithFeeSwap => Self::remote_call_with_fee_swap(input, gasometer, &context.address),
+			Action::RemoteCall => Self::remote_call(input, gasometer, &context.caller),
+			Action::RemoteCallWithFeeSwap => Self::remote_call_with_fee_swap(input, gasometer, &context.caller),
 		}
 	}
 }
 
-impl<Runtime> StateOraclePrecompile<Runtime> {
+impl<T> StateOraclePrecompile<T> {
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
-impl<Runtime> StateOraclePrecompile<Runtime>
+impl<T> StateOraclePrecompile<T>
 where
-	Runtime: pallet_evm::Config + frame_system::Config + crml_eth_state_oracle::Config,
+	T: EthereumStateOracle<Address = H160, RequestId = U256>,
 {
 	fn remote_call_with_fee_swap(
 		input: &mut EvmDataReader,
@@ -115,12 +118,12 @@ where
 			});
 		};
 
-		let request_id: U256 = crml_eth_state_oracle::Pallet::<Runtime>::new_request(
+		let request_id: U256 = T::new_request(
 			caller,
 			&destination,
 			input_data.as_bytes(),
 			callback_signature.as_bytes().try_into().unwrap(), // checked len == 4 above qed
-			// TODO: check these conversations are saturating (low_u32, low_u64, low_u128)
+			// TODO: check these conversions are saturating (low_u32, low_u64, low_u128)
 			callback_gas_limit.low_u64(),
 			fee_preferences,
 			callback_bounty.low_u128(),
@@ -149,20 +152,18 @@ where
 		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
 		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
 		// scale to 4dp for consistency with other CPAY balance apis
-		let callback_bounty = scale_to_4dp(U256.low_u128());
+		let callback_bounty = scale_to_4dp(callback_bounty.unique_saturated_into());
 
-		let request_id: U256 = crml_eth_state_oracle::Pallet::<Runtime>::new_request(
+		let request_id: U256 = T::new_request(
 			caller,
 			&destination,
 			input_data.as_bytes(),
 			&callback_signature,
-			// TODO: check these conversations are saturating (low_u32, low_u64, low_u128)
 			callback_gas_limit.low_u64(),
 			None,
-			callback_bounty.low_u128(),
+			callback_bounty,
 		);
 
-		// TODO: log the request id
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
@@ -189,3 +190,106 @@ pub fn scale_to_4dp(value: u128) -> u128 {
 	}
 }
 
+#[cfg(test)]
+mod test {
+	use super::*;
+	use cennznet_primitives::types::Balance;
+	use ethabi::Token;
+
+	#[test]
+	fn new_remote_call_request() {
+		struct MockEthereumStateOracle;
+		impl EthereumStateOracle for MockEthereumStateOracle {
+			type Address = H160;
+			type RequestId = U256;
+			/// assert inputs are correct
+			fn new_request(
+				caller_: &Self::Address,
+				destination_: &Self::Address,
+				input_data_: &[u8],
+				callback_signature_: &[u8; 4],
+				callback_gas_limit_: u64,
+				fee_preferences: Option<FeePreferences>,
+				bounty_: Balance,
+			) -> Self::RequestId {
+				let caller: H160 = H160::from_low_u64_be(555);
+				let destination: H160 = H160::from_low_u64_be(23);
+				let callback_signature: Vec<u8> = vec![1u8, 2, 3, 4];
+				let callback_gas_limit: u64 = 200_000;
+				let input_data: Vec<u8> = vec![55u8, 66, 77, 88, 99];
+
+				assert_eq!(caller, *caller_);
+				assert_eq!(destination, *destination_);
+				assert_eq!(input_data, input_data_);
+				assert_eq!(callback_signature, callback_signature_);
+				assert_eq!(bounty_, 20_000_u128); // 2 CPAY 4dp, scaled down from 18dp input
+				assert_eq!(callback_gas_limit, callback_gas_limit_);
+				assert!(fee_preferences.is_none());
+
+				U256::from(123u32)
+			}
+		}
+
+		let caller: H160 = H160::from_low_u64_be(555);
+		let abi_encoded_input = ethabi::encode(&[
+			Token::Address(H160::from_low_u64_be(23)),
+			Token::Bytes(vec![55u8, 66, 77, 88, 99]),
+			Token::FixedBytes(vec![1u8, 2, 3, 4]),
+			Token::Uint(U256::from(200_000_u64)),
+			Token::Uint(U256::from(2_000_000_000_000_000_000_u128)), // 2 * 10**18
+		]);
+		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
+		let mut gasometer = Gasometer::new(Some(100_000u64));
+
+		// Test
+		let result = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
+
+		assert_eq!(
+			result.unwrap(),
+			PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				cost: gasometer.used_gas(),
+				output: EvmDataWriter::new().write(U256::from(123u32)).build(),
+				logs: Default::default(),
+			},
+		);
+	}
+
+	#[test]
+	fn uint_inputs_saturate_at_bounds() {
+		// Setup
+		struct MockEthereumStateOracle;
+		impl EthereumStateOracle for MockEthereumStateOracle {
+			type Address = H160;
+			type RequestId = U256;
+			fn new_request(
+				_caller: &Self::Address,
+				_destination: &Self::Address,
+				_input_data: &[u8],
+				_callback_signature: &[u8; 4],
+				callback_gas_limit: u64,
+				_fee_preferences: Option<FeePreferences>,
+				bounty: Balance,
+			) -> Self::RequestId {
+				// gas_limit saturates at u64
+				assert_eq!(callback_gas_limit, u64::max_value());
+				// bounty saturates at balance type and scales down
+				assert_eq!(bounty, scale_to_4dp(u128::max_value()));
+				U256::zero()
+			}
+		}
+		let caller = H160::from_low_u64_be(1);
+		let abi_encoded_input = ethabi::encode(&[
+			Token::Address(H160::from_low_u64_be(2)),
+			Token::Bytes(vec![1u8]),
+			Token::FixedBytes(vec![55u8, 66, 77, 88, 99]),
+			Token::Uint(U256::max_value()),
+			Token::Uint(U256::max_value()),
+		]);
+		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
+		let mut gasometer = Gasometer::new(Some(100_000u64));
+
+		// Test
+		let _ = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
+	}
+}

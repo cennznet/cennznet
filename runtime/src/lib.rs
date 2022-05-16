@@ -641,14 +641,20 @@ impl frame_support::traits::Get<u64> for MinGasPriceGetter {
 parameter_types! {
 	/// The number of blocks a state oracle response can be challenged for
 	pub storage ChallengePeriod: BlockNumber = 5;
+	/// Fixed precompile address for the state oracle
+	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = PrefixedAddressMapping<Self::AccountId>;
+	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type ChallengePeriod = ChallengePeriod;
-	type Event = Event;
 	type ContractExecutor = StateOracleCallbackExecutor<Self>;
+	type UnixTime = Timestamp;
+	type EthCallOracle = ();
+	type Event = Event;
 	type MultiCurrency = GenericAsset;
 	type MinGasPrice = MinGasPriceGetter;
+	type GasWeightMapping = CENNZnetGasWeightMapping;
 }
 
 impl crml_token_approvals::Config for Runtime {

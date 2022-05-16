@@ -1,11 +1,11 @@
-use crate::{
-	constants::evm::FEE_PROXY,
-	Runtime,
-};
+use crate::{constants::evm::FEE_PROXY, EthStateOracle, Runtime, StateOraclePrecompileAddress};
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
-use frame_support::dispatch::DispatchResultWithPostInfo;
-use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo,
+	weights::{Pays, PostDispatchInfo},
+};
+use pallet_evm::{Context, GasWeightMapping, Precompile, PrecompileResult, PrecompileSet, Runner};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
@@ -15,6 +15,7 @@ use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
+use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
 /// CENNZnet specific EVM precompiles
@@ -29,7 +30,7 @@ where
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
 		// TODO: precompute this
-		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY]
+		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY, 27572]
 			.into_iter()
 			.map(|x| hash(x))
 			.collect()
@@ -37,7 +38,6 @@ where
 }
 impl<R> PrecompileSet for CENNZnetPrecompiles<R>
 where
-	StateOraclePrecompile<R>: Precompile,
 	R: pallet_evm::Config,
 {
 	fn execute(
@@ -62,7 +62,7 @@ where
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
 			a if a == hash(FEE_PROXY) => None,
-			a if a == hash(27572) => Some(StateOraclePrecompile::<R>::execute(
+			a if a == StateOraclePrecompileAddress::get() => Some(StateOraclePrecompile::<EthStateOracle>::execute(
 				input, target_gas, context, is_static,
 			)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
@@ -163,44 +163,38 @@ impl Erc20IdConversion for Runtime {
 }
 
 /// Handles dispatching callbacks to the EVM after state oracle requests are fulfilled
-pub struct StateOracleCallbackExecutor<
-	R: frame_system::Config<Origin = Origin> + pallet_evm::Config + pallet_base_fee::Config,
->(PhantomData<R>);
+pub struct StateOracleCallbackExecutor<R: pallet_evm::Config>(PhantomData<R>);
 
-impl<R> ContractExecutor for StateOracleCallbackExecutor<R>
-where
-	R: frame_system::Config<Origin = Origin> + pallet_evm::Config + pallet_base_fee::Config,
-{
+impl<R: pallet_evm::Config> ContractExecutor for StateOracleCallbackExecutor<R> {
 	type Address = H160;
 	/// Transfer funds from the caller to the state oracle address and execute the contract callback
 	fn execute(
-		_caller: &Self::Address,
+		caller: &Self::Address,
 		target: &Self::Address,
 		callback_input: &[u8],
 		callback_gas_limit: u64,
+		max_fee_per_gas: U256,
+		max_priority_fee_per_gas: U256,
 	) -> DispatchResultWithPostInfo {
-		let max_fee_per_gas = <pallet_base_fee::Pallet<R>>::base_fee_per_gas() * callback_gas_limit;
-		let max_priority_fee_per_gas = 1 * callback_gas_limit;
-		let value = U256::zero();
-		// TODO: use some const
-		// state oracle precompile address
-		let state_oracle_evm_address = hash(27572);
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(
-			state_oracle_evm_address,
-		));
-		let nonce = <pallet_evm::Pallet<R>>::account_basic(&state_oracle_evm_address).nonce;
-
-		<pallet_evm::Pallet<R>>::call(
-			origin,
-			state_oracle_evm_address,
+		let nonce = <pallet_evm::Pallet<R>>::account_basic(&caller).nonce;
+		let info = R::Runner::call(
+			*caller,
 			*target,
 			callback_input.to_vec(),
-			value,
+			U256::zero(), // value
 			callback_gas_limit,
-			max_fee_per_gas,
-			Some(U256::from(max_priority_fee_per_gas)),
+			Some(max_fee_per_gas),
+			Some(max_priority_fee_per_gas),
 			Some(nonce),
 			vec![],
-		)
+			R::config(),
+		)?;
+
+		Ok(PostDispatchInfo {
+			actual_weight: Some(R::GasWeightMapping::gas_to_weight(
+				info.used_gas.unique_saturated_into(),
+			)),
+			pays_fee: Pays::No,
+		})
 	}
 }

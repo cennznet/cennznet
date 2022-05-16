@@ -15,6 +15,7 @@ cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
+crml-generic-asset = { path = "../generic-asset", default-features = false }
 frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
@@ -24,7 +25,7 @@ sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d41379
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 
 [dev-dependencies]
-crml-generic-asset = { path = "../generic-asset", default-features = false }
+hex-literal = { version = "0.3.1" }
 
 [features]
 default = ["std"]
@@ -33,6 +34,7 @@ std = [
 	"scale-info/std",
 	"ethereum-types/std",
 	"cennznet-primitives/std",
+	"crml-generic-asset/std",
 	"crml-support/std",
 	"frame-support/std",
 	"frame-system/std",

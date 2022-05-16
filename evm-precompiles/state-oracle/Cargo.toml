@@ -21,6 +21,8 @@ crml-support = { path = "../../crml/support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-eth-state-oracle = { path = "../../crml/eth-state-oracle", default-features = false }
 
+[dev-dependencies]
+ethabi = { version = "17.0.0", default-features = false }
 
 [features]
 default = ["std"]

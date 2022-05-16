@@ -1226,6 +1226,7 @@ dependencies = [
  "ethereum-types 0.12.1",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-evm",
  "parity-scale-codec 2.3.1",
  "scale-info",
@@ -3917,7 +3918,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm",
  "log",
- "lru 0.7.0",
+ "lru 0.7.5",
  "rand 0.7.3",
  "smallvec",
  "unsigned-varint 0.7.0",
@@ -4233,9 +4234,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.7.0"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c748cfe47cb8da225c37595b3108bea1c198c84aaae8ea0ba76d01dda9fc803"
+checksum = "32613e41de4c47ab04970c348ca7ae7382cf116625755af070b008a15516a889"
 dependencies = [
  "hashbrown 0.11.2",
 ]
@@ -5053,6 +5054,7 @@ dependencies = [
  "cennznet-primitives",
  "crml-eth-state-oracle",
  "crml-support",
+ "ethabi",
  "fp-evm",
  "frame-support",
  "frame-system",
@@ -6833,7 +6835,7 @@ dependencies = [
  "linked-hash-map",
  "linked_hash_set",
  "log",
- "lru 0.7.0",
+ "lru 0.7.5",
  "parity-scale-codec 2.3.1",
  "parking_lot",
  "pin-project 1.0.8",
@@ -6870,7 +6872,7 @@ dependencies = [
  "futures-timer 3.0.2",
  "libp2p",
  "log",
- "lru 0.7.0",
+ "lru 0.7.5",
  "sc-network",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -7732,7 +7734,7 @@ source = "git+https://github.com/cennznet/substrate?rev=92f06d413796bb1443b31d92
 dependencies = [
  "futures 0.3.17",
  "log",
- "lru 0.7.0",
+ "lru 0.7.5",
  "parity-scale-codec 2.3.1",
  "parking_lot",
  "sp-api",
@@ -9014,7 +9016,7 @@ version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f559b464de2e2bdabcac6a210d12e9b5a5973c251e102c44c585c71d51bd78e"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "rand 0.8.4",
  "static_assertions",
 ]

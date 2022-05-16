@@ -369,7 +369,7 @@ pub trait OnTransferSubscriber {
 pub trait EthereumStateOracle {
 	/// EVM address type
 	type Address;
-	/// An Unsinged int uniquely identifying remote call requests
+	/// An Unsigned int uniquely identifying remote call requests
 	type RequestId;
 	/// Issues a request to the oracle to perform a remote 'eth_call'
 	/// on the connected Ethereum chain.
@@ -380,7 +380,7 @@ pub trait EthereumStateOracle {
 	/// `callback_signature` -Function selector for callback execution
 	/// `callback_gas_limit` - Gas limit for callback execution
 	/// `fee_preferences` - Options for paying callback fees in non-default currency
-	/// `bounty` - A bounty for fulfilment of the request
+	/// `bounty` - A bounty for fulfillment of the request
 	///
 	/// *The caller must implement the callback ABI `function remoteCallReceiver(uint256 reqId, bytes returnData)`
 	///
@@ -402,10 +402,12 @@ pub trait ContractExecutor {
 	type Address;
 	/// Execute `target` contract with given input
 	///
-	/// `caller` - address that originated the callback
-	/// `target` - contract address to receive callback
+	/// `caller` - address that will invoke the callback
+	/// `target` - contract address to receive the callback
 	/// `input_data` - passed to evm as 'input'. it should encode the callback function selector
 	/// `gas_limit` - gas limit for callback execution
+	/// `max_fee_per_gas` - according to EIP-1559,
+	/// `max_priority_fee_per_gas` - according to EIP -1559,
 	///
 	/// Returns consumed weight & result of execution
 	fn execute(
@@ -413,7 +415,37 @@ pub trait ContractExecutor {
 		_target: &Self::Address,
 		_input_data: &[u8],
 		_gas_limit: u64,
+		_max_fee_per_gas: U256,
+		_max_priority_fee_per_gas: U256,
 	) -> DispatchResultWithPostInfo;
+}
+
+/// Verifies correctness of state on Ethereum i.e. by issuing `eth_call`s
+pub trait EthCallOracle {
+	/// EVM address type
+	type Address;
+	/// Identifies call requests
+	type CallId;
+	/// Performs an `eth_call` nearest to `timestamp` on contract `target` with `input`
+	///
+	/// Returns a call Id for subscribers
+	fn call_at(target: Self::Address, input: &[u8], timestamp: u64) -> Self::CallId;
+}
+
+impl EthCallOracle for () {
+	type Address = H160;
+	type CallId = u64;
+	fn call_at(_target: Self::Address, _input: &[u8], _timestamp: u64) -> Self::CallId {
+		0_u64
+	}
+}
+
+/// Subscribes to verified ethereum state
+pub trait EthCallOracleSubscriber {
+	/// Identifies requests
+	type CallId;
+	/// Receives verified details about prior `EthCallVerifier::call_at` requests upon their completion
+	fn on_call_at_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
 }
 
 #[cfg(test)]
