@@ -37,7 +37,7 @@ pub struct CallRequest {
 	pub callback_signature: [u8; 4],
 	/// Fee preferences for callback gas payment
 	pub fee_preferences: Option<FeePreferences>,
-	/// A bounty for fulfiling the request successfully
+	/// A bounty for fulfilling the request successfully
 	pub bounty: Balance,
 	/// unix timestamp in seconds the request was placed
 	pub timestamp: u64,
