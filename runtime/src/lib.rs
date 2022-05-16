@@ -95,7 +95,7 @@ use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCa
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{currency::*, time::*};
+use constants::{currency::*, evm::*, time::*};
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
@@ -106,6 +106,9 @@ use impls::{
 
 mod precompiles;
 use precompiles::CENNZnetPrecompiles;
+
+pub mod runner;
+use runner::FeePreferencesRunner;
 
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
@@ -738,7 +741,8 @@ const fn cennznet_london() -> EvmConfig {
 	c.gas_transaction_create = 2_000_000;
 	c
 }
-static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
+
+pub static CENNZNET_EVM_CONFIG: EvmConfig = cennznet_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
@@ -749,7 +753,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = PrefixedAddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<SpendingAssetCurrency<Self>>;
 	type Event = Event;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
+	type Runner = FeePreferencesRunner<Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;

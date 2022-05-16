@@ -37,6 +37,13 @@ pub mod config {
 	pub const ETH_HTTP_URI: [u8; 8] = *b"ETH_HTTP";
 }
 
+pub mod evm {
+	/// Function selector for call_with_fee_preferences
+	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0xcc, 0xf3, 0x9e, 0xa9];
+	// Precompile address for fee preferences
+	pub const FEE_PROXY: u64 = 1211;
+}
+
 /// Money matters.
 pub mod currency {
 	use cennznet_primitives::types::Balance;

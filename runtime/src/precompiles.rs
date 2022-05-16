@@ -1,3 +1,4 @@
+use crate::constants::evm::FEE_PROXY;
 use crate::Runtime;
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
@@ -24,7 +25,7 @@ where
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
 		// TODO: precompute this
-		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026]
+		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY]
 			.into_iter()
 			.map(|x| hash(x))
 			.collect()
@@ -52,6 +53,7 @@ impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
 			a if a == hash(1024) => Some(Sha3FIPS256::execute(input, target_gas, context, is_static)),
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
+			a if a == hash(FEE_PROXY) => None,
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
 				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(
 					&Erc721PrecompileSet::<Runtime>::new(),
