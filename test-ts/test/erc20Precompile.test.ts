@@ -1,5 +1,8 @@
 import { JsonRpcProvider, Provider } from '@ethersproject/providers';
 import web3 from 'web3';
+import { Api } from '@cennznet/api';
+import { Keyring } from '@polkadot/keyring';
+import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
@@ -7,7 +10,14 @@ import PrecompileCaller from '../artifacts/contracts/PrecompileCaller.sol/Precom
 
 use(solidity);
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 describe('GA precompiles', () => {
+  let api: Api;
+  let keyring: Keyring;
+  let alice, bob;
   let cennznetSigner: Wallet;
   let cennznetProvider: Provider;
   let precompileCaller: Contract;
@@ -25,11 +35,24 @@ describe('GA precompiles', () => {
     'function transfer(address who, uint256 amount)',
   ];
 
+  const feeProxyAbi = [
+    'function callWithFeePreferences(uint32 asset, uint32 slippage, address target, bytes input)',
+  ]
+
   before(async () => {
-    cennznetProvider = new JsonRpcProvider('http://localhost:9933');
+    const providerUri = 'http://localhost:9933';
+    cennznetProvider = new JsonRpcProvider(providerUri);
     cennznetSigner = new Wallet('0xab3fdbe7eca16f38e9f5ee81b9e23d01ef251ba4ae19225783e5921a4a8c5564').connect(cennznetProvider); // 'development' seed
     cennzToken = new Contract(cennzTokenAddress, erc20Abi, cennznetSigner);
     console.log(`signer address=${cennznetSigner.address}`);
+
+    // Connect to CENNZnet local node
+    await cryptoWaitReady();
+    api = await Api.create({provider: providerUri});
+    keyring = new Keyring({ type: 'sr25519' });
+    alice = keyring.addFromUri('//Alice');
+    bob = keyring.addFromUri('//Bob');
+    console.log(`Connected to CENNZnet network ${providerUri}`);
   });
 
   it('name, symbol, decimals', async () => {
@@ -94,6 +117,45 @@ describe('GA precompiles', () => {
     let tx = await precompileCaller.sendCPAYAmounts(receiverAddress);
     await tx.wait();
   }).timeout(12000);
+
+  it('transfer with fee preferences no liquidity', async () => {
+    // Fee Proxy 1211 as an address
+    const feeProxyAddress = '0x00000000000000000000000000000000000004bb';
+    const feeProxy = new Contract(feeProxyAddress, feeProxyAbi, cennznetSigner);
+
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const transferAmount = 12345;
+    let iface = new utils.Interface(erc20Abi);
+    const transferInput = iface.encodeFunctionData("transfer", [receiverAddress, transferAmount]);
+    const asset = 15000;
+    const slippage = 50;
+
+    await expect(
+        feeProxy.callWithFeePreferences(asset, slippage, cennzTokenAddress, transferInput)
+    ).to.reverted;
+  }).timeout(15000);
+
+  it('transfer with fee preferences', async () => {
+    // Fee Proxy 1211 as an address
+    const feeProxyAddress = '0x00000000000000000000000000000000000004bb';
+    const feeProxy = new Contract(feeProxyAddress, feeProxyAbi, cennznetSigner);
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const transferAmount = 12345;
+    const asset = 16000;
+    const slippage = 50;
+    const amount = 3_000_000_000;
+    let iface = new utils.Interface(erc20Abi);
+    const transferInput = iface.encodeFunctionData("transfer", [receiverAddress, transferAmount]);
+
+    // Add liquidity for the swap
+    await api.tx.cennzx.addLiquidity(asset, 1, amount, amount).signAndSend(alice);
+    // Sleep for more than one block to ensure liquidity has been added
+    await sleep(6000);
+
+    await expect(
+        feeProxy.callWithFeePreferences(asset, slippage, cennzTokenAddress, transferInput)
+    ).to.emit(cennzToken, 'Transfer').withArgs(cennznetSigner.address, receiverAddress, transferAmount);
+  }).timeout(30000);
 
   it('CPAY transfer amounts via transaction', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
