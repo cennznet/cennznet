@@ -9,7 +9,8 @@
   "private": false,
   "scripts": {
     "build": "hardhat compile",
-    "test": "mocha -r ts-node/register 'test/**/*.test.ts'"
+    "test": "mocha -r ts-node/register 'test/**/*.test.ts'",
+    "test:state-oracle": "mocha -r ts-node/register 'test/stateOraclePrecompile.test.ts'"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^4.5.0",
