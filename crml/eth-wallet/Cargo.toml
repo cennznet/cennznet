@@ -10,7 +10,7 @@ description = "FRAME pallet for eth_sign extrinsics"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0", features = ["derive"], default-features = false }
-serde = { version = "1.0.106", features = ["derive"], optional = true }
+serde = { version = "1.0.106", features = ["derive"], optional = true, default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
@@ -21,6 +21,7 @@ sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
 frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
 frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 hex-literal = "0.3.1"
@@ -42,5 +43,6 @@ std = [
     "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
-    "scale-info/std"
+    "scale-info/std",
+    "base64/std"
 ]

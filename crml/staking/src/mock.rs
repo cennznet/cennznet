@@ -1038,11 +1038,13 @@ pub struct NoopRewarder<T: Config>(sp_std::marker::PhantomData<T>);
 impl<T: Config> RewardCalculation for NoopRewarder<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
-	fn calculate_total_reward() -> RewardParts<Self::Balance> {
+	const FULL_ERA_DURATION: u64 = 1;
+	fn calculate_total_reward(_era_duration_ms: u64) -> RewardParts<Self::Balance> {
 		RewardParts::new(Zero::zero(), Zero::zero(), Perbill::one())
 	}
 	fn calculate_individual_reward(
 		_stash: &Self::AccountId,
+		_era_duration_ms: u64,
 		_validator_commission_stake_map: &[(Self::AccountId, Perbill, Exposure<Self::AccountId, Self::Balance>)],
 	) -> Self::Balance {
 		Zero::zero()

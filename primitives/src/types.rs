@@ -21,7 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature, OpaqueExtrinsic,
+	MultiSignature, OpaqueExtrinsic, Permill,
 };
 use sp_std::prelude::*;
 
@@ -92,6 +92,17 @@ pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
 	V1(FeeExchangeV1<AssetId, Balance>),
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
+/// Denote fee payment preferences
+/// Like FeeExchangeV1 but used by the EVM
+pub struct FeePreferences {
+	/// AssetId to use for fee payment
+	pub asset_id: AssetId,
+	/// max. price slippage allowed for the fee payment
+	/// expressed as a fraction of parts-per-million
+	pub slippage: Permill,
 }
 
 /// A v1 FeeExchange
