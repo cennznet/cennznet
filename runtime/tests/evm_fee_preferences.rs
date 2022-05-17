@@ -437,6 +437,8 @@ fn evm_call_with_fee_preferences_no_liquidity_should_fail() {
 		.stash(initial_balance)
 		.build()
 		.execute_with(|| {
+			let receiver_eth: H160 = hex!("7a107Fc1794f505Cb351148F529AcCae12fFbcD8").into();
+
 			// Create input parameters for call
 			let transfer_amount: u128 = 123;
 			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
@@ -478,6 +480,7 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 		.build()
 		.execute_with(|| {
 			setup_liquidity(initial_liquidity);
+			let receiver_eth: H160 = hex!("7a107Fc1794f505Cb351148F529AcCae12fFbcD8").into();
 
 			// Create input parameters for call
 			let transfer_amount: u128 = 123;
