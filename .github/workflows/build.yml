@@ -48,10 +48,12 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Build
         run: cargo check --locked
+      # test + generate coverage info
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
         with:
           args: '--workspace --locked --avoid-cfg-tarpaulin --skip-clean'
+      # upload coverage info
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0
         with:
