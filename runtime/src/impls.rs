@@ -487,7 +487,7 @@ mod tests {
 	}
 
 	#[test]
-  #[ignore]
+	#[ignore]
 	fn time_to_reach_zero() {
 		// blocks per 24h in substrate-node: 28,800 (k)
 		// s* = 0.1875
