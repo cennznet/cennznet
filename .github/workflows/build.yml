@@ -51,7 +51,7 @@ jobs:
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--avoid-cfg-tarpaulin --all-features --workspace --locked --exclude-files **/weights.rs --ignore-tests -o Xml -o lcov'
+          args: '--workspace --locked --avoid-cfg-tarpaulin'
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0
         with:
