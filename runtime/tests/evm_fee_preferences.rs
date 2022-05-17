@@ -33,8 +33,8 @@ mod common;
 use common::keyring::{alice, ferdie};
 use common::mock::ExtBuilder;
 
-fn encode_fee_preferences_abi(asset_id: AssetId, slippage: u32, input: Vec<u8>) -> Vec<u8> {
-	// Encode input arguments into an abi for callWithFeePreferences
+fn encode_fee_preferences_input(asset_id: AssetId, slippage: u32, input: Vec<u8>) -> Vec<u8> {
+	// Encode input arguments into an input for callWithFeePreferences
 	let asset_token: Token = Token::Uint(asset_id.into());
 	let slippage_token: Token = Token::Uint(slippage.into());
 	let target: H160 = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
@@ -47,8 +47,8 @@ fn encode_fee_preferences_abi(asset_id: AssetId, slippage: u32, input: Vec<u8>) 
 	input_selector
 }
 
-fn encode_transfer_abi(target: H160, amount: u128) -> Vec<u8> {
-	// Encode input arguments into an abi for transfer
+fn encode_transfer_input(target: H160, amount: u128) -> Vec<u8> {
+	// Encode input arguments into an input for transfer
 	let target_token: Token = Token::Address(ethabi::ethereum_types::H160::from(target.to_fixed_bytes()));
 	let asset_token: Token = Token::Uint(amount.into());
 
@@ -70,30 +70,30 @@ fn setup_liquidity(initial_liquidity: u128) {
 }
 
 #[test]
-fn encode_fee_preferences_abi_works() {
+fn encode_fee_preferences_input_works() {
 	ExtBuilder::default()
 		.build()
 		.execute_with(|| {
             let asset: AssetId = 16000;
             let slippage: u32 = 50;
-            let input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
-            let abi = encode_fee_preferences_abi(asset, slippage, input);
+            let transfer_input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
+            let input = encode_fee_preferences_input(asset, slippage, transfer_input);
 
             let expected = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
-            assert_eq!(expected.to_vec(), abi);
+            assert_eq!(expected.to_vec(), input);
         });
 }
 
 #[test]
-fn encode_transfer_abi_works() {
+fn encode_transfer_input_works() {
 	ExtBuilder::default()
         .build()
         .execute_with(|| {
             let target: H160 = H160::from_slice(&hex!("7a107Fc1794f505Cb351148F529AcCae12fFbcD8"));
             let amount: u128 = 123;
-            let abi = encode_transfer_abi(target, amount);
+            let input = encode_transfer_input(target, amount);
             let expected = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b");
-            assert_eq!(expected.to_vec(), abi);
+            assert_eq!(expected.to_vec(), input);
         });
 }
 
@@ -132,8 +132,8 @@ fn evm_call_with_fee_preferences() {
 			// Create input parameters for call
 			let slippage: u32 = 50;
 			let transfer_amount: u128 = 123;
-			let input = encode_transfer_abi(receiver_eth, transfer_amount);
-			let abi = encode_fee_preferences_abi(CENNZ_ASSET_ID, slippage, input);
+			let transfer_input = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, slippage, transfer_input);
 
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
@@ -142,7 +142,7 @@ fn evm_call_with_fee_preferences() {
 			assert_ok!(<Runtime as pallet_evm::Config>::Runner::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
-				abi,
+				input,
 				U256::from(0u64),
 				gas_limit,
 				Some(max_fee_per_gas),
@@ -208,13 +208,13 @@ fn evm_call_with_cpay_as_fee_preference_should_fail() {
 
 			// Create input parameters for call
 			let transfer_amount: u128 = 123;
-			let input: Vec<u8> = encode_transfer_abi(receiver_eth, transfer_amount);
-			let abi = encode_fee_preferences_abi(CPAY_ASSET_ID, 50, input);
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(CPAY_ASSET_ID, 50, transfer_input);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
 			assert!(<Runtime as pallet_evm::Config>::Runner::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
-				abi,
+				input,
 				U256::from(0u64),
 				100000,
 				Some(U256::from(20000000000000u64)),
@@ -274,15 +274,15 @@ fn evm_call_with_fee_preferences_and_zero_slippage_should_fail() {
 
 			// Create input parameters for call
 			let transfer_amount: u128 = 123;
-			let input: Vec<u8> = encode_transfer_abi(receiver_eth, transfer_amount);
-			let abi = encode_fee_preferences_abi(CENNZ_ASSET_ID, 0, input);
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, 0, transfer_input);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
 
 			// Call should fail as slippage is 0
 			assert!(<Runtime as pallet_evm::Config>::Runner::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
-				abi,
+				input,
 				U256::from(0u64),
 				100000,
 				Some(U256::from(20000000000000u64)),
@@ -342,14 +342,14 @@ fn evm_call_with_fee_preferences_and_low_slippage_should_fail() {
 
 			// Create input parameters for call with slippage of 0.1%
 			let transfer_amount: u128 = 123;
-			let input: Vec<u8> = encode_transfer_abi(receiver_eth, transfer_amount);
-			let abi = encode_fee_preferences_abi(CENNZ_ASSET_ID, 1, input);
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, 1, transfer_input);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
 			// Call should fail as slippage is 0
 			assert!(<Runtime as pallet_evm::Config>::Runner::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
-				abi,
+				input,
 				U256::from(0u64),
 				100000,
 				Some(U256::from(20000000000000u64)),
@@ -397,13 +397,13 @@ fn evm_call_with_fee_preferences_no_asset_should_fail() {
 
 			// Create input parameters for call with slippage of 0.1%
 			let transfer_amount: u128 = 123;
-			let input: Vec<u8> = encode_transfer_abi(receiver_eth, transfer_amount);
-			let abi = encode_fee_preferences_abi(10, 50, input);
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(10, 50, transfer_input);
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
 			assert!(<Runtime as pallet_evm::Config>::Runner::call(
 				eth_address,
 				H160::from_low_u64_be(FEE_PROXY),
-				abi,
+				input,
 				U256::from(0u64),
 				100000u64,
 				Some(U256::from(20000000000000u64)),
@@ -433,38 +433,36 @@ fn evm_call_with_fee_preferences_no_liquidity_should_fail() {
 	let initial_balance = 1000 * DOLLARS;
 
 	ExtBuilder::default()
-        .initial_balance(initial_balance)
-        .stash(initial_balance)
-        .build()
-        .execute_with(|| {
-            // Create input parameters for call
-            let abi = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
-            let input = abi.to_vec();
-            let max_fee_per_gas = U256::from(20000000000000u64);
-            let max_priority_fee_per_gas = U256::from(1000000u64);
-            let access_list: Vec<(H160, Vec<H256>)> = vec![];
-            let config: EvmConfig = CENNZNET_EVM_CONFIG.clone();
-            assert!(<Runtime as pallet_evm::Config>::Runner::call(
-                eth_address,
-                H160::from_low_u64_be(FEE_PROXY),
-                input,
-                U256::from(0u64),
-                100000u64,
-                Some(max_fee_per_gas),
-                Some(max_priority_fee_per_gas),
-                None,
-                access_list,
-                &config
-            ).is_err());
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			// Create input parameters for call
+			let transfer_amount: u128 = 123;
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(10, 50, transfer_input);
+			let max_fee_per_gas = U256::from(20000000000000u64);
+			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let config: EvmConfig = CENNZNET_EVM_CONFIG.clone();
+			assert!(<Runtime as pallet_evm::Config>::Runner::call(
+				eth_address,
+				H160::from_low_u64_be(FEE_PROXY),
+				input,
+				U256::from(0u64),
+				100000u64,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+				None,
+				access_list,
+				&config
+			)
+			.is_err());
 
-            // CPAY and CENNZ balance should be unchanged as the transaction never went through
-            assert!(
-                <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID).is_zero()
-            );
-            assert!(
-                <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID).is_zero()
-            );
-        });
+			// CPAY and CENNZ balance should be unchanged as the transaction never went through
+			assert!(<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID).is_zero());
+			assert!(<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID).is_zero());
+		});
 }
 
 #[test]
@@ -475,40 +473,36 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 	let initial_liquidity = 500 * DOLLARS;
 
 	ExtBuilder::default()
-        .initial_balance(initial_balance)
-        .stash(initial_balance)
-        .build()
-        .execute_with(|| {
-            setup_liquidity(initial_liquidity);
+		.initial_balance(initial_balance)
+		.stash(initial_balance)
+		.build()
+		.execute_with(|| {
+			setup_liquidity(initial_liquidity);
 
-            // Create input parameters for call
-            let abi = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
-            let input = abi.to_vec();
-            let max_fee_per_gas = U256::from(20000000000000u64);
-            let max_priority_fee_per_gas = U256::from(1000000u64);
-            let access_list: Vec<(H160, Vec<H256>)> = vec![];
-            let config: EvmConfig = CENNZNET_EVM_CONFIG.clone();
-            assert!(
-                <Runtime as pallet_evm::Config>::Runner::call(
-                    eth_address,
-                    H160::from_low_u64_be(FEE_PROXY),
-                    input,
-                    U256::from(0u64),
-                    100000u64,
-                    Some(max_fee_per_gas),
-                    Some(max_priority_fee_per_gas),
-                    None,
-                    access_list,
-                    &config
-                ).is_err()
-            );
+			// Create input parameters for call
+			let transfer_amount: u128 = 123;
+			let transfer_input: Vec<u8> = encode_transfer_input(receiver_eth, transfer_amount);
+			let input = encode_fee_preferences_input(10, 50, transfer_input);
+			let max_fee_per_gas = U256::from(20000000000000u64);
+			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let config: EvmConfig = CENNZNET_EVM_CONFIG.clone();
+			assert!(<Runtime as pallet_evm::Config>::Runner::call(
+				eth_address,
+				H160::from_low_u64_be(FEE_PROXY),
+				input,
+				U256::from(0u64),
+				100000u64,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+				None,
+				access_list,
+				&config
+			)
+			.is_err());
 
-            // CPAY and CENNZ balance should be unchanged as the transaction never went through
-            assert!(
-                <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID).is_zero()
-            );
-            assert!(
-                <GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID).is_zero()
-            );
-        });
+			// CPAY and CENNZ balance should be unchanged as the transaction never went through
+			assert!(<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CPAY_ASSET_ID).is_zero());
+			assert!(<GenericAsset as MultiCurrency>::free_balance(&cennznet_address, CENNZ_ASSET_ID).is_zero());
+		});
 }
