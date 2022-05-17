@@ -52,10 +52,12 @@ pub struct EventClaim {
 	/// The contract event signature
 	pub event_signature: H256,
 }
-/// Something that proxies results from Ethereum RPC API
-pub trait EthereumHttpApi {
+
+/// Provides request/responses according to a minimal subset of Ethereum RPC API
+/// required for the bridge
+pub trait BridgeEthereumRpcApi {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(height: u32) -> EthBlock;
+	fn get_block_by_number(block_number: u32) -> EthBlock;
 	/// Returns an ethereum transaction receipt given a tx hash
 	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt;
 }
@@ -92,20 +94,6 @@ pub struct NotarizationPayload {
 	pub authority_index: u16,
 	/// Result of the notarization check by this authority
 	pub result: EventClaimResult,
-}
-
-/// Config for handling Ethereum messages
-/// Ethereum messages are simply events deposited at known contract addresses
-#[derive(Encode, Decode, Default, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub struct HandlerConfig {
-	/// The EVM event signature of the relevant event
-	pub event_signature: [u8; 32],
-	/// The deployed Ethereum contract address that deposits the event
-	pub contract_address: [u8; 20],
-	/// The CENNZnet function to invoke with the message result
-	/// It should accept a type `T`
-	/// Encoded call type `T::Call`
-	pub encoded_callback: Vec<u8>,
 }
 
 /// Log

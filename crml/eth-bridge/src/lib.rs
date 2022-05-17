@@ -1,4 +1,4 @@
-/* Copyright 2021 Centrality Investments Limited
+/* Copyright 2021-2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,9 +25,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod impls;
 #[cfg(test)]
 mod tests;
-
+pub use impls::EthereumRpcClient;
 mod types;
 use types::*;
 
@@ -61,11 +62,7 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	DispatchError, Percent, RuntimeAppPublic,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string::ToString;
-use sp_std::{convert::TryInto, prelude::*};
-#[cfg(std)]
-use std::string::ToString;
+use sp_std::prelude::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -96,6 +93,8 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
 	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
+	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The threshold of notarizations required to approve an Ethereum
@@ -361,7 +360,11 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		// Get all signing keys for this protocol 'KeyTypeId'
 		let local_keys = T::EthyId::all();
 		if local_keys.is_empty() {
-			log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
+			log!(
+				error,
+				"💎 no signing keys for: {:?}, cannot participate in notarization!",
+				T::EthyId::ID
+			);
 			return None;
 		};
 
@@ -370,7 +373,7 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		for key in local_keys {
 			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
-				break
+				break;
 			}
 		}
 
@@ -393,7 +396,12 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		let needed = Self::activation_threshold();
 		let total = T::AuthoritySet::validators().len();
 		if Percent::from_rational(supports, total) < needed {
-			log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
+			log!(
+				info,
+				"💎 waiting for validator support to activate eth bridge: {:?}/{:?}",
+				supports,
+				needed
+			);
 			return;
 		}
 
@@ -404,17 +412,27 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
 			if budget.is_zero() {
 				log!(info, "💎 claims budget exceeded, exiting...");
-				return
+				return;
 			}
 
-			// check we haven't notarized this already
+			// skip if we've notarized it previously
 			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
-				log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
+				log!(
+					trace,
+					"💎 already cast notarization for claim: {:?}, ignoring...",
+					event_claim_id
+				);
+				continue;
 			}
 
 			if let Some(event_data) = Self::event_data(event_claim_id) {
 				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
-				let event_claim = EventClaim { tx_hash, data: event_data, contract_address, event_signature };
+				let event_claim = EventClaim {
+					tx_hash,
+					data: event_data,
+					contract_address,
+					event_signature,
+				};
 				let result = Self::offchain_try_notarize_event(event_claim);
 				log!(trace, "💎 claim verification status: {:?}", &result);
 				let payload = NotarizationPayload {
@@ -427,7 +445,12 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
 					})
 					.map(|_| {
-						log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, event_claim_id);
+						log!(
+							info,
+							"💎 sent notarization: '{:?}' for claim: {:?}",
+							result,
+							event_claim_id
+						);
 					});
 				budget = budget.saturating_sub(1);
 			} else {
@@ -512,7 +535,7 @@ impl<T: Config> Module<T> {
 			contract_address,
 			event_signature,
 		} = event_claim;
-		let result = Self::get_transaction_receipt(tx_hash);
+		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
 			return EventClaimResult::DataProviderErr;
@@ -561,7 +584,7 @@ impl<T: Config> Module<T> {
 		//  have we got enough block confirmations to be re-org safe?
 		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
 
-		let latest_block: EthBlock = match Self::get_block(LatestOrNumber::Latest) {
+		let latest_block: EthBlock = match T::EthereumRpcClient::get_block(LatestOrNumber::Latest) {
 			Ok(None) => return EventClaimResult::DataProviderErr,
 			Ok(Some(block)) => block,
 			Err(err) => {
@@ -584,14 +607,15 @@ impl<T: Config> Module<T> {
 		}
 
 		//  check the block this tx is in if the timestamp > deadline
-		let observed_block: EthBlock = match Self::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
-			Ok(None) => return EventClaimResult::DataProviderErr,
-			Ok(Some(block)) => block,
-			Err(err) => {
-				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
-				return EventClaimResult::DataProviderErr;
-			}
-		};
+		let observed_block: EthBlock =
+			match T::EthereumRpcClient::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
+				Ok(None) => return EventClaimResult::DataProviderErr,
+				Ok(Some(block)) => block,
+				Err(err) => {
+					log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
+					return EventClaimResult::DataProviderErr;
+				}
+			};
 
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
@@ -603,117 +627,6 @@ impl<T: Config> Module<T> {
 		}
 
 		EventClaimResult::Valid
-	}
-
-	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
-		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})
-	}
-
-	/// Get latest block number from eth client
-	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
-		let request = match req {
-			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
-			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
-		};
-		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})
-	}
-
-	/// This function uses the `offchain::http` API to query the remote ethereum information,
-	/// and returns the JSON response as vector of bytes.
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
-		// Load eth http URI from offchain storage
-		// this should have been configured on start up by passing e.g. `--eth-http`
-		// e.g. `--eth-http=http://localhost:8545`
-		let eth_http_uri = if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP")
-		{
-			value
-		} else {
-			log!(
-				error,
-				"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
-			);
-			return Err(Error::<T>::OcwConfig);
-		};
-		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
-
-		const HEADER_CONTENT_TYPE: &str = "application/json";
-		log!(info, "💎 sending request to: {}", eth_http_uri);
-		let body = serde_json::to_string::<R>(&request_body).unwrap();
-		let body_raw = body.as_bytes();
-		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body_raw]);
-		log!(trace, "💎 request: {:?}", request);
-
-		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
-		let pending = request
-			.add_header("Content-Type", HEADER_CONTENT_TYPE)
-			.add_header("Content-Length", &body_raw.len().to_string())
-			.deadline(timeout) // Setting the timeout time
-			.send() // Sending the request out by the host
-			.map_err(|err| {
-				log!(error, "💎 http request error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?;
-
-		// By default, the http request is async from the runtime perspective. So we are asking the
-		// runtime to wait here.
-		// The returning value here is a `Result` of `Result`, so we are unwrapping it twice by two `?`
-		// ref: https://substrate.dev/rustdocs/v3.0.0/sp_runtime/offchain/http/struct.PendingRequest.html#method.try_wait
-		let response = pending
-			.try_wait(timeout)
-			.map_err(|err| {
-				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?
-			.map_err(|err| {
-				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?;
-		log!(trace, "💎 response: {:?}", response);
-
-		if response.code != 200 {
-			log!(error, "💎 http request status code: {}", response.code);
-			return Err(<Error<T>>::HttpFetch);
-		}
-
-		// Read the response body and check it's valid utf-8
-		Ok(response.body().collect::<Vec<u8>>())
 	}
 
 	/// Send a notarization for the given claim

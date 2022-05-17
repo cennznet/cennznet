@@ -15,7 +15,10 @@
 
 use super::BridgePaused;
 use crate as crml_eth_bridge;
-use crate::{types::EventProofId, Config, Error, Module};
+use crate::{
+	types::{BridgeEthereumRpcApi, EventProofId},
+	Config, Error, Module,
+};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{
 	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160,
@@ -96,14 +99,43 @@ parameter_types! {
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
-	type FinalSessionTracker = MockFinalSessionTracker;
 	type EthyId = AuthorityId;
+	type EthereumRpcClient = MockEthereumRpcClient;
+	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type RewardHandler = MockRewardHandler;
 	type Subscribers = MockClaimSubscriber;
 	type UnixTime = MockUnixTime;
 	type Call = Call;
 	type Event = Event;
+}
+
+/// Mock ethereum rpc client
+pub struct MockEthereumRpcClient;
+
+impl MockEthereumRpcClient {
+	/// store given block as the next response
+	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
+		// TODO: implement
+		unimplemented!();
+	}
+	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
+		// TODO: implement
+		unimplemented!();
+	}
+}
+
+impl BridgeEthereumRpcApi for MockEthereumRpcClient {
+	/// Returns an ethereum block given a block height
+	fn get_block_by_number(block_number: u32) -> EthBlock {
+		// TODO: implement
+		unimplemented!();
+	}
+	/// Returns an ethereum transaction receipt given a tx hash
+	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt {
+		// TODO: implement
+		unimplemented!();
+	}
 }
 
 pub struct NoopConverter<T>(sp_std::marker::PhantomData<T>);
