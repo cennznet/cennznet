@@ -38,7 +38,7 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	EthAbiCodec, EthCallOracle, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
 use frame_support::{
@@ -338,96 +338,104 @@ decl_module! {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
-			// Nothing to do while bridge is paused
-			if Self::bridge_paused() {
-				return;
-			}
-
-			// check local `key` is a valid bridge notary
+			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
-				// this passes if flag `--validator` set not necessarily
-				// in the active set
 				log!(info, "💎 not a validator, exiting");
 				return
 			}
 
-			let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
-			let needed = Self::activation_threshold();
-			let total = T::AuthoritySet::validators().len();
-			if Percent::from_rational(supports, total) < needed {
-				log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
-				return;
-			}
-
-			// Get all signing keys for this protocol 'KeyTypeId'
-			let local_keys = T::EthyId::all();
-			if local_keys.is_empty() {
-				log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
-				return
-			};
-
-			let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
-			// search all local ethy keys
-			for key in local_keys {
-				if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
-					maybe_active_key = Some((key, active_key_index));
-					break
-				}
-			}
-
-			// check if locally known keys are in the active validator set
-			if maybe_active_key.is_none() {
-				log!(error, "💎 no active ethy keys, exiting");
-				return;
-			}
-			let (active_key, authority_index) = maybe_active_key.map(|(key, idx)| (key, idx as u16)).unwrap();
-
-			// check all pending claims we have _yet_ to notarize and try to notarize them
-			// this will be invoked once every block
-			// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
-			let mut budget = CLAIMS_PER_BLOCK;
-			for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
-				if budget.is_zero() {
-					log!(info, "💎 claims budget exceeded, exiting...");
-					return
-				}
-
-				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
-					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
-				}
-
-				if let Some(event_data) = Self::event_data(event_claim_id) {
-					let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
-					let event_claim = EventClaim { tx_hash, data: event_data, contract_address, event_signature };
-					let result = Self::offchain_try_notarize_event(event_claim);
-					log!(trace, "💎 claim verification status: {:?}", &result);
-					let payload = NotarizationPayload {
-						event_claim_id,
-						authority_index,
-						result: result.clone(),
-					};
-					let _ = Self::offchain_send_notarization(&active_key, payload)
-						.map_err(|err| {
-							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
-						})
-						.map(|_| {
-							log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, event_claim_id);
-						});
-					budget = budget.saturating_sub(1);
-				} else {
-					// should not happen, defensive only
-					log!(error, "💎 empty claim data for: {:?}", event_claim_id);
-				}
+			// check a local key exists for a valid bridge notary
+			if let Some((active_key, authority_index)) = find_active_ethy_key() {
+				do_event_notarization_ocw(active_key, authority_index);
 			}
 
 			log!(trace, "💎 exiting off-chain worker");
 		}
-
 	}
 }
 
 impl<T: Config> EventClaimVerifier for Module<T> {
+	/// Check the nodes local keystore for an active (staked) Ethy session key
+	/// Returns the public key and index of the key in the current notary set
+	fn find_active_ethy_key() -> Option<(T::EthyId, u16)> {
+		// Get all signing keys for this protocol 'KeyTypeId'
+		let local_keys = T::EthyId::all();
+		if local_keys.is_empty() {
+			log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
+			return None;
+		};
+
+		let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
+		// search all local ethy keys
+		for key in local_keys {
+			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+				maybe_active_key = Some((key, active_key_index));
+				break
+			}
+		}
+
+		// check if locally known keys are in the active validator set
+		if maybe_active_key.is_none() {
+			log!(error, "💎 no active ethy keys, exiting");
+			return None;
+		}
+		maybe_active_key.map(|(key, idx)| (key, idx as u16))
+	}
+	/// Handle OCW event notarization protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
+		// do not try to notarize events while the bridge is paused
+		if Self::bridge_paused() {
+			return;
+		}
+
+		let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+		let needed = Self::activation_threshold();
+		let total = T::AuthoritySet::validators().len();
+		if Percent::from_rational(supports, total) < needed {
+			log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
+			return;
+		}
+
+		// check all pending claims we have _yet_ to notarize and try to notarize them
+		// this will be invoked once every block
+		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
+		let mut budget = CLAIMS_PER_BLOCK;
+		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
+			if budget.is_zero() {
+				log!(info, "💎 claims budget exceeded, exiting...");
+				return
+			}
+
+			// check we haven't notarized this already
+			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
+				log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
+			}
+
+			if let Some(event_data) = Self::event_data(event_claim_id) {
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_claim = EventClaim { tx_hash, data: event_data, contract_address, event_signature };
+				let result = Self::offchain_try_notarize_event(event_claim);
+				log!(trace, "💎 claim verification status: {:?}", &result);
+				let payload = NotarizationPayload {
+					event_claim_id,
+					authority_index,
+					result: result.clone(),
+				};
+				let _ = Self::offchain_send_notarization(&active_key, payload)
+					.map_err(|err| {
+						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+					})
+					.map(|_| {
+						log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, event_claim_id);
+					});
+				budget = budget.saturating_sub(1);
+			} else {
+				// should not happen, defensive only
+				log!(error, "💎 empty claim data for: {:?}", event_claim_id);
+			}
+		}
+	}
 	/// Submit an event claim against an ethereum tx hash
 	// tx hashes may only be claimed once
 	fn submit_event_claim(

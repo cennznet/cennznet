@@ -429,7 +429,7 @@ pub trait EthCallOracle {
 	/// Performs an `eth_call` nearest to `timestamp` on contract `target` with `input`
 	///
 	/// Returns a call Id for subscribers
-	fn call_at(target: Self::Address, input: &[u8], timestamp: u64) -> Self::CallId;
+	fn call_at(target: &Self::Address, input: &[u8], timestamp: u64) -> Self::CallId;
 }
 
 impl EthCallOracle for () {

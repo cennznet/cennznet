@@ -270,7 +270,7 @@ decl_module! {
 					3) do the `eth_call` at the correct block
 				 */
 				let challenge_subscription_id = T::EthCallOracle::call_at(
-					request.destination,
+					&request.destination,
 					request_input.as_ref(),
 					request.timestamp,
 				);
