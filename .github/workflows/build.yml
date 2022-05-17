@@ -51,7 +51,7 @@ jobs:
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--bin=cennznet --avoid-cfg-tarpaulin --all'
+          args: '--avoid-cfg-tarpaulin --all-features --workspace --locked --exclude-files **/weights.rs --ignore-tests -o Xml -o lcov'
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0
         with:
