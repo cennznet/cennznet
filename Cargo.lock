@@ -850,6 +850,7 @@ dependencies = [
  "crml-cennzx-rpc-runtime-api",
  "crml-erc20-peg",
  "crml-eth-bridge",
+ "crml-eth-state-oracle",
  "crml-eth-wallet",
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
@@ -863,6 +864,7 @@ dependencies = [
  "crml-token-approvals",
  "crml-transaction-payment",
  "crml-transaction-payment-rpc-runtime-api",
+ "ethabi",
  "ethereum",
  "fp-rpc",
  "fp-self-contained",
@@ -889,6 +891,7 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-state-oracle",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",
@@ -1193,9 +1196,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "crml-eth-state-oracle"
+version = "1.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-generic-asset",
+ "crml-support",
+ "ethereum-types",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-evm",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "crml-eth-wallet"
 version = "2.0.0"
 dependencies = [
+ "base64 0.13.0",
  "cennznet-primitives",
  "crml-support",
  "frame-support",
@@ -1820,6 +1844,19 @@ name = "environmental"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68b91989ae21441195d7d9b9993a2f9295c7e1a8c96255d8b729accddc124797"
+
+[[package]]
+name = "ethabi"
+version = "16.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4c98847055d934070b90e806e12d3936b787d0a115068981c1d8dfd5dfef5a5"
+dependencies = [
+ "ethereum-types",
+ "hex",
+ "sha3 0.9.1",
+ "thiserror",
+ "uint",
+]
 
 [[package]]
 name = "ethbloom"
@@ -4918,6 +4955,27 @@ dependencies = [
  "cennznet-primitives",
  "crml-nft",
  "crml-token-approvals",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-state-oracle"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-eth-state-oracle",
+ "crml-support",
+ "ethabi",
  "fp-evm",
  "frame-support",
  "frame-system",
@@ -8833,9 +8891,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.13.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
+checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "ucd-trie"

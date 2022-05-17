@@ -22,10 +22,11 @@ ethereum = { version = "0.11.1", default-features = false, features = ["with-cod
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive"] }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.102", optional = true, features = ["derive"] }
+serde = { version = "1.0.102", optional = true, features = ["derive"], default-features = false }
 log = { version = "0.4.14", default-features = false }
 smallvec = "1.6.1"
 static_assertions = "1.1.0"
+ethabi = { version = "16.0.0", default-features = false }
 
 pallet-authorship = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-authority-discovery = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
@@ -89,6 +90,7 @@ crml-staking-rpc-runtime-api = { path = "../crml/staking/rpc/runtime-api", defau
 crml-support = { path = "../crml/support", default-features = false }
 crml-transaction-payment = { path = "../crml/transaction-payment", default-features = false}
 crml-transaction-payment-rpc-runtime-api = { path = "../crml/transaction-payment/rpc/runtime-api", default-features = false}
+crml-eth-state-oracle = { path = "../crml/eth-state-oracle", default-features = false }
 crml-eth-wallet = { path = "../crml/eth-wallet", default-features = false }
 crml-token-approvals = { path = "../crml/token-approvals", default-features = false }
 
@@ -104,6 +106,7 @@ pallet-evm-precompile-simple = { default-features = false, git = "https://github
 pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
+pallet-evm-precompiles-state-oracle = { path = "../evm-precompiles/state-oracle", default-features = false }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
@@ -114,6 +117,7 @@ substrate-wasm-builder = { git = "https://github.com/cennznet/substrate", rev = 
 default = ["std"]
 std = [
 	"codec/std",
+	"ethabi/std",
 	"scale-info/std",
 	"frame-executive/std",
 	"frame-support/std",
@@ -155,6 +159,7 @@ std = [
 	"crml-cennzx-rpc-runtime-api/std",
 	"crml-erc20-peg/std",
 	"crml-eth-bridge/std",
+	"crml-eth-state-oracle/std",
 	"crml-eth-wallet/std",
 	"crml-generic-asset/std",
 	"crml-generic-asset-rpc-runtime-api/std",
@@ -179,6 +184,7 @@ std = [
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-erc721/std",
+	"pallet-evm-precompiles-state-oracle/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
 ]

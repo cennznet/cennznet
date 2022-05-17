@@ -9,7 +9,7 @@ description = "A runtime module for managing ERC-20 like fungible assets"
 
 [dependencies]
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-serde = { version = "1.0.102", optional = true }
+serde = { version = "1.0.102", optional = true, default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }

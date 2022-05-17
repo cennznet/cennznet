@@ -1,6 +1,11 @@
-use crate::Runtime;
+use crate::{constants::evm::FEE_PROXY, EthStateOracle, Runtime, StateOraclePrecompileAddress};
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
-use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
+use crml_support::{ContractExecutor, H160, U256};
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo,
+	weights::{Pays, PostDispatchInfo},
+};
+use pallet_evm::{Context, GasWeightMapping, Precompile, PrecompileResult, PrecompileSet, Runner};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
@@ -9,8 +14,9 @@ use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
-use sp_core::H160;
-use sp_std::{convert::TryInto, marker::PhantomData};
+use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
+use sp_runtime::traits::UniqueSaturatedInto;
+use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
 /// CENNZnet specific EVM precompiles
 pub struct CENNZnetPrecompiles<R>(PhantomData<R>);
@@ -24,13 +30,16 @@ where
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
 		// TODO: precompute this
-		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026]
+		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY, 27572]
 			.into_iter()
 			.map(|x| hash(x))
 			.collect()
 	}
 }
-impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
+impl<R> PrecompileSet for CENNZnetPrecompiles<R>
+where
+	R: pallet_evm::Config,
+{
 	fn execute(
 		&self,
 		address: H160,
@@ -52,6 +61,10 @@ impl PrecompileSet for CENNZnetPrecompiles<Runtime> {
 			a if a == hash(1024) => Some(Sha3FIPS256::execute(input, target_gas, context, is_static)),
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
+			a if a == hash(FEE_PROXY) => None,
+			a if a == StateOraclePrecompileAddress::get() => Some(StateOraclePrecompile::<EthStateOracle>::execute(
+				input, target_gas, context, is_static,
+			)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
 				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(
 					&Erc721PrecompileSet::<Runtime>::new(),
@@ -146,5 +159,42 @@ impl Erc20IdConversion for Runtime {
 		buf[4..8].copy_from_slice(&asset_id.to_be_bytes());
 
 		H160::from(buf).into()
+	}
+}
+
+/// Handles dispatching callbacks to the EVM after state oracle requests are fulfilled
+pub struct StateOracleCallbackExecutor<R: pallet_evm::Config>(PhantomData<R>);
+
+impl<R: pallet_evm::Config> ContractExecutor for StateOracleCallbackExecutor<R> {
+	type Address = H160;
+	/// Transfer funds from the caller to the state oracle address and execute the contract callback
+	fn execute(
+		caller: &Self::Address,
+		target: &Self::Address,
+		callback_input: &[u8],
+		callback_gas_limit: u64,
+		max_fee_per_gas: U256,
+		max_priority_fee_per_gas: U256,
+	) -> DispatchResultWithPostInfo {
+		let nonce = <pallet_evm::Pallet<R>>::account_basic(&caller).nonce;
+		let info = R::Runner::call(
+			*caller,
+			*target,
+			callback_input.to_vec(),
+			U256::zero(), // value
+			callback_gas_limit,
+			Some(max_fee_per_gas),
+			Some(max_priority_fee_per_gas),
+			Some(nonce),
+			vec![],
+			R::config(),
+		)?;
+
+		Ok(PostDispatchInfo {
+			actual_weight: Some(R::GasWeightMapping::gas_to_weight(
+				info.used_gas.unique_saturated_into(),
+			)),
+			pays_fee: Pays::No,
+		})
 	}
 }
