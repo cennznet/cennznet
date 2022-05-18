@@ -15,10 +15,12 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
-      - name: Install stable toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.59.0
+          profile: minimal
+          toolchain: nightly-2022-05-15
+          target: wasm32-unknown-unknown
           default: true
       # generate test coverage
       - name: cargo tarpaulin
