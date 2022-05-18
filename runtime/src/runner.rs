@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{constants::evm::FEE_PROXY, impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
+use crate::{constants::evm::FEE_PROXY, Cennzx, FEE_FUNCTION_SELECTOR};
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange},
 };
-use crml_support::{H160, H256, U256};
+use crml_support::{scale_to_4dp, H160, H256, U256};
 use ethabi::{ParamType, Token};
 use frame_support::ensure;
 use pallet_evm::{

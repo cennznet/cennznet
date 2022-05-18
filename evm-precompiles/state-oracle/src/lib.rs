@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::FeePreferences;
-use crml_support::EthereumStateOracle;
+use crml_support::{scale_to_4dp, EthereumStateOracle};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 pub use pallet_evm::{AddressMapping, Precompile, PrecompileResult};
 pub use precompile_utils::{
@@ -25,10 +25,7 @@ pub use precompile_utils::{
 	LogsBuilder, RuntimeHelper,
 };
 use sp_core::{H160, H256, U256};
-use sp_runtime::{
-	traits::{UniqueSaturatedInto, Zero},
-	Permill,
-};
+use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{convert::TryInto, marker::PhantomData};
 
 #[precompile_utils::generate_function_selector]
@@ -118,18 +115,17 @@ where
 			});
 		};
 
+		gasometer.record_cost(T::new_request_fee())?;
 		let request_id: U256 = T::new_request(
 			caller,
 			&destination,
 			input_data.as_bytes(),
 			callback_signature.as_bytes().try_into().unwrap(), // checked len == 4 above qed
-			// TODO: check these conversions are saturating (low_u32, low_u64, low_u128)
 			callback_gas_limit.low_u64(),
 			fee_preferences,
 			callback_bounty.low_u128(),
 		);
 
-		// TODO: log the request id
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
@@ -154,6 +150,7 @@ where
 		// scale to 4dp for consistency with other CPAY balance apis
 		let callback_bounty = scale_to_4dp(callback_bounty.unique_saturated_into());
 
+		gasometer.record_cost(T::new_request_fee())?;
 		let request_id: U256 = T::new_request(
 			caller,
 			&destination,
@@ -174,27 +171,13 @@ where
 	}
 }
 
-/// Constant factor for scaling CPAY to its smallest indivisible unit
-const CPAY_UNIT_VALUE: u128 = 10_u128.pow(14);
-
-/// Convert 18dp wei values to 4dp equivalents (CPAY)
-/// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
-pub fn scale_to_4dp(value: u128) -> u128 {
-	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
-	if remainder.is_zero() {
-		quotient
-	} else {
-		// if value has a fractional part < CPAY unit value
-		// it is lost in this divide operation
-		quotient + 1
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use super::*;
 	use cennznet_primitives::types::Balance;
 	use ethabi::Token;
+	use fp_evm::{ExitError, PrecompileFailure};
+	use frame_support::assert_err;
 
 	#[test]
 	fn new_remote_call_request() {
@@ -202,6 +185,9 @@ mod test {
 		impl EthereumStateOracle for MockEthereumStateOracle {
 			type Address = H160;
 			type RequestId = U256;
+			fn new_request_fee() -> u64 {
+				1_000_u64
+			}
 			/// assert inputs are correct
 			fn new_request(
 				caller_: &Self::Address,
@@ -239,7 +225,7 @@ mod test {
 			Token::Uint(U256::from(2_000_000_000_000_000_000_u128)), // 2 * 10**18
 		]);
 		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
-		let mut gasometer = Gasometer::new(Some(100_000u64));
+		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
 
 		// Test
 		let result = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
@@ -262,6 +248,9 @@ mod test {
 		impl EthereumStateOracle for MockEthereumStateOracle {
 			type Address = H160;
 			type RequestId = U256;
+			fn new_request_fee() -> u64 {
+				0_u64
+			}
 			fn new_request(
 				_caller: &Self::Address,
 				_destination: &Self::Address,
@@ -287,9 +276,53 @@ mod test {
 			Token::Uint(U256::max_value()),
 		]);
 		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
-		let mut gasometer = Gasometer::new(Some(100_000u64));
+		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
 
 		// Test
 		let _ = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
+	}
+
+	#[test]
+	fn cannot_pay_new_request_fee() {
+		struct MockEthereumStateOracle;
+		impl EthereumStateOracle for MockEthereumStateOracle {
+			type Address = H160;
+			type RequestId = U256;
+			fn new_request_fee() -> u64 {
+				1_000_000u64
+			}
+			fn new_request(
+				_caller_: &Self::Address,
+				_destination_: &Self::Address,
+				_input_data_: &[u8],
+				_callback_signature_: &[u8; 4],
+				_callback_gas_limit_: u64,
+				_fee_preferences: Option<FeePreferences>,
+				_bounty_: Balance,
+			) -> Self::RequestId {
+				U256::zero()
+			}
+		}
+		let caller: H160 = H160::from_low_u64_be(555);
+		let abi_encoded_input = ethabi::encode(&[
+			Token::Address(H160::from_low_u64_be(23)),
+			Token::Bytes(vec![55u8, 66, 77, 88, 99]),
+			Token::FixedBytes(vec![1u8, 2, 3, 4]),
+			Token::Uint(U256::from(200_000_u64)),
+			Token::Uint(U256::zero()),
+		]);
+		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
+		let mut gasometer = Gasometer::new(
+			// not quite enough gas for the request fee
+			Some(MockEthereumStateOracle::new_request_fee() - 1),
+		);
+
+		// Test
+		assert_err!(
+			StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller),
+			PrecompileFailure::Error {
+				exit_status: ExitError::OutOfGas,
+			},
+		);
 	}
 }
