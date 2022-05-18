@@ -1,5 +1,5 @@
 name: CI
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -39,9 +39,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-12-22
-          target: wasm32-unknown-unknown
+          toolchain: nightly-2021-12-23
           components: rustfmt
+          target: wasm32-unknown-unknown
           default: true
           override: true
       - name: Format
