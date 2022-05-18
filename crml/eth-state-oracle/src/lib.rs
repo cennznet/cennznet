@@ -125,6 +125,8 @@ decl_error! {
 
 decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+		type Error = Error<T>;
+
 		fn deposit_event() = default;
 
 		/// Promote any unchallenged responses as ready for callback
