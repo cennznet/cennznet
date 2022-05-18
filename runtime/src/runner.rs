@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{constants::evm::FEE_PROXY, impls::scale_to_4dp, Cennzx, FEE_FUNCTION_SELECTOR};
+use crate::{constants::evm::FEE_PROXY, Cennzx, FEE_FUNCTION_SELECTOR};
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange},
 };
-use crml_support::{H160, H256, U256};
+use crml_support::{scale_wei_to_4dp, H160, H256, U256};
 use ethabi::{ParamType, Token};
 use frame_support::ensure;
 use pallet_evm::{
@@ -169,7 +169,7 @@ where
 
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
 				.map_err(|err| err.into())?;
-			let total_fee = scale_to_4dp(total_fee);
+			let total_fee = scale_wei_to_4dp(total_fee);
 			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency

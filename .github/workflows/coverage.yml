@@ -1,0 +1,32 @@
+name: Coverage
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  issue_comment:
+    types:
+    - created
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.59.0
+          default: true
+      # generate test coverage
+      - name: cargo tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: '--avoid-cfg-tarpaulin --skip-clean --workspace --locked'
+      # upload coverage info
+      - name: Coverage
+        uses: codecov/codecov-action@v3.0.0
+        with:
+          fail_ci_if_error: true
