@@ -15,6 +15,7 @@
 
 use super::BridgePaused;
 use crate as crml_eth_bridge;
+use crate::types::{EthBlock, EthHash, LatestOrNumber, TransactionReceipt};
 use crate::{
 	types::{BridgeEthereumRpcApi, EventProofId},
 	Config, Error, Module,
@@ -100,7 +101,7 @@ parameter_types! {
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
 	type EthyId = AuthorityId;
-	type EthereumRpcClient = MockEthereumRpcClient;
+	type EthereumRpcClient = MockEthereumRpcClient<Self>;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type RewardHandler = MockRewardHandler;
@@ -111,9 +112,9 @@ impl Config for TestRuntime {
 }
 
 /// Mock ethereum rpc client
-pub struct MockEthereumRpcClient;
+pub struct MockEthereumRpcClient<T: Config>(PhantomData<T>);
 
-impl MockEthereumRpcClient {
+impl<T: Config> MockEthereumRpcClient<T> {
 	/// store given block as the next response
 	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
 		// TODO: implement
@@ -125,15 +126,20 @@ impl MockEthereumRpcClient {
 	}
 }
 
-impl BridgeEthereumRpcApi for MockEthereumRpcClient {
+impl<T: Config> BridgeEthereumRpcApi<T> for MockEthereumRpcClient<T> {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(block_number: u32) -> EthBlock {
+	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
 		// TODO: implement
 		unimplemented!();
 	}
 	/// Returns an ethereum transaction receipt given a tx hash
 	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
 		// TODO: implement
+		unimplemented!();
+	}
+
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
+		// TODO: Implement
 		unimplemented!();
 	}
 }
@@ -382,7 +388,9 @@ fn eth_client_http_request() {
 
 	// Test
 	t.execute_with(|| {
-		let response = Module::<TestRuntime>::query_eth_client(request_body).expect("got response");
+		let response =
+			<MockEthereumRpcClient<TestRuntime> as BridgeEthereumRpcApi<TestRuntime>>::query_eth_client(request_body)
+				.expect("got response");
 		assert_eq!(
 			serde_json::from_slice::<'_, TestRequest>(response.as_slice()).unwrap(),
 			TestRequest {
