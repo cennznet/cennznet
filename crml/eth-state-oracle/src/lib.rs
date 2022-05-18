@@ -16,7 +16,8 @@
 
 use cennznet_primitives::types::{Balance, FeePreferences};
 use crml_support::{
-	ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle, MultiCurrency, H160,
+	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
+	MultiCurrency, H160,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
@@ -380,14 +381,12 @@ impl<T: Config> Module<T> {
 		let state_oracle_precompile_ss58_address = T::AddressMapping::into_account_id(state_oracle_precompile);
 		// calculate required gas
 		let max_fee_per_gas = U256::from(T::MinGasPrice::get());
-		let max_priority_fee_per_gas = U256::zero();
-		let total_fee: Balance = (
-			// `min_fee_per_gas` is expressed as 18dp, convert to 4dp to work with CPAY amounts
-			// TODO: use `scale_down` utility func
-			(max_fee_per_gas * request.callback_gas_limit) / U256::from(100_000_000_000_000_u64)
-				+ max_priority_fee_per_gas
-		)
-			.saturated_into();
+		let max_priority_fee_per_gas = U256::one();
+
+		// `min_fee_per_gas` and `max_priority_fee_per_gas` are expressed in wei, scale to 4dp to work with CPAY amounts
+		let total_fee: Balance = scale_wei_to_4dp(
+			(max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into(),
+		);
 
 		// 3) fund `state_oracle_address` for `gas_limit`
 		// The caller could be underpaying for gas here, if so the execution will fail when the EVM handles the fee withdrawal
@@ -472,5 +471,11 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 		NextRequestId::mutate(|i| *i += U256::from(1));
 
 		request_id
+	}
+
+	/// Return state oracle request fee
+	/// This covers the worst case gas consumption
+	fn new_request_fee() -> u64 {
+		T::GasWeightMapping::weight_to_gas(DbWeight::get().writes(15).saturating_add(DbWeight::get().reads(15)))
 	}
 }

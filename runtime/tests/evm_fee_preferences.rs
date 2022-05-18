@@ -18,11 +18,10 @@
 use cennznet_primitives::types::{AccountId, AssetId};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, evm::*},
-	impls::scale_to_4dp,
 	runner::FeePreferencesRunner,
 	Cennzx, GenericAsset, Origin, Runtime, CENNZNET_EVM_CONFIG,
 };
-use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
+use crml_support::{scale_wei_to_4dp, MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
 use ethabi::Token;
 use frame_support::assert_ok;
 use hex_literal::hex;
@@ -153,7 +152,7 @@ fn evm_call_with_fee_preferences() {
 			));
 
 			// Calculate expected fee for transaction
-			let expected_fee = scale_to_4dp(
+			let expected_fee = scale_wei_to_4dp(
 				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
 					gas_limit,
 					Some(max_fee_per_gas),

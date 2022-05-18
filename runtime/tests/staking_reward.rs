@@ -25,7 +25,7 @@ use cennznet_runtime::{
 };
 use codec::{Decode, Encode};
 use crml_staking::{ActiveEra, ActiveEraInfo, EraIndex, HandlePayee, RewardCalculation, StakingLedger};
-use crml_support::{PrefixedAddressMapping, H160, U256};
+use crml_support::{scale_wei_to_4dp, PrefixedAddressMapping, H160, U256};
 use frame_support::{
 	storage::StorageValue,
 	traits::{Currency, Get, OffchainWorker, OnFinalize, OnIdle, OnInitialize},
@@ -804,7 +804,7 @@ fn block_author_receives_evm_priority_fee_reward() {
 			// Calculate actual priority fee based on used gas
 			let actual_weight = res.unwrap().unwrap().actual_weight.unwrap();
 			let used_gas = CENNZnetGasWeightMapping::weight_to_gas(actual_weight.into());
-			let actual_priority_fee = cennznet_runtime::impls::scale_to_4dp(priority_fee * used_gas as u128);
+			let actual_priority_fee = scale_wei_to_4dp(priority_fee * used_gas as u128);
 
 			// Get current validators (Can't use previous value as they have been sorted)
 			let validators = <pallet_session::Pallet<Runtime>>::validators();
