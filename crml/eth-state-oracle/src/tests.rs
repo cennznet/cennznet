@@ -94,7 +94,7 @@ fn try_callback() {
 		let max_fee_per_gas = U256::from(<TestRuntime as Config>::MinGasPrice::get());
 		let max_priority_fee_per_gas = U256::one();
 		let total_fee: Balance =
-			scale_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
+			scale_wei_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
 		// test is only valid if `total_fee` is non-zero
 		assert!(total_fee > Zero::zero());
 

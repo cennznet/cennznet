@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::FeePreferences;
-use crml_support::{scale_to_4dp, EthereumStateOracle};
+use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 pub use pallet_evm::{AddressMapping, Precompile, PrecompileResult};
 pub use precompile_utils::{
@@ -148,7 +148,7 @@ where
 		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
 		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
 		// scale to 4dp for consistency with other CPAY balance apis
-		let callback_bounty = scale_to_4dp(callback_bounty.unique_saturated_into());
+		let callback_bounty = scale_wei_to_4dp(callback_bounty.unique_saturated_into());
 
 		gasometer.record_cost(T::new_request_fee())?;
 		let request_id: U256 = T::new_request(
@@ -263,7 +263,7 @@ mod test {
 				// gas_limit saturates at u64
 				assert_eq!(callback_gas_limit, u64::max_value());
 				// bounty saturates at balance type and scales down
-				assert_eq!(bounty, scale_to_4dp(u128::max_value()));
+				assert_eq!(bounty, scale_wei_to_4dp(u128::max_value()));
 				U256::zero()
 			}
 		}

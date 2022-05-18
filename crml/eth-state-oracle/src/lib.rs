@@ -16,7 +16,7 @@
 
 use cennznet_primitives::types::{Balance, FeePreferences};
 use crml_support::{
-	scale_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
+	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
 	MultiCurrency, H160,
 };
 use frame_support::{
@@ -384,8 +384,9 @@ impl<T: Config> Module<T> {
 		let max_priority_fee_per_gas = U256::one();
 
 		// `min_fee_per_gas` and `max_priority_fee_per_gas` are expressed in wei, scale to 4dp to work with CPAY amounts
-		let total_fee: Balance =
-			scale_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
+		let total_fee: Balance = scale_wei_to_4dp(
+			(max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into(),
+		);
 
 		// 3) fund `state_oracle_address` for `gas_limit`
 		// The caller could be underpaying for gas here, if so the execution will fail when the EVM handles the fee withdrawal

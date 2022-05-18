@@ -39,7 +39,7 @@ const CPAY_UNIT_VALUE: u128 = 10_u128.pow(14);
 
 /// Convert 18dp wei values to 4dp equivalents (CPAY)
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
-pub fn scale_to_4dp(value: u128) -> u128 {
+pub fn scale_wei_to_4dp(value: u128) -> u128 {
 	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
 	if remainder.is_zero() {
 		quotient

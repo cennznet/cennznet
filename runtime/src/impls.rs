@@ -50,7 +50,7 @@ const CPAY_UNIT_VALUE: Balance = 10_u128.pow(14);
 
 /// Convert 18dp wei values to 4dp equivalents (CPAY)
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
-pub fn scale_to_4dp(value: Balance) -> Balance {
+pub fn scale_wei_to_4dp(value: Balance) -> Balance {
 	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
 	if remainder.is_zero() {
 		quotient
@@ -135,7 +135,7 @@ where
 		Self::balance(who)
 	}
 	fn transfer(from: &AccountId, to: &AccountId, value: Self::Balance, req: ExistenceRequirement) -> DispatchResult {
-		I::transfer(from, to, scale_to_4dp(value), req)
+		I::transfer(from, to, scale_wei_to_4dp(value), req)
 	}
 	fn ensure_can_withdraw(
 		_who: &AccountId,
@@ -151,19 +151,19 @@ where
 		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
-		I::withdraw(who, scale_to_4dp(value), reasons, req)
+		I::withdraw(who, scale_wei_to_4dp(value), reasons, req)
 	}
 	fn deposit_into_existing(who: &AccountId, value: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
-		I::deposit_into_existing(who, scale_to_4dp(value))
+		I::deposit_into_existing(who, scale_wei_to_4dp(value))
 	}
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		I::deposit_creating(who, scale_to_4dp(value))
+		I::deposit_creating(who, scale_wei_to_4dp(value))
 	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		I::make_free_balance_be(who, scale_to_4dp(balance))
+		I::make_free_balance_be(who, scale_wei_to_4dp(balance))
 	}
 	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
 		false
@@ -441,7 +441,7 @@ mod tests {
 		let amounts_4 = vec![10001_u128, 10001, 10001, 10000, 1, 1, 0];
 		for (amount_18, amount_4) in amounts_18.into_iter().zip(amounts_4.into_iter()) {
 			println!("{:?}/{:?}", amount_18, amount_4);
-			assert_eq!(scale_to_4dp(amount_18), amount_4);
+			assert_eq!(scale_wei_to_4dp(amount_18), amount_4);
 		}
 	}
 
