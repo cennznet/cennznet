@@ -15,6 +15,7 @@
 
 //! CENNZnet Eth Bridge Types
 
+use crate::Config;
 use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
@@ -55,11 +56,13 @@ pub struct EventClaim {
 
 /// Provides request/responses according to a minimal subset of Ethereum RPC API
 /// required for the bridge
-pub trait BridgeEthereumRpcApi {
+pub trait BridgeEthereumRpcApi<T: Config> {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(block_number: u32) -> EthBlock;
+	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, crate::Error<T>>;
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt;
+	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, crate::Error<T>>;
+
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, crate::Error<T>>;
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim

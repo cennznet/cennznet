@@ -12,42 +12,29 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-use crate::{log, types::BridgeEthereumRpcApi};
+use crate::types::{
+	EthBlock, EthHash, EthResponse, GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
+};
+use crate::{
+	log,
+	rt_offchain::{http::Request, Duration},
+	types::BridgeEthereumRpcApi,
+	Config, Error, PhantomData, REQUEST_TTL_MS,
+};
+use sp_runtime::offchain::StorageKind;
+use sp_std::{convert::TryInto, prelude::*};
+
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string::ToString;
-use sp_std::{convert::TryInto, prelude::*};
 #[cfg(std)]
 use std::string::ToString;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
-pub struct EthereumRpcClient;
+pub struct EthereumRpcClient<T: Config>(PhantomData<T>);
 
-impl BridgeEthereumRpcApi for EthereumRpcClient {
-	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
-		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})
-	}
-
+impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 	/// Get latest block number from eth client
-	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
 		let request = match req {
 			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
 			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
@@ -64,6 +51,29 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 
 		// Deserialize JSON to struct
 		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
+			.map(|resp| resp.result)
+			.map_err(|err| {
+				log!(error, "💎 deserialize json response error: {:?}", err);
+				<Error<T>>::HttpFetch
+			})
+	}
+
+	/// Get transaction receipt from eth client
+	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
+		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
+		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
+			log!(error, "💎 read eth-rpc API error: {:?}", e);
+			<Error<T>>::HttpFetch
+		})?;
+
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			<Error<T>>::HttpFetch
+		})?;
+
+		// Deserialize JSON to struct
+		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
@@ -94,11 +104,12 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 		let body = serde_json::to_string::<R>(&request_body).unwrap();
 		let body_raw = body.as_bytes();
 		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body_raw]);
-		log!(trace, "💎 request: {:?}", request);
+		let request = Request::post(eth_http_uri, vec![body_raw]);
+		// TODO Log request
+		// log!(trace, "💎 request: {:?}", request);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
+		let timeout = sp_io::offchain::timestamp().add(Duration::from_millis(REQUEST_TTL_MS));
 		let pending = request
 			.add_header("Content-Type", HEADER_CONTENT_TYPE)
 			.add_header("Content-Length", &body_raw.len().to_string())

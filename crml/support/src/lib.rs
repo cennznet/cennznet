@@ -435,7 +435,7 @@ pub trait EthCallOracle {
 impl EthCallOracle for () {
 	type Address = H160;
 	type CallId = u64;
-	fn call_at(_target: Self::Address, _input: &[u8], _timestamp: u64) -> Self::CallId {
+	fn call_at(_target: &Self::Address, _input: &[u8], _timestamp: u64) -> Self::CallId {
 		0_u64
 	}
 }

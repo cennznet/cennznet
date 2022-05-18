@@ -132,7 +132,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		unimplemented!();
 	}
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt {
+	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
 		// TODO: implement
 		unimplemented!();
 	}
