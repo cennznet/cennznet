@@ -27,6 +27,8 @@
 
 mod impls;
 #[cfg(test)]
+mod mock;
+#[cfg(test)]
 mod tests;
 pub use impls::EthereumRpcClient;
 mod types;
