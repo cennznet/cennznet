@@ -42,6 +42,7 @@ jobs:
           toolchain: nightly-2022-05-15
           target: wasm32-unknown-unknown
           components: rustfmt
+          override: true
           default: true
       - name: Format
         run: cargo fmt --all -- --check
