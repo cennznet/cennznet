@@ -42,13 +42,16 @@ jobs:
         env:
           DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        # build and tag an image with commit hash and 'latest'
+        # build and tag an image with commit hash and 'latest', additionally:
         # if the commit is tagged, tag the image also e.g. 1.0.0
+        # if the branch name is release/x.x.x tag the image
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
           echo "commit hash: $COMMIT_HASH"
           COMMIT_TAG=$((git describe --exact-match --tags HEAD) || true)
           echo "commit tag(?): $COMMIT_TAG"
+          RELEASE_TAG=$(git rev-parse --abbrev-ref HEAD | grep -oP '(?<=release/).*' || true)
+          echo "commit tag(?): $RELEASE_TAG"
 
           docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .
 
@@ -59,6 +62,10 @@ jobs:
           if [ -n "$COMMIT_TAG" ]; then
             docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG
             docker push $IMAGE_NAME:$COMMIT_TAG
+          fi
+          if [ -n "$RELEASE_TAG" ]; then
+            docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$RELEASE_TAG
+            docker push $IMAGE_NAME:$RELEASE_TAG
           fi
       - name: notify success
         if: success()
