@@ -29,10 +29,26 @@ use pallet_evm::AddressMapping;
 use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating},
+	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*, result};
+
+/// Constant factor for scaling CPAY to its smallest indivisible unit
+const CPAY_UNIT_VALUE: u128 = 10_u128.pow(14);
+
+/// Convert 18dp wei values to 4dp equivalents (CPAY)
+/// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.0001 cpay
+pub fn scale_wei_to_4dp(value: u128) -> u128 {
+	let (quotient, remainder) = (value / CPAY_UNIT_VALUE, value % CPAY_UNIT_VALUE);
+	if remainder.is_zero() {
+		quotient
+	} else {
+		// if value has a fractional part < CPAY unit value
+		// it is lost in this divide operation
+		quotient + 1
+	}
+}
 
 /// EVM to CENNZnet address mapping impl
 pub struct PrefixedAddressMapping<AccountId>(PhantomData<AccountId>);
@@ -394,6 +410,8 @@ pub trait EthereumStateOracle {
 		fee_preferences: Option<FeePreferences>,
 		bounty: Balance,
 	) -> Self::RequestId;
+	/// Return the request fee in gas
+	fn new_request_fee() -> u64;
 }
 
 /// Provides an interface to invoke a contract execution
