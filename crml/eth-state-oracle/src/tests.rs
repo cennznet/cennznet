@@ -90,12 +90,14 @@ fn try_callback() {
 			bounty,
 		);
 
-		// gas paid to state oracle address
+		// callback gas fees paid to state oracle address
 		let max_fee_per_gas = U256::from(<TestRuntime as Config>::MinGasPrice::get());
-		let max_priority_fee_per_gas = U256::zero();
-		let total_fee: Balance = ((max_fee_per_gas * request.callback_gas_limit) / U256::from(100_000_000_000_000_u64)
-			+ max_priority_fee_per_gas)
-			.saturated_into();
+		let max_priority_fee_per_gas = U256::one();
+		let total_fee: Balance =
+			scale_wei_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
+		// test is only valid if `total_fee` is non-zero
+		assert!(total_fee > Zero::zero());
+
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &state_oracle_ss58_address()),
 			total_fee,
