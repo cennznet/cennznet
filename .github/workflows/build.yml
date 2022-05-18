@@ -47,16 +47,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Build
         run: cargo check --locked
-      # test + generate coverage info
       - name: Test
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --workspace --locked
-      # upload coverage info
-      - name: Coverage
-        uses: codecov/codecov-action@v3.0.0
-        with:
-          fail_ci_if_error: true
+        run: cargo test --workspace
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
       - name: notify success
