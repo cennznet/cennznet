@@ -34,7 +34,6 @@ pallet-babe = { git = "https://github.com/cennznet/substrate", rev = "92f06d4137
 pallet-grandpa = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-identity = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-im-online = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-pallet-multisig = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-offences = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-treasury = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
@@ -125,11 +124,9 @@ std = [
 	"pallet-authorship/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
-	"crml-eth-wallet/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-im-online/std",
-	"pallet-multisig/std",
 	"pallet-offences/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
@@ -195,9 +192,9 @@ try-runtime = [
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
+	"pallet-ethereum/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-im-online/try-runtime",
-	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-offences/try-runtime",
 	"pallet-session/try-runtime",
@@ -207,6 +204,14 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"cennznet-primitives/try-runtime",
 	"crml-cennzx/try-runtime",
+	"crml-erc20-peg/try-runtime",
+	"crml-eth-bridge/try-runtime",
+	"crml-eth-state-oracle/try-runtime",
+	"crml-eth-wallet/try-runtime",
+	"crml-generic-asset/try-runtime",
+	"crml-governance/try-runtime",
+	"crml-token-approvals/try-runtime",
+	"crml-nft/try-runtime",
 	"crml-staking/try-runtime",
 	"crml-transaction-payment/try-runtime",
 ]

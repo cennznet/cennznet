@@ -19,7 +19,7 @@ url = "2.2.2"
 serde_json = "1.0"
 sc-authority-discovery = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-chain-spec = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", optional = true }
 sp-core = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-executor = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-service = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
@@ -45,6 +45,7 @@ sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/cennznet/subst
 jsonrpc-core = "18.0.0"
 jsonrpc-pubsub = "18.0.0"
 node-inspect = { version = "0.9.0-dev", path = "./inspect" }
+try-runtime-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", optional = true }
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
@@ -105,13 +106,21 @@ tempfile = "3.1.0"
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+try-runtime-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", optional = true }
 
 [features]
-default = []
+default = ["wasmtime"]
+wasmtime = ["sc-cli/wasmtime"]
 # Uses integration test config for quicker staking eras + epochs
 quick_staking = [
 	"cennznet-runtime/integration_config"
 ]
 runtime-benchmarks = [
 	"cennznet-runtime/runtime-benchmarks",
+]
+# Enable features that allow the runtime to be tried and debugged. Name might be subject to change
+# in the near future.
+try-runtime = [
+	"cennznet-runtime/try-runtime",
+	"try-runtime-cli",
 ]

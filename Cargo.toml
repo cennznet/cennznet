@@ -92,3 +92,6 @@ quick_staking = [
 runtime-benchmarks = [
 	"cennznet-cli/runtime-benchmarks"
 ]
+try-runtime = [
+	"cennznet-cli/try-runtime"
+]
