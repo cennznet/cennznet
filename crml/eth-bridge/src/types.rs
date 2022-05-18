@@ -15,7 +15,6 @@
 
 //! CENNZnet Eth Bridge Types
 
-use crate::Config;
 use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
@@ -54,15 +53,24 @@ pub struct EventClaim {
 	pub event_signature: H256,
 }
 
+#[derive(Debug, Clone, PartialEq, TypeInfo)]
+/// Error type for BridgeEthereumRpcApi
+pub enum BridgeRpcError {
+	// Error returned when fetching github info
+	HttpFetch,
+	/// offchain worker not configured properly
+	OcwConfig,
+}
+
 /// Provides request/responses according to a minimal subset of Ethereum RPC API
 /// required for the bridge
-pub trait BridgeEthereumRpcApi<T: Config> {
+pub trait BridgeEthereumRpcApi {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, crate::Error<T>>;
+	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError>;
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, crate::Error<T>>;
-
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, crate::Error<T>>;
+	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError>;
+	/// Queries remote Ethereum information
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError>;
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim

@@ -41,7 +41,7 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EthCallOracle, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
 use frame_support::{
@@ -95,7 +95,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// 33 byte ECDSA public key
 	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
-	type EthereumRpcClient: BridgeEthereumRpcApi<Self>;
+	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The threshold of notarizations required to approve an Ethereum

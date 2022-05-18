@@ -14,7 +14,7 @@
 */
 
 use crate as crml_eth_bridge;
-use crate::types::{EthBlock, EthHash, LatestOrNumber, TransactionReceipt};
+use crate::types::{BridgeRpcError, EthBlock, EthHash, LatestOrNumber, TransactionReceipt};
 use crate::{types::BridgeEthereumRpcApi, Config, Error};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{
@@ -87,7 +87,7 @@ parameter_types! {
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
 	type EthyId = AuthorityId;
-	type EthereumRpcClient = MockEthereumRpcClient<Self>;
+	type EthereumRpcClient = MockEthereumRpcClient;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type RewardHandler = MockRewardHandler;
@@ -107,9 +107,9 @@ pub struct TestRequest {
 }
 
 /// Mock ethereum rpc client
-pub struct MockEthereumRpcClient<T: Config>(PhantomData<T>);
+pub struct MockEthereumRpcClient();
 
-impl<T: Config> MockEthereumRpcClient<T> {
+impl MockEthereumRpcClient {
 	/// store given block as the next response
 	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
 		// TODO: implement
@@ -121,19 +121,19 @@ impl<T: Config> MockEthereumRpcClient<T> {
 	}
 }
 
-impl<T: Config> BridgeEthereumRpcApi<T> for MockEthereumRpcClient<T> {
+impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		// TODO: implement
 		unimplemented!();
 	}
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
+	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
 		// TODO: implement
 		unimplemented!();
 	}
 
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
 		// TODO: Implement
 		unimplemented!();
 	}

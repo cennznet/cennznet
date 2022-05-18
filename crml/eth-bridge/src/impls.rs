@@ -13,13 +13,14 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 use crate::types::{
-	EthBlock, EthHash, EthResponse, GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
+	BridgeRpcError, EthBlock, EthHash, EthResponse, GetBlockRequest, GetTxReceiptRequest, LatestOrNumber,
+	TransactionReceipt,
 };
 use crate::{
 	log,
 	rt_offchain::{http::Request, Duration},
 	types::BridgeEthereumRpcApi,
-	Config, Error, PhantomData, REQUEST_TTL_MS,
+	REQUEST_TTL_MS,
 };
 use sp_runtime::offchain::StorageKind;
 use sp_std::{convert::TryInto, prelude::*};
@@ -30,23 +31,23 @@ use sp_std::alloc::string::ToString;
 use std::string::ToString;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
-pub struct EthereumRpcClient<T: Config>(PhantomData<T>);
+pub struct EthereumRpcClient();
 
-impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
+impl BridgeEthereumRpcApi for EthereumRpcClient {
 	/// Get latest block number from eth client
-	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
+	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let request = match req {
 			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
 			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
 		};
 		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
+			BridgeRpcError::HttpFetch
 		})?;
 
 		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
 			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
+			BridgeRpcError::HttpFetch
 		})?;
 
 		// Deserialize JSON to struct
@@ -54,22 +55,22 @@ impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
+				BridgeRpcError::HttpFetch
 			})
 	}
 
 	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
+	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
 		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
 		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
 		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
+			BridgeRpcError::HttpFetch
 		})?;
 
 		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
 			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
+			BridgeRpcError::HttpFetch
 		})?;
 
 		// Deserialize JSON to struct
@@ -77,13 +78,13 @@ impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
+				BridgeRpcError::HttpFetch
 			})
 	}
 
 	/// This function uses the `offchain::http` API to query the remote ethereum information,
 	/// and returns the JSON response as vector of bytes.
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
 		// Load eth http URI from offchain storage
 		// this should have been configured on start up by passing e.g. `--eth-http`
 		// e.g. `--eth-http=http://localhost:8545`
@@ -95,9 +96,9 @@ impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 				error,
 				"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
 			);
-			return Err(Error::<T>::OcwConfig);
+			return Err(BridgeRpcError::OcwConfig);
 		};
-		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
+		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| BridgeRpcError::OcwConfig)?;
 
 		const HEADER_CONTENT_TYPE: &str = "application/json";
 		log!(info, "💎 sending request to: {}", eth_http_uri);
@@ -117,7 +118,7 @@ impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 			.send() // Sending the request out by the host
 			.map_err(|err| {
 				log!(error, "💎 http request error: {:?}", err);
-				<Error<T>>::HttpFetch
+				BridgeRpcError::HttpFetch
 			})?;
 
 		// By default, the http request is async from the runtime perspective. So we are asking the
@@ -128,17 +129,17 @@ impl<T: Config> BridgeEthereumRpcApi<T> for EthereumRpcClient<T> {
 			.try_wait(timeout)
 			.map_err(|err| {
 				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
+				BridgeRpcError::HttpFetch
 			})?
 			.map_err(|err| {
 				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
+				BridgeRpcError::HttpFetch
 			})?;
 		log!(trace, "💎 response: {:?}", response);
 
 		if response.code != 200 {
 			log!(error, "💎 http request status code: {}", response.code);
-			return Err(<Error<T>>::HttpFetch);
+			return Err(BridgeRpcError::HttpFetch);
 		}
 
 		// Read the response body and check it's valid utf-8
