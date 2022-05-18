@@ -39,16 +39,23 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-12-23
-          components: rustfmt
+          toolchain: nightly-2021-12-22
           target: wasm32-unknown-unknown
+          components: rustfmt
           default: true
+          override: true
       - name: Format
-        run: cargo fmt --all -- --check
+        run: |
+          cargo -V
+          cargo fmt --all -- --check
       - name: Build
-        run: cargo check --locked
+        run: |
+          cargo -V
+          cargo check --locked
       - name: Test
-        run: cargo test --workspace
+        run: |
+          cargo -V
+          cargo test --workspace
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
       - name: notify success
