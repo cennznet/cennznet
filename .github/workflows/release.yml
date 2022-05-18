@@ -33,15 +33,20 @@ jobs:
           # 'rc' is a pre-release
           prerelease: ${{ contains(steps.find_version.outputs.tag_name, 'rc') }}
       ### build the wasm runtime for publishing
-      - name: Install toolchain
+      - name: Install toolchain (stable)
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-12-23
+          toolchain: 1.59.0
+          default: true
+      - name: Install toolchain (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-03-01
           components: rustfmt
           target: wasm32-unknown-unknown
-          default: true
-      - name: Build wasm (again)
+      - name: Build wasm
         run: cargo build
       - name: Publish runtime wasm
         uses: actions/upload-release-asset@v1

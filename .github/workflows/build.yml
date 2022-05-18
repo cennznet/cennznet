@@ -35,14 +35,19 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
-      - name: Install toolchain
+      - name: Install toolchain (stable)
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-12-23
+          toolchain: 1.59.0
           components: rustfmt
-          target: wasm32-unknown-unknown
           default: true
+      # required for wasm build
+      - name: Install toolchain (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-03-01
       - name: Format
         run: cargo fmt --all -- --check
       - name: Build
