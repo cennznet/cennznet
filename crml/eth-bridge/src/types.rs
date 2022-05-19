@@ -25,6 +25,15 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
 
+/// An EthCallOracle call Id
+pub type EthCallId = u64;
+/// An EthCallOracle request
+#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
+pub struct EthCallRequest {
+	pub timestamp: u64,
+	pub target: EthAddress,
+	pub input: Vec<u8>,
+}
 /// A bridge message id
 pub type EventClaimId = u64;
 /// A bridge event type id
