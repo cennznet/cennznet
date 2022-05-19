@@ -7,7 +7,6 @@ description = "Module for bridging Ethereum events"
 license = "GPL-3.0"
 
 [dependencies]
-parking_lot = "0.11.1"
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive"] }
@@ -28,6 +27,7 @@ sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d41379
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 
 [dev-dependencies]
+parking_lot = "0.11.1"
 sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
 
 [features]

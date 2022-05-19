@@ -49,7 +49,7 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EthCallOracle, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
 use frame_support::{

@@ -60,8 +60,7 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 
 	/// Get transaction receipt from eth client
 	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
+		let request = GetTxReceiptRequest::new(tx_hash, random_request_id());
 		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
 			log!(error, "💎 read eth-rpc API error: {:?}", e);
 			BridgeRpcError::HttpFetch
@@ -148,8 +147,7 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 	/// Issue an `eth_call` request to `target` address with `input`
 	/// Returns the abi encoded 'returndata'
 	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = EthCallRpcRequest::new(target, input, random_request_id as usize, at_block);
+		let request = EthCallRpcRequest::new(target, input, random_request_id(), at_block);
 		let resp_bytes = Self::query_eth_client(Some(request))?;
 
 		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
@@ -167,18 +165,61 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 	}
 }
 
+/// Return a random usize value
+fn random_request_id() -> usize {
+	u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap()) as usize
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::offchain::{testing, OffchainDbExt, OffchainWorkerExt};
+	use parking_lot::RwLock;
+	use sp_core::offchain::{
+		testing::{OffchainState, PendingRequest, TestOffchainExt},
+		OffchainDbExt, OffchainWorkerExt,
+	};
+	use sp_io::TestExternalities;
+	use sp_std::sync::Arc;
 
-	#[test]
-	fn eth_call() {
-		let (offchain, state) = testing::TestOffchainExt::new();
+	/// Build `PendingRequest`s
+	struct PendingRequestBuilder(PendingRequest);
+
+	impl PendingRequestBuilder {
+		fn new() -> Self {
+			Self {
+				0: PendingRequest {
+					uri: "https://example.com".into(),
+					..Default::default()
+				},
+			}
+		}
+		fn request(mut self, request: &[u8]) -> Self {
+			self.0.body = request.to_vec();
+			self.0.headers = vec![
+				("Content-Type".to_string(), "application/json".to_string()),
+				("Content-Length".to_string(), request.len().to_string()),
+			];
+			self
+		}
+		fn method(mut self, method: &str) -> Self {
+			self.0.method = method.into();
+			self
+		}
+		fn response(mut self, response: &[u8]) -> Self {
+			self.0.response = Some(response.to_vec());
+			self
+		}
+		fn build(self) -> PendingRequest {
+			self.0
+		}
+	}
+
+	/// Setup mock offchain environment suitable for testing http requests
+	fn mock_offchain_env() -> (TestExternalities, Arc<RwLock<OffchainState>>) {
+		let (offchain, state) = TestOffchainExt::new();
 		let mut t = sp_io::TestExternalities::default();
 		t.register_extension(OffchainDbExt::new(offchain.clone()));
 		t.register_extension(OffchainWorkerExt::new(offchain));
-
 		// setup ---eth-http uri
 		t.execute_with(|| {
 			sp_io::offchain::local_storage_compare_and_set(
@@ -189,25 +230,34 @@ mod tests {
 			);
 		});
 
+		(t, state)
+	}
+
+	#[test]
+	fn eth_call() {
+		let (mut ext, state) = mock_offchain_env();
+		// define the expected JSON-RPC payload for the eth_call request and a mock response
 		{
-			let mut state = state.write();
-			state.expect_request(testing::PendingRequest {
-				method: "POST".into(),
-				uri: "https://example.com".into(),
-				response: Some(br#" {"id":1,"jsonrpc": "2.0","result": "0x010203"}"#.to_vec()),
-				sent: true,
-				..Default::default()
-			});
+			let expected_request = br#"{"id":1,"jsonrpc":"2.0","params":[{"from":"0x0000000000000000000000000000000000000002","data":"0x0102030405"},"latest"]}"#;
+			let mock_response = br#"{"id":1,"jsonrpc":"2.0","result":"0x050403"}"#;
+			let expected_request_response = PendingRequestBuilder::new()
+				.method("POST")
+				.request(expected_request)
+				.response(mock_response)
+				.build();
+			state.write().expect_request(expected_request_response);
 		}
 
-		t.execute_with(|| {
+		// test
+		ext.execute_with(|| {
 			assert_eq!(
 				EthereumRpcClient::eth_call(
-					EthAddress::from_low_u64_be(555_u64),
-					&[1_u8, 2, 3, 4, 5],
+					EthAddress::from_low_u64_le(2_u64), // 0x0000000000000000000000000000000000000002
+					&[1_u8, 2, 3, 4, 5],                // 0x0102030405
 					LatestOrNumber::Latest,
 				),
-				Ok(vec![1_u8, 2, 3]),
+				// return data
+				Ok(vec![5_u8, 4, 3]), // 0x050403
 			);
 		})
 	}

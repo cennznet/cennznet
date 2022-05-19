@@ -25,6 +25,15 @@ use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
+// following imports support serializing values to hex strings in no_std
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::borrow::ToOwned;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(feature = "std")]
+use std::string::String;
 
 /// A bridge message id
 pub type EventClaimId = u64;
@@ -72,6 +81,7 @@ pub trait BridgeEthereumRpcApi {
 	/// Queries remote Ethereum information
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError>;
 	/// Performs an `eth_call` request
+	/// Returns the Ethereum abi encoded returndata as a Vec<u8>
 	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError>;
 }
 
@@ -418,10 +428,6 @@ impl Bytes {
 	/// Simple constructor.
 	pub fn new(bytes: Vec<u8>) -> Bytes {
 		Bytes(bytes)
-	}
-	/// Convert back to vector
-	pub fn into_vec(self) -> Vec<u8> {
-		self.0
 	}
 }
 
