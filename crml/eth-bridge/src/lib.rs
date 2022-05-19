@@ -172,14 +172,6 @@ decl_storage! {
 		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
-		/// Subscription Id for EthCall requests
-		NextEthCallId: EthCallId;
-		/// Queue of pending EthCallOracle requests
-		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
-		/// EthCallOracle responses keyed by (Id, Notary)
-		EthCallResponses: double_map hasher(twox_64_concat) EthCallId, hasher(twox_64_concat) T::EthyId => Option<EthCallResponse>;
-		/// EthCallOracle request info
-		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<EthCallRequest>;
 	}
 }
 
@@ -646,59 +638,6 @@ impl<T: Config> Module<T> {
 		EventClaimResult::Valid
 	}
 
-	/// Try issuing an `eth_call` request to the bridged ethereum network
-	fn offchain_try_eth_call(request: &EthCallRequest) -> EthCallResponse {
-		// validator OCW process
-		// 1) get latest eth block
-		// 2) extract number and timestamp
-		// 3) calculate best block to issue query
-		// 4) invoke eth_call and return response (what to do with large response*)
-		// 5) submit response
-		// 6) consensus on response value (distribute reward points to those that voted together*). Return info to the subscriber
-		/*
-
-		// validators receive request timestamp
-		// need to decide which block to query for the response so as to minimize queries to Ethereum
-		1) query block timestamp at relayer reported block_number
-		2a) if block timestamp is in the lenience range then do call_at at the relayer reported block
-		2b) if block timestamp is outside the lenience range (the reporter is going to be slashed) we still need to find the right block to query for the true value
-		process to find right block number:
-		- query the current latest block number from Ethereum
-		- assuming avg blocktime eth blocktime of 15 seconds calculate x blocks backwards
-		- query the block number closest to and higher than request timestamp i.e. prefer block after the time of request
-		3) do the `eth_call` at the correct block
-		*/
-		// let latest_block: EthBlock = match T::EthereumRpcClient::get_block(LatestOrNumber::Latest) {
-		// 	Ok(None) => return EventClaimResult::DataProviderErr,
-		// 	Ok(Some(block)) => block,
-		// 	Err(err) => {
-		// 		log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-		// 		return EventClaimResult::DataProviderErr;
-		// 	}
-		// };
-		// let LENIENCE_MS = 15_000;
-
-		// let eth_block_time = latest_block.timestamp;
-		/*
-		[r]-[]-[]-[]-[]-[]
-		[    r'] - [    ] -
-		[r]-[]-[]-[]-[]-[]
-		[   r' ] - [r'   ] -
-		[r]-[]-[]-[]-[]-[]
-		[     ] - [r'   ] -
-		*/
-
-		// relayer must ensure it does `eth_call` at the block at or after `request.timestamp`
-
-		// eth - lenience < req < eth + eth_block_time
-		// if request.timestamp <= eth_block_time + LENIENCE_MS && request.timestamp >= eth_block_time - LENIENCE_MS {
-		// 	// request.timestamp is in this range
-		// }
-
-		// U256::from(request.timestamp)
-		EthCallResponse::ExceedsLengthLimit
-	}
-
 	/// Send a notarization for the given claim
 	fn offchain_send_notarization(key: &T::EthyId, payload: NotarizationPayload) -> Result<(), Error<T>> {
 		let signature = key
@@ -896,30 +835,5 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 	fn on_disabled(_i: u32) {
 		// TODO: remove disabled validator from claim voting?
-	}
-}
-
-impl<T: Config> EthCallOracle for Module<T> {
-	type Address = EthAddress;
-	type CallId = EthCallId;
-	/// Invoke `target` contract with `input` on the bridged ethereum network
-	/// the call will be executed at the block number closest to `timestamp ` (during or after but not before)
-	///
-	/// Returns a call Id for subscribers
-	fn call_at(target: &Self::Address, input: &[u8], timestamp: u64) -> Self::CallId {
-		// store the job for validators to process async
-		let call_id = NextEthCallId::get();
-		EthCallRequestInfo::insert(
-			call_id,
-			EthCallRequest {
-				target: *target,
-				input: input.to_vec(),
-				timestamp,
-			},
-		);
-		EthCallRequests::append(call_id);
-		NextEthCallId::put(call_id + 1);
-
-		call_id
 	}
 }

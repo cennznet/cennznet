@@ -26,27 +26,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
 
-/// An EthCallOracle call Id
-pub type EthCallId = u64;
-/// An EthCallOracle request
-#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
-pub struct EthCallRequest {
-	pub timestamp: u64,
-	pub target: EthAddress,
-	pub input: Vec<u8>,
-}
-#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
-pub enum EthCallResponse {
-	Ok([u8; 32]),
-	ExceedsLengthLimit,
-}
 /// A bridge message id
 pub type EventClaimId = u64;
 /// A bridge event type id
 pub type EventTypeId = u32;
 /// A bridge proof id
 pub type EventProofId = u64;
-
 type Index = U64;
 /// The ethereum block number data type
 pub type EthBlockNumber = U64;
