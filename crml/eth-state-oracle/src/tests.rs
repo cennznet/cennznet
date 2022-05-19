@@ -1,7 +1,10 @@
+#![cfg(test)]
+
 use super::*;
 use crate::mock::{
 	test_storage, AccountId, CallRequestBuilder, EthStateOracle, ExtBuilder, GenericAsset, System, TestRuntime,
 };
+use ethabi::Token;
 use frame_support::{
 	assert_err, assert_noop,
 	traits::{OnIdle, OnInitialize, UnixTime},
@@ -64,7 +67,7 @@ fn try_callback() {
 		let relayer = 3_u64;
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
-		let return_data = return_data_to_bytes32(vec![0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99]);
+		let return_data = [1_u8; 32];
 		let request = CallRequestBuilder::new()
 			.caller(caller)
 			.destination(2_u64)
@@ -109,9 +112,9 @@ fn try_callback() {
 			(
 				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
 				request.caller,
-				// input is an abi encoded call `testCallback(123, 0x0011223344556677889900000000000000000000000000000000000000000000)`
+				// input is an abi encoded call `testCallback(123, 0x0101010101010101010101010101010101010101010101010101010101010101)`
 				// signature: `testCallback(uint256, bytes32)`
-				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b0011223344556677889900000000000000000000000000000000000000000000").to_vec(),
+				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b0101010101010101010101010101010101010101010101010101010101010101").to_vec(),
 				request.callback_gas_limit,
 				max_fee_per_gas,
 				max_priority_fee_per_gas,
@@ -176,18 +179,17 @@ fn submit_call_response() {
 		let origin = RawOrigin::Signed(relayer);
 		let request_id = RequestId::from(1_u64);
 		let eth_block_number = 100_u64;
-		let return_data = vec![0_u8, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9];
+		let return_data = ReturnDataClaim::Ok([1_u8; 32]);
 		let request = CallRequestBuilder::new().build();
 		Requests::insert(request_id, request);
 
 		// Test
 		assert!(EthStateOracle::submit_call_response(origin.into(), request_id, return_data.clone(), 100_u64).is_ok());
 
-		let return_data_padded = return_data_to_bytes32(return_data);
 		assert_eq!(
 			EthStateOracle::responses(request_id).unwrap(),
 			CallResponse {
-				return_data: return_data_padded,
+				return_data,
 				eth_block_number,
 				reporter: relayer,
 			}
@@ -207,7 +209,7 @@ fn submit_call_response_request_should_exist() {
 			EthStateOracle::submit_call_response(
 				RawOrigin::Signed(1_u64).into(),
 				RequestId::from(1_u64),
-				Default::default(),
+				ReturnDataClaim::Ok([0_u8; 32]),
 				100_u64
 			),
 			Error::<TestRuntime>::NoRequest,
@@ -226,7 +228,7 @@ fn submit_call_response_accepts_first() {
 		assert!(EthStateOracle::submit_call_response(
 			RawOrigin::Signed(1_u64).into(),
 			request_id,
-			Default::default(),
+			ReturnDataClaim::Ok([1_u8; 32]),
 			100_u64
 		)
 		.is_ok());
@@ -237,35 +239,10 @@ fn submit_call_response_accepts_first() {
 			EthStateOracle::submit_call_response(
 				RawOrigin::Signed(1_u64).into(),
 				request_id,
-				Default::default(),
+				ReturnDataClaim::Ok([1_u8; 32]),
 				100_u64
 			),
 			Error::<TestRuntime>::ResponseExists,
-		);
-	});
-}
-
-#[test]
-fn submit_call_response_truncates_to_32() {
-	ExtBuilder::default().build().execute_with(|| {
-		// setup request
-		let request_id = RequestId::from(1_u64);
-		Requests::insert(request_id, CallRequestBuilder::new().build());
-		let return_data = vec![1_u8; 35]; // 32 is max length for returndata
-
-		// Test
-		assert!(EthStateOracle::submit_call_response(
-			RawOrigin::Signed(1_u64).into(),
-			request_id,
-			return_data.clone(),
-			100_u64
-		)
-		.is_ok());
-
-		// truncated
-		assert_eq!(
-			&EthStateOracle::responses(request_id).unwrap().return_data[..],
-			&return_data[..32],
 		);
 	});
 }
@@ -297,21 +274,31 @@ fn on_idle() {
 		// - only process as many as weight permits
 		// - the remaining callbacks are left for next on_idle block
 
-		// Setup 3 requests and responses in storage
-		let ready_callbacks = vec![1_u64, 2, 3].iter().map(|x| (*x).into()).collect::<Vec<U256>>();
-		for (idx, r) in ready_callbacks.iter().enumerate() {
+		// Setup 4 requests and responses in storage
+		let ready_callbacks = vec![
+			ReturnDataClaim::Ok([1_u8; 32]),
+			ReturnDataClaim::Ok([2_u8; 32]),
+			ReturnDataClaim::ExceedsLengthLimit,
+			ReturnDataClaim::Ok([3_u8; 32]),
+		]
+		.into_iter()
+		.enumerate()
+		.map(|(i, x)| (RequestId::from(i + 1), x))
+		.collect::<Vec<(RequestId, ReturnDataClaim)>>();
+
+		for (i, r) in ready_callbacks.iter() {
 			<Responses<TestRuntime>>::insert(
-				*r,
+				*i,
 				CallResponse {
-					return_data: [idx as u8; 32],
-					eth_block_number: r.as_u64(),
-					reporter: r.as_u64(),
+					return_data: r.clone(),
+					eth_block_number: i.as_u64(),
+					reporter: i.as_u64(),
 				},
 			);
-			Requests::insert(*r, CallRequestBuilder::new().caller(r.as_u64()).build());
-			RequestInputData::insert(*r, vec![idx as u8, 0, 0]);
+			Requests::insert(*i, CallRequestBuilder::new().caller(i.as_u64()).build());
+			RequestInputData::insert(*i, vec![1_u8, 2 ,3 ,4 ,5]);
 		}
-		ResponsesForCallback::put(ready_callbacks.clone());
+		ResponsesForCallback::put(ready_callbacks.iter().map(|x| x.0).collect::<Vec<RequestId>>());
 
 		// enough for 3 callbacks without considering overhead cost
 		// should mean we only process 2 requests
@@ -323,7 +310,7 @@ fn on_idle() {
 
 		// Storage cleared for fist 2 callbacks
 		assert!(consumed_weight < remaining_block_weight);
-		for r in &ready_callbacks[..2] {
+		for (r, _) in &ready_callbacks[..2] {
 			assert!(!<Responses<TestRuntime>>::contains_key(*r));
 			assert!(!Requests::contains_key(*r));
 			assert!(!RequestInputData::contains_key(*r));
@@ -331,6 +318,21 @@ fn on_idle() {
 
 		// 3rd callback left for next time
 		assert!(Requests::contains_key(RequestId::from(3_u64)));
-		assert_eq!(ResponsesForCallback::get(), vec![RequestId::from(3_u64)]);
+		assert_eq!(
+			ResponsesForCallback::get(),
+			vec![3_u64.into(), 4_u64.into()]
+		);
+
+		// Clean up 3rd callback
+		let consumed_weight = EthStateOracle::on_idle(2_u64, 2 * per_callback_weight);
+		assert!(consumed_weight < remaining_block_weight);
+
+		assert!(!<Responses<TestRuntime>>::contains_key(RequestId::from(3_u64)));
+		assert!(!Requests::contains_key(RequestId::from(3_u64)));
+		assert!(!RequestInputData::contains_key(RequestId::from(3_u64)));
+
+		// 4th callback left for next time
+		assert!(Requests::contains_key(RequestId::from(4_u64)));
+		assert_eq!(ResponsesForCallback::get(), vec![4_u64.into()]);
 	});
 }

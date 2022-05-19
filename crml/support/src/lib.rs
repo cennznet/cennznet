@@ -19,7 +19,7 @@
 //! # Common crml types and traits
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::DispatchResultWithPostInfo,
@@ -28,6 +28,7 @@ use frame_support::{
 use pallet_evm::AddressMapping;
 use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
 	DispatchError, DispatchResult,
@@ -438,6 +439,17 @@ pub trait ContractExecutor {
 	) -> DispatchResultWithPostInfo;
 }
 
+#[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
+/// A claim about the returndata of an `eth_call` RPC
+pub enum ReturnDataClaim {
+	/// Normal returndata scenario
+	/// Its value is an Ethereum abi encoded word (32 bytes)
+	Ok([u8; 32]),
+	/// The returndata from the executed call exceeds the 32 byte length limit
+	/// It won't be processed so we don't record the data
+	ExceedsLengthLimit,
+}
+
 /// Verifies correctness of state on Ethereum i.e. by issuing `eth_call`s
 pub trait EthCallOracle {
 	/// EVM address type
@@ -463,7 +475,12 @@ pub trait EthCallOracleSubscriber {
 	/// Identifies requests
 	type CallId;
 	/// Receives verified details about prior `EthCallVerifier::call_at` requests upon their completion
-	fn on_call_at_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
+	fn on_call_at_complete(
+		call_id: Self::CallId,
+		return_data: &ReturnDataClaim,
+		block_number: u64,
+		block_timestamp: u64,
+	);
 }
 
 #[cfg(test)]
