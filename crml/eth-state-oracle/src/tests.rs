@@ -296,7 +296,7 @@ fn on_idle() {
 				},
 			);
 			Requests::insert(*i, CallRequestBuilder::new().caller(i.as_u64()).build());
-			RequestInputData::insert(*i, vec![1_u8, 2 ,3 ,4 ,5]);
+			RequestInputData::insert(*i, vec![1_u8, 2, 3, 4, 5]);
 		}
 		ResponsesForCallback::put(ready_callbacks.iter().map(|x| x.0).collect::<Vec<RequestId>>());
 
@@ -318,10 +318,7 @@ fn on_idle() {
 
 		// 3rd callback left for next time
 		assert!(Requests::contains_key(RequestId::from(3_u64)));
-		assert_eq!(
-			ResponsesForCallback::get(),
-			vec![3_u64.into(), 4_u64.into()]
-		);
+		assert_eq!(ResponsesForCallback::get(), vec![3_u64.into(), 4_u64.into()]);
 
 		// Clean up 3rd callback
 		let consumed_weight = EthStateOracle::on_idle(2_u64, 2 * per_callback_weight);
