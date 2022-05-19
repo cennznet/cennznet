@@ -119,6 +119,8 @@ decl_error! {
 		InsufficientFundsBounty,
 		/// Challenge already in progress
 		DuplicateChallenge,
+		/// Return data exceeded the 32 byte limit
+		ReturnDataExceedsLimit
 	}
 }
 
@@ -186,6 +188,10 @@ decl_module! {
 					ReturnDataClaim::Ok(return_data) => return_data,
 					// this returndata exceeded the length limit so it will not be processed
 					ReturnDataClaim::ExceedsLengthLimit => {
+						Self::deposit_event(Event::CallbackErr(
+							call_request_id,
+							Error::<T>::ReturnDataExceedsLimit.into(),
+						));
 						consumed_weight = consumed_weight.saturating_add(weight_per_callback);
 						continue;
 					}
