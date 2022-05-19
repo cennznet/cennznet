@@ -1185,6 +1185,7 @@ dependencies = [
  "hex",
  "parity-scale-codec",
  "parking_lot",
+ "rustc-hex",
  "scale-info",
  "serde",
  "serde_json",

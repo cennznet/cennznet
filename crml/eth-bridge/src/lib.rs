@@ -49,7 +49,7 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	EthAbiCodec, EthCallOracle, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
 use frame_support::{
@@ -172,6 +172,8 @@ decl_storage! {
 		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
+		/// Subscription Id for EthCall requests
+		NextEthCallId: EthCallId;
 		/// Queue of pending EthCallOracle requests
 		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
 		/// EthCallOracle responses keyed by (Id, Notary)
@@ -645,7 +647,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Try issuing an `eth_call` request to the bridged ethereum network
-	fn offchain_try_eth_call(request: &EthCallRequest) -> EventClaimResult {
+	fn offchain_try_eth_call(request: &EthCallRequest) -> EthCallResponse {
 		// validator OCW process
 		// 1) get latest eth block
 		// 2) extract number and timestamp
@@ -666,17 +668,17 @@ impl<T: Config> Module<T> {
 		- query the block number closest to and higher than request timestamp i.e. prefer block after the time of request
 		3) do the `eth_call` at the correct block
 		*/
-		let latest_block: EthBlock = match T::EthereumRpcClient::get_block(LatestOrNumber::Latest) {
-			Ok(None) => return EventClaimResult::DataProviderErr,
-			Ok(Some(block)) => block,
-			Err(err) => {
-				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-				return EventClaimResult::DataProviderErr;
-			}
-		};
-		let LENIENCE_MS = 15_000;
+		// let latest_block: EthBlock = match T::EthereumRpcClient::get_block(LatestOrNumber::Latest) {
+		// 	Ok(None) => return EventClaimResult::DataProviderErr,
+		// 	Ok(Some(block)) => block,
+		// 	Err(err) => {
+		// 		log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+		// 		return EventClaimResult::DataProviderErr;
+		// 	}
+		// };
+		// let LENIENCE_MS = 15_000;
 
-		let eth_block_time = latest_block.timestamp;
+		// let eth_block_time = latest_block.timestamp;
 		/*
 		[r]-[]-[]-[]-[]-[]
 		[    r'] - [    ] -
@@ -689,11 +691,12 @@ impl<T: Config> Module<T> {
 		// relayer must ensure it does `eth_call` at the block at or after `request.timestamp`
 
 		// eth - lenience < req < eth + eth_block_time
-		if request.timestamp <= eth_block_time + LENIENCE_MS && request.timestamp >= eth_block_time - LENIENCE_MS {
-			// request.timestamp is in this range
-		}
+		// if request.timestamp <= eth_block_time + LENIENCE_MS && request.timestamp >= eth_block_time - LENIENCE_MS {
+		// 	// request.timestamp is in this range
+		// }
 
-		U256::from(request.timestamp)
+		// U256::from(request.timestamp)
+		EthCallResponse::ExceedsLengthLimit
 	}
 
 	/// Send a notarization for the given claim
@@ -905,17 +908,17 @@ impl<T: Config> EthCallOracle for Module<T> {
 	/// Returns a call Id for subscribers
 	fn call_at(target: &Self::Address, input: &[u8], timestamp: u64) -> Self::CallId {
 		// store the job for validators to process async
-		let call_id = NextCallId::get();
+		let call_id = NextEthCallId::get();
 		EthCallRequestInfo::insert(
 			call_id,
 			EthCallRequest {
-				target,
+				target: *target,
 				input: input.to_vec(),
 				timestamp,
 			},
 		);
 		EthCallRequests::append(call_id);
-		NextCallId::put(call_id + 1);
+		NextEthCallId::put(call_id + 1);
 
 		call_id
 	}

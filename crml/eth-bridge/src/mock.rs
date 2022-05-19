@@ -13,9 +13,11 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate as crml_eth_bridge;
-use crate::types::{BridgeRpcError, EthBlock, EthHash, LatestOrNumber, TransactionReceipt};
-use crate::{types::BridgeEthereumRpcApi, Config, Error};
+use crate::{
+	self as crml_eth_bridge,
+	types::{BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, TransactionReceipt},
+	Config,
+};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{
 	EthAbiCodec, EventClaimSubscriber, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml,
@@ -123,17 +125,21 @@ impl MockEthereumRpcClient {
 
 impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
+	fn get_block_by_number(_block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		// TODO: implement
 		unimplemented!();
 	}
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
+	fn get_transaction_receipt(_hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
 		// TODO: implement
 		unimplemented!();
 	}
 
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
+	fn query_eth_client<R: serde::Serialize>(_request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
+		// TODO: Implement
+		unimplemented!();
+	}
+	fn eth_call(_target: EthAddress, _input: &[u8], _at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
 		// TODO: Implement
 		unimplemented!();
 	}

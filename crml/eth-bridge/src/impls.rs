@@ -12,14 +12,13 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-use crate::types::{
-	BridgeRpcError, EthBlock, EthHash, EthResponse, GetBlockRequest, GetTxReceiptRequest, LatestOrNumber,
-	TransactionReceipt,
-};
 use crate::{
 	log,
 	rt_offchain::{http::Request, Duration},
-	types::BridgeEthereumRpcApi,
+	types::{
+		BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthCallRpcRequest, EthHash, EthResponse,
+		GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
+	},
 	REQUEST_TTL_MS,
 };
 use sp_runtime::offchain::StorageKind;
@@ -31,7 +30,7 @@ use sp_std::alloc::string::ToString;
 use std::string::ToString;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
-pub struct EthereumRpcClient();
+pub struct EthereumRpcClient;
 
 impl BridgeEthereumRpcApi for EthereumRpcClient {
 	/// Get latest block number from eth client
@@ -104,7 +103,7 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 		log!(info, "💎 sending request to: {}", eth_http_uri);
 		let body = serde_json::to_string::<R>(&request_body).unwrap();
 		let body_raw = body.as_bytes();
-		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
+		// Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
 		let request = Request::post(eth_http_uri, vec![body_raw]);
 		// TODO Log request
 		// log!(trace, "💎 request: {:?}", request);
@@ -144,5 +143,72 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 
 		// Read the response body and check it's valid utf-8
 		Ok(response.body().collect::<Vec<u8>>())
+	}
+
+	/// Issue an `eth_call` request to `target` address with `input`
+	/// Returns the abi encoded 'returndata'
+	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
+		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+		let request = EthCallRpcRequest::new(target, input, random_request_id as usize, at_block);
+		let resp_bytes = Self::query_eth_client(Some(request))?;
+
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			BridgeRpcError::HttpFetch
+		})?;
+
+		// Deserialize JSON to struct
+		serde_json::from_str::<EthResponse<Vec<u8>>>(&resp_str)
+			.map(|resp| resp.result.unwrap_or_default())
+			.map_err(|err| {
+				log!(error, "💎 deserialize json response error: {:?}", err);
+				BridgeRpcError::HttpFetch
+			})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::offchain::{testing, OffchainDbExt, OffchainWorkerExt};
+
+	#[test]
+	fn eth_call() {
+		let (offchain, state) = testing::TestOffchainExt::new();
+		let mut t = sp_io::TestExternalities::default();
+		t.register_extension(OffchainDbExt::new(offchain.clone()));
+		t.register_extension(OffchainWorkerExt::new(offchain));
+
+		// setup ---eth-http uri
+		t.execute_with(|| {
+			sp_io::offchain::local_storage_compare_and_set(
+				StorageKind::PERSISTENT,
+				b"ETH_HTTP",
+				None,
+				b"http://example.com",
+			);
+		});
+
+		{
+			let mut state = state.write();
+			state.expect_request(testing::PendingRequest {
+				method: "POST".into(),
+				uri: "https://example.com".into(),
+				response: Some(br#" {"id":1,"jsonrpc": "2.0","result": "0x010203"}"#.to_vec()),
+				sent: true,
+				..Default::default()
+			});
+		}
+
+		t.execute_with(|| {
+			assert_eq!(
+				EthereumRpcClient::eth_call(
+					EthAddress::from_low_u64_be(555_u64),
+					&[1_u8, 2, 3, 4, 5],
+					LatestOrNumber::Latest,
+				),
+				Ok(vec![1_u8, 2, 3]),
+			);
+		})
 	}
 }
