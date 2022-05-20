@@ -15,16 +15,19 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
-      - name: Install stable toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.59.0
+          profile: minimal
+          toolchain: nightly-2021-12-22
+          target: wasm32-unknown-unknown
           default: true
+          override: true
       # generate test coverage
       - name: cargo tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--avoid-cfg-tarpaulin --skip-clean --workspace --locked'
+        run: |
+          cargo install cargo-tarpaulin
+          SKIP_WASM_BUILD=1 cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --workspace --locked
       # upload coverage info
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0

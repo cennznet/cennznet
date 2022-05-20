@@ -25,6 +25,7 @@ sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d41379
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
 
 [dev-dependencies]
+ethabi = { version = "16.0.0", default-features = false }
 hex-literal = { version = "0.3.1", default-features = false }
 
 [features]

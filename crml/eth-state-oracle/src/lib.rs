@@ -17,7 +17,7 @@
 use cennznet_primitives::types::{Balance, FeePreferences};
 use crml_support::{
 	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
-	MultiCurrency, H160,
+	MultiCurrency, ReturnDataClaim, H160,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
@@ -32,7 +32,6 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 mod mock;
-#[cfg(test)]
 mod tests;
 mod types;
 use types::*;
@@ -120,6 +119,8 @@ decl_error! {
 		InsufficientFundsBounty,
 		/// Challenge already in progress
 		DuplicateChallenge,
+		/// Return data exceeded the 32 byte limit
+		ReturnDataExceedsLimit
 	}
 }
 
@@ -172,6 +173,8 @@ decl_module! {
 					.saturating_add(weight_per_callback)
 					.saturating_add(next_callback_weight_limit) > remaining_weight {
 					break;
+				} else {
+					processed_callbacks += 1;
 				}
 
 				// Remove all state related to the request and try to run the callback
@@ -179,12 +182,27 @@ decl_module! {
 				let response = Responses::<T>::take(call_request_id).unwrap();
 				RequestInputData::remove(call_request_id);
 
+				// At this point the claimed 'return_data' is considered valid as it has
+				// passed the challenge period
+				let return_data = match response.return_data {
+					ReturnDataClaim::Ok(return_data) => return_data,
+					// this returndata exceeded the length limit so it will not be processed
+					ReturnDataClaim::ExceedsLengthLimit => {
+						Self::deposit_event(Event::CallbackErr(
+							call_request_id,
+							Error::<T>::ReturnDataExceedsLimit.into(),
+						));
+						consumed_weight = consumed_weight.saturating_add(weight_per_callback);
+						continue;
+					}
+				};
+
 				// Try run the callback, recording weight consumed
 				let callback_weight = match Self::try_callback(
 					call_request_id,
 					&request,
 					&response.reporter,
-					&response.return_data,
+					&return_data,
 				) {
 					Ok(info) => {
 						let callback_weight = info.actual_weight.unwrap_or(0);
@@ -207,7 +225,6 @@ decl_module! {
 				consumed_weight = consumed_weight
 					.saturating_add(weight_per_callback)
 					.saturating_add(callback_weight);
-				processed_callbacks += 1;
 			}
 			// write remaining callbacks
 			ResponsesForCallback::put(&callbacks[processed_callbacks..]);
@@ -216,22 +233,37 @@ decl_module! {
 		}
 
 		/// Submit response for a a remote call request
-		/// `return_data` - the rlp encoded output of the remote call (must be padded or truncated to exactly 32 bytes)
+		///
+		/// `return_data` - the claimed `returndata` of the `eth_call` RPC using the requested contract and input buffer
 		/// `eth_block_number` - the ethereum block number the request was made
 		///
 		/// Caller should be a configured relayer (i.e. authorized or staked)
 		/// Only accepts the first response for a given request
+		/// The response is not valid until `T::ChallengePeriod` blocks have passed
 		///
 		#[weight = 500_000]
-		pub fn submit_call_response(origin, request_id: RequestId, return_data: Vec<u8>, eth_block_number: u64) {
+		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64) {
 			// TODO: relayer should have some bond
 			let origin = ensure_signed(origin)?;
 
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 
+			// The `return_data` from a valid contract call is always Ethereum abi encoded as a 32 byte word for _fixed size_ data types
+			// e.g. bool, uint<N>, bytes<N>, address etc.
+			//
+			// This table describes the transformation and proper decoding approaches:
+			//
+			// | abi type             | real value                                   | abi encoded value                                                    | decoding approach              |
+			// |----------------------|----------------------------------------------|----------------------------------------------------------------------|--------------------------------|
+			// | `uint256`            | `10113`                                      | `0x0000000000000000000000000000000000000000000000000000000000002781` | `uint256(returnData)`          |
+			// | `address`(`uint160`) | `0x111122223333444455556666777788889999aAaa` | `0x000000000000000000000000111122223333444455556666777788889999aAaa` | `address(uint160(returnData))` |
+			// | `bool`(`uint8`)      | `true`                                       | `0x0000000000000000000000000000000000000000000000000000000000000001` | `bool(uint8(returnData))`      |
+			// | `bytes4`             | `0x61620000`                                 | `0x6162000000000000000000000000000000000000000000000000000000000000` | `bytes4(returnData)`           |
+			//
+			// if the type is dynamic i.e `[]T` or `bytes`, `returndata` length will be 32 * (offset + length + n)
 			let response = CallResponse {
-				return_data: return_data_to_bytes32(return_data),
+				return_data,
 				eth_block_number,
 				reporter: origin,
 			};
@@ -292,45 +324,11 @@ impl<T: Config> EthCallOracleSubscriber for Module<T> {
 	/// Either the challenger will be slashed or
 	fn on_call_at_complete(
 		call_id: Self::CallId,
-		validator_return_data: &[u8; 32],
+		validator_return_data: &ReturnDataClaim,
 		block_number: u64,
 		block_timestamp: u64,
 	) {
-		if let Some(request_id) = ChallengeSubscriptions::get(call_id) {
-			let response = if let Some(response) = <Responses<T>>::get(request_id) {
-				response
-			} else {
-				return;
-			};
-			if let Some(challenger) = ResponsesChallenged::<T>::get(request_id) {
-				// Validators digest of the return data and the block timestamp
-				// - store timestamp with request
-				// - trigger validator checks for the correct value
-				if &response.return_data != validator_return_data {
-					// return data at block did not match what was reported
-					// TODO: slash reporter, reward challenger
-				}
-				let request_timestamp = Requests::get(request_id).unwrap().timestamp;
-				// maximum lenience allowed between oracle request time and ethereum block timestamp
-				// where the result was reported from
-				let LENIENCE = 15_u64;
-				// check if block of the report was too far in the past
-				let is_stale = block_timestamp < (request_timestamp - LENIENCE);
-				if is_stale {
-					// TODO: slash reporter, reward challenger
-				}
-				// check if block of the report was too far in the future
-				let is_future = block_timestamp > (request_timestamp + LENIENCE);
-				if is_future {
-					// TODO: slash reporter, reward challenger
-				}
-
-				// nothing wrong with this request
-				// TODO: slash challenger
-
-				// TODO: schedule the callback using the oracle values
-			}
-		}
+		unimplemented!();
 	}
 }
 
