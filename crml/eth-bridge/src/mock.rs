@@ -16,7 +16,7 @@
 use crate as crml_eth_bridge;
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
 use crate::types::{BridgeRpcError, EthBlock, EthHash, LatestOrNumber, TransactionReceipt};
-use crate::{types::BridgeEthereumRpcApi, Config, Error};
+use crate::{types::BridgeEthereumRpcApi, Config};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use codec::{Decode, Encode};
 use crml_support::{
@@ -121,13 +121,9 @@ pub struct MockReceiptResponse {
 pub(crate) mod test_storage {
 	//! storage used by tests
 	use super::{MockBlockResponse, MockReceiptResponse};
-	use crate::{
-		types::{EthBlock, EthHash, TransactionReceipt},
-		Config,
-	};
+	use crate::{types::EthHash, Config};
 	use frame_support::decl_storage;
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
-	use crml_support::H256;
 	decl_storage! {
 		trait Store for Module<T: Config> as EthBridgeTest {
 			pub BlockResponseAt: map hasher(blake2_128_concat) u32 => Option<MockBlockResponse>;
@@ -179,7 +175,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let eth_block = EthBlock {
 			number: Some(U64::from(mock_block_response.block_number)),
 			hash: Some(mock_block_response.block_hash),
-			timestamp: U256::from(mock_block_response.block_number),
+			timestamp: U256::from(mock_block_response.timestamp),
 			parent_hash: Default::default(),
 			nonce: None,
 			sha3_uncles: Default::default(),
