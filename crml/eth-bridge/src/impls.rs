@@ -33,55 +33,7 @@ use std::string::ToString;
 /// Provides minimal ethereum RPC queries for eth bridge protocol
 pub struct EthereumRpcClient();
 
-impl BridgeEthereumRpcApi for EthereumRpcClient {
-	/// Get latest block number from eth client
-	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
-		let request = match req {
-			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
-			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
-		};
-		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			BridgeRpcError::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			BridgeRpcError::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				BridgeRpcError::HttpFetch
-			})
-	}
-
-	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
-		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			BridgeRpcError::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			BridgeRpcError::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				BridgeRpcError::HttpFetch
-			})
-	}
-
+impl EthereumRpcClient {
 	/// This function uses the `offchain::http` API to query the remote ethereum information,
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
@@ -144,5 +96,55 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 
 		// Read the response body and check it's valid utf-8
 		Ok(response.body().collect::<Vec<u8>>())
+	}
+}
+
+impl BridgeEthereumRpcApi for EthereumRpcClient {
+	/// Get latest block number from eth client
+	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
+		let request = match req {
+			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
+			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
+		};
+		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
+			log!(error, "💎 read eth-rpc API error: {:?}", e);
+			BridgeRpcError::HttpFetch
+		})?;
+
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			BridgeRpcError::HttpFetch
+		})?;
+
+		// Deserialize JSON to struct
+		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
+			.map(|resp| resp.result)
+			.map_err(|err| {
+				log!(error, "💎 deserialize json response error: {:?}", err);
+				BridgeRpcError::HttpFetch
+			})
+	}
+
+	/// Get transaction receipt from eth client
+	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
+		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
+		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
+		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
+			log!(error, "💎 read eth-rpc API error: {:?}", e);
+			BridgeRpcError::HttpFetch
+		})?;
+
+		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
+			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
+			BridgeRpcError::HttpFetch
+		})?;
+
+		// Deserialize JSON to struct
+		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
+			.map(|resp| resp.result)
+			.map_err(|err| {
+				log!(error, "💎 deserialize json response error: {:?}", err);
+				BridgeRpcError::HttpFetch
+			})
 	}
 }
