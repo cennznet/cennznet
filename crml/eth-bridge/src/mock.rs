@@ -182,13 +182,11 @@ impl NotarizationRewardHandler for MockRewardHandler {
 	}
 }
 
-/// Returns the current system time
+/// Returns a fake timestamp based on the current block number
 pub struct MockUnixTime;
 impl UnixTime for MockUnixTime {
 	fn now() -> core::time::Duration {
-		std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap()
+		core::time::Duration::new(System::block_number() * 5, 0)
 	}
 }
 
