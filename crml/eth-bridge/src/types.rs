@@ -35,6 +35,21 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
+/// An EthCallOracle call Id
+pub type EthCallId = u64;
+/// An EthCallOracle request
+#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
+pub struct EthCallRequest {
+	pub timestamp: u64,
+	pub target: EthAddress,
+	pub input: Vec<u8>,
+}
+#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
+pub enum EthCallResponse {
+	Ok([u8; 32]),
+	ExceedsLengthLimit,
+	DataProviderErr,
+}
 /// A bridge message id
 pub type EventClaimId = u64;
 /// A bridge event type id
