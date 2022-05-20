@@ -103,6 +103,10 @@ impl Config for TestRuntime {
 pub struct MockEthereumRpcClient();
 
 impl MockEthereumRpcClient {
+	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
+		// TODO: Implement
+		unimplemented!();
+	}
 	/// store given block as the next response
 	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
 		// TODO: implement
@@ -125,7 +129,6 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		// TODO: implement
 		unimplemented!();
 	}
-
 	fn query_eth_client<R: serde::Serialize>(_request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
 		// TODO: Implement
 		unimplemented!();
