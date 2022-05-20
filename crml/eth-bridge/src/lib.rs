@@ -13,9 +13,17 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! CENNZnet Eth Bridge
+//! CENNZnet Eth Bridge 🌉
 //!
-//! Module for witnessing/notarizing events on the Ethereum blockchain
+//! This pallet defines notarization protocols for CENNZnet validators to agree on values from a bridged Ethereum chain (Ethereum JSON-RPC compliant),
+//! and conversely, generate proofs of events that have occurred on CENNZnet.
+//!
+//! The proofs are a collection of signatures which can be verified by a bridged contract on Ethereum with awareness of the
+//! current validator set.
+//!
+//! There are types of Ethereum values the bridge can verify:
+//! 1) verify a transaction hash exists that executed a specific contract producing a specific event log
+//! 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
 //! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
