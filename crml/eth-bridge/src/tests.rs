@@ -14,30 +14,21 @@
 */
 
 use crate::{
-	self as crml_eth_bridge,
-	types::{BridgeEthereumRpcApi, EthHash, EventProofId},
-	BridgePaused, Config, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S,
-	CLAIM_PRUNING_INTERVAL,
-};
-use cennznet_primitives::eth::crypto::AuthorityId;
-use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160,
-	H256 as H256Crml,
+	mock::{AccountId, EthBridge, ExtBuilder, MockWithdrawMessage, Origin, System, TestRuntime},
+	types::{EthHash, EventProofId},
+	BridgePaused, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S, CLAIM_PRUNING_INTERVAL,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{EthAbiCodec, EventClaimVerifier, H160};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
-	parameter_types,
 	storage::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue},
-	traits::{OnInitialize, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{OnInitialize, OneSessionHandler},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use sp_core::{
-	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
-	Public, H256,
-};
+use sp_core::{Public, H256};
+use sp_runtime::traits::Zero;
 
 #[test]
 fn tracks_pending_claims() {
