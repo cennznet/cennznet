@@ -80,8 +80,6 @@ pub trait BridgeEthereumRpcApi {
 	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError>;
 	/// Returns an ethereum transaction receipt given a tx hash
 	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError>;
-	/// Queries remote Ethereum information
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError>;
 	/// Performs an `eth_call` request
 	/// Returns the Ethereum abi encoded returndata as a Vec<u8>
 	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError>;

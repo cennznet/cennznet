@@ -84,7 +84,9 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 				BridgeRpcError::InvalidJSON
 			})
 	}
+}
 
+impl EthereumRpcClient {
 	/// This function uses the `offchain::http` API to query the remote ethereum information,
 	/// and returns the JSON response as vector of bytes.
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
