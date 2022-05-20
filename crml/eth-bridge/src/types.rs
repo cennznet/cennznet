@@ -65,8 +65,10 @@ pub struct EventClaim {
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
 /// Error type for BridgeEthereumRpcApi
 pub enum BridgeRpcError {
-	// Error returned when fetching github info
+	/// HTTP network request failed
 	HttpFetch,
+	/// Unable to decode response payload as JSON
+	InvalidJSON,
 	/// offchain worker not configured properly
 	OcwConfig,
 }

@@ -99,15 +99,6 @@ impl Config for TestRuntime {
 	type Event = Event;
 }
 
-/// Mock eth-http endpoint
-pub const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
-
-/// Test request
-#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
-pub struct TestRequest {
-	pub message: String,
-}
-
 /// Mock ethereum rpc client
 pub struct MockEthereumRpcClient();
 

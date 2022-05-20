@@ -16,7 +16,7 @@ use crate::{
 	log,
 	rt_offchain::{http::Request, Duration},
 	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthCallRpcRequest, EthHash, EthResponse,
+		BridgeEthereumRpcApi, BridgeRpcError, Bytes, EthAddress, EthBlock, EthCallRpcRequest, EthHash, EthResponse,
 		GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
 	},
 	REQUEST_TTL_MS,
@@ -33,6 +33,21 @@ use std::string::ToString;
 pub struct EthereumRpcClient;
 
 impl BridgeEthereumRpcApi for EthereumRpcClient {
+	/// Issue an `eth_call` request to `target` address with `input`
+	/// Returns the abi encoded 'returndata'
+	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
+		let request = EthCallRpcRequest::new(target, input, random_request_id(), at_block);
+		let resp_bytes = Self::query_eth_client(Some(request))?;
+
+		// Deserialize JSON to struct
+		serde_json::from_slice::<EthResponse<Bytes>>(&resp_bytes)
+			.map(|resp| resp.result.map(|b| b.0).unwrap_or_default())
+			.map_err(|err| {
+				log!(error, "💎 deserialize json response error: {:?}", err);
+				BridgeRpcError::InvalidJSON
+			})
+	}
+
 	/// Get latest block number from eth client
 	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let request = match req {
@@ -44,17 +59,12 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 			BridgeRpcError::HttpFetch
 		})?;
 
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			BridgeRpcError::HttpFetch
-		})?;
-
 		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
+		serde_json::from_slice::<EthResponse<EthBlock>>(&resp_bytes)
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
-				BridgeRpcError::HttpFetch
+				BridgeRpcError::InvalidJSON
 			})
 	}
 
@@ -66,17 +76,12 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 			BridgeRpcError::HttpFetch
 		})?;
 
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			BridgeRpcError::HttpFetch
-		})?;
-
 		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
+		serde_json::from_slice::<EthResponse<TransactionReceipt>>(&resp_bytes)
 			.map(|resp| resp.result)
 			.map_err(|err| {
 				log!(error, "💎 deserialize json response error: {:?}", err);
-				BridgeRpcError::HttpFetch
+				BridgeRpcError::InvalidJSON
 			})
 	}
 
@@ -104,8 +109,7 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 		let body_raw = body.as_bytes();
 		// Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
 		let request = Request::post(eth_http_uri, vec![body_raw]);
-		// TODO Log request
-		// log!(trace, "💎 request: {:?}", request);
+		log!(trace, "💎 request: {:?}", request);
 
 		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
 		let timeout = sp_io::offchain::timestamp().add(Duration::from_millis(REQUEST_TTL_MS));
@@ -143,26 +147,6 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 		// Read the response body and check it's valid utf-8
 		Ok(response.body().collect::<Vec<u8>>())
 	}
-
-	/// Issue an `eth_call` request to `target` address with `input`
-	/// Returns the abi encoded 'returndata'
-	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
-		let request = EthCallRpcRequest::new(target, input, random_request_id(), at_block);
-		let resp_bytes = Self::query_eth_client(Some(request))?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			BridgeRpcError::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<Vec<u8>>>(&resp_str)
-			.map(|resp| resp.result.unwrap_or_default())
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				BridgeRpcError::HttpFetch
-			})
-	}
 }
 
 /// Return a random usize value
@@ -181,6 +165,9 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_std::sync::Arc;
 
+	/// a fake URI to use as the configured `--eth-http` endpoint
+	const MOCK_TEST_ENDPOINT: &'static str = "http://example.com";
+
 	/// Build `PendingRequest`s
 	struct PendingRequestBuilder(PendingRequest);
 
@@ -188,7 +175,8 @@ mod tests {
 		fn new() -> Self {
 			Self {
 				0: PendingRequest {
-					uri: "https://example.com".into(),
+					uri: MOCK_TEST_ENDPOINT.into(),
+					sent: true,
 					..Default::default()
 				},
 			}
@@ -226,7 +214,7 @@ mod tests {
 				StorageKind::PERSISTENT,
 				b"ETH_HTTP",
 				None,
-				b"http://example.com",
+				MOCK_TEST_ENDPOINT.as_bytes(),
 			);
 		});
 
@@ -238,8 +226,8 @@ mod tests {
 		let (mut ext, state) = mock_offchain_env();
 		// define the expected JSON-RPC payload for the eth_call request and a mock response
 		{
-			let expected_request = br#"{"id":1,"jsonrpc":"2.0","params":[{"from":"0x0000000000000000000000000000000000000002","data":"0x0102030405"},"latest"]}"#;
-			let mock_response = br#"{"id":1,"jsonrpc":"2.0","result":"0x050403"}"#;
+			let expected_request = br#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000000002","data":"0x0102030405"},"latest"],"id":0}"#;
+			let mock_response = br#"{"jsonrpc":"2.0","id":0,"result":"0x050403"}"#;
 			let expected_request_response = PendingRequestBuilder::new()
 				.method("POST")
 				.request(expected_request)
@@ -252,12 +240,64 @@ mod tests {
 		ext.execute_with(|| {
 			assert_eq!(
 				EthereumRpcClient::eth_call(
-					EthAddress::from_low_u64_le(2_u64), // 0x0000000000000000000000000000000000000002
+					EthAddress::from_low_u64_be(2_u64), // 0x0000000000000000000000000000000000000002
 					&[1_u8, 2, 3, 4, 5],                // 0x0102030405
 					LatestOrNumber::Latest,
 				),
 				// return data
 				Ok(vec![5_u8, 4, 3]), // 0x050403
+			);
+		})
+	}
+
+	#[test]
+	fn eth_call_at_block_empty_response() {
+		let (mut ext, state) = mock_offchain_env();
+		// define the expected JSON-RPC payload for the eth_call request and a mock response
+		{
+			let expected_request = br#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000000002","data":"0x0102030405"},"0xff"],"id":0}"#;
+			let mock_response = br#"{"jsonrpc":"2.0","id":0,"result":"0x"}"#;
+			let expected_request_response = PendingRequestBuilder::new()
+				.method("POST")
+				.request(expected_request)
+				.response(mock_response)
+				.build();
+			state.write().expect_request(expected_request_response);
+		}
+
+		// test
+		ext.execute_with(|| {
+			assert_eq!(
+				EthereumRpcClient::eth_call(
+					EthAddress::from_low_u64_be(2_u64),
+					&[1_u8, 2, 3, 4, 5],
+					LatestOrNumber::Number(0xff),
+				),
+				Ok(vec![]),
+			);
+		})
+	}
+
+	#[test]
+	fn eth_call_at_zero_address_empty_input() {
+		let (mut ext, state) = mock_offchain_env();
+		// define the expected JSON-RPC payload for the eth_call request and a mock response
+		{
+			let expected_request = br#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000000000","data":"0x"},"latest"],"id":0}"#;
+			let mock_response = br#"{"jsonrpc":"2.0","id":0,"result":"0x"}"#;
+			let expected_request_response = PendingRequestBuilder::new()
+				.method("POST")
+				.request(expected_request)
+				.response(mock_response)
+				.build();
+			state.write().expect_request(expected_request_response);
+		}
+
+		// test
+		ext.execute_with(|| {
+			assert_eq!(
+				EthereumRpcClient::eth_call(EthAddress::zero(), Default::default(), LatestOrNumber::Latest,),
+				Ok(vec![]),
 			);
 		})
 	}
