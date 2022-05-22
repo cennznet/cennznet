@@ -80,15 +80,15 @@ decl_storage! {
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
-		/// Input data for remote calls keyed by request Id
-		RequestInputData: map hasher(twox_64_concat) RequestId => Vec<u8>;
 		/// Reported response details keyed by request Id
 		/// These are not necessarily valid until passed the challenge period
 		Responses get(fn responses): map hasher(twox_64_concat) RequestId => Option<CallResponse<T::AccountId>>;
 		/// Responses that are being actively challenged (value is the challenger)
 		ResponsesChallenged: map hasher(twox_64_concat) RequestId => Option<T::AccountId>;
-		/// Map from block numbers to a list of responses that will be valid at the block (i.e. past the challenged period)
+		/// Map from block number to a list of responses that will be valid at the block (i.e. past the challenged period)
 		ResponsesValidAtBlock: map hasher(twox_64_concat) T::BlockNumber => Vec<RequestId>;
+		/// Map from block number to a list of requests that will expire at the block (if no responses submitted)
+		RequestsExpiredAtBlock: map hasher(twox_64_concat) T::BlockNumber => Vec<RequestId>;
 		/// Queue of validated responses ready to issue callbacks
 		ResponsesForCallback: Vec<RequestId>;
 	}
@@ -109,7 +109,7 @@ decl_error! {
 	pub enum Error for Module<T: Config> {
 		/// A response has already been submitted for this request
 		ResponseExists,
-		/// The request does not exist (either fulfilled or never did)
+		/// The request does not exist (either expired, fulfilled, or never did)
 		NoRequest,
 		/// No response exists
 		NoResponse,
@@ -120,7 +120,9 @@ decl_error! {
 		/// Challenge already in progress
 		DuplicateChallenge,
 		/// Return data exceeded the 32 byte limit
-		ReturnDataExceedsLimit
+		ReturnDataExceedsLimit,
+		/// The request did not receive any relayed response in the alloted time
+		RequestExpired,
 	}
 }
 
@@ -130,11 +132,12 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// Promote any unchallenged responses as ready for callback
+		/// Promote any unchallenged responses as ready for callback and
+		/// remove expired requests
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let mut consumed_weight = DbWeight::get().reads(1);
+			let mut consumed_weight = DbWeight::get().reads(2);
 			if ResponsesValidAtBlock::<T>::contains_key(now) {
-				// there responses have passed the challenge period successfully and
+				// these responses have passed the challenge period successfully and
 				// can be scheduled for callback immediately.
 				// The exact timing depends on the capacity of idle block space
 				for call_request_id in ResponsesValidAtBlock::<T>::take(now) {
@@ -142,11 +145,23 @@ decl_module! {
 					consumed_weight += DbWeight::get().writes(1);
 				}
 			}
+			// requests marked to expire
+			if RequestsExpiredAtBlock::<T>::contains_key(now) {
+				for expired_request_id in RequestsExpiredAtBlock::<T>::take(now) {
+					Requests::remove(expired_request_id);
+					Self::deposit_event(Event::CallbackErr(
+						expired_request_id,
+						Error::<T>::RequestExpired.into(),
+					));
+					consumed_weight += DbWeight::get().writes(3);
+				}
+			}
 
 			consumed_weight
 		}
 
 		/// Try run request callbacks using idle block space
+		/// TODO: on_idle could be executed after extrinsics, is this ok?
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			if ResponsesForCallback::decode_len().unwrap_or(0).is_zero() {
 				return DbWeight::get().reads(1);
@@ -166,6 +181,7 @@ decl_module! {
 					continue;
 				}
 				let request = Requests::get(call_request_id).unwrap();
+
 				// (weight) + max weight the EVM callback will consume
 				let next_callback_weight_limit = T::GasWeightMapping::gas_to_weight(request.callback_gas_limit);
 				// Check we can process the next callback in this block?
@@ -178,9 +194,8 @@ decl_module! {
 				}
 
 				// Remove all state related to the request and try to run the callback
-				let request = Requests::take(call_request_id).unwrap();
+				Requests::remove(call_request_id);
 				let response = Responses::<T>::take(call_request_id).unwrap();
-				RequestInputData::remove(call_request_id);
 
 				// At this point the claimed 'return_data' is considered valid as it has
 				// passed the challenge period
@@ -262,15 +277,22 @@ decl_module! {
 			// | `bytes4`             | `0x61620000`                                 | `0x6162000000000000000000000000000000000000000000000000000000000000` | `bytes4(returnData)`           |
 			//
 			// if the type is dynamic i.e `[]T` or `bytes`, `returndata` length will be 32 * (offset + length + n)
-			let response = CallResponse {
-				return_data,
-				eth_block_number,
-				reporter: origin,
-			};
-			<Responses<T>>::insert(request_id, response);
 
-			let execute_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
-			<ResponsesValidAtBlock<T>>::append(execute_block, request_id);
+			if let Some(request) = Requests::get(request_id) {
+				let response = CallResponse {
+					return_data,
+					eth_block_number,
+					reporter: origin,
+				};
+				<Responses<T>>::insert(request_id, response);
+				let execute_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
+				<ResponsesValidAtBlock<T>>::append(execute_block, request_id);
+
+				// The request will not be expired
+				RequestsExpiredAtBlock::<T>::mutate(T::BlockNumber::from(request.expiry_block), |r| {
+					r.retain(|&x| x != request_id);
+				});
+			}
 		}
 
 		/// Initiate a challenge on the current response for `request_id`
@@ -286,27 +308,10 @@ decl_module! {
 			ensure!(!ResponsesChallenged::<T>::contains_key(request_id), Error::<T>::DuplicateChallenge);
 
 			if let Some(response) = Responses::<T>::get(request_id) {
-				// after the challenge, either reporter or challenger is slashed and the other rewarded
-				// the response will be updated with the value from the oracle check process
 				let request = Requests::get(request_id).unwrap();
-				let request_input = RequestInputData::get(request_id);
-				// SKETCH
-				/*
-					validators receive request timestamp
-					need to decide which block to query for the response so as to minimize queries to Ethereum
-
-					1) query block timestamp at relayer reported block_number
-					2a) if block timestamp is in the lenience range then do call_at at the relayer reported block
-					2b) if block timestamp is outside the lenience range (the reporter is going to be slashed) we still need to find the right block to query for the true value
-					process to find right block number:
-					- query the current latest block number from Ethereum
-					- assuming avg blocktime eth blocktime of 15 seconds calculate x blocks backwards
-					- query the block number closest to and higher than request timestamp i.e. prefer block after the time of request
-					3) do the `eth_call` at the correct block
-				 */
 				let challenge_subscription_id = T::EthCallOracle::call_at(
-					request.destination,
-					request_input.as_ref(),
+					&request.destination,
+					request.input_data.as_ref(),
 					request.timestamp,
 				);
 				ResponsesChallenged::<T>::insert(request_id, origin);
@@ -457,6 +462,8 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 		bounty: Balance,
 	) -> Self::RequestId {
 		let request_id = NextRequestId::get();
+		// The request will expire after `ChallengePeriod` blocks if no response it submitted
+		let expiry_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
 		let request_info = CallRequest {
 			caller: *caller,
 			destination: *destination,
@@ -465,10 +472,12 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 			fee_preferences,
 			bounty,
 			timestamp: T::UnixTime::now().as_secs(),
+			input_data: input_data.to_vec(),
+			expiry_block: expiry_block.saturated_into(),
 		};
 		Requests::insert(request_id, request_info);
-		RequestInputData::insert(request_id, input_data.to_vec());
 		NextRequestId::mutate(|i| *i += U256::from(1));
+		RequestsExpiredAtBlock::<T>::append(expiry_block, request_id);
 
 		request_id
 	}
