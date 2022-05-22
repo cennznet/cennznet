@@ -164,18 +164,29 @@ impl MockEthereumRpcClient {
 impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	/// Returns an ethereum block given a block height
 	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
-		let mock_block_response: Option<MockBlockResponse> = match block_number {
-			LatestOrNumber::Latest => None,
-			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
+		let (block_number, block_hash, timestamp): (u64, H256, U256) = match block_number {
+			LatestOrNumber::Latest => {
+				let block = System::block_number();
+				(block, H256::default(), U256::default())
+			}
+			LatestOrNumber::Number(block) => {
+				let mock_block_response = test_storage::BlockResponseAt::get(block);
+				if mock_block_response.is_none() {
+					return Ok(None);
+				}
+				let mock_block_response = mock_block_response.unwrap();
+				(
+					mock_block_response.block_number,
+					mock_block_response.block_hash,
+					U256::from(mock_block_response.timestamp),
+				)
+			}
 		};
-		if mock_block_response.is_none() {
-			return Ok(None);
-		}
-		let mock_block_response = mock_block_response.unwrap();
+
 		let eth_block = EthBlock {
-			number: Some(U64::from(mock_block_response.block_number)),
-			hash: Some(mock_block_response.block_hash),
-			timestamp: U256::from(mock_block_response.timestamp),
+			number: Some(U64::from(block_number)),
+			hash: Some(block_hash),
+			timestamp: U256::from(timestamp),
 			parent_hash: Default::default(),
 			nonce: None,
 			sha3_uncles: Default::default(),
@@ -353,4 +364,108 @@ impl ExtBuilder {
 
 		ext
 	}
+}
+
+#[test]
+fn get_block_by_number_mock_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let block_number: u32 = 120;
+		let block_hash: H256 = H256::from_low_u64_be(121);
+		let timestamp: U256 = U256::from(122);
+
+		let mock_block = EthBlock {
+			number: Some(U64::from(block_number)),
+			hash: Some(block_hash),
+			timestamp,
+			parent_hash: Default::default(),
+			nonce: None,
+			sha3_uncles: Default::default(),
+			logs_bloom: None,
+			transactions_root: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			miner: Default::default(),
+			difficulty: Default::default(),
+			total_difficulty: Default::default(),
+			extra_data: vec![],
+			size: Default::default(),
+			gas_limit: Default::default(),
+			gas_used: Default::default(),
+			transactions: vec![],
+			uncles: vec![],
+		};
+
+		MockEthereumRpcClient::mock_block_response_at(block_number, mock_block.clone());
+
+		let result =
+			<MockEthereumRpcClient as BridgeEthereumRpcApi>::get_block_by_number(LatestOrNumber::Number(block_number))
+				.unwrap();
+		assert_eq!(Some(mock_block), result);
+	});
+}
+
+#[test]
+fn get_latest_block_by_number_mock_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let block_number = System::block_number();
+
+		let mock_block = EthBlock {
+			number: Some(U64::from(block_number)),
+			hash: Some(H256::default()),
+			timestamp: U256::default(),
+			parent_hash: Default::default(),
+			nonce: None,
+			sha3_uncles: Default::default(),
+			logs_bloom: None,
+			transactions_root: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			miner: Default::default(),
+			difficulty: Default::default(),
+			total_difficulty: Default::default(),
+			extra_data: vec![],
+			size: Default::default(),
+			gas_limit: Default::default(),
+			gas_used: Default::default(),
+			transactions: vec![],
+			uncles: vec![],
+		};
+
+		let result =
+			<MockEthereumRpcClient as BridgeEthereumRpcApi>::get_block_by_number(LatestOrNumber::Latest).unwrap();
+		assert_eq!(Some(mock_block), result);
+	});
+}
+
+#[test]
+fn get_transaction_receipt_mock_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let block_number: u32 = 120;
+		let block_hash: H256 = H256::from_low_u64_be(121);
+		let tx_hash: EthHash = H256::from_low_u64_be(122);
+
+		let mock_tx_receipt = TransactionReceipt {
+			block_hash,
+			block_number: U64::from(block_number),
+			contract_address: None,
+			cumulative_gas_used: Default::default(),
+			effective_gas_price: None,
+			from: Default::default(),
+			gas_used: None,
+			logs: vec![],
+			status: None,
+			to: None,
+			transaction_hash: tx_hash,
+			transaction_index: Default::default(),
+			root: None,
+			logs_bloom: Default::default(),
+			transaction_type: None,
+			removed: false,
+		};
+
+		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+
+		let result = <MockEthereumRpcClient as BridgeEthereumRpcApi>::get_transaction_receipt(tx_hash).unwrap();
+		assert_eq!(Some(mock_tx_receipt), result);
+	});
 }
