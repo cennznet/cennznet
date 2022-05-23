@@ -33,30 +33,34 @@ pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi}
 /// NFT RPC methods.
 #[rpc]
 pub trait NftApi<AccountId> {
-	#[rpc(name = "nft_collectedTokens")]
-	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>>;
+	#[rpc(name = "nft_collectedTokens", returns = "jsonrpc_core::Value")]
+	fn collected_tokens(
+		&self,
+		collection_id: CollectionId,
+		who: AccountId,
+	) -> jsonrpc_core::Result<jsonrpc_core::Value>;
 
-	#[rpc(name = "nft_getCollectionInfo")]
-	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
+	#[rpc(name = "nft_getCollectionInfo", returns = "jsonrpc_core::Value")]
+	fn collection_info(&self, collection_id: CollectionId) -> jsonrpc_core::Result<jsonrpc_core::Value>;
 
 	#[rpc(name = "nft_tokenUri")]
 	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>>;
 
-	#[rpc(name = "nft_getTokenInfo")]
+	#[rpc(name = "nft_getTokenInfo", returns = "jsonrpc_core::Value")]
 	fn token_info(
 		&self,
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<TokenInfo<AccountId>>;
+	) -> jsonrpc_core::Result<jsonrpc_core::Value>;
 
-	#[rpc(name = "nft_getCollectionListings")]
+	#[rpc(name = "nft_getCollectionListings", returns = "jsonrpc_core::Value")]
 	fn collection_listings(
 		&self,
 		collection_id: CollectionId,
 		cursor: u128,
 		limit: u16,
-	) -> Result<ListingResponseWrapper<AccountId>>;
+	) -> jsonrpc_core::Result<jsonrpc_core::Value>;
 }
 
 /// Error type of this RPC api.
@@ -97,15 +101,22 @@ where
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
 {
-	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>> {
+	fn collected_tokens(
+		&self,
+		collection_id: CollectionId,
+		who: AccountId,
+	) -> jsonrpc_core::Result<jsonrpc_core::Value> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
+		let result = api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection nfts.".into(),
 			data: Some(format!("{:?}", e).into()),
-		})
+		});
+		let string = result.as_json(raw).map_err(map_error::<TBl, _>)?;
+
+		serde_json::from_str(&string).map_err(|err| map_error::<TBl, _>(err))
 	}
 
 	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>> {
@@ -119,16 +130,19 @@ where
 		})
 	}
 
-	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>> {
+	fn collection_info(&self, collection_id: CollectionId) -> jsonrpc_core::Result<jsonrpc_core::Value> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.collection_info(&at, collection_id).map_err(|e| RpcError {
+		let result = api.collection_info(&at, collection_id).map_err(|e| RpcError {
 			code: ErrorCode::ServerError(Error::RuntimeError.into()),
 			message: "Unable to query collection information.".into(),
 			data: Some(format!("{:?}", e).into()),
-		})
+		});
+		let string = result.as_json(raw).map_err(map_error::<TBl, _>)?;
+
+		serde_json::from_str(&string).map_err(|err| map_error::<TBl, _>(err))
 	}
 
 	fn token_info(
@@ -136,16 +150,20 @@ where
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<TokenInfo<AccountId>> {
+	) -> jsonrpc_core::Result<jsonrpc_core::Value> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.token_info(&at, collection_id, series_id, serial_number)
+		let result = api
+			.token_info(&at, collection_id, series_id, serial_number)
 			.map_err(|e| RpcError {
 				code: ErrorCode::ServerError(Error::RuntimeError.into()),
 				message: "Unable to query token information.".into(),
 				data: Some(format!("{:?}", e).into()),
-			})
+			});
+		let string = result.as_json(raw).map_err(map_error::<TBl, _>)?;
+
+		serde_json::from_str(&string).map_err(|err| map_error::<TBl, _>(err))
 	}
 
 	fn collection_listings(
@@ -153,7 +171,7 @@ where
 		collection_id: CollectionId,
 		offset: u128,
 		limit: u16,
-	) -> Result<ListingResponseWrapper<AccountId>> {
+	) -> jsonrpc_core::Result<jsonrpc_core::Value> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
@@ -196,9 +214,8 @@ where
 			})
 			.collect();
 
-		Ok(ListingResponseWrapper {
-			listings: result,
-			new_cursor,
-		})
+		let string = result.as_json(raw).map_err(map_error::<TBl, _>)?;
+
+		serde_json::from_str(&string).map_err(|err| map_error::<TBl, _>(err))
 	}
 }
