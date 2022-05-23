@@ -4,7 +4,6 @@ use super::*;
 use crate::mock::{
 	test_storage, AccountId, CallRequestBuilder, EthStateOracle, ExtBuilder, GenericAsset, System, TestRuntime,
 };
-use ethabi::Token;
 use frame_support::{
 	assert_err, assert_noop,
 	traits::{OnIdle, OnInitialize, UnixTime},
@@ -45,7 +44,7 @@ fn new_request() {
 			bounty,
 		);
 
-		let request_info = CallRequest {
+		let expected_request_info = CallRequest {
 			caller,
 			destination,
 			callback_signature,
@@ -53,9 +52,10 @@ fn new_request() {
 			fee_preferences: Some(fee_preferences),
 			bounty,
 			timestamp: <TestRuntime as Config>::UnixTime::now().as_secs(),
+			input_data,
+			expiry_block: (System::block_number() + <TestRuntime as Config>::ChallengePeriod::get()) as u32,
 		};
-		assert_eq!(Requests::get(request_id), Some(request_info),);
-		assert_eq!(RequestInputData::get(request_id), input_data.to_vec());
+		assert_eq!(Requests::get(request_id), Some(expected_request_info));
 		assert_eq!(NextRequestId::get(), request_id + U256::from(1_u32));
 	});
 }
@@ -179,9 +179,10 @@ fn submit_call_response() {
 		let origin = RawOrigin::Signed(relayer);
 		let request_id = RequestId::from(1_u64);
 		let eth_block_number = 100_u64;
+		let expiry_block = 5_u64;
 		let return_data = ReturnDataClaim::Ok([1_u8; 32]);
-		let request = CallRequestBuilder::new().build();
-		Requests::insert(request_id, request);
+		Requests::insert(request_id, CallRequestBuilder::new().expiry_block(expiry_block).build());
+		RequestsExpiredAtBlock::<TestRuntime>::insert(expiry_block, vec![request_id]);
 
 		// Test
 		assert!(EthStateOracle::submit_call_response(origin.into(), request_id, return_data.clone(), 100_u64).is_ok());
@@ -194,6 +195,8 @@ fn submit_call_response() {
 				reporter: relayer,
 			}
 		);
+		// request is no longer marked for expiry
+		assert!(!RequestsExpiredAtBlock::<TestRuntime>::get(expiry_block).contains(&request_id));
 
 		// Scheduled as valid after `ChallengePeriod` blocks (i.e. the optimistic timeframe)
 		let execute_block = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
@@ -259,8 +262,32 @@ fn response_progresses_to_callback() {
 
 		// Test
 		let consumed_weight = EthStateOracle::on_initialize(1);
+
 		assert!(!<ResponsesValidAtBlock<TestRuntime>>::contains_key(ready_block));
 		assert_eq!(ResponsesForCallback::get(), responses);
+		// atleast consumes the weight to remove and rewrite the values
+		assert!(consumed_weight > DbWeight::get().writes(responses.len() as u64));
+	});
+}
+
+#[test]
+fn expired_requests_removed() {
+	ExtBuilder::default().build().execute_with(|| {
+		// on initialize moves callbacks at their scheduled block into a ready state for handling by on_idle
+		let ready_block = 1_u64;
+		let responses = vec![1_u64, 2, 3].iter().map(|x| (*x).into()).collect::<Vec<U256>>();
+		for r in responses.iter() {
+			Requests::insert(*r, CallRequestBuilder::new().build());
+			<RequestsExpiredAtBlock<TestRuntime>>::append(ready_block, *r);
+		}
+
+		// Test
+		let consumed_weight = EthStateOracle::on_initialize(1);
+
+		assert!(!<RequestsExpiredAtBlock<TestRuntime>>::contains_key(ready_block));
+		for r in responses.iter() {
+			assert!(!Requests::contains_key(*r));
+		}
 		// atleast consumes the weight to remove and rewrite the values
 		assert!(consumed_weight > DbWeight::get().writes(responses.len() as u64));
 	});
@@ -296,7 +323,6 @@ fn on_idle() {
 				},
 			);
 			Requests::insert(*i, CallRequestBuilder::new().caller(i.as_u64()).build());
-			RequestInputData::insert(*i, vec![1_u8, 2, 3, 4, 5]);
 		}
 		ResponsesForCallback::put(ready_callbacks.iter().map(|x| x.0).collect::<Vec<RequestId>>());
 
@@ -313,7 +339,6 @@ fn on_idle() {
 		for (r, _) in &ready_callbacks[..2] {
 			assert!(!<Responses<TestRuntime>>::contains_key(*r));
 			assert!(!Requests::contains_key(*r));
-			assert!(!RequestInputData::contains_key(*r));
 		}
 
 		// 3rd callback left for next time
@@ -326,7 +351,6 @@ fn on_idle() {
 
 		assert!(!<Responses<TestRuntime>>::contains_key(RequestId::from(3_u64)));
 		assert!(!Requests::contains_key(RequestId::from(3_u64)));
-		assert!(!RequestInputData::contains_key(RequestId::from(3_u64)));
 
 		// 4th callback left for next time
 		assert!(Requests::contains_key(RequestId::from(4_u64)));
