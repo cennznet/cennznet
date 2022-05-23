@@ -1,4 +1,7 @@
-use crate::{constants::evm::FEE_PROXY, EthStateOracle, Runtime, StateOraclePrecompileAddress};
+use crate::{
+	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY},
+	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Runtime, StateOraclePrecompileAddress, EVM,
+};
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
 use frame_support::{
@@ -10,6 +13,7 @@ use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
+use pallet_evm_precompiles_cennzx::CennzxPrecompile;
 use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_PRECOMPILE_ADDRESS_PREFIX};
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
@@ -30,7 +34,7 @@ where
 	}
 	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
 		// TODO: precompute this
-		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, FEE_PROXY, 27572]
+		sp_std::vec![1, 2, 3, 4, 5, 9, 1024, 1026, CENNZX_PRECOMPILE, FEE_PROXY, 27572]
 			.into_iter()
 			.map(|x| hash(x))
 			.collect()
@@ -65,6 +69,11 @@ where
 			a if a == StateOraclePrecompileAddress::get() => Some(StateOraclePrecompile::<EthStateOracle>::execute(
 				input, target_gas, context, is_static,
 			)),
+			a if a == hash(CENNZX_PRECOMPILE) => Some(CennzxPrecompile::<
+				Cennzx,
+				AddressMappingOf<Runtime>,
+				CENNZnetGasWeightMapping,
+			>::execute(input, target_gas, context, is_static)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
 				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(
 					&Erc721PrecompileSet::<Runtime>::new(),

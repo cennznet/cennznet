@@ -889,6 +889,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
+ "pallet-evm-precompiles-cennzx",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-state-oracle",
@@ -4928,6 +4929,26 @@ dependencies = [
  "ripemd160",
  "sp-core",
  "sp-io",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-cennzx"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-support",
+ "ethabi",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

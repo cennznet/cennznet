@@ -15,7 +15,7 @@
 
 //! Common traits used by CENNZnet node.
 
-use frame_support::dispatch::DispatchError;
+use frame_support::dispatch::{DispatchError, Weight};
 
 /// A trait which enables buying some fee asset using another asset.
 /// It is targeted at the CENNZX Spot exchange and the CennznetExtrinsic format.
@@ -26,7 +26,6 @@ pub trait BuyFeeAsset {
 	type Balance;
 	/// A type with fee payment information
 	type FeeExchange;
-
 	/// Buy `amount` of fee asset for `who` using asset info from `fee_exchange.
 	/// If the purchase has been successful, return Ok with sold amount
 	/// deducting the actual fee in the users's specified asset id, otherwise return Err.
@@ -35,5 +34,27 @@ pub trait BuyFeeAsset {
 		who: &Self::AccountId,
 		amount: Self::Balance,
 		fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError>;
+	/// Returns ~ weight of a `buy_fee_asset` call
+	fn buy_fee_weight() -> Weight;
+}
+
+/// Something that does asset swaps
+pub trait AssetSwap {
+	/// The account identifier type
+	type AccountId;
+	/// The asset identifier type
+	type AssetId;
+	/// The type to denote monetary values
+	type Balance;
+	/// Swap input asset for exact output asset, paying at most the given `max_input` amount
+	/// Optionally, define the `receiver` to receive output tokens
+	fn swap(
+		seller: &Self::AccountId,
+		input_asset: Self::AssetId,
+		max_input: Self::Balance,
+		output_asset: Self::AssetId,
+		amount: Self::AssetId,
+		receiver: &Option<Self::AccountId>,
 	) -> Result<Self::Balance, DispatchError>;
 }
