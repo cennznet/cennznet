@@ -310,7 +310,7 @@ decl_module! {
 			if let Some(response) = Responses::<T>::get(request_id) {
 				let request = Requests::get(request_id).unwrap();
 				let challenge_subscription_id = T::EthCallOracle::call_at(
-					&request.destination,
+					request.destination,
 					request.input_data.as_ref(),
 					request.timestamp,
 				);

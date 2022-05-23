@@ -10,3 +10,5 @@ Other:
 - error codes for request failure in callback
 - unused gas back to caller
 - optimization: appears to be reaping GA account/dust every callback creates
+- [ ] erc20-peg withdraw precompile
+- [ ] cennzx swap precompile
