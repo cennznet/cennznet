@@ -225,7 +225,7 @@ impl MockEthereumRpcClient {
 impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	/// Returns an ethereum block given a block height
 	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
-		let mock_block_response: MockBlockResponse = match block_number {
+		let mock_block_response = match block_number {
 			LatestOrNumber::Latest => {
 				let mut highest_block = 0;
 				let block_responses = test_storage::BlockResponseAt::iter();
@@ -234,16 +234,14 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 						highest_block = block.0;
 					}
 				}
-				test_storage::BlockResponseAt::get(highest_block).unwrap()
+				test_storage::BlockResponseAt::get(highest_block)
 			}
-			LatestOrNumber::Number(block) => {
-				let mock_block_response = test_storage::BlockResponseAt::get(block);
-				if mock_block_response.is_none() {
-					return Ok(None);
-				}
-				mock_block_response.unwrap()
-			}
+			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
 		};
+		if mock_block_response.is_none() {
+			return Ok(None);
+		}
+		let mock_block_response = mock_block_response.unwrap();
 
 		let eth_block = EthBlock {
 			number: Some(U64::from(mock_block_response.block_number)),
