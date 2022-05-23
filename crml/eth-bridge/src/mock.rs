@@ -16,7 +16,9 @@
 use crate::{
 	self as crml_eth_bridge,
 	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
-	types::{BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, TransactionReceipt},
+	types::{
+		BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, Log, TransactionReceipt,
+	},
 	Config,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
@@ -277,6 +279,9 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 			..Default::default()
 		};
 		Ok(Some(transaction_receipt))
+	}
+	fn eth_call(_target: EthAddress, _input: &[u8], _at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
+		unimplemented!()
 	}
 }
 

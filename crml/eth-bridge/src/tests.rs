@@ -14,22 +14,17 @@
 */
 
 use crate::{
-	mock::{AccountId, EthBridge, ExtBuilder, MockWithdrawMessage, Origin, System, TestRuntime},
-	types::{
-		BridgeEthereumRpcApi, EthAddress, EthBlock, EthHash, EthHash, EventClaim, EventClaimResult, EventProofId,
-		LatestOrNumber, TransactionReceipt,
-	},
+	mock::*,
+	types::{EthAddress, EthBlock, EthHash, EventClaim, EventClaimResult, EventProofId, TransactionReceipt},
 	BridgePaused, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S, CLAIM_PRUNING_INTERVAL,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
 use crml_support::{EthAbiCodec, EventClaimVerifier, H160, U256};
-use ethereum_types::U64;
-use frame_support::traits::UnixTime;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
 	storage::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue},
-	traits::{OnInitialize, OneSessionHandler},
+	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{
@@ -667,7 +662,7 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		};
 
 		// Set event confirmations to 0 so it doesn't fail early
-		Module::<TestRuntime>::set_event_confirmations(frame_system::RawOrigin::Root.into(), 0);
+		let _ = Module::<TestRuntime>::set_event_confirmations(frame_system::RawOrigin::Root.into(), 0);
 		assert_eq!(
 			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
 			EventClaimResult::DataProviderErr
