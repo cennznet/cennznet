@@ -14,21 +14,54 @@
 */
 
 use crate::{
-	mock::{AccountId, EthBridge, ExtBuilder, MockWithdrawMessage, Origin, System, TestRuntime},
-	types::{EthHash, EventProofId},
+	mock::*,
+	types::{EthAddress, EthBlock, EthHash, EventClaim, EventClaimResult, EventProofId, TransactionReceipt},
 	BridgePaused, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S, CLAIM_PRUNING_INTERVAL,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
-use crml_support::{EthAbiCodec, EventClaimVerifier, H160};
+use crml_support::{EthAbiCodec, EventClaimVerifier, H160, U256};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
 	storage::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue},
-	traits::{OnInitialize, OneSessionHandler},
+	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use sp_core::{Public, H256};
-use sp_runtime::traits::Zero;
+use sp_core::{
+	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
+	Public, H256,
+};
+use sp_runtime::{offchain::StorageKind, traits::Zero, SaturatedConversion};
+
+// Mocks an Eth block for when get_block_by_number is called
+// The latest block will be the highest block mocked
+fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
+	let mock_block = MockBlockBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.timestamp(timestamp)
+		.build();
+
+	MockEthereumRpcClient::mock_block_response_at(block_number.saturated_into(), mock_block.clone());
+	mock_block
+}
+
+fn create_transaction_receipt_mock(
+	block_number: u64,
+	block_hash: H256,
+	tx_hash: EthHash,
+	contract_address: EthAddress,
+) -> TransactionReceipt {
+	let mock_tx_receipt = MockReceiptBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.transaction_hash(tx_hash)
+		.contract_address(contract_address)
+		.build();
+
+	MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+	mock_tx_receipt
+}
 
 #[test]
 fn tracks_pending_claims() {
@@ -97,6 +130,40 @@ fn last_session_change() {
 		assert_eq!(Module::<TestRuntime>::notary_set_id(), current_set_id + 1);
 		assert!(!Module::<TestRuntime>::bridge_paused());
 	});
+}
+
+#[test]
+fn eth_client_http_request() {
+	let (offchain, offchain_state) = testing::TestOffchainExt::new();
+	let mut t = sp_io::TestExternalities::default();
+	t.register_extension(OffchainDbExt::new(offchain.clone()));
+	t.register_extension(OffchainWorkerExt::new(offchain));
+	// Set the ethereum http endpoint for OCW queries
+	t.execute_with(|| sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, b"ETH_HTTP", &MOCK_ETH_HTTP_URI));
+
+	// Setup
+	// Mock an ethereum JSON-RPC response
+	let request_body = TestRequest {
+		message: "hello ethereum".to_string(),
+	};
+	let request_body_raw = serde_json::to_string(&request_body).unwrap();
+	{
+		let mut offchain_state = offchain_state.write();
+		offchain_state.expect_request(testing::PendingRequest {
+			method: "POST".into(),
+			uri: core::str::from_utf8(&MOCK_ETH_HTTP_URI)
+				.expect("valid utf8")
+				.to_string(),
+			body: request_body_raw.as_bytes().to_vec(),
+			response: Some(br#"{"message":"hello cennznet"}"#.to_vec()),
+			headers: vec![
+				("Content-Type".to_string(), "application/json".to_string()),
+				("Content-Length".to_string(), request_body_raw.len().to_string()),
+			],
+			sent: true,
+			..Default::default()
+		});
+	}
 }
 
 #[test]
@@ -386,3 +453,228 @@ fn set_delayed_event_proofs_per_block_not_root_should_fail() {
 		assert_eq!(Module::<TestRuntime>::delayed_event_proofs_per_block(), 5);
 	});
 }
+
+#[test]
+fn offchain_try_notarize_event() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::Valid
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_tx_receipt_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_claim = EventClaim {
+			tx_hash: H256::from_low_u64_be(222),
+			data: vec![],
+			contract_address: H160::from_low_u64_be(333),
+			event_signature: Default::default(),
+		};
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::NoTxLogs
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_status_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+		let mock_tx_receipt = MockReceiptBuilder::new()
+			.block_number(10)
+			.block_hash(H256::from_low_u64_be(111))
+			.transaction_hash(tx_hash)
+			.contract_address(contract_address)
+			.status(0)
+			.build();
+
+		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::TxStatusFailed
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_unexpected_contract_address_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		// Create event claim with different contract address to tx_receipt
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address: H160::from_low_u64_be(444),
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::UnexpectedContractAddress
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_block_number_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::DataProviderErr
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_confirmations_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::NotEnoughConfirmations
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_expired_confirmation_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(0);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::Expired
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_observed_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number + 1, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		// Set event confirmations to 0 so it doesn't fail early
+		let _ = Module::<TestRuntime>::set_event_confirmations(frame_system::RawOrigin::Root.into(), 0);
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::DataProviderErr
+		);
+	});
+}
+
+#[test]
+fn prunes_expired_events() {}
+
+#[test]
+fn double_claim_fails() {}
+
+#[test]
+fn invalid_notarization_fails() {}

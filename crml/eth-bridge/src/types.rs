@@ -191,7 +191,7 @@ pub struct TransactionReceipt {
 /// Standard Eth block type
 ///
 /// NB: for the bridge we only need the `timestamp` however the only RPCs available require fetching the whole block
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Default)]
 pub struct EthBlock {
 	pub number: Option<U64>,
 	pub hash: Option<H256>,
