@@ -39,12 +39,11 @@ use sp_runtime::offchain::StorageKind;
 use sp_runtime::SaturatedConversion;
 
 fn create_latest_block_mock(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
-	let mock_block = EthBlock {
-		number: Some(U64::from(block_number)),
-		hash: Some(block_hash),
-		timestamp,
-		..Default::default()
-	};
+	let mock_block = MockBlockBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.timestamp(timestamp)
+		.build();
 
 	MockEthereumRpcClient::mock_block_response_at(block_number.saturated_into(), mock_block.clone());
 	mock_block
@@ -54,16 +53,14 @@ fn create_transaction_receipt_mock(
 	block_number: u64,
 	block_hash: H256,
 	tx_hash: EthHash,
-	contract_address: Option<EthAddress>,
+	contract_address: EthAddress,
 ) -> TransactionReceipt {
-	let mock_tx_receipt = TransactionReceipt {
-		block_hash,
-		block_number: U64::from(block_number),
-		status: Some(U64::from(1)),
-		transaction_hash: tx_hash,
-		contract_address,
-		..Default::default()
-	};
+	let mock_tx_receipt = MockReceiptBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.transaction_hash(tx_hash)
+		.contract_address(contract_address)
+		.build();
 
 	MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
 	mock_tx_receipt
@@ -384,8 +381,7 @@ fn offchain_try_notarize_event_with_mock() {
 		let _mock_block_1 = create_latest_block_mock(block_number, block_hash, timestamp);
 		let _mock_block_2 = create_latest_block_mock(block_number + 5, block_hash, timestamp);
 
-		let _mock_tx_receipt =
-			create_transaction_receipt_mock(block_number, block_hash, tx_hash, Some(contract_address));
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,

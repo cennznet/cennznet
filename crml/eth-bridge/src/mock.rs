@@ -120,6 +120,63 @@ pub struct MockReceiptResponse {
 	pub contract_address: Option<EthAddress>,
 }
 
+pub(crate) struct MockBlockBuilder(EthBlock);
+
+impl MockBlockBuilder {
+	pub fn new() -> Self {
+		MockBlockBuilder(EthBlock::default())
+	}
+	pub fn build(&self) -> EthBlock {
+		self.0.clone()
+	}
+	pub fn block_hash(&mut self, block_hash: H256) -> &mut Self {
+		self.0.hash = Some(block_hash);
+		self
+	}
+	pub fn block_number(&mut self, block_number: u64) -> &mut Self {
+		self.0.number = Some(U64::from(block_number));
+		self
+	}
+	pub fn timestamp(&mut self, timestamp: U256) -> &mut Self {
+		self.0.timestamp = timestamp;
+		self
+	}
+}
+
+pub(crate) struct MockReceiptBuilder(TransactionReceipt);
+
+impl MockReceiptBuilder {
+	pub fn new() -> Self {
+		MockReceiptBuilder(TransactionReceipt {
+			status: Some(U64::from(1)),
+			..Default::default()
+		})
+	}
+	pub fn build(&self) -> TransactionReceipt {
+		self.0.clone()
+	}
+	pub fn block_hash(&mut self, block_hash: H256) -> &mut Self {
+		self.0.block_hash = block_hash;
+		self
+	}
+	pub fn block_number(&mut self, block_number: u64) -> &mut Self {
+		self.0.block_number = U64::from(block_number);
+		self
+	}
+	pub fn status(&mut self, status: u64) -> &mut Self {
+		self.0.status = Some(U64::from(status));
+		self
+	}
+	pub fn transaction_hash(&mut self, tx_hash: H256) -> &mut Self {
+		self.0.transaction_hash = tx_hash;
+		self
+	}
+	pub fn contract_address(&mut self, contract_address: EthAddress) -> &mut Self {
+		self.0.contract_address = Some(contract_address);
+		self
+	}
+}
+
 pub(crate) mod test_storage {
 	//! storage used by tests
 	use super::{MockBlockResponse, MockReceiptResponse};
