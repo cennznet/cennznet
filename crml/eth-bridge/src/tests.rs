@@ -38,7 +38,9 @@ use sp_core::{
 use sp_runtime::offchain::StorageKind;
 use sp_runtime::SaturatedConversion;
 
-fn create_latest_block_mock(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
+// Mocks an Eth block for when get_block_by_number is called
+// The latest block will be the highest block mocked
+fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
 	let mock_block = MockBlockBuilder::new()
 		.block_number(block_number)
 		.block_hash(block_hash)
@@ -368,7 +370,7 @@ fn set_delayed_event_proofs_per_block_not_root_should_fail() {
 }
 
 #[test]
-fn offchain_try_notarize_event_with_mock() {
+fn offchain_try_notarize_event() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock block response and transaction receipt
 		let block_number = 10;
@@ -378,8 +380,8 @@ fn offchain_try_notarize_event_with_mock() {
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = create_latest_block_mock(block_number, block_hash, timestamp);
-		let _mock_block_2 = create_latest_block_mock(block_number + 5, block_hash, timestamp);
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
@@ -454,11 +456,11 @@ fn offchain_try_notarize_event_unexpected_contract_address_should_fail() {
 		// Create block info for both the transaction block and a later block
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
-		// Create event claim with different contraxt address to tx_receipt
+		// Create event claim with different contract address to tx_receipt
 		let event_claim = EventClaim {
 			tx_hash,
 			data: vec![],
-			contract_address: H160::default(),
+			contract_address: H160::from_low_u64_be(444),
 			event_signature: Default::default(),
 		};
 
@@ -506,8 +508,8 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = create_latest_block_mock(block_number, block_hash, timestamp);
-		let _mock_block_2 = create_latest_block_mock(block_number, block_hash, timestamp);
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number, block_hash, timestamp);
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
@@ -535,8 +537,8 @@ fn offchain_try_notarize_event_expired_confirmation_should_fail() {
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = create_latest_block_mock(block_number, block_hash, timestamp);
-		let _mock_block_2 = create_latest_block_mock(block_number + 5, block_hash, timestamp);
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
@@ -564,7 +566,7 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = create_latest_block_mock(block_number, block_hash, timestamp);
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number + 1, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
