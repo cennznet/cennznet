@@ -14,9 +14,9 @@
 */
 use cennznet_primitives::types::{Balance, FeePreferences};
 use codec::{Decode, Encode};
-pub use crml_support::{H160 as EthAddress, H256, U256};
+pub use crml_support::{ReturnDataClaim, H160 as EthAddress, H256, U256};
 use scale_info::TypeInfo;
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::prelude::*;
 
 /// Identifies remote call challenges
 pub type ChallengeId = u64;
@@ -46,18 +46,10 @@ pub struct CallRequest {
 /// Reported response of an executed remote call
 #[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
 pub struct CallResponse<AccountId> {
-	/// The call 'returndata'
-	/// It is solidity abi encoded as `bytes32` i.e 0 padded right or truncated to 32 bytes
-	pub return_data: [u8; 32],
+	/// The 'returndata' state as claimed by `reporter`
+	pub return_data: ReturnDataClaim,
 	/// The ethereum block number where the result was recorded
 	pub eth_block_number: u64,
 	/// Address of the relayer that reported this
 	pub reporter: AccountId,
-}
-
-/// Infallibly transforms input vec into an ethereum abi encoded `bytes32`
-pub fn return_data_to_bytes32(raw: Vec<u8>) -> [u8; 32] {
-	let mut x = raw.clone();
-	x.resize(32, 0_u8);
-	return x.as_slice().try_into().unwrap();
 }

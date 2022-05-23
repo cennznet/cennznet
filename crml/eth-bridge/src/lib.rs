@@ -13,9 +13,17 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! CENNZnet Eth Bridge
+//! CENNZnet Eth Bridge 🌉
 //!
-//! Module for witnessing/notarizing events on the Ethereum blockchain
+//! This pallet defines notarization protocols for CENNZnet validators to agree on values from a bridged Ethereum chain (Ethereum JSON-RPC compliant),
+//! and conversely, generate proofs of events that have occurred on CENNZnet.
+//!
+//! The proofs are a collection of signatures which can be verified by a bridged contract on Ethereum with awareness of the
+//! current validator set.
+//!
+//! There are types of Ethereum values the bridge can verify:
+//! 1) verify a transaction hash exists that executed a specific contract producing a specific event log
+//! 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
 //! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
@@ -207,35 +215,42 @@ decl_error! {
 
 decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+		type Error = Error<T>;
+
 		fn deposit_event() = default;
 
+		/// This method schedules 2 different processes
+		/// 1) pruning expired transactions hashes from state every `CLAIM_PRUNING_INTERVAL` blocks
+		/// 2) processing any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
-			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
+			let mut weight = 0 as Weight;
+
+			// 1) Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-				let expired_bucket_index = (now - Self::event_deadline_seconds()) % BUCKET_FACTOR_S;
+				weight += DbWeight::get().reads(1 as Weight);
+				let expired_bucket_index = (now % Self::event_deadline_seconds()) / BUCKET_FACTOR_S;
+				let mut removed_count = 0;
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
+					removed_count += 1;
 				}
 				ProcessedTxBuckets::remove_prefix(expired_bucket_index, None);
-
-				// TODO: better estimate
-				weight += 50_000_000 as Weight;
+				weight += DbWeight::get().writes(2 * removed_count as Weight);
 			}
 
-			if DelayedEventProofs::iter().next().is_none() {
-				return weight;
-			}
-			if !Self::bridge_paused() {
+			// 2) Try process delayed proofs
+			weight += DbWeight::get().reads(2 as Weight);
+			if DelayedEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
-				weight = weight.saturating_add(DbWeight::get().reads(2 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				weight = weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
 				for (event_proof_id, packed_event_with_id) in DelayedEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 					DelayedEventProofs::remove(event_proof_id);
 				}
 			}
+
 			weight
 		}
 
@@ -324,7 +339,9 @@ decl_module! {
 				let event_data = event_data.unwrap();
 
 				// note this tx as completed
-				let bucket_index = T::UnixTime::now().as_secs().saturated_into::<u64>() % BUCKET_FACTOR_S;
+				let ttl = Self::event_deadline_seconds();
+				// calculate future expiry timestamp and bucket
+				let bucket_index = ((T::UnixTime::now().as_secs().saturated_into::<u64>() + ttl) % ttl) / BUCKET_FACTOR_S;
 				ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
 				ProcessedTxHashes::insert(eth_tx_hash, ());
 				PendingTxHashes::remove(eth_tx_hash);

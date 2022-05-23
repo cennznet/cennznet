@@ -78,6 +78,7 @@ decl_storage! {
 decl_module! {
 	/// The module declaration.
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+		type Error = Error<T>;
 		/// Set approval for a single NFT
 		/// Mapping from token_id to operator
 		/// clears approval on transfer

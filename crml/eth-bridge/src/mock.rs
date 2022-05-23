@@ -13,10 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate as crml_eth_bridge;
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap};
-use crate::types::{BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, Log, TransactionReceipt};
-use crate::{types::BridgeEthereumRpcApi, Config};
+use crate::{
+	self as crml_eth_bridge,
+	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
+	types::{BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, TransactionReceipt},
+	Config,
+};
 use cennznet_primitives::eth::crypto::AuthorityId;
 use codec::{Decode, Encode};
 use crml_support::{
@@ -329,13 +331,11 @@ impl NotarizationRewardHandler for MockRewardHandler {
 	}
 }
 
-/// Returns the current system time
+/// Returns a fake timestamp based on the current block number
 pub struct MockUnixTime;
 impl UnixTime for MockUnixTime {
 	fn now() -> core::time::Duration {
-		std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap()
+		core::time::Duration::new(System::block_number() * 5, 0)
 	}
 }
 
