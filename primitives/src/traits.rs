@@ -1,4 +1,4 @@
-/* Copyright 2019-2021 Centrality Investments Limited
+
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -37,24 +37,4 @@ pub trait BuyFeeAsset {
 	) -> Result<Self::Balance, DispatchError>;
 	/// Returns ~ weight of a `buy_fee_asset` call
 	fn buy_fee_weight() -> Weight;
-}
-
-/// Something that does asset swaps
-pub trait AssetSwap {
-	/// The account identifier type
-	type AccountId;
-	/// The asset identifier type
-	type AssetId;
-	/// The type to denote monetary values
-	type Balance;
-	/// Swap input asset for exact output asset, paying at most the given `max_input` amount
-	/// Optionally, define the `receiver` to receive output tokens
-	fn swap(
-		seller: &Self::AccountId,
-		input_asset: Self::AssetId,
-		max_input: Self::Balance,
-		output_asset: Self::AssetId,
-		amount: Self::AssetId,
-		receiver: &Option<Self::AccountId>,
-	) -> Result<Self::Balance, DispatchError>;
 }
