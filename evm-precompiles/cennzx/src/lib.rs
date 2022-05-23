@@ -24,7 +24,7 @@ use cennznet_primitives::{
 use fp_evm::{Context, ExitSucceed, PrecompileFailure, PrecompileOutput};
 use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
 use precompile_utils::{EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer};
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 use sp_runtime::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
@@ -109,7 +109,7 @@ where
 			PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
 				output: alloc::format!("swap failed: {:?}", err.stripped()).as_bytes().to_vec(),
-				cost: 10_u64,
+				cost: 0_u64,
 			}
 		})?;
 
@@ -121,13 +121,4 @@ where
 			logs: Default::default(),
 		})
 	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use cennznet_primitives::types::Balance;
-	use ethabi::Token;
-	use fp_evm::{ExitError, PrecompileFailure};
-	use frame_support::assert_err;
 }
