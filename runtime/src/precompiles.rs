@@ -1,7 +1,6 @@
 use crate::{
 	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY},
-	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, Origin, EthStateOracle, Runtime,
-	StateOraclePrecompileAddress,
+	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime, StateOraclePrecompileAddress,
 };
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
