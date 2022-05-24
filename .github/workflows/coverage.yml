@@ -26,6 +26,7 @@ jobs:
       - name: Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
+          run-types: 'Tests'
           args: '-- --avoid-cfg-tarpaulin --skip-clean --workspace --locked'
       # upload coverage info
       - name: Coverage
