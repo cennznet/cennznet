@@ -104,7 +104,7 @@ use impls::{
 	SlashFundsToTreasury, WeightToCpayFee,
 };
 
-mod precompiles;
+pub mod precompiles;
 use precompiles::{CENNZnetPrecompiles, StateOracleCallbackExecutor};
 
 pub mod runner;
