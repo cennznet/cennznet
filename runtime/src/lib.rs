@@ -613,6 +613,8 @@ parameter_types! {
 impl crml_eth_bridge::Config for Runtime {
 	/// The identifier type for an offchain worker.
 	type EthyId = EthBridgeId;
+	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
+	type EthereumRpcClient = crml_eth_bridge::EthereumRpcClient;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
 	/// Reports the current validator / notary set

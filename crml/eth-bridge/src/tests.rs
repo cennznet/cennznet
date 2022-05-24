@@ -13,237 +13,57 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use super::BridgePaused;
-use crate as crml_eth_bridge;
-use crate::{types::EventProofId, Config, Error, Module};
-use cennznet_primitives::eth::crypto::AuthorityId;
-use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker, NotarizationRewardHandler, H160,
-	H256 as H256Crml,
+use crate::{
+	mock::*,
+	types::{EthAddress, EthBlock, EthHash, EventClaim, EventClaimResult, EventProofId, TransactionReceipt},
+	BridgePaused, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S, CLAIM_PRUNING_INTERVAL,
 };
+use cennznet_primitives::eth::crypto::AuthorityId;
+use crml_support::{EthAbiCodec, EventClaimVerifier, H160, U256};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
-	parameter_types,
-	storage::StorageValue,
-	traits::{OnInitialize, OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	storage::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue},
+	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{
-	ecdsa::Signature,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
 	Public, H256,
 };
-use sp_runtime::offchain::StorageKind;
-use sp_runtime::{
-	testing::{Header, TestXt},
-	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
-	Percent,
-};
-use std::marker::PhantomData;
+use sp_runtime::{offchain::StorageKind, traits::Zero, SaturatedConversion};
 
-type SessionIndex = u32;
-type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+/// Mocks an Eth block for when get_block_by_number is called
+/// Adds this to the mock storage
+/// The latest block will be the highest block stored
+fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
+	let mock_block = MockBlockBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.timestamp(timestamp)
+		.build();
 
-type Extrinsic = TestXt<Call, ()>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-type Block = frame_system::mocking::MockBlock<TestRuntime>;
-
-frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
-	}
-);
-
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for TestRuntime {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Call = Call;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type Event = Event;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
+	MockEthereumRpcClient::mock_block_response_at(block_number.saturated_into(), mock_block.clone());
+	mock_block
 }
 
-parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
-	pub const NotarizationThreshold: Percent = Percent::from_parts(66_u8);
-}
-impl Config for TestRuntime {
-	type AuthoritySet = MockValidatorSet;
-	type FinalSessionTracker = MockFinalSessionTracker;
-	type EthyId = AuthorityId;
-	type NotarizationThreshold = NotarizationThreshold;
-	type RewardHandler = MockRewardHandler;
-	type Subscribers = MockClaimSubscriber;
-	type UnixTime = MockUnixTime;
-	type Call = Call;
-	type Event = Event;
-}
+/// Mocks a TransactionReceipt for when get_transaction_receipt is called
+/// Adds this to the mock storage
+fn create_transaction_receipt_mock(
+	block_number: u64,
+	block_hash: H256,
+	tx_hash: EthHash,
+	contract_address: EthAddress,
+) -> TransactionReceipt {
+	let mock_tx_receipt = MockReceiptBuilder::new()
+		.block_number(block_number)
+		.block_hash(block_hash)
+		.transaction_hash(tx_hash)
+		.contract_address(contract_address)
+		.build();
 
-pub struct NoopConverter<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for NoopConverter<T> {
-	fn convert(address: T::AccountId) -> Option<T::AccountId> {
-		Some(address)
-	}
-}
-
-pub struct MockValidatorSet;
-impl ValidatorSetT<AccountId> for MockValidatorSet {
-	type ValidatorId = AccountId;
-	type ValidatorIdOf = NoopConverter<TestRuntime>;
-	/// Returns current session index.
-	fn session_index() -> SessionIndex {
-		1
-	}
-	/// Returns the active set of validators.
-	fn validators() -> Vec<Self::ValidatorId> {
-		Default::default()
-	}
-}
-
-pub struct MockClaimSubscriber;
-impl EventClaimSubscriber for MockClaimSubscriber {
-	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(_event_claim_id: u64, _contract_address: &H160, _event_signature: &H256Crml, _event_data: &[u8]) {}
-	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(_event_claim_id: u64, _contract_address: &H160, _event_signature: &H256Crml, _event_data: &[u8]) {}
-}
-
-/// Mock final session tracker
-pub struct MockFinalSessionTracker;
-impl FinalSessionTracker for MockFinalSessionTracker {
-	fn is_next_session_final() -> (bool, bool) {
-		// at block 1, next session is final
-		(frame_system::Pallet::<TestRuntime>::block_number() == 1, false)
-	}
-	fn is_active_session_final() -> bool {
-		// at block 2, the active session is final
-		frame_system::Pallet::<TestRuntime>::block_number() == 2
-	}
-}
-
-/// Returns the current system time
-pub struct MockRewardHandler;
-impl NotarizationRewardHandler for MockRewardHandler {
-	type AccountId = AccountId;
-	fn reward_notary(_notary: &Self::AccountId) {
-		// Do nothing
-	}
-}
-
-/// Returns the current system time
-pub struct MockUnixTime;
-impl UnixTime for MockUnixTime {
-	fn now() -> core::time::Duration {
-		std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap()
-	}
-}
-
-impl frame_system::offchain::SigningTypes for TestRuntime {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
-where
-	Call: From<C>,
-{
-	type OverarchingCall = Call;
-	type Extrinsic = Extrinsic;
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
-where
-	Call: From<LocalCall>,
-{
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
-		_public: <Signature as Verify>::Signer,
-		_account: AccountId,
-		nonce: u64,
-	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
-	}
-}
-
-// Mock withdraw message from ERC20-Peg
-struct MockWithdrawMessage<TestRuntime>(PhantomData<TestRuntime>);
-
-impl EthAbiCodec for MockWithdrawMessage<TestRuntime> {
-	fn encode(&self) -> Vec<u8> {
-		[0_u8; 32 * 3].to_vec()
-	}
-
-	fn decode(_data: &[u8]) -> Option<Self> {
-		unimplemented!();
-	}
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct ExtBuilder {
-	next_session_final: bool,
-	active_session_final: bool,
-}
-
-impl ExtBuilder {
-	pub fn active_session_final(&mut self) -> &mut Self {
-		self.active_session_final = true;
-		self
-	}
-	pub fn next_session_final(&mut self) -> &mut Self {
-		self.next_session_final = true;
-		self
-	}
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap()
-			.into();
-		if self.next_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
-		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(2));
-		}
-
-		ext
-	}
-}
-
-/// Mock eth-http endpoint
-const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
-
-/// Test request
-#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
-struct TestRequest {
-	message: String,
+	MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+	mock_tx_receipt
 }
 
 #[test]
@@ -315,6 +135,7 @@ fn last_session_change() {
 	});
 }
 
+#[ignore]
 #[test]
 fn eth_client_http_request() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -347,17 +168,6 @@ fn eth_client_http_request() {
 			..Default::default()
 		});
 	}
-
-	// Test
-	t.execute_with(|| {
-		let response = Module::<TestRuntime>::query_eth_client(request_body).expect("got response");
-		assert_eq!(
-			serde_json::from_slice::<'_, TestRequest>(response.as_slice()).unwrap(),
-			TestRequest {
-				message: "hello cennznet".to_string()
-			}
-		);
-	})
 }
 
 #[test]
@@ -372,10 +182,10 @@ fn generate_event_proof() {
 		// Ensure event has not been added to delayed claims
 		assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_proof_id), None);
 		assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
-		// On initialize should return 0 weight as there are no pending proofs
+		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(1 as Weight)
+			DbWeight::get().reads(2 as Weight)
 		);
 	});
 }
@@ -416,6 +226,96 @@ fn delayed_event_proof() {
 		);
 		// Ensure event has been removed from delayed claims
 		assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_proof_id), None);
+	});
+}
+
+#[test]
+fn on_initialize_prunes_expired_tx_hashes() {
+	ExtBuilder::default().build().execute_with(|| {
+		// setup 2 buckets of txs
+		// check the buckets are removed only when block + timestamp says they're expired
+		// it prunes correct tx bucket
+		// it prunes correct tx hashes
+		let bucket_0 = 0;
+		let tx_1_bucket_0 = EthHash::from_low_u64_be(1u64);
+		let tx_2_bucket_0 = EthHash::from_low_u64_be(2u64);
+		ProcessedTxBuckets::insert(bucket_0, tx_1_bucket_0, ());
+		ProcessedTxBuckets::insert(bucket_0, tx_2_bucket_0, ());
+		ProcessedTxHashes::insert(tx_1_bucket_0, ());
+		ProcessedTxHashes::insert(tx_2_bucket_0, ());
+
+		let bucket_1 = 1;
+		let tx_1_bucket_1 = EthHash::from_low_u64_be(1_1u64);
+		let tx_2_bucket_1 = EthHash::from_low_u64_be(1_2u64);
+		ProcessedTxBuckets::insert(bucket_1, tx_1_bucket_1, ());
+		ProcessedTxBuckets::insert(bucket_1, tx_2_bucket_1, ());
+		ProcessedTxHashes::insert(tx_1_bucket_1, ());
+		ProcessedTxHashes::insert(tx_2_bucket_1, ());
+
+		let bucket_2 = 2;
+		let tx_1_bucket_2 = EthHash::from_low_u64_be(2_1u64);
+		ProcessedTxBuckets::insert(bucket_2, tx_1_bucket_2, ());
+		ProcessedTxHashes::insert(tx_1_bucket_2, ());
+
+		// configure tx expiry after 24 hours
+		let event_deadline = 60 * 60 * 24;
+		let _ = EthBridge::set_event_deadline(Origin::root(), event_deadline);
+		// this will trigger 1st tx hash pruning
+		let n_buckets = event_deadline / BUCKET_FACTOR_S;
+		// blocks per event deadline / block time / n_buckets
+		let blocks_per_bucket = event_deadline / 5 / n_buckets;
+
+		// Test
+		// prune bucket 0
+		let expire_bucket_0_block = 0_u64;
+		System::set_block_number(expire_bucket_0_block); // set block number updates the block timestamp provided by `MockUnixTime`
+		let _ = EthBridge::on_initialize(expire_bucket_0_block);
+
+		assert!(ProcessedTxBuckets::iter_prefix(bucket_0).count().is_zero());
+		assert!(!ProcessedTxHashes::contains_key(tx_1_bucket_0));
+		assert!(!ProcessedTxHashes::contains_key(tx_1_bucket_0));
+		// other buckets untouched
+		assert_eq!(ProcessedTxBuckets::iter_prefix(bucket_1).count(), 2_usize);
+		assert!(ProcessedTxHashes::contains_key(tx_1_bucket_1));
+		assert!(ProcessedTxHashes::contains_key(tx_2_bucket_1));
+		assert_eq!(ProcessedTxBuckets::iter_prefix(bucket_2).count(), 1_usize);
+		assert!(ProcessedTxHashes::contains_key(tx_1_bucket_2));
+
+		// prune bucket 1
+		let expire_bucket_1_block = CLAIM_PRUNING_INTERVAL as u64;
+		System::set_block_number(expire_bucket_1_block);
+		EthBridge::on_initialize(expire_bucket_1_block);
+
+		assert!(ProcessedTxBuckets::iter_prefix(bucket_1).count().is_zero());
+		assert!(!ProcessedTxHashes::contains_key(tx_1_bucket_1));
+		assert!(!ProcessedTxHashes::contains_key(tx_2_bucket_1));
+		// other buckets untouched
+		assert_eq!(ProcessedTxBuckets::iter_prefix(bucket_2).count(), 1_usize);
+		assert!(ProcessedTxHashes::contains_key(tx_1_bucket_2));
+
+		// prune bucket 2
+		let expire_bucket_2_block = blocks_per_bucket + CLAIM_PRUNING_INTERVAL as u64;
+		System::set_block_number(expire_bucket_2_block);
+		EthBridge::on_initialize(expire_bucket_2_block);
+
+		assert!(ProcessedTxBuckets::iter_prefix(bucket_2).count().is_zero());
+		assert!(!ProcessedTxHashes::contains_key(tx_1_bucket_2));
+
+		// after `event_deadline` has elapsed, bucket index resets to 0
+		let tx_1_bucket_0 = EthHash::from_low_u64_be(1u64);
+		let tx_2_bucket_0 = EthHash::from_low_u64_be(2u64);
+		ProcessedTxBuckets::insert(bucket_0, tx_1_bucket_0, ());
+		ProcessedTxBuckets::insert(bucket_0, tx_2_bucket_0, ());
+		ProcessedTxHashes::insert(tx_1_bucket_0, ());
+		ProcessedTxHashes::insert(tx_2_bucket_0, ());
+
+		// prune bucket 0 again
+		let expire_bucket_0_again_block = blocks_per_bucket * n_buckets;
+		System::set_block_number(expire_bucket_0_again_block);
+		EthBridge::on_initialize(expire_bucket_0_again_block);
+		assert!(ProcessedTxBuckets::iter_prefix(bucket_0).count().is_zero());
+		assert!(!ProcessedTxHashes::contains_key(tx_1_bucket_0));
+		assert!(!ProcessedTxHashes::contains_key(tx_2_bucket_0));
 	});
 }
 
@@ -461,7 +361,7 @@ fn multiple_delayed_event_proof() {
 		let mut removed_count = 0;
 		for i in 0..event_count {
 			// Ensure event has been removed from delayed claims
-			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]) == None {
+			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]).is_none() {
 				removed_count += 1;
 			} else {
 				assert_eq!(
@@ -482,7 +382,7 @@ fn multiple_delayed_event_proof() {
 		let mut removed_count = 0;
 		for i in 0..event_count {
 			// Ensure event has been removed from delayed claims
-			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]) == None {
+			if Module::<TestRuntime>::delayed_event_proofs(event_ids[i as usize]).is_none() {
 				removed_count += 1;
 			}
 		}
@@ -555,6 +455,224 @@ fn set_delayed_event_proofs_per_block_not_root_should_fail() {
 			DispatchError::BadOrigin
 		);
 		assert_eq!(Module::<TestRuntime>::delayed_event_proofs_per_block(), 5);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::Valid
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_tx_receipt_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_claim = EventClaim {
+			tx_hash: H256::from_low_u64_be(222),
+			data: vec![],
+			contract_address: H160::from_low_u64_be(333),
+			event_signature: Default::default(),
+		};
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::NoTxLogs
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_status_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+		let mock_tx_receipt = MockReceiptBuilder::new()
+			.block_number(10)
+			.block_hash(H256::from_low_u64_be(111))
+			.transaction_hash(tx_hash)
+			.contract_address(contract_address)
+			.status(0)
+			.build();
+
+		// Create mock info for transaction receipt
+		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::TxStatusFailed
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_unexpected_contract_address_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create mock info for transaction receipt
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		// Create event claim with different contract address to tx_receipt
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address: H160::from_low_u64_be(444),
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::UnexpectedContractAddress
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_block_number_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create mock info for transaction receipt
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::DataProviderErr
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_confirmations_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::NotEnoughConfirmations
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_expired_confirmation_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1_000_000);
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(0);
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::Expired
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_observed_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let block_hash: H256 = H256::from_low_u64_be(111);
+		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash: EthHash = H256::from_low_u64_be(222);
+		let contract_address: EthAddress = H160::from_low_u64_be(333);
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number + 1, block_hash, tx_hash, contract_address);
+
+		let event_claim = EventClaim {
+			tx_hash,
+			data: vec![],
+			contract_address,
+			event_signature: Default::default(),
+		};
+
+		// Set event confirmations to 0 so it doesn't fail early
+		let _ = Module::<TestRuntime>::set_event_confirmations(frame_system::RawOrigin::Root.into(), 0);
+		assert_eq!(
+			Module::<TestRuntime>::offchain_try_notarize_event(event_claim),
+			EventClaimResult::DataProviderErr
+		);
 	});
 }
 

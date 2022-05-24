@@ -19,11 +19,21 @@ use codec::{Decode, Encode};
 use core::fmt;
 pub use crml_support::{H160, H256, U256};
 use ethereum_types::{Bloom, U64};
+use rustc_hex::ToHex;
 use scale_info::TypeInfo;
 use serde::de::{Error, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
+// following imports support serializing values to hex strings in no_std
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::borrow::ToOwned;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(feature = "std")]
+use std::string::String;
 
 /// A bridge message id
 pub type EventClaimId = u64;
@@ -31,7 +41,6 @@ pub type EventClaimId = u64;
 pub type EventTypeId = u32;
 /// A bridge proof id
 pub type EventProofId = u64;
-
 type Index = U64;
 /// The ethereum block number data type
 pub type EthBlockNumber = U64;
@@ -52,12 +61,28 @@ pub struct EventClaim {
 	/// The contract event signature
 	pub event_signature: H256,
 }
-/// Something that proxies results from Ethereum RPC API
-pub trait EthereumHttpApi {
+
+#[derive(Debug, Clone, PartialEq, TypeInfo)]
+/// Error type for BridgeEthereumRpcApi
+pub enum BridgeRpcError {
+	/// HTTP network request failed
+	HttpFetch,
+	/// Unable to decode response payload as JSON
+	InvalidJSON,
+	/// offchain worker not configured properly
+	OcwConfig,
+}
+
+/// Provides request/responses according to a minimal subset of Ethereum RPC API
+/// required for the bridge
+pub trait BridgeEthereumRpcApi {
 	/// Returns an ethereum block given a block height
-	fn get_block_by_number(height: u32) -> EthBlock;
+	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError>;
 	/// Returns an ethereum transaction receipt given a tx hash
-	fn get_transaction_receipt(hash: EthHash) -> TransactionReceipt;
+	fn get_transaction_receipt(hash: EthHash) -> Result<Option<TransactionReceipt>, BridgeRpcError>;
+	/// Performs an `eth_call` request
+	/// Returns the Ethereum abi encoded returndata as a Vec<u8>
+	fn eth_call(target: EthAddress, input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError>;
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim
@@ -92,20 +117,6 @@ pub struct NotarizationPayload {
 	pub authority_index: u16,
 	/// Result of the notarization check by this authority
 	pub result: EventClaimResult,
-}
-
-/// Config for handling Ethereum messages
-/// Ethereum messages are simply events deposited at known contract addresses
-#[derive(Encode, Decode, Default, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub struct HandlerConfig {
-	/// The EVM event signature of the relevant event
-	pub event_signature: [u8; 32],
-	/// The deployed Ethereum contract address that deposits the event
-	pub contract_address: [u8; 20],
-	/// The CENNZnet function to invoke with the message result
-	/// It should accept a type `T`
-	/// Encoded call type `T::Call`
-	pub encoded_callback: Vec<u8>,
 }
 
 /// Log
@@ -180,7 +191,7 @@ pub struct TransactionReceipt {
 /// Standard Eth block type
 ///
 /// NB: for the bridge we only need the `timestamp` however the only RPCs available require fetching the whole block
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Default)]
 pub struct EthBlock {
 	pub number: Option<U64>,
 	pub hash: Option<H256>,
@@ -279,6 +290,45 @@ pub enum LatestOrNumber {
 	Number(u32),
 }
 
+const METHOD_ETH_CALL: &str = "eth_call";
+/// Request for 'eth_call'
+#[derive(Serialize, Debug)]
+pub struct EthCallRpcRequest {
+	#[serde(rename = "jsonrpc")]
+	/// The version of the JSON RPC spec
+	pub json_rpc: &'static str,
+	/// The method which is called
+	pub method: &'static str,
+	/// Arguments supplied to the method. (blockNumber, fullTxData?)
+	#[serde(serialize_with = "serialize_params_eth_call")]
+	pub params: (EthCallRpcParams, LatestOrNumber),
+	/// The id for the request
+	pub id: usize,
+}
+#[derive(Serialize, Debug)]
+pub struct EthCallRpcParams {
+	/// The contract to call
+	pub to: EthAddress,
+	/// The input buffer to pass to `to`
+	pub data: Bytes,
+}
+impl EthCallRpcRequest {
+	pub fn new(target: EthAddress, input: &[u8], id: usize, block: LatestOrNumber) -> Self {
+		Self {
+			json_rpc: JSONRPC,
+			method: METHOD_ETH_CALL,
+			params: (
+				EthCallRpcParams {
+					to: target,
+					data: Bytes::new(input.to_vec()),
+				},
+				block,
+			),
+			id,
+		}
+	}
+}
+
 /// Serializes the parameters for `GetBlockRequest`
 pub fn serialize_params<S: serde::Serializer>(v: &(LatestOrNumber, bool), s: S) -> Result<S::Ok, S::Error> {
 	use core::fmt::Write;
@@ -296,6 +346,29 @@ pub fn serialize_params<S: serde::Serializer>(v: &(LatestOrNumber, bool), s: S) 
 		}
 	}
 	tup.serialize_element(&v.1)?;
+	tup.end()
+}
+
+/// Serializes the parameters for `EthCallRequest`
+pub fn serialize_params_eth_call<S: serde::Serializer>(
+	v: &(EthCallRpcParams, LatestOrNumber),
+	s: S,
+) -> Result<S::Ok, S::Error> {
+	use core::fmt::Write;
+	use serde::ser::SerializeTuple;
+
+	let mut tup = s.serialize_tuple(2)?;
+	tup.serialize_element(&v.0)?;
+	match v.1 {
+		LatestOrNumber::Latest => tup.serialize_element(&"latest")?,
+		LatestOrNumber::Number(n) => {
+			// Ethereum JSON RPC API expects the block number as a hex string
+			let mut hex_block_number = sp_std::Writer::default();
+			write!(&mut hex_block_number, "{:#x}", n).expect("valid bytes");
+			// this should always be valid utf8
+			tup.serialize_element(&core::str::from_utf8(hex_block_number.inner()).expect("valid bytes"))?;
+		}
+	}
 	tup.end()
 }
 
@@ -325,7 +398,7 @@ pub fn deserialize_hex<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec
 }
 
 /// Deserializes "0x" prefixed hex strings into Vec<u8>s
-struct BytesVisitor;
+pub(crate) struct BytesVisitor;
 impl<'a> Visitor<'a> for BytesVisitor {
 	type Value = Vec<u8>;
 
@@ -344,6 +417,37 @@ impl<'a> Visitor<'a> for BytesVisitor {
 				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
 			))
 		}
+	}
+}
+
+/// Wrapper structure around vector of bytes.
+#[derive(Debug, PartialEq, Eq, Default, Hash, Clone)]
+pub struct Bytes(pub Vec<u8>);
+
+impl Bytes {
+	/// Simple constructor.
+	pub fn new(bytes: Vec<u8>) -> Bytes {
+		Bytes(bytes)
+	}
+}
+
+impl Serialize for Bytes {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let mut serialized = "0x".to_owned();
+		serialized.push_str(self.0.to_hex::<String>().as_ref());
+		serializer.serialize_str(serialized.as_ref())
+	}
+}
+
+impl<'a> Deserialize<'a> for Bytes {
+	fn deserialize<D>(deserializer: D) -> Result<Bytes, D::Error>
+	where
+		D: Deserializer<'a>,
+	{
+		deserializer.deserialize_any(BytesVisitor).map(|x| Bytes::new(x))
 	}
 }
 
@@ -560,6 +664,30 @@ mod tests {
 	fn serialize_get_block_by_number_request_max() {
 		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffe",false],"id":1}"#;
 		let result = serde_json::to_string(&GetBlockRequest::for_number(1, u32::MAX - 1)).unwrap();
+		assert_eq!(expected, result);
+	}
+
+	#[test]
+	fn serialize_eth_call_request() {
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x00000000000000000000000000000000075bcd15","data":"0x0101010101"},"latest"],"id":1}"#;
+		let result = serde_json::to_string(&EthCallRpcRequest::new(
+			EthAddress::from_low_u64_be(123456789),
+			&[1_u8; 5],
+			1,
+			LatestOrNumber::Latest,
+		))
+		.unwrap();
+		assert_eq!(expected, result);
+
+		// empty input data, max block number
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x00000000000000000000000000000000075bcd15","data":"0x"},"0xfffffffe"],"id":1}"#;
+		let result = serde_json::to_string(&EthCallRpcRequest::new(
+			EthAddress::from_low_u64_be(123456789),
+			Default::default(),
+			1,
+			LatestOrNumber::Number(u32::MAX - 1),
+		))
+		.unwrap();
 		assert_eq!(expected, result);
 	}
 }

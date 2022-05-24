@@ -1,4 +1,4 @@
-/* Copyright 2021 Centrality Investments Limited
+/* Copyright 2021-2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -13,9 +13,17 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! CENNZnet Eth Bridge
+//! CENNZnet Eth Bridge 🌉
 //!
-//! Module for witnessing/notarizing events on the Ethereum blockchain
+//! This pallet defines notarization protocols for CENNZnet validators to agree on values from a bridged Ethereum chain (Ethereum JSON-RPC compliant),
+//! and conversely, generate proofs of events that have occurred on CENNZnet.
+//!
+//! The proofs are a collection of signatures which can be verified by a bridged contract on Ethereum with awareness of the
+//! current validator set.
+//!
+//! There are types of Ethereum values the bridge can verify:
+//! 1) verify a transaction hash exists that executed a specific contract producing a specific event log
+//! 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
 //! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
@@ -25,9 +33,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod impls;
+pub use impls::EthereumRpcClient;
+#[cfg(test)]
+mod mock;
 #[cfg(test)]
 mod tests;
-
 mod types;
 use types::*;
 
@@ -56,16 +67,11 @@ use frame_system::{
 use sp_runtime::{
 	generic::DigestItem,
 	offchain as rt_offchain,
-	offchain::StorageKind,
 	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	DispatchError, Percent, RuntimeAppPublic,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string::ToString;
-use sp_std::{convert::TryInto, prelude::*};
-#[cfg(std)]
-use std::string::ToString;
+use sp_std::prelude::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -96,6 +102,8 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
 	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
+	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The threshold of notarizations required to approve an Ethereum
@@ -211,33 +219,38 @@ decl_module! {
 
 		fn deposit_event() = default;
 
+		/// This method schedules 2 different processes
+		/// 1) pruning expired transactions hashes from state every `CLAIM_PRUNING_INTERVAL` blocks
+		/// 2) processing any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
-			// Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
+			let mut weight = 0 as Weight;
+
+			// 1) Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
 			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
 				// Find the bucket to expire
 				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-				let expired_bucket_index = (now - Self::event_deadline_seconds()) % BUCKET_FACTOR_S;
+				weight += DbWeight::get().reads(1 as Weight);
+				let expired_bucket_index = (now % Self::event_deadline_seconds()) / BUCKET_FACTOR_S;
+				let mut removed_count = 0;
 				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
 					ProcessedTxHashes::remove(expired_tx_hash);
+					removed_count += 1;
 				}
 				ProcessedTxBuckets::remove_prefix(expired_bucket_index, None);
-
-				// TODO: better estimate
-				weight += 50_000_000 as Weight;
+				weight += DbWeight::get().writes(2 * removed_count as Weight);
 			}
 
-			if DelayedEventProofs::iter().next().is_none() {
-				return weight;
-			}
-			if !Self::bridge_paused() {
+			// 2) Try process delayed proofs
+			weight += DbWeight::get().reads(2 as Weight);
+			if DelayedEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
-				weight = weight.saturating_add(DbWeight::get().reads(2 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				weight = weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
 				for (event_proof_id, packed_event_with_id) in DelayedEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
 					DelayedEventProofs::remove(event_proof_id);
 				}
 			}
+
 			weight
 		}
 
@@ -326,7 +339,9 @@ decl_module! {
 				let event_data = event_data.unwrap();
 
 				// note this tx as completed
-				let bucket_index = T::UnixTime::now().as_secs().saturated_into::<u64>() % BUCKET_FACTOR_S;
+				let ttl = Self::event_deadline_seconds();
+				// calculate future expiry timestamp and bucket
+				let bucket_index = ((T::UnixTime::now().as_secs().saturated_into::<u64>() + ttl) % ttl) / BUCKET_FACTOR_S;
 				ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
 				ProcessedTxHashes::insert(eth_tx_hash, ());
 				PendingTxHashes::remove(eth_tx_hash);
@@ -340,92 +355,19 @@ decl_module! {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
-			// Nothing to do while bridge is paused
-			if Self::bridge_paused() {
-				return;
-			}
-
-			// check local `key` is a valid bridge notary
+			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
-				// this passes if flag `--validator` set not necessarily
-				// in the active set
 				log!(info, "💎 not a validator, exiting");
 				return
 			}
 
-			let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
-			let needed = Self::activation_threshold();
-			let total = T::AuthoritySet::validators().len();
-			if Percent::from_rational(supports, total) < needed {
-				log!(info, "💎 waiting for validator support to activate eth bridge: {:?}/{:?}", supports, needed);
-				return;
-			}
-
-			// Get all signing keys for this protocol 'KeyTypeId'
-			let local_keys = T::EthyId::all();
-			if local_keys.is_empty() {
-				log!(error, "💎 no signing keys for: {:?}, cannot participate in notarization!", T::EthyId::ID);
-				return
-			};
-
-			let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
-			// search all local ethy keys
-			for key in local_keys {
-				if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
-					maybe_active_key = Some((key, active_key_index));
-					break
-				}
-			}
-
-			// check if locally known keys are in the active validator set
-			if maybe_active_key.is_none() {
-				log!(error, "💎 no active ethy keys, exiting");
-				return;
-			}
-			let (active_key, authority_index) = maybe_active_key.map(|(key, idx)| (key, idx as u16)).unwrap();
-
-			// check all pending claims we have _yet_ to notarize and try to notarize them
-			// this will be invoked once every block
-			// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
-			let mut budget = CLAIMS_PER_BLOCK;
-			for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
-				if budget.is_zero() {
-					log!(info, "💎 claims budget exceeded, exiting...");
-					return
-				}
-
-				// check we haven't notarized this already
-				if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
-					log!(trace, "💎 already cast notarization for claim: {:?}, ignoring...", event_claim_id);
-				}
-
-				if let Some(event_data) = Self::event_data(event_claim_id) {
-					let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
-					let event_claim = EventClaim { tx_hash, data: event_data, contract_address, event_signature };
-					let result = Self::offchain_try_notarize_event(event_claim);
-					log!(trace, "💎 claim verification status: {:?}", &result);
-					let payload = NotarizationPayload {
-						event_claim_id,
-						authority_index,
-						result: result.clone(),
-					};
-					let _ = Self::offchain_send_notarization(&active_key, payload)
-						.map_err(|err| {
-							log!(error, "💎 sending notarization failed 🙈, {:?}", err);
-						})
-						.map(|_| {
-							log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, event_claim_id);
-						});
-					budget = budget.saturating_sub(1);
-				} else {
-					// should not happen, defensive only
-					log!(error, "💎 empty claim data for: {:?}", event_claim_id);
-				}
+			// check a local key exists for a valid bridge notary
+			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
+				Self::do_event_notarization_ocw(&active_key, authority_index);
 			}
 
 			log!(trace, "💎 exiting off-chain worker");
 		}
-
 	}
 }
 
@@ -488,6 +430,111 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 }
 
 impl<T: Config> Module<T> {
+	/// Check the nodes local keystore for an active (staked) Ethy session key
+	/// Returns the public key and index of the key in the current notary set
+	fn find_active_ethy_key() -> Option<(T::EthyId, u16)> {
+		// Get all signing keys for this protocol 'KeyTypeId'
+		let local_keys = T::EthyId::all();
+		if local_keys.is_empty() {
+			log!(
+				error,
+				"💎 no signing keys for: {:?}, cannot participate in notarization!",
+				T::EthyId::ID
+			);
+			return None;
+		};
+
+		let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
+		// search all local ethy keys
+		for key in local_keys {
+			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+				maybe_active_key = Some((key, active_key_index));
+				break;
+			}
+		}
+
+		// check if locally known keys are in the active validator set
+		if maybe_active_key.is_none() {
+			log!(error, "💎 no active ethy keys, exiting");
+			return None;
+		}
+		maybe_active_key.map(|(key, idx)| (key, idx as u16))
+	}
+	/// Handle OCW event notarization protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
+		// do not try to notarize events while the bridge is paused
+		if Self::bridge_paused() {
+			return;
+		}
+
+		let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+		let needed = Self::activation_threshold();
+		let total = T::AuthoritySet::validators().len();
+		if Percent::from_rational(supports, total) < needed {
+			log!(
+				info,
+				"💎 waiting for validator support to activate eth bridge: {:?}/{:?}",
+				supports,
+				needed
+			);
+			return;
+		}
+
+		// check all pending claims we have _yet_ to notarize and try to notarize them
+		// this will be invoked once every block
+		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
+		let mut budget = CLAIMS_PER_BLOCK;
+		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
+			if budget.is_zero() {
+				log!(info, "💎 claims budget exceeded, exiting...");
+				return;
+			}
+
+			// skip if we've notarized it previously
+			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
+				log!(
+					trace,
+					"💎 already cast notarization for claim: {:?}, ignoring...",
+					event_claim_id
+				);
+				continue;
+			}
+
+			if let Some(event_data) = Self::event_data(event_claim_id) {
+				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+				let event_claim = EventClaim {
+					tx_hash,
+					data: event_data,
+					contract_address,
+					event_signature,
+				};
+				let result = Self::offchain_try_notarize_event(event_claim);
+				log!(trace, "💎 claim verification status: {:?}", &result);
+				let payload = NotarizationPayload {
+					event_claim_id,
+					authority_index,
+					result: result.clone(),
+				};
+				let _ = Self::offchain_send_notarization(&active_key, payload)
+					.map_err(|err| {
+						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+					})
+					.map(|_| {
+						log!(
+							info,
+							"💎 sent notarization: '{:?}' for claim: {:?}",
+							result,
+							event_claim_id
+						);
+					});
+				budget = budget.saturating_sub(1);
+			} else {
+				// should not happen, defensive only
+				log!(error, "💎 empty claim data for: {:?}", event_claim_id);
+			}
+		}
+	}
 	/// Verify a message
 	/// `tx_hash` - The ethereum tx hash
 	/// `event_data` - The claimed message data
@@ -506,7 +553,7 @@ impl<T: Config> Module<T> {
 			contract_address,
 			event_signature,
 		} = event_claim;
-		let result = Self::get_transaction_receipt(tx_hash);
+		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
 			return EventClaimResult::DataProviderErr;
@@ -555,7 +602,7 @@ impl<T: Config> Module<T> {
 		//  have we got enough block confirmations to be re-org safe?
 		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
 
-		let latest_block: EthBlock = match Self::get_block(LatestOrNumber::Latest) {
+		let latest_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
 			Ok(None) => return EventClaimResult::DataProviderErr,
 			Ok(Some(block)) => block,
 			Err(err) => {
@@ -578,136 +625,29 @@ impl<T: Config> Module<T> {
 		}
 
 		//  check the block this tx is in if the timestamp > deadline
-		let observed_block: EthBlock = match Self::get_block(LatestOrNumber::Number(observed_block_number as u32)) {
-			Ok(None) => return EventClaimResult::DataProviderErr,
-			Ok(Some(block)) => block,
-			Err(err) => {
-				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
-				return EventClaimResult::DataProviderErr;
-			}
-		};
+		let observed_block: EthBlock =
+			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(observed_block_number as u32)) {
+				Ok(None) => return EventClaimResult::DataProviderErr,
+				Ok(Some(block)) => block,
+				Err(err) => {
+					log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
+					return EventClaimResult::DataProviderErr;
+				}
+			};
 
 		// claim is past the expiration deadline
 		// eth. block timestamp (seconds)
 		// deadline (seconds)
-		if T::UnixTime::now().as_secs().saturated_into::<u64>() - observed_block.timestamp.saturated_into::<u64>()
+		if T::UnixTime::now()
+			.as_secs()
+			.saturated_into::<u64>()
+			.saturating_sub(observed_block.timestamp.saturated_into::<u64>())
 			> Self::event_deadline_seconds()
 		{
 			return EventClaimResult::Expired;
 		}
 
 		EventClaimResult::Valid
-	}
-
-	/// Get transaction receipt from eth client
-	fn get_transaction_receipt(tx_hash: EthHash) -> Result<Option<TransactionReceipt>, Error<T>> {
-		let random_request_id = u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap());
-		let request = GetTxReceiptRequest::new(tx_hash, random_request_id as usize);
-		let resp_bytes = Self::query_eth_client(Some(request)).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<TransactionReceipt>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})
-	}
-
-	/// Get latest block number from eth client
-	fn get_block(req: LatestOrNumber) -> Result<Option<EthBlock>, Error<T>> {
-		let request = match req {
-			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
-			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),
-		};
-		let resp_bytes = Self::query_eth_client(request).map_err(|e| {
-			log!(error, "💎 read eth-rpc API error: {:?}", e);
-			<Error<T>>::HttpFetch
-		})?;
-
-		let resp_str = core::str::from_utf8(&resp_bytes).map_err(|_| {
-			log!(error, "💎 response invalid utf8: {:?}", resp_bytes);
-			<Error<T>>::HttpFetch
-		})?;
-
-		// Deserialize JSON to struct
-		serde_json::from_str::<EthResponse<EthBlock>>(resp_str)
-			.map(|resp| resp.result)
-			.map_err(|err| {
-				log!(error, "💎 deserialize json response error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})
-	}
-
-	/// This function uses the `offchain::http` API to query the remote ethereum information,
-	/// and returns the JSON response as vector of bytes.
-	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
-		// Load eth http URI from offchain storage
-		// this should have been configured on start up by passing e.g. `--eth-http`
-		// e.g. `--eth-http=http://localhost:8545`
-		let eth_http_uri = if let Some(value) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP")
-		{
-			value
-		} else {
-			log!(
-				error,
-				"💎 Eth http uri is not configured! set --eth-http=<value> on start up"
-			);
-			return Err(Error::<T>::OcwConfig);
-		};
-		let eth_http_uri = core::str::from_utf8(&eth_http_uri).map_err(|_| Error::<T>::OcwConfig)?;
-
-		const HEADER_CONTENT_TYPE: &str = "application/json";
-		log!(info, "💎 sending request to: {}", eth_http_uri);
-		let body = serde_json::to_string::<R>(&request_body).unwrap();
-		let body_raw = body.as_bytes();
-		// Initiate an external HTTP GET request. This is using high-level wrappers from `sp_runtime`.
-		let request = rt_offchain::http::Request::post(eth_http_uri, vec![body_raw]);
-		log!(trace, "💎 request: {:?}", request);
-
-		// Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-		let timeout = sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(REQUEST_TTL_MS));
-		let pending = request
-			.add_header("Content-Type", HEADER_CONTENT_TYPE)
-			.add_header("Content-Length", &body_raw.len().to_string())
-			.deadline(timeout) // Setting the timeout time
-			.send() // Sending the request out by the host
-			.map_err(|err| {
-				log!(error, "💎 http request error: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?;
-
-		// By default, the http request is async from the runtime perspective. So we are asking the
-		// runtime to wait here.
-		// The returning value here is a `Result` of `Result`, so we are unwrapping it twice by two `?`
-		// ref: https://substrate.dev/rustdocs/v3.0.0/sp_runtime/offchain/http/struct.PendingRequest.html#method.try_wait
-		let response = pending
-			.try_wait(timeout)
-			.map_err(|err| {
-				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?
-			.map_err(|err| {
-				log!(error, "💎 http request error: timeline reached: {:?}", err);
-				<Error<T>>::HttpFetch
-			})?;
-		log!(trace, "💎 response: {:?}", response);
-
-		if response.code != 200 {
-			log!(error, "💎 http request status code: {}", response.code);
-			return Err(<Error<T>>::HttpFetch);
-		}
-
-		// Read the response body and check it's valid utf-8
-		Ok(response.body().collect::<Vec<u8>>())
 	}
 
 	/// Send a notarization for the given claim
