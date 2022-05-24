@@ -883,6 +883,9 @@ mod tests {
 			}
 			Ok(amount)
 		}
+		fn buy_fee_weight() -> Weight {
+			Zero::zero()
+		}
 	}
 
 	impl Config for Runtime {

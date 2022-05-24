@@ -15,10 +15,10 @@
 //!
 //! Extra CENNZX-Spot traits + implementations
 //!
-use crate::{Config, Module};
+use crate::{weights::WeightInfo, Config, Module};
 use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use crml_support::MultiCurrency;
-use frame_support::dispatch::DispatchError;
+use frame_support::{dispatch::DispatchError, weights::Weight};
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -80,6 +80,10 @@ impl<T: Config> BuyFeeAsset for Module<T> {
 			amount,
 			exchange_op.max_payment(),
 		)
+	}
+
+	fn buy_fee_weight() -> Weight {
+		T::WeightInfo::sell_asset()
 	}
 }
 
