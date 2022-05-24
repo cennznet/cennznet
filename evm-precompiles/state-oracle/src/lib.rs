@@ -19,11 +19,8 @@
 use cennznet_primitives::types::FeePreferences;
 use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
-pub use pallet_evm::{AddressMapping, Precompile, PrecompileResult};
-pub use precompile_utils::{
-	error, keccak256, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer,
-	LogsBuilder, RuntimeHelper,
-};
+use pallet_evm::Precompile;
+use precompile_utils::{Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{convert::TryInto, marker::PhantomData};

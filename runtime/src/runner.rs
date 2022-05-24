@@ -25,10 +25,9 @@ use frame_support::ensure;
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
-use sp_runtime::{
-	traits::{SaturatedConversion, UniqueSaturatedInto},
-	Permill,
-};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
+use precompile_utils::Address as EthAddress;
+use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -56,16 +55,12 @@ impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
 /// CENNZnet implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into CPAY to
 /// complete the transaction
-pub struct FeePreferencesRunner<T>
-where
-	T: pallet_evm::Config<AccountId = AccountId>,
-{
-	_marker: PhantomData<T>,
-}
+pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 
-impl<T> FeePreferencesRunner<T>
+impl<T, U> FeePreferencesRunner<T, U>
 where
 	T: pallet_evm::Config<AccountId = AccountId>,
+	U: Erc20IdConversion<EvmId = EthAddress, RuntimeId = AssetId>,
 {
 	/// Decodes the input for call_with_fee_preferences
 	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
@@ -76,31 +71,28 @@ where
 		);
 
 		let types = [
-			ParamType::Uint(32),
+			ParamType::Address,
 			ParamType::Uint(32),
 			ParamType::Address,
 			ParamType::Bytes,
 		];
-		let tokens = ethabi::decode(&types, &input[4..]);
+		let tokens = ethabi::decode(&types, &input[4..]).map_err(|_| FeePreferencesError::FailedToDecodeInput)?;
 
-		let (payment_asset, slippage, new_target, new_input) = match tokens {
-			Ok(token_vec) => match &token_vec[..] {
-				[Token::Uint(payment_asset), Token::Uint(slippage), Token::Address(new_target), Token::Bytes(new_input)] => {
-					(
-						payment_asset.clone().low_u128().saturated_into::<AssetId>(),
-						slippage.clone().low_u128().saturated_into::<u32>(),
-						H160::from(new_target.clone().to_fixed_bytes()),
-						new_input.clone().to_vec(),
-					)
-				}
-				_ => return Err(FeePreferencesError::InvalidInputArguments),
-			},
-			_ => return Err(FeePreferencesError::FailedToDecodeInput),
-		};
+		if let [Token::Address(payment_asset_address), Token::Uint(slippage), Token::Address(new_target), Token::Bytes(new_input)] =
+			tokens.as_slice()
+		{
+			let payment_asset = U::evm_id_to_runtime_id((*payment_asset_address).into());
+			ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
 
-		ensure!(payment_asset != 0, FeePreferencesError::InvalidPaymentAsset);
-
-		Ok((payment_asset, slippage, new_target, new_input))
+			Ok((
+				payment_asset.unwrap(),
+				slippage.low_u32(),
+				*new_target,
+				new_input.clone(),
+			))
+		} else {
+			Err(FeePreferencesError::InvalidInputArguments)
+		}
 	}
 
 	/// Calculate gas price for transaction to use for exchanging asset into CPAY
@@ -137,9 +129,10 @@ where
 	}
 }
 
-impl<T> RunnerT<T> for FeePreferencesRunner<T>
+impl<T, U> RunnerT<T> for FeePreferencesRunner<T, U>
 where
 	T: pallet_evm::Config<AccountId = AccountId>,
+	U: Erc20IdConversion<EvmId = EthAddress, RuntimeId = AssetId>,
 {
 	type Error = pallet_evm::Error<T>;
 
@@ -252,34 +245,40 @@ mod tests {
 	use frame_support::{assert_noop, assert_ok};
 	use hex_literal::hex;
 
+	/// type alias for runtime configured FeePreferencesRunner
+	type Runner = FeePreferencesRunner<Runtime, Runtime>;
+
 	#[test]
 	fn decode_input() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			// Abi generated from below parameters using the following function name:
 			// callWithFeePreferences
 			// abi can be easily generated here https://abi.hashex.org/
-			let abi = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
-			let exp_payment_asset: u32 = 16000;
+			let exp_payment_asset = 16000_u32;
 			let exp_slippage: u32 = 50;
 			let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
 			let exp_input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
-			let (payment_asset, slippage, new_target, new_input) =
-				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()).unwrap();
+			let mut input= FEE_FUNCTION_SELECTOR.to_vec();
+			input.append(&mut ethabi::encode(&[
+				Token::Address(Runtime::runtime_id_to_evm_id(exp_payment_asset).0),
+				Token::Uint(exp_slippage.into()),
+				Token::Address(exp_target),
+				Token::Bytes(exp_input.clone())],
+			));
 
-			// Ensure the values decode correctly
-			assert_eq!(payment_asset, exp_payment_asset);
-			assert_eq!(slippage, exp_slippage);
-			assert_eq!(new_target, exp_target);
-			assert_eq!(new_input, exp_input);
+			assert_eq!(
+				Runner::decode_input(input),
+				Ok((exp_payment_asset, exp_slippage, exp_target, exp_input))
+			);
 		});
 	}
 
 	#[test]
 	fn decode_input_invalid_function_selector_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let abi = hex!("11111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			let bad_selector_input = vec![0x01, 0x02, 0x03, 0x04];
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				Runner::decode_input(bad_selector_input),
 				FeePreferencesError::InvalidFunctionSelector
 			);
 		});
@@ -288,9 +287,8 @@ mod tests {
 	#[test]
 	fn decode_input_empty_input_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let abi = hex!("");
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				Runner::decode_input(Default::default()),
 				FeePreferencesError::InvalidInputArguments
 			);
 		});
@@ -299,20 +297,35 @@ mod tests {
 	#[test]
 	fn decode_input_invalid_input_args_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000");
-			assert_noop!(
-			<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
-				FeePreferencesError::FailedToDecodeInput
-			);
+			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
+			input.append(&mut ethabi::encode(&[
+				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
+				Token::Array(vec![
+					Token::Uint(1u64.into()),
+					Token::Uint(2u64.into()),
+					Token::Uint(3u64.into()),
+					Token::Uint(4u64.into()),
+					Token::Uint(5u64.into()),
+				]),
+			]));
+
+			assert_noop!(Runner::decode_input(input), FeePreferencesError::FailedToDecodeInput);
 		});
 	}
 
 	#[test]
 	fn decode_input_zero_payment_asset_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let abi = hex!("ccf39ea9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000320000000000000000000000001122334455667788991122334455667788990000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000051234567890000000000000000000000000000000000000000000000000000000");
+			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
+			input.append(&mut ethabi::encode(&[
+				Token::Address(H160::zero()),
+				Token::Uint(5u64.into()),
+				Token::Address(H160::default()),
+				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
+			]));
+
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::decode_input(abi.to_vec()),
+				Runner::decode_input(input.to_vec()),
 				FeePreferencesError::InvalidPaymentAsset
 			);
 		});
@@ -325,7 +338,7 @@ mod tests {
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 
-			assert_ok!(<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+			assert_ok!(Runner::calculate_total_gas(
 				gas_limit,
 				Some(max_fee_per_gas),
 				Some(max_priority_fee_per_gas),
@@ -341,11 +354,7 @@ mod tests {
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-				),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
 				FeePreferencesError::GasPriceTooLow
 			);
 		});
@@ -359,11 +368,7 @@ mod tests {
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-					gas_limit,
-					max_fee_per_gas,
-					Some(max_priority_fee_per_gas),
-				),
+				Runner::calculate_total_gas(gas_limit, max_fee_per_gas, Some(max_priority_fee_per_gas),),
 				FeePreferencesError::GasPriceTooLow
 			);
 		});
@@ -377,11 +382,7 @@ mod tests {
 			let max_priority_fee_per_gas = U256::MAX;
 
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-				),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
 				FeePreferencesError::FeeOverflow
 			);
 		});
@@ -395,11 +396,7 @@ mod tests {
 			let max_priority_fee_per_gas = U256::from(1000000u64);
 
 			assert_noop!(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-				),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
 				FeePreferencesError::FeeOverflow
 			);
 		});

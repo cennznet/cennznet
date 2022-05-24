@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 Centrality Investments Limited
+/* Copyright 2019-2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 use cennznet_primitives::types::{AccountId, AssetId};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, evm::*},
-	runner::FeePreferencesRunner,
 	Cennzx, GenericAsset, Origin, Runtime, CENNZNET_EVM_CONFIG,
 };
 use crml_support::{scale_wei_to_4dp, MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
@@ -26,19 +25,23 @@ use ethabi::Token;
 use frame_support::assert_ok;
 use hex_literal::hex;
 use pallet_evm::{AddressMapping, EvmConfig, Runner as RunnerT};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use sp_runtime::{traits::Zero, Permill};
 
 mod common;
 use common::keyring::{alice, ferdie};
 use common::mock::ExtBuilder;
 
+/// Type alias for the runtime FeePreferencesRunner
+pub type FeePreferencesRunner = cennznet_runtime::runner::FeePreferencesRunner<Runtime, Runtime>;
+
 fn encode_fee_preferences_input(asset_id: AssetId, slippage: u32, input: Vec<u8>) -> Vec<u8> {
 	// Encode input arguments into an input for callWithFeePreferences
-	let asset_token: Token = Token::Uint(asset_id.into());
-	let slippage_token: Token = Token::Uint(slippage.into());
-	let target: H160 = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
-	let target_token: Token = Token::Address(ethabi::ethereum_types::H160::from(target.to_fixed_bytes()));
-	let input_token: Token = Token::Bytes(input.into());
+	let asset_token = Token::Address(Runtime::runtime_id_to_evm_id(asset_id).0);
+	let slippage_token = Token::Uint(slippage.into());
+	let target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
+	let target_token = Token::Address(target);
+	let input_token = Token::Bytes(input.into());
 
 	let token_stream: Vec<Token> = vec![asset_token, slippage_token, target_token, input_token];
 	let mut input_selector: Vec<u8> = FEE_FUNCTION_SELECTOR.to_vec();
@@ -48,11 +51,11 @@ fn encode_fee_preferences_input(asset_id: AssetId, slippage: u32, input: Vec<u8>
 
 fn encode_transfer_input(target: H160, amount: u128) -> Vec<u8> {
 	// Encode input arguments into an input for transfer
-	let target_token: Token = Token::Address(ethabi::ethereum_types::H160::from(target.to_fixed_bytes()));
-	let asset_token: Token = Token::Uint(amount.into());
+	let target_token = Token::Address(target);
+	let asset_token = Token::Uint(amount.into());
 
-	let token_stream: Vec<Token> = vec![target_token, asset_token];
-	let mut input_selector: Vec<u8> = vec![169, 5, 156, 187];
+	let token_stream = vec![target_token, asset_token];
+	let mut input_selector = vec![169_u8, 5, 156, 187];
 	input_selector.append(&mut ethabi::encode(&token_stream));
 	input_selector
 }
@@ -78,7 +81,7 @@ fn encode_fee_preferences_input_works() {
             let transfer_input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
             let input = encode_fee_preferences_input(asset, slippage, transfer_input);
 
-            let expected = hex!("ccf39ea90000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
+            let expected = hex!("c48f0695000000000000000000000000cccccccc00003e800000000000000000000000000000000000000000000000000000000000000000000000000000000000000032000000000000000000000000cccccccc00003e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000");
             assert_eq!(expected.to_vec(), input);
         });
 }
@@ -153,7 +156,7 @@ fn evm_call_with_fee_preferences() {
 
 			// Calculate expected fee for transaction
 			let expected_fee = scale_wei_to_4dp(
-				<FeePreferencesRunner<Runtime>>::calculate_total_gas(
+				FeePreferencesRunner::calculate_total_gas(
 					gas_limit,
 					Some(max_fee_per_gas),
 					Some(max_priority_fee_per_gas),

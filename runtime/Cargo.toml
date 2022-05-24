@@ -104,6 +104,7 @@ pallet-evm-precompile-blake2 = { default-features = false, git = "https://github
 pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+pallet-evm-precompiles-cennzx = { path = "../evm-precompiles/cennzx", default-features = false }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-state-oracle = { path = "../evm-precompiles/state-oracle", default-features = false }
@@ -182,6 +183,7 @@ std = [
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompiles-cennzx/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-erc721/std",
 	"pallet-evm-precompiles-state-oracle/std",
