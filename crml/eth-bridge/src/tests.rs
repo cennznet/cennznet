@@ -135,6 +135,7 @@ fn last_session_change() {
 	});
 }
 
+#[ignore]
 #[test]
 fn eth_client_http_request() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -618,6 +619,7 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 #[test]
 fn offchain_try_notarize_event_expired_confirmation_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1_000_000);
 		// Mock block response and transaction receipt
 		let block_number = 10;
 		let block_hash: H256 = H256::from_low_u64_be(111);
