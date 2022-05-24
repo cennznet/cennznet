@@ -108,6 +108,7 @@ impl Config for TestRuntime {
 /// Mock eth-http endpoint
 pub const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
 
+/// Values in EthBlock that we store in mock storage
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Default, TypeInfo)]
 pub struct MockBlockResponse {
 	pub block_hash: H256,
@@ -115,6 +116,7 @@ pub struct MockBlockResponse {
 	pub timestamp: U256,
 }
 
+/// Values in TransactionReceipt that we store in mock storage
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Default, TypeInfo)]
 pub struct MockReceiptResponse {
 	pub block_hash: H256,
@@ -124,6 +126,7 @@ pub struct MockReceiptResponse {
 	pub contract_address: Option<EthAddress>,
 }
 
+/// Builder for creating EthBlocks
 pub(crate) struct MockBlockBuilder(EthBlock);
 
 impl MockBlockBuilder {
@@ -147,6 +150,7 @@ impl MockBlockBuilder {
 	}
 }
 
+/// Builder for creating TransactionReceipts
 pub(crate) struct MockReceiptBuilder(TransactionReceipt);
 
 impl MockReceiptBuilder {
@@ -182,7 +186,7 @@ impl MockReceiptBuilder {
 }
 
 pub(crate) mod test_storage {
-	//! storage used by tests
+	//! storage used by tests to store mock EthBlocks and TransactionReceipts
 	use super::{MockBlockResponse, MockReceiptResponse};
 	use crate::{types::EthHash, Config};
 	use frame_support::decl_storage;
@@ -231,6 +235,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
 			LatestOrNumber::Latest => {
+				// Calling with latest returns the stored mock block with the highest block_number
 				let mut highest_block = 0;
 				let block_responses = test_storage::BlockResponseAt::iter();
 				for block in block_responses {
@@ -262,6 +267,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 			return Ok(None);
 		}
 		let mock_receipt = mock_receipt.unwrap();
+		// Inject a default Log with some default topics
 		let default_log: Log = Log {
 			address: mock_receipt.contract_address.unwrap(),
 			topics: vec![Default::default()],

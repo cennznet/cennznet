@@ -33,8 +33,9 @@ use sp_core::{
 };
 use sp_runtime::{offchain::StorageKind, traits::Zero, SaturatedConversion};
 
-// Mocks an Eth block for when get_block_by_number is called
-// The latest block will be the highest block mocked
+/// Mocks an Eth block for when get_block_by_number is called
+/// Adds this to the mock storage
+/// The latest block will be the highest block stored
 fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
 	let mock_block = MockBlockBuilder::new()
 		.block_number(block_number)
@@ -46,6 +47,8 @@ fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> 
 	mock_block
 }
 
+/// Mocks a TransactionReceipt for when get_transaction_receipt is called
+/// Adds this to the mock storage
 fn create_transaction_receipt_mock(
 	block_number: u64,
 	block_hash: H256,
@@ -178,7 +181,7 @@ fn generate_event_proof() {
 		// Ensure event has not been added to delayed claims
 		assert_eq!(Module::<TestRuntime>::delayed_event_proofs(event_proof_id), None);
 		assert_eq!(Module::<TestRuntime>::next_proof_id(), event_proof_id + 1);
-		// On initialize does upto 2 reads to check for delayed proofs
+		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			Module::<TestRuntime>::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
 			DbWeight::get().reads(2 as Weight)
@@ -513,6 +516,7 @@ fn offchain_try_notarize_event_no_status_should_fail() {
 			.status(0)
 			.build();
 
+		// Create mock info for transaction receipt
 		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
 
 		let event_claim = EventClaim {
@@ -538,7 +542,7 @@ fn offchain_try_notarize_event_unexpected_contract_address_should_fail() {
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
-		// Create block info for both the transaction block and a later block
+		// Create mock info for transaction receipt
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		// Create event claim with different contract address to tx_receipt
@@ -565,7 +569,7 @@ fn offchain_try_notarize_event_no_block_number_should_fail() {
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
-		// Create block info for both the transaction block and a later block
+		// Create mock info for transaction receipt
 		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
