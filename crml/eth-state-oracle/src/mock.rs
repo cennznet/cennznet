@@ -32,6 +32,8 @@ use sp_std::convert::TryFrom;
 
 type AssetId = u32;
 type Balance = u128;
+/// nb: substrate testing crates define this as `u64`, cennznet runtime uses `u32`
+type BlockNumber = u64;
 pub type AccountId = u64;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -57,7 +59,7 @@ impl frame_system::Config for TestRuntime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -99,7 +101,7 @@ impl pallet_evm::GasWeightMapping for MockGasWeightMapping {
 }
 
 parameter_types! {
-	pub const ChallengePeriod: u64 = 5;
+	pub const ChallengePeriod: BlockNumber = 5;
 	pub const MinGasPrice: u64 = 1;
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 }
@@ -208,32 +210,42 @@ impl CallRequestBuilder {
 			caller: H160::default(),
 			destination: H160::default(),
 			fee_preferences: None,
+			input_data: Vec::<u8>::default(),
+			expiry_block: 0,
 		})
 	}
-	pub fn build(&self) -> CallRequest {
+	pub fn build(self) -> CallRequest {
 		self.0.clone()
 	}
-	pub fn bounty(&mut self, bounty: Balance) -> &mut Self {
+	pub fn expiry_block(mut self, expiry_block: BlockNumber) -> Self {
+		self.0.expiry_block = expiry_block as u32;
+		self
+	}
+	pub fn input_data(mut self, input_data: &[u8]) -> Self {
+		self.0.input_data = input_data.to_vec();
+		self
+	}
+	pub fn bounty(mut self, bounty: Balance) -> Self {
 		self.0.bounty = bounty;
 		self
 	}
-	pub fn caller(&mut self, caller: u64) -> &mut Self {
+	pub fn caller(mut self, caller: u64) -> Self {
 		self.0.caller = H160::from_low_u64_be(caller);
 		self
 	}
-	pub fn destination(&mut self, destination: u64) -> &mut Self {
+	pub fn destination(mut self, destination: u64) -> Self {
 		self.0.destination = H160::from_low_u64_be(destination);
 		self
 	}
-	pub fn callback_gas_limit(&mut self, callback_gas_limit: u64) -> &mut Self {
+	pub fn callback_gas_limit(mut self, callback_gas_limit: u64) -> Self {
 		self.0.callback_gas_limit = callback_gas_limit;
 		self
 	}
-	pub fn callback_signature(&mut self, callback_signature: [u8; 4]) -> &mut Self {
+	pub fn callback_signature(mut self, callback_signature: [u8; 4]) -> Self {
 		self.0.callback_signature = callback_signature;
 		self
 	}
-	pub fn timestamp(&mut self, timestamp: u64) -> &mut Self {
+	pub fn timestamp(mut self, timestamp: u64) -> Self {
 		self.0.timestamp = timestamp;
 		self
 	}

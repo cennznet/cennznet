@@ -12,7 +12,7 @@
 *     https://centrality.ai/licenses/gplv3.txt
 *     https://centrality.ai/licenses/lgplv3.txt
 */
-use cennznet_primitives::types::{Balance, FeePreferences};
+use cennznet_primitives::types::{Balance, BlockNumber, FeePreferences};
 use codec::{Decode, Encode};
 pub use crml_support::{ReturnDataClaim, H160 as EthAddress, H256, U256};
 use scale_info::TypeInfo;
@@ -41,6 +41,10 @@ pub struct CallRequest {
 	pub bounty: Balance,
 	/// unix timestamp in seconds the request was placed
 	pub timestamp: u64,
+	/// cennznet block number where the request will expire (i.e. it is also the response deadline)
+	pub expiry_block: BlockNumber,
+	/// The input 'data' parameter for the remote eth_call
+	pub input_data: Vec<u8>,
 }
 
 /// Reported response of an executed remote call
