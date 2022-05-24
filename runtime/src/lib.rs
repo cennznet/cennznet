@@ -782,7 +782,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
 	type Currency = EvmCurrencyScaler<SpendingAssetCurrency<Self>>;
 	type Event = Event;
-	type Runner = FeePreferencesRunner<Self>;
+	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;

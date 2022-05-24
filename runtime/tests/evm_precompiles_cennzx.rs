@@ -26,16 +26,19 @@ use fp_rpc::runtime_decl_for_EthereumRuntimeRPCApi::EthereumRuntimeRPCApi;
 use frame_support::assert_ok;
 use hex_literal::hex;
 use pallet_evm::{AddressMapping, ExitReason, ExitRevert, Runner as RunnerT};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
 
 mod common;
 use common::{keyring::alice, mock::ExtBuilder};
 
 fn encode_swap_input(amount: Balance, max_input: Balance) -> Vec<u8> {
-	let swap_selector = [0xf8, 0xc7, 0x63, 0xf9];
+	// keccak('swapForExactCPAY(address,uint128,uint256)')[..4]
+	let swap_selector = [0x39, 0x32, 0xb8, 0x8a];
+	let cennz_token_address = Runtime::runtime_id_to_evm_id(CENNZ_ASSET_ID).0;
 	let parameters = ethabi::encode(&[
-		Token::Uint(U256::from(CENNZ_ASSET_ID)), // swap cennz in
-		Token::Uint(U256::from(amount)),         // exact cpay out
-		Token::Uint(U256::from(max_input)),      // max. cennz in
+		Token::Address(cennz_token_address), // swap cennz in
+		Token::Uint(U256::from(amount)),     // exact cpay out
+		Token::Uint(U256::from(max_input)),  // max. cennz in
 	]);
 	let mut input = vec![0_u8; 4_usize + 3 * 32];
 	input[..4].copy_from_slice(&swap_selector);

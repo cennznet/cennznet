@@ -73,6 +73,7 @@ where
 				Cennzx,
 				AddressMappingOf<Runtime>,
 				CENNZnetGasWeightMapping,
+				Runtime,
 			>::execute(input, target_gas, context, is_static)),
 			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
 				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(

@@ -39,7 +39,7 @@ pub mod config {
 
 pub mod evm {
 	/// Function selector for call_with_fee_preferences
-	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0xcc, 0xf3, 0x9e, 0xa9];
+	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0xc4, 0x8f, 0x06, 0x95];
 	// Precompile address for fee preferences
 	pub const FEE_PROXY: u64 = 1211;
 	// Precompile address for CENNZX

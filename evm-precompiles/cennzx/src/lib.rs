@@ -23,7 +23,8 @@ use cennznet_primitives::{
 };
 use fp_evm::{Context, ExitSucceed, PrecompileFailure, PrecompileOutput};
 use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
-use precompile_utils::{EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
+use precompile_utils::{Address, EvmDataReader, EvmResult, FunctionModifier, Gasometer};
 use sp_core::{H160, U256};
 use sp_runtime::SaturatedConversion;
 use sp_std::marker::PhantomData;
@@ -33,17 +34,18 @@ use sp_std::marker::PhantomData;
 pub enum Action {
 	/// Swap some input asset for some exact CPAY amount, defining a limit on the max. input
 	/// (assetIn, exactCpayOut, maxAssetIn)
-	SwapForExactCPAY = "swapForExactCPAY(uint256,uint128,uint256)",
+	SwapForExactCPAY = "swapForExactCPAY(address,uint128,uint256)",
 }
 
 /// Provides access to the state oracle pallet
-pub struct CennzxPrecompile<T, U, G>(PhantomData<(T, U, G)>);
+pub struct CennzxPrecompile<T, U, G, C>(PhantomData<(T, U, G, C)>);
 
-impl<T, U, G> Precompile for CennzxPrecompile<T, U, G>
+impl<T, U, G, C> Precompile for CennzxPrecompile<T, U, G, C>
 where
 	T: BuyFeeAsset<AccountId = AccountId, Balance = Balance, FeeExchange = FeeExchange<AssetId, Balance>>,
 	U: AddressMapping<AccountId>,
 	G: GasWeightMapping,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	fn execute(
 		input: &[u8],
@@ -76,11 +78,12 @@ where
 	}
 }
 
-impl<T, U, G> CennzxPrecompile<T, U, G>
+impl<T, U, G, C> CennzxPrecompile<T, U, G, C>
 where
 	T: BuyFeeAsset<AccountId = AccountId, Balance = Balance, FeeExchange = FeeExchange<AssetId, Balance>>,
 	U: AddressMapping<AccountId>,
 	G: GasWeightMapping,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	fn swap_for_exact_cpay(
 		input: &mut EvmDataReader,
@@ -89,16 +92,17 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		input.expect_arguments(gasometer, 3)?;
 
-		// TODO: convert to assetId either from derived token address or raw u32 value
-		let input_asset: U256 = input.read::<U256>(gasometer)?.into();
-		let input_asset = input_asset.saturated_into();
+		let input_asset: Address = input.read::<Address>(gasometer)?.into();
+		// the given `input_asset` address is not a valid (derived) generic asset address
+		// it is not supported by cennzx
+		let asset_id = C::evm_id_to_runtime_id(input_asset).ok_or(gasometer.revert("unsupported asset"))?;
 		// in CPAY units
 		let exact_output: U256 = input.read::<U256>(gasometer)?.into();
 		// in ASSET units
 		let max_input: U256 = input.read::<U256>(gasometer)?.into();
 
 		let fee_exchange = FeeExchange::V1(FeeExchangeV1::<AssetId, Balance> {
-			asset_id: input_asset,
+			asset_id,
 			max_payment: max_input.saturated_into(),
 		});
 

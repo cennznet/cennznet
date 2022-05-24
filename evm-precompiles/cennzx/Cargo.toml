@@ -17,6 +17,7 @@ sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 num_enum = { version = "0.5.3", default-features = false }
+pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
 crml-support = { path = "../../crml/support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 ethabi = { version = "16.0.0", default-features = false }
@@ -29,6 +30,7 @@ std = [
 	"scale-info/std",
 	"fp-evm/std",
 	"pallet-evm/std",
+	"pallet-evm-precompiles-erc20/std",
 	"frame-support/std",
 	"frame-system/std",
 	"num_enum/std",
