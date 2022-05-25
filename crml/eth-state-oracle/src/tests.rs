@@ -79,7 +79,7 @@ fn try_callback() {
 
 		let relayer = 3_u64;
 		let response = CallResponseBuilder::new()
-			.timestamp(5_u64)
+			.eth_block_timestamp(5_u64)
 			.relayer(relayer)
 			.build();
 
