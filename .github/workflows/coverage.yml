@@ -22,12 +22,12 @@ jobs:
           toolchain: nightly-2021-12-22
           target: wasm32-unknown-unknown
           default: true
-          override: true
       # generate test coverage
-      - name: cargo tarpaulin
-        run: |
-          cargo install cargo-tarpaulin
-          SKIP_WASM_BUILD=1 cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --workspace --locked
+      - name: Tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          run-types: 'Tests'
+          args: '-- --avoid-cfg-tarpaulin --skip-clean --workspace --locked'
       # upload coverage info
       - name: Coverage
         uses: codecov/codecov-action@v3.0.0

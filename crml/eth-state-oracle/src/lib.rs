@@ -307,7 +307,7 @@ decl_module! {
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!ResponsesChallenged::<T>::contains_key(request_id), Error::<T>::DuplicateChallenge);
 
-			if let Some(response) = Responses::<T>::get(request_id) {
+			if Responses::<T>::contains_key(request_id) {
 				let request = Requests::get(request_id).unwrap();
 				let challenge_subscription_id = T::EthCallOracle::call_at(
 					&request.destination,

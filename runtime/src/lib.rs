@@ -104,7 +104,7 @@ use impls::{
 	SlashFundsToTreasury, WeightToCpayFee,
 };
 
-mod precompiles;
+pub mod precompiles;
 use precompiles::{CENNZnetPrecompiles, StateOracleCallbackExecutor};
 
 pub mod runner;
@@ -647,7 +647,7 @@ parameter_types! {
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 }
 impl crml_eth_state_oracle::Config for Runtime {
-	type AddressMapping = PrefixedAddressMapping<Self::AccountId>;
+	type AddressMapping = AddressMappingOf<Self>;
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type ChallengePeriod = ChallengePeriod;
 	type ContractExecutor = StateOracleCallbackExecutor<Self>;
@@ -693,7 +693,7 @@ parameter_types! {
 impl crml_eth_wallet::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type AddressMapping = PrefixedAddressMapping<AccountId>;
+	type AddressMapping = AddressMappingOf<Self>;
 	type TransactionFeeHandler = TransactionPayment;
 	type Signer = <Signature as Verify>::Signer;
 	type UnsignedPriority = EcdsaUnsignedPriority;
@@ -710,6 +710,9 @@ pub const GAS_PER_SECOND: u64 = 40_000_000;
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
 pub const WEIGHT_PER_GAS: u64 = WEIGHT_PER_SECOND / GAS_PER_SECOND;
+
+/// Type alias for the EVM to ss58 address mapping scheme used by CENNZnet runtime
+pub type AddressMappingOf<T> = PrefixedAddressMapping<<T as frame_system::Config>::AccountId>;
 
 pub struct CENNZnetGasWeightMapping;
 
@@ -778,10 +781,10 @@ impl pallet_evm::Config for Runtime {
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
-	type AddressMapping = PrefixedAddressMapping<AccountId>;
+	type AddressMapping = AddressMappingOf<Self>;
 	type Currency = EvmCurrencyScaler<SpendingAssetCurrency<Self>>;
 	type Event = Event;
-	type Runner = FeePreferencesRunner<Self>;
+	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = CENNZnetPrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;
