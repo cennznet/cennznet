@@ -14,7 +14,7 @@
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{Balance, FeePreferences};
+use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
 	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
 	MultiCurrency, ReturnDataClaim, H160,
@@ -34,6 +34,7 @@ use sp_std::prelude::*;
 mod mock;
 mod tests;
 mod types;
+use cennznet_primitives::traits::BuyFeeAsset;
 use types::*;
 
 pub(crate) const LOG_TARGET: &str = "state-oracle";
@@ -70,6 +71,12 @@ pub trait Config: frame_system::Config {
 	type MinGasPrice: Get<u64>;
 	/// Convert gas to weight according to runtime config
 	type GasWeightMapping: GasWeightMapping;
+	/// Convert fee preference into payment asset
+	type BuyFeeAsset: BuyFeeAsset<
+		AccountId = Self::AccountId,
+		Balance = Balance,
+		FeeExchange = FeeExchange<AssetId, Balance>,
+	>;
 }
 
 decl_storage! {
@@ -123,6 +130,8 @@ decl_error! {
 		ReturnDataExceedsLimit,
 		/// The request did not receive any relayed response in the alloted time
 		RequestExpired,
+		/// Failed to exchange fee preference to CPay
+		FeeExchangeFailed,
 	}
 }
 
@@ -364,8 +373,22 @@ impl<T: Config> Module<T> {
 			request.caller,
 			caller_ss58_address
 		);
+
+		// Exchange for fee asset if fee preferences have been set
+		if let Some(fee_preferences) = &request.fee_preferences {
+			let max_payment = request.bounty.saturating_add(fee_preferences.slippage * request.bounty);
+			let exchange = FeeExchange::new_v1(fee_preferences.asset_id, max_payment);
+			T::BuyFeeAsset::buy_fee_asset(&caller_ss58_address, request.bounty, &exchange).map_err(|_| {
+				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
+				Error::<T>::FeeExchangeFailed
+			})?;
+			log!(
+				debug,
+				"🔮 exchanging fee preference asset: {:?}",
+				fee_preferences.asset_id,
+			);
+		}
 		// 2) payout bounty to the relayer
-		// TODO: enable multi-currency payment for bounty & gas
 		log!(
 			debug,
 			"🔮 paying bounty for callback({:?}), bounty: {:?}",

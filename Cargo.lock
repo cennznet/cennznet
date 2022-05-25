@@ -5006,6 +5006,7 @@ dependencies = [
  "frame-system",
  "num_enum",
  "pallet-evm",
+ "pallet-evm-precompiles-erc20",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",

@@ -16,10 +16,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::FeePreferences;
+use cennznet_primitives::types::{AssetId, FeePreferences};
 use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use pallet_evm::Precompile;
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use precompile_utils::{Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
@@ -34,15 +35,16 @@ pub enum Action {
 	/// Issue a remote 'call' to ethereum contract
 	/// allowing fee swaps in the callback
 	/// target contract, call input, callback selector, callback gas limit, callback bounty, fee asset, fee slippage
-	RemoteCallWithFeeSwap = "remoteCallWithFeeSwap(address,bytes,bytes4,uint256,uint256,uint32,uint32)",
+	RemoteCallWithFeeSwap = "remoteCallWithFeeSwap(address,bytes,bytes4,uint256,uint256,address,uint32)",
 }
 
 /// Provides access to the state oracle pallet
-pub struct StateOraclePrecompile<T>(PhantomData<T>);
+pub struct StateOraclePrecompile<T, C>(PhantomData<(T, C)>);
 
-impl<T> Precompile for StateOraclePrecompile<T>
+impl<T, C> Precompile for StateOraclePrecompile<T, C>
 where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	fn execute(
 		input: &[u8],
@@ -77,15 +79,16 @@ where
 	}
 }
 
-impl<T> StateOraclePrecompile<T> {
+impl<T, C> StateOraclePrecompile<T, C> {
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
-impl<T> StateOraclePrecompile<T>
+impl<T, C> StateOraclePrecompile<T, C>
 where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	fn remote_call_with_fee_swap(
 		input: &mut EvmDataReader,
@@ -102,15 +105,15 @@ where
 		}
 		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
 		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
-		let fee_asset_id: U256 = input.read::<U256>(gasometer)?.into();
+		let fee_asset_id: Address = input.read::<Address>(gasometer)?.into();
+		// the given `input_asset` address is not a valid (derived) generic asset address
+		// it is not supported by cennzx
+		let asset_id = C::evm_id_to_runtime_id(fee_asset_id).ok_or(gasometer.revert("unsupported asset"))?;
 		let slippage: U256 = input.read::<U256>(gasometer)?.into();
-		let mut fee_preferences = None;
-		if fee_asset_id > U256::zero() {
-			fee_preferences = Some(FeePreferences {
-				asset_id: fee_asset_id.low_u32(),
-				slippage: Permill::from_rational(slippage.low_u32(), 1_000),
-			});
-		};
+		let fee_preferences = Some(FeePreferences {
+			asset_id,
+			slippage: Permill::from_rational(slippage.low_u32(), 1_000),
+		});
 
 		gasometer.record_cost(T::new_request_fee())?;
 		let request_id: U256 = T::new_request(
