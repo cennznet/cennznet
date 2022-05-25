@@ -141,7 +141,6 @@ fn try_callback() {
 fn try_callback_with_fee_preferences() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = 111_u64;
-		let relayer = 3_u64;
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
 		let return_data = [1_u8; 32];
@@ -155,16 +154,22 @@ fn try_callback_with_fee_preferences() {
 			// selector for 'testCallback'
 			.callback_signature(hex!("0c43949d"))
 			.build();
+		let relayer = 3_u64;
+		let response = CallResponseBuilder::new()
+			.eth_block_timestamp(5_u64)
+			.relayer(relayer)
+			.build();
 		// fund the caller
 		let initial_caller_balance = 100_000_000_000_000 as Balance;
-		let cennz_asset_id: AssetId = 1;
+		// Asset used for payment
+		let payment_asset_id: AssetId = 10;
 		assert!(
-			GenericAsset::deposit_into_existing(&caller, cennz_asset_id, initial_caller_balance).is_ok()
+			GenericAsset::deposit_into_existing(&caller, payment_asset_id, initial_caller_balance).is_ok()
 		);
 
 		// Test
 		assert!(
-			EthStateOracle::try_callback(request_id, &request, &relayer, &return_data).is_ok()
+			EthStateOracle::try_callback(request_id, &request, &response).is_ok()
 		);
 
 		// bounty to relayer
@@ -192,9 +197,9 @@ fn try_callback_with_fee_preferences() {
 			(
 				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
 				request.caller,
-				// input is an abi encoded call `testCallback(123, 0x0101010101010101010101010101010101010101010101010101010101010101)`
-				// signature: `testCallback(uint256, bytes32)`
-				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b0101010101010101010101010101010101010101010101010101010101010101").to_vec(),
+				// input is an abi encoded call `testCallback(123, 5, 0x0101010101010101010101010101010101010101010101010101010101010101)`
+				// signature: `testCallback(uint256, uint256, bytes32)`
+				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101").to_vec(),
 				request.callback_gas_limit,
 				max_fee_per_gas,
 				max_priority_fee_per_gas,
