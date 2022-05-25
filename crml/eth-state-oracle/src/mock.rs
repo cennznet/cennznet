@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::{self as crml_eth_state_oracle, CallRequest, Config};
+use crate::{self as crml_eth_state_oracle, CallRequest, CallResponse, Config, ReturnDataClaim};
 use cennznet_primitives::types::FeePreferences;
 use crml_support::{ContractExecutor, H160, H256, U256};
 use frame_support::{
@@ -215,7 +215,7 @@ impl CallRequestBuilder {
 		})
 	}
 	pub fn build(self) -> CallRequest {
-		self.0.clone()
+		self.0
 	}
 	pub fn expiry_block(mut self, expiry_block: BlockNumber) -> Self {
 		self.0.expiry_block = expiry_block as u32;
@@ -247,6 +247,40 @@ impl CallRequestBuilder {
 	}
 	pub fn timestamp(mut self, timestamp: u64) -> Self {
 		self.0.timestamp = timestamp;
+		self
+	}
+}
+
+pub(crate) struct CallResponseBuilder(CallResponse<AccountId>);
+
+impl CallResponseBuilder {
+	/// initialize a new CallResponseBuilder
+	pub fn new() -> Self {
+		CallResponseBuilder(CallResponse {
+			return_data: ReturnDataClaim::Ok([1_u8; 32]),
+			relayer: Default::default(),
+			eth_block_number: 5,
+			eth_block_timestamp: <TestRuntime as Config>::UnixTime::now().as_secs(),
+		})
+	}
+	/// Return the built CallResponse
+	pub fn build(self) -> CallResponse<AccountId> {
+		self.0
+	}
+	pub fn eth_block_number(mut self, eth_block_number: u64) -> Self {
+		self.0.eth_block_number = eth_block_number;
+		self
+	}
+	pub fn eth_block_timestamp(mut self, eth_block_timestamp: u64) -> Self {
+		self.0.eth_block_timestamp = eth_block_timestamp;
+		self
+	}
+	pub fn relayer(mut self, relayer: AccountId) -> Self {
+		self.0.relayer = relayer;
+		self
+	}
+	pub fn return_data(mut self, return_data: ReturnDataClaim) -> Self {
+		self.0.return_data = return_data;
 		self
 	}
 }
