@@ -14,7 +14,8 @@
 */
 
 use crate::{self as crml_eth_state_oracle, CallRequest, Config};
-use cennznet_primitives::types::FeePreferences;
+use cennznet_primitives::traits::BuyFeeAsset;
+use cennznet_primitives::types::{FeeExchange, FeePreferences};
 use crml_support::{ContractExecutor, H160, H256, U256};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
@@ -116,6 +117,27 @@ impl Config for TestRuntime {
 	type GasWeightMapping = MockGasWeightMapping;
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
+	type BuyFeeAsset = MockBuyFeeAsset;
+}
+
+pub struct MockBuyFeeAsset;
+
+impl BuyFeeAsset for MockBuyFeeAsset {
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type FeeExchange = FeeExchange<AssetId, Self::Balance>;
+
+	fn buy_fee_asset(
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError> {
+		unimplemented!()
+	}
+
+	fn buy_fee_weight() -> Weight {
+		unimplemented!()
+	}
 }
 
 pub struct MockTimestampGetter;
