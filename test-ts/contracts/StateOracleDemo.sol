@@ -5,7 +5,7 @@ contract StateOracleDemo {
     // log on state oracle request
     event HiToEthereum(uint256 requestId);
     // log on state oracle response
-    event HiFromEthereum(uint256 requestId, uint256 balance);
+    event HiFromEthereum(uint256 requestId, uint256 timestamp, uint256 balance);
     event Greeted(bytes32);
 
     address constant STATE_ORACLE = address(27572);
@@ -29,12 +29,13 @@ contract StateOracleDemo {
     }
 
     // Receive state oracle response
-    function ethereumSaysHi(uint256 requestId, bytes32 returnData) external {
+    function ethereumSaysHi(uint256 requestId, uint256 timestamp, bytes32 returnData) external {
         require(msg.sender == STATE_ORACLE, "must be state oracle");
         uint256 balanceOf = uint256(returnData);
 
         emit HiFromEthereum(
             requestId,
+            timestamp,
             balanceOf
         );
     }
