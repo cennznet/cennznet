@@ -124,6 +124,8 @@ decl_error! {
 		InsufficientFundsGas,
 		/// Paying the callback bounty to relayer failed
 		InsufficientFundsBounty,
+		/// Timestamp is either stale or from the future
+		InvalidResponseTimestamp,
 		/// Challenge already in progress
 		DuplicateChallenge,
 		/// Return data exceeded the 32 byte limit
@@ -170,7 +172,6 @@ decl_module! {
 		}
 
 		/// Try run request callbacks using idle block space
-		/// TODO: on_idle could be executed after extrinsics, is this ok?
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			if ResponsesForCallback::decode_len().unwrap_or(0).is_zero() {
 				return DbWeight::get().reads(1);
@@ -206,27 +207,11 @@ decl_module! {
 				Requests::remove(call_request_id);
 				let response = Responses::<T>::take(call_request_id).unwrap();
 
-				// At this point the claimed 'return_data' is considered valid as it has
-				// passed the challenge period
-				let return_data = match response.return_data {
-					ReturnDataClaim::Ok(return_data) => return_data,
-					// this returndata exceeded the length limit so it will not be processed
-					ReturnDataClaim::ExceedsLengthLimit => {
-						Self::deposit_event(Event::CallbackErr(
-							call_request_id,
-							Error::<T>::ReturnDataExceedsLimit.into(),
-						));
-						consumed_weight = consumed_weight.saturating_add(weight_per_callback);
-						continue;
-					}
-				};
-
 				// Try run the callback, recording weight consumed
 				let callback_weight = match Self::try_callback(
 					call_request_id,
 					&request,
-					&response.reporter,
-					&return_data,
+					&response,
 				) {
 					Ok(info) => {
 						let callback_weight = info.actual_weight.unwrap_or(0);
@@ -259,14 +244,15 @@ decl_module! {
 		/// Submit response for a a remote call request
 		///
 		/// `return_data` - the claimed `returndata` of the `eth_call` RPC using the requested contract and input buffer
-		/// `eth_block_number` - the ethereum block number the request was made
+		/// `eth_block_number` - the ethereum block number where the 'returndata' was obtained
+		/// `eth_block_timestamp` - the ethereum block timestamp where the 'returndata' was obtained (unix timestamp, seconds)
 		///
 		/// Caller should be a configured relayer (i.e. authorized or staked)
 		/// Only accepts the first response for a given request
 		/// The response is not valid until `T::ChallengePeriod` blocks have passed
 		///
 		#[weight = 500_000]
-		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64) {
+		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
 			// TODO: relayer should have some bond
 			let origin = ensure_signed(origin)?;
 
@@ -288,10 +274,20 @@ decl_module! {
 			// if the type is dynamic i.e `[]T` or `bytes`, `returndata` length will be 32 * (offset + length + n)
 
 			if let Some(request) = Requests::get(request_id) {
+				// ~ average ethereum block time
+				let eth_block_time_s = 15;
+				// check response timestamp is within a sensible bound +/- 2 Ethereum blocks from the request timestamp
+				ensure!(
+					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * eth_block_time_s)) &&
+					eth_block_timestamp <= (request.timestamp.saturating_add(2 * eth_block_time_s)),
+					Error::<T>::InvalidResponseTimestamp
+				);
+
 				let response = CallResponse {
 					return_data,
 					eth_block_number,
-					reporter: origin,
+					eth_block_timestamp,
+					relayer: origin,
 				};
 				<Responses<T>>::insert(request_id, response);
 				let execute_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
@@ -308,7 +304,7 @@ decl_module! {
 		/// Valid challenge scenarios are:
 		/// - incorrect value
 		/// - The block number of the response is stale or from the future
-		///   request.timestamp - lenience > block.timestamp > request.timestamp + lenience
+		/// - the block timestamp of the response is inaccurate
 		#[weight = 500_000]
 		pub fn submit_response_challenge(origin, request_id: RequestId) {
 			// TODO: challenger should have some bond
@@ -348,15 +344,21 @@ impl<T: Config> EthCallOracleSubscriber for Module<T> {
 
 impl<T: Config> Module<T> {
 	/// Try to execute a callback
+	/// `request_id` - the request identifier
 	/// `request` - the original request
-	/// `relayer` - the address of the relayer
-	/// `return_data` - the returndata of the request (fulfilled by the relayer)
+	/// `response` - the response info (validated)
 	fn try_callback(
 		request_id: RequestId,
 		request: &CallRequest,
-		relayer: &T::AccountId,
-		return_data: &[u8; 32],
+		response: &CallResponse<T::AccountId>,
 	) -> DispatchResultWithPostInfo {
+		// check returndata type
+		let return_data = match response.return_data {
+			ReturnDataClaim::Ok(return_data) => return_data,
+			// this returndata exceeded the length limit so it will not be processed
+			ReturnDataClaim::ExceedsLengthLimit => return Err(Error::<T>::ReturnDataExceedsLimit.into()),
+		};
+
 		// The overall gas payment process for state oracle interaction is as follows:
 		// 1) requestor pays the state oracle request fee to network via gas fees and sets a bounty amount
 		// 	  bounty should be in cpay, relayers can take jobs at their discretion (free market)
@@ -364,7 +366,6 @@ impl<T: Config> Module<T> {
 		// we can't buy gas in advance due to the potential price of gas changing between blocks, therefore:
 		// 2) require caller to precommit to a future gas_limit at time of request
 		// 3) pay for this gas_limit at the current price at the time of execution from caller account
-
 		let caller_ss58_address = T::AddressMapping::into_account_id(request.caller);
 		log!(
 			debug,
@@ -411,7 +412,7 @@ impl<T: Config> Module<T> {
 		);
 		let _ = T::MultiCurrency::transfer(
 			&caller_ss58_address,
-			relayer,
+			&response.relayer,
 			T::MultiCurrency::fee_currency(),
 			request.bounty,
 			ExistenceRequirement::AllowDeath,
@@ -436,11 +437,12 @@ impl<T: Config> Module<T> {
 		)
 		.map_err(|_| Error::<T>::InsufficientFundsGas)?;
 
-		// abi encode callback input
+		// abi encode callback input `<callbackSelector>(uint256 requestId, uint256 timestamp, bytes32 returnData)`
 		let callback_input = [
 			request.callback_signature.as_ref(),
 			EthAbiCodec::encode(&request_id).as_ref(),
-			return_data, // bytes32 are encoded as is
+			EthAbiCodec::encode(&response.eth_block_timestamp).as_ref(),
+			&return_data, // bytes32 are encoded as is
 		]
 		.concat();
 
