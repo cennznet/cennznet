@@ -144,7 +144,8 @@ fn try_callback_with_fee_preferences() {
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
 		let return_data = [1_u8; 32];
-		let fee_preferences = FeePreferences { asset_id: 0, slippage: Default::default() };
+		let payment_asset_id: AssetId = 1;
+		let fee_preferences = FeePreferences { asset_id: payment_asset_id, slippage: Default::default() };
 		let request = CallRequestBuilder::new()
 			.caller(caller)
 			.destination(2_u64)
@@ -162,7 +163,6 @@ fn try_callback_with_fee_preferences() {
 		// fund the caller
 		let initial_caller_balance = 100_000_000_000_000 as Balance;
 		// Asset used for payment
-		let payment_asset_id: AssetId = 10;
 		assert!(
 			GenericAsset::deposit_into_existing(&caller, payment_asset_id, initial_caller_balance).is_ok()
 		);
@@ -211,6 +211,11 @@ fn try_callback_with_fee_preferences() {
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &caller),
 			0,
+		);
+		// caller fee asset should be reduced
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset_id, &caller),
+			initial_caller_balance - bounty - total_fee,
 		);
 	});
 }

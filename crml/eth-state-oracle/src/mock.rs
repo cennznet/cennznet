@@ -134,7 +134,11 @@ impl BuyFeeAsset for MockBuyFeeAsset {
 		amount: Self::Balance,
 		fee_exchange: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
-		GenericAsset::deposit_into_existing(&who, fee_exchange.asset_id(), amount)?;
+		let new_balance = GenericAsset::free_balance(fee_exchange.asset_id(), &who)
+			.checked_sub(amount)
+			.ok_or(DispatchError::Other("No Balance"))?;
+		GenericAsset::make_free_balance_be(&who, fee_exchange.asset_id(), new_balance);
+		GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
 		Ok(amount)
 	}
 

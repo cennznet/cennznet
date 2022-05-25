@@ -392,10 +392,7 @@ impl<T: Config> Module<T> {
 			let exchange_total = request.bounty + total_fee;
 			let max_payment = exchange_total.saturating_add(fee_preferences.slippage * exchange_total);
 			let exchange = FeeExchange::new_v1(fee_preferences.asset_id, max_payment);
-			T::BuyFeeAsset::buy_fee_asset(&caller_ss58_address, exchange_total, &exchange).map_err(|_| {
-				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				Error::<T>::FeeExchangeFailed
-			})?;
+			T::BuyFeeAsset::buy_fee_asset(&caller_ss58_address, exchange_total, &exchange)?;
 			log!(
 				debug,
 				"🔮 exchanging fee preference asset: {:?}",
