@@ -131,6 +131,79 @@ fn try_callback() {
 }
 
 #[test]
+fn try_callback_with_fee_preferences() {
+	ExtBuilder::default().build().execute_with(|| {
+		let caller = 111_u64;
+		let relayer = 3_u64;
+		let bounty = 88 as Balance;
+		let request_id = RequestId::from(123_u32);
+		let return_data = [1_u8; 32];
+		let fee_preferences = FeePreferences { asset_id: 0, slippage: Default::default() };
+		let request = CallRequestBuilder::new()
+			.caller(caller)
+			.destination(2_u64)
+			.fee_preferences(Some(fee_preferences))
+			.bounty(bounty)
+			.callback_gas_limit(200_000_u64)
+			// selector for 'testCallback'
+			.callback_signature(hex!("0c43949d"))
+			.build();
+		// fund the caller
+		let initial_caller_balance = 100_000_000_000_000 as Balance;
+		let cennz_asset_id: AssetId = 1;
+		assert!(
+			GenericAsset::deposit_into_existing(&caller, cennz_asset_id, initial_caller_balance).is_ok()
+		);
+
+		// Test
+		assert!(
+			EthStateOracle::try_callback(request_id, &request, &relayer, &return_data).is_ok()
+		);
+
+		// bounty to relayer
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
+			bounty,
+		);
+
+		// callback gas fees paid to state oracle address
+		let max_fee_per_gas = U256::from(<TestRuntime as Config>::MinGasPrice::get());
+		let max_priority_fee_per_gas = U256::one();
+		let total_fee: Balance =
+			scale_wei_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
+		// test is only valid if `total_fee` is non-zero
+		assert!(total_fee > Zero::zero());
+
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &state_oracle_ss58_address()),
+			total_fee,
+		);
+
+		// contract executor receives correct values
+		assert_eq!(
+			test_storage::CurrentExecutionParameters::get().expect("parameters are set"),
+			(
+				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
+				request.caller,
+				// input is an abi encoded call `testCallback(123, 0x0101010101010101010101010101010101010101010101010101010101010101)`
+				// signature: `testCallback(uint256, bytes32)`
+				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b0101010101010101010101010101010101010101010101010101010101010101").to_vec(),
+				request.callback_gas_limit,
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				None,
+			)
+		);
+
+		// caller fee asset balance should remain 0
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &caller),
+			0,
+		);
+	});
+}
+
+#[test]
 fn try_callback_cannot_pay_bounty() {
 	ExtBuilder::default().build().execute_with(|| {
 		let request = CallRequestBuilder::new().caller(1_u64).bounty(88 as Balance).build();

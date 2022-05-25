@@ -16,7 +16,7 @@
 use crate::{self as crml_eth_state_oracle, CallRequest, Config};
 use cennznet_primitives::traits::BuyFeeAsset;
 use cennznet_primitives::types::{FeeExchange, FeePreferences};
-use crml_support::{ContractExecutor, H160, H256, U256};
+use crml_support::{ContractExecutor, MultiCurrency, H160, H256, U256};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -132,7 +132,8 @@ impl BuyFeeAsset for MockBuyFeeAsset {
 		amount: Self::Balance,
 		fee_exchange: &Self::FeeExchange,
 	) -> Result<Self::Balance, DispatchError> {
-		unimplemented!()
+		GenericAsset::deposit_into_existing(&who, fee_exchange.asset_id(), amount)?;
+		Ok(amount)
 	}
 
 	fn buy_fee_weight() -> Weight {
@@ -257,6 +258,10 @@ impl CallRequestBuilder {
 	}
 	pub fn destination(mut self, destination: u64) -> Self {
 		self.0.destination = H160::from_low_u64_be(destination);
+		self
+	}
+	pub fn fee_preferences(mut self, fee_preferences: Option<FeePreferences>) -> Self {
+		self.0.fee_preferences = fee_preferences;
 		self
 	}
 	pub fn callback_gas_limit(mut self, callback_gas_limit: u64) -> Self {
