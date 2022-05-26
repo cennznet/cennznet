@@ -173,7 +173,7 @@ mod tests {
 	use hex_literal::hex;
 	use libsecp256k1 as secp256k1;
 	use pallet_evm::AddressMapping;
-	use sp_core::{ecdsa, keccak_256, Pair};
+	use sp_core::keccak_256;
 	use sp_runtime::{
 		testing::{Header, H256},
 		traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -312,7 +312,6 @@ mod tests {
 	#[test]
 	fn simple_remark() {
 		new_test_ext().execute_with(|| {
-			let pair = ecdsa::Pair::from_seed(&ECDSA_SEED);
 			let eth_address: EthAddress = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
 			let cennznet_address = <Test as Config>::AddressMapping::into_account_id(eth_address);
 			let call: Call = frame_system::Call::<Test>::remark {

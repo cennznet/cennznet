@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::mock::{
-	test_storage, AccountId, CallRequestBuilder, EthStateOracle, ExtBuilder, GenericAsset, System, TestRuntime,
+	test_storage, AccountId, CallRequestBuilder, CallResponseBuilder, EthStateOracle, ExtBuilder, GenericAsset, System,
+	TestRuntime,
 };
 use frame_support::{
 	assert_err, assert_noop,
@@ -64,10 +65,9 @@ fn new_request() {
 fn try_callback() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = 111_u64;
-		let relayer = 3_u64;
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
-		let return_data = [1_u8; 32];
+
 		let request = CallRequestBuilder::new()
 			.caller(caller)
 			.destination(2_u64)
@@ -76,6 +76,13 @@ fn try_callback() {
 			// selector for 'testCallback'
 			.callback_signature(hex!("0c43949d"))
 			.build();
+
+		let relayer = 3_u64;
+		let response = CallResponseBuilder::new()
+			.eth_block_timestamp(5_u64)
+			.relayer(relayer)
+			.build();
+
 		// fund the caller
 		let initial_caller_balance = 100_000_000_000_000 as Balance;
 		assert!(
@@ -84,7 +91,7 @@ fn try_callback() {
 
 		// Test
 		assert!(
-			EthStateOracle::try_callback(request_id, &request, &relayer, &return_data).is_ok()
+			EthStateOracle::try_callback(request_id, &request, &response).is_ok()
 		);
 
 		// bounty to relayer
@@ -112,9 +119,9 @@ fn try_callback() {
 			(
 				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
 				request.caller,
-				// input is an abi encoded call `testCallback(123, 0x0101010101010101010101010101010101010101010101010101010101010101)`
-				// signature: `testCallback(uint256, bytes32)`
-				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b0101010101010101010101010101010101010101010101010101010101010101").to_vec(),
+				// input is an abi encoded call `testCallback(123, 5, 0x0101010101010101010101010101010101010101010101010101010101010101)`
+				// signature: `testCallback(uint256, uint256, bytes32)`
+				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101").to_vec(),
 				request.callback_gas_limit,
 				max_fee_per_gas,
 				max_priority_fee_per_gas,
@@ -131,13 +138,96 @@ fn try_callback() {
 }
 
 #[test]
+fn try_callback_with_fee_preferences() {
+	ExtBuilder::default().build().execute_with(|| {
+		let caller = 111_u64;
+		let bounty = 88 as Balance;
+		let request_id = RequestId::from(123_u32);
+		let return_data = [1_u8; 32];
+		let payment_asset_id: AssetId = 1;
+		let fee_preferences = FeePreferences { asset_id: payment_asset_id, slippage: Default::default() };
+		let request = CallRequestBuilder::new()
+			.caller(caller)
+			.destination(2_u64)
+			.fee_preferences(Some(fee_preferences))
+			.bounty(bounty)
+			.callback_gas_limit(200_000_u64)
+			// selector for 'testCallback'
+			.callback_signature(hex!("0c43949d"))
+			.build();
+		let relayer = 3_u64;
+		let response = CallResponseBuilder::new()
+			.eth_block_timestamp(5_u64)
+			.relayer(relayer)
+			.build();
+		// fund the caller
+		let initial_caller_balance = 100_000_000_000_000 as Balance;
+		// Asset used for payment
+		assert!(
+			GenericAsset::deposit_into_existing(&caller, payment_asset_id, initial_caller_balance).is_ok()
+		);
+
+		// Test
+		assert!(
+			EthStateOracle::try_callback(request_id, &request, &response).is_ok()
+		);
+
+		// bounty to relayer
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
+			bounty,
+		);
+
+		// callback gas fees paid to state oracle address
+		let max_fee_per_gas = U256::from(<TestRuntime as Config>::MinGasPrice::get());
+		let max_priority_fee_per_gas = U256::one();
+		let total_fee: Balance =
+			scale_wei_to_4dp((max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into());
+		// test is only valid if `total_fee` is non-zero
+		assert!(total_fee > Zero::zero());
+
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &state_oracle_ss58_address()),
+			total_fee,
+		);
+
+		// contract executor receives correct values
+		assert_eq!(
+			test_storage::CurrentExecutionParameters::get().expect("parameters are set"),
+			(
+				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
+				request.caller,
+				// input is an abi encoded call `testCallback(123, 5, 0x0101010101010101010101010101010101010101010101010101010101010101)`
+				// signature: `testCallback(uint256, uint256, bytes32)`
+				hex!("0c43949d000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101").to_vec(),
+				request.callback_gas_limit,
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				None,
+			)
+		);
+
+		// caller fee asset balance should remain 0
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &caller),
+			0,
+		);
+		// caller fee asset should be reduced
+		assert_eq!(
+			GenericAsset::free_balance(payment_asset_id, &caller),
+			initial_caller_balance - bounty - total_fee,
+		);
+	});
+}
+
+#[test]
 fn try_callback_cannot_pay_bounty() {
 	ExtBuilder::default().build().execute_with(|| {
 		let request = CallRequestBuilder::new().caller(1_u64).bounty(88 as Balance).build();
-		let relayer = 555 as AccountId;
+		let response = CallResponseBuilder::new().relayer(555 as AccountId).build();
 
 		assert_noop!(
-			EthStateOracle::try_callback(RequestId::from(1_u64), &request, &relayer, &<[u8; 32]>::default()),
+			EthStateOracle::try_callback(RequestId::from(1_u64), &request, &response),
 			Error::<TestRuntime>::InsufficientFundsBounty,
 		);
 	});
@@ -154,13 +244,14 @@ fn try_callback_cannot_pay_gas() {
 			.callback_gas_limit(100_000_u64 * 100_000_000_000_000_u64)
 			.build();
 		let relayer = 555 as AccountId;
+		let response = CallResponseBuilder::new().relayer(relayer).build();
 		// fund the caller for bounty payment only
 		assert!(GenericAsset::deposit_into_existing(&caller, GenericAsset::fee_currency(), bounty).is_ok());
 		assert!(<TestRuntime as Config>::MinGasPrice::get() > 0);
 
 		// Test
 		assert_err!(
-			EthStateOracle::try_callback(RequestId::from(1_u64), &request, &relayer, &<[u8; 32]>::default()),
+			EthStateOracle::try_callback(RequestId::from(1_u64), &request, &response),
 			Error::<TestRuntime>::InsufficientFundsGas,
 		);
 		// Bounty retained
@@ -179,20 +270,29 @@ fn submit_call_response() {
 		let origin = RawOrigin::Signed(relayer);
 		let request_id = RequestId::from(1_u64);
 		let eth_block_number = 100_u64;
+		let eth_block_timestamp = <TestRuntime as Config>::UnixTime::now().as_secs();
 		let expiry_block = 5_u64;
 		let return_data = ReturnDataClaim::Ok([1_u8; 32]);
 		Requests::insert(request_id, CallRequestBuilder::new().expiry_block(expiry_block).build());
 		RequestsExpiredAtBlock::<TestRuntime>::insert(expiry_block, vec![request_id]);
 
 		// Test
-		assert!(EthStateOracle::submit_call_response(origin.into(), request_id, return_data.clone(), 100_u64).is_ok());
+		assert!(EthStateOracle::submit_call_response(
+			origin.into(),
+			request_id,
+			return_data.clone(),
+			eth_block_number,
+			eth_block_timestamp,
+		)
+		.is_ok());
 
 		assert_eq!(
 			EthStateOracle::responses(request_id).unwrap(),
 			CallResponse {
 				return_data,
 				eth_block_number,
-				reporter: relayer,
+				eth_block_timestamp,
+				relayer,
 			}
 		);
 		// request is no longer marked for expiry
@@ -213,7 +313,8 @@ fn submit_call_response_request_should_exist() {
 				RawOrigin::Signed(1_u64).into(),
 				RequestId::from(1_u64),
 				ReturnDataClaim::Ok([0_u8; 32]),
-				100_u64
+				100_u64,
+				<TestRuntime as Config>::UnixTime::now().as_secs(),
 			),
 			Error::<TestRuntime>::NoRequest,
 		);
@@ -232,7 +333,8 @@ fn submit_call_response_accepts_first() {
 			RawOrigin::Signed(1_u64).into(),
 			request_id,
 			ReturnDataClaim::Ok([1_u8; 32]),
-			100_u64
+			100_u64,
+			<TestRuntime as Config>::UnixTime::now().as_secs(),
 		)
 		.is_ok());
 
@@ -243,9 +345,44 @@ fn submit_call_response_accepts_first() {
 				RawOrigin::Signed(1_u64).into(),
 				request_id,
 				ReturnDataClaim::Ok([1_u8; 32]),
-				100_u64
+				100_u64,
+				<TestRuntime as Config>::UnixTime::now().as_secs(),
 			),
 			Error::<TestRuntime>::ResponseExists,
+		);
+	});
+}
+
+#[test]
+fn submit_call_response_invalid_timestamps() {
+	ExtBuilder::default().build().execute_with(|| {
+		// setup request
+		let request_id = RequestId::from(1_u64);
+		let request = CallRequestBuilder::new().build();
+		Requests::insert(request_id, request);
+		// ensures timestamp is non_zero
+		System::set_block_number(25);
+
+		// Test
+		assert_err!(
+			EthStateOracle::submit_call_response(
+				RawOrigin::Signed(1_u64).into(),
+				request_id,
+				ReturnDataClaim::Ok([1_u8; 32]),
+				100_u64,
+				<TestRuntime as Config>::UnixTime::now().as_secs() - (2 * 15) - 1, // block timestamp stale
+			),
+			Error::<TestRuntime>::InvalidResponseTimestamp,
+		);
+		assert_err!(
+			EthStateOracle::submit_call_response(
+				RawOrigin::Signed(1_u64).into(),
+				request_id,
+				ReturnDataClaim::Ok([1_u8; 32]),
+				100_u64,
+				<TestRuntime as Config>::UnixTime::now().as_secs() + (2 * 15) + 1, // block timestamp future
+			),
+			Error::<TestRuntime>::InvalidResponseTimestamp,
 		);
 	});
 }
@@ -316,11 +453,10 @@ fn on_idle() {
 		for (i, r) in ready_callbacks.iter() {
 			<Responses<TestRuntime>>::insert(
 				*i,
-				CallResponse {
-					return_data: r.clone(),
-					eth_block_number: i.as_u64(),
-					reporter: i.as_u64(),
-				},
+				CallResponseBuilder::new()
+					.relayer(i.as_u64())
+					.return_data(r.clone())
+					.build(),
 			);
 			Requests::insert(*i, CallRequestBuilder::new().caller(i.as_u64()).build());
 		}

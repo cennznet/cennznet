@@ -62,9 +62,9 @@ where
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
 			a if a == hash(FEE_PROXY) => None,
-			a if a == StateOraclePrecompileAddress::get() => Some(StateOraclePrecompile::<EthStateOracle>::execute(
-				input, target_gas, context, is_static,
-			)),
+			a if a == StateOraclePrecompileAddress::get() => Some(
+				StateOraclePrecompile::<EthStateOracle, Runtime>::execute(input, target_gas, context, is_static),
+			),
 			a if a == hash(CENNZX_PRECOMPILE) => Some(CennzxPrecompile::<
 				Cennzx,
 				AddressMappingOf<Runtime>,

@@ -52,8 +52,10 @@ pub struct CallRequest {
 pub struct CallResponse<AccountId> {
 	/// The 'returndata' state as claimed by `reporter`
 	pub return_data: ReturnDataClaim,
-	/// The ethereum block number where the result was recorded
+	/// The ethereum block number where the result was obtained
 	pub eth_block_number: u64,
+	/// The ethereum block timestamp where the result was obtained
+	pub eth_block_timestamp: u64,
 	/// Address of the relayer that reported this
-	pub reporter: AccountId,
+	pub relayer: AccountId,
 }

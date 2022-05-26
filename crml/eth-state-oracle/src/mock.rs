@@ -13,9 +13,12 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-use crate::{self as crml_eth_state_oracle, CallRequest, Config};
-use cennznet_primitives::types::FeePreferences;
-use crml_support::{ContractExecutor, H160, H256, U256};
+use crate::{self as crml_eth_state_oracle, CallRequest, CallResponse, Config, ReturnDataClaim};
+use cennznet_primitives::{
+	traits::BuyFeeAsset,
+	types::{FeeExchange, FeePreferences},
+};
+use crml_support::{ContractExecutor, MultiCurrency, H160, H256, U256};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -116,6 +119,32 @@ impl Config for TestRuntime {
 	type GasWeightMapping = MockGasWeightMapping;
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
+	type BuyFeeAsset = MockBuyFeeAsset;
+}
+
+pub struct MockBuyFeeAsset;
+
+impl BuyFeeAsset for MockBuyFeeAsset {
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type FeeExchange = FeeExchange<AssetId, Self::Balance>;
+
+	fn buy_fee_asset(
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError> {
+		let new_balance = GenericAsset::free_balance(fee_exchange.asset_id(), &who)
+			.checked_sub(amount)
+			.ok_or(DispatchError::Other("No Balance"))?;
+		GenericAsset::make_free_balance_be(&who, fee_exchange.asset_id(), new_balance);
+		GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
+		Ok(amount)
+	}
+
+	fn buy_fee_weight() -> Weight {
+		unimplemented!()
+	}
 }
 
 pub struct MockTimestampGetter;
@@ -215,7 +244,7 @@ impl CallRequestBuilder {
 		})
 	}
 	pub fn build(self) -> CallRequest {
-		self.0.clone()
+		self.0
 	}
 	pub fn expiry_block(mut self, expiry_block: BlockNumber) -> Self {
 		self.0.expiry_block = expiry_block as u32;
@@ -237,6 +266,10 @@ impl CallRequestBuilder {
 		self.0.destination = H160::from_low_u64_be(destination);
 		self
 	}
+	pub fn fee_preferences(mut self, fee_preferences: Option<FeePreferences>) -> Self {
+		self.0.fee_preferences = fee_preferences;
+		self
+	}
 	pub fn callback_gas_limit(mut self, callback_gas_limit: u64) -> Self {
 		self.0.callback_gas_limit = callback_gas_limit;
 		self
@@ -247,6 +280,40 @@ impl CallRequestBuilder {
 	}
 	pub fn timestamp(mut self, timestamp: u64) -> Self {
 		self.0.timestamp = timestamp;
+		self
+	}
+}
+
+pub(crate) struct CallResponseBuilder(CallResponse<AccountId>);
+
+impl CallResponseBuilder {
+	/// initialize a new CallResponseBuilder
+	pub fn new() -> Self {
+		CallResponseBuilder(CallResponse {
+			return_data: ReturnDataClaim::Ok([1_u8; 32]),
+			relayer: Default::default(),
+			eth_block_number: 5,
+			eth_block_timestamp: <TestRuntime as Config>::UnixTime::now().as_secs(),
+		})
+	}
+	/// Return the built CallResponse
+	pub fn build(self) -> CallResponse<AccountId> {
+		self.0
+	}
+	pub fn eth_block_number(mut self, eth_block_number: u64) -> Self {
+		self.0.eth_block_number = eth_block_number;
+		self
+	}
+	pub fn eth_block_timestamp(mut self, eth_block_timestamp: u64) -> Self {
+		self.0.eth_block_timestamp = eth_block_timestamp;
+		self
+	}
+	pub fn relayer(mut self, relayer: AccountId) -> Self {
+		self.0.relayer = relayer;
+		self
+	}
+	pub fn return_data(mut self, return_data: ReturnDataClaim) -> Self {
+		self.0.return_data = return_data;
 		self
 	}
 }
