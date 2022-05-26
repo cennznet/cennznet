@@ -14,7 +14,7 @@
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{Balance, FeePreferences};
+use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
 	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
 	MultiCurrency, ReturnDataClaim, H160,
@@ -34,6 +34,7 @@ use sp_std::prelude::*;
 mod mock;
 mod tests;
 mod types;
+use cennznet_primitives::traits::BuyFeeAsset;
 use types::*;
 
 pub(crate) const LOG_TARGET: &str = "state-oracle";
@@ -70,6 +71,12 @@ pub trait Config: frame_system::Config {
 	type MinGasPrice: Get<u64>;
 	/// Convert gas to weight according to runtime config
 	type GasWeightMapping: GasWeightMapping;
+	/// Convert fee preference into payment asset
+	type BuyFeeAsset: BuyFeeAsset<
+		AccountId = Self::AccountId,
+		Balance = Balance,
+		FeeExchange = FeeExchange<AssetId, Balance>,
+	>;
 }
 
 decl_storage! {
@@ -125,6 +132,8 @@ decl_error! {
 		ReturnDataExceedsLimit,
 		/// The request did not receive any relayed response in the alloted time
 		RequestExpired,
+		/// Failed to exchange fee preference to CPay
+		FeeExchangeFailed,
 	}
 }
 
@@ -365,8 +374,33 @@ impl<T: Config> Module<T> {
 			request.caller,
 			caller_ss58_address
 		);
+
+		// state oracle precompile address
+		let state_oracle_precompile = T::StateOraclePrecompileAddress::get();
+		let state_oracle_precompile_ss58_address = T::AddressMapping::into_account_id(state_oracle_precompile);
+		// calculate required gas
+		let max_fee_per_gas = U256::from(T::MinGasPrice::get());
+		let max_priority_fee_per_gas = U256::one();
+
+		// `min_fee_per_gas` and `max_priority_fee_per_gas` are expressed in wei, scale to 4dp to work with CPAY amounts
+		let total_fee: Balance = scale_wei_to_4dp(
+			(max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into(),
+		);
+
+		// Exchange for fee asset if fee preferences have been set
+		if let Some(fee_preferences) = &request.fee_preferences {
+			let exchange_total = request.bounty + total_fee;
+			let max_payment = exchange_total.saturating_add(fee_preferences.slippage * exchange_total);
+			let exchange = FeeExchange::new_v1(fee_preferences.asset_id, max_payment);
+			T::BuyFeeAsset::buy_fee_asset(&caller_ss58_address, exchange_total, &exchange)?;
+			log!(
+				debug,
+				"🔮 exchanging fee preference asset: {:?}",
+				fee_preferences.asset_id,
+			);
+		}
+
 		// 2) payout bounty to the relayer
-		// TODO: enable multi-currency payment for bounty & gas
 		log!(
 			debug,
 			"🔮 paying bounty for callback({:?}), bounty: {:?}",
@@ -381,18 +415,6 @@ impl<T: Config> Module<T> {
 			ExistenceRequirement::AllowDeath,
 		)
 		.map_err(|_| Error::<T>::InsufficientFundsBounty)?;
-
-		// state oracle precompile address
-		let state_oracle_precompile = T::StateOraclePrecompileAddress::get();
-		let state_oracle_precompile_ss58_address = T::AddressMapping::into_account_id(state_oracle_precompile);
-		// calculate required gas
-		let max_fee_per_gas = U256::from(T::MinGasPrice::get());
-		let max_priority_fee_per_gas = U256::one();
-
-		// `min_fee_per_gas` and `max_priority_fee_per_gas` are expressed in wei, scale to 4dp to work with CPAY amounts
-		let total_fee: Balance = scale_wei_to_4dp(
-			(max_fee_per_gas * request.callback_gas_limit + max_priority_fee_per_gas).saturated_into(),
-		);
 
 		// 3) fund `state_oracle_address` for `gas_limit`
 		// The caller could be underpaying for gas here, if so the execution will fail when the EVM handles the fee withdrawal

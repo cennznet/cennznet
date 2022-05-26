@@ -657,6 +657,7 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type MultiCurrency = GenericAsset;
 	type MinGasPrice = MinGasPriceGetter;
 	type GasWeightMapping = CENNZnetGasWeightMapping;
+	type BuyFeeAsset = Cennzx;
 }
 
 impl crml_token_approvals::Config for Runtime {

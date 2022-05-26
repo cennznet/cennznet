@@ -14,8 +14,11 @@
 */
 
 use crate::{self as crml_eth_state_oracle, CallRequest, CallResponse, Config, ReturnDataClaim};
-use cennznet_primitives::types::FeePreferences;
-use crml_support::{ContractExecutor, H160, H256, U256};
+use cennznet_primitives::{
+	traits::BuyFeeAsset,
+	types::{FeeExchange, FeePreferences},
+};
+use crml_support::{ContractExecutor, MultiCurrency, H160, H256, U256};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -116,6 +119,32 @@ impl Config for TestRuntime {
 	type GasWeightMapping = MockGasWeightMapping;
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
+	type BuyFeeAsset = MockBuyFeeAsset;
+}
+
+pub struct MockBuyFeeAsset;
+
+impl BuyFeeAsset for MockBuyFeeAsset {
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type FeeExchange = FeeExchange<AssetId, Self::Balance>;
+
+	fn buy_fee_asset(
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		fee_exchange: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError> {
+		let new_balance = GenericAsset::free_balance(fee_exchange.asset_id(), &who)
+			.checked_sub(amount)
+			.ok_or(DispatchError::Other("No Balance"))?;
+		GenericAsset::make_free_balance_be(&who, fee_exchange.asset_id(), new_balance);
+		GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
+		Ok(amount)
+	}
+
+	fn buy_fee_weight() -> Weight {
+		unimplemented!()
+	}
 }
 
 pub struct MockTimestampGetter;
@@ -235,6 +264,10 @@ impl CallRequestBuilder {
 	}
 	pub fn destination(mut self, destination: u64) -> Self {
 		self.0.destination = H160::from_low_u64_be(destination);
+		self
+	}
+	pub fn fee_preferences(mut self, fee_preferences: Option<FeePreferences>) -> Self {
+		self.0.fee_preferences = fee_preferences;
 		self
 	}
 	pub fn callback_gas_limit(mut self, callback_gas_limit: u64) -> Self {
