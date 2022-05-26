@@ -99,12 +99,12 @@ where
 		let destination: H160 = input.read::<Address>(gasometer)?.into();
 		let input_data: Bytes = input.read::<Bytes>(gasometer)?.into();
 		// valid selectors are 4 bytes
-		let callback_signature: Bytes = input.read::<Bytes>(gasometer)?.into();
-		if callback_signature.as_bytes().len() != 4 {
-			return Err(gasometer.revert("invalid callback sig"));
-		}
+		let callback_signature: H256 = input.read::<H256>(gasometer)?.into();
+		let callback_signature: [u8; 4] = callback_signature.as_fixed_bytes()[..4].try_into().unwrap(); // H256 has 32 bytes, cannot fail qed.
 		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
 		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
+		// scale to 4dp for consistency with other CPAY balance apis
+		let callback_bounty = scale_wei_to_4dp(callback_bounty.unique_saturated_into());
 		let fee_asset_id: Address = input.read::<Address>(gasometer)?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
 		// it is not supported by cennzx
@@ -120,10 +120,10 @@ where
 			caller,
 			&destination,
 			input_data.as_bytes(),
-			callback_signature.as_bytes().try_into().unwrap(), // checked len == 4 above qed
+			&callback_signature, // checked len == 4 above qed
 			callback_gas_limit.low_u64(),
 			fee_preferences,
-			callback_bounty.low_u128(),
+			callback_bounty,
 		);
 
 		// Build output.
@@ -179,6 +179,30 @@ mod test {
 	use fp_evm::{ExitError, PrecompileFailure};
 	use frame_support::assert_err;
 
+	pub struct MockErc20IdConversion;
+
+	// Mock conversion of runtime id and evm id.
+	// Ignores prefix and just convert the types
+	impl Erc20IdConversion for MockErc20IdConversion {
+		type EvmId = Address;
+		type RuntimeId = AssetId;
+
+		// Get runtime Id from EVM address
+		fn evm_id_to_runtime_id(evm_id: Self::EvmId) -> Option<Self::RuntimeId> {
+			let h160_address: H160 = evm_id.into();
+			let (_, id_part) = h160_address.as_fixed_bytes().split_at(4);
+			let mut buf = [0u8; 4];
+			buf.copy_from_slice(&id_part[..4]);
+			Some(AssetId::from_be_bytes(buf))
+		}
+		// Get EVM address from series Id parts (collection_id, series_id)
+		fn runtime_id_to_evm_id(asset_id: Self::RuntimeId) -> Self::EvmId {
+			let mut buf = [0u8; 20];
+			buf[4..8].copy_from_slice(&asset_id.to_be_bytes());
+			H160::from(buf).into()
+		}
+	}
+
 	#[test]
 	fn new_remote_call_request() {
 		struct MockEthereumStateOracle;
@@ -228,7 +252,82 @@ mod test {
 		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
 
 		// Test
-		let result = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
+		let result = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(
+			&mut input,
+			&mut gasometer,
+			&caller,
+		);
+
+		assert_eq!(
+			result.unwrap(),
+			PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				cost: gasometer.used_gas(),
+				output: EvmDataWriter::new().write(U256::from(123u32)).build(),
+				logs: Default::default(),
+			},
+		);
+	}
+
+	#[test]
+	fn new_remote_call_with_fee_swap_request() {
+		struct MockEthereumStateOracle;
+		impl EthereumStateOracle for MockEthereumStateOracle {
+			type Address = H160;
+			type RequestId = U256;
+			fn new_request_fee() -> u64 {
+				1_000_u64
+			}
+			/// assert inputs are correct
+			fn new_request(
+				caller_: &Self::Address,
+				destination_: &Self::Address,
+				input_data_: &[u8],
+				callback_signature_: &[u8; 4],
+				callback_gas_limit_: u64,
+				fee_preferences_: Option<FeePreferences>,
+				bounty_: Balance,
+			) -> Self::RequestId {
+				let caller: H160 = H160::from_low_u64_be(555);
+				let destination: H160 = H160::from_low_u64_be(23);
+				let callback_signature: Vec<u8> = vec![1u8, 2, 3, 4];
+				let callback_gas_limit: u64 = 200_000;
+				let input_data: Vec<u8> = vec![55u8, 66, 77, 88, 99];
+				let fee_preferences = Some(FeePreferences {
+					asset_id: 100,
+					slippage: Permill::from_rational(50u32, 1_000),
+				});
+				assert_eq!(caller, *caller_);
+				assert_eq!(destination, *destination_);
+				assert_eq!(input_data, input_data_);
+				assert_eq!(callback_signature, callback_signature_);
+				assert_eq!(bounty_, 20_000_u128); // 2 CPAY 4dp, scaled down from 18dp input
+				assert_eq!(callback_gas_limit, callback_gas_limit_);
+				assert_eq!(fee_preferences, fee_preferences_);
+
+				U256::from(123u32)
+			}
+		}
+
+		let caller: H160 = H160::from_low_u64_be(555);
+		let abi_encoded_input = ethabi::encode(&[
+			Token::Address(H160::from_low_u64_be(23)),
+			Token::Bytes(vec![55u8, 66, 77, 88, 99]),
+			Token::FixedBytes(vec![1u8, 2, 3, 4]),
+			Token::Uint(U256::from(200_000_u64)),
+			Token::Uint(U256::from(2_000_000_000_000_000_000_u128)), // 2 * 10**18
+			Token::Address(H160::from(MockErc20IdConversion::runtime_id_to_evm_id(100))),
+			Token::Uint(U256::from(50)),
+		]);
+		let mut input = EvmDataReader::new(abi_encoded_input.as_ref());
+		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
+
+		// Test
+		let result = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call_with_fee_swap(
+			&mut input,
+			&mut gasometer,
+			&caller,
+		);
 
 		assert_eq!(
 			result.unwrap(),
@@ -279,7 +378,11 @@ mod test {
 		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
 
 		// Test
-		let _ = StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller);
+		let _ = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(
+			&mut input,
+			&mut gasometer,
+			&caller,
+		);
 	}
 
 	#[test]
@@ -319,7 +422,11 @@ mod test {
 
 		// Test
 		assert_err!(
-			StateOraclePrecompile::<MockEthereumStateOracle>::remote_call(&mut input, &mut gasometer, &caller),
+			StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(
+				&mut input,
+				&mut gasometer,
+				&caller
+			),
 			PrecompileFailure::Error {
 				exit_status: ExitError::OutOfGas,
 			},
