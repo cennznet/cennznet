@@ -189,17 +189,11 @@ mod test {
 
 		// Get runtime Id from EVM address
 		fn evm_id_to_runtime_id(evm_id: Self::EvmId) -> Option<Self::RuntimeId> {
-			let h160_address: H160 = evm_id.into();
-			let (_, id_part) = h160_address.as_fixed_bytes().split_at(4);
-			let mut buf = [0u8; 4];
-			buf.copy_from_slice(&id_part[..4]);
-			Some(AssetId::from_be_bytes(buf))
+			Some(evm_id.0.to_low_u64_be() as u32)
 		}
 		// Get EVM address from series Id parts (collection_id, series_id)
 		fn runtime_id_to_evm_id(asset_id: Self::RuntimeId) -> Self::EvmId {
-			let mut buf = [0u8; 20];
-			buf[4..8].copy_from_slice(&asset_id.to_be_bytes());
-			H160::from(buf).into()
+			H160::from_low_u64_be(asset_id as u64).into()
 		}
 	}
 
