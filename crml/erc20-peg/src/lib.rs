@@ -40,7 +40,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-mod types;
+pub mod types;
 use types::*;
 #[cfg(test)]
 mod mock;
@@ -263,7 +263,7 @@ decl_module! {
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
-			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawalCallOrigin::Runtime)?;
+			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, PegWithdrawCallOrigin::Runtime)?;
 		}
 
 		#[weight = 1_000_000]
@@ -307,12 +307,12 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-	fn do_withdrawal(
+	pub fn do_withdrawal(
 		origin: T::AccountId,
 		asset_id: AssetId,
 		amount: Balance,
 		beneficiary: EthAddress,
-		call_origin: WithdrawalCallOrigin,
+		call_origin: PegWithdrawCallOrigin,
 	) -> Result<u64, DispatchError> {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
@@ -333,14 +333,14 @@ impl<T: Config> Module<T> {
 		if let Some((min_amount, delay)) = claim_delay {
 			if min_amount <= amount {
 				return match call_origin {
-					WithdrawalCallOrigin::Runtime => {
+					PegWithdrawCallOrigin::Runtime => {
 						// Process transfer or withdrawal of payment asset
 						Self::process_withdrawal_payment(origin, asset_id, amount)?;
 						// Delay the claim
 						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
 						Ok(0)
 					}
-					WithdrawalCallOrigin::Evm => {
+					PegWithdrawCallOrigin::Evm => {
 						// EVM claim delays are not supported, log and return an error
 						log::error!("📌 EVM withdrawal claim failed due to claim delay being set for asset",);
 						Err(Error::<T>::EvmWithdrawalFailed.into())
