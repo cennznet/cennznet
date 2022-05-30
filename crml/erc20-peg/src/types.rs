@@ -24,6 +24,14 @@ pub type EthAddress = H160;
 /// Claim id used for distinguishing pending withdrawals/ deposit claims
 pub type ClaimId = u64;
 
+/// States the origin of where the withdrawal call was made
+pub enum WithdrawalCallOrigin {
+	// The withdrawal claim was called through the ERC20-Peg pallet
+	Runtime,
+	// The withdrawal claim was called through the EVM
+	Evm,
+}
+
 /// A pending deposit or withdrawal
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 pub enum PendingClaim {

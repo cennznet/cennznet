@@ -148,6 +148,8 @@ decl_error! {
 		WithdrawalsPaused,
 		/// Withdrawals of this asset are not supported
 		UnsupportedAsset,
+		/// Withdrawals over the set claim delay for EVM calls are disabled
+		EvmWithdrawalFailed,
 	}
 }
 
@@ -261,47 +263,7 @@ decl_module! {
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
-
-			// there should be a known ERC20 address mapped for this asset
-			// otherwise there may be no liquidity on the Ethereum side of the peg
-			let token_address = Self::asset_to_erc20(asset_id);
-			ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-			let token_address = token_address.unwrap();
-
-			if asset_id == T::MultiCurrency::staking_currency() {
-				let _result = T::MultiCurrency::transfer(
-					&origin,
-					&T::PegPalletId::get().into_account(),
-					asset_id,
-					amount, // checked amount < u128 in `deposit_claim` qed.
-					ExistenceRequirement::KeepAlive,
-				)?;
-			} else {
-				let _imbalance = T::MultiCurrency::withdraw(
-					&origin,
-					asset_id,
-					amount,
-					WithdrawReasons::TRANSFER,
-					frame_support::traits::ExistenceRequirement::KeepAlive,
-				)?;
-			}
-
-			let message = WithdrawMessage {
-				token_address,
-				amount: amount.into(),
-				beneficiary,
-			};
-
-			let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
-			if let Some((min_amount, delay)) = claim_delay {
-				if min_amount <= amount {
-					Self::delay_claim(delay, PendingClaim::Withdrawal(message));
-					return Ok(());
-				}
-			};
-			// process withdrawal immediately
-			Self::process_withdrawal(message, asset_id);
+			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawalCallOrigin::Runtime)?;
 		}
 
 		#[weight = 1_000_000]
@@ -345,6 +307,79 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	fn do_withdrawal(
+		origin: T::AccountId,
+		asset_id: AssetId,
+		amount: Balance,
+		beneficiary: EthAddress,
+		call_origin: WithdrawalCallOrigin,
+	) -> Result<u64, DispatchError> {
+		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
+
+		// there should be a known ERC20 address mapped for this asset
+		// otherwise there may be no liquidity on the Ethereum side of the peg
+		let token_address = Self::asset_to_erc20(asset_id);
+		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
+		let token_address = token_address.unwrap();
+
+		let message = WithdrawMessage {
+			token_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+
+		// Check if there is a delay on the asset
+		let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
+		if let Some((min_amount, delay)) = claim_delay {
+			if min_amount <= amount {
+				return match call_origin {
+					WithdrawalCallOrigin::Runtime => {
+						// Process transfer or withdrawal of payment asset
+						Self::process_withdrawal_payment(origin, asset_id, amount)?;
+						// Delay the claim
+						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
+						Ok(0)
+					}
+					WithdrawalCallOrigin::Evm => {
+						// EVM claim delays are not supported, log and return an error
+						log::error!("📌 EVM withdrawal claim failed due to claim delay being set for asset",);
+						Err(Error::<T>::EvmWithdrawalFailed.into())
+					}
+				};
+			}
+		};
+
+		// Process transfer or withdrawal of payment asset
+		Self::process_withdrawal_payment(origin, asset_id, amount)?;
+		// process withdrawal immediately
+		Self::process_withdrawal(message, asset_id)
+	}
+
+	fn process_withdrawal_payment(
+		origin: T::AccountId,
+		asset_id: AssetId,
+		amount: Balance,
+	) -> Result<(), DispatchError> {
+		if asset_id == T::MultiCurrency::staking_currency() {
+			let _result = T::MultiCurrency::transfer(
+				&origin,
+				&T::PegPalletId::get().into_account(),
+				asset_id,
+				amount, // checked amount < u128 in `deposit_claim` qed.
+				ExistenceRequirement::KeepAlive,
+			)?;
+		} else {
+			let _imbalance = T::MultiCurrency::withdraw(
+				&origin,
+				asset_id,
+				amount,
+				WithdrawReasons::TRANSFER,
+				frame_support::traits::ExistenceRequirement::KeepAlive,
+			)?;
+		}
+		Ok(())
+	}
+
 	/// Process claims at a block after a delay
 	fn process_claim(claim_id: ClaimId) {
 		if let Some(pending_claim) = DelayedClaims::take(claim_id) {
@@ -356,7 +391,7 @@ impl<T: Config> Module<T> {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
 					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
-						Self::process_withdrawal(withdrawal_message, asset_id);
+						let _ = Self::process_withdrawal(withdrawal_message, asset_id);
 					} else {
 						log::error!(
 							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
@@ -382,7 +417,7 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	fn process_withdrawal(message: WithdrawMessage, asset_id: AssetId) {
+	fn process_withdrawal(message: WithdrawMessage, asset_id: AssetId) -> Result<u64, DispatchError> {
 		let amount: Balance = message.amount.as_u128();
 		let event_proof_id = T::EthBridge::generate_event_proof(&message);
 
@@ -401,6 +436,7 @@ impl<T: Config> Module<T> {
 			}
 			Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20WithdrawalFailed(asset_id, message.beneficiary)),
 		}
+		event_proof_id
 	}
 
 	/// Delay a withdrawal or deposit claim until a later block
