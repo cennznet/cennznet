@@ -294,6 +294,7 @@ impl CallResponseBuilder {
 			relayer: Default::default(),
 			eth_block_number: 5,
 			eth_block_timestamp: <TestRuntime as Config>::UnixTime::now().as_secs(),
+			submitted_at: <TestRuntime as Config>::UnixTime::now().as_secs(),
 		})
 	}
 	/// Return the built CallResponse

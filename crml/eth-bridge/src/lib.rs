@@ -49,7 +49,7 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	EthAbiCodec, EthCallOracle, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 	NotarizationRewardHandler,
 };
 use frame_support::{
@@ -76,7 +76,9 @@ use sp_std::prelude::*;
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
-const CLAIMS_PER_BLOCK: u64 = 3;
+const CLAIMS_PER_BLOCK: u64 = 1;
+/// Max eth_call checks to attempt per block/OCW invocation
+const CALLS_PER_BLOCK: u64 = 1;
 /// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
 const REQUEST_TTL_MS: u64 = 2_500;
 /// Bucket claims in intervals of this factor (seconds)
@@ -173,14 +175,14 @@ decl_storage! {
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Subscription Id for EthCall requests
-		NextEthCallId: EthCallId;
+		NextEthEth: EthEth;
 		/// Queue of pending EthCallOracle requests
-		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
-		/// EthCallOracle responses keyed by (Id, Notary)
-		EthCallResponses: double_map hasher(twox_64_concat) EthCallId, hasher(twox_64_concat) T::EthyId => Option<EthCallResponse>;
+		EthCallRequests get(fn eth_call_requests): Vec<EthEth>;
+		/// EthCallOracle notarizations keyed by (Id, Notary)
+		EthCallNotarizations: double_map hasher(twox_64_concat) EthEth, hasher(twox_64_concat) T::EthyId => Option<CheckedEthCallResponse>;
 		/// EthCallOracle request info
-		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<EthCallRequest>;
-		
+		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthEth => Option<CheckedEthCallRequest>;
+
 	}
 }
 
@@ -372,7 +374,18 @@ decl_module! {
 
 			// check a local key exists for a valid bridge notary
 			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
+				// check enough validators have active notary keys
+				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let needed = Self::activation_threshold();
+				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
+					return;
+				}
+				// do some notarizing
 				Self::do_event_notarization_ocw(&active_key, authority_index);
+				Self::do_call_notarization_ocw(&active_key, authority_index);
+			} else {
+				log!(trace, "💎 not an active validator, exiting");
 			}
 
 			log!(trace, "💎 exiting off-chain worker");
@@ -477,36 +490,14 @@ impl<T: Config> Module<T> {
 			return;
 		}
 
-		let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
-		let needed = Self::activation_threshold();
-		let total = T::AuthoritySet::validators().len();
-		if Percent::from_rational(supports, total) < needed {
-			log!(
-				info,
-				"💎 waiting for validator support to activate eth bridge: {:?}/{:?}",
-				supports,
-				needed
-			);
-			return;
-		}
-
 		// check all pending claims we have _yet_ to notarize and try to notarize them
 		// this will be invoked once every block
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
-		let mut budget = CLAIMS_PER_BLOCK;
-		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
-			if budget.is_zero() {
-				log!(info, "💎 claims budget exceeded, exiting...");
-				return;
-			}
-
+		// TODO: this should be FIFO
+		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter().take(CLAIMS_PER_BLOCK) {
 			// skip if we've notarized it previously
 			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
-				log!(
-					trace,
-					"💎 already cast notarization for claim: {:?}, ignoring...",
-					event_claim_id
-				);
+				log!(trace, "💎 already notarized claim: {:?}, ignoring...", event_claim_id);
 				continue;
 			}
 
@@ -520,7 +511,7 @@ impl<T: Config> Module<T> {
 				};
 				let result = Self::offchain_try_notarize_event(event_claim);
 				log!(trace, "💎 claim verification status: {:?}", &result);
-				let payload = NotarizationPayload {
+				let payload = NotarizationPayload::Event {
 					event_claim_id,
 					authority_index,
 					result: result.clone(),
@@ -537,9 +528,8 @@ impl<T: Config> Module<T> {
 							event_claim_id
 						);
 					});
-				budget = budget.saturating_sub(1);
 			} else {
-				// should not happen, defensive only
+				// should not happen
 				log!(error, "💎 empty claim data for: {:?}", event_claim_id);
 			}
 		}
@@ -659,61 +649,137 @@ impl<T: Config> Module<T> {
 		EventClaimResult::Valid
 	}
 
-	/// Try issuing an `eth_call` request to the bridged ethereum network
-	fn offchain_try_eth_call(request: &EthCallRequest) -> EthCallResponse {
-		// validator OCW process
-		// 1) get latest eth block
-		// 2) extract number and timestamp
-		// 3) calculate best block to issue query
-		// 4) invoke eth_call and return response (what to do with large response*)
-		// 5) submit response
-		// 6) consensus on response value (distribute reward points to those that voted together*). Return info to the subscriber
-		/*
+	/// Handle OCW eth call checking protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	fn do_call_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
+		// we limit the total claims per invocation using `CALLS_PER_BLOCK` so we don't stall block production
+		// TODO: this should be FIFO so challenges don't back up
+		for call_id in EthCallRequests::get().iter().take(CALLS_PER_BLOCK) {
+			// skip if we've notarized it previously
+			if <EthCallNotarizations<T>>::contains_key::<EthCallId, T::EthyId>(call_id, active_key.clone()) {
+				log!(trace, "💎 already notarized call: {:?}, ignoring...", call_id);
+				continue;
+			}
 
-		// validators receive request timestamp
-		// need to decide which block to query for the response so as to minimize queries to Ethereum
-		1) query block timestamp at relayer reported block_number
-		2a) if block timestamp is in the lenience range then do call_at at the relayer reported block
-		2b) if block timestamp is outside the lenience range (the reporter is going to be slashed) we still need to find the right block to query for the true value
-		process to find right block number:
-		- query the current latest block number from Ethereum
-		- assuming avg blocktime eth blocktime of 15 seconds calculate x blocks backwards
-		- query the block number closest to and higher than request timestamp i.e. prefer block after the time of request
-		3) do the `eth_call` at the correct block
-		*/
-		let latest_block: EthBlock = match T::EthereumRpcClient::get_block(LatestOrNumber::Latest) {
-			Ok(None) => return EthCallResponse::DataProviderErr,
+			if let Some(request) = Self::eth_call_request_info(call_id) {
+				let result = Self::offchain_try_eth_call(event_claim);
+				log!(trace, "💎 checked call status: {:?}", &result);
+				let payload = NotarizationPayload::Call {
+					call_id,
+					authority_index,
+					result: result.clone(),
+				};
+				let _ = Self::offchain_send_notarization(&active_key, payload)
+					.map_err(|err| {
+						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+					})
+					.map(|_| {
+						log!(info, "💎 sent notarization: '{:?}' for claim: {:?}", result, call_id,);
+					});
+			} else {
+				// should not happen
+				log!(error, "💎 empty call for: {:?}", call_id);
+			}
+		}
+	}
+
+	/// Performs an `eth_call` request to the bridged ethereum network
+	///
+	/// The call will be executed at `try_block_number` if it is within `max_block_look_behind` blocks
+	/// of the latest ethereum block, otherwise the call is executed at the latest ethereum block.
+	///
+	/// `request` - details of the `eth_call` request to perform
+	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t < latest`
+	/// `max_block_look_behind` - max ethereum blocks to look back from head
+	///
+	fn offchain_try_eth_call(request: &CheckedEthCallRequest) -> CheckedEthCallResponse {
+		// OCW has 1 block to do all its stuff, so needs to be kept light
+		//
+		// basic flow of this function:
+		// 1) get latest ethereum block
+		// 2) check relayed block # and timestamp is within acceptable range (based on `max_block_look_behind`)
+		// 3a) within range: do an eth_call at the relayed block
+		// 3b) out of range: do an eth_call at block number latest - N (N is heuristic based on difference)
+		let ETH_MAX_AVG_BLOCK_TIME: u32 = 15;
+		let latest_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+			Ok(None) => return CheckedEthCallResponse::DataProviderErr,
 			Ok(Some(block)) => block,
 			Err(err) => {
 				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-				return EthCallResponse::DataProviderErr;
+				return CheckedEthCallResponse::DataProviderErr;
 			}
 		};
-		let LENIENCE_MS = 15_000;
+		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or missing this protocol should vote to abort
+		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
+		if latest_eth_block_timestamp == u64::max_value() {
+			return CheckedEthCallResponse::InvalidTimestamp;
+		}
+		match latest_eth_block_timestamp.checked_sub(request.timestamp) {
+			Some(elapsed_eth_latest_vs_cennznet_request) => {
+				// request must be newer than `max_block_look_behind`
+				if elapsed_eth_latest_vs_cennznet_request
+					<= (request.max_block_look_behind * ETH_MAX_AVG_BLOCK_TIME) as u64
+				{
+					return CheckedEthCallResponse::InvalidTimestamp;
+				}
+			}
+			// request must be before the latest eth block
+			None => return CheckedEthCallResponse::InvalidTimestamp,
+		}
+		let latest_eth_block_number = match latest_block.number {
+			Some(number) => {
+				if (number.is_zero() || number.low_u64() == u64::max_value()) {
+					return CheckedEthCallResponse::InvalidEthBlock;
+				}
+				number.low_u64()
+			}
+			None => return CheckedEthCallResponse::InvalidEthBlock,
+		};
 
-		// now figure out how to get the block closest to the timestamp...
-		// TODO: ensure these are both in the same units (milliseconds or seconds)
-		let request_cennznet_block_timestamp = request.timestamp;
-		let latest_eth_block_timestamp = latest_block.timestamp;
+		// check relayed block # and timestamp is within acceptable range
+		let mut target_block_number = latest_eth_block_number;
+		let mut target_block_timestamp = latest_eth_block_timestamp;
+		let oldest_acceptable_ethereum_block = latest_eth_block_number - request.max_block_look_behind as u64;
+		if request.try_block_number >= oldest_acceptable_ethereum_block
+			&& request.try_block_number < latest_eth_block_number
+		{
+			let target_block: EthBlock =
+				match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(request.try_block_number)) {
+					Ok(None) => return CheckedEthCallResponse::DataProviderErr,
+					Ok(Some(block)) => block,
+					Err(err) => {
+						log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+						return CheckedEthCallResponse::DataProviderErr;
+					}
+				};
+			target_block_number = request.try_block_number;
+			target_block_timestamp = target_block.timestamp.saturated_into();
+		}
 
-		/*
-		[r]-[]-[]-[]-[]-[]
-		[    r'] - [    ] -
-		[r]-[]-[]-[]-[]-[]
-		[   r' ] - [r'   ] -
-		[r]-[]-[]-[]-[]-[]
-		[     ] - [r'   ] -
-		*/
+		let return_data = match T::EthereumRpcClient::eth_call(
+			request.target,
+			&request.input,
+			LatestOrNumber::Number(target_block_number),
+		) {
+			Ok(None) => return CheckedEthCallResponse::OkEmpty,
+			Ok(Some(data)) => {
+				if data.is_empty() {
+					return CheckedEthCallResponse::OkEmpty;
+				} else {
+					data
+				}
+			}
+			Err(err) => {
+				log!(error, "💎 eth_call at: {:?}, failed: {:?}", at_block, err);
+				return CheckedEthCallResponse::DataProviderErr;
+			}
+		};
 
-		// relayer must ensure it does `eth_call` at the block at or after `request.timestamp`
-
-		// eth - lenience < req < eth + eth_block_time
-		// if request.timestamp <= eth_block_time + LENIENCE_MS && request.timestamp >= eth_block_time - LENIENCE_MS {
-		// 	// request.timestamp is in this range
-		// }
-
-		// U256::from(request.timestamp)
-		EthCallResponse::ExceedsLengthLimit
+		// valid returndata is ethereum abi encoded and therefore always >= 32 bytes
+		match return_data.try_into::<[u8; 32]>() {
+			Ok(r) => CheckedEthCallResponse::Ok(r, target_block_number, target_block_timestamp),
+			Err(_) => CheckedEthCallResponse::OkExceedsLengthLimit,
+		}
 	}
 
 	/// Send a notarization for the given claim
@@ -918,24 +984,32 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 impl<T: Config> EthCallOracle for Module<T> {
 	type Address = EthAddress;
-	type CallId = EthCallId;
-	/// Invoke `target` contract with `input` on the bridged ethereum network
-	/// the call will be executed at the block number closest to `timestamp ` (during or after but not before)
+	type Eth = EthEth;
+	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
+	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
 	///
 	/// Returns a call Id for subscribers
-	fn call_at(target: &Self::Address, input: &[u8], timestamp: u64) -> Self::CallId {
+	fn checked_eth_call(
+		target: &Self::Address,
+		input: &[u8],
+		timestamp: u64,
+		try_block_number: u64,
+		max_block_look_behind: u32,
+	) -> Self::Eth {
 		// store the job for validators to process async
-		let call_id = NextEthCallId::get();
+		let call_id = NextEthEth::get();
 		EthCallRequestInfo::insert(
 			call_id,
-			EthCallRequest {
-				target: *target,
+			CheckedEthCallRequest {
 				input: input.to_vec(),
+				target: *target,
 				timestamp,
+				try_block_number,
+				max_block_look_behind,
 			},
 		);
 		EthCallRequests::append(call_id);
-		NextEthCallId::put(call_id + 1);
+		NextEthEth::put(call_id + 1);
 
 		call_id
 	}

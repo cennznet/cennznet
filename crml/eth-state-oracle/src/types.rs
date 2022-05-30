@@ -58,4 +58,6 @@ pub struct CallResponse<AccountId> {
 	pub eth_block_timestamp: u64,
 	/// Address of the relayer that reported this
 	pub relayer: AccountId,
+	/// The CENNZnet block timestamp at the time of submission
+	pub submitted_at: u64,
 }

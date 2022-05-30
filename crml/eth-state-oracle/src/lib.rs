@@ -276,10 +276,10 @@ decl_module! {
 			if let Some(request) = Requests::get(request_id) {
 				// ~ average ethereum block time
 				let eth_block_time_s = 15;
-				// check response timestamp is within a sensible bound +/- 2 Ethereum blocks from the request timestamp
+				// check response timestamp is within a sensible bound +3/-2 Ethereum blocks from the request timestamp
 				ensure!(
 					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * eth_block_time_s)) &&
-					eth_block_timestamp <= (request.timestamp.saturating_add(2 * eth_block_time_s)),
+					eth_block_timestamp <= (request.timestamp.saturating_add(3 * eth_block_time_s)),
 					Error::<T>::InvalidResponseTimestamp
 				);
 
@@ -288,6 +288,7 @@ decl_module! {
 					eth_block_number,
 					eth_block_timestamp,
 					relayer: origin,
+					submitted_at: T::UnixTime::now(),
 				};
 				<Responses<T>>::insert(request_id, response);
 				let execute_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
