@@ -263,7 +263,7 @@ decl_module! {
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
-			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, PegWithdrawCallOrigin::Runtime)?;
+			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
 		}
 
 		#[weight = 1_000_000]
@@ -312,7 +312,7 @@ impl<T: Config> Module<T> {
 		asset_id: AssetId,
 		amount: Balance,
 		beneficiary: EthAddress,
-		call_origin: PegWithdrawCallOrigin,
+		call_origin: WithdrawCallOrigin,
 	) -> Result<u64, DispatchError> {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
@@ -333,14 +333,14 @@ impl<T: Config> Module<T> {
 		if let Some((min_amount, delay)) = claim_delay {
 			if min_amount <= amount {
 				return match call_origin {
-					PegWithdrawCallOrigin::Runtime => {
+					WithdrawCallOrigin::Runtime => {
 						// Process transfer or withdrawal of payment asset
 						Self::process_withdrawal_payment(origin, asset_id, amount)?;
 						// Delay the claim
 						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
 						Ok(0)
 					}
-					PegWithdrawCallOrigin::Evm => {
+					WithdrawCallOrigin::Evm => {
 						// EVM claim delays are not supported, log and return an error
 						log::error!("📌 EVM withdrawal claim failed due to claim delay being set for asset",);
 						Err(Error::<T>::EvmWithdrawalFailed.into())

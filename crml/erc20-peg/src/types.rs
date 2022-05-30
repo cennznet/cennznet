@@ -25,7 +25,7 @@ pub type EthAddress = H160;
 pub type ClaimId = u64;
 
 /// States the origin of where the withdrawal call was made
-pub enum PegWithdrawCallOrigin {
+pub enum WithdrawCallOrigin {
 	// The withdrawal claim was called through the ERC20-Peg pallet
 	Runtime,
 	// The withdrawal claim was called through the EVM

@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cennznet_primitives::types::AssetId;
-use crml_erc20_peg::types::PegWithdrawCallOrigin;
+use crml_erc20_peg::types::WithdrawCallOrigin;
 use crml_support::scale_wei_to_4dp;
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use pallet_evm::{AddressMapping, Precompile};
@@ -102,7 +102,7 @@ where
 			asset_id,
 			withdraw_amount,
 			beneficiary,
-			PegWithdrawCallOrigin::Evm,
+			WithdrawCallOrigin::Evm,
 		);
 
 		// Build output.
