@@ -288,7 +288,6 @@ decl_module! {
 					eth_block_number,
 					eth_block_timestamp,
 					relayer: origin,
-					submitted_at: T::UnixTime::now().as_secs(),
 				};
 				<Responses<T>>::insert(request_id, response);
 				let execute_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();

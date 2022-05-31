@@ -729,8 +729,9 @@ mod tests {
 
 	#[test]
 	fn serialize_get_block_by_number_request_max() {
-		let expected = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffe",false],"id":1}"#;
-		let result = serde_json::to_string(&GetBlockRequest::for_number(1, u32::MAX - 1)).unwrap();
+		let expected =
+			r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0xfffffffffffffffe",false],"id":1}"#;
+		let result = serde_json::to_string(&GetBlockRequest::for_number(1, u64::MAX - 1)).unwrap();
 		assert_eq!(expected, result);
 	}
 
@@ -747,12 +748,12 @@ mod tests {
 		assert_eq!(expected, result);
 
 		// empty input data, max block number
-		let expected = r#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x00000000000000000000000000000000075bcd15","data":"0x"},"0xfffffffe"],"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x00000000000000000000000000000000075bcd15","data":"0x"},"0xfffffffffffffffe"],"id":1}"#;
 		let result = serde_json::to_string(&EthCallRpcRequest::new(
 			EthAddress::from_low_u64_be(123456789),
 			Default::default(),
 			1,
-			LatestOrNumber::Number(u32::MAX - 1),
+			LatestOrNumber::Number(u64::MAX - 1),
 		))
 		.unwrap();
 		assert_eq!(expected, result);

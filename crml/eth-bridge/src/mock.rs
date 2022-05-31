@@ -24,7 +24,8 @@ use crate::{
 use cennznet_primitives::eth::crypto::AuthorityId;
 use codec::{Decode, Encode};
 use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml, U256,
+	EthAbiCodec, EthCallFailure, EthCallOracleSubscriber, EventClaimSubscriber, FinalSessionTracker,
+	NotarizationRewardHandler, H160, H256 as H256Crml, U256,
 };
 use ethereum_types::U64;
 use frame_support::{
@@ -94,6 +95,7 @@ parameter_types! {
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
+	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthyId = AuthorityId;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type FinalSessionTracker = MockFinalSessionTracker;
@@ -193,7 +195,7 @@ pub(crate) mod test_storage {
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
 		trait Store for Module<T: Config> as EthBridgeTest {
-			pub BlockResponseAt: map hasher(blake2_128_concat) u32 => Option<MockBlockResponse>;
+			pub BlockResponseAt: map hasher(blake2_128_concat) u64 => Option<MockBlockResponse>;
 			pub TransactionReceiptFor: map hasher(blake2_128_concat) EthHash => Option<MockReceiptResponse>;
 		}
 	}
@@ -210,7 +212,7 @@ pub struct MockEthereumRpcClient();
 
 impl MockEthereumRpcClient {
 	/// store given block as the next response
-	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
+	pub fn mock_block_response_at(block_number: u64, mock_block: EthBlock) {
 		let mock_block_response = MockBlockResponse {
 			block_hash: mock_block.hash.unwrap(),
 			block_number: mock_block.number.unwrap().as_u64(),
@@ -320,6 +322,19 @@ impl EventClaimSubscriber for MockClaimSubscriber {
 	fn on_failure(_event_claim_id: u64, _contract_address: &H160, _event_signature: &H256Crml, _event_data: &[u8]) {}
 }
 
+pub struct MockEthCallSubscriber;
+impl EthCallOracleSubscriber for MockEthCallSubscriber {
+	type CallId = u64;
+	fn on_eth_call_complete(
+		_call_id: Self::CallId,
+		_return_data: &[u8; 32],
+		_block_number: u64,
+		_block_timestamp: u64,
+	) {
+	}
+	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {}
+}
+
 /// Mock final session tracker
 pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
@@ -423,7 +438,7 @@ impl ExtBuilder {
 #[test]
 fn get_block_by_number_mock_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let block_number: u32 = 120;
+		let block_number: u64 = 120;
 		let block_hash: H256 = H256::from_low_u64_be(121);
 		let timestamp: U256 = U256::from(122);
 
@@ -465,7 +480,7 @@ fn get_latest_block_by_number_mock_works() {
 #[test]
 fn get_transaction_receipt_mock_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let block_number: u32 = 120;
+		let block_number: u64 = 120;
 		let block_hash: H256 = H256::from_low_u64_be(121);
 		let tx_hash: EthHash = H256::from_low_u64_be(122);
 		let status: U64 = U64::from(1);
