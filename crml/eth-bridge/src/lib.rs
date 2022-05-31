@@ -861,15 +861,15 @@ impl<T: Config> Module<T> {
 		let do_callback_and_clean_up = |result: CheckedEthCallResult| {
 			match result.clone() {
 				CheckedEthCallResult::Ok(return_data, block, timestamp) => {
-					T::EthCallSubscribers::on_call_at_complete(call_id, &return_data, block, timestamp)
+					T::EthCallSubscribers::on_eth_call_complete(call_id, &return_data, block, timestamp)
 				}
 				CheckedEthCallResult::ReturnDataEmpty => {
-					T::EthCallSubscribers::on_call_at_failed(call_id, EthCallFailure::ReturnDataEmpty)
+					T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::ReturnDataEmpty)
 				}
 				CheckedEthCallResult::ReturnDataExceedsLimit => {
-					T::EthCallSubscribers::on_call_at_failed(call_id, EthCallFailure::ReturnDataExceedsLimit)
+					T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::ReturnDataExceedsLimit)
 				}
-				_ => T::EthCallSubscribers::on_call_at_failed(call_id, EthCallFailure::Internal),
+				_ => T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::Internal),
 			}
 			EthCallNotarizations::<T>::remove_prefix(call_id, None);
 			EthCallNotarizationsAggregated::remove(call_id);
@@ -1096,6 +1096,8 @@ impl<T: Config> EthCallOracle for Module<T> {
 	type CallId = EthCallId;
 	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
 	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
+	/// `timestamp` - cennznet timestamp of the request
+	/// `try_block_number` - ethereum block number hint
 	///
 	/// Returns a call Id for subscribers
 	fn checked_eth_call(

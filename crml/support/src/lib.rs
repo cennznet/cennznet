@@ -484,9 +484,9 @@ pub trait EthCallOracleSubscriber {
 	/// Identifies requests
 	type CallId;
 	/// Receives verified details about prior `EthCallOracle::checked_eth_call` requests upon their successful completion
-	fn on_call_at_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
+	fn on_eth_call_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
 	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
-	fn on_call_at_failed(call_id: Self::CallId, reason: EthCallFailure);
+	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure);
 }
 
 #[cfg(test)]

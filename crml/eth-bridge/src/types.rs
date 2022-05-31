@@ -48,7 +48,7 @@ pub struct CheckedEthCallRequest {
 	pub target: EthAddress,
 	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
 	pub try_block_number: u64,
-	/// Timestamp of when the original request was placed
+	/// CENNZnet timestamp when the request was placed
 	pub timestamp: u64,
 }
 #[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Clone, TypeInfo)]
