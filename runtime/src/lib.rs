@@ -611,6 +611,8 @@ parameter_types! {
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl crml_eth_bridge::Config for Runtime {
+	/// Listens for completed eth call jobs
+	type EthCallSubscribers = EthStateOracle;
 	/// The identifier type for an offchain worker.
 	type EthyId = EthBridgeId;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)

@@ -16,8 +16,8 @@
 
 use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
-	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
-	MultiCurrency, ReturnDataClaim, H160,
+	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber,
+	EthereumStateOracle, MultiCurrency, H160,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
@@ -276,10 +276,10 @@ decl_module! {
 			if let Some(request) = Requests::get(request_id) {
 				// ~ average ethereum block time
 				let eth_block_time_s = 15;
-				// check response timestamp is within a sensible bound +/- 2 Ethereum blocks from the request timestamp
+				// check response timestamp is within a sensible bound +3/-2 Ethereum blocks from the request timestamp
 				ensure!(
 					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * eth_block_time_s)) &&
-					eth_block_timestamp <= (request.timestamp.saturating_add(2 * eth_block_time_s)),
+					eth_block_timestamp <= (request.timestamp.saturating_add(3 * eth_block_time_s)),
 					Error::<T>::InvalidResponseTimestamp
 				);
 
@@ -312,12 +312,17 @@ decl_module! {
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!ResponsesChallenged::<T>::contains_key(request_id), Error::<T>::DuplicateChallenge);
 
-			if Responses::<T>::contains_key(request_id) {
+			if let Some(response) = Responses::<T>::get(request_id) {
 				let request = Requests::get(request_id).unwrap();
-				let challenge_subscription_id = T::EthCallOracle::call_at(
+				let challenge_subscription_id = T::EthCallOracle::checked_eth_call(
 					&request.destination,
 					request.input_data.as_ref(),
 					request.timestamp,
+					response.eth_block_number,
+					// TODO: configure
+					// the latest possible challenge can happen after
+					// ChallengePeriod blocks + 1
+					3_u64,
 				);
 				ResponsesChallenged::<T>::insert(request_id, origin);
 				ChallengeSubscriptions::insert(challenge_subscription_id, request_id);
@@ -331,13 +336,17 @@ decl_module! {
 impl<T: Config> EthCallOracleSubscriber for Module<T> {
 	type CallId = u64;
 	/// Compare response from relayer with response from validators
-	/// Either the challenger will be slashed or
-	fn on_call_at_complete(
-		call_id: Self::CallId,
-		validator_return_data: &ReturnDataClaim,
-		block_number: u64,
-		block_timestamp: u64,
+	/// Either the challenger will be slashed or the relayer
+	fn on_eth_call_complete(
+		_call_id: Self::CallId,
+		_validator_return_data: &[u8; 32],
+		_block_number: u64,
+		_block_timestamp: u64,
 	) {
+		unimplemented!();
+	}
+
+	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {
 		unimplemented!();
 	}
 }
