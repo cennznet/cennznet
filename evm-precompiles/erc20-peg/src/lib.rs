@@ -91,12 +91,11 @@ where
 		input.expect_arguments(gasometer, 3)?;
 		let withdraw_asset: Address = input.read::<Address>(gasometer)?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
-		// it is not supported by cennzx
 		let asset_id = T::evm_id_to_runtime_id(withdraw_asset).ok_or(gasometer.revert("unsupported asset"))?;
 		let withdraw_amount: U256 = input.read::<U256>(gasometer)?.into();
 		let beneficiary: H160 = input.read::<Address>(gasometer)?.into();
 
-		gasometer.record_cost(RuntimeHelper::<T>::db_read_gas_cost())?;
+		gasometer.record_cost(RuntimeHelper::<T>::db_read_gas_cost() * 6)?;
 		let caller: T::AccountId = T::AddressMapping::into_account_id(*caller);
 		let event_proof_id = crml_erc20_peg::Module::<T>::do_withdrawal(
 			caller,

@@ -44,7 +44,7 @@ where
 			CENNZX_PRECOMPILE,
 			FEE_PROXY,
 			PEG_PRECOMPILE,
-			27572
+			27572 // TODO Create constant
 		]
 		.into_iter()
 		.map(|x| hash(x))
