@@ -17,7 +17,7 @@
 use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
 	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
-	MultiCurrency, ReturnDataClaim, H160,
+	MultiCurrency, H160,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,

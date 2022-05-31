@@ -19,7 +19,7 @@
 //! # Common crml types and traits
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::DispatchResultWithPostInfo,
@@ -28,7 +28,6 @@ use frame_support::{
 use pallet_evm::AddressMapping;
 use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
-use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
 	DispatchError, DispatchResult,
@@ -439,17 +438,15 @@ pub trait ContractExecutor {
 	) -> DispatchResultWithPostInfo;
 }
 
-#[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
-/// A claim about the returndata of an `eth_call` RPC
-pub enum ReturnDataClaim {
-	/// Normal returndata scenario
-	/// Its value is an Ethereum abi encoded word (32 bytes)
-	Ok([u8; 32]),
-	/// The returndata from the executed call exceeds the 32 byte length limit
-	/// It won't be processed so we don't record the data
-	ExceedsLengthLimit,
+/// Simplified failure reasons for an eth_call request
+pub enum EthCallFailure {
+	/// Return data exceeds limit
+	ReturnDataExceedsLimit,
+	/// Return data was empty
+	ReturnDataEmpty,
+	/// Failure due to some internal reason
+	Internal,
 }
-
 /// Verifies correctness of state on Ethereum i.e. by issuing `eth_call`s
 pub trait EthCallOracle {
 	/// EVM address type
@@ -464,14 +461,20 @@ pub trait EthCallOracle {
 		input: &[u8],
 		timestamp: u64,
 		block_hint: u64,
-		max_block_look_behind: u32,
+		max_block_look_behind: u64,
 	) -> Self::CallId;
 }
 
 impl EthCallOracle for () {
 	type Address = H160;
 	type CallId = u64;
-	fn call_at(_target: &Self::Address, _input: &[u8], _timestamp: u64) -> Self::CallId {
+	fn checked_eth_call(
+		_target: &Self::Address,
+		_input: &[u8],
+		_timestamp: u64,
+		_block_hint: u64,
+		_max_block_look_behind: u64,
+	) -> Self::CallId {
 		0_u64
 	}
 }
@@ -480,13 +483,10 @@ impl EthCallOracle for () {
 pub trait EthCallOracleSubscriber {
 	/// Identifies requests
 	type CallId;
-	/// Receives verified details about prior `EthCallVerifier::call_at` requests upon their completion
-	fn on_call_at_complete(
-		call_id: Self::CallId,
-		return_data: &ReturnDataClaim,
-		block_number: u64,
-		block_timestamp: u64,
-	);
+	/// Receives verified details about prior `EthCallOracle::checked_eth_call` requests upon their successful completion
+	fn on_call_at_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
+	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
+	fn on_call_at_failed(call_id: Self::CallId, reason: EthCallFailure);
 }
 
 #[cfg(test)]

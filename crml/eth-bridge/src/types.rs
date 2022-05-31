@@ -43,7 +43,7 @@ pub struct CheckedEthCallRequest {
 	/// EVM input data for the call
 	pub input: Vec<u8>,
 	/// max blocks behind latest ethereum block that the call will be executed
-	pub max_block_look_behind: u32,
+	pub max_block_look_behind: u64,
 	/// Ethereum address to receive the call
 	pub target: EthAddress,
 	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
@@ -51,20 +51,20 @@ pub struct CheckedEthCallRequest {
 	/// Timestamp of when the original request was placed
 	pub timestamp: u64,
 }
-#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
+#[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Clone, TypeInfo)]
 pub enum CheckedEthCallResult {
 	/// returndata obtained, ethereum block number, ethereum timestamp
 	Ok([u8; 32], u64, u64),
 	/// returndata obtained, exceeds length limit
-	OkExceedsLengthLimit,
+	ReturnDataExceedsLimit,
 	/// returndata obtained, empty
-	OkEmpty,
+	ReturnDataEmpty,
 	/// Failed to retrieve all the required data from Ethereum
 	DataProviderErr,
 	/// Ethereum block number is invalid (0, max)
 	InvalidEthBlock,
 	/// Timestamps have desynced or are otherwise invalid
-	Timestamp,
+	InvalidTimestamp,
 }
 /// A bridge message id
 pub type EventClaimId = u64;
@@ -140,25 +140,50 @@ pub enum EventClaimResult {
 /// An independent notarization of a bridged value
 /// This is signed and shared with the runtime after verification by a particular validator
 #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[repr(u8)]
 pub enum NotarizationPayload {
 	Call {
 		/// The call Id being notarized
-		pub call_id: EthCallId,
+		call_id: EthCallId,
 		/// The ordinal index of the signer in the notary set
 		/// It may be used with chain storage to lookup the public key of the notary
-		pub authority_index: u16,
+		authority_index: u16,
 		/// Result of the notarization check by this authority
-		pub result: CheckedEthCallResult,
+		result: CheckedEthCallResult,
 	},
 	Event {
 		/// The message Id being notarized
-		pub event_claim_id: EventClaimId,
+		event_claim_id: EventClaimId,
 		/// The ordinal index of the signer in the notary set
 		/// It may be used with chain storage to lookup the public key of the notary
-		pub authority_index: u16,
+		authority_index: u16,
 		/// Result of the notarization check by this authority
-		pub result: EventClaimResult,
+		result: EventClaimResult,
 	},
+}
+
+impl NotarizationPayload {
+	/// Return enum type Id
+	pub fn type_id(&self) -> u64 {
+		match self {
+			Self::Call { .. } => 0_u64,
+			Self::Event { .. } => 1_u64,
+		}
+	}
+	/// Get the authority index
+	pub fn authority_index(&self) -> u16 {
+		match self {
+			Self::Call { authority_index, .. } => *authority_index,
+			Self::Event { authority_index, .. } => *authority_index,
+		}
+	}
+	/// Get the payload id
+	pub fn payload_id(&self) -> u64 {
+		match self {
+			Self::Call { call_id, .. } => *call_id,
+			Self::Event { event_claim_id, .. } => *event_claim_id,
+		}
+	}
 }
 
 /// Log
@@ -329,7 +354,7 @@ pub struct GetBlockRequest {
 #[derive(Debug)]
 pub enum LatestOrNumber {
 	Latest,
-	Number(u32),
+	Number(u64),
 }
 
 const METHOD_ETH_CALL: &str = "eth_call";
@@ -416,7 +441,7 @@ pub fn serialize_params_eth_call<S: serde::Serializer>(
 
 /// JSON-RPC method name for the request
 impl GetBlockRequest {
-	pub fn for_number(id: usize, block_number: u32) -> Self {
+	pub fn for_number(id: usize, block_number: u64) -> Self {
 		Self {
 			json_rpc: JSONRPC,
 			method: METHOD_GET_BLOCK_BY_NUMBER,
