@@ -4980,7 +4980,6 @@ version = "2.0.0"
 dependencies = [
  "cennznet-primitives",
  "crml-erc20-peg",
- "crml-support",
  "ethabi",
  "fp-evm",
  "frame-support",

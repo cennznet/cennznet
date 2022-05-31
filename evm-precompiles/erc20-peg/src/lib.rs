@@ -15,14 +15,16 @@
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 use cennznet_primitives::types::AssetId;
 use crml_erc20_peg::types::WithdrawCallOrigin;
-use crml_support::scale_wei_to_4dp;
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
-use pallet_evm::{AddressMapping, Precompile};
+use pallet_evm::{AddressMapping, ExitRevert, Precompile};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{Address, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, RuntimeHelper};
+use precompile_utils::{
+	Address, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure, RuntimeHelper,
+};
 use sp_core::{H160, U256};
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::marker::PhantomData;
@@ -30,7 +32,7 @@ use sp_std::marker::PhantomData;
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
-	/// Issue a remote 'call' to ethereum contract
+	/// Submit a withdrawal through erc20-peg
 	/// asset id, withdraw amount, beneficiary
 	Withdraw = "withdraw(address,uint256,address)",
 }
@@ -87,12 +89,11 @@ where
 	fn withdraw(input: &mut EvmDataReader, gasometer: &mut Gasometer, caller: &H160) -> EvmResult<PrecompileOutput> {
 		// Parse input.
 		input.expect_arguments(gasometer, 3)?;
-		let fee_asset_id: Address = input.read::<Address>(gasometer)?.into();
+		let withdraw_asset: Address = input.read::<Address>(gasometer)?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
 		// it is not supported by cennzx
-		let asset_id = T::evm_id_to_runtime_id(fee_asset_id).ok_or(gasometer.revert("unsupported asset"))?;
+		let asset_id = T::evm_id_to_runtime_id(withdraw_asset).ok_or(gasometer.revert("unsupported asset"))?;
 		let withdraw_amount: U256 = input.read::<U256>(gasometer)?.into();
-		let withdraw_amount = scale_wei_to_4dp(withdraw_amount.unique_saturated_into());
 		let beneficiary: H160 = input.read::<Address>(gasometer)?.into();
 
 		gasometer.record_cost(RuntimeHelper::<T>::db_read_gas_cost())?;
@@ -100,7 +101,7 @@ where
 		let event_proof_id = crml_erc20_peg::Module::<T>::do_withdrawal(
 			caller,
 			asset_id,
-			withdraw_amount,
+			withdraw_amount.unique_saturated_into(),
 			beneficiary,
 			WithdrawCallOrigin::Evm,
 		);
@@ -113,11 +114,12 @@ where
 				output: EvmDataWriter::new().write(U256::from(proof_id)).build(),
 				logs: Default::default(),
 			}),
-			Err(_) => Ok(PrecompileOutput {
-				exit_status: ExitSucceed::Returned,
+			Err(err) => Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: alloc::format!("withdraw failed: {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
 				cost: gasometer.used_gas(),
-				output: EvmDataWriter::new().build(),
-				logs: Default::default(),
 			}),
 		}
 	}

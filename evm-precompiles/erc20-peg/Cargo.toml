@@ -18,7 +18,6 @@ sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d41379
 sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 num_enum = { version = "0.5.3", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
-crml-support = { path = "../../crml/support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-erc20-peg = { path = "../../crml/erc20-peg", default-features = false }
 ethabi = { version = "16.0.0", default-features = false }
@@ -41,5 +40,4 @@ std = [
 	"sp-std/std",
 	"cennznet-primitives/std",
 	"crml-erc20-peg/std",
-	"crml-support/std",
 ]

@@ -69,7 +69,7 @@ decl_storage! {
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
-		AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
+		pub AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
@@ -263,7 +263,7 @@ decl_module! {
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
 			let origin = ensure_signed(origin)?;
-			let _ = Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
+			Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
 		}
 
 		#[weight = 1_000_000]
@@ -341,8 +341,7 @@ impl<T: Config> Module<T> {
 						Ok(0)
 					}
 					WithdrawCallOrigin::Evm => {
-						// EVM claim delays are not supported, log and return an error
-						log::error!("📌 EVM withdrawal claim failed due to claim delay being set for asset",);
+						// EVM claim delays are not supported
 						Err(Error::<T>::EvmWithdrawalFailed.into())
 					}
 				};
