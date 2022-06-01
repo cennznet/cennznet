@@ -13,7 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
-//! EVM Fee Preferences integration tests
+//! EVM Cennzx integration tests
 
 use cennznet_primitives::types::Balance;
 use cennznet_runtime::{
