@@ -22,7 +22,7 @@ use crml_support::{
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
 	pallet_prelude::*,
-	traits::{ExistenceRequirement, UnixTime},
+	traits::{ExistenceRequirement, UnixTime, WithdrawReasons},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use frame_system::ensure_signed;
@@ -62,11 +62,11 @@ pub trait Config: frame_system::Config {
 	/// Handles verifying challenged responses
 	type EthCallOracle: EthCallOracle<Address = EthAddress, CallId = u64>;
 	/// The overarching event type.
-	type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
+	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 	/// Returns current block time
 	type UnixTime: UnixTime;
 	/// Multi-currency system
-	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance>;
+	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
 	/// Returns the network min gas price
 	type MinGasPrice: Get<u64>;
 	/// Convert gas to weight according to runtime config
@@ -77,6 +77,8 @@ pub trait Config: frame_system::Config {
 		Balance = Balance,
 		FeeExchange = FeeExchange<AssetId, Balance>,
 	>;
+	/// Minimum bond amount for a relayer
+	type RelayerBondAmount: Get<Balance>;
 }
 
 decl_storage! {
@@ -87,6 +89,8 @@ decl_storage! {
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
+		/// Maps from account to balance bonded for relayer responses
+		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
 		/// These are not necessarily valid until passed the challenge period
 		Responses get(fn responses): map hasher(twox_64_concat) RequestId => Option<CallResponse<T::AccountId>>;
@@ -102,13 +106,19 @@ decl_storage! {
 }
 
 decl_event! {
-	pub enum Event {
+	pub enum Event<T> where
+		<T as frame_system::Config>::AccountId,
+	{
 		/// New state oracle request (Caller, Id)
 		NewRequest(EthAddress, RequestId),
 		/// executing the request callback failed (Id, Reason)
 		CallbackErr(RequestId, DispatchError),
 		/// executing the callback succeeded (Id, Weight)
 		Callback(RequestId, Weight),
+		/// An account has submitted a relayer bond (AccountId, Balance)
+		RelayerBondSet(AccountId, Balance),
+		/// An account has removed their relayer bond (AccountId, Balance)
+		RelayerBondRemoved(AccountId, Balance),
 	}
 }
 
@@ -134,6 +144,12 @@ decl_error! {
 		RequestExpired,
 		/// Failed to exchange fee preference to CPay
 		FeeExchangeFailed,
+		/// Account already has CPay bonded
+		AlreadyBonded,
+		/// This account doesn't have any CPay bonded
+		NothingBonded,
+		/// The account has active responses so can't unbond
+		CantUnbond
 	}
 }
 
@@ -160,7 +176,7 @@ decl_module! {
 			if RequestsExpiredAtBlock::<T>::contains_key(now) {
 				for expired_request_id in RequestsExpiredAtBlock::<T>::take(now) {
 					Requests::remove(expired_request_id);
-					Self::deposit_event(Event::CallbackErr(
+					Self::deposit_event(Event::<T>::CallbackErr(
 						expired_request_id,
 						Error::<T>::RequestExpired.into(),
 					));
@@ -215,7 +231,7 @@ decl_module! {
 				) {
 					Ok(info) => {
 						let callback_weight = info.actual_weight.unwrap_or(0);
-						Self::deposit_event(Event::Callback(
+						Self::deposit_event(Event::<T>::Callback(
 							call_request_id,
 							callback_weight,
 						));
@@ -223,7 +239,7 @@ decl_module! {
 					},
 					Err(info) => {
 						let callback_weight = info.post_info.actual_weight.unwrap_or(0);
-						Self::deposit_event(Event::CallbackErr(
+						Self::deposit_event(Event::<T>::CallbackErr(
 							call_request_id,
 							info.error,
 						));
@@ -241,6 +257,56 @@ decl_module! {
 			consumed_weight
 		}
 
+		/// Deposits a bond which is required to submit call responses
+		#[weight = 500_000]
+		pub fn deposit_relayer_bond(origin) {
+			let origin = ensure_signed(origin)?;
+
+			// Check account doesn't already have a bond
+			if !Self::relayer_bonds(&origin).is_zero() {
+				// Account already has CPay bonded
+				return Err(Error::<T>::AlreadyBonded.into())
+			};
+			// check user has the requisite funds to make this bid
+			let fee_currency = T::MultiCurrency::fee_currency();
+			let relayer_bond_amount = T::RelayerBondAmount::get();
+			let balance = T::MultiCurrency::free_balance(&origin, fee_currency.clone());
+			if let Some(balance_after_bond) = balance.checked_sub(relayer_bond_amount) {
+				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
+				// - `amount` is unused
+				// - if there are multiple locks on user asset this could return true inaccurately
+				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency.clone(), relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
+			}
+
+			// try lock funds
+			T::MultiCurrency::reserve(&origin, fee_currency, relayer_bond_amount)?;
+			RelayerBonds::<T>::insert(&origin, relayer_bond_amount);
+			Self::deposit_event(Event::<T>::RelayerBondSet(origin, relayer_bond_amount));
+		}
+
+		/// Unbonds an accounts assets
+		#[weight = 500_000]
+		pub fn unbond_relayer_bond(origin) {
+			let origin = ensure_signed(origin)?;
+			// Ensure account has bonded amount
+			let bonded_amount: Balance = Self::relayer_bonds(&origin);
+			ensure!(!bonded_amount.is_zero(), Error::<T>::NothingBonded);
+
+			// Check that there isn't an existing request for the account
+			let responses: Vec<(RequestId, CallResponse<T::AccountId>)> = Responses::<T>::iter().collect();
+			for (_, call_response) in responses {
+				if call_response.relayer == origin {
+					return Err(Error::<T>::CantUnbond.into());
+				}
+			}
+
+			// Unreserve bonded amount
+			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::fee_currency(), bonded_amount);
+			RelayerBonds::<T>::remove(&origin);
+			Self::deposit_event(Event::<T>::RelayerBondRemoved(origin, bonded_amount));
+		}
+
 		/// Submit response for a a remote call request
 		///
 		/// `return_data` - the claimed `returndata` of the `eth_call` RPC using the requested contract and input buffer
@@ -253,9 +319,8 @@ decl_module! {
 		///
 		#[weight = 500_000]
 		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
-			// TODO: relayer should have some bond
 			let origin = ensure_signed(origin)?;
-
+			ensure!(Self::relayer_bonds(&origin) == T::RelayerBondAmount::get(), Error::<T>::NothingBonded);
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 

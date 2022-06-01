@@ -49,7 +49,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Pallet, Call, Config<T>, Storage, Event<T>},
-		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -107,6 +107,7 @@ parameter_types! {
 	pub const ChallengePeriod: BlockNumber = 5;
 	pub const MinGasPrice: u64 = 1;
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
+	pub RelayerBondAmount: Balance = 1_000_000_000;
 }
 impl Config for TestRuntime {
 	type AddressMapping = SimpleAddressMapping<AccountId>;
@@ -120,6 +121,7 @@ impl Config for TestRuntime {
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
 	type BuyFeeAsset = MockBuyFeeAsset;
+	type RelayerBondAmount = RelayerBondAmount;
 }
 
 pub struct MockBuyFeeAsset;
