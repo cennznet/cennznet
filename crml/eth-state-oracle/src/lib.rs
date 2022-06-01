@@ -77,6 +77,8 @@ pub trait Config: frame_system::Config {
 		Balance = Balance,
 		FeeExchange = FeeExchange<AssetId, Balance>,
 	>;
+	/// Minimum bond amount for a relayer
+	type RelayerBondAmount: Get<Balance>;
 }
 
 decl_storage! {
@@ -88,7 +90,7 @@ decl_storage! {
 		/// Requests for remote 'eth_call's keyed by request Id
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
 		/// Maps from account to balance bonded for relayer responses
-		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Option<Balance>;
+		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
 		/// These are not necessarily valid until passed the challenge period
 		Responses get(fn responses): map hasher(twox_64_concat) RequestId => Option<CallResponse<T::AccountId>>;
@@ -261,25 +263,25 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			// Check account doesn't already have a bond
-			if let Some(_bonded) = Self::relayer_bonds(&origin) {
+			if !Self::relayer_bonds(&origin).is_zero() {
 				// Account already has CPay bonded
 				return Err(Error::<T>::AlreadyBonded.into())
 			};
 
 			// check user has the requisite funds to make this bid
-			let balance = T::MultiCurrency::free_balance(&origin, T::MultiCurrency::staking_currency());
-			if let Some(balance_after_bond) = balance.checked_sub(RELAYER_BOND_AMOUNT) {
+			let balance = T::MultiCurrency::free_balance(&origin, T::MultiCurrency::fee_currency());
+			if let Some(balance_after_bond) = balance.checked_sub(T::RelayerBondAmount::get()) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
 				// - if there are multiple locks on user asset this could return true inaccurately
 				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, T::MultiCurrency::staking_currency(), RELAYER_BOND_AMOUNT, WithdrawReasons::RESERVE, balance_after_bond)?;
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, T::MultiCurrency::fee_currency(), T::RelayerBondAmount::get(), WithdrawReasons::RESERVE, balance_after_bond)?;
 			}
 
 			// try lock funds
-			T::MultiCurrency::reserve(&origin, T::MultiCurrency::staking_currency(), RELAYER_BOND_AMOUNT)?;
-			RelayerBonds::<T>::insert(&origin, RELAYER_BOND_AMOUNT);
-			Self::deposit_event(Event::<T>::RelayerBondSet(origin, RELAYER_BOND_AMOUNT));
+			T::MultiCurrency::reserve(&origin, T::MultiCurrency::fee_currency(), T::RelayerBondAmount::get())?;
+			RelayerBonds::<T>::insert(&origin, T::RelayerBondAmount::get());
+			Self::deposit_event(Event::<T>::RelayerBondSet(origin, T::RelayerBondAmount::get()));
 		}
 
 		/// Unbonds an accounts assets
@@ -287,9 +289,8 @@ decl_module! {
 		pub fn unbond_relayer_bond(origin) {
 			let origin = ensure_signed(origin)?;
 			// Ensure account has bonded amount
-			let bonded_amount = Self::relayer_bonds(&origin);
-			ensure!(bonded_amount.is_some(), Error::<T>::NothingBonded);
-			let bonded_amount: Balance = bonded_amount.unwrap();
+			let bonded_amount: Balance = Self::relayer_bonds(&origin);
+			ensure!(!bonded_amount.is_zero(), Error::<T>::NothingBonded);
 
 			// Check that there isn't an existing request for the account
 			let responses: Vec<(RequestId, CallResponse<T::AccountId>)> = Responses::<T>::iter().collect();
@@ -300,7 +301,7 @@ decl_module! {
 			}
 
 			// Unreserve bonded amount
-			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::staking_currency(), bonded_amount);
+			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::fee_currency(), bonded_amount);
 			RelayerBonds::<T>::remove(&origin);
 			Self::deposit_event(Event::<T>::RelayerBondRemoved(origin, bonded_amount));
 		}
@@ -318,7 +319,7 @@ decl_module! {
 		#[weight = 500_000]
 		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::relayer_bonds(&origin).is_some(), Error::<T>::NothingBonded);
+			ensure!(Self::relayer_bonds(&origin) == T::RelayerBondAmount::get(), Error::<T>::NothingBonded);
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 

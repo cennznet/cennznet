@@ -506,11 +506,14 @@ fn deposit_relayer_bond() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::deposit_relayer_bond(origin.into()));
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			<RelayerBonds<TestRuntime>>::get(relayer),
+			<TestRuntime as Config>::RelayerBondAmount::get()
+		);
 
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
-			initial_balance - RELAYER_BOND_AMOUNT,
+			initial_balance - <TestRuntime as Config>::RelayerBondAmount::get(),
 		);
 	});
 }
@@ -533,10 +536,13 @@ fn deposit_relayer_bond_already_bonded_should_fail() {
 			Error::<TestRuntime>::AlreadyBonded
 		);
 
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			<RelayerBonds<TestRuntime>>::get(relayer),
+			<TestRuntime as Config>::RelayerBondAmount::get()
+		);
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
-			initial_balance - RELAYER_BOND_AMOUNT,
+			initial_balance - <TestRuntime as Config>::RelayerBondAmount::get(),
 		);
 	});
 }
@@ -550,7 +556,7 @@ fn deposit_relayer_bond_not_enough_balance_should_fail() {
 			EthStateOracle::deposit_relayer_bond(origin.into()),
 			crml_generic_asset::Error::<TestRuntime>::InsufficientBalance
 		);
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), None);
+		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), 0);
 	});
 }
 
@@ -567,11 +573,14 @@ fn unbond_relayer_bond() {
 		));
 		// Bond
 		assert_ok!(EthStateOracle::deposit_relayer_bond(origin.clone().into()));
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			<RelayerBonds<TestRuntime>>::get(relayer),
+			<TestRuntime as Config>::RelayerBondAmount::get()
+		);
 
 		// Unbond
 		assert_ok!(EthStateOracle::unbond_relayer_bond(origin.into()));
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), None);
+		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), 0);
 
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
@@ -593,7 +602,10 @@ fn unbond_relayer_bond_active_response_should_fail() {
 		));
 		// Bond
 		assert_ok!(EthStateOracle::deposit_relayer_bond(origin.clone().into()));
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			<RelayerBonds<TestRuntime>>::get(relayer),
+			<TestRuntime as Config>::RelayerBondAmount::get()
+		);
 
 		// Insert Response for account
 		let call_response = CallResponseBuilder::new().relayer(relayer).build();
@@ -607,10 +619,13 @@ fn unbond_relayer_bond_active_response_should_fail() {
 		);
 
 		// Make sure bond hasn't been removed
-		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			<RelayerBonds<TestRuntime>>::get(relayer),
+			<TestRuntime as Config>::RelayerBondAmount::get()
+		);
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
-			initial_balance - RELAYER_BOND_AMOUNT,
+			initial_balance - <TestRuntime as Config>::RelayerBondAmount::get(),
 		);
 	});
 }
