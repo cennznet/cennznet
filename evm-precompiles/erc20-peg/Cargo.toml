@@ -7,11 +7,9 @@ repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
 fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
 precompile-utils = { path = "../utils", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
 sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
@@ -20,18 +18,14 @@ num_enum = { version = "0.5.3", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-erc20-peg = { path = "../../crml/erc20-peg", default-features = false }
-ethabi = { version = "16.0.0", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"ethabi/std",
 	"scale-info/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"pallet-evm-precompiles-erc20/std",
-	"frame-support/std",
 	"frame-system/std",
 	"num_enum/std",
 	"precompile-utils/std",

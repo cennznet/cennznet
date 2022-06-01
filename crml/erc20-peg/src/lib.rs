@@ -307,6 +307,11 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Process the withdrawal, returning the event_proof_id
+	/// Can be called by the runtime or erc20-peg precompile
+	/// If a claim delay is in place for the asset, this will be handled when called from the runtime
+	/// The runtime doesn't use the returned value so 0 is returned in this case
+	/// Delays from the EVM will return an error
 	pub fn do_withdrawal(
 		origin: T::AccountId,
 		asset_id: AssetId,
