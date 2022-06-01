@@ -18,6 +18,8 @@ pub use crml_support::{H160 as EthAddress, H256, U256};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
+pub const RELAYER_BOND_AMOUNT: Balance = 1_000_000_000;
+
 /// Identifies remote call challenges
 pub type ChallengeId = u64;
 

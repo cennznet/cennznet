@@ -898,7 +898,7 @@ construct_runtime!(
 		Governance: crml_governance::{Pallet, Call, Storage, Event},
 		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>},
-		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event<T>},
 		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned},
 		// EVM support
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},

@@ -49,7 +49,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Pallet, Call, Config<T>, Storage, Event<T>},
-		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
