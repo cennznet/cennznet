@@ -44,6 +44,8 @@ pub mod evm {
 	pub const FEE_PROXY: u64 = 1211;
 	// Precompile address for CENNZX
 	pub const CENNZX_PRECOMPILE: u64 = 37322;
+	// Precompile address for erc20-peg
+	pub const PEG_PRECOMPILE: u64 = 1939;
 }
 
 /// Money matters.
