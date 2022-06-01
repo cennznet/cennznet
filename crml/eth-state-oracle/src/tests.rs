@@ -581,6 +581,41 @@ fn unbond_relayer_bond() {
 }
 
 #[test]
+fn unbond_relayer_bond_active_response_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let relayer = 1_u64;
+		let origin = RawOrigin::Signed(relayer);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&relayer,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		// Bond
+		assert_ok!(EthStateOracle::deposit_relayer_bond(origin.clone().into()));
+		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+
+		// Insert Response for account
+		let call_response = CallResponseBuilder::new().relayer(relayer).build();
+		let request_id: RequestId = RequestId::from(1);
+		Responses::<TestRuntime>::insert(request_id, call_response);
+
+		// Try unbond
+		assert_noop!(
+			EthStateOracle::unbond_relayer_bond(origin.into()),
+			Error::<TestRuntime>::CantUnbond
+		);
+
+		// Make sure bond hasn't been removed
+		assert_eq!(<RelayerBonds<TestRuntime>>::get(relayer), Some(RELAYER_BOND_AMOUNT));
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &relayer),
+			initial_balance - RELAYER_BOND_AMOUNT,
+		);
+	});
+}
+
+#[test]
 fn unbond_relayer_bond_no_bond_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let relayer = 1_u64;

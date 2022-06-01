@@ -146,6 +146,8 @@ decl_error! {
 		AlreadyBonded,
 		/// This account doesn't have any CPay bonded
 		NothingBonded,
+		/// The account has active responses so can't unbond
+		CantUnbond
 	}
 }
 
@@ -288,6 +290,15 @@ decl_module! {
 			let bonded_amount = Self::relayer_bonds(&origin);
 			ensure!(bonded_amount.is_some(), Error::<T>::NothingBonded);
 			let bonded_amount: Balance = bonded_amount.unwrap();
+
+			// Check that there isn't an existing request for the account
+			let responses: Vec<(RequestId, CallResponse<T::AccountId>)> = Responses::<T>::iter().collect();
+			for (_, call_response) in responses {
+				if call_response.relayer == origin {
+					return Err(Error::<T>::CantUnbond.into());
+				}
+			}
+
 			// Unreserve bonded amount
 			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::staking_currency(), bonded_amount);
 			RelayerBonds::<T>::remove(&origin);
@@ -306,9 +317,8 @@ decl_module! {
 		///
 		#[weight = 500_000]
 		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
-			// TODO: relayer should have some bond
 			let origin = ensure_signed(origin)?;
-
+			ensure!(Self::relayer_bonds(&origin).is_some(), Error::<T>::NothingBonded);
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 
