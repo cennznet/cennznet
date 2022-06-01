@@ -66,7 +66,7 @@ pub trait Config: frame_system::Config {
 	/// Returns current block time
 	type UnixTime: UnixTime;
 	/// Multi-currency system
-	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance>;
+	type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
 	/// Returns the network min gas price
 	type MinGasPrice: Get<u64>;
 	/// Convert gas to weight according to runtime config
@@ -267,21 +267,22 @@ decl_module! {
 				// Account already has CPay bonded
 				return Err(Error::<T>::AlreadyBonded.into())
 			};
-
 			// check user has the requisite funds to make this bid
-			let balance = T::MultiCurrency::free_balance(&origin, T::MultiCurrency::fee_currency());
-			if let Some(balance_after_bond) = balance.checked_sub(T::RelayerBondAmount::get()) {
+			let fee_currency = T::MultiCurrency::fee_currency();
+			let relayer_bond_amount = T::RelayerBondAmount::get();
+			let balance = T::MultiCurrency::free_balance(&origin, fee_currency.clone());
+			if let Some(balance_after_bond) = balance.checked_sub(relayer_bond_amount) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
 				// - if there are multiple locks on user asset this could return true inaccurately
 				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, T::MultiCurrency::fee_currency(), T::RelayerBondAmount::get(), WithdrawReasons::RESERVE, balance_after_bond)?;
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency.clone(), relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
 			}
 
 			// try lock funds
-			T::MultiCurrency::reserve(&origin, T::MultiCurrency::fee_currency(), T::RelayerBondAmount::get())?;
-			RelayerBonds::<T>::insert(&origin, T::RelayerBondAmount::get());
-			Self::deposit_event(Event::<T>::RelayerBondSet(origin, T::RelayerBondAmount::get()));
+			T::MultiCurrency::reserve(&origin, fee_currency, relayer_bond_amount)?;
+			RelayerBonds::<T>::insert(&origin, relayer_bond_amount);
+			Self::deposit_event(Event::<T>::RelayerBondSet(origin, relayer_bond_amount));
 		}
 
 		/// Unbonds an accounts assets
