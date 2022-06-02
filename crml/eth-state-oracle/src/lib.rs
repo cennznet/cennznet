@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ExistenceRequirement, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use pallet_evm::{AddressMapping, GasWeightMapping};
 use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::prelude::*;
@@ -83,6 +83,9 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthStateOracle {
 		/// Map from challenge subscription Id to its request
 		ChallengeSubscriptions: map hasher(twox_64_concat) ChallengeId => Option<RequestId>;
+		/// Maximum allowed timestamp drift of responses (ethereum vs. cennznet timestamps) in # _blocks_
+		/// Assumes an average block time of 15s
+		MaxResponseDrift get(fn max_response_drift): u64 = 2;
 		/// Unique identifier for remote call requests
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
@@ -241,6 +244,13 @@ decl_module! {
 			consumed_weight
 		}
 
+		/// Number of Ethereum blocks lag tolerated in responses
+		#[weight = 100_000]
+		pub fn set_max_response_drift(origin, n: u64) {
+			let _ = ensure_root(origin)?;
+			MaxResponseDrift::put(n);
+		}
+
 		/// Submit response for a a remote call request
 		///
 		/// `return_data` - the claimed `returndata` of the `eth_call` RPC using the requested contract and input buffer
@@ -276,10 +286,11 @@ decl_module! {
 			if let Some(request) = Requests::get(request_id) {
 				// ~ average ethereum block time
 				let eth_block_time_s = 15;
-				// check response timestamp is within a sensible bound +/- 2 Ethereum blocks from the request timestamp
+				let max_response_drift_s = eth_block_time_s * Self::max_response_drift();
+				// check response timestamp is within a sensible bound +3/-2 Ethereum blocks from the request timestamp
 				ensure!(
-					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * eth_block_time_s)) &&
-					eth_block_timestamp <= (request.timestamp.saturating_add(2 * eth_block_time_s)),
+					eth_block_timestamp >= (request.timestamp.saturating_sub(max_response_drift_s)) &&
+					eth_block_timestamp <= (request.timestamp.saturating_add(max_response_drift_s)),
 					Error::<T>::InvalidResponseTimestamp
 				);
 
