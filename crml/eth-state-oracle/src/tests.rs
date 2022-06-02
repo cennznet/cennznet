@@ -18,6 +18,16 @@ fn state_oracle_ss58_address() -> AccountId {
 	<TestRuntime as Config>::AddressMapping::into_account_id(state_oracle_precompile)
 }
 
+fn deposit_bond(origin: u64) {
+	let initial_balance = 100_000_000_000_000 as Balance;
+	assert_ok!(GenericAsset::deposit_into_existing(
+		&origin,
+		GenericAsset::fee_currency(),
+		initial_balance
+	));
+	assert_ok!(EthStateOracle::deposit_relayer_bond(RawOrigin::Signed(origin).into()));
+}
+
 #[test]
 
 fn new_request() {
@@ -143,7 +153,6 @@ fn try_callback_with_fee_preferences() {
 		let caller = 111_u64;
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
-		let return_data = [1_u8; 32];
 		let payment_asset_id: AssetId = 1;
 		let fee_preferences = FeePreferences { asset_id: payment_asset_id, slippage: Default::default() };
 		let request = CallRequestBuilder::new()
@@ -275,6 +284,7 @@ fn submit_call_response() {
 		let return_data = ReturnDataClaim::Ok([1_u8; 32]);
 		Requests::insert(request_id, CallRequestBuilder::new().expiry_block(expiry_block).build());
 		RequestsExpiredAtBlock::<TestRuntime>::insert(expiry_block, vec![request_id]);
+		deposit_bond(relayer);
 
 		// Test
 		assert!(EthStateOracle::submit_call_response(
@@ -308,9 +318,12 @@ fn submit_call_response() {
 #[test]
 fn submit_call_response_request_should_exist() {
 	ExtBuilder::default().build().execute_with(|| {
+		let relayer: u64 = 1;
+		deposit_bond(relayer);
+
 		assert_noop!(
 			EthStateOracle::submit_call_response(
-				RawOrigin::Signed(1_u64).into(),
+				RawOrigin::Signed(relayer).into(),
 				RequestId::from(1_u64),
 				ReturnDataClaim::Ok([0_u8; 32]),
 				100_u64,
@@ -324,13 +337,16 @@ fn submit_call_response_request_should_exist() {
 #[test]
 fn submit_call_response_accepts_first() {
 	ExtBuilder::default().build().execute_with(|| {
+		let relayer: u64 = 1;
+		deposit_bond(relayer);
+
 		// setup request
 		let request_id = RequestId::from(1_u64);
 		let request = CallRequestBuilder::new().build();
 		Requests::insert(request_id, request);
 		// first submission ok
 		assert!(EthStateOracle::submit_call_response(
-			RawOrigin::Signed(1_u64).into(),
+			RawOrigin::Signed(relayer).into(),
 			request_id,
 			ReturnDataClaim::Ok([1_u8; 32]),
 			100_u64,
@@ -356,6 +372,9 @@ fn submit_call_response_accepts_first() {
 #[test]
 fn submit_call_response_invalid_timestamps() {
 	ExtBuilder::default().build().execute_with(|| {
+		let relayer: u64 = 1;
+		deposit_bond(relayer);
+
 		// setup request
 		let request_id = RequestId::from(1_u64);
 		let request = CallRequestBuilder::new().build();
@@ -366,7 +385,7 @@ fn submit_call_response_invalid_timestamps() {
 		// Test
 		assert_err!(
 			EthStateOracle::submit_call_response(
-				RawOrigin::Signed(1_u64).into(),
+				RawOrigin::Signed(relayer).into(),
 				request_id,
 				ReturnDataClaim::Ok([1_u8; 32]),
 				100_u64,
