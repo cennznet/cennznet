@@ -270,13 +270,13 @@ decl_module! {
 			// check user has the requisite funds to make this bid
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let relayer_bond_amount = T::RelayerBondAmount::get();
-			let balance = T::MultiCurrency::free_balance(&origin, fee_currency.clone());
+			let balance = T::MultiCurrency::free_balance(&origin, fee_currency);
 			if let Some(balance_after_bond) = balance.checked_sub(relayer_bond_amount) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
 				// - if there are multiple locks on user asset this could return true inaccurately
 				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency.clone(), relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency, relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
 			}
 
 			// try lock funds
