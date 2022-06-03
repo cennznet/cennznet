@@ -38,18 +38,24 @@ use std::string::String;
 /// An EthCallOracle call Id
 pub type EthCallId = u64;
 /// An EthCallOracle request
-#[derive(Encode, Decode, PartialEq, Clone, TypeInfo)]
+#[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
 pub struct CheckedEthCallRequest {
 	/// EVM input data for the call
 	pub input: Vec<u8>,
-	/// max blocks behind latest ethereum block that the call will be executed
-	pub max_block_look_behind: u64,
 	/// Ethereum address to receive the call
 	pub target: EthAddress,
-	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
-	pub try_block_number: u64,
-	/// CENNZnet timestamp when the request was placed
+	/// CENNZnet timestamp when the original request was placed e.g by a contract/user (seconds)
 	pub timestamp: u64,
+	/// Informs the oldest acceptable block number that `try_block_number` can take (once the Ethereum latest block number is known)
+	/// if `try_block_number` falls outside `(latest - max_block_look_behind) < try_block_number < latest`
+	/// then it is considered invalid
+	pub max_block_look_behind: u64,
+	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
+	/// It is provided by an untrusted source and may or may not be used
+	/// depending on its distance from the latest eth block i.e `(latest - max_block_look_behind) < try_block_number < latest`
+	pub try_block_number: u64,
+	/// CENNZnet timestamp when _this_ check request was queued (seconds)
+	pub check_timestamp: u64,
 }
 #[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Clone, TypeInfo)]
 pub enum CheckedEthCallResult {

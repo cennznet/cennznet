@@ -655,8 +655,7 @@ impl<T: Config> Module<T> {
 		// 1) get latest ethereum block
 		// 2) check relayed block # and timestamp is within acceptable range (based on `max_block_look_behind`)
 		// 3a) within range: do an eth_call at the relayed block
-		// 3b) out of range: do an eth_call at block number latest - N (N is heuristic based on difference)
-		let eth_avg_block_time = 15_u64;
+		// 3b) out of range: do an eth_call at block number latest
 		let latest_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
 			Ok(None) => return CheckedEthCallResult::DataProviderErr,
 			Ok(Some(block)) => block,
@@ -670,15 +669,9 @@ impl<T: Config> Module<T> {
 		if latest_eth_block_timestamp == u64::max_value() {
 			return CheckedEthCallResult::InvalidTimestamp;
 		}
-		match latest_eth_block_timestamp.checked_sub(request.timestamp) {
-			Some(elapsed_eth_latest_vs_cennznet_request) => {
-				// request must be newer than `max_block_look_behind`
-				if elapsed_eth_latest_vs_cennznet_request <= (request.max_block_look_behind * eth_avg_block_time) {
-					return CheckedEthCallResult::InvalidTimestamp;
-				}
-			}
-			// request must be before the latest eth block
-			None => return CheckedEthCallResult::InvalidTimestamp,
+		// latest ethereum block timestamp should be after the request
+		if latest_eth_block_timestamp < request.timestamp {
+			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		let latest_eth_block_number = match latest_block.number {
 			Some(number) => {
@@ -693,9 +686,18 @@ impl<T: Config> Module<T> {
 		// check relayed block # and timestamp is within acceptable range
 		let mut target_block_number = latest_eth_block_number;
 		let mut target_block_timestamp = latest_eth_block_timestamp;
-		let oldest_acceptable_ethereum_block = latest_eth_block_number - request.max_block_look_behind;
-		if request.try_block_number >= oldest_acceptable_ethereum_block
-			&& request.try_block_number < latest_eth_block_number
+
+		// there can be delay between challenge submission and execution
+		// this should be factored into the acceptable block window, in normal conditions is should be < 5s
+		let check_delay = T::UnixTime::now().as_secs().saturating_sub(request.check_timestamp);
+		let extra_block_window = check_delay / 12_u64; // lenient here, any delay >= 12s gets an extra block
+
+		// if requests were queued then we may have useful info about the latest ethereum block...
+		let oldest_acceptable_eth_block = latest_eth_block_number
+			.saturating_sub(request.max_block_look_behind)
+			.saturating_sub(extra_block_window);
+
+		if request.try_block_number >= oldest_acceptable_eth_block && request.try_block_number < latest_eth_block_number
 		{
 			let target_block: EthBlock =
 				match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(request.try_block_number)) {
@@ -1112,6 +1114,7 @@ impl<T: Config> EthCallOracle for Module<T> {
 		EthCallRequestInfo::insert(
 			call_id,
 			CheckedEthCallRequest {
+				check_timestamp: T::UnixTime::now().as_secs(),
 				input: input.to_vec(),
 				target: *target,
 				timestamp,
