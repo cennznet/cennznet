@@ -18,7 +18,7 @@ fn state_oracle_ss58_address() -> AccountId {
 	<TestRuntime as Config>::AddressMapping::into_account_id(state_oracle_precompile)
 }
 
-fn deposit_bond(origin: u64) {
+fn deposit_bond_relayer(origin: u64) {
 	let initial_balance = 100_000_000_000_000 as Balance;
 	assert_ok!(GenericAsset::deposit_into_existing(
 		&origin,
@@ -28,8 +28,19 @@ fn deposit_bond(origin: u64) {
 	assert_ok!(EthStateOracle::deposit_relayer_bond(RawOrigin::Signed(origin).into()));
 }
 
-#[test]
+fn deposit_bond_challenger(origin: u64) {
+	let initial_balance = 100_000_000_000_000 as Balance;
+	assert_ok!(GenericAsset::deposit_into_existing(
+		&origin,
+		GenericAsset::fee_currency(),
+		initial_balance
+	));
+	assert_ok!(EthStateOracle::deposit_challenger_bond(
+		RawOrigin::Signed(origin).into()
+	));
+}
 
+#[test]
 fn new_request() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123_u64);
@@ -43,9 +54,10 @@ fn new_request() {
 		};
 		let bounty = 10_000;
 		let request_id = NextRequestId::get();
-
+		// Submit challenger bond
+		deposit_bond_challenger(1_u64);
 		// Test
-		EthStateOracle::new_request(
+		assert_ok!(EthStateOracle::new_request(
 			&caller,
 			&destination,
 			input_data.as_ref(),
@@ -53,7 +65,7 @@ fn new_request() {
 			callback_gas_limit,
 			Some(fee_preferences.clone()),
 			bounty,
-		);
+		));
 
 		let expected_request_info = CallRequest {
 			caller,
@@ -68,6 +80,35 @@ fn new_request() {
 		};
 		assert_eq!(Requests::get(request_id), Some(expected_request_info));
 		assert_eq!(NextRequestId::get(), request_id + U256::from(1_u32));
+	});
+}
+
+#[test]
+fn new_request_no_challenger_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let caller = H160::from_low_u64_be(123_u64);
+		let destination = H160::from_low_u64_be(456_u64);
+		let input_data = vec![0u8, 55, 66, 77, 88];
+		let callback_signature = [0u8, 35, 45, 55];
+		let callback_gas_limit = 200_000_u64;
+		let fee_preferences = FeePreferences {
+			asset_id: 12,
+			slippage: Permill::from_percent(5),
+		};
+		let bounty = 10_000;
+		// Test
+		assert_err!(
+			EthStateOracle::new_request(
+				&caller,
+				&destination,
+				input_data.as_ref(),
+				&callback_signature,
+				callback_gas_limit,
+				Some(fee_preferences.clone()),
+				bounty,
+			),
+			Error::<TestRuntime>::NoAvailableResponses
+		);
 	});
 }
 
@@ -284,7 +325,7 @@ fn submit_call_response() {
 		let return_data = ReturnDataClaim::Ok([1_u8; 32]);
 		Requests::insert(request_id, CallRequestBuilder::new().expiry_block(expiry_block).build());
 		RequestsExpiredAtBlock::<TestRuntime>::insert(expiry_block, vec![request_id]);
-		deposit_bond(relayer);
+		deposit_bond_relayer(relayer);
 
 		// Test
 		assert!(EthStateOracle::submit_call_response(
@@ -319,7 +360,7 @@ fn submit_call_response() {
 fn submit_call_response_request_should_exist() {
 	ExtBuilder::default().build().execute_with(|| {
 		let relayer: u64 = 1;
-		deposit_bond(relayer);
+		deposit_bond_relayer(relayer);
 
 		assert_noop!(
 			EthStateOracle::submit_call_response(
@@ -338,7 +379,7 @@ fn submit_call_response_request_should_exist() {
 fn submit_call_response_accepts_first() {
 	ExtBuilder::default().build().execute_with(|| {
 		let relayer: u64 = 1;
-		deposit_bond(relayer);
+		deposit_bond_relayer(relayer);
 
 		// setup request
 		let request_id = RequestId::from(1_u64);
@@ -373,7 +414,7 @@ fn submit_call_response_accepts_first() {
 fn submit_call_response_invalid_timestamps() {
 	ExtBuilder::default().build().execute_with(|| {
 		let relayer: u64 = 1;
-		deposit_bond(relayer);
+		deposit_bond_relayer(relayer);
 
 		// setup request
 		let request_id = RequestId::from(1_u64);
@@ -538,6 +579,25 @@ fn deposit_relayer_bond() {
 }
 
 #[test]
+fn deposit_relayer_bond_max_relayers_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let relayer = 1_u64;
+		let origin = RawOrigin::Signed(relayer);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&relayer,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		assert_ok!(EthStateOracle::deposit_relayer_bond(origin.into()));
+		assert_noop!(
+			EthStateOracle::deposit_relayer_bond(RawOrigin::Signed(2_u64).into()),
+			Error::<TestRuntime>::MaxRelayersReached
+		);
+	});
+}
+
+#[test]
 fn deposit_relayer_bond_already_bonded_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let relayer = 1_u64;
@@ -658,7 +718,156 @@ fn unbond_relayer_bond_no_bond_should_fail() {
 		// Unbond
 		assert_noop!(
 			EthStateOracle::unbond_relayer_bond(origin.into()),
-			Error::<TestRuntime>::NothingBonded
+			Error::<TestRuntime>::NotEnoughBonded
+		);
+	});
+}
+
+#[test]
+fn deposit_challenger_bond() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&challenger,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		assert_ok!(EthStateOracle::deposit_challenger_bond(origin.into()));
+		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(MaxRelayerResponses::get().into());
+
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance - total_challenger_bond,
+		);
+	});
+}
+
+#[test]
+fn deposit_challenger_bond_already_bonded_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&challenger,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		// First bond should work
+		assert_ok!(EthStateOracle::deposit_challenger_bond(origin.clone().into()));
+
+		// Deposit again should fail but not remove bond
+		assert_noop!(
+			EthStateOracle::deposit_challenger_bond(origin.into()),
+			Error::<TestRuntime>::AlreadyBonded
+		);
+
+		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(MaxRelayerResponses::get().into());
+
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance - total_challenger_bond,
+		);
+	});
+}
+
+#[test]
+fn deposit_challenger_bond_not_enough_balance_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		assert_noop!(
+			EthStateOracle::deposit_challenger_bond(origin.into()),
+			crml_generic_asset::Error::<TestRuntime>::InsufficientBalance
+		);
+		assert_eq!(<RelayerBonds<TestRuntime>>::get(challenger), 0);
+	});
+}
+
+#[test]
+fn unbond_challenger_bond() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&challenger,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		assert_ok!(EthStateOracle::deposit_challenger_bond(origin.clone().into()));
+		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(MaxRelayerResponses::get().into());
+
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance - total_challenger_bond,
+		);
+
+		// Unbond
+		assert_ok!(EthStateOracle::unbond_challenger_bond(origin.into()));
+		// Check bond has been removed and funds returned
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), 0);
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance,
+		);
+	});
+}
+
+#[test]
+fn unbond_challenger_bond_active_request_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&challenger,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		assert_ok!(EthStateOracle::deposit_challenger_bond(origin.clone().into()));
+		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(MaxRelayerResponses::get().into());
+
+		// Submit a request
+		let request = CallRequestBuilder::new().build();
+		let request_id: RequestId = RequestId::from(1);
+		Requests::insert(request_id, request);
+
+		// Try Unbond but fail as there is an active request
+		assert_noop!(
+			EthStateOracle::unbond_challenger_bond(origin.into()),
+			Error::<TestRuntime>::CantUnbondChallenger
+		);
+
+		// Check bond has not been removed
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance - total_challenger_bond,
+		);
+	});
+}
+
+#[test]
+fn unbond_challenger_bond_no_bond_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+
+		// Unbond
+		assert_noop!(
+			EthStateOracle::unbond_challenger_bond(origin.into()),
+			Error::<TestRuntime>::NotEnoughBonded
 		);
 	});
 }

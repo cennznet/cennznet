@@ -649,6 +649,10 @@ parameter_types! {
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 	/// Minimum bond amount required for a relayer
 	pub storage RelayerBondAmount: Balance = 1_000_000_000;
+	/// Minimum bond amount required for a challenger
+	pub storage ChallengerBondAmount: Balance = 100_000_000;
+	/// Maximum requests allowed per block (Absolute max: 100)
+	pub storage MaxRequestsPerBlock: u32 = 30;
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
@@ -663,6 +667,8 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type GasWeightMapping = CENNZnetGasWeightMapping;
 	type BuyFeeAsset = Cennzx;
 	type RelayerBondAmount = RelayerBondAmount;
+	type ChallengerBondAmount = ChallengerBondAmount;
+	type MaxRequestsPerBlock = MaxRequestsPerBlock;
 }
 
 impl crml_token_approvals::Config for Runtime {

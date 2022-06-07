@@ -409,7 +409,7 @@ pub trait EthereumStateOracle {
 		_callback_gas_limit: u64,
 		fee_preferences: Option<FeePreferences>,
 		bounty: Balance,
-	) -> Self::RequestId;
+	) -> Result<Self::RequestId, sp_runtime::DispatchError>;
 	/// Return the request fee in gas
 	fn new_request_fee() -> u64;
 }

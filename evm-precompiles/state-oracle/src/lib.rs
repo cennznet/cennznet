@@ -15,13 +15,16 @@
 // along with CENNZnet. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 use cennznet_primitives::types::{AssetId, FeePreferences};
 use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
-use pallet_evm::Precompile;
+use pallet_evm::{ExitRevert, Precompile};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer};
+use precompile_utils::{
+	Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure,
+};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{convert::TryInto, marker::PhantomData};
@@ -116,7 +119,7 @@ where
 		});
 
 		gasometer.record_cost(T::new_request_fee())?;
-		let request_id: U256 = T::new_request(
+		let request_id = T::new_request(
 			caller,
 			&destination,
 			input_data.as_bytes(),
@@ -127,12 +130,21 @@ where
 		);
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
-			output: EvmDataWriter::new().write(request_id).build(),
-			logs: Default::default(),
-		})
+		match request_id {
+			Ok(request_id) => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				cost: gasometer.used_gas(),
+				output: EvmDataWriter::new().write(request_id).build(),
+				logs: Default::default(),
+			}),
+			Err(err) => Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: alloc::format!("Request failed: {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
+				cost: gasometer.used_gas(),
+			}),
+		}
 	}
 
 	/// Proxy state requests to the Eth state oracle pallet
@@ -151,7 +163,7 @@ where
 		let callback_bounty = scale_wei_to_4dp(callback_bounty.unique_saturated_into());
 
 		gasometer.record_cost(T::new_request_fee())?;
-		let request_id: U256 = T::new_request(
+		let request_id = T::new_request(
 			caller,
 			&destination,
 			input_data.as_bytes(),
@@ -162,12 +174,21 @@ where
 		);
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
-			output: EvmDataWriter::new().write(request_id).build(),
-			logs: Default::default(),
-		})
+		match request_id {
+			Ok(request_id) => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				cost: gasometer.used_gas(),
+				output: EvmDataWriter::new().write(request_id).build(),
+				logs: Default::default(),
+			}),
+			Err(err) => Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: alloc::format!("Request failed: {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
+				cost: gasometer.used_gas(),
+			}),
+		}
 	}
 }
 
