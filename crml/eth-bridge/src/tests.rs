@@ -837,15 +837,15 @@ fn handle_call_notarization_success() {
 		];
 		// expected aggregated count after the i-th notarization
 		let expected_aggregations = vec![
-			(notarizations[0], Some(1_u32)),
-			(notarizations[0], Some(2)),
-			(notarizations[1], Some(1)), // block # differs, count separately
-			(notarizations[0], Some(3)),
-			(notarizations[2], Some(1)), // timestamp differs, count separately
-			(notarizations[0], Some(4)),
-			(notarizations[0], Some(5)),
-			(notarizations[7], Some(1)), // return_data differs, count separately
-			(notarizations[0], None),    // success callback & storage is reset after 6th notarization (2/3 * 9 = 6)
+			Some(1_u32),
+			Some(2),
+			Some(1), // block # differs, count separately
+			Some(3),
+			Some(1), // timestamp differs, count separately
+			Some(4),
+			Some(5),
+			Some(1), // return_data differs, count separately
+			None,    // success callback & storage is reset after 6th notarization (2/3 * 9 = 6)
 		];
 
 		// aggregate the notarizations
@@ -857,7 +857,7 @@ fn handle_call_notarization_success() {
 			// assert notarization progress
 			let aggregated_notarizations = EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
-			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation.1,);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
 		}
 
 		// callback triggered with correct value
@@ -897,12 +897,12 @@ fn handle_call_notarization_aborts_no_consensus() {
 		];
 		// expected aggregated count after the i-th notarization
 		let expected_aggregations = vec![
-			(notarizations[0], Some(1_u32)),
-			(notarizations[1], Some(1)),
-			(notarizations[2], Some(1)),
-			(notarizations[3], Some(2)),
-			(notarizations[4], None), // after counting this notarization the system realizes consensus is impossible and triggers failure callback, clearing storage
-			(notarizations[5], None), // this notarization should be ignored (removed from system after the previous notarization)
+			Some(1_u32),
+			Some(1),
+			Some(1),
+			Some(2),
+			None, // after counting 4th notarization the system realizes consensus is impossible and triggers failure callback, clearing storage
+			None, // this notarization is be (no longer tracked by the system after the previous notarization)
 		];
 
 		// aggregate the notarizations
@@ -927,7 +927,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 			// assert notarization progress
 			let aggregated_notarizations = EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
-			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation.1,);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
 		}
 
 		// failure callback triggered with correct value
