@@ -19,7 +19,7 @@
 //! # Common crml types and traits
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::DispatchResultWithPostInfo,
@@ -28,6 +28,7 @@ use frame_support::{
 use pallet_evm::AddressMapping;
 use precompile_utils::AddressMappingReversibleExt;
 pub use primitive_types::{H160, H256, U256};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
 	DispatchError, DispatchResult,
@@ -439,6 +440,7 @@ pub trait ContractExecutor {
 }
 
 /// Simplified failure reasons for an eth_call request
+#[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
 pub enum EthCallFailure {
 	/// Return data exceeds limit
 	ReturnDataExceedsLimit,

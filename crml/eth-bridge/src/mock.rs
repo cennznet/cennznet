@@ -17,8 +17,8 @@ use crate::{
 	self as crml_eth_bridge,
 	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
 	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, EthAddress, EthBlock, EthHash, LatestOrNumber,
-		Log, TransactionReceipt,
+		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock,
+		EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
 	},
 	Config,
 };
@@ -35,7 +35,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, H256};
+use sp_core::{ecdsa::Signature, Public, H256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
@@ -194,11 +194,12 @@ impl MockReceiptBuilder {
 
 pub(crate) mod test_storage {
 	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use super::{MockBlockResponse, MockReceiptResponse};
+	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 	use crate::{
-		types::{EthAddress, EthHash},
+		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
 		Config,
 	};
+	use crml_support::EthCallFailure;
 	use frame_support::decl_storage;
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
@@ -207,6 +208,9 @@ pub(crate) mod test_storage {
 			pub CallAt: double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) EthAddress => Option<Vec<u8>>;
 			pub TransactionReceiptFor: map hasher(twox_64_concat) EthHash => Option<MockReceiptResponse>;
 			pub Timestamp: Option<u64>;
+			pub Validators: Vec<AccountId>;
+			pub LastCallResult: Option<(EthCallId, CheckedEthCallResult)>;
+			pub LastCallFailure: Option<(EthCallId, EthCallFailure)>;
 		}
 	}
 }
@@ -369,7 +373,14 @@ impl ValidatorSetT<AccountId> for MockValidatorSet {
 	}
 	/// Returns the active set of validators.
 	fn validators() -> Vec<Self::ValidatorId> {
-		Default::default()
+		test_storage::Validators::get()
+	}
+}
+impl MockValidatorSet {
+	/// Mock n validator stashes
+	pub fn mock_n_validators(n: u8) {
+		let validators: Vec<AccountId> = (1..=n).map(|i| AccountId::from_slice(&[i; 33])).collect();
+		test_storage::Validators::put(validators);
 	}
 }
 
@@ -383,15 +394,31 @@ impl EventClaimSubscriber for MockClaimSubscriber {
 
 pub struct MockEthCallSubscriber;
 impl EthCallOracleSubscriber for MockEthCallSubscriber {
-	type CallId = u64;
-	fn on_eth_call_complete(
-		_call_id: Self::CallId,
-		_return_data: &[u8; 32],
-		_block_number: u64,
-		_block_timestamp: u64,
-	) {
+	type CallId = EthCallId;
+	/// Stores the successful call info
+	/// Available via `Self::success_result_for()`
+	fn on_eth_call_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64) {
+		test_storage::LastCallResult::put((
+			call_id,
+			CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp),
+		));
 	}
-	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {}
+	/// Stores the failed call info
+	/// Available via `Self::failed_call_for()`
+	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure) {
+		test_storage::LastCallFailure::put((call_id, reason));
+	}
+}
+
+impl MockEthCallSubscriber {
+	/// Returns last known successful call, if any
+	pub fn success_result() -> Option<(EthCallId, CheckedEthCallResult)> {
+		test_storage::LastCallResult::get()
+	}
+	/// Returns last known failed call, if any
+	pub fn failed_result() -> Option<(EthCallId, EthCallFailure)> {
+		test_storage::LastCallFailure::get()
+	}
 }
 
 /// Mock final session tracker

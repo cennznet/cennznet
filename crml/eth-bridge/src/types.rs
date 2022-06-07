@@ -1,4 +1,4 @@
-/* Copyright 2021 Centrality Investments Limited
+/* Copyright 2021-2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ pub struct CheckedEthCallRequest {
 	/// CENNZnet timestamp when _this_ check request was queued (seconds)
 	pub check_timestamp: u64,
 }
-#[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Clone, TypeInfo)]
+#[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
 pub enum CheckedEthCallResult {
 	/// returndata obtained, ethereum block number, ethereum timestamp
 	Ok([u8; 32], u64, u64),
