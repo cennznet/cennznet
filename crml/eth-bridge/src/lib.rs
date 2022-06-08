@@ -181,7 +181,7 @@ decl_storage! {
 		/// EthCallOracle notarizations keyed by (Id, Notary)
 		EthCallNotarizations: double_map hasher(twox_64_concat) EthCallId, hasher(twox_64_concat) T::EthyId => Option<CheckedEthCallResult>;
 		/// map from EthCallOracle notarizations to an aggregated count
-		EthCallNotarizationsAggregated: map hasher(twox_64_concat) EthCallId => Option<BTreeMap<CheckedEthCallResult, u32>>;
+		EthCallNotarizationsAggregated get(fn eth_call_notarizations_aggregated): map hasher(twox_64_concat) EthCallId => Option<BTreeMap<CheckedEthCallResult, u32>>;
 		/// EthCallOracle request info
 		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<CheckedEthCallRequest>;
 	}
@@ -655,8 +655,7 @@ impl<T: Config> Module<T> {
 		// 1) get latest ethereum block
 		// 2) check relayed block # and timestamp is within acceptable range (based on `max_block_look_behind`)
 		// 3a) within range: do an eth_call at the relayed block
-		// 3b) out of range: do an eth_call at block number latest - N (N is heuristic based on difference)
-		let eth_avg_block_time = 15_u64;
+		// 3b) out of range: do an eth_call at block number latest
 		let latest_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
 			Ok(None) => return CheckedEthCallResult::DataProviderErr,
 			Ok(Some(block)) => block,
@@ -670,15 +669,9 @@ impl<T: Config> Module<T> {
 		if latest_eth_block_timestamp == u64::max_value() {
 			return CheckedEthCallResult::InvalidTimestamp;
 		}
-		match latest_eth_block_timestamp.checked_sub(request.timestamp) {
-			Some(elapsed_eth_latest_vs_cennznet_request) => {
-				// request must be newer than `max_block_look_behind`
-				if elapsed_eth_latest_vs_cennznet_request <= (request.max_block_look_behind * eth_avg_block_time) {
-					return CheckedEthCallResult::InvalidTimestamp;
-				}
-			}
-			// request must be before the latest eth block
-			None => return CheckedEthCallResult::InvalidTimestamp,
+		// latest ethereum block timestamp should be after the request
+		if latest_eth_block_timestamp < request.timestamp {
+			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		let latest_eth_block_number = match latest_block.number {
 			Some(number) => {
@@ -693,9 +686,17 @@ impl<T: Config> Module<T> {
 		// check relayed block # and timestamp is within acceptable range
 		let mut target_block_number = latest_eth_block_number;
 		let mut target_block_timestamp = latest_eth_block_timestamp;
-		let oldest_acceptable_ethereum_block = latest_eth_block_number - request.max_block_look_behind;
-		if request.try_block_number >= oldest_acceptable_ethereum_block
-			&& request.try_block_number < latest_eth_block_number
+
+		// there can be delay between challenge submission and execution
+		// this should be factored into the acceptable block window, in normal conditions is should be < 5s
+		let check_delay = T::UnixTime::now().as_secs().saturating_sub(request.check_timestamp);
+		let extra_look_behind = check_delay / 12_u64; // lenient here, any delay >= 12s gets an extra block
+
+		let oldest_acceptable_eth_block = latest_eth_block_number
+			.saturating_sub(request.max_block_look_behind)
+			.saturating_sub(extra_look_behind);
+
+		if request.try_block_number >= oldest_acceptable_eth_block && request.try_block_number < latest_eth_block_number
 		{
 			let target_block: EthBlock =
 				match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(request.try_block_number)) {
@@ -885,37 +886,33 @@ impl<T: Config> Module<T> {
 			Ok(())
 		};
 
-		if let Some(mut notarizations) = EthCallNotarizationsAggregated::get(call_id) {
-			// TODO: check this counts different OK([u8; 32]) distinctly
-			// increment notarization count for this result
-			*notarizations.entry(result.clone()).or_insert(0) += 1;
+		let mut notarizations = EthCallNotarizationsAggregated::get(call_id).unwrap_or_default();
+		// increment notarization count for this result
+		*notarizations.entry(result.clone()).or_insert(0) += 1;
 
-			let notary_count = T::AuthoritySet::validators().len() as u32;
-			let notarization_threshold = T::NotarizationThreshold::get();
-			let mut total_count = 0;
-			for (result, count) in notarizations.iter() {
-				// is there consensus on `result`?
-				if Percent::from_rational(*count, notary_count) >= notarization_threshold {
-					return do_callback_and_clean_up(result.clone());
-				}
-				total_count += count;
-			}
-
-			let outstanding_count = notary_count.saturating_sub(total_count);
-			let can_reach_consensus = notarizations.iter().any(|(_, count)| {
-				Percent::from_rational(count + outstanding_count, notary_count) >= notarization_threshold
-			});
-			// cannot or will not reach consensus based on current notarizations
-			if total_count == notary_count || !can_reach_consensus {
+		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let notarization_threshold = T::NotarizationThreshold::get();
+		let mut total_count = 0;
+		for (result, count) in notarizations.iter() {
+			// is there consensus on `result`?
+			if Percent::from_rational(*count, notary_count) >= notarization_threshold {
 				return do_callback_and_clean_up(result.clone());
 			}
-
-			// update counts
-			EthCallNotarizationsAggregated::insert(call_id, notarizations);
-			Ok(())
-		} else {
-			Err(Error::<T>::InvalidClaim.into())
+			total_count += count;
 		}
+
+		let outstanding_count = notary_count.saturating_sub(total_count);
+		let can_reach_consensus = notarizations.iter().any(|(_, count)| {
+			Percent::from_rational(count + outstanding_count, notary_count) >= notarization_threshold
+		});
+		// cannot or will not reach consensus based on current notarizations
+		if total_count == notary_count || !can_reach_consensus {
+			return do_callback_and_clean_up(result.clone());
+		}
+
+		// update counts
+		EthCallNotarizationsAggregated::insert(call_id, notarizations);
+		Ok(())
 	}
 
 	/// Handle changes to the authority set
@@ -1112,6 +1109,7 @@ impl<T: Config> EthCallOracle for Module<T> {
 		EthCallRequestInfo::insert(
 			call_id,
 			CheckedEthCallRequest {
+				check_timestamp: T::UnixTime::now().as_secs(),
 				input: input.to_vec(),
 				target: *target,
 				timestamp,

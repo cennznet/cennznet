@@ -1,4 +1,4 @@
-/* Copyright 2019-2021 Centrality Investments Limited
+/* Copyright 2019-2022 Centrality Investments Limited
 *
 * Licensed under the LGPL, Version 3.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -15,11 +15,15 @@
 
 use crate::{
 	mock::*,
-	types::{EthAddress, EthBlock, EthHash, EventClaim, EventClaimResult, EventProofId, TransactionReceipt},
-	BridgePaused, Error, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S, CLAIM_PRUNING_INTERVAL,
+	types::{
+		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim, EventClaimResult,
+		EventProofId, TransactionReceipt,
+	},
+	BridgePaused, Config, Error, EthCallRequestInfo, Module, ProcessedTxBuckets, ProcessedTxHashes, BUCKET_FACTOR_S,
+	CLAIM_PRUNING_INTERVAL,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
-use crml_support::{EthAbiCodec, EventClaimVerifier, H160, U256};
+use crml_support::{EthAbiCodec, EthCallFailure, EventClaimVerifier, H160, U256};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::DispatchError,
@@ -27,19 +31,16 @@ use frame_support::{
 	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use sp_core::{
-	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
-	Public, H256,
-};
-use sp_runtime::{offchain::StorageKind, traits::Zero, SaturatedConversion};
+use sp_core::{Public, H256};
+use sp_runtime::{traits::Zero, SaturatedConversion};
 
 /// Mocks an Eth block for when get_block_by_number is called
 /// Adds this to the mock storage
 /// The latest block will be the highest block stored
-fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> EthBlock {
+fn mock_block_response(block_number: u64, timestamp: U256) -> EthBlock {
 	let mock_block = MockBlockBuilder::new()
 		.block_number(block_number)
-		.block_hash(block_hash)
+		.block_hash(H256::from_low_u64_be(block_number))
 		.timestamp(timestamp)
 		.build();
 
@@ -51,13 +52,11 @@ fn mock_block_response(block_number: u64, block_hash: H256, timestamp: U256) -> 
 /// Adds this to the mock storage
 fn create_transaction_receipt_mock(
 	block_number: u64,
-	block_hash: H256,
 	tx_hash: EthHash,
 	contract_address: EthAddress,
 ) -> TransactionReceipt {
 	let mock_tx_receipt = MockReceiptBuilder::new()
 		.block_number(block_number)
-		.block_hash(block_hash)
 		.transaction_hash(tx_hash)
 		.contract_address(contract_address)
 		.build();
@@ -133,41 +132,6 @@ fn last_session_change() {
 		assert_eq!(Module::<TestRuntime>::notary_set_id(), current_set_id + 1);
 		assert!(!Module::<TestRuntime>::bridge_paused());
 	});
-}
-
-#[ignore]
-#[test]
-fn eth_client_http_request() {
-	let (offchain, offchain_state) = testing::TestOffchainExt::new();
-	let mut t = sp_io::TestExternalities::default();
-	t.register_extension(OffchainDbExt::new(offchain.clone()));
-	t.register_extension(OffchainWorkerExt::new(offchain));
-	// Set the ethereum http endpoint for OCW queries
-	t.execute_with(|| sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, b"ETH_HTTP", &MOCK_ETH_HTTP_URI));
-
-	// Setup
-	// Mock an ethereum JSON-RPC response
-	let request_body = TestRequest {
-		message: "hello ethereum".to_string(),
-	};
-	let request_body_raw = serde_json::to_string(&request_body).unwrap();
-	{
-		let mut offchain_state = offchain_state.write();
-		offchain_state.expect_request(testing::PendingRequest {
-			method: "POST".into(),
-			uri: core::str::from_utf8(&MOCK_ETH_HTTP_URI)
-				.expect("valid utf8")
-				.to_string(),
-			body: request_body_raw.as_bytes().to_vec(),
-			response: Some(br#"{"message":"hello cennznet"}"#.to_vec()),
-			headers: vec![
-				("Content-Type".to_string(), "application/json".to_string()),
-				("Content-Length".to_string(), request_body_raw.len().to_string()),
-			],
-			sent: true,
-			..Default::default()
-		});
-	}
 }
 
 #[test]
@@ -463,15 +427,14 @@ fn offchain_try_notarize_event() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock block response and transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
-		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,
@@ -511,7 +474,6 @@ fn offchain_try_notarize_event_no_status_should_fail() {
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 		let mock_tx_receipt = MockReceiptBuilder::new()
 			.block_number(10)
-			.block_hash(H256::from_low_u64_be(111))
 			.transaction_hash(tx_hash)
 			.contract_address(contract_address)
 			.status(0)
@@ -539,12 +501,11 @@ fn offchain_try_notarize_event_unexpected_contract_address_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create mock info for transaction receipt
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, tx_hash, contract_address);
 
 		// Create event claim with different contract address to tx_receipt
 		let event_claim = EventClaim {
@@ -566,12 +527,11 @@ fn offchain_try_notarize_event_no_block_number_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create mock info for transaction receipt
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,
@@ -592,15 +552,14 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock block response and transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
-		let _mock_block_2 = mock_block_response(block_number, block_hash, timestamp);
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_block_2 = mock_block_response(block_number, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,
@@ -622,15 +581,14 @@ fn offchain_try_notarize_event_expired_confirmation_should_fail() {
 		System::set_block_number(1_000_000);
 		// Mock block response and transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let timestamp: U256 = U256::from(0);
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
-		let _mock_block_2 = mock_block_response(block_number + 5, block_hash, timestamp);
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, block_hash, tx_hash, contract_address);
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,
@@ -651,14 +609,13 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock block response and transaction receipt
 		let block_number = 10;
-		let block_hash: H256 = H256::from_low_u64_be(111);
 		let timestamp: U256 = U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
 		let tx_hash: EthHash = H256::from_low_u64_be(222);
 		let contract_address: EthAddress = H160::from_low_u64_be(333);
 
 		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = mock_block_response(block_number, block_hash, timestamp);
-		let _mock_tx_receipt = create_transaction_receipt_mock(block_number + 1, block_hash, tx_hash, contract_address);
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_tx_receipt = create_transaction_receipt_mock(block_number + 1, tx_hash, contract_address);
 
 		let event_claim = EventClaim {
 			tx_hash,
@@ -677,10 +634,306 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 }
 
 #[test]
-fn prunes_expired_events() {}
+fn offchain_try_eth_call_cant_fetch_latest_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(
+			EthBridge::offchain_try_eth_call(&CheckedEthCallRequestBuilder::new().build()),
+			CheckedEthCallResult::DataProviderErr
+		);
+	});
+}
 
 #[test]
-fn double_claim_fails() {}
+fn offchain_try_eth_call_cant_check_call() {
+	ExtBuilder::default().build().execute_with(|| {
+		mock_block_response(123_u64, now().into());
+		assert_eq!(
+			EthBridge::offchain_try_eth_call(&CheckedEthCallRequestBuilder::new().build()),
+			CheckedEthCallResult::DataProviderErr,
+		);
+	});
+}
 
 #[test]
-fn invalid_notarization_fails() {}
+fn offchain_try_eth_call_at_historic_block() {
+	// given a request where `try_block_number` is within `max_look_behind_blocks` from the latest ethereum block
+	// when the validator checks the request
+	// then the `eth_call` should be executed at `try_block_number`
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let try_block_number = 121_u64;
+		let try_block_timestamp = latest_block_timestamp - 15 * 2; // ethereum block timestamp 3 blocks before latest
+		mock_block_response(try_block_number, try_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(try_block_number, remote_contract, &expected_return_data);
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.try_block_number(try_block_number)
+			.max_block_look_behind(latest_block_number - try_block_number)
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(expected_return_data, try_block_number, try_block_timestamp)
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_at_latest_block() {
+	// given a request where `try_block_number` is outside `max_look_behind_blocks` from the latest ethereum block
+	// when the validator checks the request
+	// then the `eth_call` should be executed at `latest_block_number`
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(latest_block_number, remote_contract, &expected_return_data);
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.check_timestamp(latest_block_timestamp)
+			.max_block_look_behind(2)
+			.try_block_number(latest_block_number - 3) // lookbehind is 2 => try block falls out of range
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(expected_return_data, latest_block_number, latest_block_timestamp)
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_reports_oversized_return_data() {
+	// given a request where returndata is > 32 bytes
+	// when the validator checks the request
+	// then it should be reported as oversized
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, now().into());
+		let remote_contract = H160::from_low_u64_be(333);
+		MockEthereumRpcClient::mock_call_at(latest_block_number, remote_contract, &[0x02, 33]); // longer than 32 bytes
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.target(remote_contract)
+			.try_block_number(5)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(result, CheckedEthCallResult::ReturnDataExceedsLimit);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_at_historic_block_after_delay() {
+	// given a request where `try_block_number` is originally within `max_look_behind_blocks` but moves outside of this
+	// range due to a delay in the challenge
+	// when the validator checks the request
+	// then the `eth_call` should be executed at `try_block_number`, factoring in the delay
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 130_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let try_block_number = 123_u64;
+		let try_block_timestamp = latest_block_timestamp - 15 * 7; // ethereum block timestamp 7 blocks before latest
+		mock_block_response(try_block_number, try_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(try_block_number, remote_contract, &expected_return_data);
+
+		// The max look behind blocks is 3 which is correct at the time of request (`check_timestamp`)
+		// however, a delay in challenge execution means another 4 blocks have passed (target block is now 7 behind latest)
+		// the additional 4 blocks lenience should be granted due to the `check_timestamp`
+		let request_timestamp = now() - 2 * 60; // 2 mins ago
+		let check_timestamp = request_timestamp + 60; // 1 min ago
+		let request = CheckedEthCallRequestBuilder::new()
+			.timestamp(request_timestamp)
+			.check_timestamp(check_timestamp)
+			.max_block_look_behind(3)
+			.try_block_number(try_block_number)
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(expected_return_data, try_block_number, try_block_timestamp)
+		);
+
+		// same request as before but the check time set is set to _now_
+		// no delay is considered and so the checked call happens at the latest block (which is not mocked)
+		let request = CheckedEthCallRequestBuilder::new()
+			.timestamp(request_timestamp)
+			.check_timestamp(latest_block_timestamp)
+			.max_block_look_behind(3)
+			.try_block_number(try_block_number) // lookbehind is 2 => try block falls out of range
+			.target(remote_contract)
+			.build();
+		let result = EthBridge::offchain_try_eth_call(&request);
+		assert_eq!(result, CheckedEthCallResult::DataProviderErr);
+	});
+}
+
+#[test]
+fn handle_call_notarization_success() {
+	// given 9 validators and 6 agreeing notarizations (over required 2/3 threshold)
+	// when the notarizations are aggregated
+	// then it triggers the success callback
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=9_u8)
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]))
+		.collect();
+	ExtBuilder::default().build().execute_with(|| {
+		let call_id = 1_u64;
+		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+
+		let block = 555_u64;
+		let timestamp = now();
+		let return_data = [0x3f_u8; 32];
+
+		// `notarizations[i]` is submitted by the i-th validator (`mock_notary_keys`)
+		let notarizations = vec![
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block - 1, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp + 5),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok([0x11_u8; 32], block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+		];
+		// expected aggregated count after the i-th notarization
+		let expected_aggregations = vec![
+			Some(1_u32),
+			Some(2),
+			Some(1), // block # differs, count separately
+			Some(3),
+			Some(1), // timestamp differs, count separately
+			Some(4),
+			Some(5),
+			Some(1), // return_data differs, count separately
+			None,    // success callback & storage is reset after 6th notarization (2/3 * 9 = 6)
+		];
+
+		// aggregate the notarizations
+		for ((notary_result, notary_pk), aggregation) in
+			notarizations.iter().zip(mock_notary_keys).zip(expected_aggregations)
+		{
+			assert_ok!(EthBridge::handle_call_notarization(call_id, *notary_result, &notary_pk));
+
+			// assert notarization progress
+			let aggregated_notarizations = EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+			println!("{:?}", aggregated_notarizations);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+		}
+
+		// callback triggered with correct value
+		assert_eq!(
+			MockEthCallSubscriber::success_result(),
+			Some((call_id, notarizations[0])),
+		);
+	});
+}
+
+#[test]
+fn handle_call_notarization_aborts_no_consensus() {
+	// Given in-progress notarizations such that there cannot be consensus even from uncounted notarizations
+	// When aggregating the notarizations
+	// Then it triggers the failure callback
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=6_u8)
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]))
+		.collect();
+	ExtBuilder::default().build().execute_with(|| {
+		let call_id = 1_u64;
+		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+		let block = 555_u64;
+		let timestamp = now();
+		let return_data = [0x3f_u8; 32];
+
+		// `notarizations[i]` is submitted by the i-th validator (`mock_notary_keys`)
+		let notarizations = vec![
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp - 1),
+			CheckedEthCallResult::Ok(return_data, block, timestamp - 2),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::DataProviderErr,
+			CheckedEthCallResult::DataProviderErr,
+		];
+		// expected aggregated count after the i-th notarization
+		let expected_aggregations = vec![
+			Some(1_u32),
+			Some(1),
+			Some(1),
+			Some(2),
+			None, // after counting 4th notarization the system realizes consensus is impossible and triggers failure callback, clearing storage
+			None, // this notarization is be (no longer tracked by the system after the previous notarization)
+		];
+
+		// aggregate the notarizations
+		for (idx, ((notary_result, notary_pk), aggregation)) in notarizations
+			.iter()
+			.zip(mock_notary_keys)
+			.zip(expected_aggregations)
+			.enumerate()
+		{
+			if idx == 5 {
+				// handling the (5th) notarization triggers failure as reaching consensus is no longer possible
+				// this (6th) notarization is effectively ignored
+				assert_noop!(
+					EthBridge::handle_call_notarization(call_id, *notary_result, &notary_pk),
+					Error::<TestRuntime>::InvalidClaim
+				);
+			} else {
+				// normal case the notarization is counted
+				assert_ok!(EthBridge::handle_call_notarization(call_id, *notary_result, &notary_pk));
+			}
+
+			// assert notarization progress
+			let aggregated_notarizations = EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+			println!("{:?}", aggregated_notarizations);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+		}
+
+		// failure callback triggered with correct value
+		assert_eq!(
+			MockEthCallSubscriber::failed_result(),
+			Some((call_id, EthCallFailure::Internal)),
+		);
+	});
+}
