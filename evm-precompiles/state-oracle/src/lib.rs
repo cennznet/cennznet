@@ -199,6 +199,7 @@ mod test {
 	use ethabi::Token;
 	use fp_evm::{ExitError, PrecompileFailure};
 	use frame_support::assert_err;
+	use sp_runtime::DispatchError;
 
 	pub struct MockErc20IdConversion;
 
@@ -236,7 +237,7 @@ mod test {
 				callback_gas_limit_: u64,
 				fee_preferences: Option<FeePreferences>,
 				bounty_: Balance,
-			) -> Self::RequestId {
+			) -> Result<Self::RequestId, DispatchError> {
 				let caller: H160 = H160::from_low_u64_be(555);
 				let destination: H160 = H160::from_low_u64_be(23);
 				let callback_signature: Vec<u8> = vec![1u8, 2, 3, 4];
@@ -251,7 +252,7 @@ mod test {
 				assert_eq!(callback_gas_limit, callback_gas_limit_);
 				assert!(fee_preferences.is_none());
 
-				U256::from(123u32)
+				Ok(U256::from(123u32))
 			}
 		}
 
@@ -302,7 +303,7 @@ mod test {
 				callback_gas_limit_: u64,
 				fee_preferences_: Option<FeePreferences>,
 				bounty_: Balance,
-			) -> Self::RequestId {
+			) -> Result<Self::RequestId, DispatchError> {
 				let caller: H160 = H160::from_low_u64_be(555);
 				let destination: H160 = H160::from_low_u64_be(23);
 				let callback_signature: Vec<u8> = vec![1u8, 2, 3, 4];
@@ -320,7 +321,7 @@ mod test {
 				assert_eq!(callback_gas_limit, callback_gas_limit_);
 				assert_eq!(fee_preferences, fee_preferences_);
 
-				U256::from(123u32)
+				Ok(U256::from(123u32))
 			}
 		}
 
@@ -373,12 +374,12 @@ mod test {
 				callback_gas_limit: u64,
 				_fee_preferences: Option<FeePreferences>,
 				bounty: Balance,
-			) -> Self::RequestId {
+			) -> Result<Self::RequestId, DispatchError> {
 				// gas_limit saturates at u64
 				assert_eq!(callback_gas_limit, u64::max_value());
 				// bounty saturates at balance type and scales down
 				assert_eq!(bounty, scale_wei_to_4dp(u128::max_value()));
-				U256::zero()
+				Ok(U256::zero())
 			}
 		}
 		let caller = H160::from_low_u64_be(1);
@@ -417,8 +418,8 @@ mod test {
 				_callback_gas_limit_: u64,
 				_fee_preferences: Option<FeePreferences>,
 				_bounty_: Balance,
-			) -> Self::RequestId {
-				U256::zero()
+			) -> Result<Self::RequestId, DispatchError> {
+				Ok(U256::zero())
 			}
 		}
 		let caller: H160 = H160::from_low_u64_be(555);
