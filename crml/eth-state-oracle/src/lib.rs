@@ -93,12 +93,14 @@ decl_storage! {
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
+		/// Maximum amount of concurrent in-flight requests
+		MaxRelayerRequests get(fn max_relayer_requests): u32 = 0;
 		/// Maps from account to balance bonded for relayer responses
 		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Maximum number of active relayers allowed at one time
 		MaxRelayerCount get(fn max_relayer_count): u32 = 1;
 		/// Maximum number of concurrent relayer responses of a single relayer
-		MaxRelayerResponses get(fn max_relayer_responses): u32 = 10;
+		MaxConcurrentResponses get(fn max_concurrent_responses): u32 = 10;
 		/// Maps from account to balance bonded for challengers
 		ChallengerBonds get(fn challenger_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
@@ -284,7 +286,7 @@ decl_module! {
 
 		/// Deposits a bond which is required to submit call responses
 		#[weight = 500_000]
-		pub fn deposit_relayer_bond(origin) {
+		pub fn bond_relayer(origin) {
 			let origin = ensure_signed(origin)?;
 
 			// Check account doesn't already have a bond
@@ -318,7 +320,7 @@ decl_module! {
 
 		/// Unbonds an accounts assets
 		#[weight = 500_000]
-		pub fn unbond_relayer_bond(origin) {
+		pub fn unbond_relayer(origin) {
 			let origin = ensure_signed(origin)?;
 			// Ensure account has bonded amount
 			let bonded_amount: Balance = Self::relayer_bonds(&origin);
@@ -399,7 +401,7 @@ decl_module! {
 		/// Deposits a bond which is required to submit challenges
 		/// call requests can't be made if there are no challengers available to challenge them
 		#[weight = 500_000]
-		pub fn deposit_challenger_bond(origin) {
+		pub fn bond_challenger(origin) {
 			let origin = ensure_signed(origin)?;
 
 			// Check account doesn't already have a bond
@@ -407,13 +409,13 @@ decl_module! {
 				// Account already has CPay bonded
 				return Err(Error::<T>::AlreadyBonded.into())
 			};
-			// TODO check if we need max challengers, separate to max relayers
 
 			// check user has the requisite funds to make this bid
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
+			let max_concurrent_responses = Self::max_concurrent_responses();
 			// Calculate total bond for a challenger, this is the individual bond amount multiplied by the max relayer responses
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(Self::max_relayer_responses().into());
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses.into());
 			if let Some(balance_after_bond) = T::MultiCurrency::free_balance(&origin, fee_currency).checked_sub(total_challenger_bond) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
@@ -425,12 +427,14 @@ decl_module! {
 			// try lock funds
 			T::MultiCurrency::reserve(&origin, fee_currency, total_challenger_bond)?;
 			ChallengerBonds::<T>::insert(&origin, total_challenger_bond);
+			let max_relayer_requests = Self::max_relayer_requests();
+			MaxRelayerRequests::put(max_relayer_requests + max_concurrent_responses);
 			Self::deposit_event(Event::<T>::ChallengerBondSet(origin, total_challenger_bond));
 		}
 
 		/// Unbonds an accounts bonded challenger assets
 		#[weight = 500_000]
-		pub fn unbond_challenger_bond(origin) {
+		pub fn unbond_challenger(origin) {
 			let origin = ensure_signed(origin)?;
 			// Ensure account has bonded amount
 			let bonded_amount: Balance = Self::challenger_bonds(&origin);
@@ -439,8 +443,9 @@ decl_module! {
 			// Check that there are enough challengers to cover all current requests if this one is removed
 			let current_active_requests = Requests::iter().count();
 			let challenger_count = ChallengerBonds::<T>::iter().count().saturating_sub(1);
+			let max_concurrent_responses = Self::max_concurrent_responses();
 			ensure!(
-				challenger_count.saturating_mul(Self::max_relayer_responses() as usize) >= current_active_requests,
+				challenger_count.saturating_mul(max_concurrent_responses as usize) >= current_active_requests,
 				Error::<T>::CantUnbondChallenger
 			);
 
@@ -455,6 +460,7 @@ decl_module! {
 			// Unreserve bonded amount
 			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::fee_currency(), bonded_amount);
 			ChallengerBonds::<T>::remove(&origin);
+			MaxRelayerRequests::mutate(|i| i.saturating_sub(max_concurrent_responses));
 			Self::deposit_event(Event::<T>::ChallengerBondRemoved(origin, bonded_amount));
 		}
 
@@ -472,7 +478,7 @@ decl_module! {
 			// Ensure challenger has enough bonded
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
 			// Calculate total bond for a challenger, this is the individual bond amount multiplied by the max relayer responses
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(Self::max_relayer_responses().into());
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(Self::max_concurrent_responses().into());
 			ensure!(Self::challenger_bonds(&origin) == total_challenger_bond, Error::<T>::NotEnoughBonded);
 
 			if let Some(response) = Responses::<T>::get(request_id) {
@@ -666,9 +672,9 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 
 		// Ensure the number of inflight requests is less than the challengers capacity to challenge
 		let current_active_requests = Requests::iter().count();
-		let challenger_count = ChallengerBonds::<T>::iter().count();
+		let max_relayer_requests = Self::max_relayer_requests();
 		ensure!(
-			challenger_count.saturating_mul(Self::max_relayer_responses() as usize) > current_active_requests,
+			current_active_requests < max_relayer_requests as usize,
 			Error::<T>::NoAvailableResponses
 		);
 
