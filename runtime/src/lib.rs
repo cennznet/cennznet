@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 60,
+	spec_version: 61,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -156,6 +156,20 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion {
 		runtime_version: VERSION,
 		can_author_with: Default::default(),
+	}
+}
+
+parameter_types! {
+	storage StateOracleIsActive: bool = false;
+}
+/// Prevent state oracle transactions from executing
+pub struct StateOracleCallFilter;
+impl frame_support::traits::Contains<Call> for StateOracleCallFilter {
+	fn contains(call: &Call) -> bool {
+		match call {
+			Call::EthStateOracle(_) => StateOracleIsActive::get(),
+			_ => true,
+		}
 	}
 }
 
@@ -200,7 +214,7 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = StateOracleCallFilter;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
