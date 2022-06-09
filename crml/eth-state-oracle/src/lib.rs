@@ -172,7 +172,7 @@ decl_error! {
 		MaxRelayersReached,
 		/// There are not enough challengers to challenge the response
 		NoAvailableResponses,
-		/// There are too many active requests to unbond this challenger
+		/// There are too many active requests or the account is currently challenging a request
 		CantUnbondChallenger
 	}
 }
@@ -449,11 +449,11 @@ decl_module! {
 				Error::<T>::CantUnbondChallenger
 			);
 
-			// Check that there isn't an existing request for the account
-			let responses: Vec<(RequestId, CallResponse<T::AccountId>)> = Responses::<T>::iter().collect();
-			for (_, call_response) in responses {
-				if call_response.relayer == origin {
-					return Err(Error::<T>::CantUnbond.into());
+			// Check that there isn't an existing challenge for the account
+			let challenged_responses: Vec<(RequestId, T::AccountId)> = ResponsesChallenged::<T>::iter().collect();
+			for (_, challenger) in challenged_responses {
+				if challenger == origin {
+					return Err(Error::<T>::CantUnbondChallenger.into());
 				}
 			}
 
