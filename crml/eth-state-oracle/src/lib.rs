@@ -170,8 +170,6 @@ decl_error! {
 		MaxRelayersReached,
 		/// There are not enough challengers to challenge the response
 		NoAvailableResponses,
-		/// There are too many active requests to unbond challenger
-		TooManyActiveRequests,
 		/// This challenger has an active challenge so can't unbond
 		ActiveChallenger,
 	}
@@ -414,8 +412,8 @@ decl_module! {
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
 			let max_concurrent_responses = Self::max_concurrent_responses();
-			// Calculate total bond for a challenger, this is the individual bond amount multiplied by the max relayer responses
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses.into());
+			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul((max_concurrent_responses * Self::max_relayer_count()).into());
 			if let Some(balance_after_bond) = T::MultiCurrency::free_balance(&origin, fee_currency).checked_sub(total_challenger_bond) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
@@ -437,15 +435,6 @@ decl_module! {
 			// Ensure account has bonded amount
 			let bonded_amount: Balance = Self::challenger_bonds(&origin);
 			ensure!(!bonded_amount.is_zero(), Error::<T>::NotEnoughBonded);
-
-			// Check that there are enough challengers to cover all current requests if this one is removed
-			let current_active_requests = Requests::iter().count();
-			let challenger_count = ChallengerBonds::<T>::iter().count().saturating_sub(1);
-			let max_concurrent_responses = Self::max_concurrent_responses();
-			ensure!(
-				challenger_count.saturating_mul(max_concurrent_responses as usize) >= current_active_requests,
-				Error::<T>::TooManyActiveRequests
-			);
 
 			// Check that there isn't an existing challenge for the account
 			let challenged_responses: Vec<(RequestId, T::AccountId)> = ResponsesChallenged::<T>::iter().collect();
@@ -474,8 +463,9 @@ decl_module! {
 
 			// Ensure challenger has enough bonded
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
-			// Calculate total bond for a challenger, this is the individual bond amount multiplied by the max relayer responses
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(Self::max_concurrent_responses().into());
+			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul((Self::max_concurrent_responses() * Self::max_relayer_count()).into());
+
 			ensure!(Self::challenger_bonds(&origin) == total_challenger_bond, Error::<T>::NotEnoughBonded);
 
 			if let Some(response) = Responses::<T>::get(request_id) {
