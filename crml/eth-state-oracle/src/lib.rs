@@ -93,8 +93,6 @@ decl_storage! {
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
-		/// Maximum amount of concurrent in-flight requests
-		MaxRelayerRequests get(fn max_relayer_requests): u32 = 0;
 		/// Maps from account to balance bonded for relayer responses
 		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Maximum number of active relayers allowed at one time
@@ -429,8 +427,6 @@ decl_module! {
 			// try lock funds
 			T::MultiCurrency::reserve(&origin, fee_currency, total_challenger_bond)?;
 			ChallengerBonds::<T>::insert(&origin, total_challenger_bond);
-			let max_relayer_requests = Self::max_relayer_requests();
-			MaxRelayerRequests::put(max_relayer_requests + max_concurrent_responses);
 			Self::deposit_event(Event::<T>::ChallengerBondSet(origin, total_challenger_bond));
 		}
 
@@ -462,7 +458,6 @@ decl_module! {
 			// Unreserve bonded amount
 			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::fee_currency(), bonded_amount);
 			ChallengerBonds::<T>::remove(&origin);
-			MaxRelayerRequests::mutate(|i| i.saturating_sub(max_concurrent_responses));
 			Self::deposit_event(Event::<T>::ChallengerBondRemoved(origin, bonded_amount));
 		}
 
@@ -673,7 +668,8 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 
 		// Ensure the number of inflight requests is less than the challengers capacity to challenge
 		let current_active_requests = Requests::iter().count();
-		let max_relayer_requests = Self::max_relayer_requests();
+		let challenger_count = ChallengerBonds::<T>::iter().count();
+		let max_relayer_requests = challenger_count.saturating_mul(Self::max_concurrent_responses() as usize);
 		ensure!(
 			current_active_requests < max_relayer_requests as usize,
 			Error::<T>::NoAvailableResponses

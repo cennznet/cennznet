@@ -30,8 +30,6 @@ fn deposit_bond_relayer(origin: u64) {
 
 fn deposit_bond_challenger(origin: u64) {
 	let initial_balance = 100_000_000_000_000 as Balance;
-	let current_max_requests = MaxRelayerRequests::get();
-	let max_concurrent_responses = MaxConcurrentResponses::get();
 
 	assert_ok!(GenericAsset::deposit_into_existing(
 		&origin,
@@ -39,10 +37,6 @@ fn deposit_bond_challenger(origin: u64) {
 		initial_balance
 	));
 	assert_ok!(EthStateOracle::bond_challenger(RawOrigin::Signed(origin).into()));
-	assert_eq!(
-		MaxRelayerRequests::get(),
-		current_max_requests + max_concurrent_responses
-	);
 }
 
 #[test]
