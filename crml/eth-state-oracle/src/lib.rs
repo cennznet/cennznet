@@ -27,9 +27,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_evm::{AddressMapping, GasWeightMapping};
-use sp_runtime::traits::Saturating;
-use sp_runtime::traits::UniqueSaturatedInto;
-use sp_runtime::traits::{SaturatedConversion, Zero};
+use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto, Zero};
 use sp_std::prelude::*;
 
 #[cfg(test)]
