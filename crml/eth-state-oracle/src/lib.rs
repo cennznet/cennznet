@@ -27,6 +27,8 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_evm::{AddressMapping, GasWeightMapping};
+use sp_runtime::traits::Saturating;
+use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::prelude::*;
 
@@ -97,8 +99,6 @@ decl_storage! {
 		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Maximum number of active relayers allowed at one time
 		MaxRelayerCount get(fn max_relayer_count): u32 = 1;
-		/// Maximum number of concurrent relayer responses of a single relayer
-		MaxConcurrentResponses get(fn max_concurrent_responses): u32 = 10;
 		/// Maps from account to balance bonded for challengers
 		ChallengerBonds get(fn challenger_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
@@ -413,9 +413,9 @@ decl_module! {
 			// check user has the requisite funds to make this bond
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
-			let max_concurrent_responses = Self::max_concurrent_responses();
 			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul((max_concurrent_responses * Self::max_relayer_count()).into());
+			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
 			if let Some(balance_after_bond) = T::MultiCurrency::free_balance(&origin, fee_currency).checked_sub(total_challenger_bond) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
@@ -466,7 +466,8 @@ decl_module! {
 			// Ensure challenger has enough bonded
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
 			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
-			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul((Self::max_concurrent_responses() * Self::max_relayer_count()).into());
+			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
+			let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
 
 			ensure!(Self::challenger_bonds(&origin) == total_challenger_bond, Error::<T>::NotEnoughBonded);
 
