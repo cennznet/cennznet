@@ -79,7 +79,7 @@ pub trait Config: frame_system::Config {
 	>;
 	/// Minimum bond amount for a relayer
 	type RelayerBondAmount: Get<Balance>;
-	/// Minimum bond amount for a challenger
+	/// Minimum bond amount for a single challenge
 	type ChallengerBondAmount: Get<Balance>;
 	/// Maximum number of requests allowed per block. Absolute max = 100
 	type MaxRequestsPerBlock: Get<u32>;
@@ -172,8 +172,10 @@ decl_error! {
 		MaxRelayersReached,
 		/// There are not enough challengers to challenge the response
 		NoAvailableResponses,
-		/// There are too many active requests or the account is currently challenging a request
-		CantUnbondChallenger
+		/// There are too many active requests to unbond challenger
+		TooManyActiveRequests,
+		/// This challenger has an active challenge so can't unbond
+		ActiveChallenger,
 	}
 }
 
@@ -410,7 +412,7 @@ decl_module! {
 				return Err(Error::<T>::AlreadyBonded.into())
 			};
 
-			// check user has the requisite funds to make this bid
+			// check user has the requisite funds to make this bond
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let challenger_bond_amount = T::ChallengerBondAmount::get();
 			let max_concurrent_responses = Self::max_concurrent_responses();
@@ -446,14 +448,14 @@ decl_module! {
 			let max_concurrent_responses = Self::max_concurrent_responses();
 			ensure!(
 				challenger_count.saturating_mul(max_concurrent_responses as usize) >= current_active_requests,
-				Error::<T>::CantUnbondChallenger
+				Error::<T>::TooManyActiveRequests
 			);
 
 			// Check that there isn't an existing challenge for the account
 			let challenged_responses: Vec<(RequestId, T::AccountId)> = ResponsesChallenged::<T>::iter().collect();
 			for (_, challenger) in challenged_responses {
 				if challenger == origin {
-					return Err(Error::<T>::CantUnbondChallenger.into());
+					return Err(Error::<T>::ActiveChallenger.into());
 				}
 			}
 
@@ -668,7 +670,6 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 			RequestsThisBlock::get() < T::MaxRequestsPerBlock::get(),
 			Error::<T>::NoAvailableResponses
 		);
-		RequestsThisBlock::mutate(|i| *i += 1);
 
 		// Ensure the number of inflight requests is less than the challengers capacity to challenge
 		let current_active_requests = Requests::iter().count();
@@ -694,6 +695,7 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 		};
 		Requests::insert(request_id, request_info);
 		NextRequestId::mutate(|i| *i += U256::from(1u64));
+		RequestsThisBlock::mutate(|i| *i += 1);
 		RequestsExpiredAtBlock::<T>::append(expiry_block, request_id);
 
 		Ok(request_id)

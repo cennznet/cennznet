@@ -855,7 +855,42 @@ fn unbond_challenger_active_request_should_fail() {
 		// Try Unbond but fail as there is an active request
 		assert_noop!(
 			EthStateOracle::unbond_challenger(origin.into()),
-			Error::<TestRuntime>::CantUnbondChallenger
+			Error::<TestRuntime>::TooManyActiveRequests
+		);
+
+		// Check bond has not been removed
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+		assert_eq!(
+			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
+			initial_balance - total_challenger_bond,
+		);
+	});
+}
+
+#[test]
+fn unbond_challenger_active_challenge_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let challenger = 1_u64;
+		let origin = RawOrigin::Signed(challenger);
+		let initial_balance = 100_000_000_000_000 as Balance;
+		assert_ok!(GenericAsset::deposit_into_existing(
+			&challenger,
+			GenericAsset::fee_currency(),
+			initial_balance
+		));
+		assert_ok!(EthStateOracle::bond_challenger(origin.clone().into()));
+		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let total_challenger_bond: Balance =
+			challenger_bond_amount.saturating_mul(MaxConcurrentResponses::get().into());
+
+		// Submit a challenge
+		let request_id: RequestId = RequestId::from(1);
+		ResponsesChallenged::<TestRuntime>::insert(request_id, challenger);
+
+		// Try Unbond but fail as there is an active request
+		assert_noop!(
+			EthStateOracle::unbond_challenger(origin.into()),
+			Error::<TestRuntime>::ActiveChallenger
 		);
 
 		// Check bond has not been removed
