@@ -110,6 +110,7 @@ parameter_types! {
 	pub RelayerBondAmount: Balance = 1_000_000_000;
 	pub ChallengerBondAmount: Balance = 100_000_000;
 	pub MaxRequestsPerBlock: u32 = 30;
+	pub MaxRelayerCount: u32 = 1;
 }
 impl Config for TestRuntime {
 	type AddressMapping = SimpleAddressMapping<AccountId>;
@@ -126,6 +127,7 @@ impl Config for TestRuntime {
 	type RelayerBondAmount = RelayerBondAmount;
 	type ChallengerBondAmount = ChallengerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
+	type MaxRelayerCount = MaxRelayerCount;
 }
 
 pub struct MockBuyFeeAsset;

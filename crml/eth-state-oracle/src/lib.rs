@@ -83,6 +83,8 @@ pub trait Config: frame_system::Config {
 	type ChallengerBondAmount: Get<Balance>;
 	/// Maximum number of requests allowed per block. Absolute max = 100
 	type MaxRequestsPerBlock: Get<u32>;
+	/// Maximum number of active relayers allowed at one time
+	type MaxRelayerCount: Get<u32>;
 }
 
 decl_storage! {
@@ -95,8 +97,6 @@ decl_storage! {
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
 		/// Maps from account to balance bonded for relayer responses
 		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
-		/// Maximum number of active relayers allowed at one time
-		MaxRelayerCount get(fn max_relayer_count): u32 = 1;
 		/// Maps from account to balance bonded for challengers
 		ChallengerBonds get(fn challenger_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
@@ -294,7 +294,7 @@ decl_module! {
 			};
 
 			// Make sure there are relayer slots available
-			let max_relayers = Self::max_relayer_count();
+			let max_relayers = T::MaxRelayerCount::get();
 			let current_relayer_count = RelayerBonds::<T>::iter().count();
 			ensure!(current_relayer_count < max_relayers as usize, Error::<T>::MaxRelayersReached);
 

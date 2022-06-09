@@ -653,6 +653,8 @@ parameter_types! {
 	pub storage ChallengerBondAmount: Balance = 100_000_000;
 	/// Maximum requests allowed per block (Absolute max: 100)
 	pub storage MaxRequestsPerBlock: u32 = 30;
+	/// Maximum number of active relayers allowed at one time
+	pub storage MaxRelayerCount: u32 = 1;
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
@@ -669,6 +671,7 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type RelayerBondAmount = RelayerBondAmount;
 	type ChallengerBondAmount = ChallengerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
+	type MaxRelayerCount = MaxRelayerCount;
 }
 
 impl crml_token_approvals::Config for Runtime {
