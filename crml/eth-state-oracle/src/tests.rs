@@ -734,10 +734,10 @@ fn bond_challenger() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.into()));
-		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
 		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
 			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
+		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
 
 		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
 
@@ -768,10 +768,10 @@ fn bond_challenger_already_bonded_should_fail() {
 			Error::<TestRuntime>::AlreadyBonded
 		);
 
-		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
 		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
 			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
+		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
 
 		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
 		assert_eq!(
@@ -806,10 +806,10 @@ fn unbond_challenger() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.clone().into()));
-		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
 		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
 			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
+		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
 
 		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
 		assert_eq!(
@@ -840,10 +840,10 @@ fn unbond_challenger_active_challenge_should_fail() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.clone().into()));
-		let challenger_bond_amount = <TestRuntime as Config>::ChallengerBondAmount::get();
+		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
 		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
 			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = challenger_bond_amount.saturating_mul(max_concurrent_responses);
+		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
 		// Submit a challenge
 		let request_id: RequestId = RequestId::from(1);
 		ResponsesChallenged::<TestRuntime>::insert(request_id, challenger);

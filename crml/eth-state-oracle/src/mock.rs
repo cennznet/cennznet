@@ -108,7 +108,6 @@ parameter_types! {
 	pub const MinGasPrice: u64 = 1;
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 	pub RelayerBondAmount: Balance = 1_000_000_000;
-	pub ChallengerBondAmount: Balance = 100_000_000;
 	pub MaxRequestsPerBlock: u32 = 30;
 	pub MaxRelayerCount: u32 = 1;
 }
@@ -125,7 +124,6 @@ impl Config for TestRuntime {
 	type UnixTime = MockTimestampGetter;
 	type BuyFeeAsset = MockBuyFeeAsset;
 	type RelayerBondAmount = RelayerBondAmount;
-	type ChallengerBondAmount = ChallengerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
 	type MaxRelayerCount = MaxRelayerCount;
 }
