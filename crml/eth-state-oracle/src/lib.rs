@@ -172,6 +172,8 @@ decl_error! {
 		NoAvailableResponses,
 		/// This challenger has an active challenge so can't unbond
 		ActiveChallenger,
+		/// There are no challengers available to challenge the request
+		NoChallengers,
 	}
 }
 
@@ -656,14 +658,9 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 			Error::<T>::NoAvailableResponses
 		);
 
-		// Ensure the number of inflight requests is less than the challengers capacity to challenge
-		let current_active_requests = Requests::iter().count();
+		// Ensure there is at least one challenger to challenge the request
 		let challenger_count = ChallengerBonds::<T>::iter().count();
-		let max_relayer_requests = challenger_count.saturating_mul(Self::max_concurrent_responses() as usize);
-		ensure!(
-			current_active_requests < max_relayer_requests as usize,
-			Error::<T>::NoAvailableResponses
-		);
+		ensure!(!challenger_count.is_zero(), Error::<T>::NoChallengers);
 
 		let request_id = NextRequestId::get();
 		// The request will expire after `ChallengePeriod` blocks if no response it submitted

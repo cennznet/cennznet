@@ -106,7 +106,7 @@ fn new_request_no_challenger_should_fail() {
 				Some(fee_preferences.clone()),
 				bounty,
 			),
-			Error::<TestRuntime>::NoAvailableResponses
+			Error::<TestRuntime>::NoChallengers
 		);
 	});
 }
