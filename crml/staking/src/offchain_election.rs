@@ -22,6 +22,7 @@ use crate::{
 	OffchainAccuracy, ValidatorIndex, WeightInfo,
 };
 use codec::Decode;
+use crml_support::log;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
@@ -115,7 +116,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
 	let (winners, compact, score, size) =
 		prepare_submission::<T>(assignments, winners, true, T::OffchainSolutionWeightLimit::get())?;
 
-	crate::log!(
+	log!(
 		info,
 		"💸 prepared a seq-phragmen solution with {} balancing iterations and score {:?}",
 		iters,
@@ -267,7 +268,7 @@ where
 			for (maybe_index, _stake) in voters_sorted.iter().map(|(who, stake)| (nominator_index(&who), stake)) {
 				let index = maybe_index.ok_or(OffchainElectionError::NominatorSnapshotCorrupt)?;
 				if compact.remove_voter(index) {
-					crate::log!(
+					log!(
 						trace,
 						"💸 removed a voter at index {} with stake {:?} from compact to reduce the size",
 						index,
@@ -281,7 +282,7 @@ where
 				}
 			}
 
-			crate::log!(
+			log!(
 				warn,
 				"💸 {} nominators out of {} had to be removed from compact solution due to size limits.",
 				removed,
@@ -291,7 +292,7 @@ where
 		}
 		_ => {
 			// nada, return as-is
-			crate::log!(
+			log!(
 				info,
 				"💸 Compact solution did not get trimmed due to block weight limits.",
 			);
@@ -361,7 +362,7 @@ where
 	// potentially reduce the size of the compact to fit weight.
 	let maximum_allowed_voters = maximum_compact_len::<T::WeightInfo>(winners.len() as u32, size, maximum_weight);
 
-	crate::log!(
+	log!(
 		debug,
 		"💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
 		maximum_weight,
@@ -411,11 +412,11 @@ where
 mod test {
 	#![allow(unused_variables)]
 	use super::*;
-	use crate::ElectionSize;
+	use ElectionSize;
 
 	struct Staking;
 
-	impl crate::WeightInfo for Staking {
+	impl WeightInfo for Staking {
 		fn bond() -> Weight {
 			unimplemented!()
 		}
@@ -502,7 +503,7 @@ mod test {
 		}
 	}
 
-	impl crate::ElectionWeightExt for Staking {
+	impl ElectionWeightExt for Staking {
 		fn submit_unsigned(v: u32, n: u32, a: u32, w: u32) -> Weight {
 			// this calculation matches the value used in pallet-staking as of cennznet/2.0.0
 			(0 * v + 0 * n + 1000 * a + 0 * w) as Weight

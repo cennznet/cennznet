@@ -16,11 +16,11 @@
 
 use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
-	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
+	log, scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallOracle, EthCallOracleSubscriber, EthereumStateOracle,
 	MultiCurrency, ReturnDataClaim, H160,
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, log,
+	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
 	traits::{ExistenceRequirement, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
@@ -37,18 +37,8 @@ mod types;
 use cennznet_primitives::traits::BuyFeeAsset;
 use types::*;
 
-pub(crate) const LOG_TARGET: &str = "state-oracle";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
+/// logging target for this pallet
+pub(crate) const LOG_TARGET: &str = "sorc";
 
 pub trait Config: frame_system::Config {
 	/// Map evm address into ss58 address
