@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_evm::{AddressMapping, GasWeightMapping};
-use sp_runtime::traits::{SaturatedConversion, Zero};
+use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto, Zero};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -77,8 +77,12 @@ pub trait Config: frame_system::Config {
 		Balance = Balance,
 		FeeExchange = FeeExchange<AssetId, Balance>,
 	>;
-	/// Minimum bond amount for a relayer
+	/// Minimum bond amount for a relayer or challenger
 	type RelayerBondAmount: Get<Balance>;
+	/// Maximum number of requests allowed per block. Absolute max = 100
+	type MaxRequestsPerBlock: Get<u32>;
+	/// Maximum number of active relayers allowed at one time
+	type MaxRelayerCount: Get<u32>;
 }
 
 decl_storage! {
@@ -91,6 +95,8 @@ decl_storage! {
 		Requests get(fn requests): map hasher(twox_64_concat) RequestId => Option<CallRequest>;
 		/// Maps from account to balance bonded for relayer responses
 		RelayerBonds get(fn relayer_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
+		/// Maps from account to balance bonded for challengers
+		ChallengerBonds get(fn challenger_bonds): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Reported response details keyed by request Id
 		/// These are not necessarily valid until passed the challenge period
 		Responses get(fn responses): map hasher(twox_64_concat) RequestId => Option<CallResponse<T::AccountId>>;
@@ -102,6 +108,8 @@ decl_storage! {
 		RequestsExpiredAtBlock: map hasher(twox_64_concat) T::BlockNumber => Vec<RequestId>;
 		/// Queue of validated responses ready to issue callbacks
 		ResponsesForCallback: Vec<RequestId>;
+		/// Total number of requests that have been made in the current block. Resets in on_initialize
+		RequestsThisBlock: u32 = 0;
 	}
 }
 
@@ -117,8 +125,12 @@ decl_event! {
 		Callback(RequestId, Weight),
 		/// An account has submitted a relayer bond (AccountId, Balance)
 		RelayerBondSet(AccountId, Balance),
+		/// An account has submitted a challenger bond (AccountId, Balance)
+		ChallengerBondSet(AccountId, Balance),
 		/// An account has removed their relayer bond (AccountId, Balance)
 		RelayerBondRemoved(AccountId, Balance),
+		/// An account has removed their challenger bond (AccountId, Balance)
+		ChallengerBondRemoved(AccountId, Balance),
 	}
 }
 
@@ -146,10 +158,18 @@ decl_error! {
 		FeeExchangeFailed,
 		/// Account already has CPay bonded
 		AlreadyBonded,
-		/// This account doesn't have any CPay bonded
-		NothingBonded,
+		/// This account doesn't have enough CPay bonded
+		NotEnoughBonded,
 		/// The account has active responses so can't unbond
-		CantUnbond
+		CantUnbond,
+		/// The max amount of relayers has been reached
+		MaxRelayersReached,
+		/// There are not enough challengers to challenge the response
+		NoAvailableResponses,
+		/// This challenger has an active challenge so can't unbond
+		ActiveChallenger,
+		/// There are no challengers available to challenge the request
+		NoChallengers,
 	}
 }
 
@@ -162,7 +182,10 @@ decl_module! {
 		/// Promote any unchallenged responses as ready for callback and
 		/// remove expired requests
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let mut consumed_weight = DbWeight::get().reads(2);
+			let mut consumed_weight = DbWeight::get().reads(2) + DbWeight::get().writes(1);
+			// Reset number of requests per block
+			RequestsThisBlock::put(0);
+
 			if ResponsesValidAtBlock::<T>::contains_key(now) {
 				// these responses have passed the challenge period successfully and
 				// can be scheduled for callback immediately.
@@ -259,7 +282,7 @@ decl_module! {
 
 		/// Deposits a bond which is required to submit call responses
 		#[weight = 500_000]
-		pub fn deposit_relayer_bond(origin) {
+		pub fn bond_relayer(origin) {
 			let origin = ensure_signed(origin)?;
 
 			// Check account doesn't already have a bond
@@ -267,16 +290,22 @@ decl_module! {
 				// Account already has CPay bonded
 				return Err(Error::<T>::AlreadyBonded.into())
 			};
+
+			// Make sure there are relayer slots available
+			let max_relayers = T::MaxRelayerCount::get();
+			let current_relayer_count = RelayerBonds::<T>::iter().count();
+			ensure!(current_relayer_count < max_relayers as usize, Error::<T>::MaxRelayersReached);
+
 			// check user has the requisite funds to make this bid
 			let fee_currency = T::MultiCurrency::fee_currency();
 			let relayer_bond_amount = T::RelayerBondAmount::get();
-			let balance = T::MultiCurrency::free_balance(&origin, fee_currency.clone());
+			let balance = T::MultiCurrency::free_balance(&origin, fee_currency);
 			if let Some(balance_after_bond) = balance.checked_sub(relayer_bond_amount) {
 				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
 				// - `amount` is unused
 				// - if there are multiple locks on user asset this could return true inaccurately
 				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency.clone(), relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency, relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
 			}
 
 			// try lock funds
@@ -287,11 +316,11 @@ decl_module! {
 
 		/// Unbonds an accounts assets
 		#[weight = 500_000]
-		pub fn unbond_relayer_bond(origin) {
+		pub fn unbond_relayer(origin) {
 			let origin = ensure_signed(origin)?;
 			// Ensure account has bonded amount
 			let bonded_amount: Balance = Self::relayer_bonds(&origin);
-			ensure!(!bonded_amount.is_zero(), Error::<T>::NothingBonded);
+			ensure!(!bonded_amount.is_zero(), Error::<T>::NotEnoughBonded);
 
 			// Check that there isn't an existing request for the account
 			let responses: Vec<(RequestId, CallResponse<T::AccountId>)> = Responses::<T>::iter().collect();
@@ -320,7 +349,7 @@ decl_module! {
 		#[weight = 500_000]
 		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::relayer_bonds(&origin) == T::RelayerBondAmount::get(), Error::<T>::NothingBonded);
+			ensure!(Self::relayer_bonds(&origin) == T::RelayerBondAmount::get(), Error::<T>::NotEnoughBonded);
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 
@@ -365,6 +394,60 @@ decl_module! {
 			}
 		}
 
+		/// Deposits a bond which is required to submit challenges
+		/// call requests can't be made if there are no challengers available to challenge them
+		#[weight = 500_000]
+		pub fn bond_challenger(origin) {
+			let origin = ensure_signed(origin)?;
+
+			// Check account doesn't already have a bond
+			if !Self::challenger_bonds(&origin).is_zero() {
+				// Account already has CPay bonded
+				return Err(Error::<T>::AlreadyBonded.into())
+			};
+
+			// check user has the requisite funds to make this bond
+			let fee_currency = T::MultiCurrency::fee_currency();
+			let relayer_bond_amount = T::RelayerBondAmount::get();
+			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
+			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
+			let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
+			if let Some(balance_after_bond) = T::MultiCurrency::free_balance(&origin, fee_currency).checked_sub(total_challenger_bond) {
+				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
+				// - `amount` is unused
+				// - if there are multiple locks on user asset this could return true inaccurately
+				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
+				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency, total_challenger_bond, WithdrawReasons::RESERVE, balance_after_bond)?;
+			}
+
+			// try lock funds
+			T::MultiCurrency::reserve(&origin, fee_currency, total_challenger_bond)?;
+			ChallengerBonds::<T>::insert(&origin, total_challenger_bond);
+			Self::deposit_event(Event::<T>::ChallengerBondSet(origin, total_challenger_bond));
+		}
+
+		/// Unbonds an accounts bonded challenger assets
+		#[weight = 500_000]
+		pub fn unbond_challenger(origin) {
+			let origin = ensure_signed(origin)?;
+			// Ensure account has bonded amount
+			let bonded_amount: Balance = Self::challenger_bonds(&origin);
+			ensure!(!bonded_amount.is_zero(), Error::<T>::NotEnoughBonded);
+
+			// Check that there isn't an existing challenge for the account
+			let challenged_responses: Vec<(RequestId, T::AccountId)> = ResponsesChallenged::<T>::iter().collect();
+			for (_, challenger) in challenged_responses {
+				if challenger == origin {
+					return Err(Error::<T>::ActiveChallenger.into());
+				}
+			}
+
+			// Unreserve bonded amount
+			T::MultiCurrency::unreserve(&origin, T::MultiCurrency::fee_currency(), bonded_amount);
+			ChallengerBonds::<T>::remove(&origin);
+			Self::deposit_event(Event::<T>::ChallengerBondRemoved(origin, bonded_amount));
+		}
+
 		/// Initiate a challenge on the current response for `request_id`
 		/// Valid challenge scenarios are:
 		/// - incorrect value
@@ -372,10 +455,17 @@ decl_module! {
 		/// - the block timestamp of the response is inaccurate
 		#[weight = 500_000]
 		pub fn submit_response_challenge(origin, request_id: RequestId) {
-			// TODO: challenger should have some bond
 			let origin = ensure_signed(origin)?;
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!ResponsesChallenged::<T>::contains_key(request_id), Error::<T>::DuplicateChallenge);
+
+			// Ensure challenger has enough bonded
+			let relayer_bond_amount = T::RelayerBondAmount::get();
+			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
+			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
+			let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
+
+			ensure!(Self::challenger_bonds(&origin) == total_challenger_bond, Error::<T>::NotEnoughBonded);
 
 			if let Some(response) = Responses::<T>::get(request_id) {
 				let request = Requests::get(request_id).unwrap();
@@ -558,7 +648,17 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 		callback_gas_limit: u64,
 		fee_preferences: Option<FeePreferences>,
 		bounty: Balance,
-	) -> Self::RequestId {
+	) -> Result<Self::RequestId, DispatchError> {
+		// Limit number of requests per block
+		ensure!(
+			RequestsThisBlock::get() < T::MaxRequestsPerBlock::get(),
+			Error::<T>::NoAvailableResponses
+		);
+
+		// Ensure there is at least one challenger to challenge the request
+		let challenger_count = ChallengerBonds::<T>::iter().count();
+		ensure!(!challenger_count.is_zero(), Error::<T>::NoChallengers);
+
 		let request_id = NextRequestId::get();
 		// The request will expire after `ChallengePeriod` blocks if no response it submitted
 		let expiry_block = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
@@ -574,10 +674,11 @@ impl<T: Config> EthereumStateOracle for Module<T> {
 			expiry_block: expiry_block.saturated_into(),
 		};
 		Requests::insert(request_id, request_info);
-		NextRequestId::mutate(|i| *i += U256::from(1));
+		NextRequestId::mutate(|i| *i += U256::from(1u64));
+		RequestsThisBlock::mutate(|i| *i += 1);
 		RequestsExpiredAtBlock::<T>::append(expiry_block, request_id);
 
-		request_id
+		Ok(request_id)
 	}
 
 	/// Return state oracle request fee
