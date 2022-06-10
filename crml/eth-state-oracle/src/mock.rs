@@ -144,7 +144,8 @@ impl BuyFeeAsset for MockBuyFeeAsset {
 			.checked_sub(amount)
 			.ok_or(DispatchError::Other("No Balance"))?;
 		GenericAsset::make_free_balance_be(&who, fee_exchange.asset_id(), new_balance);
-		GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
+		let _ = GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
+
 		Ok(amount)
 	}
 

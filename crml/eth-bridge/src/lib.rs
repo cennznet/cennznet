@@ -802,9 +802,10 @@ impl<T: Config> Module<T> {
 				return Err(Error::<T>::InvalidClaim.into());
 			}
 			<EventNotarizations<T>>::remove_prefix(event_claim_id, None);
-			let (_eth_tx_hash, event_type_id) = EventClaims::take(event_claim_id);
+			let (eth_tx_hash, event_type_id) = EventClaims::take(event_claim_id);
 			let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
 			let event_data = event_data.unwrap();
+			PendingTxHashes::remove(eth_tx_hash);
 			Self::deposit_event(Event::Invalid(event_claim_id));
 
 			T::Subscribers::on_failure(event_claim_id, &contract_address, &event_signature, &event_data);
