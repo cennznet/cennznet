@@ -249,7 +249,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Runtime;
+	use crate::{BaseFee, Runtime};
 	use frame_support::{assert_noop, assert_ok};
 	use hex_literal::hex;
 
@@ -357,28 +357,28 @@ mod tests {
 	#[test]
 	fn calculate_total_gas_low_max_fee_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(200000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let gas_limit = 100_000_u64;
+			let max_fee_per_gas = BaseFee::min_gas_price().saturating_sub(1_u64.into());
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), None),
 				FeePreferencesError::GasPriceTooLow
 			);
 		});
 	}
 
 	#[test]
-	fn calculate_total_gas_no_max_fee_should_fail() {
+	fn calculate_total_gas_no_max_fee_ok() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
+			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
-			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let max_priority_fee_per_gas = U256::from(1_000_000_u64);
 
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, max_fee_per_gas, Some(max_priority_fee_per_gas),),
-				FeePreferencesError::GasPriceTooLow
-			);
+			assert_ok!(Runner::calculate_total_gas(
+				gas_limit,
+				max_fee_per_gas,
+				Some(max_priority_fee_per_gas)
+			));
 		});
 	}
 
