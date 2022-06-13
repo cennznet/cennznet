@@ -33,7 +33,7 @@
 //!
 
 use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber};
+use crml_support::{log, IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
@@ -59,6 +59,15 @@ use weights::WeightInfo;
 mod migration;
 mod types;
 pub use types::*;
+
+/// The maximum number of attributes in an NFT collection schema
+pub const MAX_SCHEMA_FIELDS: u32 = 16;
+/// The maximum length of valid collection IDs
+pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
+/// The maximum amount of listings to return
+pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
+/// The logging target for this module
+pub(crate) const LOG_TARGET: &str = "nft";
 
 // Interface for determining ownership of an NFT from some account
 impl<T: Config> IsTokenOwner for Module<T> {
@@ -251,26 +260,6 @@ decl_storage! {
 		/// Version of this module's storage schema
 		StorageVersion build(|_: &GenesisConfig| Releases::V2 as u32): u32;
 	}
-}
-
-/// The maximum number of attributes in an NFT collection schema
-pub const MAX_SCHEMA_FIELDS: u32 = 16;
-/// The maximum length of valid collection IDs
-pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
-/// The maximum amount of listings to return
-pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
-/// The logging target for this module
-pub(crate) const LOG_TARGET: &str = "nft";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
 }
 
 decl_module! {

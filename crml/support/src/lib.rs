@@ -20,6 +20,7 @@
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
 use codec::{Decode, Encode};
+pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::DispatchResultWithPostInfo,
@@ -34,6 +35,18 @@ use sp_runtime::{
 	DispatchError, DispatchResult,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*, result};
+
+/// syntactic sugar for logging.
+/// the caller must define a variable `LOG_TARGET = "<my-target>"`
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		crml_support::logger::$level!(
+			target: crate::LOG_TARGET,
+			$patter $(, $values)*
+		)
+	};
+}
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const CPAY_UNIT_VALUE: u128 = 10_u128.pow(14);
@@ -113,7 +126,7 @@ pub trait FinalSessionTracker {
 }
 
 /// Something that can be decoded from eth log data/ ABI
-/// TODO: ethabi crate would be better for this however no support for `no_std`
+/// TODO: use ethabi crate
 pub trait EthAbiCodec: Sized {
 	fn encode(&self) -> Vec<u8>;
 	/// Decode `Self` from Eth log data

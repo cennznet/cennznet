@@ -694,14 +694,14 @@ dependencies = [
 
 [[package]]
 name = "cennznet"
-version = "2.2.0-rc2"
+version = "2.2.0-rc4"
 dependencies = [
  "cennznet-cli",
 ]
 
 [[package]]
 name = "cennznet-cli"
-version = "2.2.0-rc2"
+version = "2.2.0-rc4"
 dependencies = [
  "cennznet-primitives",
  "cennznet-rpc-core-txpool",
@@ -841,7 +841,7 @@ dependencies = [
 
 [[package]]
 name = "cennznet-runtime"
-version = "2.2.0-rc2"
+version = "2.2.0-rc4"
 dependencies = [
  "cennznet-cli",
  "cennznet-primitives",
@@ -878,7 +878,6 @@ dependencies = [
  "futures 0.3.17",
  "hex-literal",
  "libsecp256k1 0.5.0",
- "log",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -1299,7 +1298,6 @@ dependencies = [
  "crml-support",
  "frame-support",
  "frame-system",
- "log",
  "pallet-scheduler",
  "parity-scale-codec",
  "scale-info",
@@ -1349,7 +1347,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1405,7 +1402,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "log",
  "pallet-authorship",
  "pallet-balances",
  "pallet-session",

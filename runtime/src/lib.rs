@@ -50,9 +50,9 @@ use static_assertions::const_assert;
 
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
-use crml_support::{PrefixedAddressMapping, H160, H256, U256};
+use crml_support::{log, PrefixedAddressMapping, H160, H256, U256};
 pub use frame_support::{
-	construct_runtime, debug,
+	construct_runtime,
 	dispatch::GetDispatchInfo,
 	ord_parameter_types, parameter_types,
 	traits::{Currency, FindAuthor, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
@@ -113,6 +113,9 @@ use runner::FeePreferencesRunner;
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
 
+/// Logging target for runtime level components
+pub(crate) const LOG_TARGET: &str = "runtime";
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -137,7 +140,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set `impl_version` to equal spec_version. If only runtime
 	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 61,
+	spec_version: 62,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -463,10 +466,12 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
 	/// Max. members of the council
 	pub const MaxCouncilSize: u16 = 255;
+	pub storage MinimumRegisteredIdentities: u32 = 2;
 }
 impl crml_governance::Config for Runtime {
 	type Call = Call;
 	type Currency = SpendingAssetCurrency<Self>;
+	type MinimumRegisteredIdentities = MinimumRegisteredIdentities;
 	type MaxCouncilSize = MaxCouncilSize;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
@@ -870,7 +875,7 @@ where
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
+				log!(warn, "unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
