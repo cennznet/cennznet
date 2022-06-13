@@ -25,7 +25,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{convert::TryInto, fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};

@@ -31,7 +31,6 @@ use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::convert::TryFrom;
 
 type AssetId = u32;
 type Balance = u128;
