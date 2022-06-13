@@ -1158,7 +1158,7 @@ dependencies = [
 
 [[package]]
 name = "crml-erc20-peg"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "crml-eth-bridge"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
@@ -1200,7 +1200,7 @@ dependencies = [
 
 [[package]]
 name = "crml-eth-state-oracle"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1262,7 +1262,7 @@ dependencies = [
 
 [[package]]
 name = "crml-generic-asset-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
@@ -1282,7 +1282,7 @@ dependencies = [
 
 [[package]]
 name = "crml-generic-asset-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-generic-asset",
  "parity-scale-codec",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1312,7 +1312,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-governance",
  "crml-governance-rpc-runtime-api",
@@ -1330,7 +1330,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-governance",
  "parity-scale-codec",
@@ -1340,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "crml-nft"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",

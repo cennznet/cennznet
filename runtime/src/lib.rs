@@ -1494,7 +1494,6 @@ fn validate_self_contained_inner(
 		};
 		let extra_validation = SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
 		// Then, do the controls defined by the ethereum pallet.
-		use fp_self_contained::SelfContainedCall as _;
 		let self_contained_validation = eth_call
 			.validate_self_contained(signed_info)
 			.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??;
