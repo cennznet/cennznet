@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -1123,7 +1123,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-cennzx-rpc-runtime-api",
  "hex",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -1500,7 +1500,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
