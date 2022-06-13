@@ -1,6 +1,6 @@
 [package]
 name = "crml-erc20-peg"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "Module for bridging ERC20 tokens"
