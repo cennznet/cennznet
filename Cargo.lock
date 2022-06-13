@@ -1479,7 +1479,7 @@ dependencies = [
 
 [[package]]
 name = "crml-token-approvals"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1537,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-transaction-payment",
  "frame-support",

@@ -1,6 +1,6 @@
 [package]
 name = "crml-transaction-payment-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
