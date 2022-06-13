@@ -2,7 +2,7 @@
 name = "crml-generic-asset-rpc"
 version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/cennznet/cennznet"
 description = "RPC interface for the generic asset module."
