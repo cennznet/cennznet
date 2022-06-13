@@ -22,13 +22,13 @@ use crml_support::{
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, log,
 	pallet_prelude::*,
-	traits::{ExistenceRequirement, UnixTime, WithdrawReasons},
+	traits::{ExistenceRequirement, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use frame_system::ensure_signed;
 use pallet_evm::{AddressMapping, GasWeightMapping};
-use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto, Zero};
-use sp_std::prelude::*;
+use sp_runtime::traits::{SaturatedConversion, Zero};
+use sp_std::{cmp::max, prelude::*};
 
 #[cfg(test)]
 mod mock;
@@ -36,6 +36,9 @@ mod tests;
 mod types;
 use cennznet_primitives::traits::BuyFeeAsset;
 use types::*;
+
+/// Avg ethereum block time
+const ETH_BLOCK_TIME_S: u64 = 15;
 
 pub(crate) const LOG_TARGET: &str = "state-oracle";
 
@@ -296,22 +299,12 @@ decl_module! {
 			let current_relayer_count = RelayerBonds::<T>::iter().count();
 			ensure!(current_relayer_count < max_relayers as usize, Error::<T>::MaxRelayersReached);
 
-			// check user has the requisite funds to make this bid
-			let fee_currency = T::MultiCurrency::fee_currency();
-			let relayer_bond_amount = T::RelayerBondAmount::get();
-			let balance = T::MultiCurrency::free_balance(&origin, fee_currency);
-			if let Some(balance_after_bond) = balance.checked_sub(relayer_bond_amount) {
-				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
-				// - `amount` is unused
-				// - if there are multiple locks on user asset this could return true inaccurately
-				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency, relayer_bond_amount, WithdrawReasons::RESERVE, balance_after_bond)?;
-			}
+			// Take bond for the relayer
+			let relayer_bond = T::RelayerBondAmount::get();
+			let _ = T::MultiCurrency::reserve(&origin, T::MultiCurrency::fee_currency(), relayer_bond)?;
 
-			// try lock funds
-			T::MultiCurrency::reserve(&origin, fee_currency, relayer_bond_amount)?;
-			RelayerBonds::<T>::insert(&origin, relayer_bond_amount);
-			Self::deposit_event(Event::<T>::RelayerBondSet(origin, relayer_bond_amount));
+			RelayerBonds::<T>::insert(&origin, relayer_bond);
+			Self::deposit_event(Event::<T>::RelayerBondSet(origin, relayer_bond));
 		}
 
 		/// Unbonds an accounts assets
@@ -349,7 +342,7 @@ decl_module! {
 		#[weight = 500_000]
 		pub fn submit_call_response(origin, request_id: RequestId, return_data: ReturnDataClaim, eth_block_number: u64, eth_block_timestamp: u64) {
 			let origin = ensure_signed(origin)?;
-			ensure!(Self::relayer_bonds(&origin) == T::RelayerBondAmount::get(), Error::<T>::NotEnoughBonded);
+			ensure!(Self::relayer_bonds(&origin) >= T::RelayerBondAmount::get(), Error::<T>::NotEnoughBonded);
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!<Responses<T>>::contains_key(request_id), Error::<T>::ResponseExists);
 
@@ -368,12 +361,10 @@ decl_module! {
 			// if the type is dynamic i.e `[]T` or `bytes`, `returndata` length will be 32 * (offset + length + n)
 
 			if let Some(request) = Requests::get(request_id) {
-				// ~ average ethereum block time
-				let eth_block_time_s = 15;
 				// check response timestamp is within a sensible bound +3/-2 Ethereum blocks from the request timestamp
 				ensure!(
-					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * eth_block_time_s)) &&
-					eth_block_timestamp <= (request.timestamp.saturating_add(3 * eth_block_time_s)),
+					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * ETH_BLOCK_TIME_S)) &&
+					eth_block_timestamp <= (request.timestamp.saturating_add(3 * ETH_BLOCK_TIME_S)),
 					Error::<T>::InvalidResponseTimestamp
 				);
 
@@ -407,23 +398,10 @@ decl_module! {
 			};
 
 			// check user has the requisite funds to make this bond
-			let fee_currency = T::MultiCurrency::fee_currency();
-			let relayer_bond_amount = T::RelayerBondAmount::get();
-			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
-			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
-			let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
-			if let Some(balance_after_bond) = T::MultiCurrency::free_balance(&origin, fee_currency).checked_sub(total_challenger_bond) {
-				// TODO: review behaviour with 3.0 upgrade: https://github.com/cennznet/cennznet/issues/414
-				// - `amount` is unused
-				// - if there are multiple locks on user asset this could return true inaccurately
-				// - `T::MultiCurrency::reserve(origin, asset_id, amount)` should be checking this internally...
-				let _ = T::MultiCurrency::ensure_can_withdraw(&origin, fee_currency, total_challenger_bond, WithdrawReasons::RESERVE, balance_after_bond)?;
-			}
-
-			// try lock funds
-			T::MultiCurrency::reserve(&origin, fee_currency, total_challenger_bond)?;
-			ChallengerBonds::<T>::insert(&origin, total_challenger_bond);
-			Self::deposit_event(Event::<T>::ChallengerBondSet(origin, total_challenger_bond));
+			let challenger_bond = T::RelayerBondAmount::get();
+			T::MultiCurrency::reserve(&origin,  T::MultiCurrency::fee_currency(), challenger_bond)?;
+			ChallengerBonds::<T>::insert(&origin, challenger_bond);
+			Self::deposit_event(Event::<T>::ChallengerBondSet(origin, challenger_bond));
 		}
 
 		/// Unbonds an accounts bonded challenger assets
@@ -458,26 +436,19 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			ensure!(Requests::contains_key(request_id), Error::<T>::NoRequest);
 			ensure!(!ResponsesChallenged::<T>::contains_key(request_id), Error::<T>::DuplicateChallenge);
-
-			// Ensure challenger has enough bonded
-			let relayer_bond_amount = T::RelayerBondAmount::get();
-			// Calculate total bond for a challenger, this is the individual bond amount * the max relayer responses * max relayer count
-			let max_concurrent_responses = u128::from(T::MaxRequestsPerBlock::get()).saturating_mul(T::ChallengePeriod::get().unique_saturated_into());
-			let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
-
-			ensure!(Self::challenger_bonds(&origin) == total_challenger_bond, Error::<T>::NotEnoughBonded);
+			ensure!(Self::challenger_bonds(&origin) >= T::RelayerBondAmount::get(), Error::<T>::NotEnoughBonded);
 
 			if let Some(response) = Responses::<T>::get(request_id) {
 				let request = Requests::get(request_id).unwrap();
+				let time_since_request = request.timestamp - T::UnixTime::now().as_secs();
 				let challenge_subscription_id = T::EthCallOracle::checked_eth_call(
 					&request.destination,
 					request.input_data.as_ref(),
 					request.timestamp,
 					response.eth_block_number,
-					// TODO: configure
-					// the latest possible challenge can happen after
-					// ChallengePeriod blocks + 1
-					3_u64,
+					// allow the call to happen at the earliest ~3 ethereum blocks ago
+					// or more depending on the cennznet timestamp of the request til now
+					max(3, time_since_request / ETH_BLOCK_TIME_S),
 				);
 				ResponsesChallenged::<T>::insert(request_id, origin);
 				ChallengeSubscriptions::insert(challenge_subscription_id, request_id);
@@ -498,10 +469,15 @@ impl<T: Config> EthCallOracleSubscriber for Module<T> {
 		_block_number: u64,
 		_block_timestamp: u64,
 	) {
+		// TODO: compare result with relayer report
+		// reward/slash and queue callback
 		unimplemented!();
 	}
 
 	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {
+		// TODO: compare result with relayer report
+		// - if `ReturnDataExceedsLimit` slash relayer
+		// - else inconclusive
 		unimplemented!();
 	}
 }

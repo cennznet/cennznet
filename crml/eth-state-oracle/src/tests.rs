@@ -734,16 +734,12 @@ fn bond_challenger() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.into()));
-		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
-		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
-			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
-
-		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
+		let challenger_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
+		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), challenger_bond_amount);
 
 		assert_eq!(
 			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
-			initial_balance - total_challenger_bond,
+			initial_balance - challenger_bond_amount,
 		);
 	});
 }
@@ -766,17 +762,6 @@ fn bond_challenger_already_bonded_should_fail() {
 		assert_noop!(
 			EthStateOracle::bond_challenger(origin.into()),
 			Error::<TestRuntime>::AlreadyBonded
-		);
-
-		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
-		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
-			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
-
-		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
-		assert_eq!(
-			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
-			initial_balance - total_challenger_bond,
 		);
 	});
 }
@@ -806,16 +791,6 @@ fn unbond_challenger() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.clone().into()));
-		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
-		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
-			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
-
-		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
-		assert_eq!(
-			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
-			initial_balance - total_challenger_bond,
-		);
 
 		// Unbond
 		assert_ok!(EthStateOracle::unbond_challenger(origin.into()));
@@ -840,10 +815,7 @@ fn unbond_challenger_active_challenge_should_fail() {
 			initial_balance
 		));
 		assert_ok!(EthStateOracle::bond_challenger(origin.clone().into()));
-		let relayer_bond_amount = <TestRuntime as Config>::RelayerBondAmount::get();
-		let max_concurrent_responses = u128::from(<TestRuntime as Config>::MaxRequestsPerBlock::get())
-			.saturating_mul(<TestRuntime as Config>::ChallengePeriod::get().unique_saturated_into());
-		let total_challenger_bond: Balance = relayer_bond_amount.saturating_mul(max_concurrent_responses);
+
 		// Submit a challenge
 		let request_id: RequestId = RequestId::from(1);
 		ResponsesChallenged::<TestRuntime>::insert(request_id, challenger);
@@ -852,13 +824,6 @@ fn unbond_challenger_active_challenge_should_fail() {
 		assert_noop!(
 			EthStateOracle::unbond_challenger(origin.into()),
 			Error::<TestRuntime>::ActiveChallenger
-		);
-
-		// Check bond has not been removed
-		assert_eq!(<ChallengerBonds<TestRuntime>>::get(challenger), total_challenger_bond);
-		assert_eq!(
-			GenericAsset::free_balance(GenericAsset::fee_currency(), &challenger),
-			initial_balance - total_challenger_bond,
 		);
 	});
 }
