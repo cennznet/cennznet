@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "cennznet-runtime",
@@ -1123,7 +1123,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-cennzx-rpc-runtime-api",
  "hex",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "crml-cennzx-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -1158,7 +1158,7 @@ dependencies = [
 
 [[package]]
 name = "crml-erc20-peg"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "crml-eth-bridge"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
@@ -1200,7 +1200,7 @@ dependencies = [
 
 [[package]]
 name = "crml-eth-state-oracle"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "crml-generic-asset"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
@@ -1262,7 +1262,7 @@ dependencies = [
 
 [[package]]
 name = "crml-generic-asset-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-generic-asset",
  "crml-generic-asset-rpc-runtime-api",
@@ -1282,7 +1282,7 @@ dependencies = [
 
 [[package]]
 name = "crml-generic-asset-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-generic-asset",
  "parity-scale-codec",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1312,7 +1312,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-governance",
  "crml-governance-rpc-runtime-api",
@@ -1330,7 +1330,7 @@ dependencies = [
 
 [[package]]
 name = "crml-governance-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-governance",
  "parity-scale-codec",
@@ -1340,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "crml-nft"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1479,7 +1479,7 @@ dependencies = [
 
 [[package]]
 name = "crml-token-approvals"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-generic-asset",
@@ -1500,7 +1500,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cennznet-primitives",
  "crml-support",
@@ -1521,7 +1521,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-transaction-payment-rpc-runtime-api",
  "jsonrpc-core",
@@ -1537,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment-rpc-runtime-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-transaction-payment",
  "frame-support",

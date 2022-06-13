@@ -22,7 +22,7 @@ use crate::{
 	REQUEST_TTL_MS,
 };
 use sp_runtime::offchain::StorageKind;
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string::ToString;

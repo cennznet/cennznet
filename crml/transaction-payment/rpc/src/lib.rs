@@ -31,7 +31,6 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, MaybeDisplay},
 };
-use std::convert::TryInto;
 use std::sync::Arc;
 
 #[rpc]
