@@ -2,7 +2,7 @@
 name = "crml-governance-rpc-runtime-api"
 version = "2.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/cennznet/cennznet"
 description = "Runtime API definition required by Governance RPC extensions."
