@@ -1521,7 +1521,7 @@ dependencies = [
 
 [[package]]
 name = "crml-transaction-payment-rpc"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-transaction-payment-rpc-runtime-api",
  "jsonrpc-core",
