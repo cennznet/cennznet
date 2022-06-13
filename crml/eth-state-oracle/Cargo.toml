@@ -1,7 +1,7 @@
 [package]
 name = "crml-eth-state-oracle"
 version = "1.0.0"
-edition = "2018"
+edition = "2021"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "Pallet for state requests to Ethereum"
 license = "GPL-3.0"

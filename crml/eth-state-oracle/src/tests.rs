@@ -143,7 +143,6 @@ fn try_callback_with_fee_preferences() {
 		let caller = 111_u64;
 		let bounty = 88 as Balance;
 		let request_id = RequestId::from(123_u32);
-		let return_data = [1_u8; 32];
 		let payment_asset_id: AssetId = 1;
 		let fee_preferences = FeePreferences { asset_id: payment_asset_id, slippage: Default::default() };
 		let request = CallRequestBuilder::new()
