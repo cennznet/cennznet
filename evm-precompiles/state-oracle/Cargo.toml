@@ -8,14 +8,14 @@ repository = "https://github.com/cennznet/cennznet"
 [dependencies]
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+fp-evm = { default-features = false, git = "https://github.com/paritytech/frontier", rev = "f508edbe6e2849461c2323da294fac1a90fda451" }
+pallet-evm = { default-features = false, git = "https://github.com/paritytech/frontier", rev = "f508edbe6e2849461c2323da294fac1a90fda451" }
 precompile-utils = { path = "../utils", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
 crml-support = { path = "../../crml/support", default-features = false }

@@ -770,7 +770,7 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 	/// Extrinsic weight info
 	type WeightInfo: WeightInfo + ElectionWeightExt;
 
-	// config here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L72
+	// config here instead of pallet-offences as in previous versions: https://github.com/paritytech/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L72
 	type OnOffenceHandler: OnOffenceHandler<
 		Self::AccountId,
 		pallet_session::historical::IdentificationTuple<Self::SessionHistoricalType>,
@@ -1027,7 +1027,7 @@ decl_storage! {
 		/// This is set to v2 for new networks.
 		StorageVersion build(|_: &GenesisConfig<T>| Releases::V2 as u32): u32;
 
-		// store here instead of pallet-offences as in previous versions: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L91
+		// store here instead of pallet-offences as in previous versions: https://github.com/paritytech/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L91
 		/// Deferred reports that have been rejected by the offence handler and need to be submitted
 		/// at a later time.
 		DeferredOffences get(fn deferred_offences): Vec<DeferredOffenceOf<T>>;
@@ -2069,7 +2069,7 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-	/// lifted from older pallet-offences: https://github.com/cennznet/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L122
+	/// lifted from older pallet-offences: https://github.com/paritytech/substrate/blob/061ff5d72cc9864cdff3f101237bd54b99f71ddf/frame/offences/src/lib.rs#L122
 	/// submits deffered offence reports when
 	fn offences_on_initialize(_now: T::BlockNumber) -> Weight {
 		// if we can't report then exit

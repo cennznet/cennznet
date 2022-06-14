@@ -6,7 +6,7 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-futures = "0.3"
+futures = "0.3.2"
 hex = "0.4"
 log = "0.4"
 parking_lot = "0.11"
@@ -14,25 +14,25 @@ thiserror = "1.0"
 
 codec = { version = "2.0.0", package = "parity-scale-codec", features = ["derive"] }
 libsecp256k1 = { version = "0.6.0" }
-prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev"}
+prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", version = "0.10.0-dev"}
 
 cennznet-primitives = { path = "../primitives" }
 crml-support = { path = "../crml/support" }
-sp-api = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-application-crypto = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-arithmetic = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-blockchain = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-consensus = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-keystore = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-utils = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-api = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sc-utils = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
 
-sc-client-api = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-keystore = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-network = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev" }
-sc-network-gossip = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.10.0-dev" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sc-network = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sc-network-gossip = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
 
 [dev-dependencies]
-sc-network-test = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", version = "0.8.0" }
+sc-network-test = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", version = "0.8.0" }
 hex-literal = "*"

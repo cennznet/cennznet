@@ -14,20 +14,20 @@ serde = { version = "1.0.106", features = ["derive"], optional = true, default-f
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 crml-support = { path = "../support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+pallet-evm = { default-features = false, git = "https://github.com/paritytech/frontier", rev = "f508edbe6e2849461c2323da294fac1a90fda451" }
+sp-io = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 hex-literal = "0.3.1"
 libsecp256k1 = { version = "0.6.0" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
-sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default_features = false }
+pallet-balances = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
+sp-keyring = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default_features = false }
 
 [features]
 default = ["std"]
