@@ -16,7 +16,7 @@
 //! NFT module types
 
 use crate::Config;
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber, TokenId};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use scale_info::TypeInfo;
@@ -424,9 +424,6 @@ pub type MarketplaceId = u32;
 
 /// Unique Id for a listing
 pub type ListingId = u128;
-
-/// Denotes a quantitiy of tokens
-pub type TokenCount = SerialNumber;
 
 // A value placed in storage that represents the current version of the NFT storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.

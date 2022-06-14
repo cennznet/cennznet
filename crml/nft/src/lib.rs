@@ -32,7 +32,7 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenCount, TokenId};
 use crml_support::{log, IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
