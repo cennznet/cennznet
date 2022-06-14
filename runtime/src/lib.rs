@@ -50,9 +50,9 @@ use static_assertions::const_assert;
 
 use crml_staking::rewards as crml_staking_rewards;
 pub use crml_staking::StakerStatus;
-use crml_support::{PrefixedAddressMapping, H160, H256, U256};
+use crml_support::{log, PrefixedAddressMapping, H160, H256, U256};
 pub use frame_support::{
-	construct_runtime, debug,
+	construct_runtime,
 	dispatch::GetDispatchInfo,
 	ord_parameter_types, parameter_types,
 	traits::{Currency, FindAuthor, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, U128CurrencyToVote},
@@ -113,6 +113,9 @@ use runner::FeePreferencesRunner;
 /// Deprecated host functions required for syncing blocks prior to 2.0 upgrade
 pub mod legacy_host_functions;
 
+/// Logging target for runtime level components
+pub(crate) const LOG_TARGET: &str = "runtime";
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -135,9 +138,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 1,
 	// Per convention: if the runtime behavior changes, increment `spec_version`
 	// and set `impl_version` to equal spec_version. If only runtime
-	// implementation chabges and behavior does not, then leave `spec_version` as
+	// implementation changes and behavior does not, then leave `spec_version` as
 	// is and increment `impl_version`.
-	spec_version: 58,
+	spec_version: 62,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -156,6 +159,20 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion {
 		runtime_version: VERSION,
 		can_author_with: Default::default(),
+	}
+}
+
+parameter_types! {
+	storage StateOracleIsActive: bool = false;
+}
+/// Prevent state oracle transactions from executing
+pub struct StateOracleCallFilter;
+impl frame_support::traits::Contains<Call> for StateOracleCallFilter {
+	fn contains(call: &Call) -> bool {
+		match call {
+			Call::EthStateOracle(_) => StateOracleIsActive::get(),
+			_ => true,
+		}
 	}
 }
 
@@ -200,7 +217,7 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = StateOracleCallFilter;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -449,10 +466,12 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
 	/// Max. members of the council
 	pub const MaxCouncilSize: u16 = 255;
+	pub storage MinimumRegisteredIdentities: u32 = 2;
 }
 impl crml_governance::Config for Runtime {
 	type Call = Call;
 	type Currency = SpendingAssetCurrency<Self>;
+	type MinimumRegisteredIdentities = MinimumRegisteredIdentities;
 	type MaxCouncilSize = MaxCouncilSize;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
@@ -867,7 +886,7 @@ where
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
+				log!(warn, "unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
@@ -1491,7 +1510,6 @@ fn validate_self_contained_inner(
 		};
 		let extra_validation = SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
 		// Then, do the controls defined by the ethereum pallet.
-		use fp_self_contained::SelfContainedCall as _;
 		let self_contained_validation = eth_call
 			.validate_self_contained(signed_info)
 			.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??;

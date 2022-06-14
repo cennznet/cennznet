@@ -1,7 +1,7 @@
 [package]
 name = "crml-eth-bridge"
-version = "1.0.0"
-edition = "2018"
+version = "1.0.1"
+edition = "2021"
 authors = ["Centrality Developers <support@centrality.ai>"]
 description = "Module for bridging Ethereum events"
 license = "GPL-3.0"

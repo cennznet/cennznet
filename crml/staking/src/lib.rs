@@ -222,7 +222,7 @@ mod slashing;
 pub use slashing::REWARD_F1;
 
 use codec::HasCompact;
-use crml_support::StakingAmount;
+use crml_support::{log, StakingAmount};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
@@ -258,17 +258,6 @@ const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as NposSolution>::LIMIT;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
 
 // Note: Maximum nomination limit is set here -- 16.
 generate_solution_type!(

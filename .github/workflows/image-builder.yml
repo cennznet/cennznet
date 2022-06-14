@@ -28,16 +28,13 @@ on:
 
 jobs:
   build-image:
-    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'develop')
+    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'develop') || contains(github.ref_name, 'release')
     # only run if release branch CI build passes or its a push to develop
     runs-on: [self-hosted, linux]
     env:
       IMAGE_NAME: "cennznet/cennznet"
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
       - name: Build 🛠 & Publish 🐳
         env:
           DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
@@ -50,8 +47,9 @@ jobs:
           echo "commit hash: $COMMIT_HASH"
           COMMIT_TAG=$((git describe --exact-match --tags HEAD) || true)
           echo "commit tag(?): $COMMIT_TAG"
-          RELEASE_TAG=$(git rev-parse --abbrev-ref HEAD | grep -oP '(?<=release/).*' || true)
-          echo "commit tag(?): $RELEASE_TAG"
+          RELEASE_TAG=$(echo -n $GITHUB_REF | grep -oP '(?<=release/).*' || true)
+          echo "github ref: $GITHUB_REF"
+          echo "release tag(?): $RELEASE_TAG"
 
           docker build -t "$IMAGE_NAME":"$COMMIT_HASH" -t "$IMAGE_NAME":latest -f ./Dockerfile .
 

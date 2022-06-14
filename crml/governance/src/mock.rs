@@ -144,10 +144,12 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
 	pub const MaxCouncilSize: u16 = 3;
+	pub const MinimumRegisteredIdentities: u32 = 2;
 }
 impl crate::Config for Test {
 	type Call = Call;
 	type Currency = StakingAssetCurrency<Self>;
+	type MinimumRegisteredIdentities = MinimumRegisteredIdentities;
 	type MaxCouncilSize = MaxCouncilSize;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;

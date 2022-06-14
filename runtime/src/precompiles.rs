@@ -1,7 +1,7 @@
-use crate::constants::evm::PEG_PRECOMPILE;
 use crate::{
-	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY},
-	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime, StateOraclePrecompileAddress,
+	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY, PEG_PRECOMPILE},
+	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime, StateOracleIsActive,
+	StateOraclePrecompileAddress,
 };
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
@@ -77,7 +77,7 @@ where
 			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
 			// CENNZnet precompiles:
 			a if a == hash(FEE_PROXY) => None,
-			a if a == StateOraclePrecompileAddress::get() => Some(
+			a if a == StateOraclePrecompileAddress::get() && StateOracleIsActive::get() => Some(
 				StateOraclePrecompile::<EthStateOracle, Runtime>::execute(input, target_gas, context, is_static),
 			),
 			a if a == hash(PEG_PRECOMPILE) => Some(Erc20PegPrecompile::<Runtime>::execute(
