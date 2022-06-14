@@ -892,6 +892,7 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc20-peg",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-nft",
  "pallet-evm-precompiles-state-oracle",
  "pallet-grandpa",
  "pallet-identity",
@@ -5001,6 +5002,25 @@ dependencies = [
  "num_enum",
  "pallet-evm",
  "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-nft"
+version = "2.0.0"
+dependencies = [
+ "cennznet-primitives",
+ "crml-nft",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "pallet-evm-precompiles-erc20",
  "precompile-utils",
  "scale-info",
  "sp-core",

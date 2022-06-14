@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenCount, TokenId};
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -45,7 +45,6 @@ pub enum Action {
 	TransferFrom = "transferFrom(address,address,uint256)",
 	SafeTransferFrom = "safeTransferFrom(address,address,uint256)",
 	SafeTransferFromCallData = "safeTransferFrom(address,address,uint256,bytes)",
-	MintAdditional = "mintAdditional(address,uint256,address)",
 	Approve = "approve(address,uint256)",
 	GetApproved = "getApproved(uint256)",
 	IsApprovedForAll = "isApprovedForAll(address,address)",
@@ -141,7 +140,6 @@ where
 						Action::Name => Self::name(series_id_parts, gasometer),
 						Action::Symbol => Self::symbol(series_id_parts, gasometer),
 						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
-						Action::MintAdditional => Self::mint_additional(series_id_parts, input, gasometer, context),
 						Action::Approve => Self::approve(series_id_parts, input, gasometer, context),
 						Action::GetApproved => Self::get_approved(series_id_parts, input, gasometer),
 						// TODO: implement approval stuff
@@ -308,54 +306,6 @@ where
 					EvmDataWriter::new().write(serial_number).build(),
 				)
 				.build(),
-		})
-	}
-
-	fn mint_additional(
-		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
-		context: &Context,
-	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_log_costs_manual(3, 32)?;
-
-		// Parse input.
-		input.expect_arguments(gasometer, 3)?;
-
-		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let quantity = input.read::<U256>(gasometer)?;
-		if quantity > TokenCount::MAX.into() {
-			return Err(error("expected quantity <= 2^32").into());
-		}
-		let quantity: TokenCount = quantity.saturated_into();
-		let owner: H160 = input.read::<Address>(gasometer)?.into();
-		let owner = if owner == H160::default() {
-			None
-		} else {
-			Some(Runtime::AddressMapping::into_account_id(owner))
-		};
-		let collection_id = series_id_parts.0;
-		let series_id = series_id_parts.1;
-		let origin = Runtime::AddressMapping::into_account_id(context.caller);
-
-		// Dispatch call (if enough gas).
-		RuntimeHelper::<Runtime>::try_dispatch(
-			Some(origin).into(),
-			crml_nft::Call::<Runtime>::mint_additional {
-				collection_id,
-				series_id,
-				quantity,
-				owner,
-			},
-			gasometer,
-		)?;
-
-		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
-			output: EvmDataWriter::new().write(quantity).build(),
-			logs: vec![],
 		})
 	}
 
