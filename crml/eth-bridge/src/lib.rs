@@ -49,8 +49,8 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	log, EthAbiCodec, EventClaimSubscriber, EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
-	NotarizationRewardHandler,
+	log, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EventClaimSubscriber, EventClaimVerifier,
+	FinalSessionTracker as FinalSessionTrackerT, NotarizationRewardHandler,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
@@ -71,14 +71,14 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 	DispatchError, Percent, RuntimeAppPublic,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
-const CLAIMS_PER_BLOCK: u64 = 3;
-/// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
-const REQUEST_TTL_MS: u64 = 2_500;
+const CLAIMS_PER_BLOCK: usize = 1;
+/// Max eth_call checks to attempt per block/OCW invocation
+const CALLS_PER_BLOCK: usize = 1;
 /// Bucket claims in intervals of this factor (seconds)
 const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 /// Number of blocks between claim pruning
@@ -88,6 +88,8 @@ pub(crate) const LOG_TARGET: &str = "eth-bridge";
 
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+	/// Receives results of notarized eth calls
+	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
 	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
@@ -95,7 +97,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The threshold of notarizations required to approve an Ethereum
+	/// The threshold of notarizations required to approve an Ethereum event
 	type NotarizationThreshold: Get<Percent>;
 	/// Rewards notaries for participating in claims
 	type RewardHandler: NotarizationRewardHandler<AccountId = Self::AccountId>;
@@ -161,6 +163,16 @@ decl_storage! {
 		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
+		/// Subscription Id for EthCall requests
+		NextEthCallId: EthCallId;
+		/// Queue of pending EthCallOracle requests
+		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
+		/// EthCallOracle notarizations keyed by (Id, Notary)
+		EthCallNotarizations: double_map hasher(twox_64_concat) EthCallId, hasher(twox_64_concat) T::EthyId => Option<CheckedEthCallResult>;
+		/// map from EthCallOracle notarizations to an aggregated count
+		EthCallNotarizationsAggregated get(fn eth_call_notarizations_aggregated): map hasher(twox_64_concat) EthCallId => Option<BTreeMap<CheckedEthCallResult, u32>>;
+		/// EthCallOracle request info
+		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<CheckedEthCallRequest>;
 	}
 }
 
@@ -268,77 +280,32 @@ decl_module! {
 		#[transactional]
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
-		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::EthyId as RuntimeAppPublic>::Signature) {
+		pub fn submit_notarization(origin, payload: NotarizationPayload, _signature: <<T as Config>::EthyId as RuntimeAppPublic>::Signature) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
 			// `validate_unsigned` function when sending out the unsigned tx.
+			let authority_index = payload.authority_index() as usize;
 			let notary_keys = Self::notary_keys();
-			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
+			let notary_public_key = match notary_keys.get(authority_index) {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
-			<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(payload.event_claim_id, notary_public_key.clone(), payload.result);
 
-			T::AuthoritySet::validators().get(payload.authority_index as usize)
-				.map(|v| T::RewardHandler::reward_notary(v));
+			let notarization_result = match payload {
+				NotarizationPayload::Call{ call_id, result, .. } => Self::handle_call_notarization(call_id, result, notary_public_key),
+				NotarizationPayload::Event{ event_claim_id, result, .. } => Self::handle_event_notarization(event_claim_id, result, notary_public_key),
+			};
 
-			// Count notarization votes
-			let notary_count = T::AuthoritySet::validators().len() as u32;
-			let mut yay_count = 0_u32;
-			let mut nay_count = 0_u32;
-			for (_id, result) in <EventNotarizations<T>>::iter_prefix(payload.event_claim_id) {
-				match result {
-					EventClaimResult::Valid => yay_count += 1,
-					_ => nay_count += 1,
-				}
+			if notarization_result.is_ok() {
+				// TODO: only reward votes with majority
+				// add validator reward points
+				T::AuthoritySet::validators()
+					.get(authority_index)
+					.map(|v| T::RewardHandler::reward_notary(v));
 			}
 
-			// Claim is invalid (nays > (100% - NotarizationThreshold))
-			if Percent::from_rational(nay_count, notary_count) > (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct())) {
-				// event did not notarize / failed, clean up
-				let event_data = EventData::take(payload.event_claim_id);
-				if event_data.is_none() {
-					// this should never happen
-					log!(error, "💎 unexpected empty claim");
-					return Err(Error::<T>::InvalidClaim.into())
-				}
-				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id, None);
-				let (eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
-				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
-				let event_data = event_data.unwrap();
-				PendingTxHashes::remove(eth_tx_hash);
-				Self::deposit_event(Event::Invalid(payload.event_claim_id));
-
-				T::Subscribers::on_failure(payload.event_claim_id, &contract_address, &event_signature, &event_data);
-				return Ok(());
-			}
-
-			// Claim is valid
-			if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
-				let event_data = EventData::take(payload.event_claim_id);
-				if event_data.is_none() {
-					// this should never happen
-					log!(error, "💎 unexpected empty claim");
-					return Err(Error::<T>::InvalidClaim.into())
-				}
-				// no need to track info on this claim any more since it's approved
-				<EventNotarizations<T>>::remove_prefix(payload.event_claim_id, None);
-				let (eth_tx_hash, event_type_id) = EventClaims::take(payload.event_claim_id);
-				let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
-				let event_data = event_data.unwrap();
-
-				// note this tx as completed
-				let ttl = Self::event_deadline_seconds();
-				// calculate future expiry timestamp and bucket
-				let bucket_index = ((T::UnixTime::now().as_secs().saturated_into::<u64>() + ttl) % ttl) / BUCKET_FACTOR_S;
-				ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
-				ProcessedTxHashes::insert(eth_tx_hash, ());
-				PendingTxHashes::remove(eth_tx_hash);
-				Self::deposit_event(Event::Verified(payload.event_claim_id));
-
-				T::Subscribers::on_success(payload.event_claim_id, &contract_address, &event_signature, &event_data);
-			}
+			notarization_result
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
@@ -353,7 +320,18 @@ decl_module! {
 
 			// check a local key exists for a valid bridge notary
 			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
+				// check enough validators have active notary keys
+				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let needed = Self::activation_threshold();
+				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
+					return;
+				}
+				// do some notarizing
 				Self::do_event_notarization_ocw(&active_key, authority_index);
+				Self::do_call_notarization_ocw(&active_key, authority_index);
+			} else {
+				log!(trace, "💎 not an active validator, exiting");
 			}
 
 			log!(trace, "💎 exiting off-chain worker");
@@ -458,36 +436,14 @@ impl<T: Config> Module<T> {
 			return;
 		}
 
-		let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
-		let needed = Self::activation_threshold();
-		let total = T::AuthoritySet::validators().len();
-		if Percent::from_rational(supports, total) < needed {
-			log!(
-				info,
-				"💎 waiting for validator support to activate eth bridge: {:?}/{:?}",
-				supports,
-				needed
-			);
-			return;
-		}
-
 		// check all pending claims we have _yet_ to notarize and try to notarize them
 		// this will be invoked once every block
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block production
-		let mut budget = CLAIMS_PER_BLOCK;
-		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter() {
-			if budget.is_zero() {
-				log!(info, "💎 claims budget exceeded, exiting...");
-				return;
-			}
-
+		// TODO: make this FIFO
+		for (event_claim_id, (tx_hash, event_type_id)) in EventClaims::iter().take(CLAIMS_PER_BLOCK) {
 			// skip if we've notarized it previously
 			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(event_claim_id, active_key.clone()) {
-				log!(
-					trace,
-					"💎 already cast notarization for claim: {:?}, ignoring...",
-					event_claim_id
-				);
+				log!(trace, "💎 already notarized claim: {:?}, ignoring...", event_claim_id);
 				continue;
 			}
 
@@ -501,7 +457,7 @@ impl<T: Config> Module<T> {
 				};
 				let result = Self::offchain_try_notarize_event(event_claim);
 				log!(trace, "💎 claim verification status: {:?}", &result);
-				let payload = NotarizationPayload {
+				let payload = NotarizationPayload::Event {
 					event_claim_id,
 					authority_index,
 					result: result.clone(),
@@ -518,9 +474,8 @@ impl<T: Config> Module<T> {
 							event_claim_id
 						);
 					});
-				budget = budget.saturating_sub(1);
 			} else {
-				// should not happen, defensive only
+				// should not happen
 				log!(error, "💎 empty claim data for: {:?}", event_claim_id);
 			}
 		}
@@ -616,7 +571,7 @@ impl<T: Config> Module<T> {
 
 		//  check the block this tx is in if the timestamp > deadline
 		let observed_block: EthBlock =
-			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(observed_block_number as u32)) {
+			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(observed_block_number)) {
 				Ok(None) => return EventClaimResult::DataProviderErr,
 				Ok(Some(block)) => block,
 				Err(err) => {
@@ -640,6 +595,136 @@ impl<T: Config> Module<T> {
 		EventClaimResult::Valid
 	}
 
+	/// Handle OCW eth call checking protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	fn do_call_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
+		// we limit the total claims per invocation using `CALLS_PER_BLOCK` so we don't stall block production
+		for call_id in EthCallRequests::get().iter().take(CALLS_PER_BLOCK) {
+			// skip if we've notarized it previously
+			if <EthCallNotarizations<T>>::contains_key::<EthCallId, T::EthyId>(*call_id, active_key.clone()) {
+				log!(trace, "💎 already notarized call: {:?}, ignoring...", call_id);
+				continue;
+			}
+
+			if let Some(request) = Self::eth_call_request_info(call_id) {
+				let result = Self::offchain_try_eth_call(&request);
+				log!(trace, "💎 checked call status: {:?}", &result);
+				let payload = NotarizationPayload::Call {
+					call_id: *call_id,
+					authority_index,
+					result: result.clone(),
+				};
+				let _ = Self::offchain_send_notarization(&active_key, payload)
+					.map_err(|err| {
+						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+					})
+					.map(|_| {
+						log!(info, "💎 sent notarization: '{:?}' for call: {:?}", result, call_id,);
+					});
+			} else {
+				// should not happen
+				log!(error, "💎 empty call for: {:?}", call_id);
+			}
+		}
+	}
+
+	/// Performs an `eth_call` request to the bridged ethereum network
+	///
+	/// The call will be executed at `try_block_number` if it is within `max_block_look_behind` blocks
+	/// of the latest ethereum block, otherwise the call is executed at the latest ethereum block.
+	///
+	/// `request` - details of the `eth_call` request to perform
+	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t < latest`
+	/// `max_block_look_behind` - max ethereum blocks to look back from head
+	///
+	fn offchain_try_eth_call(request: &CheckedEthCallRequest) -> CheckedEthCallResult {
+		// OCW has 1 block to do all its stuff, so needs to be kept light
+		//
+		// basic flow of this function:
+		// 1) get latest ethereum block
+		// 2) check relayed block # and timestamp is within acceptable range (based on `max_block_look_behind`)
+		// 3a) within range: do an eth_call at the relayed block
+		// 3b) out of range: do an eth_call at block number latest
+		let latest_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+			Ok(None) => return CheckedEthCallResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+				return CheckedEthCallResult::DataProviderErr;
+			}
+		};
+		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or missing this protocol should vote to abort
+		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
+		if latest_eth_block_timestamp == u64::max_value() {
+			return CheckedEthCallResult::InvalidTimestamp;
+		}
+		// latest ethereum block timestamp should be after the request
+		if latest_eth_block_timestamp < request.timestamp {
+			return CheckedEthCallResult::InvalidTimestamp;
+		}
+		let latest_eth_block_number = match latest_block.number {
+			Some(number) => {
+				if number.is_zero() || number.low_u64() == u64::max_value() {
+					return CheckedEthCallResult::InvalidEthBlock;
+				}
+				number.low_u64()
+			}
+			None => return CheckedEthCallResult::InvalidEthBlock,
+		};
+
+		// check relayed block # and timestamp is within acceptable range
+		let mut target_block_number = latest_eth_block_number;
+		let mut target_block_timestamp = latest_eth_block_timestamp;
+
+		// there can be delay between challenge submission and execution
+		// this should be factored into the acceptable block window, in normal conditions is should be < 5s
+		let check_delay = T::UnixTime::now().as_secs().saturating_sub(request.check_timestamp);
+		let extra_look_behind = check_delay / 12_u64; // lenient here, any delay >= 12s gets an extra block
+
+		let oldest_acceptable_eth_block = latest_eth_block_number
+			.saturating_sub(request.max_block_look_behind)
+			.saturating_sub(extra_look_behind);
+
+		if request.try_block_number >= oldest_acceptable_eth_block && request.try_block_number < latest_eth_block_number
+		{
+			let target_block: EthBlock =
+				match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Number(request.try_block_number)) {
+					Ok(None) => return CheckedEthCallResult::DataProviderErr,
+					Ok(Some(block)) => block,
+					Err(err) => {
+						log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
+						return CheckedEthCallResult::DataProviderErr;
+					}
+				};
+			target_block_number = request.try_block_number.into();
+			target_block_timestamp = target_block.timestamp.saturated_into();
+		}
+
+		let return_data = match T::EthereumRpcClient::eth_call(
+			request.target,
+			&request.input,
+			LatestOrNumber::Number(target_block_number),
+		) {
+			Ok(data) => {
+				if data.is_empty() {
+					return CheckedEthCallResult::ReturnDataEmpty;
+				} else {
+					data
+				}
+			}
+			Err(err) => {
+				log!(error, "💎 eth_call at: {:?}, failed: {:?}", target_block_number, err);
+				return CheckedEthCallResult::DataProviderErr;
+			}
+		};
+
+		// valid returndata is ethereum abi encoded and therefore always >= 32 bytes
+		match return_data.try_into() {
+			Ok(r) => CheckedEthCallResult::Ok(r, target_block_number, target_block_timestamp),
+			Err(_) => CheckedEthCallResult::ReturnDataExceedsLimit,
+		}
+	}
+
 	/// Send a notarization for the given claim
 	fn offchain_send_notarization(key: &T::EthyId, payload: NotarizationPayload) -> Result<(), Error<T>> {
 		let signature = key
@@ -653,9 +738,7 @@ impl<T: Config> Module<T> {
 
 		// Retrieve the signer to sign the payload
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)?;
-
-		Ok(())
+			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)
 	}
 
 	/// Return the active Ethy validator set.
@@ -664,6 +747,162 @@ impl<T: Config> Module<T> {
 			validators: Self::notary_keys(),
 			id: Self::notary_set_id(),
 		}
+	}
+
+	/// Handle a submitted event notarization
+	fn handle_event_notarization(
+		event_claim_id: EventClaimId,
+		result: EventClaimResult,
+		notary_id: &T::EthyId,
+	) -> DispatchResult {
+		if !EventClaims::contains_key(event_claim_id) {
+			// there's no claim active
+			return Err(Error::<T>::InvalidClaim.into());
+		}
+
+		// Store the new notarization
+		<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(
+			event_claim_id,
+			notary_id.clone(),
+			result,
+		);
+
+		// Count notarization votes
+		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let mut yay_count = 0_u32;
+		let mut nay_count = 0_u32;
+		// TODO: store the count
+		for (_id, result) in <EventNotarizations<T>>::iter_prefix(event_claim_id) {
+			match result {
+				EventClaimResult::Valid => yay_count += 1,
+				_ => nay_count += 1,
+			}
+		}
+
+		// Claim is invalid (nays > (100% - NotarizationThreshold))
+		if Percent::from_rational(nay_count, notary_count)
+			> (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
+		{
+			// event did not notarize / failed, clean up
+			let event_data = EventData::take(event_claim_id);
+			if event_data.is_none() {
+				// this should never happen
+				log!(error, "💎 unexpected empty claim");
+				return Err(Error::<T>::InvalidClaim.into());
+			}
+			<EventNotarizations<T>>::remove_prefix(event_claim_id, None);
+			let (eth_tx_hash, event_type_id) = EventClaims::take(event_claim_id);
+			let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+			let event_data = event_data.unwrap();
+			PendingTxHashes::remove(eth_tx_hash);
+			Self::deposit_event(Event::Invalid(event_claim_id));
+
+			T::Subscribers::on_failure(event_claim_id, &contract_address, &event_signature, &event_data);
+			return Ok(());
+		}
+
+		// Claim is valid
+		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
+			let event_data = EventData::take(event_claim_id);
+			if event_data.is_none() {
+				// this should never happen
+				log!(error, "💎 unexpected empty claim");
+				return Err(Error::<T>::InvalidClaim.into());
+			}
+			// no need to track info on this claim any more since it's approved
+			<EventNotarizations<T>>::remove_prefix(event_claim_id, None);
+			let (eth_tx_hash, event_type_id) = EventClaims::take(event_claim_id);
+			let (contract_address, event_signature) = TypeIdToEventType::get(event_type_id);
+			let event_data = event_data.unwrap();
+
+			// note this tx as completed
+			let ttl = Self::event_deadline_seconds();
+			// calculate future expiry timestamp and bucket
+			let bucket_index = ((T::UnixTime::now().as_secs().saturated_into::<u64>() + ttl) % ttl) / BUCKET_FACTOR_S;
+			ProcessedTxBuckets::insert(bucket_index, eth_tx_hash, ());
+			ProcessedTxHashes::insert(eth_tx_hash, ());
+			PendingTxHashes::remove(eth_tx_hash);
+			Self::deposit_event(Event::Verified(event_claim_id));
+
+			T::Subscribers::on_success(event_claim_id, &contract_address, &event_signature, &event_data);
+		}
+
+		Ok(())
+	}
+
+	/// Handle a submitted call notarization
+	fn handle_call_notarization(
+		call_id: EthCallId,
+		result: CheckedEthCallResult,
+		notary_id: &T::EthyId,
+	) -> DispatchResult {
+		if !EthCallRequestInfo::contains_key(call_id) {
+			// there's no claim active
+			return Err(Error::<T>::InvalidClaim.into());
+		}
+
+		// Record the notarization (ensures the validator won't resubmit it)
+		<EthCallNotarizations<T>>::insert::<EventClaimId, T::EthyId, CheckedEthCallResult>(
+			call_id,
+			notary_id.clone(),
+			result.clone(),
+		);
+
+		// notify subscribers of a notarized eth_call outcome and clean upstate
+		let do_callback_and_clean_up = |result: CheckedEthCallResult| {
+			match result.clone() {
+				CheckedEthCallResult::Ok(return_data, block, timestamp) => {
+					T::EthCallSubscribers::on_eth_call_complete(call_id, &return_data, block, timestamp)
+				}
+				CheckedEthCallResult::ReturnDataEmpty => {
+					T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::ReturnDataEmpty)
+				}
+				CheckedEthCallResult::ReturnDataExceedsLimit => {
+					T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::ReturnDataExceedsLimit)
+				}
+				_ => T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::Internal),
+			}
+			EthCallNotarizations::<T>::remove_prefix(call_id, None);
+			EthCallNotarizationsAggregated::remove(call_id);
+			EthCallRequestInfo::remove(call_id);
+			EthCallRequests::mutate(|requests| {
+				requests
+					.iter()
+					.position(|x| *x == call_id)
+					.map(|idx| requests.remove(idx));
+				*requests = requests.clone();
+			});
+
+			Ok(())
+		};
+
+		let mut notarizations = EthCallNotarizationsAggregated::get(call_id).unwrap_or_default();
+		// increment notarization count for this result
+		*notarizations.entry(result.clone()).or_insert(0) += 1;
+
+		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let notarization_threshold = T::NotarizationThreshold::get();
+		let mut total_count = 0;
+		for (result, count) in notarizations.iter() {
+			// is there consensus on `result`?
+			if Percent::from_rational(*count, notary_count) >= notarization_threshold {
+				return do_callback_and_clean_up(result.clone());
+			}
+			total_count += count;
+		}
+
+		let outstanding_count = notary_count.saturating_sub(total_count);
+		let can_reach_consensus = notarizations.iter().any(|(_, count)| {
+			Percent::from_rational(count + outstanding_count, notary_count) >= notarization_threshold
+		});
+		// cannot or will not reach consensus based on current notarizations
+		if total_count == notary_count || !can_reach_consensus {
+			return do_callback_and_clean_up(result.clone());
+		}
+
+		// update counts
+		EthCallNotarizationsAggregated::insert(call_id, notarizations);
+		Ok(())
 	}
 
 	/// Handle changes to the authority set
@@ -746,17 +985,17 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		{
 			// notarization must be from an active notary
 			let notary_keys = Self::notary_keys();
-			let notary_public_key = match notary_keys.get(payload.authority_index as usize) {
+			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
 				Some(id) => id,
 				None => return InvalidTransaction::BadProof.into(),
 			};
 			// notarization must not be a duplicate/equivocation
-			if <EventNotarizations<T>>::contains_key(payload.event_claim_id, &notary_public_key) {
+			if <EventNotarizations<T>>::contains_key(payload.payload_id(), &notary_public_key) {
 				log!(
 					error,
 					"💎 received equivocation from: {:?} on {:?}",
 					notary_public_key,
-					payload.event_claim_id
+					payload.payload_id()
 				);
 				return InvalidTransaction::BadProof.into();
 			}
@@ -769,8 +1008,9 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 				// 'provides' must be unique for each submission on the network (i.e. unique for each claim id and validator)
 				.and_provides([
 					b"notarize",
-					&payload.event_claim_id.to_be_bytes(),
-					&(payload.authority_index as u64).to_be_bytes(),
+					&payload.type_id().to_be_bytes(),
+					&payload.payload_id().to_be_bytes(),
+					&(payload.authority_index() as u64).to_be_bytes(),
 				])
 				.longevity(3)
 				.propagate(true)
@@ -835,7 +1075,41 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_disabled(_i: u32) {
-		// TODO: remove disabled validator from claim voting?
+	fn on_disabled(_i: u32) {}
+}
+
+impl<T: Config> EthCallOracle for Module<T> {
+	type Address = EthAddress;
+	type CallId = EthCallId;
+	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
+	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
+	/// `timestamp` - cennznet timestamp of the request
+	/// `try_block_number` - ethereum block number hint
+	///
+	/// Returns a call Id for subscribers
+	fn checked_eth_call(
+		target: &Self::Address,
+		input: &[u8],
+		timestamp: u64,
+		try_block_number: u64,
+		max_block_look_behind: u64,
+	) -> Self::CallId {
+		// store the job for validators to process async
+		let call_id = NextEthCallId::get();
+		EthCallRequestInfo::insert(
+			call_id,
+			CheckedEthCallRequest {
+				check_timestamp: T::UnixTime::now().as_secs(),
+				input: input.to_vec(),
+				target: *target,
+				timestamp,
+				try_block_number,
+				max_block_look_behind,
+			},
+		);
+		EthCallRequests::append(call_id);
+		NextEthCallId::put(call_id + 1);
+
+		call_id
 	}
 }

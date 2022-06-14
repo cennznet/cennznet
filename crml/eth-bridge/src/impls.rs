@@ -18,7 +18,6 @@ use crate::{
 		BridgeEthereumRpcApi, BridgeRpcError, Bytes, EthAddress, EthBlock, EthCallRpcRequest, EthHash, EthResponse,
 		GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
 	},
-	REQUEST_TTL_MS,
 };
 use crml_support::log;
 use sp_runtime::offchain::StorageKind;
@@ -28,6 +27,10 @@ use sp_std::prelude::*;
 use sp_std::alloc::string::ToString;
 #[cfg(std)]
 use std::string::ToString;
+
+/// Deadline for any network requests e.g.to Eth JSON-RPC endpoint
+/// Allows ~3 offchain requests per block
+const REQUEST_TTL_MS: u64 = 1_500;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
 pub struct EthereumRpcClient;
@@ -50,6 +53,7 @@ impl BridgeEthereumRpcApi for EthereumRpcClient {
 
 	/// Get latest block number from eth client
 	fn get_block_by_number(req: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
+		// TODO: #670 add a block cache
 		let request = match req {
 			LatestOrNumber::Latest => GetBlockRequest::latest(1_usize),
 			LatestOrNumber::Number(n) => GetBlockRequest::for_number(1_usize, n),

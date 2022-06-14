@@ -48,7 +48,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Pallet, Call, Config<T>, Storage, Event<T>},
-		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -106,6 +106,9 @@ parameter_types! {
 	pub const ChallengePeriod: BlockNumber = 5;
 	pub const MinGasPrice: u64 = 1;
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
+	pub RelayerBondAmount: Balance = 1_000_000_000;
+	pub MaxRequestsPerBlock: u32 = 30;
+	pub MaxRelayerCount: u32 = 1;
 }
 impl Config for TestRuntime {
 	type AddressMapping = SimpleAddressMapping<AccountId>;
@@ -119,6 +122,9 @@ impl Config for TestRuntime {
 	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
 	type BuyFeeAsset = MockBuyFeeAsset;
+	type RelayerBondAmount = RelayerBondAmount;
+	type MaxRequestsPerBlock = MaxRequestsPerBlock;
+	type MaxRelayerCount = MaxRelayerCount;
 }
 
 pub struct MockBuyFeeAsset;
@@ -138,6 +144,7 @@ impl BuyFeeAsset for MockBuyFeeAsset {
 			.ok_or(DispatchError::Other("No Balance"))?;
 		GenericAsset::make_free_balance_be(&who, fee_exchange.asset_id(), new_balance);
 		let _ = GenericAsset::deposit_into_existing(&who, GenericAsset::fee_currency(), amount)?;
+
 		Ok(amount)
 	}
 
