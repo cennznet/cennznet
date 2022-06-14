@@ -49,11 +49,11 @@ use cennznet_primitives::{
 };
 use codec::Encode;
 use crml_support::{
-	EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EventClaimSubscriber, EventClaimVerifier,
+	log, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EventClaimSubscriber, EventClaimVerifier,
 	FinalSessionTracker as FinalSessionTrackerT, NotarizationRewardHandler,
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, log,
+	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
@@ -85,17 +85,6 @@ const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
 const CLAIM_PRUNING_INTERVAL: BlockNumber = BUCKET_FACTOR_S as u32 / 5_u32;
 
 pub(crate) const LOG_TARGET: &str = "eth-bridge";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
 
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {

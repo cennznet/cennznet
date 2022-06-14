@@ -1,15 +1,14 @@
 [package]
 name = "crml-nft"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
 description = "CENNZnet NFT module"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.102", default-features = false, features = ["derive"], optional = true }
-log = { version = "0.4.14", default-features = false }
 variant_count = "1.0.0"
 hex = { version = "0.4.3", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }

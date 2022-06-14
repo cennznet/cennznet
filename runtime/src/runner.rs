@@ -19,7 +19,7 @@ use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange},
 };
-use crml_support::{scale_wei_to_4dp, H160, H256, U256};
+use crml_support::{log, scale_wei_to_4dp, H160, H256, U256};
 use ethabi::{ParamType, Token};
 use frame_support::ensure;
 use pallet_evm::{
@@ -108,7 +108,7 @@ where
 				ensure!(max_fee_per_gas >= base_fee, FeePreferencesError::GasPriceTooLow);
 				max_fee_per_gas
 			}
-			None => return Err(FeePreferencesError::GasPriceTooLow),
+			None => Default::default(),
 		};
 		let max_base_fee = max_fee_per_gas
 			.checked_mul(U256::from(gas_limit))
@@ -167,7 +167,15 @@ where
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|_| {
+			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|err| {
+				log!(
+					debug,
+					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
+					payment_asset,
+					max_payment,
+					total_fee,
+					err
+				);
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
 				Self::Error::WithdrawFailed
 			})?;
@@ -241,7 +249,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Runtime;
+	use crate::{BaseFee, Runtime};
 	use frame_support::{assert_noop, assert_ok};
 	use hex_literal::hex;
 
@@ -349,28 +357,28 @@ mod tests {
 	#[test]
 	fn calculate_total_gas_low_max_fee_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(200000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let gas_limit = 100_000_u64;
+			let max_fee_per_gas = BaseFee::min_gas_price().saturating_sub(1_u64.into());
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), None),
 				FeePreferencesError::GasPriceTooLow
 			);
 		});
 	}
 
 	#[test]
-	fn calculate_total_gas_no_max_fee_should_fail() {
+	fn calculate_total_gas_no_max_fee_ok() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
+			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
-			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let max_priority_fee_per_gas = U256::from(1_000_000_u64);
 
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, max_fee_per_gas, Some(max_priority_fee_per_gas),),
-				FeePreferencesError::GasPriceTooLow
-			);
+			assert_ok!(Runner::calculate_total_gas(
+				gas_limit,
+				max_fee_per_gas,
+				Some(max_priority_fee_per_gas)
+			));
 		});
 	}
 

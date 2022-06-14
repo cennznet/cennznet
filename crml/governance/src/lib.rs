@@ -27,7 +27,7 @@ pub use types::*;
 
 use cennznet_primitives::types::Balance;
 use codec::{Decode, Encode};
-use crml_support::{RegistrationInfo, StakingAmount};
+use crml_support::{log, RegistrationInfo, StakingAmount};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchResult, Dispatchable},
@@ -38,23 +38,24 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use log::warn;
 use sp_runtime::traits::Zero;
 use sp_runtime::Permill;
 use sp_std::prelude::*;
 
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
-/// Minimum number of registered identities required to become a council member
-const MINIMUM_REGISTERED_IDENTITIES: u32 = 2;
 /// The length in blocks of a referendum voting cycle
 const REFERENDUM_LENGTH: u32 = 21600;
 /// The interval in which the referendum ending is checked
 const REFERENDUM_CHECK_INTERVAL: u32 = 1000;
+/// The logging target for this module
+pub(crate) const LOG_TARGET: &str = "gov";
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
 	type MaxCouncilSize: Get<u16>;
+	/// Minimum registered identities for voters and councilors
+	type MinimumRegisteredIdentities: Get<u32>;
 	/// The Scheduler.
 	type Scheduler: ScheduleNamed<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
 	/// Overarching type of all pallets origins.
@@ -430,7 +431,7 @@ impl<T: Config> Module<T> {
 		// Check their verified identities
 		let registration: u32 = T::Registration::registered_identity_count(account);
 		ensure!(
-			registration >= MINIMUM_REGISTERED_IDENTITIES,
+			registration >= T::MinimumRegisteredIdentities::get(),
 			Error::<T>::NotEnoughRegistrations
 		);
 		Ok(())
@@ -446,7 +447,7 @@ impl<T: Config> Module<T> {
 		// Check their verified identities
 		let registration: u32 = T::Registration::registered_identity_count(account);
 		ensure!(
-			registration >= MINIMUM_REGISTERED_IDENTITIES,
+			registration >= T::MinimumRegisteredIdentities::get(),
 			Error::<T>::NotEnoughRegistrations
 		);
 		Ok(())
@@ -456,7 +457,7 @@ impl<T: Config> Module<T> {
 		let proposal = match Self::proposals(proposal_id) {
 			Some(proposal) => proposal,
 			None => {
-				warn!("clean up proposal: {:?} failed, not found", proposal_id);
+				log!(warn, "clean up proposal: {:?} failed, not found", proposal_id);
 				return;
 			}
 		};
@@ -485,7 +486,7 @@ impl<T: Config> Module<T> {
 				)
 				.is_err()
 				{
-					frame_support::print("LOGIC ERROR: governance/schedule_named failed");
+					log!(warn, "governance/schedule_named failed");
 				}
 				Self::deposit_event(Event::ReferendumApproved(proposal_id));
 				ProposalStatus::insert(proposal_id, ProposalStatusInfo::ApprovedWaitingEnactment);

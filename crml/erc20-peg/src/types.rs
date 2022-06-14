@@ -15,7 +15,6 @@
 use codec::{Decode, Encode};
 pub use crml_support::{EthAbiCodec, H160, H256, U256};
 use scale_info::TypeInfo;
-use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
 /// Ethereum address type

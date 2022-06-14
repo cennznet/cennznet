@@ -23,7 +23,7 @@ use crml_staking::{
 	rewards::{RunScheduledPayout, WeightInfo},
 	EraIndex, HandlePayee,
 };
-use crml_support::{H160, U256};
+use crml_support::{log, H160, U256};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -38,9 +38,8 @@ use frame_support::{
 };
 use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
-use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
-	traits::{SaturatedConversion, Zero},
+	traits::{SaturatedConversion, UniqueSaturatedInto, Zero},
 	ConsensusEngineId, Perbill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -231,10 +230,10 @@ where
 					tip.low_u128().unique_saturated_into(),
 				);
 			} else {
-				log::error!("Error processing priority fee, validator not found");
+				log!(error, "error processing priority fee, validator not found");
 			}
 		} else {
-			log::error!("Error processing priority fee, block author not found");
+			log!(error, "error processing priority fee, block author not found");
 		}
 	}
 }
@@ -285,8 +284,8 @@ impl<T: crml_staking::rewards::Config> RunScheduledPayout for ScheduledPayoutRun
 		let exposures = Staking::eras_stakers_clipped(payout_era, validator_stash);
 		let commission = Staking::eras_validator_prefs(payout_era, validator_stash).commission;
 
-		log::debug!(
-			target: "runtime::rewards",
+		log!(
+			debug,
 			"🏃‍♂️💰 reward payout for: ({:?}) worth: ({:?} CPAY) earned in: ({:?})",
 			validator_stash,
 			amount,

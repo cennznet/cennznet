@@ -13,15 +13,15 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 use crate::{
-	log,
 	rt_offchain::{http::Request, Duration},
 	types::{
 		BridgeEthereumRpcApi, BridgeRpcError, Bytes, EthAddress, EthBlock, EthCallRpcRequest, EthHash, EthResponse,
 		GetBlockRequest, GetTxReceiptRequest, LatestOrNumber, TransactionReceipt,
 	},
 };
+use crml_support::log;
 use sp_runtime::offchain::StorageKind;
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string::ToString;

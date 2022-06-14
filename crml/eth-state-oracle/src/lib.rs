@@ -16,16 +16,16 @@
 
 use cennznet_primitives::types::{AssetId, Balance, FeeExchange, FeePreferences};
 use crml_support::{
-	scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber,
+	log, scale_wei_to_4dp, ContractExecutor, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber,
 	EthereumStateOracle, MultiCurrency, H160,
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, log,
+	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
 	traits::{ExistenceRequirement, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use pallet_evm::{AddressMapping, GasWeightMapping};
 use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::{cmp::max, prelude::*};
@@ -39,19 +39,8 @@ use types::*;
 
 /// Avg ethereum block time
 const ETH_BLOCK_TIME_S: u64 = 15;
-
-pub(crate) const LOG_TARGET: &str = "state-oracle";
-
-// syntactic sugar for logging.
-#[macro_export]
-macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		log::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
-}
+/// logging target for this pallet
+pub(crate) const LOG_TARGET: &str = "sorc";
 
 pub trait Config: frame_system::Config {
 	/// Map evm address into ss58 address
@@ -92,6 +81,9 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthStateOracle {
 		/// Map from challenge subscription Id to its request
 		ChallengeSubscriptions: map hasher(twox_64_concat) ChallengeId => Option<RequestId>;
+		/// Maximum allowed timestamp drift of responses (ethereum vs. cennznet timestamps) in # _blocks_
+		/// Assumes an average block time of 15s
+		MaxResponseDrift get(fn max_response_drift): u64 = 2;
 		/// Unique identifier for remote call requests
 		NextRequestId get(fn next_request_id): RequestId;
 		/// Requests for remote 'eth_call's keyed by request Id
@@ -329,6 +321,13 @@ decl_module! {
 			Self::deposit_event(Event::<T>::RelayerBondRemoved(origin, bonded_amount));
 		}
 
+		/// Number of Ethereum blocks drift tolerated in responses
+		#[weight = 100_000]
+		pub fn set_max_response_drift(origin, n: u64) {
+			let _ = ensure_root(origin)?;
+			MaxResponseDrift::put(n);
+		}
+
 		/// Submit response for a a remote call request
 		///
 		/// `return_data` - the claimed `returndata` of the `eth_call` RPC using the requested contract and input buffer
@@ -361,10 +360,12 @@ decl_module! {
 			// if the type is dynamic i.e `[]T` or `bytes`, `returndata` length will be 32 * (offset + length + n)
 
 			if let Some(request) = Requests::get(request_id) {
-				// check response timestamp is within a sensible bound +3/-2 Ethereum blocks from the request timestamp
+				// ~ average ethereum block time
+				let max_response_drift_s = ETH_BLOCK_TIME_S * Self::max_response_drift();
+				// check response timestamp is within a sensible bound +/- Ethereum blocks from the request timestamp
 				ensure!(
-					eth_block_timestamp >= (request.timestamp.saturating_sub(2 * ETH_BLOCK_TIME_S)) &&
-					eth_block_timestamp <= (request.timestamp.saturating_add(3 * ETH_BLOCK_TIME_S)),
+					eth_block_timestamp >= (request.timestamp.saturating_sub(max_response_drift_s)) &&
+					eth_block_timestamp <= (request.timestamp.saturating_add(max_response_drift_s)),
 					Error::<T>::InvalidResponseTimestamp
 				);
 

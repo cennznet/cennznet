@@ -31,7 +31,6 @@ use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::convert::TryFrom;
 
 type AssetId = u32;
 type Balance = u128;
@@ -257,10 +256,6 @@ impl CallRequestBuilder {
 		self.0.expiry_block = expiry_block as u32;
 		self
 	}
-	pub fn input_data(mut self, input_data: &[u8]) -> Self {
-		self.0.input_data = input_data.to_vec();
-		self
-	}
 	pub fn bounty(mut self, bounty: Balance) -> Self {
 		self.0.bounty = bounty;
 		self
@@ -285,10 +280,6 @@ impl CallRequestBuilder {
 		self.0.callback_signature = callback_signature;
 		self
 	}
-	pub fn timestamp(mut self, timestamp: u64) -> Self {
-		self.0.timestamp = timestamp;
-		self
-	}
 }
 
 pub(crate) struct CallResponseBuilder(CallResponse<AccountId>);
@@ -306,10 +297,6 @@ impl CallResponseBuilder {
 	/// Return the built CallResponse
 	pub fn build(self) -> CallResponse<AccountId> {
 		self.0
-	}
-	pub fn eth_block_number(mut self, eth_block_number: u64) -> Self {
-		self.0.eth_block_number = eth_block_number;
-		self
 	}
 	pub fn eth_block_timestamp(mut self, eth_block_timestamp: u64) -> Self {
 		self.0.eth_block_timestamp = eth_block_timestamp;
