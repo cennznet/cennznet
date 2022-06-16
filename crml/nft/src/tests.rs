@@ -1984,6 +1984,36 @@ fn mint_series() {
 }
 
 #[test]
+fn mint_series_zero_quantity() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let quantity = 0; // Initial quantity of 0 should work
+		let series_id = Nft::next_series_id(collection_id);
+
+		// mint token Ids 0-4
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			collection_owner
+		)));
+
+		// check issuance
+		assert_eq!(Nft::series_issuance(collection_id, series_id), quantity);
+	});
+}
+
+#[test]
 fn mint_series_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;

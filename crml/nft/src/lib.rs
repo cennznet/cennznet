@@ -485,6 +485,7 @@ decl_module! {
 			owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
@@ -493,8 +494,8 @@ decl_module! {
 				return Err(Error::<T>::NoCollection.into());
 			}
 
+			ensure!(NextSerialNumber::contains_key(collection_id, series_id), Error::<T>::NoToken);
 			let serial_number = Self::next_serial_number(collection_id, series_id);
-			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(
 				serial_number.checked_add(quantity).is_some(),
 				Error::<T>::NoAvailableIds
@@ -1244,20 +1245,22 @@ impl<T: Config> Module<T> {
 		serial_number: SerialNumber,
 		quantity: TokenCount,
 	) -> DispatchResult {
-		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		if quantity > Zero::zero() {
+			// Mint the set tokens
+			for serial_number in serial_number..serial_number + quantity {
+				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+			}
 
-		// Mint the set tokens
-		for serial_number in serial_number..serial_number + quantity {
-			<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+			// update token balances
+			<TokenBalance<T>>::mutate(&owner, |balances| {
+				*balances.entry((collection_id, series_id)).or_default() += quantity
+			});
+			NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+		} else {
+			NextSerialNumber::insert(collection_id, series_id, 0);
 		}
 
-		// update token balances
-		<TokenBalance<T>>::mutate(&owner, |balances| {
-			*balances.entry((collection_id, series_id)).or_default() += quantity
-		});
 		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-
 		Ok(())
 	}
 
