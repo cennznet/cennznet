@@ -1991,7 +1991,7 @@ fn mint_series_zero_quantity() {
 		let quantity = 0; // Initial quantity of 0 should work
 		let series_id = Nft::next_series_id(collection_id);
 
-		// mint token Ids 0-4
+		// mint new series
 		assert_ok!(Nft::mint_series(
 			Some(collection_owner).into(),
 			collection_id,

@@ -18,7 +18,7 @@
 extern crate alloc;
 
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId, TokenCount};
-use crml_nft::{MetadataScheme, RoyaltiesSchedule};
+use crml_nft::{weights::WeightInfo, MetadataScheme, RoyaltiesSchedule};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{dispatch::PostDispatchInfo, weights::GetDispatchInfo};
 use pallet_evm::{AddressMapping, ExitRevert, Precompile};
@@ -122,13 +122,8 @@ where
 		let metadata_path: Bytes = input.read::<Bytes>(gasometer)?.into();
 		let metadata_path: Vec<u8> = metadata_path.as_bytes().to_vec();
 
-		let metadata_scheme: MetadataScheme = match metadata_type {
-			0 => MetadataScheme::Https(metadata_path),
-			1 => MetadataScheme::Http(metadata_path),
-			2 => MetadataScheme::IpfsDir(metadata_path),
-			3 => MetadataScheme::IpfsShared(metadata_path),
-			_ => return Err(error("Invalid metadata_type, expected u8 <= 3").into()),
-		};
+		let metadata_scheme = MetadataScheme::from_index(metadata_type, metadata_path)
+			.map_err(|_| error("Invalid metadata_type, expected u8 <= 3").into())?;
 
 		let royalty_addresses: Vec<Address> = input.read::<Vec<Address>>(gasometer)?.into();
 		let royalty_entitlements: Vec<U256> = input.read::<Vec<U256>>(gasometer)?.into();
@@ -151,7 +146,7 @@ where
 		};
 
 		let origin = T::AddressMapping::into_account_id(*caller);
-		gasometer.record_cost(RuntimeHelper::<T>::db_read_gas_cost() * 6)?; // TODO, better estimate
+		gasometer.record_cost(<T as crml_nft::Config>::WeightInfo::mint_series(0))?;
 
 		// Dispatch call (if enough gas).
 		let series_id =
@@ -224,7 +219,7 @@ where
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
 			cost: gasometer.used_gas(),
-			output: EvmDataWriter::new().write(quantity).build(),
+			output: EvmDataWriter::new().write(true).build(),
 			logs: vec![],
 		})
 	}

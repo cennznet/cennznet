@@ -110,6 +110,16 @@ impl MetadataScheme {
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
 		})
 	}
+	/// Returns a MetadataScheme from an index and metadata_path
+	pub fn from_index(index: u8, metadata_path: Vec<u8>) -> Result<Self, ()> {
+		match index {
+			0 => Ok(MetadataScheme::Https(metadata_path)),
+			1 => Ok(MetadataScheme::Http(metadata_path)),
+			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
+			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
+			_ => return Err(()),
+		}
+	}
 }
 
 /// Name of an NFT attribute

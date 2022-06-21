@@ -53,7 +53,7 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod weights;
+pub mod weights;
 use weights::WeightInfo;
 
 mod migration;
