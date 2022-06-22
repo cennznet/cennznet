@@ -165,6 +165,8 @@ where
 			let total_fee_required = scale_wei_to_4dp(total_fee); // this is the CPAY amount required for exchange of fee asset
 			// get decimals of payment asset and use it in a function along with slippage to calculate max_payment
 			// const decimal_places = crml_generic_asset::Pallet::<Runtime>::asset_meta(payment_asset).decimal_places();
+			// OR get cennzx buy price and add slippage to it
+			// buy_price(CPAY, fee, payment_asset) + add slippage to this value.
 			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee); // max payment needs to consider the decimals of payment_asset
 			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
