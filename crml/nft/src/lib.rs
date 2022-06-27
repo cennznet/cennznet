@@ -144,6 +144,8 @@ decl_event!(
 		OfferRejected(OfferId),
 		/// An offer has been cancelled (offer_id)
 		OfferCancelled(OfferId),
+		/// The token balances for a collection have been updated (collection_id, series_id)
+		TokenBalancesUpdated(CollectionId, SeriesId),
 	}
 );
 
@@ -1101,6 +1103,40 @@ decl_module! {
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
 			}
+		}
+
+		/// Runs through an NFT series and fixes the token balance storage for that series
+		/// Only required for NFT series created prior to the EVM update
+		#[weight = 100_000_000]
+		#[transactional]
+		fn update_token_balance (
+			origin,
+			collection_id: CollectionId,
+			series_id: SeriesId,
+		) -> DispatchResult {
+			let _origin = ensure_signed(origin)?;
+			ensure!(CollectionOwner::<T>::contains_key(collection_id), Error::<T>::NoCollection);
+			ensure!(SeriesMetadataScheme::contains_key(collection_id, series_id), Error::<T>::NoSeries);
+
+			let token_count = Self::next_serial_number(collection_id, series_id);
+			ensure!(token_count > 0, Error::<T>::NoToken);
+
+			// Find count of ownership for collection
+			let mut token_balance_maps: BTreeMap<T::AccountId, TokenCount> = BTreeMap::new();
+			for token_id in 0..token_count {
+				let owner = Self::token_owner((collection_id, series_id), token_id);
+				*token_balance_maps.entry(owner).or_default() += 1;
+			}
+
+			// update token balances
+			for (account, token_balance) in token_balance_maps {
+				<TokenBalance<T>>::mutate(&account, |balances| {
+					*balances.entry((collection_id, series_id)).or_default() = token_balance
+				});
+			}
+
+			Self::deposit_event(RawEvent::TokenBalancesUpdated(collection_id, series_id));
+			Ok(())
 		}
 	}
 }

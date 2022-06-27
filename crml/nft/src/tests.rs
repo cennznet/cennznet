@@ -18,6 +18,7 @@ use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test}
 use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
+use sp_std::collections::btree_map::BTreeMap;
 
 /// The asset Id used for payment in these tests
 const PAYMENT_ASSET: AssetId = 16_001;
@@ -2748,5 +2749,252 @@ fn accept_offer_not_token_owner_should_fail() {
 		);
 		assert_eq!(GenericAsset::reserved_balance(PAYMENT_ASSET, &buyer), offer_amount);
 		assert_eq!(GenericAsset::free_balance(PAYMENT_ASSET, &token_owner), 0);
+	});
+}
+
+#[test]
+fn transfer_changes_token_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let series_id: SeriesId = 0;
+		let token_owner = 2_u64;
+		let new_owner = 3_u64;
+		let initial_quantity: u32 = 1;
+		// Create BTreeMaps for both owners
+		let mut owner_map = BTreeMap::new();
+		let mut new_owner_map = BTreeMap::new();
+
+		// Mint 1 token
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			initial_quantity,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+
+		owner_map.insert((collection_id, series_id), initial_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+		assert_eq!(Nft::token_balance(new_owner), new_owner_map);
+
+		// Mint an additional 2 tokens
+		let additional_quantity: u32 = 2;
+		assert_ok!(Nft::mint_additional(
+			Some(collection_owner).into(),
+			collection_id,
+			series_id,
+			additional_quantity,
+			Some(token_owner),
+		));
+
+		owner_map.insert((collection_id, series_id), initial_quantity + additional_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+		assert_eq!(Nft::token_balance(new_owner), new_owner_map);
+
+		// Transfer 2 tokens
+		let tokens = vec![0_u32, 1_u32];
+		let transfer_quantity: u32 = tokens.len() as u32;
+		assert_ok!(Nft::transfer_batch(
+			Some(token_owner).into(),
+			collection_id,
+			series_id,
+			tokens.clone(),
+			new_owner,
+		));
+
+		owner_map.insert(
+			(collection_id, series_id),
+			initial_quantity + additional_quantity - transfer_quantity,
+		);
+		new_owner_map.insert((collection_id, series_id), transfer_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+		assert_eq!(Nft::token_balance(new_owner), new_owner_map);
+	});
+}
+
+#[test]
+fn transfer_many_tokens_changes_token_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let series_id: SeriesId = 0;
+		let token_owner = 2_u64;
+		let new_owner = 3_u64;
+		let initial_quantity: u32 = 100;
+		// Create BTreeMaps for both owners
+		let mut owner_map = BTreeMap::new();
+		let mut new_owner_map = BTreeMap::new();
+
+		// Mint 1 token
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			initial_quantity,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+
+		owner_map.insert((collection_id, series_id), initial_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+		assert_eq!(Nft::token_balance(new_owner), new_owner_map);
+
+		for i in 0_u32..initial_quantity {
+			// Transfer token
+			let token_id: TokenId = (collection_id, series_id, i);
+			assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
+
+			// Check storage
+			let changed_quantity = i + 1;
+			if changed_quantity == initial_quantity {
+				assert_eq!(Nft::token_balance(token_owner), BTreeMap::new());
+			} else {
+				owner_map.insert((collection_id, series_id), initial_quantity - changed_quantity);
+				assert_eq!(Nft::token_balance(token_owner), owner_map);
+			}
+			new_owner_map.insert((collection_id, series_id), changed_quantity);
+			assert_eq!(Nft::token_balance(new_owner), new_owner_map);
+		}
+	});
+}
+
+#[test]
+fn update_token_balance_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Runs update_token_balance on a series
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let series_id: SeriesId = 0;
+		let token_owner = 2_u64;
+		let quantity: TokenCount = 10;
+
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			1,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+
+		let mut token_owners: Vec<u64> = vec![];
+		for i in 1..quantity {
+			let token_owner: u64 = collection_owner + 1 + (i as u64);
+			token_owners.push(token_owner);
+			assert_ok!(Nft::mint_additional(
+				Some(collection_owner).into(),
+				collection_id,
+				series_id,
+				1,
+				Some(token_owner),
+			));
+
+			// Remove token_balance storage to simulate before EVM update
+			TokenBalance::<Test>::remove(token_owner);
+			assert_eq!(Nft::token_balance(token_owner), BTreeMap::new());
+		}
+
+		// Update token balances to fix storage
+		assert_ok!(Nft::update_token_balance(
+			Some(100_u64).into(),
+			collection_id,
+			series_id,
+		));
+		// event logged
+		assert!(has_event(RawEvent::TokenBalancesUpdated(collection_id, series_id)));
+
+		// Check that storage for each owner is correct
+		// Initial owner
+		let mut owner_map = BTreeMap::new();
+		owner_map.insert((collection_id, series_id), 1);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+		// additional owners
+		for owner in token_owners {
+			let mut owner_map = BTreeMap::new();
+			owner_map.insert((collection_id, series_id), 1);
+			assert_eq!(Nft::token_balance(owner), owner_map);
+		}
+	});
+}
+
+#[test]
+fn update_token_balance_no_collection_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Update token balances on no collection
+		assert_noop!(
+			Nft::update_token_balance(Some(100_u64).into(), 0, 0),
+			Error::<Test>::NoCollection
+		);
+	});
+}
+
+#[test]
+fn update_token_balance_no_series_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Update token balances on no series
+		let collection_id = setup_collection(1_u64);
+
+		assert_noop!(
+			Nft::update_token_balance(Some(100_u64).into(), collection_id, 0),
+			Error::<Test>::NoSeries
+		);
+	});
+}
+
+#[test]
+fn update_token_balance_multiple_collections() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Runs update_token_balance on a series while checking that it doesn't affect other collections
+		let collection_owner = 1_u64;
+		let collection_owner_2 = 200_u64;
+		let collection_id = setup_collection(collection_owner);
+		let collection_id_2 = setup_collection(collection_owner_2);
+		let series_id: SeriesId = 0;
+		let series_id_2: SeriesId = 0;
+		let token_owner = 2_u64;
+
+		// Mint first collection
+		let first_collection_quantity: TokenCount = 3;
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			first_collection_quantity,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+		// Remove token_balance storage to simulate before EVM update
+		TokenBalance::<Test>::remove(token_owner);
+		assert_eq!(Nft::token_balance(token_owner), BTreeMap::new());
+
+		// Mint second collection with same owner
+		let second_collection_quantity: TokenCount = 5;
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner_2).into(),
+			collection_id_2,
+			second_collection_quantity,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+		// Check storage for token owner only shows second collection
+		let mut owner_map = BTreeMap::new();
+		owner_map.insert((collection_id_2, series_id_2), second_collection_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
+
+		// Update token balances to fix storage
+		assert_ok!(Nft::update_token_balance(
+			Some(100_u64).into(),
+			collection_id,
+			series_id,
+		));
+
+		// Check that storage for token owner is correct
+		let mut owner_map = BTreeMap::new();
+		owner_map.insert((collection_id, series_id), first_collection_quantity);
+		owner_map.insert((collection_id_2, series_id_2), second_collection_quantity);
+		assert_eq!(Nft::token_balance(token_owner), owner_map);
 	});
 }
