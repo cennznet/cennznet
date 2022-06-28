@@ -98,7 +98,7 @@ fn initialize_series() {
 			// give caller some CPAY to fund the swap
 			let caller: H160 = hex!("7a107Fc1794f505Cb351148F529AcCae12fFbcD8").into();
 			let caller_ss58 = AddressMappingOf::<Runtime>::into_account_id(caller);
-			let initial_cpay_balance = 500 * DOLLARS;
+			let initial_cpay_balance = 50000 * DOLLARS;
 			let _ = GenericAsset::deposit_creating(&caller_ss58, CPAY_ASSET_ID, initial_cpay_balance);
 
 			// setup call to the nft precompile
@@ -126,7 +126,7 @@ fn initialize_series() {
 				royalty_addresses,
 				royalty_entitlements,
 			);
-			let gas_limit = 1_000_000_u64;
+			let gas_limit = 1_000_000_000_u64;
 			let max_fee_per_gas = Runtime::gas_price();
 			let max_priority_fee_per_gas = U256::zero();
 
