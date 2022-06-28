@@ -36,7 +36,7 @@ describe('GA precompiles', () => {
   ];
 
   const feeProxyAbi = [
-    'function callWithFeePreferences(uint32 asset, uint32 slippage, address target, bytes input)',
+    'function callWithFeePreferences(uint32 asset, uint128 max_payment, address target, bytes input)',
   ]
 
   before(async () => {
@@ -128,10 +128,10 @@ describe('GA precompiles', () => {
     let iface = new utils.Interface(erc20Abi);
     const transferInput = iface.encodeFunctionData("transfer", [receiverAddress, transferAmount]);
     const asset = 15000;
-    const slippage = 50;
+    const max_payment = 50;
 
     await expect(
-        feeProxy.callWithFeePreferences(asset, slippage, cennzTokenAddress, transferInput)
+        feeProxy.callWithFeePreferences(asset, max_payment, cennzTokenAddress, transferInput)
     ).to.reverted;
   }).timeout(15000);
 
@@ -142,7 +142,7 @@ describe('GA precompiles', () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const transferAmount = 12345;
     const asset = 16000;
-    const slippage = 50;
+    const max_payment = 50;
     const amount = 3_000_000_000;
     let iface = new utils.Interface(erc20Abi);
     const transferInput = iface.encodeFunctionData("transfer", [receiverAddress, transferAmount]);
@@ -153,7 +153,7 @@ describe('GA precompiles', () => {
     await sleep(6000);
 
     await expect(
-        feeProxy.callWithFeePreferences(asset, slippage, cennzTokenAddress, transferInput)
+        feeProxy.callWithFeePreferences(asset, max_payment, cennzTokenAddress, transferInput)
     ).to.emit(cennzToken, 'Transfer').withArgs(cennznetSigner.address, receiverAddress, transferAmount);
   }).timeout(30000);
 
