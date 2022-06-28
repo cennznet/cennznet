@@ -1,7 +1,7 @@
 ## TODO:
 - [ ] Implement challenge protocol
-    - [ ] notarize eth_calls
-    - [ ] bonding for relayers/challengers
+    - [x] notarize eth_calls
+    - [x] bonding for relayers/challengers
     - [ ] rewards and slashing for relayers/challengers
 - [x] Expiry time for callbacks
 - [x] Add multi-currency fee payment for the callback

@@ -630,6 +630,8 @@ parameter_types! {
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl crml_eth_bridge::Config for Runtime {
+	/// Listens for completed eth call jobs
+	type EthCallSubscribers = EthStateOracle;
 	/// The identifier type for an offchain worker.
 	type EthyId = EthBridgeId;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
@@ -664,6 +666,12 @@ parameter_types! {
 	pub storage ChallengePeriod: BlockNumber = 5;
 	/// Fixed precompile address for the state oracle
 	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
+	/// Minimum bond amount required for a relayer and challenger
+	pub storage RelayerBondAmount: Balance = 100_000_000;
+	/// Maximum requests allowed per block (Absolute max: 100)
+	pub storage MaxRequestsPerBlock: u32 = 30;
+	/// Maximum number of active relayers allowed at one time
+	pub storage MaxRelayerCount: u32 = 1;
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
@@ -677,6 +685,9 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type MinGasPrice = MinGasPriceGetter;
 	type GasWeightMapping = CENNZnetGasWeightMapping;
 	type BuyFeeAsset = Cennzx;
+	type RelayerBondAmount = RelayerBondAmount;
+	type MaxRequestsPerBlock = MaxRequestsPerBlock;
+	type MaxRelayerCount = MaxRelayerCount;
 }
 
 impl crml_token_approvals::Config for Runtime {
@@ -915,7 +926,7 @@ construct_runtime!(
 		Governance: crml_governance::{Pallet, Call, Storage, Event},
 		EthBridge: crml_eth_bridge::{Pallet, Call, Storage, Event, ValidateUnsigned},
 		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Config, Event<T>},
-		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event},
+		EthStateOracle: crml_eth_state_oracle::{Pallet, Call, Storage, Event<T>},
 		EthWallet: crml_eth_wallet::{Pallet, Call, Event<T>, ValidateUnsigned},
 		// EVM support
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},

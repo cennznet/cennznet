@@ -14,7 +14,7 @@
 */
 use cennznet_primitives::types::{Balance, BlockNumber, FeePreferences};
 use codec::{Decode, Encode};
-pub use crml_support::{ReturnDataClaim, H160 as EthAddress, H256, U256};
+pub use crml_support::{H160 as EthAddress, H256, U256};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
@@ -58,4 +58,15 @@ pub struct CallResponse<AccountId> {
 	pub eth_block_timestamp: u64,
 	/// Address of the relayer that reported this
 	pub relayer: AccountId,
+}
+
+#[derive(Debug, Clone, PartialEq, Decode, Encode, TypeInfo)]
+/// A claim about the returndata of an `eth_call` RPC
+pub enum ReturnDataClaim {
+	/// Normal returndata scenario
+	/// Its value is an Ethereum abi encoded word (32 bytes)
+	Ok([u8; 32]),
+	/// The returndata from the executed call exceeds the 32 byte length limit
+	/// It won't be processed so we don't record the data
+	ExceedsLengthLimit,
 }

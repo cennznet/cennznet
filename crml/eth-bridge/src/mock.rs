@@ -17,28 +17,34 @@ use crate::{
 	self as crml_eth_bridge,
 	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
 	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, EthAddress, EthBlock, EthHash, LatestOrNumber, Log, TransactionReceipt,
+		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock,
+		EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
 	},
 	Config,
 };
 use cennznet_primitives::eth::crypto::AuthorityId;
 use codec::{Decode, Encode};
 use crml_support::{
-	EthAbiCodec, EventClaimSubscriber, FinalSessionTracker, NotarizationRewardHandler, H160, H256 as H256Crml, U256,
+	EthAbiCodec, EthCallFailure, EthCallOracleSubscriber, EventClaimSubscriber, FinalSessionTracker,
+	NotarizationRewardHandler, H160, H256 as H256Crml, U256,
 };
 use ethereum_types::U64;
 use frame_support::{
 	parameter_types,
+	storage::{StorageDoubleMap, StorageValue},
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, H256};
+use sp_core::{ecdsa::Signature, Public, H256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
 	Percent,
 };
-use std::marker::PhantomData;
+use std::{
+	marker::PhantomData,
+	time::{SystemTime, UNIX_EPOCH},
+};
 
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -94,6 +100,7 @@ parameter_types! {
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
+	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthyId = AuthorityId;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type FinalSessionTracker = MockFinalSessionTracker;
@@ -109,7 +116,7 @@ impl Config for TestRuntime {
 pub const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
 
 /// Values in EthBlock that we store in mock storage
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Default, TypeInfo)]
+#[derive(PartialEq, Eq, Encode, Decode, Debug, Clone, Default, TypeInfo)]
 pub struct MockBlockResponse {
 	pub block_hash: H256,
 	pub block_number: u64,
@@ -187,30 +194,88 @@ impl MockReceiptBuilder {
 
 pub(crate) mod test_storage {
 	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use super::{MockBlockResponse, MockReceiptResponse};
-	use crate::{types::EthHash, Config};
+	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
+	use crate::{
+		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
+		Config,
+	};
+	use crml_support::EthCallFailure;
 	use frame_support::decl_storage;
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
 		trait Store for Module<T: Config> as EthBridgeTest {
-			pub BlockResponseAt: map hasher(blake2_128_concat) u32 => Option<MockBlockResponse>;
-			pub TransactionReceiptFor: map hasher(blake2_128_concat) EthHash => Option<MockReceiptResponse>;
+			pub BlockResponseAt: map hasher(identity) u64 => Option<MockBlockResponse>;
+			pub CallAt: double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) EthAddress => Option<Vec<u8>>;
+			pub TransactionReceiptFor: map hasher(twox_64_concat) EthHash => Option<MockReceiptResponse>;
+			pub Timestamp: Option<u64>;
+			pub Validators: Vec<AccountId>;
+			pub LastCallResult: Option<(EthCallId, CheckedEthCallResult)>;
+			pub LastCallFailure: Option<(EthCallId, EthCallFailure)>;
 		}
 	}
 }
 
-/// Test request
-#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
-pub struct TestRequest {
-	pub message: String,
+/// set the block timestamp
+pub fn mock_timestamp(now: u64) {
+	test_storage::Timestamp::put(now);
+}
+
+// get the system unix timestamp in seconds
+pub fn now() -> u64 {
+	SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("after unix epoch")
+		.as_secs()
+}
+
+/// Builder for `CheckedEthCallRequest`
+pub struct CheckedEthCallRequestBuilder(CheckedEthCallRequest);
+
+impl CheckedEthCallRequestBuilder {
+	pub fn new() -> Self {
+		Self(CheckedEthCallRequest {
+			max_block_look_behind: 3_u64,
+			target: EthAddress::from_low_u64_be(1),
+			timestamp: now(),
+			check_timestamp: now() + 3 * 5, // 3 blocks
+			..Default::default()
+		})
+	}
+	pub fn build(self) -> CheckedEthCallRequest {
+		self.0
+	}
+	pub fn input(mut self, input: &[u8]) -> Self {
+		self.0.input = input.to_vec();
+		self
+	}
+	pub fn target(mut self, target: EthAddress) -> Self {
+		self.0.target = target;
+		self
+	}
+	pub fn try_block_number(mut self, try_block_number: u64) -> Self {
+		self.0.try_block_number = try_block_number;
+		self
+	}
+	pub fn max_block_look_behind(mut self, max_block_look_behind: u64) -> Self {
+		self.0.max_block_look_behind = max_block_look_behind;
+		self
+	}
+	pub fn check_timestamp(mut self, check_timestamp: u64) -> Self {
+		self.0.check_timestamp = check_timestamp;
+		self
+	}
+	pub fn timestamp(mut self, timestamp: u64) -> Self {
+		self.0.timestamp = timestamp;
+		self
+	}
 }
 
 /// Mock ethereum rpc client
-pub struct MockEthereumRpcClient();
+pub struct MockEthereumRpcClient;
 
 impl MockEthereumRpcClient {
 	/// store given block as the next response
-	pub fn mock_block_response_at(block_number: u32, mock_block: EthBlock) {
+	pub fn mock_block_response_at(block_number: u64, mock_block: EthBlock) {
 		let mock_block_response = MockBlockResponse {
 			block_hash: mock_block.hash.unwrap(),
 			block_number: mock_block.number.unwrap().as_u64(),
@@ -228,25 +293,20 @@ impl MockEthereumRpcClient {
 		};
 		test_storage::TransactionReceiptFor::insert(tx_hash, mock_receipt_response);
 	}
+	/// setup a mock returndata for an `eth_call` at `block` and `contract` address
+	pub fn mock_call_at(block_number: u64, contract: H160, return_data: &[u8]) {
+		test_storage::CallAt::insert(block_number, contract, return_data.to_vec())
+	}
 }
 
 impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	/// Returns an ethereum block given a block height
 	fn get_block_by_number(block_number: LatestOrNumber) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
-			LatestOrNumber::Latest => {
-				// Calling with latest returns the stored mock block with the highest block_number
-				let mut highest_block = 0;
-				let block_responses = test_storage::BlockResponseAt::iter();
-				for block in block_responses {
-					if block.0 > highest_block {
-						highest_block = block.0;
-					}
-				}
-				test_storage::BlockResponseAt::get(highest_block)
-			}
+			LatestOrNumber::Latest => test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None),
 			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
 		};
+		println!("get_block_by_number at: {:?}", mock_block_response);
 		if mock_block_response.is_none() {
 			return Ok(None);
 		}
@@ -286,8 +346,13 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		};
 		Ok(Some(transaction_receipt))
 	}
-	fn eth_call(_target: EthAddress, _input: &[u8], _at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
-		unimplemented!()
+	fn eth_call(target: EthAddress, _input: &[u8], at_block: LatestOrNumber) -> Result<Vec<u8>, BridgeRpcError> {
+		let block_number = match at_block {
+			LatestOrNumber::Number(n) => n,
+			LatestOrNumber::Latest => test_storage::BlockResponseAt::iter().last().unwrap().1.block_number,
+		};
+		println!("eth_call at: {:?}", block_number);
+		test_storage::CallAt::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
 	}
 }
 
@@ -308,7 +373,14 @@ impl ValidatorSetT<AccountId> for MockValidatorSet {
 	}
 	/// Returns the active set of validators.
 	fn validators() -> Vec<Self::ValidatorId> {
-		Default::default()
+		test_storage::Validators::get()
+	}
+}
+impl MockValidatorSet {
+	/// Mock n validator stashes
+	pub fn mock_n_validators(n: u8) {
+		let validators: Vec<AccountId> = (1..=n).map(|i| AccountId::from_slice(&[i; 33])).collect();
+		test_storage::Validators::put(validators);
 	}
 }
 
@@ -318,6 +390,35 @@ impl EventClaimSubscriber for MockClaimSubscriber {
 	fn on_success(_event_claim_id: u64, _contract_address: &H160, _event_signature: &H256Crml, _event_data: &[u8]) {}
 	/// Notify subscriber about a failed event claim for the given event data
 	fn on_failure(_event_claim_id: u64, _contract_address: &H160, _event_signature: &H256Crml, _event_data: &[u8]) {}
+}
+
+pub struct MockEthCallSubscriber;
+impl EthCallOracleSubscriber for MockEthCallSubscriber {
+	type CallId = EthCallId;
+	/// Stores the successful call info
+	/// Available via `Self::success_result_for()`
+	fn on_eth_call_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64) {
+		test_storage::LastCallResult::put((
+			call_id,
+			CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp),
+		));
+	}
+	/// Stores the failed call info
+	/// Available via `Self::failed_call_for()`
+	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure) {
+		test_storage::LastCallFailure::put((call_id, reason));
+	}
+}
+
+impl MockEthCallSubscriber {
+	/// Returns last known successful call, if any
+	pub fn success_result() -> Option<(EthCallId, CheckedEthCallResult)> {
+		test_storage::LastCallResult::get()
+	}
+	/// Returns last known failed call, if any
+	pub fn failed_result() -> Option<(EthCallId, EthCallFailure)> {
+		test_storage::LastCallFailure::get()
+	}
 }
 
 /// Mock final session tracker
@@ -346,7 +447,12 @@ impl NotarizationRewardHandler for MockRewardHandler {
 pub struct MockUnixTime;
 impl UnixTime for MockUnixTime {
 	fn now() -> core::time::Duration {
-		core::time::Duration::new(System::block_number() * 5, 0)
+		match test_storage::Timestamp::get() {
+			// Use configured value for tests requiring precise timestamps
+			Some(s) => core::time::Duration::new(s, 0),
+			// fallback, use block number to derive timestamp for tests that only care abut block progression
+			None => core::time::Duration::new(System::block_number() * 5, 0),
+		}
 	}
 }
 
@@ -423,7 +529,7 @@ impl ExtBuilder {
 #[test]
 fn get_block_by_number_mock_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let block_number: u32 = 120;
+		let block_number: u64 = 120;
 		let block_hash: H256 = H256::from_low_u64_be(121);
 		let timestamp: U256 = U256::from(122);
 
@@ -440,6 +546,27 @@ fn get_block_by_number_mock_works() {
 			<MockEthereumRpcClient as BridgeEthereumRpcApi>::get_block_by_number(LatestOrNumber::Number(block_number))
 				.unwrap();
 		assert_eq!(Some(mock_block), result);
+	});
+}
+
+#[test]
+fn mock_eth_call_at_latest_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		for i in 0..10_u64 {
+			let mock_block = EthBlock {
+				number: Some(U64::from(i)),
+				hash: Some(H256::from_low_u64_be(i)),
+				..Default::default()
+			};
+			MockEthereumRpcClient::mock_block_response_at(i, mock_block.clone());
+		}
+		// checking this returns latest block
+		MockEthereumRpcClient::mock_call_at(9, EthAddress::from_low_u64_be(1), &[1_u8, 2, 3]);
+
+		assert_eq!(
+			MockEthereumRpcClient::eth_call(EthAddress::from_low_u64_be(1), &[4_u8, 5, 6], LatestOrNumber::Latest),
+			Ok(vec![1_u8, 2, 3])
+		);
 	});
 }
 
@@ -465,7 +592,7 @@ fn get_latest_block_by_number_mock_works() {
 #[test]
 fn get_transaction_receipt_mock_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let block_number: u32 = 120;
+		let block_number: u64 = 120;
 		let block_hash: H256 = H256::from_low_u64_be(121);
 		let tx_hash: EthHash = H256::from_low_u64_be(122);
 		let status: U64 = U64::from(1);
