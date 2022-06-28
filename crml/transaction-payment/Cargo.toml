@@ -7,24 +7,24 @@ repository = "https://github.com/cennznet/cennznet"
 description = "CENNZnet pallet to manage transaction payments"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true, default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 smallvec = "1.6.1"
-sp-io = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", default-features = false }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
-sp-core = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
-sp-io = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 smallvec = "1.6.1"
 serde_json = "1.0.50"
 

@@ -21,7 +21,7 @@
 
 use codec::Codec;
 
-sp_api::decl_runtime_apis! {
+ssp_api::decl_runtime_apis! {
 	pub trait StakingApi<AccountId> where
 		AccountId: Codec,
 	{
