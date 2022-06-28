@@ -1985,6 +1985,88 @@ fn mint_series() {
 }
 
 #[test]
+fn mint_from_controller_account() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let token_owner = 2_u64;
+		let collection_controller = 3_u64;
+		let quantity = 5;
+		let series_id = Nft::next_series_id(collection_id);
+
+		// Set controller account for collection
+		assert_ok!(Nft::set_controller(
+			Some(collection_owner).into(),
+			collection_id,
+			collection_controller
+		));
+		assert_eq!(Nft::collection_controller(collection_id), Some(collection_controller));
+
+		// mint token Ids 0-4 from controller account
+		assert_ok!(Nft::mint_series(
+			Some(collection_controller).into(),
+			collection_id,
+			quantity,
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		// mint token Ids 5-7 from controller account
+		let additional_quantity = 3;
+		assert_ok!(Nft::mint_additional(
+			Some(collection_controller).into(),
+			collection_id,
+			series_id,
+			additional_quantity,
+			Some(token_owner), // new owner this time
+		));
+
+		// Check token balances are correct
+		assert_eq!(
+			Nft::next_serial_number(collection_id, series_id),
+			quantity + additional_quantity
+		);
+		assert_eq!(
+			Nft::token_balance(&token_owner).get(&(collection_id, series_id)),
+			Some(&(quantity + additional_quantity))
+		);
+
+		let quantity = 7;
+		let series_id = Nft::next_series_id(collection_id);
+		// mint new series from owner account to ensure they can still mint
+		assert_ok!(Nft::mint_series(
+			Some(collection_controller).into(),
+			collection_id,
+			quantity,
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		// mint additional tokens from owner account
+		let additional_quantity = 4;
+		assert_ok!(Nft::mint_additional(
+			Some(collection_owner).into(),
+			collection_id,
+			series_id,
+			additional_quantity,
+			Some(token_owner), // new owner this time
+		));
+
+		// Check token balances are correct
+		assert_eq!(
+			Nft::next_serial_number(collection_id, series_id),
+			quantity + additional_quantity
+		);
+		assert_eq!(
+			Nft::token_balance(&token_owner).get(&(collection_id, series_id)),
+			Some(&(quantity + additional_quantity))
+		);
+	});
+}
+
+#[test]
 fn mint_series_fails_prechecks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;

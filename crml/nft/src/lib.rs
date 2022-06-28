@@ -209,6 +209,8 @@ decl_storage! {
 	trait Store for Module<T: Config> as Nft {
 		/// Map from collection to owner address
 		pub CollectionOwner get(fn collection_owner): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
+		/// Map from collection to controller address
+		pub CollectionController get(fn collection_controller): map hasher(twox_64_concat) CollectionId => Option<T::AccountId>;
 		/// Map from collection to its human friendly name
 		pub CollectionName get(fn collection_name): map hasher(twox_64_concat) CollectionId => CollectionNameType;
 		/// Map from collection to its defacto royalty scheme
@@ -368,6 +370,24 @@ decl_module! {
 			}
 		}
 
+		/// Set the controller of a collection. Useful for adding permissions to ERC721 contracts
+		/// interacting with the NFT module through the EVM
+		/// Caller must be the current collection owner
+		/// Controller account has permission to call the following functions:
+		/// mint_series
+		/// mint_additional
+		#[weight = T::WeightInfo::set_owner()]
+		fn set_controller(origin, collection_id: CollectionId, controller: T::AccountId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			if let Some(owner) = Self::collection_owner(collection_id) {
+				ensure!(owner == origin, Error::<T>::NoPermission);
+				<CollectionController<T>>::insert(collection_id, controller);
+				Ok(())
+			} else {
+				Err(Error::<T>::NoCollection.into())
+			}
+		}
+
 		/// Set the name of a series
 		/// Caller must be the current collection owner
 		#[weight = T::WeightInfo::set_owner()]
@@ -468,10 +488,10 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			// Permission and existence check
-			if let Some(collection_owner) = Self::collection_owner(collection_id) {
-				ensure!(collection_owner == origin, Error::<T>::NoPermission);
-			} else {
-				return Err(Error::<T>::NoCollection.into());
+			match (Self::collection_owner(collection_id), Self::collection_controller(collection_id)) {
+				(Some(owner), Some(controller)) => ensure!(owner == origin || controller == origin, Error::<T>::NoPermission),
+				(Some(owner), None) => ensure!(owner == origin, Error::<T>::NoPermission),
+				(None, _) => return Err(Error::<T>::NoCollection.into()),
 			}
 
 			// Check we can issue the new tokens
@@ -521,10 +541,10 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			// Permission and existence check
-			if let Some(collection_owner) = Self::collection_owner(collection_id) {
-				ensure!(collection_owner == origin, Error::<T>::NoPermission);
-			} else {
-				return Err(Error::<T>::NoCollection.into());
+			match (Self::collection_owner(collection_id), Self::collection_controller(collection_id)) {
+				(Some(owner), Some(controller)) => ensure!(owner == origin || controller == origin, Error::<T>::NoPermission),
+				(Some(owner), None) => ensure!(owner == origin, Error::<T>::NoPermission),
+				(None, _) => return Err(Error::<T>::NoCollection.into()),
 			}
 
 			let serial_number = Self::next_serial_number(collection_id, series_id);
