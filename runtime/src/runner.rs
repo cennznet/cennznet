@@ -172,7 +172,7 @@ where
 					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
 					payment_asset,
 					max_payment,
-					total_fee,
+					total_fee_scaled,
 					err
 				);
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
