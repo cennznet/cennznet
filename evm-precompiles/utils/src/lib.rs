@@ -357,7 +357,6 @@ impl Gasometer {
 		PrecompileFailure::Revert {
 			exit_status: ExitRevert::Reverted,
 			output: revert_buf,
-			cost: self.used_gas,
 		}
 	}
 

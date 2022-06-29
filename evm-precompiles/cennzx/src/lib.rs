@@ -113,7 +113,6 @@ where
 			PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
 				output: alloc::format!("swap failed: {:?}", err.stripped()).as_bytes().to_vec(),
-				cost: 0_u64,
 			}
 		})?;
 

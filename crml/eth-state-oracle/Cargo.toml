@@ -9,7 +9,7 @@ license = "GPL-3.0"
 [dependencies]
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
-ethereum-types = { version = "0.12.1", default-features = false, features = ["serialize", "codec"] }
+ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
 
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }

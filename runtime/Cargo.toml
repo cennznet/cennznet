@@ -17,7 +17,7 @@ sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkad
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-749580481
 cennznet-runtime = { path = ".", features = ["integration_config"] }
 libsecp256k1 = { version = "0.5", features = ["static-context", "hmac"] }
-ethereum = { version = "0.11.1", default-features = false, features = ["with-codec"] }
+ethereum = { version = "0.12.0", default-features = false, features = ["with-codec"] }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -26,7 +26,7 @@ serde = { version = "1.0.102", optional = true, features = ["derive"], default-f
 smallvec = "1.6.1"
 static_assertions = "1.1.0"
 ethabi = { version = "16.0.0", default-features = false }
-ethereum = { version = "0.11.1", default-features = false }
+ethereum = { version = "0.12.0", default-features = false }
 
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }

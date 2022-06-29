@@ -118,7 +118,6 @@ where
 				output: alloc::format!("withdraw failed: {:?}", err.stripped())
 					.as_bytes()
 					.to_vec(),
-				cost: gasometer.used_gas(),
 			}),
 		}
 	}

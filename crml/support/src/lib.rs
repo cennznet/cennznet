@@ -20,6 +20,7 @@
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
 use codec::{Decode, Encode};
+use core::convert::TryInto;
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::GetDispatchInfo,
