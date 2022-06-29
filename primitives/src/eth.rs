@@ -84,6 +84,7 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 pub struct EthyEcdsaToEthereum;
 impl Convert<Public, Option<[u8; 20]>> for EthyEcdsaToEthereum {
 	fn convert(a: Public) -> Option<[u8; 20]> {
+		use sp_application_crypto::ByteArray;
 		use sp_core::crypto::Public;
 		let compressed_key = a.as_slice();
 
@@ -159,7 +160,7 @@ pub struct EventProof {
 impl EventProof {
 	/// Return the number of collected signatures.
 	pub fn signature_count(&self) -> usize {
-		let empty_sig = AuthoritySignature::default();
+		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
 		self.signatures.iter().filter(|x| x != &&empty_sig).count()
 	}
 }

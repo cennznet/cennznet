@@ -8,15 +8,15 @@ repository = "https://github.com/cennznet/cennznet"
 description = "RPC interface for the governance module."
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = "18.0.0"
 jsonrpc-derive = "18.0.0"
 serde = { version = "1.0.101", features = ["derive"] }
-sc-client-db = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
-sp-api = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
-sp-rpc = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "76522d7937ba94ff1becef4e4e3ca78e3e1de341" }
+sc-client-db = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 crml-governance = { path = "../" }
 crml-governance-rpc-runtime-api = { path = "runtime-api" }

@@ -142,7 +142,6 @@ where
 				output: alloc::format!("Request failed: {:?}", err.stripped())
 					.as_bytes()
 					.to_vec(),
-				cost: gasometer.used_gas(),
 			}),
 		}
 	}
@@ -186,7 +185,6 @@ where
 				output: alloc::format!("Request failed: {:?}", err.stripped())
 					.as_bytes()
 					.to_vec(),
-				cost: gasometer.used_gas(),
 			}),
 		}
 	}
