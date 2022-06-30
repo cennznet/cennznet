@@ -31,7 +31,7 @@ use frame_support::{
 	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use sp_core::{Public, H256};
+use sp_core::{ByteArray, Public, H256};
 use sp_runtime::{traits::Zero, SaturatedConversion};
 
 /// Mocks an Eth block for when get_block_by_number is called
