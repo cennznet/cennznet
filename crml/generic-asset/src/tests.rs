@@ -20,6 +20,7 @@
 
 #![cfg(test)]
 
+use super::StorageVersion as storage_version;
 use super::*;
 use crate::mock::{
 	new_test_ext_with_balance, new_test_ext_with_default, new_test_ext_with_next_asset_id,
@@ -410,13 +411,13 @@ fn minimum_balance_is_existential_deposit() {
 		let spending_asset_info = AssetInfo::new(b"SPD".to_vec(), 2, spd_min);
 		assert_ok!(GenericAsset::create_asset(
 			Some(STAKING_ASSET_ID),
-			Some(ALICE),
+			ALICE,
 			asset_options(PermissionLatest::new(ALICE), staking_asset_info.decimal_places()),
 			staking_asset_info
 		));
 		assert_ok!(GenericAsset::create_asset(
 			Some(SPENDING_ASSET_ID),
-			Some(ALICE),
+			ALICE,
 			asset_options(PermissionLatest::new(ALICE), spending_asset_info.decimal_places()),
 			spending_asset_info
 		));
@@ -453,7 +454,7 @@ fn on_dust_imbalance_hook_invoked() {
 
 		// Our test hook transfers dust to the treasury account
 		// Treasury account should get the dust (ED - 1)
-		let treasury_account_id = TreasuryPalletId::get().into_account();
+		let treasury_account_id = TreasuryPalletId::get().into_account_truncating();
 		assert_eq!(
 			GenericAsset::free_balance(ASSET_ID, &treasury_account_id),
 			asset_info.existential_deposit() - 1
@@ -560,8 +561,7 @@ fn migrate_locks_on_runtime_upgrade() {
 		assert_eq!(<Locks<Test>>::iter().count(), 2);
 		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, ALICE), alice_locks.iter().map(|l| l.clone().upgrade()).collect::<Vec<BalanceLock<u64>>>());
 		assert_eq!(<Locks<Test>>::get(STAKING_ASSET_ID, BOB), bob_locks.iter().map(|l| l.clone().upgrade()).collect::<Vec<BalanceLock<u64>>>());
-		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
-
+		assert_eq!(storage_version::get(), Releases::V2 as u32);
 	});
 }
 
@@ -1076,10 +1076,11 @@ fn create_reserved_should_create_a_default_account_with_the_balance_given() {
 			Origin::root(),
 			ASSET_ID,
 			options,
+			BOB,
 			asset_info
 		));
 		assert_eq!(<TotalIssuance<Test>>::get(ASSET_ID), INITIAL_ISSUANCE);
-		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &0), INITIAL_ISSUANCE);
+		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &BOB), INITIAL_ISSUANCE);
 	});
 }
 
@@ -1092,7 +1093,7 @@ fn create_reserved_with_non_reserved_asset_id_should_failed() {
 
 		// create reserved asset with asset_id >= next_asset_id should fail
 		assert_noop!(
-			GenericAsset::create_reserved(Origin::root(), ASSET_ID, options.clone(), asset_info),
+			GenericAsset::create_reserved(Origin::root(), ASSET_ID, options.clone(), BOB, asset_info),
 			Error::<Test>::AssetIdExists,
 		);
 	});
@@ -1110,14 +1111,15 @@ fn create_reserved_with_a_taken_asset_id_should_failed() {
 			Origin::root(),
 			ASSET_ID,
 			options.clone(),
+			BOB,
 			asset_info.clone()
 		));
 		assert_eq!(<TotalIssuance<Test>>::get(ASSET_ID), INITIAL_ISSUANCE);
 		// all reserved assets belong to account: 0 which is the default value of `AccountId`
-		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &0), INITIAL_ISSUANCE);
+		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &BOB), INITIAL_ISSUANCE);
 		// create reserved asset with existing asset_id: 9 should fail
 		assert_noop!(
-			GenericAsset::create_reserved(Origin::root(), ASSET_ID, options.clone(), asset_info),
+			GenericAsset::create_reserved(Origin::root(), ASSET_ID, options.clone(), BOB, asset_info),
 			Error::<Test>::AssetIdExists,
 		);
 	});
@@ -1367,7 +1369,7 @@ fn update_permission_should_throw_error_when_lack_of_permissions() {
 #[test]
 fn create_asset_works_with_given_asset_id_and_from_account() {
 	new_test_ext_with_next_asset_id(1001).execute_with(|| {
-		let from_account: Option<<Test as frame_system::Config>::AccountId> = Some(ALICE);
+		let from_account = ALICE;
 		let permissions = PermissionLatest::new(ALICE);
 		let expected_permission = PermissionVersions::V1(permissions.clone());
 		let asset_info = AssetInfo::default();
@@ -1381,7 +1383,7 @@ fn create_asset_works_with_given_asset_id_and_from_account() {
 		// Test for side effects.
 		assert_eq!(<NextAssetId<Test>>::get(), 1001);
 		assert_eq!(<TotalIssuance<Test>>::get(ASSET_ID), INITIAL_ISSUANCE);
-		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &ALICE), INITIAL_ISSUANCE);
+		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &from_account), INITIAL_ISSUANCE);
 		assert_eq!(<Permissions<Test>>::get(&ASSET_ID), expected_permission);
 	});
 }
@@ -1400,7 +1402,7 @@ fn create_asset_with_non_reserved_asset_id_should_fail() {
 		assert_noop!(
 			GenericAsset::create_asset(
 				Some(ASSET_ID),
-				Some(ALICE),
+				ALICE,
 				asset_options(permissions, asset_info.decimal_places()),
 				asset_info
 			),
@@ -1458,14 +1460,14 @@ fn create_asset_with_a_taken_asset_id_should_fail() {
 
 		assert_ok!(GenericAsset::create_asset(
 			Some(ASSET_ID),
-			Some(ALICE),
+			ALICE,
 			asset_options(permissions.clone(), 4),
 			AssetInfo::default()
 		));
 		assert_noop!(
 			GenericAsset::create_asset(
 				Some(ASSET_ID),
-				Some(ALICE),
+				ALICE,
 				asset_options(permissions, 4),
 				AssetInfo::default()
 			),
@@ -1481,7 +1483,7 @@ fn create_asset_with_zero_existential_deposit_should_fail() {
 		assert_noop!(
 			GenericAsset::create_asset(
 				Some(ASSET_ID),
-				Some(ALICE),
+				ALICE,
 				asset_options(permissions, 4),
 				AssetInfo::new(b"TST1".to_vec(), 1, 0)
 			),
@@ -1501,9 +1503,8 @@ fn create_asset_with_zero_existential_deposit_should_fail() {
 #[test]
 fn create_asset_should_create_a_reserved_asset_when_from_account_is_none() {
 	new_test_ext_with_next_asset_id(1001).execute_with(|| {
-		let from_account: Option<<Test as frame_system::Config>::AccountId> = None;
+		let from_account = BOB;
 		let permissions = PermissionLatest::new(ALICE);
-		let created_account_id = 0;
 		let asset_info = AssetInfo::default();
 
 		assert_ok!(GenericAsset::create_asset(
@@ -1514,10 +1515,7 @@ fn create_asset_should_create_a_reserved_asset_when_from_account_is_none() {
 		));
 
 		// Test for a side effect.
-		assert_eq!(
-			<FreeBalance<Test>>::get(&ASSET_ID, &created_account_id),
-			INITIAL_ISSUANCE
-		);
+		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &from_account), INITIAL_ISSUANCE);
 	});
 }
 
@@ -1534,7 +1532,7 @@ fn create_asset_should_create_a_reserved_asset_when_from_account_is_none() {
 #[test]
 fn create_asset_should_create_a_user_asset() {
 	new_test_ext_with_default().execute_with(|| {
-		let from_account: Option<<Test as frame_system::Config>::AccountId> = None;
+		let from_account = BOB;
 		let permissions = PermissionLatest::new(ALICE);
 		let reserved_asset_id = 1001;
 		let asset_info = AssetInfo::default();
@@ -1548,7 +1546,7 @@ fn create_asset_should_create_a_user_asset() {
 
 		// Test for side effects.
 		assert_eq!(<FreeBalance<Test>>::get(&reserved_asset_id, &ALICE), 0);
-		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &0), INITIAL_ISSUANCE);
+		assert_eq!(<FreeBalance<Test>>::get(&ASSET_ID, &from_account), INITIAL_ISSUANCE);
 		assert_eq!(<TotalIssuance<Test>>::get(ASSET_ID), INITIAL_ISSUANCE);
 	});
 }
@@ -1556,7 +1554,7 @@ fn create_asset_should_create_a_user_asset() {
 #[test]
 fn create_asset_with_big_decimal_place_should_fail() {
 	new_test_ext_with_default().execute_with(|| {
-		let from_account: Option<<Test as frame_system::Config>::AccountId> = None;
+		let from_account = BOB;
 		let permissions = PermissionLatest::new(ALICE);
 		let asset_info = AssetInfo::new(b"WEB3.0".to_vec(), 40, 7);
 
@@ -1575,7 +1573,7 @@ fn create_asset_with_big_decimal_place_should_fail() {
 #[test]
 fn create_asset_with_too_big_issuance_should_fail() {
 	new_test_ext_with_default().execute_with(|| {
-		let from_account: Option<<Test as frame_system::Config>::AccountId> = None;
+		let from_account = BOB;
 		let permissions = PermissionLatest::new(ALICE);
 		let asset_info = AssetInfo::new(b"WEB3.0".to_vec(), 38, 7);
 

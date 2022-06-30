@@ -85,7 +85,6 @@ pub struct EthyEcdsaToEthereum;
 impl Convert<Public, Option<[u8; 20]>> for EthyEcdsaToEthereum {
 	fn convert(a: Public) -> Option<[u8; 20]> {
 		use sp_application_crypto::ByteArray;
-		use sp_core::crypto::Public;
 		let compressed_key = a.as_slice();
 
 		libsecp256k1::PublicKey::parse_slice(compressed_key, Some(libsecp256k1::PublicKeyFormat::Compressed))
