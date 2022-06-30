@@ -186,7 +186,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 		let asset_id = <Module<T>>::next_asset_id();
 		let _ = <Module<T>>::create_asset(
 			None,
-			Some(owner.clone()),
+			owner.clone(),
 			AssetOptions {
 				initial_issuance: initial_supply,
 				permissions: crate::types::PermissionLatest {
@@ -206,7 +206,7 @@ impl<T: Config> MultiCurrency for Module<T> {
 pub struct TransferDustImbalance<M: Get<PalletId>>(sp_std::marker::PhantomData<M>);
 impl<T: Config, M: Get<PalletId>> OnUnbalanced<NegativeImbalance<T>> for TransferDustImbalance<M> {
 	fn on_nonzero_unbalanced(imbalance: NegativeImbalance<T>) {
-		let beneficiary = M::get().into_account();
+		let beneficiary = M::get().into_account_truncating();
 		let beneficiary_balance = <Module<T>>::free_balance(imbalance.asset_id(), &beneficiary);
 		<Module<T>>::set_free_balance(
 			imbalance.asset_id(),

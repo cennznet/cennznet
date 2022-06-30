@@ -257,7 +257,7 @@ decl_module! {
 			if let Err(_) = ensure_signed(origin.clone()) {
 				ensure_root(origin)?;
 			}
-			Self::create_asset(None, Some(owner), options, info)
+			Self::create_asset(None, owner, options, info)
 		}
 
 		/// Transfer some liquid free balance to another account.
@@ -380,10 +380,11 @@ decl_module! {
 			origin,
 			asset_id: T::AssetId,
 			options: AssetOptions<T::Balance, T::AccountId>,
+			owner: T::AccountId,
 			info: AssetInfo,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::create_asset(Some(asset_id), None, options, info)
+			Self::create_asset(Some(asset_id), owner, options, info)
 		}
 	}
 }
@@ -578,7 +579,7 @@ impl<T: Config> Module<T> {
 	///
 	pub fn create_asset(
 		asset_id: Option<T::AssetId>,
-		from_account: Option<T::AccountId>,
+		from_account: T::AccountId,
 		options: AssetOptions<T::Balance, T::AccountId>,
 		info: AssetInfo,
 	) -> DispatchResult {
@@ -608,15 +609,14 @@ impl<T: Config> Module<T> {
 			asset_id
 		};
 
-		let account_id = from_account.unwrap_or_default();
 		let permissions: PermissionVersions<T::AccountId> = options.permissions.clone().into();
 
 		<TotalIssuance<T>>::insert(asset_id, &total_issuance);
-		Self::set_free_balance(asset_id, &account_id, total_issuance);
+		Self::set_free_balance(asset_id, &from_account, total_issuance);
 		<Permissions<T>>::insert(asset_id, permissions);
 		<AssetMeta<T>>::insert(asset_id, info);
 
-		Self::deposit_event(Event::<T>::Created(asset_id, account_id, options));
+		Self::deposit_event(Event::<T>::Created(asset_id, from_account, options));
 
 		Ok(())
 	}
@@ -1232,7 +1232,7 @@ impl<T: Config> Inspect<T::AccountId> for AssetCurrency<T, SpendingAssetIdAuthor
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(who: &T::AccountId, amount: Self::Balance) -> DepositConsequence {
+	fn can_deposit(who: &T::AccountId, amount: Self::Balance, _mint: bool) -> DepositConsequence {
 		match <Module<T>>::free_balance(SpendingAssetIdAuthority::<T>::asset_id(), &who).checked_add(&amount) {
 			Some(balance) => {
 				if balance
