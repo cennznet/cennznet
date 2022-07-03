@@ -79,6 +79,7 @@ impl frame_system::Config for TestRuntime {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl crml_generic_asset::Config for TestRuntime {
@@ -225,7 +226,7 @@ impl ExtBuilder {
 			.into();
 
 		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default(), frame_system::InitKind::Full);
+			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});
 
 		ext
