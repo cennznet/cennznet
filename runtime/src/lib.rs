@@ -1181,7 +1181,7 @@ impl_runtime_apis! {
 		   collection_id: CollectionId,
 		   series_id: SeriesId,
 		   serial_number: SerialNumber,
-		) -> TokenInfo<AccountId> {
+		) -> Option<TokenInfo<AccountId>> {
 		   Nft::token_info(collection_id, series_id, serial_number)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {

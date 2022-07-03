@@ -46,7 +46,7 @@ sp_api::decl_runtime_apis! {
 		   collection_id: CollectionId,
 		   series_id: SeriesId,
 		   serial_number: SerialNumber,
-		) -> TokenInfo<AccountId>;
+		) -> Option<TokenInfo<AccountId>>;
 
 		fn collection_listings(
 			collection_id: CollectionId,
