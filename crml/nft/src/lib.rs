@@ -1187,9 +1187,7 @@ impl<T: Config> Module<T> {
 					<RegisteredMarketplaces<T>>::contains_key(marketplace_id),
 					Error::<T>::MarketplaceNotRegistered
 				);
-				let marketplace = Self::registered_marketplaces(marketplace_id);
-				if marketplace.is_some() {
-					let marketplace = marketplace.unwrap();
+				if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
 					royalties
 						.entitlements
 						.push((marketplace.account, marketplace.entitlement));
@@ -1410,7 +1408,7 @@ impl<T: Config> Module<T> {
 		let name = Self::collection_name(&collection_id);
 		let owner = Self::collection_owner(&collection_id);
 
-		if name.is_empty() || !owner.is_some() {
+		if name.is_empty() || owner.is_none() {
 			None
 		} else {
 			let royalties = match <CollectionRoyalties<T>>::get(&collection_id) {
