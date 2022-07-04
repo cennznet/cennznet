@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. & Centrality Investments Ltd
+// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd. & Centrality Investments Ltd
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,22 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::keystore::EthyKeystore;
+use cennznet_primitives::eth::{crypto::AuthorityId as Public, EventId, Witness};
 use codec::Decode;
 use log::{error, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use sc_network::PeerId;
+use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sp_runtime::traits::{Block, Hash, Header};
 use std::{
 	collections::{BTreeMap, VecDeque},
 	time::{Duration, Instant},
 };
-
-use sc_network::PeerId;
-use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
-
-use sp_runtime::traits::{Block, Hash, Header};
-
-use cennznet_primitives::eth::{crypto::AuthorityId as Public, EventId, Witness};
-
-use crate::keystore::EthyKeystore;
 
 /// Gossip engine messages topic
 pub(crate) fn topic<B: Block>() -> B::Hash
@@ -49,7 +45,7 @@ const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 ///
 /// Validate ETHY gossip messages
 ///
-///All messaging is handled in a single ETHY global topic.
+/// All messaging is handled in a single ETHY global topic.
 pub(crate) struct GossipValidator<B>
 where
 	B: Block,
@@ -78,12 +74,18 @@ where
 		}
 	}
 
+	/// Wheher the gossip validator is tracking an event
+	#[cfg(test)]
+	fn is_tracking_event(&self, event_id: &EventId) -> bool {
+		self.known_votes.read().get(event_id).is_some()
+	}
+
 	/// Make a vote for an event as complete
 	pub fn mark_complete(&self, event_id: EventId) {
 		let mut known_votes = self.known_votes.write();
 		known_votes.remove(&event_id);
 		let mut complete_events = self.complete_events.write();
-		if complete_events.len() > MAX_COMPLETE_EVENT_CACHE {
+		if complete_events.len() >= MAX_COMPLETE_EVENT_CACHE {
 			complete_events.pop_front();
 		}
 		match complete_events.binary_search(&event_id) {
@@ -214,91 +216,113 @@ where
 	}
 }
 
-// #[cfg(test)]
-// mod tests {
-// 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
-// 	use sc_network_test::Block;
+#[cfg(test)]
+mod tests {
+	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
+	use crate::assert_validation_result;
+	use cennznet_primitives::eth::{crypto::AuthorityPair, Witness};
+	use codec::Encode;
+	use sc_network::PeerId;
+	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
+	use sc_network_test::{Block, Hash};
+	use sp_application_crypto::Pair;
 
-// 	#[test]
-// 	fn note_round_works() {
-// 		let gv = GossipValidator::<Block>::new();
+	#[macro_export]
+	/// sc_network_gossip::ValidationResult is missing Eq impl
+	macro_rules! assert_validation_result {
+		($l:pat, $r:ident) => {
+			if let $l = $r {
+				assert!(true);
+			} else {
+				assert!(false);
+			}
+		};
+	}
 
-// 		gv.note_round(1u64);
+	struct NoopContext;
+	impl ValidatorContext<Block> for NoopContext {
+		fn broadcast_topic(&mut self, _: Hash, _: bool) {}
+		fn broadcast_message(&mut self, _: Hash, _: Vec<u8>, _: bool) {}
+		fn send_message(&mut self, _: &PeerId, _: Vec<u8>) {}
+		fn send_topic(&mut self, _: &PeerId, _: Hash, _: bool) {}
+	}
 
-// 		let live = gv.live_events.read();
-// 		assert!(GossipValidator::<Block>::is_live(&live, 1u64));
+	fn mock_signers() -> Vec<AuthorityPair> {
+		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
+		let charlie_pair = AuthorityPair::from_string("//Charlie", None).unwrap();
+		vec![alice_pair, bob_pair, charlie_pair]
+	}
 
-// 		drop(live);
+	#[test]
+	fn verify_event_witness() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut context = NoopContext {};
+		let sender_peer_id = PeerId::random();
+		let gv = GossipValidator::<Block>::new(vec![]);
 
-// 		gv.note_round(3u64);
-// 		gv.note_round(7u64);
-// 		gv.note_round(10u64);
+		let event_id = 5;
+		let message_digest = [1_u8; 32];
+		let witness = Witness {
+			digest: message_digest,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message_digest.as_slice()),
+		}
+		.encode();
 
-// 		let live = gv.live_events.read();
+		// check the witness, not a validator, discard
+		let result = gv.validate(&mut context, &sender_peer_id, witness.as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
 
-// 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
+		// set validtors, check witness again, ok
+		gv.set_active_validators(validators.into_iter().map(|x| x.public()).collect());
+		let result = gv.validate(&mut context, &sender_peer_id, witness.as_ref());
+		assert_validation_result!(ValidationResult::ProcessAndKeep(_), result);
+		assert!(gv.is_tracking_event(&event_id));
 
-// 		assert!(!GossipValidator::<Block>::is_live(&live, 1u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 3u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 7u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 10u64));
-// 	}
+		// check the witness again, duplicate, discard
+		let result = gv.validate(&mut context, &sender_peer_id, witness.as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
+	}
 
-// 	#[test]
-// 	fn keeps_most_recent_max_rounds() {
-// 		let gv = GossipValidator::<Block>::new();
+	#[test]
+	fn witness_bad_signature_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let bob = &validators[1];
+		let gv = GossipValidator::<Block>::new(validators.iter().map(|x| x.public().clone()).collect());
 
-// 		gv.note_round(3u64);
-// 		gv.note_round(7u64);
-// 		gv.note_round(10u64);
-// 		gv.note_round(1u64);
+		let event_id = 5;
+		let message_digest = [1_u8; 32];
+		let witness = Witness {
+			digest: [1_u8; 32],
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: bob.sign(message_digest.as_slice()),
+		}
+		.encode();
 
-// 		let live = gv.live_events.read();
+		// check the witness, not a validator, discard
+		let result = gv.validate(&mut NoopContext {}, &PeerId::random(), witness.as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
+		assert!(!gv.is_tracking_event(&event_id));
+	}
 
-// 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
+	#[test]
+	fn keeps_most_recent_events() {
+		let gv = GossipValidator::<Block>::new(vec![]);
+		for event_id in 1..=MAX_COMPLETE_EVENT_CACHE {
+			gv.mark_complete(event_id as u64);
+		}
+		gv.mark_complete(MAX_COMPLETE_EVENT_CACHE as u64 + 1);
+		assert_eq!(gv.complete_events.read()[0], 2_u64);
+		gv.mark_complete(MAX_COMPLETE_EVENT_CACHE as u64 + 2);
+		assert_eq!(gv.complete_events.read()[0], 3_u64);
 
-// 		assert!(GossipValidator::<Block>::is_live(&live, 3u64));
-// 		assert!(!GossipValidator::<Block>::is_live(&live, 1u64));
-
-// 		drop(live);
-
-// 		gv.note_round(23u64);
-// 		gv.note_round(15u64);
-// 		gv.note_round(20u64);
-// 		gv.note_round(2u64);
-
-// 		let live = gv.live_events.read();
-
-// 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
-
-// 		assert!(GossipValidator::<Block>::is_live(&live, 15u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 20u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 23u64));
-// 	}
-
-// 	#[test]
-// 	fn note_same_round_twice() {
-// 		let gv = GossipValidator::<Block>::new();
-
-// 		gv.note_round(3u64);
-// 		gv.note_round(7u64);
-// 		gv.note_round(10u64);
-
-// 		let live = gv.live_events.read();
-
-// 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
-
-// 		drop(live);
-
-// 		// note round #7 again -> should not change anything
-// 		gv.note_round(7u64);
-
-// 		let live = gv.live_events.read();
-
-// 		assert_eq!(live.len(), MAX_LIVE_GOSSIP_ROUNDS);
-
-// 		assert!(GossipValidator::<Block>::is_live(&live, 3u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 7u64));
-// 		assert!(GossipValidator::<Block>::is_live(&live, 10u64));
-// 	}
-// }
+		assert_eq!(gv.complete_events.read().len(), MAX_COMPLETE_EVENT_CACHE);
+	}
+}

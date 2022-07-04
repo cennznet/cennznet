@@ -115,7 +115,7 @@ impl From<Option<SyncCryptoStorePtr>> for EthyKeystore {
 pub struct EthyEcdsaToEthereum;
 impl Convert<Public, [u8; 20]> for EthyEcdsaToEthereum {
 	fn convert(a: Public) -> [u8; 20] {
-		use sp_core::crypto::Public;
+		use sp_application_crypto::ByteArray;
 		let compressed_key = a.as_slice();
 
 		libsecp256k1::PublicKey::parse_slice(compressed_key, Some(libsecp256k1::PublicKeyFormat::Compressed))
