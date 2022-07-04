@@ -367,7 +367,7 @@ impl<T: Config> Module<T> {
 		if asset_id == T::MultiCurrency::staking_currency() {
 			let _result = T::MultiCurrency::transfer(
 				&origin,
-				&T::PegPalletId::get().into_account(),
+				&T::PegPalletId::get().into_account_truncating(),
 				asset_id,
 				amount, // checked amount < u128 in `deposit_claim` qed.
 				ExistenceRequirement::KeepAlive,
@@ -488,7 +488,7 @@ impl<T: Config> Module<T> {
 				let (symbol, decimals) =
 					Erc20Meta::get(verified_event.token_address).unwrap_or((Default::default(), 18));
 				let asset_id = T::MultiCurrency::create(
-					&T::PegPalletId::get().into_account(),
+					&T::PegPalletId::get().into_account_truncating(),
 					Zero::zero(), // 0 initial supply
 					decimals,
 					1, // minimum balance
@@ -512,7 +512,7 @@ impl<T: Config> Module<T> {
 		if asset_id == T::MultiCurrency::staking_currency() && Self::cennz_deposit_active() {
 			let _result = T::MultiCurrency::transfer(
 				// TODO: decide upon: Treasury / Sudo::key() / Bridge,
-				&T::PegPalletId::get().into_account(),
+				&T::PegPalletId::get().into_account_truncating(),
 				&beneficiary,
 				asset_id,
 				amount, // checked amount < u128 in `deposit_claim` qed.
