@@ -92,7 +92,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
-	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+	type EthyId: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Ord + MaybeSerializeDeserialize;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// Knows the active authority set (validator stash addresses)

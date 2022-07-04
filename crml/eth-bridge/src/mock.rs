@@ -35,7 +35,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, Public, H256};
+use sp_core::{ecdsa::Signature, ByteArray, Public, H256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
@@ -91,6 +91,7 @@ impl frame_system::Config for TestRuntime {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -379,7 +380,7 @@ impl ValidatorSetT<AccountId> for MockValidatorSet {
 impl MockValidatorSet {
 	/// Mock n validator stashes
 	pub fn mock_n_validators(n: u8) {
-		let validators: Vec<AccountId> = (1..=n).map(|i| AccountId::from_slice(&[i; 33])).collect();
+		let validators: Vec<AccountId> = (1..=n).map(|i| AccountId::from_slice(&[i; 33]).unwrap()).collect();
 		test_storage::Validators::put(validators);
 	}
 }
