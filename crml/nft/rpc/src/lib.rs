@@ -48,7 +48,7 @@ pub trait NftApi<AccountId> {
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<TokenInfo<AccountId>>;
+	) -> Result<Option<TokenInfo<AccountId>>>;
 
 	#[rpc(name = "nft_getCollectionListings")]
 	fn collection_listings(
@@ -136,7 +136,7 @@ where
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<TokenInfo<AccountId>> {
+	) -> Result<Option<TokenInfo<AccountId>>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
