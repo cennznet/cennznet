@@ -89,12 +89,12 @@ fn tracks_pending_claims() {
 fn pre_last_session_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
 		let current_keys = vec![
-			AuthorityId::from_slice(&[1_u8; 33]),
-			AuthorityId::from_slice(&[2_u8; 33]),
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
 		let next_keys = vec![
-			AuthorityId::from_slice(&[3_u8; 33]),
-			AuthorityId::from_slice(&[4_u8; 33]),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
 		];
 		let event_proof_id = Module::<TestRuntime>::next_proof_id();
 
@@ -113,13 +113,13 @@ fn last_session_change() {
 
 		// setup storage
 		let current_keys = vec![
-			AuthorityId::from_slice(&[1_u8; 33]),
-			AuthorityId::from_slice(&[2_u8; 33]),
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
 		crate::NotaryKeys::<TestRuntime>::put(&current_keys);
 		let next_keys = vec![
-			AuthorityId::from_slice(&[3_u8; 33]),
-			AuthorityId::from_slice(&[4_u8; 33]),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
 		];
 		crate::NextNotaryKeys::<TestRuntime>::put(&next_keys);
 
@@ -812,7 +812,7 @@ fn handle_call_notarization_success() {
 
 	// fake ecdsa public keys to represent the mocked validators
 	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=9_u8)
-		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]))
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]).unwrap())
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
@@ -876,7 +876,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 
 	// fake ecdsa public keys to represent the mocked validators
 	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=6_u8)
-		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]))
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]).unwrap())
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
