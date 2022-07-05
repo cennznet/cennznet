@@ -136,6 +136,7 @@ impl Convert<Public, [u8; 20]> for EthyEcdsaToEthereum {
 
 #[cfg(test)]
 mod tests {
+	use sp_application_crypto::ecdsa::AppPair;
 	use sp_core::{keccak_256, Pair};
 	use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 
@@ -150,9 +151,19 @@ mod tests {
 	fn simple_signing() {
 		let store: SyncCryptoStorePtr = KeyStore::new().into();
 
-		let suri = "//Alice";
-		let pair = sp_core::ecdsa::Pair::from_string(suri, None).unwrap();
-		let res = SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, suri, pair.public().as_ref()).unwrap();
+		// let suri = "//Alice";
+		// let pair = sp_core::ecdsa::Pair::from_string(suri, None).unwrap();
+		let pair = sp_core::ecdsa::Pair::from_seed_slice(
+			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854").as_ref(),
+		)
+		.unwrap();
+		let res = SyncCryptoStore::insert_unknown(
+			&*store,
+			ETH_BRIDGE_KEY_TYPE,
+			"0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854",
+			pair.public().as_ref(),
+		)
+		.unwrap();
 		assert_eq!((), res);
 
 		let ethy_store: EthyKeystore = Some(store.clone()).into();
@@ -167,6 +178,11 @@ mod tests {
 			.unwrap();
 
 		println!("{:?}", hex::encode(sig.clone()));
+		println!("{:?}", hex::encode(pair.public().as_ref()));
+		// expected:
+		// 0x0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159
+		// got:
+		// 0x020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1
 
 		assert_eq!(
 			sig.as_ref(),
@@ -202,10 +218,19 @@ mod tests {
 	fn sign_works() {
 		let store: SyncCryptoStorePtr = KeyStore::new().into();
 
-		let suri = "//Alice";
-		let pair = sp_core::ecdsa::Pair::from_string(suri, None).unwrap();
-
-		let res = SyncCryptoStore::insert_unknown(&*store, ETH_BRIDGE_KEY_TYPE, suri, pair.public().as_ref()).unwrap();
+		// let suri = "//Alice";
+		// let pair = sp_core::ecdsa::Pair::from_string(suri, None).unwrap();
+		let pair = sp_core::ecdsa::Pair::from_seed_slice(
+			hex!("e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a").as_ref(),
+		)
+		.unwrap();
+		let res = SyncCryptoStore::insert_unknown(
+			&*store,
+			ETH_BRIDGE_KEY_TYPE,
+			"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
+			pair.public().as_ref(),
+		)
+		.unwrap();
 		assert_eq!((), res);
 
 		let ethy_store: EthyKeystore = Some(store.clone()).into();

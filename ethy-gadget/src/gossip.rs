@@ -222,6 +222,7 @@ mod tests {
 	use crate::assert_validation_result;
 	use cennznet_primitives::eth::{crypto::AuthorityPair, Witness};
 	use codec::Encode;
+	use hex_literal::hex;
 	use sc_network::PeerId;
 	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
 	use sc_network_test::{Block, Hash};
@@ -248,7 +249,10 @@ mod tests {
 	}
 
 	fn mock_signers() -> Vec<AuthorityPair> {
-		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let alice_pair = AuthorityPair::from_seed_slice(
+			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854").as_ref(),
+		)
+		.unwrap();
 		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let charlie_pair = AuthorityPair::from_string("//Charlie", None).unwrap();
 		vec![alice_pair, bob_pair, charlie_pair]
