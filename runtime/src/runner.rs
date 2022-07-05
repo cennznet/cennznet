@@ -27,7 +27,7 @@ use pallet_evm::{
 };
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use precompile_utils::Address as EthAddress;
-use sp_runtime::{traits::UniqueSaturatedInto, Permill};
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -63,7 +63,7 @@ where
 	U: Erc20IdConversion<EvmId = EthAddress, RuntimeId = AssetId>,
 {
 	/// Decodes the input for call_with_fee_preferences
-	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, u32, H160, Vec<u8>), FeePreferencesError> {
+	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, Balance, H160, Vec<u8>), FeePreferencesError> {
 		ensure!(input.len() >= 4, FeePreferencesError::InvalidInputArguments);
 		ensure!(
 			input[..4] == FEE_FUNCTION_SELECTOR,
@@ -72,13 +72,13 @@ where
 
 		let types = [
 			ParamType::Address,
-			ParamType::Uint(32),
+			ParamType::Uint(128),
 			ParamType::Address,
 			ParamType::Bytes,
 		];
 		let tokens = ethabi::decode(&types, &input[4..]).map_err(|_| FeePreferencesError::FailedToDecodeInput)?;
 
-		if let [Token::Address(payment_asset_address), Token::Uint(slippage), Token::Address(new_target), Token::Bytes(new_input)] =
+		if let [Token::Address(payment_asset_address), Token::Uint(max_payment), Token::Address(new_target), Token::Bytes(new_input)] =
 			tokens.as_slice()
 		{
 			let payment_asset = U::evm_id_to_runtime_id((*payment_asset_address).into());
@@ -86,7 +86,7 @@ where
 
 			Ok((
 				payment_asset.unwrap(),
-				slippage.low_u32(),
+				(*max_payment).saturated_into::<Balance>(),
 				*new_target,
 				new_input.clone(),
 			))
@@ -123,7 +123,7 @@ where
 		let total_fee: Balance = max_base_fee
 			.checked_add(max_priority_fee)
 			.ok_or(FeePreferencesError::FeeOverflow)?
-			.unique_saturated_into();
+			.saturated_into();
 
 		Ok(total_fee)
 	}
@@ -154,7 +154,7 @@ where
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY) {
-			let (payment_asset, slippage, new_target, new_input) =
+			let (payment_asset, max_payment, new_target, new_input) =
 				Self::decode_input(input).map_err(|_| Self::Error::WithdrawFailed)?;
 			// set input and target to new input and actual target for passthrough
 			input = new_input;
@@ -162,18 +162,17 @@ where
 
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
 				.map_err(|err| err.into())?;
-			let total_fee = scale_wei_to_4dp(total_fee);
-			let max_payment = total_fee.saturating_add(Permill::from_rational(slippage, 1_000) * total_fee);
-			let exchange = FeeExchange::new_v1(payment_asset, max_payment);
+			let total_fee_scaled = scale_wei_to_4dp(total_fee);
+			let exchange_opts = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee, &exchange).map_err(|err| {
+			<Cennzx as BuyFeeAsset>::buy_fee_asset(&account, total_fee_scaled, &exchange_opts).map_err(|err| {
 				log!(
 					debug,
 					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
 					payment_asset,
 					max_payment,
-					total_fee,
+					total_fee_scaled,
 					err
 				);
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
@@ -263,20 +262,20 @@ mod tests {
 			// callWithFeePreferences
 			// abi can be easily generated here https://abi.hashex.org/
 			let exp_payment_asset = 16000_u32;
-			let exp_slippage: u32 = 50;
+			let exp_max_payment = 123_456_789 as Balance;
 			let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
 			let exp_input: Vec<u8> = hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b").to_vec();
 			let mut input= FEE_FUNCTION_SELECTOR.to_vec();
 			input.append(&mut ethabi::encode(&[
 				Token::Address(Runtime::runtime_id_to_evm_id(exp_payment_asset).0),
-				Token::Uint(exp_slippage.into()),
+				Token::Uint(exp_max_payment.into()),
 				Token::Address(exp_target),
 				Token::Bytes(exp_input.clone())],
 			));
 
 			assert_eq!(
 				Runner::decode_input(input),
-				Ok((exp_payment_asset, exp_slippage, exp_target, exp_input))
+				Ok((exp_payment_asset, exp_max_payment, exp_target, exp_input))
 			);
 		});
 	}
