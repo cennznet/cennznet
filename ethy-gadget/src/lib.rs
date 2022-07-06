@@ -44,6 +44,8 @@ mod error;
 mod gossip;
 mod keystore;
 mod metrics;
+#[cfg(test)]
+mod testing;
 mod witness_record;
 mod worker;
 

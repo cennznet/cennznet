@@ -26,13 +26,16 @@ use std::collections::HashMap;
 /// Stores witnesses per message event_id and digest
 /// event_id -> digest -> [](authority, signature)
 /// this structure allows resiliency incase different digests are witnessed, maliciously or not.
+/// Expired/complete votes are handled at the gossip layer
 #[derive(Default)]
 pub struct WitnessRecord {
+	/// The record of witnesses ((event -> digest -> validator index) -> validator signature)
 	record: HashMap<EventId, HashMap<[u8; 32], Vec<(usize, Signature)>>>,
-	/// local record of info of an event (tag (optional), block number of event)
+	/// Metadata about an event ((id, digest) -> metadata)
 	event_meta: HashMap<EventId, ([u8; 32], Option<Vec<u8>>)>,
+	/// Tracks observed witnesses from (event -> validator Id)
 	has_voted: HashMap<EventId, Vec<AuthorityId>>,
-	/// `validators` - The ECDSA public (session) keys of validators ORDERED!
+	/// The ECDSA public (session) keys of active validators ORDERED!
 	validators: Vec<AuthorityId>,
 }
 
@@ -41,19 +44,19 @@ impl WitnessRecord {
 	pub fn set_validators(&mut self, validators: Vec<AuthorityId>) {
 		self.validators = validators;
 	}
-	/// Remove a witness record from memory
+	/// Remove a witness record from memory (typically after it has acheived consensus)
 	pub fn clear(&mut self, event_id: EventId) {
 		self.record.remove(&event_id);
 		self.event_meta.remove(&event_id);
+		self.has_voted.remove(&event_id);
 	}
 	/// Return all known signatures for the witness on (event_id, digest)
 	pub fn signatures_for(&self, event_id: EventId, digest: &[u8; 32]) -> Vec<Signature> {
-		let mut signatures = vec![Signature::default(); self.validators.len()];
+		// proofs has unordered tuples of (i-th validator index, validator signature)
 		let proofs = self.record.get(&event_id).unwrap().get(digest).unwrap();
-		for (idx, signature) in proofs.into_iter() {
-			let _ = std::mem::replace(&mut signatures[*idx], signature.clone());
-		}
-		signatures
+		let mut signatures = proofs.clone();
+		signatures.sort_by_key(|x| x.0);
+		signatures.into_iter().map(|x| x.1.clone()).collect()
 	}
 	/// Does the event identified by `event_id` `digest` have >= `threshold` support
 	pub fn has_consensus(&self, event_id: EventId, digest: &[u8; 32], threshold: usize) -> bool {
@@ -85,7 +88,7 @@ impl WitnessRecord {
 		}
 
 		// Convert authority ECDSA public key into ordered index
-		// this is useful to efficiently generate a proof later
+		// this is useful to efficiently generate the full proof later
 		let validators = self.validators.clone();
 		let authority_to_index = || -> Option<usize> {
 			let maybe_pos = validators.iter().position(|v| v == &witness.authority_id);
@@ -149,5 +152,50 @@ impl WitnessRecord {
 		}
 
 		return true;
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::{Signature, WitnessRecord};
+	use cennznet_primitives::eth::{crypto::AuthorityPair, Witness};
+	use sp_application_crypto::Pair;
+
+	fn mock_signers() -> Vec<AuthorityPair> {
+		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
+		let charlie_pair = AuthorityPair::from_string("//Charlie", None).unwrap();
+		vec![alice_pair, bob_pair, charlie_pair]
+	}
+
+	#[test]
+	fn proof_signatures_ordered_by_validator_index() {
+		let mock_validators = mock_signers();
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let validator_set_id = 5_u64;
+
+		let mut witness_record = WitnessRecord::default();
+		// this deteremines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+		witness_record.set_validators(mock_validators.iter().map(|x| x.public()).collect());
+
+		// note signatures in reverse order
+		for validator_pair in mock_validators.iter().rev() {
+			witness_record.note(&Witness {
+				digest,
+				event_id,
+				validator_set_id,
+				authority_id: validator_pair.public(),
+				signature: validator_pair.sign(&digest),
+			});
+		}
+
+		assert_eq!(
+			witness_record.signatures_for(event_id, &digest),
+			mock_validators
+				.into_iter()
+				.map(|p| p.sign(&digest))
+				.collect::<Vec<Signature>>(),
+		);
 	}
 }

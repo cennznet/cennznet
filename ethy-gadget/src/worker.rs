@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investment Ltd.
+// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd. and Centrality Investment Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -512,7 +512,7 @@ fn abi_encode_validator_set_change(
 #[cfg(test)]
 mod test {
 	use super::*;
-	use sp_core::Public as PublicT;
+	use sp_application_crypto::ByteArray;
 
 	#[test]
 	fn encode_validator_set_change() {
@@ -522,11 +522,13 @@ mod test {
 					Public::from_slice(
 						// `//Alice` ECDSA public key
 						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
-					),
+					)
+					.unwrap(),
 					Public::from_slice(
 						// `//Alice` ECDSA public key
 						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
-					),
+					)
+					.unwrap(),
 				],
 				id: 598,
 			},

@@ -2,7 +2,7 @@
 name = "ethy-gadget"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>", "Centrality Devleopers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -36,3 +36,4 @@ sc-network-gossip = { git = "https://github.com/paritytech/substrate", branch = 
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", version = "0.8.0" }
 hex-literal = "*"
+strum = { version = "0.23", features = ["derive"] }
