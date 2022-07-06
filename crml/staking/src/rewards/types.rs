@@ -133,12 +133,21 @@ pub type RewardPoint = u32;
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// These points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Clone, Encode, Decode, Default, TypeInfo)]
+#[derive(PartialEq, Clone, Encode, Decode, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
 	pub individual: BTreeMap<AccountId, RewardPoint>,
+}
+
+impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+	fn default() -> Self {
+		Self {
+			total: Default::default(),
+			individual: BTreeMap::new(),
+		}
+	}
 }
 
 #[cfg(test)]
