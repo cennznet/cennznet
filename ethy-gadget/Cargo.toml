@@ -36,3 +36,4 @@ sc-network-gossip = { git = "https://github.com/paritytech/substrate", branch = 
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", version = "0.8.0" }
 hex-literal = "*"
+strum = { version = "0.23", features = ["derive"] }

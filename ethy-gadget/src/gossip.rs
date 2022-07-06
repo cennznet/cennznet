@@ -158,7 +158,7 @@ where
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
 				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
-				// TODO: report peer
+				// TODO: decrease peer reputation
 				warn!(target: "ethy", "💎 bad signature: {:?}, event: {:?}", authority_id, event_id);
 			}
 		}
@@ -218,15 +218,16 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
-	use crate::assert_validation_result;
-	use cennznet_primitives::eth::{crypto::AuthorityPair, Witness};
 	use codec::Encode;
-	use hex_literal::hex;
 	use sc_network::PeerId;
 	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
 	use sc_network_test::{Block, Hash};
-	use sp_application_crypto::Pair;
+
+	use cennznet_primitives::eth::Witness;
+	use sp_core::keccak_256;
+
+	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
+	use crate::{assert_validation_result, testing::Keyring};
 
 	#[macro_export]
 	/// sc_network_gossip::ValidationResult is missing Eq impl
@@ -248,14 +249,8 @@ mod tests {
 		fn send_topic(&mut self, _: &PeerId, _: Hash, _: bool) {}
 	}
 
-	fn mock_signers() -> Vec<AuthorityPair> {
-		let alice_pair = AuthorityPair::from_seed_slice(
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854").as_ref(),
-		)
-		.unwrap();
-		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
-		let charlie_pair = AuthorityPair::from_string("//Charlie", None).unwrap();
-		vec![alice_pair, bob_pair, charlie_pair]
+	fn mock_signers() -> Vec<Keyring> {
+		vec![Keyring::Alice, Keyring::Bob, Keyring::Charlie]
 	}
 
 	#[test]
@@ -267,13 +262,15 @@ mod tests {
 		let gv = GossipValidator::<Block>::new(vec![]);
 
 		let event_id = 5;
-		let message_digest = [1_u8; 32];
+		let message = b"hello world";
 		let witness = Witness {
-			digest: message_digest,
+			digest: sp_core::keccak_256(message),
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),
-			signature: alice.sign(message_digest.as_slice()),
+			// 	fn sign(&self, message: &[u8]) -> Signature {
+			// self.sign_prehashed(&blake2_256(message))
+			signature: alice.sign(message),
 		}
 		.encode();
 
@@ -300,13 +297,13 @@ mod tests {
 		let gv = GossipValidator::<Block>::new(validators.iter().map(|x| x.public().clone()).collect());
 
 		let event_id = 5;
-		let message_digest = [1_u8; 32];
+		let message = b"hello world";
 		let witness = Witness {
-			digest: [1_u8; 32],
+			digest: keccak_256(message),
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),
-			signature: bob.sign(message_digest.as_slice()),
+			signature: bob.sign(message), // signed by bob
 		}
 		.encode();
 
