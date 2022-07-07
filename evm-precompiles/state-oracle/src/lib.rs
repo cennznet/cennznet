@@ -17,17 +17,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use cennznet_primitives::types::{AssetId, FeePreferences};
-use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
-use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+use fp_evm::{Context, ExitSucceed, PrecompileHandle, PrecompileOutput};
 use pallet_evm::{ExitRevert, Precompile};
-use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{
-	Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure,
-};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{convert::TryInto, marker::PhantomData};
+
+use cennznet_primitives::types::{AssetId, FeePreferences};
+use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
+use precompile_utils::{
+	revert, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, PrecompileFailure,
+	PrecompileHandleExt,
+};
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -49,35 +51,22 @@ where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(
-		input: &[u8],
-		target_gas: Option<u64>,
-		context: &Context,
-		is_static: bool,
-	) -> EvmResult<PrecompileOutput> {
-		let mut gasometer = Gasometer::new(target_gas);
-		let gasometer = &mut gasometer;
-
-		let (mut input, selector) = match EvmDataReader::new_with_selector(gasometer, input) {
-			Ok((input, selector)) => (input, selector),
-			Err(err) => return Err(err),
+	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Some(Err(e)),
 		};
-		let input = &mut input;
 
-		if let Err(err) = gasometer.check_function_modifier(
-			context,
-			is_static,
-			match selector {
-				Action::RemoteCall => FunctionModifier::NonPayable,
-				Action::RemoteCallWithFeeSwap => FunctionModifier::NonPayable,
-			},
-		) {
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::RemoteCall => FunctionModifier::NonPayable,
+			Action::RemoteCallWithFeeSwap => FunctionModifier::NonPayable,
+		}) {
 			return Err(err);
 		}
 
 		match selector {
-			Action::RemoteCall => Self::remote_call(input, gasometer, &context.caller),
-			Action::RemoteCallWithFeeSwap => Self::remote_call_with_fee_swap(input, gasometer, &context.caller),
+			Action::RemoteCall => Self::remote_call(handle),
+			Action::RemoteCallWithFeeSwap => Self::remote_call_with_fee_swap(handle),
 		}
 	}
 }
@@ -93,32 +82,30 @@ where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn remote_call_with_fee_swap(
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
-		caller: &H160,
-	) -> EvmResult<PrecompileOutput> {
-		input.expect_arguments(gasometer, 7)?;
-		let destination: H160 = input.read::<Address>(gasometer)?.into();
-		let input_data: Bytes = input.read::<Bytes>(gasometer)?.into();
+	fn remote_call_with_fee_swap(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let mut input = handle.read_input()?;
+		input.expect_arguments(7)?;
+
+		let destination: H160 = input.read::<Address>()?.into();
+		let input_data: Bytes = input.read::<Bytes>()?.into();
 		// valid selectors are 4 bytes
-		let callback_signature: H256 = input.read::<H256>(gasometer)?.into();
+		let callback_signature: H256 = input.read::<H256>()?.into();
 		let callback_signature: [u8; 4] = callback_signature.as_fixed_bytes()[..4].try_into().unwrap(); // H256 has 32 bytes, cannot fail qed.
-		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
-		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
+		let callback_gas_limit: U256 = input.read::<U256>()?.into();
+		let callback_bounty: U256 = input.read::<U256>()?.into();
 		// scale to 4dp for consistency with other CPAY balance apis
 		let callback_bounty = scale_wei_to_4dp(callback_bounty.unique_saturated_into());
-		let fee_asset_id: Address = input.read::<Address>(gasometer)?.into();
+		let fee_asset_id: Address = input.read::<Address>()?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
 		// it is not supported by cennzx
-		let asset_id = C::evm_id_to_runtime_id(fee_asset_id).ok_or(gasometer.revert("unsupported asset"))?;
-		let slippage: U256 = input.read::<U256>(gasometer)?.into();
+		let asset_id = C::evm_id_to_runtime_id(fee_asset_id).ok_or(revert("unsupported asset"))?;
+		let slippage: U256 = input.read::<U256>()?.into();
 		let fee_preferences = Some(FeePreferences {
 			asset_id,
 			slippage: Permill::from_rational(slippage.low_u32(), 1_000),
 		});
 
-		gasometer.record_cost(T::new_request_fee())?;
+		handle.record_cost(T::new_request_fee())?;
 		let request_id = T::new_request(
 			caller,
 			&destination,
@@ -133,9 +120,7 @@ where
 		match request_id {
 			Ok(request_id) => Ok(PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
-				cost: gasometer.used_gas(),
 				output: EvmDataWriter::new().write(request_id).build(),
-				logs: Default::default(),
 			}),
 			Err(err) => Err(PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
@@ -148,20 +133,22 @@ where
 
 	/// Proxy state requests to the Eth state oracle pallet
 	/// caller should be `msg.sender`
-	fn remote_call(input: &mut EvmDataReader, gasometer: &mut Gasometer, caller: &H160) -> EvmResult<PrecompileOutput> {
+	fn remote_call(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Parse input.
-		input.expect_arguments(gasometer, 5)?;
-		let destination: H160 = input.read::<Address>(gasometer)?.into();
-		let input_data: Bytes = input.read::<Bytes>(gasometer)?.into();
-		let callback_signature: H256 = input.read::<H256>(gasometer)?.into();
+		let mut input = handle.read_input()?;
+		input.expect_arguments(5)?;
+
+		let destination: H160 = input.read::<Address>()?.into();
+		let input_data: Bytes = input.read::<Bytes>()?.into();
+		let callback_signature: H256 = input.read::<H256>()?.into();
 		// extract selector from the first 4 bytes
 		let callback_signature: [u8; 4] = callback_signature.as_fixed_bytes()[..4].try_into().unwrap(); // H256 has 32 bytes, cannot fail qed.
-		let callback_gas_limit: U256 = input.read::<U256>(gasometer)?.into();
-		let callback_bounty: U256 = input.read::<U256>(gasometer)?.into();
+		let callback_gas_limit: U256 = input.read::<U256>()?.into();
+		let callback_bounty: U256 = input.read::<U256>()?.into();
 		// scale to 4dp for consistency with other CPAY balance apis
 		let callback_bounty = scale_wei_to_4dp(callback_bounty.unique_saturated_into());
 
-		gasometer.record_cost(T::new_request_fee())?;
+		handle.record_cost(T::new_request_fee())?;
 		let request_id = T::new_request(
 			caller,
 			&destination,
@@ -176,9 +163,7 @@ where
 		match request_id {
 			Ok(request_id) => Ok(PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
-				cost: gasometer.used_gas(),
 				output: EvmDataWriter::new().write(request_id).build(),
-				logs: Default::default(),
 			}),
 			Err(err) => Err(PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
@@ -276,9 +261,7 @@ mod test {
 			result.unwrap(),
 			PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
-				cost: gasometer.used_gas(),
 				output: EvmDataWriter::new().write(U256::from(123u32)).build(),
-				logs: Default::default(),
 			},
 		);
 	}
@@ -339,17 +322,13 @@ mod test {
 		// Test
 		let result = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call_with_fee_swap(
 			&mut input,
-			&mut gasometer,
-			&caller,
 		);
 
 		assert_eq!(
 			result.unwrap(),
 			PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
-				cost: gasometer.used_gas(),
 				output: EvmDataWriter::new().write(U256::from(123u32)).build(),
-				logs: Default::default(),
 			},
 		);
 	}
@@ -392,11 +371,7 @@ mod test {
 		let mut gasometer = Gasometer::new(Some(MockEthereumStateOracle::new_request_fee()));
 
 		// Test
-		let _ = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(
-			&mut input,
-			&mut gasometer,
-			&caller,
-		);
+		let _ = StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(&mut input);
 	}
 
 	#[test]
@@ -437,7 +412,6 @@ mod test {
 		// Test
 		assert_err!(
 			StateOraclePrecompile::<MockEthereumStateOracle, MockErc20IdConversion>::remote_call(
-				&mut input,
 				&mut gasometer,
 				&caller
 			),
