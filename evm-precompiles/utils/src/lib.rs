@@ -20,19 +20,16 @@ extern crate alloc;
 
 use alloc::borrow::ToOwned;
 pub use fp_evm::{Context, ExitError, ExitRevert, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
-use frame_support::{
-	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	traits::Get,
-};
-use pallet_evm::{AddressMapping, GasWeightMapping};
+use pallet_evm::AddressMapping;
 use sp_core::H160;
-use sp_std::marker::PhantomData;
 
-mod costs;
-mod data;
-mod handle;
-mod log;
-mod modifier;
+pub mod costs;
+pub mod data;
+pub mod handle;
+//mod log;
+pub mod modifier;
+pub mod precompile_set;
+pub mod substrate;
 
 pub use ::log::*;
 pub use data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter};
@@ -41,9 +38,6 @@ pub use precompile_utils_macro::{generate_function_selector, keccak256};
 
 #[cfg(test)]
 mod tests;
-
-/// Alias for Result returning an EVM precompile error.
-pub type EvmResult<T = ()> = Result<T, PrecompileFailure>;
 
 /// Return an error with provided (static) text.
 /// Using the `revert` function of `Gasometer` is prefered as erroring
@@ -77,76 +71,6 @@ pub trait AddressMappingReversibleExt<A>: AddressMapping<A> {
 	fn from_account_id(address: A) -> H160;
 }
 
-/// Helper functions requiring a Substrate runtime.
-/// This runtime must of course implement `pallet_evm::Config`.
-#[derive(Clone, Copy, Debug)]
-pub struct RuntimeHelper<Runtime>(PhantomData<Runtime>);
-
-impl<Runtime> RuntimeHelper<Runtime>
-where
-	Runtime: pallet_evm::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-{
-	/// Try to dispatch a Substrate call.
-	/// Return an error if there are not enough gas, or if the call fails.
-	/// If successful returns the used gas using the Runtime GasWeightMapping.
-	pub fn try_dispatch<Call>(
-		handle: &mut impl PrecompileHandle,
-		origin: <Runtime::Call as Dispatchable>::Origin,
-		call: Call,
-	) -> EvmResult<()>
-	where
-		Runtime::Call: From<Call>,
-	{
-		let call = Runtime::Call::from(call);
-		let dispatch_info = call.get_dispatch_info();
-
-		// Make sure there is enough gas.
-		let remaining_gas = handle.remaining_gas();
-		let required_gas = Runtime::GasWeightMapping::weight_to_gas(dispatch_info.weight);
-		if required_gas > remaining_gas {
-			return Err(PrecompileFailure::Error {
-				exit_status: ExitError::OutOfGas,
-			});
-		}
-
-		// Dispatch call.
-		// It may be possible to not record gas cost if the call returns Pays::No.
-		// However while Substrate handle checking weight while not making the sender pay for it,
-		// the EVM doesn't. It seems this safer to always record the costs to avoid unmetered
-		// computations.
-		let used_weight = call
-			.dispatch(origin)
-			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?
-			.actual_weight;
-
-		let used_gas = Runtime::GasWeightMapping::weight_to_gas(used_weight.unwrap_or(dispatch_info.weight));
-
-		handle.record_cost(used_gas)?;
-
-		Ok(())
-	}
-}
-
-impl<Runtime> RuntimeHelper<Runtime>
-where
-	Runtime: pallet_evm::Config,
-{
-	/// Cost of a Substrate DB write in gas.
-	pub fn db_write_gas_cost() -> u64 {
-		<Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
-			<Runtime as frame_system::Config>::DbWeight::get().write,
-		)
-	}
-
-	/// Cost of a Substrate DB read in gas.
-	pub fn db_read_gas_cost() -> u64 {
-		<Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
-			<Runtime as frame_system::Config>::DbWeight::get().read,
-		)
-	}
-}
-
 /// Represents modifiers a Solidity function can be annotated with.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum FunctionModifier {
@@ -157,4 +81,38 @@ pub enum FunctionModifier {
 	NonPayable,
 	/// Function that modifies the state and accept funds.
 	Payable,
+}
+
+/// Alias for Result returning an EVM precompile error.
+pub type EvmResult<T = ()> = Result<T, PrecompileFailure>;
+
+/// Trait similar to `fp_evm::Precompile` but with a `&self` parameter to manage some
+/// state (this state is only kept in a single transaction and is lost afterward).
+pub trait StatefulPrecompile {
+	/// Instanciate the precompile.
+	/// Will be called once when building the PrecompileSet at the start of each
+	/// Ethereum transaction.
+	fn new() -> Self;
+
+	/// Execute the precompile with a reference to its state.
+	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput>;
+}
+
+pub mod prelude {
+	pub use {
+		crate::{
+			data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter},
+			error,
+			handle::PrecompileHandleExt,
+			//logs::{log0, log1, log2, log3, log4, LogExt},
+			modifier::{check_function_modifier, FunctionModifier},
+			revert,
+			substrate::RuntimeHelper,
+			succeed,
+			EvmResult,
+			StatefulPrecompile,
+		},
+		pallet_evm::PrecompileHandle,
+		precompile_utils_macro::{generate_function_selector, keccak256},
+	};
 }

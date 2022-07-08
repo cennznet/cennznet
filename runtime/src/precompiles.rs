@@ -5,7 +5,7 @@ use crate::{
 };
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::Get};
+use frame_support::{dispatch::DispatchResultWithPostInfo, parameter_types, traits::Get};
 use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
@@ -18,112 +18,54 @@ use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
+use precompile_utils::precompile_set::*;
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
-/// CENNZnet specific EVM precompiles
-pub struct CENNZnetPrecompiles<R>(PhantomData<R>);
-
-impl<R> CENNZnetPrecompiles<R>
-where
-	R: pallet_evm::Config,
-{
-	pub fn new() -> Self {
-		Self(Default::default())
-	}
-	pub fn used_addresses() -> sp_std::vec::Vec<H160> {
-		// TODO: precompute this
-		sp_std::vec![
-			1,
-			2,
-			3,
-			4,
-			5,
-			9,
-			1024,
-			1026,
-			CENNZX_PRECOMPILE,
-			FEE_PROXY,
-			PEG_PRECOMPILE,
-			27572 // TODO Create constant
-		]
-		.into_iter()
-		.map(|x| hash(x))
-		.collect()
-	}
+parameter_types! {
+	pub Erc721AssetPrefix: &'static [u8] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
+	pub Erc20AssetPrefix: &'static [u8] = ERC20_PRECOMPILE_ADDRESS_PREFIX;
 }
-impl<R> PrecompileSet for CENNZnetPrecompiles<R>
-where
-	R: pallet_evm::Config,
-{
-	fn execute(
-		&self,
-		address: H160,
-		input: &[u8],
-		target_gas: Option<u64>,
-		context: &Context,
-		is_static: bool,
-	) -> Option<PrecompileResult> {
-		let routing_prefix = &address.to_fixed_bytes()[0..4];
-		match address {
-			// Ethereum precompiles:
-			a if a == hash(1) => Some(ECRecover::execute(input, target_gas, context, is_static)),
-			a if a == hash(2) => Some(Sha256::execute(input, target_gas, context, is_static)),
-			a if a == hash(3) => Some(Ripemd160::execute(input, target_gas, context, is_static)),
-			a if a == hash(4) => Some(Identity::execute(input, target_gas, context, is_static)),
-			a if a == hash(5) => Some(Modexp::execute(input, target_gas, context, is_static)),
-			a if a == hash(9) => Some(Blake2F::execute(input, target_gas, context, is_static)),
-			// Non-CENNZnet specific nor Ethereum precompiles:
-			a if a == hash(1024) => Some(Sha3FIPS256::execute(input, target_gas, context, is_static)),
-			a if a == hash(1026) => Some(ECRecoverPublicKey::execute(input, target_gas, context, is_static)),
-			// CENNZnet precompiles:
-			a if a == hash(FEE_PROXY) => None,
-			a if a == StateOraclePrecompileAddress::get() && StateOracleIsActive::get() => Some(
-				StateOraclePrecompile::<EthStateOracle, Runtime>::execute(input, target_gas, context, is_static),
+
+/// The PrecompileSet installed in the CENNZnet runtime.
+/// We include six of the nine Istanbul precompiles
+/// (https://github.com/ethereum/go-ethereum/blob/3c46f557/core/vm/contracts.go#L69)
+/// as well as a special precompile for dispatching Substrate extrinsics
+/// The following distribution has been decided for the precompiles
+/// 0-1023: Ethereum Mainnet Precompiles
+pub type CENNZnetPrecompiles<R> = PrecompileSetBuilder<
+	R,
+	(
+		// Skip precompiles if out of range.
+		PrecompilesInRangeInclusive<
+			(AddressU64<1>, AddressU64<4095>),
+			(
+				// Ethereum precompiles:
+				// We allow DELEGATECALL to stay compliant with Ethereum behavior.
+				PrecompileAt<AddressU64<1>, ECRecover, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<2>, Sha256, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<3>, Ripemd160, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<4>, Identity, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<5>, Modexp, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<9>, Blake2F, ForbidRecursion, AllowDelegateCall>,
+				// Non-CENNZnet specific nor Ethereum precompiles :
+				PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
+				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
+				// CENNZnet specific precompiles:
+				PrecompileAt<AddressU64<FEE_PROXY>, _>,
+				// TODO: Fix State Oracle Precompile
+				// PrecompileAt<AddressU64<StateOraclePrecompileAddress::get()>, StateOraclePrecompile::<EthStateOracle, R>>,
+				PrecompileAt<AddressU64<PEG_PRECOMPILE>, Erc20PegPrecompile<R>>,
+				PrecompileAt<
+					AddressU64<CENNZX_PRECOMPILE>,
+					CennzxPrecompile<Cennzx, AddressMappingOf<R>, CENNZnetGasWeightMapping, R>,
+				>,
 			),
-			a if a == hash(PEG_PRECOMPILE) => Some(Erc20PegPrecompile::<Runtime>::execute(
-				input, target_gas, context, is_static,
-			)),
-			a if a == hash(CENNZX_PRECOMPILE) => Some(CennzxPrecompile::<
-				Cennzx,
-				AddressMappingOf<Runtime>,
-				CENNZnetGasWeightMapping,
-				Runtime,
-			>::execute(input, target_gas, context, is_static)),
-			_a if routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX => {
-				<Erc721PrecompileSet<Runtime> as PrecompileSet>::execute(
-					&Erc721PrecompileSet::<Runtime>::new(),
-					address,
-					input,
-					target_gas,
-					context,
-					is_static,
-				)
-			}
-			_a if routing_prefix == ERC20_PRECOMPILE_ADDRESS_PREFIX => {
-				<Erc20PrecompileSet<Runtime> as PrecompileSet>::execute(
-					&Erc20PrecompileSet::<Runtime>::new(),
-					address,
-					input,
-					target_gas,
-					context,
-					is_static,
-				)
-			}
-			_ => None,
-		}
-	}
-
-	fn is_precompile(&self, address: H160) -> bool {
-		let routing_prefix = &address.to_fixed_bytes()[0..4];
-		Self::used_addresses().contains(&address)
-			|| routing_prefix == ERC20_PRECOMPILE_ADDRESS_PREFIX
-			|| routing_prefix == ERC721_PRECOMPILE_ADDRESS_PREFIX
-	}
-}
-
-fn hash(a: u64) -> H160 {
-	H160::from_low_u64_be(a)
-}
+		>,
+		// Prefixed precompile sets (XC20)
+		PrecompileSetStartingWith<Erc721AssetPrefix, Erc721PrecompileSet<R>>,
+		PrecompileSetStartingWith<Erc20AssetPrefix, Erc20PrecompileSet<R>>,
+	),
+>;
 
 impl Erc721IdConversion for Runtime {
 	type EvmId = Address;
