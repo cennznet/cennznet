@@ -223,6 +223,7 @@ pub use slashing::REWARD_F1;
 
 use codec::HasCompact;
 use crml_support::{log, StakingAmount};
+use frame_election_provider_support::{generate_solution_type, NposSolution};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
@@ -237,13 +238,12 @@ use frame_system::{self as system, offchain::SendTransactionTypes, pallet_prelud
 use pallet_session::historical;
 use pallet_staking::WeightInfo;
 use sp_npos_elections::{
-	generate_solution_type, is_score_better, seq_phragmen, to_supports, Assignment,
-	ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
-	PerThing128, Supports, VoteWeight,
+	seq_phragmen, to_supports, Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore, EvaluateSupport,
+	ExtendedBalance, PerThing128, Supports, VoteWeight,
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, CheckedSub, Convert, Dispatchable, SaturatedConversion, Saturating, Zero},
-	InnerOf, PerU16, Perbill,
+	InnerOf, ModuleError, PerU16, Perbill,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -256,13 +256,15 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, iter::FromItera
 const STAKING_ID: LockIdentifier = *b"staking ";
 const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as NposSolution>::LIMIT;
+/// We take the top 22_500 nominators as electing voters..
+pub const MAX_ELECTING_VOTERS: u32 = 22_500;
 
 pub(crate) const LOG_TARGET: &'static str = "staking";
 
 // Note: Maximum nomination limit is set here -- 16.
 generate_solution_type!(
 	#[compact]
-	pub struct CompactAssignments::<VoterIndex = NominatorIndex, TargetIndex = ValidatorIndex, Accuracy = OffchainAccuracy>(16)
+	pub struct CompactAssignments::<VoterIndex = NominatorIndex, TargetIndex = ValidatorIndex, Accuracy = OffchainAccuracy, MaxVoters = ConstU32::<MAX_ELECTING_VOTERS>>(16)
 );
 
 /// Data type used to index nominators in the compact type
@@ -583,7 +585,7 @@ impl<AccountId, Balance: HasCompact> IndividualExposure<AccountId, Balance> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -593,6 +595,16 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 	pub own: Balance,
 	/// The portions of nominators stashes that are exposed.
 	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+}
+
+impl<AccountId, Balance: HasCompact + Default> Default for Exposure<AccountId, Balance> {
+	fn default() -> Self {
+		Self {
+			total: Default::default(),
+			own: Default::default(),
+			others: vec![],
+		}
+	}
 }
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
@@ -2397,7 +2409,7 @@ impl<T: Config> Module<T> {
 			);
 			None
 		} else {
-			seq_phragmen::<_, Accuracy>(
+			seq_phragmen(
 				Self::validator_count() as usize,
 				all_validators,
 				all_nominators,
@@ -2433,7 +2445,7 @@ impl<T: Config> Module<T> {
 		// assume the given score is valid. Is it better than what we have on-chain, if we have any?
 		if let Some(queued_score) = Self::queued_score() {
 			ensure!(
-				is_score_better(score, queued_score, T::MinSolutionScoreBump::get()),
+				score.strict_threshold_better(queued_score, T::MinSolutionScoreBump::get()),
 				Error::<T>::OffchainElectionWeakSubmission.with_weight(T::DbWeight::get().reads(3)),
 			)
 		}
@@ -3255,7 +3267,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 
 			ValidTransaction::with_tag_prefix("StakingOffchain")
 				// The higher the score[0], the better a solution is.
-				.priority(T::UnsignedPriority::get().saturating_add(score[0].saturated_into()))
+				.priority(T::UnsignedPriority::get().saturating_add(score.minimal_stake.saturated_into()))
 				// Defensive only. A single solution can exist in the pool per era. Each validator
 				// will run OCW at most once per era, hence there should never exist more than one
 				// transaction anyhow.
@@ -3310,7 +3322,7 @@ fn is_sorted_and_unique(list: &[u32]) -> bool {
 fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransaction {
 	let error = error_with_post_info.error;
 	let error_number = match error {
-		DispatchError::Module { error, .. } => error,
+		DispatchError::Module(ModuleError { error, .. }) => error[0],
 		_ => 0,
 	};
 	InvalidTransaction::Custom(error_number)

@@ -1493,7 +1493,7 @@ fn slashing_validator_does_not_overflow() {
 		ErasStakers::<Test>::insert(
 			0,
 			11,
-			Exposure {
+			Exposure::<AccountId, Balance> {
 				total: stake,
 				own: 1,
 				others: vec![IndividualExposure {
@@ -2994,7 +2994,7 @@ mod offchain_election {
 			assert_eq!(
 				<Staking as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(TransactionSource::Local, &inner,),
 				TransactionValidity::Err(
-					InvalidTransaction::Custom(<Error<Test>>::OffchainElectionWeakSubmission.as_u8()).into(),
+					InvalidTransaction::Custom(<Error<Test>>::OffchainElectionWeakSubmission.encode()[0]).into(),
 				),
 			)
 		})
@@ -3453,7 +3453,7 @@ mod offchain_election {
 				run_to_block(12);
 
 				let (compact, winners, mut score) = prepare_submission_with(true, true, 2, |_| {});
-				score[0] += 1;
+				score.minimal_stake += 1;
 
 				assert_noop!(
 					submit_solution(Origin::signed(10), winners, compact, score,),
