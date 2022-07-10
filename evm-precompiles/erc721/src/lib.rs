@@ -15,8 +15,9 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
-use fp_evm::{Context, ExitSucceed, PrecompileHandle, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
@@ -24,10 +25,10 @@ use frame_support::{
 use pallet_evm::{AddressMapping, PrecompileSet};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::SaturatedConversion;
-use sp_std::{marker::PhantomData, vec};
+use sp_std::marker::PhantomData;
 
 use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
-use precompile_utils::prelude::*;
+use precompile_utils::{prelude::*, AddressMappingReversibleExt, ExitRevert};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -96,7 +97,7 @@ where
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		// Convert target `address` into it's runtime NFT Id
-		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
+		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(handle.code_address())) {
 			// 'collection name' is empty when the collection doesn't exist yet
 			if !crml_nft::Pallet::<Runtime>::collection_name(collection_id).is_empty() {
 				let result = {
@@ -167,8 +168,7 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
 	/// Returns the CENNZnet address which owns the given token
-	/// The zero address is returned if it is unowned or does not exist
-	/// ss58 `5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM`
+	/// An error is returned if the token doesn't exist
 	fn owner_of(
 		series_id_parts: (CollectionId, SeriesId),
 		handle: &mut impl PrecompileHandle,
@@ -188,15 +188,17 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		// Fetch info.
-		let owner_account_id =
-			H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
-
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(owner_account_id).build(),
-		})
+		match crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number) {
+			Some(owner_account_id) => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: EvmDataWriter::new().write(H256::from(owner_account_id.into())).build(),
+			}),
+			None => Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: alloc::format!("Token does not exist").as_bytes().to_vec(),
+			}),
+		}
 	}
 
 	fn balance_of(
@@ -253,7 +255,7 @@ where
 		let approved_account: H160 = crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
-		if context.caller == from || context.caller == approved_account {
+		if handle.context().caller == from || handle.context().caller == approved_account {
 			let from = Runtime::AddressMapping::into_account_id(from);
 			let to = Runtime::AddressMapping::into_account_id(to);
 
@@ -265,15 +267,15 @@ where
 					token_id,
 					new_owner: to,
 				},
-				gasometer,
 			)?;
 		} else {
 			return Err(error("caller not approved").into());
 		}
 
 		log3(
+			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			context.caller,
+			handle.context().caller,
 			to,
 			EvmDataWriter::new().write(serial_number).build(),
 		)
@@ -308,7 +310,7 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		if context.caller == from {
+		if handle.context().caller == from {
 			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -319,15 +321,15 @@ where
 					operator_account: to,
 					token_id,
 				},
-				gasometer,
 			)?;
 		} else {
 			return Err(error("caller must be from").into());
 		};
 
 		log3(
+			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
-			context.caller,
+			handle.context().caller,
 			to,
 			EvmDataWriter::new().write(serial_number).build(),
 		)
@@ -424,7 +426,7 @@ where
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
-		if serial_number > u32::max_value().into() {
+		if serial_number > u32::MAX.into() {
 			return Err(error("expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();

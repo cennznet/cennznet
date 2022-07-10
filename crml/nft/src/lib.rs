@@ -1128,8 +1128,9 @@ decl_module! {
 			// Find count of ownership for collection
 			let mut token_balance_maps: BTreeMap<T::AccountId, TokenCount> = BTreeMap::new();
 			for token_id in 0..token_count {
-				let owner = Self::token_owner((collection_id, series_id), token_id);
-				*token_balance_maps.entry(owner).or_default() += 1;
+				if let Some(owner) = Self::token_owner((collection_id, series_id), token_id){
+					*token_balance_maps.entry(owner).or_default() += 1;
+				};
 			}
 
 			// update token balances
