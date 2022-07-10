@@ -23,11 +23,13 @@ use crate::{
 };
 use codec::Decode;
 use crml_support::log;
+use frame_election_provider_support::NposSolution;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-	reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
+	reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport, ExtendedBalance,
 };
+
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	traits::TrailingZeroInput,
@@ -495,10 +497,16 @@ mod test {
 		fn get_npos_targets(_: u32) -> u64 {
 			unimplemented!()
 		}
-		fn set_staking_configs() -> u64 {
+		fn set_staking_configs_all_set() -> Weight {
+			unimplemented!()
+		}
+		fn set_staking_configs_all_remove() -> Weight {
 			unimplemented!()
 		}
 		fn chill_other() -> u64 {
+			unimplemented!()
+		}
+		fn force_apply_min_commission() -> Weight {
 			unimplemented!()
 		}
 	}

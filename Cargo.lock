@@ -1557,11 +1557,12 @@ dependencies = [
 
 [[package]]
 name = "crml-staking"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crml-generic-asset",
  "crml-support",
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "hex",
