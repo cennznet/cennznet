@@ -1,7 +1,6 @@
 use crate::{
-	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY, PEG_PRECOMPILE},
-	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime, StateOracleIsActive,
-	StateOraclePrecompileAddress,
+	constants::evm::*, AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime,
+	StateOracleIsActive,
 };
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
 use crml_support::{ContractExecutor, H160, U256};
@@ -52,8 +51,7 @@ pub type CENNZnetPrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// CENNZnet specific precompiles:
 				PrecompileAt<AddressU64<FEE_PROXY>, _>,
-				// TODO: Fix State Oracle Precompile
-				// PrecompileAt<AddressU64<StateOraclePrecompileAddress::get()>, StateOraclePrecompile::<EthStateOracle, R>>,
+				PrecompileAt<AddressU64<STATE_ORACLE_PRECOMPILE>, StateOraclePrecompile<EthStateOracle, R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, Erc20PegPrecompile<R>>,
 				PrecompileAt<
 					AddressU64<CENNZX_PRECOMPILE>,

@@ -46,6 +46,8 @@ pub mod evm {
 	pub const CENNZX_PRECOMPILE: u64 = 37322;
 	// Precompile address for erc20-peg
 	pub const PEG_PRECOMPILE: u64 = 1939;
+	// Precompile address for the state oracle
+	pub const STATE_ORACLE_PRECOMPILE: u64 = 27572;
 }
 
 /// Money matters.

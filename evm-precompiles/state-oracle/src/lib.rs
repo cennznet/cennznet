@@ -17,16 +17,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use cennznet_primitives::types::{AssetId, FeePreferences};
+use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
+use frame_support::traits::Get;
 use pallet_evm::{ExitRevert, Precompile};
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
+use precompile_utils::prelude::*;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
 use sp_std::{convert::TryInto, marker::PhantomData};
-
-use cennznet_primitives::types::{AssetId, FeePreferences};
-use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
-use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -45,10 +45,18 @@ pub struct StateOraclePrecompile<T, C>(PhantomData<(T, C)>);
 
 impl<T, C> Precompile for StateOraclePrecompile<T, C>
 where
-	T: EthereumStateOracle<Address = H160, RequestId = U256>,
+	T: EthereumStateOracle<Address = H160, RequestId = U256> + crml_eth_state_oracle::Config,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		// Check that State Oracle is active
+		if !<T as crml_eth_state_oracle::Config>::StateOracleIsActive::get() {
+			return Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: ("Request Failed, State Oracle not enabled").as_bytes().to_vec(),
+			});
+		}
+
 		let selector = match handle.read_selector() {
 			Ok(selector) => selector,
 			Err(e) => return Err(e),

@@ -162,9 +162,6 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 
-parameter_types! {
-	storage StateOracleIsActive: bool = false;
-}
 /// Prevent state oracle transactions from executing
 pub struct StateOracleCallFilter;
 impl frame_support::traits::Contains<Call> for StateOracleCallFilter {
@@ -664,23 +661,23 @@ impl frame_support::traits::Get<u64> for MinGasPriceGetter {
 parameter_types! {
 	/// The number of blocks a state oracle response can be challenged for
 	pub storage ChallengePeriod: BlockNumber = 5;
-	/// Fixed precompile address for the state oracle
-	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 	/// Minimum bond amount required for a relayer and challenger
 	pub storage RelayerBondAmount: Balance = 100_000_000;
 	/// Maximum requests allowed per block (Absolute max: 100)
 	pub storage MaxRequestsPerBlock: u32 = 30;
 	/// Maximum number of active relayers allowed at one time
 	pub storage MaxRelayerCount: u32 = 1;
+	/// Prevents State Oracle transactions from executing if false
+	pub storage StateOracleIsActive: bool = false;
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
-	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type ChallengePeriod = ChallengePeriod;
 	type ContractExecutor = StateOracleCallbackExecutor<Self>;
-	type UnixTime = Timestamp;
+	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type EthCallOracle = ();
 	type Event = Event;
+	type UnixTime = Timestamp;
 	type MultiCurrency = GenericAsset;
 	type MinGasPrice = MinGasPriceGetter;
 	type GasWeightMapping = CENNZnetGasWeightMapping;
@@ -688,6 +685,7 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type RelayerBondAmount = RelayerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
 	type MaxRelayerCount = MaxRelayerCount;
+	type StateOracleIsActive = StateOracleIsActive;
 }
 
 impl crml_token_approvals::Config for Runtime {
