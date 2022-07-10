@@ -27,10 +27,7 @@ use sp_runtime::traits::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec};
 
 use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
-pub use precompile_utils::{
-	error, keccak256, revert, Address, AddressMappingReversibleExt, Bytes, EvmData, EvmDataReader, EvmDataWriter,
-	EvmResult, FunctionModifier, PrecompileHandleExt, RuntimeHelper,
-};
+use precompile_utils::prelude::*;
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");

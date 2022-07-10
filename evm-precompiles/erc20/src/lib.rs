@@ -27,10 +27,7 @@ use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::marker::PhantomData;
 
 use cennznet_primitives::types::{AssetId, Balance};
-use precompile_utils::{
-	error, keccak256, log3, Address, Bytes, EvmDataWriter, EvmResult, FunctionModifier, PrecompileHandleExt,
-	RuntimeHelper,
-};
+use precompile_utils::prelude::*;
 
 /// Calls to contracts starting with this prefix will be shim'd to the CENNZnet GA module
 /// via an ERC20 compliant interface (`Erc20PrecompileSet`)
@@ -157,7 +154,7 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Parse input.
-		let mut input = handle.read_input()?;
+		let input = handle.read_input()?;
 		input.expect_arguments(0)?;
 
 		// Fetch info.
@@ -235,13 +232,12 @@ where
 		// Amount saturate if too high.
 		let amount: Balance = amount.saturated_into();
 
-		let context = handle.context();
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			None.into(),
 			crml_token_approvals::Call::<Runtime>::erc20_approval {
-				caller: context.caller.clone(),
+				caller: handle.context().caller,
 				spender,
 				asset_id,
 				amount,
@@ -249,8 +245,9 @@ where
 		)?;
 
 		log3(
+			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
-			context.caller,
+			handle.context().caller,
 			spender,
 			EvmDataWriter::new().write(amount).build(),
 		)
@@ -272,11 +269,10 @@ where
 
 		let to: H160 = input.read::<Address>()?.into();
 		let amount: Balance = input.read::<U256>()?.saturated_into();
-		let context = handle.context();
 
 		// Build call with origin.
 		{
-			let origin = Runtime::AddressMapping::into_account_id(context.caller);
+			let origin = Runtime::AddressMapping::into_account_id(handle.context().caller);
 			let to = Runtime::AddressMapping::into_account_id(to);
 
 			// Dispatch call (if enough gas).
@@ -288,8 +284,9 @@ where
 		}
 
 		log3(
+			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			context.caller,
+			handle.context().caller,
 			to,
 			EvmDataWriter::new().write(amount).build(),
 		)
@@ -313,8 +310,7 @@ where
 		let amount: Balance = input.read::<U256>()?.saturated_into();
 
 		// If caller is "from", it can spend as much as it wants from its own balance.
-		let context = handle.context();
-		if context.caller == from {
+		if handle.context().caller == from {
 			let from: Runtime::AccountId = Runtime::AddressMapping::into_account_id(from.clone());
 			let to: Runtime::AccountId = Runtime::AddressMapping::into_account_id(to);
 			// Dispatch call (if enough gas).
@@ -326,11 +322,13 @@ where
 		} else {
 			// caller not from, check if caller is approved
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let current_approved_amount: Balance =
-				crml_token_approvals::Module::<Runtime>::erc20_approvals((&from.clone(), &asset_id), &context.caller);
+			let current_approved_amount: Balance = crml_token_approvals::Module::<Runtime>::erc20_approvals(
+				(&from.clone(), &asset_id),
+				&handle.context().caller,
+			);
 			let new_approved_amount: Balance = current_approved_amount
 				.checked_sub(amount)
-				.ok_or(error("Caller not approved for amount").into())?;
+				.ok_or(revert("Caller not approved for amount"))?;
 
 			if new_approved_amount.is_zero() {
 				// New balance is 0, remove approval
@@ -340,7 +338,7 @@ where
 					crml_token_approvals::Call::<Runtime>::erc20_remove_approval {
 						caller: from.clone(),
 						asset_id,
-						spender: context.caller,
+						spender: handle.context().caller,
 					},
 				)?;
 			} else {
@@ -350,7 +348,7 @@ where
 					None.into(),
 					crml_token_approvals::Call::<Runtime>::erc20_approval {
 						caller: from.clone(),
-						spender: context.caller,
+						spender: handle.context().caller,
 						asset_id,
 						amount: new_approved_amount,
 					},
@@ -367,6 +365,7 @@ where
 		}
 
 		log3(
+			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
 			from,
 			to,

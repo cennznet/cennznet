@@ -17,9 +17,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{Context, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
 use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
-use sp_core::{H160, U256};
+use sp_core::U256;
 use sp_runtime::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
@@ -28,7 +28,7 @@ use cennznet_primitives::{
 	types::{AccountId, AssetId, Balance, FeeExchange, FeeExchangeV1},
 };
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{Address, EvmDataReader, EvmResult, FunctionModifier, PrecompileHandleExt};
+use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -48,10 +48,10 @@ where
 	G: GasWeightMapping,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		let selector = match handle.read_selector() {
 			Ok(selector) => selector,
-			Err(e) => return Some(Err(e)),
+			Err(e) => return Err(e),
 		};
 
 		if let Err(err) = handle.check_function_modifier(match selector {
@@ -91,7 +91,7 @@ where
 			max_payment: max_input.saturated_into(),
 		});
 
-		let caller = U::into_account_id(*caller);
+		let caller = U::into_account_id(handle.context().caller);
 
 		handle.record_cost(G::weight_to_gas(T::buy_fee_weight()))?;
 		let _ = T::buy_fee_asset(&caller, exact_output.saturated_into(), &fee_exchange).map_err(|err| {

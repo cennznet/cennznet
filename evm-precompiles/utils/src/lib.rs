@@ -26,7 +26,7 @@ use sp_core::H160;
 pub mod costs;
 pub mod data;
 pub mod handle;
-//mod log;
+pub mod logs;
 pub mod modifier;
 pub mod precompile_set;
 pub mod substrate;
@@ -104,13 +104,11 @@ pub mod prelude {
 			data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter},
 			error,
 			handle::PrecompileHandleExt,
-			//logs::{log0, log1, log2, log3, log4, LogExt},
+			logs::{log0, log1, log2, log3, log4, LogExt},
 			modifier::{check_function_modifier, FunctionModifier},
 			revert,
 			substrate::RuntimeHelper,
-			succeed,
-			EvmResult,
-			StatefulPrecompile,
+			succeed, EvmResult, StatefulPrecompile,
 		},
 		pallet_evm::PrecompileHandle,
 		precompile_utils_macro::{generate_function_selector, keccak256},

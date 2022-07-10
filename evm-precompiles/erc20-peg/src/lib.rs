@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileOutput};
 use pallet_evm::{AddressMapping, ExitRevert, Precompile};
 use sp_core::{H160, U256};
 use sp_runtime::traits::UniqueSaturatedInto;
@@ -26,10 +26,7 @@ use sp_std::marker::PhantomData;
 use cennznet_primitives::types::AssetId;
 use crml_erc20_peg::types::WithdrawCallOrigin;
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{
-	revert, Address, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure,
-	PrecompileHandleExt, RuntimeHelper,
-};
+use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -49,10 +46,10 @@ where
 		+ pallet_evm::Config
 		+ Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		let selector = match handle.read_selector() {
 			Ok(selector) => selector,
-			Err(e) => return Some(Err(e)),
+			Err(e) => return Err(e),
 		};
 
 		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
@@ -91,7 +88,7 @@ where
 		let beneficiary: H160 = input.read::<Address>()?.into();
 
 		handle.record_cost(RuntimeHelper::<T>::db_read_gas_cost() * 6)?;
-		let caller: T::AccountId = T::AddressMapping::into_account_id(*caller);
+		let caller: T::AccountId = T::AddressMapping::into_account_id(handle.context().caller);
 		let event_proof_id = crml_erc20_peg::Module::<T>::do_withdrawal(
 			caller,
 			asset_id,

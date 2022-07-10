@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{Context, ExitSucceed, PrecompileHandle, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
 use pallet_evm::{ExitRevert, Precompile};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::UniqueSaturatedInto, Permill};
@@ -26,10 +26,7 @@ use sp_std::{convert::TryInto, marker::PhantomData};
 use cennznet_primitives::types::{AssetId, FeePreferences};
 use crml_support::{scale_wei_to_4dp, EthereumStateOracle};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{
-	revert, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, PrecompileFailure,
-	PrecompileHandleExt,
-};
+use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -51,10 +48,10 @@ where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		let selector = match handle.read_selector() {
 			Ok(selector) => selector,
-			Err(e) => return Some(Err(e)),
+			Err(e) => return Err(e),
 		};
 
 		if let Err(err) = handle.check_function_modifier(match selector {
@@ -107,7 +104,7 @@ where
 
 		handle.record_cost(T::new_request_fee())?;
 		let request_id = T::new_request(
-			caller,
+			&handle.context().caller,
 			&destination,
 			input_data.as_bytes(),
 			&callback_signature, // checked len == 4 above qed
@@ -150,7 +147,7 @@ where
 
 		handle.record_cost(T::new_request_fee())?;
 		let request_id = T::new_request(
-			caller,
+			&handle.context().caller,
 			&destination,
 			input_data.as_bytes(),
 			&callback_signature,
