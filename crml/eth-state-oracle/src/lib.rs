@@ -75,6 +75,8 @@ pub trait Config: frame_system::Config {
 	type MaxRequestsPerBlock: Get<u32>;
 	/// Maximum number of active relayers allowed at one time
 	type MaxRelayerCount: Get<u32>;
+	/// Prevents State Oracle transactions from executing if false
+	type StateOracleIsActive: Get<bool>;
 }
 
 decl_storage! {

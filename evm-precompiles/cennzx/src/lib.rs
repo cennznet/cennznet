@@ -17,17 +17,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
+use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
+use sp_core::U256;
+use sp_runtime::SaturatedConversion;
+use sp_std::marker::PhantomData;
+
 use cennznet_primitives::{
 	traits::BuyFeeAsset,
 	types::{AccountId, AssetId, Balance, FeeExchange, FeeExchangeV1},
 };
-use fp_evm::{Context, ExitSucceed, PrecompileFailure, PrecompileOutput};
-use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{Address, EvmDataReader, EvmResult, FunctionModifier, Gasometer};
-use sp_core::{H160, U256};
-use sp_runtime::SaturatedConversion;
-use sp_std::marker::PhantomData;
+use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -47,33 +48,20 @@ where
 	G: GasWeightMapping,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(
-		input: &[u8],
-		target_gas: Option<u64>,
-		context: &Context,
-		is_static: bool,
-	) -> EvmResult<PrecompileOutput> {
-		let mut gasometer = Gasometer::new(target_gas);
-		let gasometer = &mut gasometer;
-
-		let (mut input, selector) = match EvmDataReader::new_with_selector(gasometer, input) {
-			Ok((input, selector)) => (input, selector),
-			Err(err) => return Err(err),
+	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e),
 		};
-		let input = &mut input;
 
-		if let Err(err) = gasometer.check_function_modifier(
-			context,
-			is_static,
-			match selector {
-				Action::SwapForExactCPAY => FunctionModifier::NonPayable,
-			},
-		) {
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::SwapForExactCPAY => FunctionModifier::NonPayable,
+		}) {
 			return Err(err);
 		}
 
 		match selector {
-			Action::SwapForExactCPAY => Self::swap_for_exact_cpay(input, gasometer, &context.caller),
+			Action::SwapForExactCPAY => Self::swap_for_exact_cpay(handle),
 		}
 	}
 }
@@ -85,30 +73,27 @@ where
 	G: GasWeightMapping,
 	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn swap_for_exact_cpay(
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
-		caller: &H160,
-	) -> EvmResult<PrecompileOutput> {
-		input.expect_arguments(gasometer, 3)?;
+	fn swap_for_exact_cpay(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
 
-		let input_asset: Address = input.read::<Address>(gasometer)?.into();
+		let input_asset: Address = input.read::<Address>()?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
 		// it is not supported by cennzx
-		let asset_id = C::evm_id_to_runtime_id(input_asset).ok_or(gasometer.revert("unsupported asset"))?;
+		let asset_id = C::evm_id_to_runtime_id(input_asset).ok_or(revert("unsupported asset"))?;
 		// in CPAY units
-		let exact_output: U256 = input.read::<U256>(gasometer)?.into();
+		let exact_output: U256 = input.read::<U256>()?.into();
 		// in ASSET units
-		let max_input: U256 = input.read::<U256>(gasometer)?.into();
+		let max_input: U256 = input.read::<U256>()?.into();
 
 		let fee_exchange = FeeExchange::V1(FeeExchangeV1::<AssetId, Balance> {
 			asset_id,
 			max_payment: max_input.saturated_into(),
 		});
 
-		let caller = U::into_account_id(*caller);
+		let caller = U::into_account_id(handle.context().caller);
 
-		gasometer.record_cost(G::weight_to_gas(T::buy_fee_weight()))?;
+		handle.record_cost(G::weight_to_gas(T::buy_fee_weight()))?;
 		let _ = T::buy_fee_asset(&caller, exact_output.saturated_into(), &fee_exchange).map_err(|err| {
 			PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
@@ -119,9 +104,7 @@ where
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: Default::default(),
-			logs: Default::default(),
 		})
 	}
 }

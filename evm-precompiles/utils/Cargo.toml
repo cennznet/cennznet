@@ -6,6 +6,8 @@ edition = "2018"
 version = "0.1.0"
 
 [dependencies]
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "01bcbd2205a212c34451d3b4fabc962793b057d3", default-features = false, features = [ "with-codec" ] }
+impl-trait-for-tuples = "0.2.2"
 log = "0.4"
 num_enum = { version = "0.5.3", default-features = false }
 sha3 = { version = "0.9", default-features = false }
