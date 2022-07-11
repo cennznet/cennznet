@@ -18,8 +18,10 @@
 
 use codec::{Codec, Decode, Encode};
 use hex;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{BaseArithmetic, SaturatedConversion};
@@ -27,40 +29,39 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-pub use self::gen_client::Client as CennzxClient;
 pub use crml_cennzx_rpc_runtime_api::{self as runtime_api, CennzxApi as CennzxRuntimeApi, CennzxResult};
 
 /// Contracts RPC methods.
-#[rpc]
+#[rpc(client, server, namespace = "cennzx")]
 pub trait CennzxApi<AssetId, Balance, AccountId>
 where
 	Balance: FromStr + Display + From<u128>,
 {
-	#[rpc(name = "cennzx_buyPrice")]
+	#[method(name = "buyPrice")]
 	fn buy_price(
 		&self,
 		asset_to_buy: AssetId,
 		amount_to_buy: WrappedBalance,
 		asset_to_pay: AssetId,
-	) -> Result<BuyPriceResponse<Balance>>;
+	) -> RpcResult<BuyPriceResponse<Balance>>;
 
-	#[rpc(name = "cennzx_sellPrice")]
+	#[method(name = "sellPrice")]
 	fn sell_price(
 		&self,
 		asset_to_sell: AssetId,
 		amount_to_sell: WrappedBalance,
 		asset_to_payout: AssetId,
-	) -> Result<SellPriceResponse<Balance>>;
+	) -> RpcResult<SellPriceResponse<Balance>>;
 
-	#[rpc(name = "cennzx_liquidityValue")]
-	fn liquidity_value(&self, account_id: AccountId, asset_id: AssetId) -> Result<LiquidityValueResponse<Balance>>;
+	#[method(name = "liquidityValue")]
+	fn liquidity_value(&self, account_id: AccountId, asset_id: AssetId) -> RpcResult<LiquidityValueResponse<Balance>>;
 
-	#[rpc(name = "cennzx_liquidityPrice")]
+	#[method(name = "liquidityPrice")]
 	fn liquidity_price(
 		&self,
 		asset_id: AssetId,
 		liquidity_to_buy: WrappedBalance,
-	) -> Result<LiquidityPriceResponse<Balance>>;
+	) -> RpcResult<LiquidityPriceResponse<Balance>>;
 }
 
 /// An implementation of CENNZX Spot Exchange specific RPC methods.
@@ -192,25 +193,7 @@ impl<'de> serde::de::Visitor<'de> for WrappedBalanceVisitor {
 	}
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-	/// The call to runtime failed.
-	Runtime,
-	CannotExchange,
-	PriceOverflow,
-}
-
-impl From<Error> for i64 {
-	fn from(e: Error) -> i64 {
-		match e {
-			Error::Runtime => 1,
-			Error::CannotExchange => 2,
-			Error::PriceOverflow => 3,
-		}
-	}
-}
-
-impl<C, Block, AssetId, Balance, AccountId> CennzxApi<AssetId, Balance, AccountId> for Cennzx<C, Block>
+impl<C, Block, AssetId, Balance, AccountId> CennzxApiServer<AssetId, Balance, AccountId> for Cennzx<C, Block>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -224,26 +207,18 @@ where
 		asset_to_buy: AssetId,
 		amount_to_buy: WrappedBalance,
 		asset_to_pay: AssetId,
-	) -> Result<BuyPriceResponse<Balance>> {
+	) -> RpcResult<BuyPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
 			.buy_price(&at, asset_to_buy, amount_to_buy.0.into(), asset_to_pay)
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "Unable to query buy price.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?;
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		match result {
 			CennzxResult::Success(price) => Ok(BuyPriceResponse { price }),
-			CennzxResult::Error => Err(RpcError {
-				code: ErrorCode::ServerError(Error::CannotExchange.into()),
-				message: "Cannot exchange for requested amount.".into(),
-				data: Some("".into()),
-			}),
+			CennzxResult::Error => Err(RpcError::Custom("Cannot exchange by requested amount.".into())),
 		}
 	}
 
@@ -252,39 +227,29 @@ where
 		asset_to_sell: AssetId,
 		amount_to_sell: WrappedBalance,
 		asset_to_payout: AssetId,
-	) -> Result<SellPriceResponse<Balance>> {
+	) -> RpcResult<SellPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
 			.sell_price(&at, asset_to_sell, amount_to_sell.0.into(), asset_to_payout)
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "Unable to query sell price.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?;
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		match result {
 			CennzxResult::Success(price) => Ok(SellPriceResponse { price }),
-			CennzxResult::Error => Err(RpcError {
-				code: ErrorCode::ServerError(Error::CannotExchange.into()),
-				message: "Cannot exchange by requested amount.".into(),
-				data: Some("".into()),
-			}),
+			CennzxResult::Error => Err(RpcError::Custom("Cannot exchange by requested amount.".into())),
 		}
 	}
 
-	fn liquidity_value(&self, account: AccountId, asset_id: AssetId) -> Result<LiquidityValueResponse<Balance>> {
+	fn liquidity_value(&self, account: AccountId, asset_id: AssetId) -> RpcResult<LiquidityValueResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let result = api.liquidity_value(&at, account, asset_id).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::Runtime.into()),
-			message: "Unable to query liquidity value.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let result = api
+			.liquidity_value(&at, account, asset_id)
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		Ok(LiquidityValueResponse {
 			liquidity: result.0,
@@ -297,18 +262,14 @@ where
 		&self,
 		asset_id: AssetId,
 		liquidity_to_buy: WrappedBalance,
-	) -> Result<LiquidityPriceResponse<Balance>> {
+	) -> RpcResult<LiquidityPriceResponse<Balance>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
 			.liquidity_price(&at, asset_id, liquidity_to_buy.0.into())
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::Runtime.into()),
-				message: "Unable to query liquidity price.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?;
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		Ok(LiquidityPriceResponse {
 			core: result.0,

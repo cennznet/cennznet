@@ -16,7 +16,7 @@
 
 use ethereum_types::{H160, H256, U256};
 use fc_rpc::{internal_err, public_key};
-use jsonrpc_core::Result as RpcResult;
+use jsonrpsee::core::RpcResult;
 use sc_transaction_pool::{ChainApi, Pool};
 use sc_transaction_pool_api::InPoolTransaction;
 use serde::Serialize;
@@ -28,9 +28,7 @@ use std::collections::HashMap;
 use std::{marker::PhantomData, sync::Arc};
 
 use cennznet_primitives::txpool::{Transaction as TransactionV2, TxPoolResponse, TxPoolRuntimeApi};
-pub use cennznet_rpc_core_txpool::{
-	GetT, Summary, Transaction, TransactionMap, TxPool as TxPoolT, TxPoolResult, TxPoolServer,
-};
+pub use cennznet_rpc_core_txpool::{GetT, Summary, Transaction, TransactionMap, TxPoolResult, TxPoolServer};
 
 pub struct TxPool<B: BlockT, C, A: ChainApi> {
 	client: Arc<C>,
@@ -139,7 +137,7 @@ impl<B: BlockT, C, A: ChainApi> TxPool<B, C, A> {
 	}
 }
 
-impl<B, C, A> TxPoolT for TxPool<B, C, A>
+impl<B, C, A> TxPoolServer for TxPool<B, C, A>
 where
 	C: ProvideRuntimeApi<B>,
 	C: HeaderMetadata<B, Error = BlockChainError> + HeaderBackend<B>,

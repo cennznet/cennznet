@@ -17,12 +17,13 @@
 
 //! RPC interface for the transaction payment module.
 
-pub use self::gen_client::Client as TransactionPaymentClient;
 use codec::{Codec, Decode};
 pub use crml_transaction_payment_rpc_runtime_api::TransactionPaymentApi as TransactionPaymentRuntimeApi;
 use crml_transaction_payment_rpc_runtime_api::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
@@ -33,12 +34,12 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-#[rpc]
+#[rpc(client, server, namespace = "payment")]
 pub trait TransactionPaymentApi<BlockHash, ResponseType> {
-	#[rpc(name = "payment_queryInfo")]
-	fn query_info(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> Result<ResponseType>;
-	#[rpc(name = "payment_queryFeeDetails")]
-	fn query_fee_details(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> Result<FeeDetails<NumberOrHex>>;
+	#[method(name = "queryInfo")]
+	fn query_info(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> RpcResult<ResponseType>;
+	#[method(name = "queryFeeDetails")]
+	fn query_fee_details(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> RpcResult<FeeDetails<NumberOrHex>>;
 }
 
 /// A struct that implements the [`TransactionPaymentApi`].
@@ -57,24 +58,7 @@ impl<C, P> TransactionPayment<C, P> {
 	}
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-	/// The transaction was not decodable.
-	DecodeError,
-	/// The call to runtime failed.
-	RuntimeError,
-}
-
-impl From<Error> for i64 {
-	fn from(e: Error) -> i64 {
-		match e {
-			Error::RuntimeError => 1,
-			Error::DecodeError => 2,
-		}
-	}
-}
-
-impl<C, Block, Balance> TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
+impl<C, Block, Balance> TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
 	for TransactionPayment<C, Block>
 where
 	Block: BlockT,
@@ -86,7 +70,7 @@ where
 		&self,
 		encoded_xt: Bytes,
 		at: Option<<Block as BlockT>::Hash>,
-	) -> Result<RuntimeDispatchInfo<Balance>> {
+	) -> RpcResult<RuntimeDispatchInfo<Balance>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
@@ -94,23 +78,16 @@ where
 
 		let encoded_len = encoded_xt.len() as u32;
 
-		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::DecodeError.into()),
-			message: "Unable to query dispatch info.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
-		api.query_info(&at, uxt, encoded_len).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query dispatch info.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError::to_call_error(e))?;
+		api.query_info(&at, uxt, encoded_len)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn query_fee_details(
 		&self,
 		encoded_xt: Bytes,
 		at: Option<<Block as BlockT>::Hash>,
-	) -> Result<FeeDetails<NumberOrHex>> {
+	) -> RpcResult<FeeDetails<NumberOrHex>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
@@ -118,23 +95,15 @@ where
 
 		let encoded_len = encoded_xt.len() as u32;
 
-		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::DecodeError.into()),
-			message: "Unable to query fee details.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
-		let fee_details = api.query_fee_details(&at, uxt, encoded_len).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query fee details.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError::to_call_error(e))?;
+		let fee_details = api
+			.query_fee_details(&at, uxt, encoded_len)
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		let try_into_rpc_balance = |value: Balance| {
-			value.try_into().map_err(|_| RpcError {
-				code: ErrorCode::InvalidParams,
-				message: format!("{} doesn't fit in NumberOrHex representation", value),
-				data: None,
-			})
+			value
+				.try_into()
+				.map_err(|_| RpcError::Custom(format!("{} doesn't fit in NumberOrHex representation", value)))
 		};
 
 		Ok(FeeDetails {

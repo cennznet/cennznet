@@ -21,56 +21,43 @@ use std::sync::Arc;
 use cennznet_primitives::types::{BlockNumber, CollectionId, SerialNumber, SeriesId, TokenId};
 use codec::Codec;
 use crml_nft::{CollectionInfo, Config, Listing, ListingResponse, ListingResponseWrapper, TokenInfo};
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
-pub use self::gen_client::Client as NftClient;
 pub use crml_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 
 /// NFT RPC methods.
-#[rpc]
+#[rpc(client, server, namespace = "nft")]
 pub trait NftApi<AccountId> {
-	#[rpc(name = "nft_collectedTokens")]
-	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>>;
+	#[method(name = "collectedTokens")]
+	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> RpcResult<Vec<TokenId>>;
 
-	#[rpc(name = "nft_getCollectionInfo")]
-	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>>;
+	#[method(name = "getCollectionInfo")]
+	fn collection_info(&self, collection_id: CollectionId) -> RpcResult<Option<CollectionInfo<AccountId>>>;
 
-	#[rpc(name = "nft_tokenUri")]
-	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>>;
+	#[method(name = "tokenUri")]
+	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
 
-	#[rpc(name = "nft_getTokenInfo")]
+	#[method(name = "getTokenInfo")]
 	fn token_info(
 		&self,
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<Option<TokenInfo<AccountId>>>;
+	) -> RpcResult<Option<TokenInfo<AccountId>>>;
 
-	#[rpc(name = "nft_getCollectionListings")]
+	#[method(name = "getCollectionListings")]
 	fn collection_listings(
 		&self,
 		collection_id: CollectionId,
 		cursor: u128,
 		limit: u16,
-	) -> Result<ListingResponseWrapper<AccountId>>;
-}
-
-/// Error type of this RPC api.
-pub enum Error {
-	/// The call to runtime failed.
-	RuntimeError,
-}
-
-impl From<Error> for i64 {
-	fn from(e: Error) -> i64 {
-		match e {
-			Error::RuntimeError => 1,
-		}
-	}
+	) -> RpcResult<ListingResponseWrapper<AccountId>>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -89,7 +76,7 @@ impl<C, Block, T: Config> Nft<C, Block, T> {
 	}
 }
 
-impl<C, Block, AccountId, T> NftApi<AccountId> for Nft<C, Block, T>
+impl<C, Block, AccountId, T> NftApiServer<AccountId> for Nft<C, Block, T>
 where
 	Block: BlockT,
 	T: Config<AccountId = AccountId, BlockNumber = BlockNumber> + Send + Sync,
@@ -97,38 +84,28 @@ where
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
 {
-	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> Result<Vec<TokenId>> {
+	fn collected_tokens(&self, collection_id: CollectionId, who: AccountId) -> RpcResult<Vec<TokenId>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.collected_tokens(&at, collection_id, who).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query collection nfts.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		api.collected_tokens(&at, collection_id, who)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 
-	fn token_uri(&self, token_id: TokenId) -> Result<Vec<u8>> {
+	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query collection nfts.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
 	}
 
-	fn collection_info(&self, collection_id: CollectionId) -> Result<Option<CollectionInfo<AccountId>>> {
+	fn collection_info(&self, collection_id: CollectionId) -> RpcResult<Option<CollectionInfo<AccountId>>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		api.collection_info(&at, collection_id).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to query collection information.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		api.collection_info(&at, collection_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn token_info(
@@ -136,16 +113,12 @@ where
 		collection_id: CollectionId,
 		series_id: SeriesId,
 		serial_number: SerialNumber,
-	) -> Result<Option<TokenInfo<AccountId>>> {
+	) -> RpcResult<Option<TokenInfo<AccountId>>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 		api.token_info(&at, collection_id, series_id, serial_number)
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::RuntimeError.into()),
-				message: "Unable to query token information.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn collection_listings(
@@ -153,18 +126,14 @@ where
 		collection_id: CollectionId,
 		offset: u128,
 		limit: u16,
-	) -> Result<ListingResponseWrapper<AccountId>> {
+	) -> RpcResult<ListingResponseWrapper<AccountId>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
 		let result = api
 			.collection_listings(&at, collection_id, offset, limit)
-			.map_err(|e| RpcError {
-				code: ErrorCode::ServerError(Error::RuntimeError.into()),
-				message: "Unable to query collection listings.".into(),
-				data: Some(format!("{:?}", e).into()),
-			})?;
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		let new_cursor = result.0;
 		let result = result

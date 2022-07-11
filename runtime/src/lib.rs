@@ -674,7 +674,6 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
 	type ChallengePeriod = ChallengePeriod;
 	type ContractExecutor = StateOracleCallbackExecutor<Self>;
-	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type EthCallOracle = ();
 	type Event = Event;
 	type UnixTime = Timestamp;

@@ -14,82 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-
 use cennznet_primitives::eth::VersionedEventProof;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-
-use parking_lot::Mutex;
-
-/// Stream of event proofs returned when subscribing.
-type EventProofStream = TracingUnboundedReceiver<VersionedEventProof>;
-
-/// Sending endpoint for notifying about event proofs.
-type EventProofSender = TracingUnboundedSender<VersionedEventProof>;
-
-/// Collection of channel sending endpoints shared with the receiver side so they can register
-/// themselves.
-type SharedEventProofSenders = Arc<Mutex<Vec<EventProofSender>>>;
+use sc_utils::notification::{NotificationSender, NotificationStream, TracingKeyStr};
 
 /// The sending half of the event proof channel(s).
 ///
 /// Used to send notifications about event proofs generated after a majority of validators have witnessed the event
-#[derive(Clone)]
-pub struct EthyEventProofSender {
-	subscribers: SharedEventProofSenders,
-}
-
-impl EthyEventProofSender {
-	/// The `subscribers` should be shared with a corresponding `EventProofSender`.
-	fn new(subscribers: SharedEventProofSenders) -> Self {
-		Self { subscribers }
-	}
-
-	/// Send out a notification to all subscribers that a new event proof is available for a
-	/// block.
-	pub fn notify(&self, event_proof: VersionedEventProof) {
-		let mut subscribers = self.subscribers.lock();
-
-		// do an initial prune on closed subscriptions
-		subscribers.retain(|n| !n.is_closed());
-
-		if !subscribers.is_empty() {
-			subscribers.retain(|n| n.unbounded_send(event_proof.clone()).is_ok());
-		}
-	}
-}
+pub type EthyEventProofSender = NotificationSender<VersionedEventProof>;
 
 /// The receiving half of the event proof channel.
 ///
 /// Used to receive notifications about event proofs generated at the end of a ETHY round.
-/// The `EthyEventProofStream` entity stores the `SharedEventProofSenders` so it can be
-/// used to add more subscriptions.
+pub type EthyEventProofStream = NotificationStream<VersionedEventProof, EthyEventProofTracingKey>;
+
+/// Provides tracing key for ETHY event proof stream.
 #[derive(Clone)]
-pub struct EthyEventProofStream {
-	subscribers: SharedEventProofSenders,
-}
-
-impl EthyEventProofStream {
-	/// Creates a new pair of receiver and sender of event proof notifications.
-	pub fn channel() -> (EthyEventProofSender, Self) {
-		let subscribers = Arc::new(Mutex::new(vec![]));
-		let receiver = EthyEventProofStream::new(subscribers.clone());
-		let sender = EthyEventProofSender::new(subscribers);
-		(sender, receiver)
-	}
-
-	/// Create a new receiver of event proof notifications.
-	///
-	/// The `subscribers` should be shared with a corresponding `EthyEventProofSender`.
-	fn new(subscribers: SharedEventProofSenders) -> Self {
-		Self { subscribers }
-	}
-
-	/// Subscribe to a channel through which event proofs are sent at the end of each ETHY
-	/// voting round.
-	pub fn subscribe(&self) -> EventProofStream {
-		let (sender, receiver) = tracing_unbounded("mpsc_event_proofs_notification_stream");
-		self.subscribers.lock().push(sender);
-		receiver
-	}
+pub struct EthyEventProofTracingKey;
+impl TracingKeyStr for EthyEventProofTracingKey {
+	const TRACING_KEY: &'static str = "mpsc_ethy_event_proof_notification_stream";
 }

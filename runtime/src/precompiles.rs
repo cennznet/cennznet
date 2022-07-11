@@ -1,11 +1,8 @@
-use crate::{
-	constants::evm::*, AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime,
-	StateOracleIsActive,
-};
+use crate::{constants::evm::*, AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime};
 use cennznet_primitives::types::{AssetId, CollectionId, SeriesId};
+use crml_eth_state_oracle::STATE_ORACLE_PRECOMPILE;
 use crml_support::{ContractExecutor, H160, U256};
 use frame_support::{dispatch::DispatchResultWithPostInfo, parameter_types, traits::Get};
-use pallet_evm::{Context, Precompile, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;

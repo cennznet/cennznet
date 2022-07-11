@@ -37,6 +37,8 @@ mod types;
 use cennznet_primitives::traits::BuyFeeAsset;
 use types::*;
 
+// Precompile address for the state oracle
+pub const STATE_ORACLE_PRECOMPILE: u64 = 27572;
 /// Avg ethereum block time
 const ETH_BLOCK_TIME_S: u64 = 15;
 /// logging target for this pallet
@@ -49,8 +51,6 @@ pub trait Config: frame_system::Config {
 	type ChallengePeriod: Get<Self::BlockNumber>;
 	/// Handles invoking request callbacks
 	type ContractExecutor: ContractExecutor<Address = EthAddress>;
-	/// Configured address for the state oracle precompile
-	type StateOraclePrecompileAddress: Get<H160>;
 	/// Handles verifying challenged responses
 	type EthCallOracle: EthCallOracle<Address = EthAddress, CallId = u64>;
 	/// The overarching event type.
@@ -519,7 +519,7 @@ impl<T: Config> Module<T> {
 		);
 
 		// state oracle precompile address
-		let state_oracle_precompile = T::StateOraclePrecompileAddress::get();
+		let state_oracle_precompile = H160::from_low_u64_be(STATE_ORACLE_PRECOMPILE);
 		let state_oracle_precompile_ss58_address = T::AddressMapping::into_account_id(state_oracle_precompile);
 		// calculate required gas
 		let max_fee_per_gas = U256::from(T::MinGasPrice::get());
