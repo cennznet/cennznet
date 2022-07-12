@@ -24,6 +24,7 @@ use ethabi::{ParamType, Token};
 use frame_support::ensure;
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator, Runner as RunnerT,
+	RunnerError,
 };
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use precompile_utils::Address as EthAddress;
@@ -87,7 +88,7 @@ where
 			Ok((
 				payment_asset.unwrap(),
 				(*max_payment).saturated_into::<Balance>(),
-				*new_target,
+				(*new_target).into(),
 				new_input.clone(),
 			))
 		} else {
@@ -97,12 +98,11 @@ where
 
 	/// Calculate gas price for transaction to use for exchanging asset into CPAY
 	pub fn calculate_total_gas(
+		base_fee: U256,
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
 		max_priority_fee_per_gas: Option<U256>,
 	) -> Result<Balance, FeePreferencesError> {
-		let base_fee = T::FeeCalculator::min_gas_price();
-
 		let max_fee_per_gas = match max_fee_per_gas {
 			Some(max_fee_per_gas) => {
 				ensure!(max_fee_per_gas >= base_fee, FeePreferencesError::GasPriceTooLow);
@@ -136,6 +136,34 @@ where
 {
 	type Error = pallet_evm::Error<T>;
 
+	fn validate(
+		source: H160,
+		target: Option<H160>,
+		input: Vec<u8>,
+		value: U256,
+		gas_limit: u64,
+		max_fee_per_gas: Option<U256>,
+		max_priority_fee_per_gas: Option<U256>,
+		nonce: Option<U256>,
+		access_list: Vec<(H160, Vec<H256>)>,
+		is_transactional: bool,
+		evm_config: &EvmConfig,
+	) -> Result<(), RunnerError<Self::Error>> {
+		<Runner<T> as RunnerT<T>>::validate(
+			source,
+			target,
+			input,
+			value,
+			gas_limit,
+			max_fee_per_gas,
+			max_priority_fee_per_gas,
+			nonce,
+			access_list,
+			is_transactional,
+			evm_config,
+		)
+	}
+
 	fn call(
 		source: H160,
 		target: H160,
@@ -146,22 +174,32 @@ where
 		max_priority_fee_per_gas: Option<U256>,
 		nonce: Option<U256>,
 		access_list: Vec<(H160, Vec<H256>)>,
+		is_transactional: bool,
+		validate: bool,
 		config: &EvmConfig,
-	) -> Result<CallInfo, Self::Error> {
+	) -> Result<CallInfo, RunnerError<Self::Error>> {
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
 		let mut target = target;
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY) {
+			let (base_fee, weight) = T::FeeCalculator::min_gas_price();
+
 			let (payment_asset, max_payment, new_target, new_input) =
-				Self::decode_input(input).map_err(|_| Self::Error::WithdrawFailed)?;
+				Self::decode_input(input).map_err(|err| RunnerError {
+					error: err.into(),
+					weight,
+				})?;
 			// set input and target to new input and actual target for passthrough
 			input = new_input;
 			target = new_target;
 
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
-				.map_err(|err| err.into())?;
+			let total_fee = Self::calculate_total_gas(base_fee, gas_limit, max_fee_per_gas, max_priority_fee_per_gas)
+				.map_err(|err| RunnerError {
+				error: err.into(),
+				weight,
+			})?;
 			let total_fee_scaled = scale_wei_to_4dp(total_fee);
 			let exchange_opts = FeeExchange::new_v1(payment_asset, max_payment);
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
@@ -176,7 +214,10 @@ where
 					err
 				);
 				// Using general error to cover all cases due to fixed return type of pallet_evm::Error
-				Self::Error::WithdrawFailed
+				RunnerError {
+					error: Self::Error::WithdrawFailed,
+					weight,
+				}
 			})?;
 		}
 
@@ -190,6 +231,8 @@ where
 			max_priority_fee_per_gas,
 			nonce,
 			access_list,
+			is_transactional,
+			validate,
 			config,
 		)
 	}
@@ -203,8 +246,10 @@ where
 		max_priority_fee_per_gas: Option<U256>,
 		nonce: Option<U256>,
 		access_list: Vec<(H160, Vec<H256>)>,
+		is_transactional: bool,
+		validate: bool,
 		config: &EvmConfig,
-	) -> Result<CreateInfo, Self::Error> {
+	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		<Runner<T> as RunnerT<T>>::create(
 			source,
 			init,
@@ -214,6 +259,8 @@ where
 			max_priority_fee_per_gas,
 			nonce,
 			access_list,
+			is_transactional,
+			validate,
 			config,
 		)
 	}
@@ -228,8 +275,10 @@ where
 		max_priority_fee_per_gas: Option<U256>,
 		nonce: Option<U256>,
 		access_list: Vec<(H160, Vec<H256>)>,
+		is_transactional: bool,
+		validate: bool,
 		config: &EvmConfig,
-	) -> Result<CreateInfo, Self::Error> {
+	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		<Runner<T> as RunnerT<T>>::create2(
 			source,
 			init,
@@ -240,6 +289,8 @@ where
 			max_priority_fee_per_gas,
 			nonce,
 			access_list,
+			is_transactional,
+			validate,
 			config,
 		)
 	}

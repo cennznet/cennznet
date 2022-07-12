@@ -73,6 +73,12 @@ pub trait Erc20IdConversion {
 /// but the probability for this to happen is 2^-32 for random addresses
 pub struct Erc20PrecompileSet<Runtime>(PhantomData<Runtime>);
 
+impl<T> Default for Erc20PrecompileSet<T> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
+
 impl<Runtime> PrecompileSet for Erc20PrecompileSet<Runtime>
 where
 	Runtime: crml_generic_asset::Config<AssetId = AssetId, Balance = Balance>

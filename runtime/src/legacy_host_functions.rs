@@ -1,5 +1,6 @@
 //! Backward compatibility layer.
 
+use frame_support::StateVersion;
 use sp_std::prelude::*;
 
 /// Interface for accessing the storage from within the runtime.
@@ -51,7 +52,7 @@ pub trait Storage {
 
 	/// Child trie root calcualation.
 	fn child_root(&mut self, storage_key: &[u8]) -> Vec<u8> {
-		sp_io::default_child_storage::root(storage_key)
+		sp_io::default_child_storage::root(storage_key, StateVersion::default())
 	}
 
 	/// Child storage key iteration.

@@ -20,16 +20,18 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use fc_db::DatabaseSource;
 use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
 use futures::prelude::*;
 use log::{debug, warn};
 use sc_cli::SubstrateCli;
-use sc_client_api::{Backend, BlockchainEvents, ExecutorProvider};
+use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider};
 use sc_consensus_babe::SlotProportion;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_network::{Event, NetworkService};
+use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{config::Configuration, error::Error as ServiceError, BasePath, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_core::offchain::OffchainStorage;
@@ -122,6 +124,7 @@ pub fn new_partial(
 		config.wasm_method,
 		config.default_heap_pages,
 		config.max_runtime_instances,
+		config.runtime_cache_size,
 	);
 
 	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -160,7 +163,7 @@ pub fn new_partial(
 	let justification_import = grandpa_block_import.clone();
 
 	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		sc_consensus_babe::Config::get_or_compute(&*client)?,
+		sc_consensus_babe::Config::get(&*client)?,
 		grandpa_block_import,
 		client.clone(),
 	)?;
@@ -175,7 +178,7 @@ pub fn new_partial(
 		move |_, ()| async move {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+			let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 				*timestamp,
 				slot_duration,
 			);
@@ -257,11 +260,17 @@ pub fn new_full_base(
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
+		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+		&config.chain_spec,
+	);
 
 	config
 		.network
 		.extra_sets
-		.push(sc_finality_grandpa::grandpa_peers_set_config());
+		.push(sc_finality_grandpa::grandpa_peers_set_config(
+			grandpa_protocol_name.clone(),
+		));
 
 	config.network.extra_sets.push(ethy_gadget::ethy_peers_set_config());
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
@@ -302,13 +311,13 @@ pub fn new_full_base(
 	let keystore = keystore_container.sync_keystore();
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let fee_history_limit = cli.run.fee_history_limit;
-	let subscription_task_executor = sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
 	let overrides = crate::rpc::overrides_handle(client.clone());
-	let block_data_cache = Arc::new(fc_rpc::EthBlockDataCache::new(
+	let block_data_cache = Arc::new(fc_rpc::EthBlockDataCacheTask::new(
 		task_manager.spawn_handle(),
 		overrides.clone(),
 		50,
 		50,
+		prometheus_registry.clone(),
 	));
 	let (event_proof_sender, event_proof_stream) = ethy_gadget::notification::EthyEventProofStream::channel();
 
@@ -326,7 +335,7 @@ pub fn new_full_base(
 		let fee_history_cache = fee_history_cache.clone();
 		let max_past_logs = cli.run.max_past_logs;
 
-		Box::new(move |deny_unsafe, _| {
+		move |deny_unsafe, subscription_executor: SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
 				backend: backend.clone(),
 				client: client.clone(),
@@ -351,23 +360,19 @@ pub fn new_full_base(
 				},
 				ethy: node_rpc::EthyDeps {
 					event_proof_stream: event_proof_stream.clone(),
-					subscription_executor: subscription_task_executor.clone(),
+					subscription_executor: subscription_executor.clone(),
 				},
 				grandpa: node_rpc::GrandpaDeps {
 					shared_voter_state: shared_voter_state.clone(),
 					shared_authority_set: shared_authority_set.clone(),
 					justification_stream: justification_stream.clone(),
-					subscription_executor: subscription_task_executor.clone(),
+					subscription_executor: subscription_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
 			};
 
-			Ok(crate::rpc::create_full(
-				deps,
-				subscription_task_executor.clone(),
-				overrides.clone(),
-			))
-		})
+			crate::rpc::create_full(deps, subscription_executor, overrides.clone()).map_err(Into::into)
+		}
 	};
 
 	// load frontier sync block from the chain genesis config
@@ -385,15 +390,13 @@ pub fn new_full_base(
 	}
 	debug!(target: "mapping-sync", "starting frontier mapping sync from block: {}", frontier_sync_from);
 
-	let rpc_extensions_builder = rpc_extensions_builder;
-
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+		rpc_builder: Box::new(rpc_extensions_builder),
 		config,
 		backend: backend.clone(),
 		client: client.clone(),
 		keystore: keystore_container.sync_keystore(),
 		network: network.clone(),
-		rpc_extensions_builder,
 		transaction_pool: transaction_pool.clone(),
 		task_manager: &mut task_manager,
 		system_rpc_tx,
@@ -475,7 +478,7 @@ pub fn new_full_base(
 
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+					let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 						*timestamp,
 						slot_duration,
 					);
@@ -563,6 +566,7 @@ pub fn new_full_base(
 		keystore,
 		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
+		protocol_name: grandpa_protocol_name,
 	};
 
 	if enable_grandpa {
@@ -616,11 +620,24 @@ pub fn frontier_database_dir(config: &Configuration) -> std::path::PathBuf {
 	config_dir.join("frontier").join("db")
 }
 
+// TODO This is copied from frontier. It should be imported instead after
+// https://github.com/paritytech/frontier/issues/333 is solved
 pub fn open_frontier_backend(config: &Configuration) -> Result<Arc<fc_db::Backend<Block>>, String> {
 	Ok(Arc::new(fc_db::Backend::<Block>::new(&fc_db::DatabaseSettings {
-		source: fc_db::DatabaseSettingsSrc::RocksDb {
-			path: frontier_database_dir(&config),
-			cache_size: 0,
+		source: match config.database {
+			DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
+				path: frontier_database_dir(config),
+				cache_size: 0,
+			},
+			DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
+				path: frontier_database_dir(config),
+			},
+			DatabaseSource::Auto { .. } => DatabaseSource::Auto {
+				rocksdb_path: frontier_database_dir(config),
+				paritydb_path: frontier_database_dir(config),
+				cache_size: 0,
+			},
+			_ => return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()),
 		},
 	})?))
 }

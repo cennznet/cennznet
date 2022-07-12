@@ -10,12 +10,10 @@ use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripe
 use pallet_evm_precompiles_cennzx::CennzxPrecompile;
 use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_PRECOMPILE_ADDRESS_PREFIX};
 use pallet_evm_precompiles_erc20_peg::Erc20PegPrecompile;
-use pallet_evm_precompiles_erc721::{
-	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
-};
+use pallet_evm_precompiles_erc721::{Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX};
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
-use precompile_utils::precompile_set::*;
-use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
+use precompile_utils::{precompile_set::*, prelude::*};
+use sp_std::marker::PhantomData;
 
 parameter_types! {
 	pub Erc721AssetPrefix: &'static [u8] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
@@ -33,7 +31,7 @@ pub type CENNZnetPrecompiles<R> = PrecompileSetBuilder<
 	(
 		// Skip precompiles if out of range.
 		PrecompilesInRangeInclusive<
-			(AddressU64<1>, AddressU64<4095>),
+			(AddressU64<1>, AddressU64<65535>),
 			(
 				// Ethereum precompiles:
 				// We allow DELEGATECALL to stay compliant with Ethereum behavior.
@@ -47,7 +45,7 @@ pub type CENNZnetPrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// CENNZnet specific precompiles:
-				PrecompileAt<AddressU64<FEE_PROXY>, _>,
+				// PrecompileAt<AddressU64<FEE_PROXY>, ()>,
 				PrecompileAt<AddressU64<STATE_ORACLE_PRECOMPILE>, StateOraclePrecompile<EthStateOracle, R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, Erc20PegPrecompile<R>>,
 				PrecompileAt<
@@ -145,7 +143,7 @@ where
 		use ethereum::{EIP1559Transaction, TransactionAction, TransactionV2};
 		use pallet_ethereum::RawOrigin;
 
-		let nonce = <pallet_evm::Pallet<R>>::account_basic(&caller).nonce;
+		let nonce = <pallet_evm::Pallet<R>>::account_basic(&caller).0.nonce;
 		let callback_tx = TransactionV2::EIP1559(EIP1559Transaction {
 			access_list: Default::default(),
 			action: TransactionAction::Call(*target),

@@ -25,7 +25,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 
 [dev-dependencies]
-ethabi = { version = "16.0.0", default-features = false }
+ethabi = { version = "17.1.0", default-features = false }
 hex-literal = { version = "0.3.1", default-features = false }
 
 [features]

@@ -21,7 +21,8 @@ pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
 crml-support = { path = "../../crml/support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-eth-state-oracle = { path = "../../crml/eth-state-oracle", default-features = false }
-ethabi = { version = "16.0.0", default-features = false }
+ethabi = { version = "17.1.0", default-features = false }
+
 
 [features]
 default = ["std"]

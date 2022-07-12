@@ -60,7 +60,8 @@ pub fn config() -> CENNZnetChainSpec {
 		vec![],                            // boot nodes
 		None,                              // telemetry
 		Some("cennznet-nikau-v1"),         // lib-p2p protocol ID
-		None,                              // properties
+		None,                              // fork-id
+		Default::default(),                // properties
 		Default::default(),                // generic extension types
 	)
 }
