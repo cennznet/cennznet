@@ -26,20 +26,17 @@ use cennznet_primitives::{
 use cennznet_runtime::Runtime;
 use ethy_gadget::notification::EthyEventProofStream;
 use fc_rpc::{
-	EthApi, EthApiServer, EthBlockDataCache, EthFilterApi, EthFilterApiServer, EthPubSubApi, EthPubSubApiServer,
-	HexEncodedIdProvider, NetApi, NetApiServer, OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override,
-	SchemaV2Override, StorageOverride, Web3Api, Web3ApiServer,
+	EthBlockDataCacheTask, OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override, SchemaV2Override,
+	StorageOverride,
 };
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
 use fp_storage::EthereumStorageSchema;
-use jsonrpc_pubsub::manager::SubscriptionManager;
+use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, Backend, BlockchainEvents, StateBackend, StorageProvider};
 use sc_consensus_babe::{Config, Epoch};
-use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_consensus_manual_seal::rpc::EngineCommand;
 use sc_finality_grandpa::{FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState};
-use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_network::NetworkService;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
@@ -124,11 +121,8 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	/// Fee history cache.
 	pub fee_history_cache: FeeHistoryCache,
 	/// Cache for Ethereum block data.
-	pub block_data_cache: Arc<EthBlockDataCache<Block>>,
+	pub block_data_cache: Arc<EthBlockDataCacheTask<Block>>,
 }
-
-/// A IO handler that uses all Full RPC extensions.
-pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 #[allow(missing_docs)]
 pub fn overrides_handle<C, BE>(client: Arc<C>) -> Arc<OverrideHandle<Block>>
@@ -161,7 +155,7 @@ pub fn create_full<C, P, A, B, SC>(
 	deps: FullDeps<C, P, A, B, SC>,
 	subscription_task_executor: SubscriptionTaskExecutor,
 	overrides: Arc<OverrideHandle<Block>>,
-) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	A: ChainApi<Block = Block> + 'static,
 	B: Backend<Block> + 'static,
@@ -193,15 +187,23 @@ where
 {
 	use cennznet_rpc_core_txpool::TxPoolServer;
 	use cennznet_rpc_txpool::TxPool;
-	use crml_cennzx_rpc::{Cennzx, CennzxApi};
-	use crml_generic_asset_rpc::{GenericAsset, GenericAssetApi};
-	use crml_governance_rpc::{Governance, GovernanceApi};
-	use crml_nft_rpc::{Nft, NftApi};
-	use crml_staking_rpc::{Staking, StakingApi};
-	use crml_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use substrate_frame_rpc_system::{FullSystem, SystemApi};
+	use crml_cennzx_rpc::{Cennzx, CennzxApiServer};
+	use crml_generic_asset_rpc::{GenericAsset, GenericAssetApiServer};
+	use crml_governance_rpc::{Governance, GovernanceApiServer};
+	use crml_nft_rpc::{Nft, NftApiServer};
+	use crml_staking_rpc::{Staking, StakingApiServer};
+	use crml_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+	use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
+	use fc_rpc::{
+		Eth, EthApiServer, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, Net, NetApiServer, Web3,
+		Web3ApiServer,
+	};
+	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
+	use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+	use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+	use substrate_frame_rpc_system::{System, SystemApiServer};
 
-	let mut io = jsonrpc_core::IoHandler::default();
+	let mut io = RpcModule::new(());
 	let FullDeps {
 		client,
 		pool,
@@ -237,95 +239,99 @@ where
 		finality_provider,
 	} = grandpa;
 
-	io.extend_with(SystemApi::to_delegate(FullSystem::new(
-		client.clone(),
-		pool.clone(),
-		deny_unsafe,
-	)));
-	io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(BabeRpcHandler::new(
-		client.clone(),
-		shared_epoch_changes.clone(),
-		keystore,
-		babe_config,
-		select_chain,
-		deny_unsafe,
-	)));
-	io.extend_with(ethy_gadget_rpc::EthyApi::to_delegate(
-		ethy_gadget_rpc::EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone()),
-	));
-	io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
-		GrandpaRpcHandler::new(
+	io.merge(System::new(Arc::clone(&client), pool.clone(), deny_unsafe).into_rpc())?;
+	io.merge(
+		Babe::new(
+			Arc::clone(&client),
+			shared_epoch_changes.clone(),
+			keystore,
+			babe_config,
+			select_chain,
+			deny_unsafe,
+		)
+		.into_rpc(),
+	)?;
+	io.merge(EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, Arc::clone(&client)).into_rpc())?;
+	io.merge(
+		Grandpa::new(
+			subscription_executor,
 			shared_authority_set.clone(),
 			shared_voter_state,
 			justification_stream,
-			subscription_executor,
 			finality_provider,
-		),
-	));
-	io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
-		sc_sync_state_rpc::SyncStateRpcHandler::new(
+		)
+		.into_rpc(),
+	)?;
+	io.merge(
+		SyncState::new(
 			chain_spec,
-			client.clone(),
+			Arc::clone(&client),
 			shared_authority_set,
 			shared_epoch_changes,
-			deny_unsafe,
 		)
-		.expect("syncstate setup ok"),
-	));
-	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-		client.clone(),
-	)));
-	io.extend_with(CennzxApi::to_delegate(Cennzx::new(client.clone())));
-	io.extend_with(NftApi::to_delegate(Nft::new(client.clone())));
-	io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
-	io.extend_with(GenericAssetApi::to_delegate(GenericAsset::new(client.clone())));
-	io.extend_with(GovernanceApi::to_delegate(Governance::new(client.clone())));
+		.expect("syncstate setup ok")
+		.into_rpc(),
+	)?;
+	io.merge(TransactionPayment::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(Cennzx::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(Nft::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(Staking::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(GenericAsset::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(Governance::new(Arc::clone(&client)).into_rpc())?;
 
 	// evm stuff
-	io.extend_with(EthApiServer::to_delegate(EthApi::new(
-		client.clone(),
-		pool.clone(),
-		graph.clone(),
-		Some(cennznet_runtime::TransactionConverter),
-		network.clone(),
-		Default::default(),
-		overrides.clone(),
-		frontier_backend.clone(),
-		is_authority,
-		max_past_logs,
-		block_data_cache.clone(),
-		fee_history_limit,
-		fee_history_cache,
-	)));
+	io.merge(
+		Eth::new(
+			Arc::clone(&client),
+			Arc::clone(&pool),
+			graph.clone(),
+			Some(cennznet_runtime::TransactionConverter),
+			Arc::clone(&network),
+			Default::default(),
+			Arc::clone(&overrides),
+			Arc::clone(&frontier_backend),
+			is_authority,
+			Arc::clone(&block_data_cache),
+			fee_history_cache,
+			fee_history_limit,
+		)
+		.into_rpc(),
+	)?;
 
 	if let Some(filter_pool) = filter_pool {
-		io.extend_with(EthFilterApiServer::to_delegate(EthFilterApi::new(
-			client.clone(),
-			frontier_backend,
-			filter_pool,
-			500_usize, // max stored filters
-			max_past_logs,
-			block_data_cache.clone(),
-		)));
+		io.merge(
+			EthFilter::new(
+				Arc::clone(&client),
+				frontier_backend,
+				filter_pool,
+				500_usize, // max stored filters
+				max_past_logs,
+				block_data_cache.clone(),
+			)
+			.into_rpc(),
+		)?;
 	}
 
-	io.extend_with(NetApiServer::to_delegate(NetApi::new(
-		client.clone(),
-		network.clone(),
-		true,
-	)));
-	io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));
-	io.extend_with(EthPubSubApiServer::to_delegate(EthPubSubApi::new(
-		pool,
-		client.clone(),
-		network,
-		SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
-			HexEncodedIdProvider::default(),
-			Arc::new(subscription_task_executor),
-		),
-		overrides,
-	)));
-	io.extend_with(TxPoolServer::to_delegate(TxPool::new(client.clone(), graph.clone())));
-
-	io
+	io.merge(
+		Net::new(
+			Arc::clone(&client),
+			network.clone(),
+			// Whether to format the `peer_count` response as Hex (default) or not.
+			true,
+		)
+		.into_rpc(),
+	)?;
+	io.merge(Web3::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(
+		EthPubSub::new(
+			pool,
+			Arc::clone(&client),
+			network,
+			subscription_task_executor,
+			overrides,
+		)
+		.into_rpc(),
+	)?;
+	io.merge(TxPool::new(Arc::clone(&client), graph.clone()).into_rpc())?;
+	Ok(io)
 }

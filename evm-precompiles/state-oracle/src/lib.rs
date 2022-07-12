@@ -41,16 +41,16 @@ pub enum Action {
 }
 
 /// Provides access to the state oracle pallet
-pub struct StateOraclePrecompile<T, C>(PhantomData<(T, C)>);
+pub struct StateOraclePrecompile<T, R>(PhantomData<(T, R)>);
 
-impl<T, C> Precompile for StateOraclePrecompile<T, C>
+impl<T, R> Precompile for StateOraclePrecompile<T, R>
 where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
-	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
+	R: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Check that State Oracle is active
-		if !<C as crml_eth_state_oracle::Config>::StateOracleIsActive::get() {
+		if !<R as crml_eth_state_oracle::Config>::StateOracleIsActive::get() {
 			return Err(PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
 				output: ("Request Failed, State Oracle not enabled").as_bytes().to_vec(),
@@ -76,16 +76,16 @@ where
 	}
 }
 
-impl<T, C> StateOraclePrecompile<T, C> {
+impl<T, R> StateOraclePrecompile<T, R> {
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
-impl<T, C> StateOraclePrecompile<T, C>
+impl<T, R> StateOraclePrecompile<T, R>
 where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
-	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
+	R: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
 {
 	fn remote_call_with_fee_swap(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		let mut input = handle.read_input()?;
@@ -103,7 +103,7 @@ where
 		let fee_asset_id: Address = input.read::<Address>()?.into();
 		// the given `input_asset` address is not a valid (derived) generic asset address
 		// it is not supported by cennzx
-		let asset_id = C::evm_id_to_runtime_id(fee_asset_id).ok_or(revert("unsupported asset"))?;
+		let asset_id = R::evm_id_to_runtime_id(fee_asset_id).ok_or(revert("unsupported asset"))?;
 		let slippage: U256 = input.read::<U256>()?.into();
 		let fee_preferences = Some(FeePreferences {
 			asset_id,

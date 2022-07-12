@@ -63,5 +63,6 @@ pub fn config() -> CENNZnetChainSpec {
 		None,
 		None,
 		Default::default(),
+		Default::default(),
 	)
 }
