@@ -84,6 +84,12 @@ pub const ERC721_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xAA; 4];
 /// but the probability for this to happen is 2^-32 for random addresses
 pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 
+impl<T> Default for Erc721PrecompileSet<T> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
+
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,

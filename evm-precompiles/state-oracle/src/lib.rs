@@ -45,12 +45,12 @@ pub struct StateOraclePrecompile<T, C>(PhantomData<(T, C)>);
 
 impl<T, C> Precompile for StateOraclePrecompile<T, C>
 where
-	T: EthereumStateOracle<Address = H160, RequestId = U256> + crml_eth_state_oracle::Config,
-	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
+	T: EthereumStateOracle<Address = H160, RequestId = U256>,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Check that State Oracle is active
-		if !<T as crml_eth_state_oracle::Config>::StateOracleIsActive::get() {
+		if !<C as crml_eth_state_oracle::Config>::StateOracleIsActive::get() {
 			return Err(PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
 				output: ("Request Failed, State Oracle not enabled").as_bytes().to_vec(),
@@ -85,7 +85,7 @@ impl<T, C> StateOraclePrecompile<T, C> {
 impl<T, C> StateOraclePrecompile<T, C>
 where
 	T: EthereumStateOracle<Address = H160, RequestId = U256>,
-	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
+	C: Erc20IdConversion<EvmId = Address, RuntimeId = AssetId> + crml_eth_state_oracle::Config,
 {
 	fn remote_call_with_fee_swap(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		let mut input = handle.read_input()?;

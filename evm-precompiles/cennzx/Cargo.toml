@@ -20,7 +20,8 @@ num_enum = { version = "0.5.3", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../erc20", default-features = false }
 crml-support = { path = "../../crml/support", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
-ethabi = { version = "16.0.0", default-features = false }
+ethabi = { version = "17.1.0", default-features = false }
+
 
 [features]
 default = ["std"]

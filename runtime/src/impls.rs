@@ -39,7 +39,7 @@ use frame_support::{
 use pallet_evm::OnChargeEVMTransaction;
 use smallvec::smallvec;
 use sp_runtime::{
-	traits::{SaturatedConversion, UniqueSaturatedInto, Zero},
+	traits::{SaturatedConversion, Zero},
 	ConsensusEngineId, Perbill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -93,7 +93,7 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(_who: &AccountId, _amount: Self::Balance) -> DepositConsequence {
+	fn can_deposit(_who: &AccountId, _amount: Self::Balance, _mint: bool) -> DepositConsequence {
 		unimplemented!();
 	}
 
@@ -197,6 +197,10 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	}
 }
 
+/// Type alias for negative imbalance during fees
+type NegativeImbalanceOf<T> =
+	<<T as pallet_evm::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
 /// Implements transaction payments which handles withdrawing,
 /// refunding and depositing of transaction fees.
 /// Similar to `CurrencyAdapter` of `pallet_transaction_payment`
@@ -208,32 +212,36 @@ where
 		+ frame_system::Config<AccountId = AccountId>
 		+ pallet_session::Config<ValidatorId = AccountId>,
 {
-	type LiquidityInfo = <() as OnChargeEVMTransaction<T>>::LiquidityInfo;
+	type LiquidityInfo = Option<NegativeImbalanceOf<T>>;
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
 		<() as OnChargeEVMTransaction<T>>::withdraw_fee(who, fee)
 	}
 
-	fn correct_and_deposit_fee(who: &H160, corrected_fee: U256, already_withdrawn: Self::LiquidityInfo) {
-		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, already_withdrawn)
+	fn correct_and_deposit_fee(
+		who: &H160,
+		corrected_fee: U256,
+		base_fee: U256,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Self::LiquidityInfo {
+		<() as OnChargeEVMTransaction<T>>::correct_and_deposit_fee(who, corrected_fee, base_fee, already_withdrawn)
 	}
 
 	/// Pay the validator's priority fees to its reward account
-	fn pay_priority_fee(tip: U256) {
-		let digest = System::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-		if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
-			if let Some(stash) = <pallet_session::Pallet<T>>::validators().get(author_index as usize) {
-				let pay_to = Rewards::payee(stash);
-				let _ = <T as pallet_evm::Config>::Currency::deposit_into_existing(
-					&pay_to,
-					tip.low_u128().unique_saturated_into(),
-				);
+	fn pay_priority_fee(tip: Self::LiquidityInfo) {
+		if let Some(tip) = tip {
+			let digest = System::digest();
+			let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+			if let Some(author_index) = Babe::find_author(pre_runtime_digests) {
+				if let Some(stash) = <pallet_session::Pallet<T>>::validators().get(author_index as usize) {
+					let pay_to = Rewards::payee(stash);
+					let _ = <T as pallet_evm::Config>::Currency::deposit_into_existing(&pay_to, tip.peek());
+				} else {
+					log!(error, "error processing priority fee, validator not found");
+				}
 			} else {
-				log!(error, "error processing priority fee, validator not found");
+				log!(error, "error processing priority fee, block author not found");
 			}
-		} else {
-			log!(error, "error processing priority fee, block author not found");
 		}
 	}
 }
@@ -333,7 +341,10 @@ impl<G: Get<Perbill>> WeightToFeePolynomial for WeightToCpayFee<G> {
 pub struct RootMemberOnly<T: pallet_sudo::Config>(PhantomData<T>);
 impl<T: pallet_sudo::Config> Contains<T::AccountId> for RootMemberOnly<T> {
 	fn contains(t: &T::AccountId) -> bool {
-		t == (&pallet_sudo::Pallet::<T>::key())
+		match pallet_sudo::Pallet::<T>::key() {
+			Some(key) => t == &key,
+			None => false,
+		}
 	}
 }
 impl<T: pallet_sudo::Config> ContainsLengthBound for RootMemberOnly<T> {
