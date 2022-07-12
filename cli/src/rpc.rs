@@ -239,10 +239,10 @@ where
 		finality_provider,
 	} = grandpa;
 
-	io.merge(System::new(Arc::clone(&client), pool.clone(), deny_unsafe).into_rpc())?;
+	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 	io.merge(
 		Babe::new(
-			Arc::clone(&client),
+			client.clone(),
 			shared_epoch_changes.clone(),
 			keystore,
 			babe_config,
@@ -251,7 +251,7 @@ where
 		)
 		.into_rpc(),
 	)?;
-	io.merge(EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, Arc::clone(&client)).into_rpc())?;
+	io.merge(EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone()).into_rpc())?;
 	io.merge(
 		Grandpa::new(
 			subscription_executor,
@@ -263,35 +263,30 @@ where
 		.into_rpc(),
 	)?;
 	io.merge(
-		SyncState::new(
-			chain_spec,
-			Arc::clone(&client),
-			shared_authority_set,
-			shared_epoch_changes,
-		)
-		.expect("syncstate setup ok")
-		.into_rpc(),
+		SyncState::new(chain_spec, client.clone(), shared_authority_set, shared_epoch_changes)
+			.expect("syncstate setup ok")
+			.into_rpc(),
 	)?;
-	io.merge(TransactionPayment::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(Cennzx::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(Nft::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(Staking::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(GenericAsset::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(Governance::new(Arc::clone(&client)).into_rpc())?;
+	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	io.merge(Cennzx::new(client.clone()).into_rpc())?;
+	io.merge(Nft::new(client.clone()).into_rpc())?;
+	io.merge(Staking::new(client.clone()).into_rpc())?;
+	io.merge(GenericAsset::new(client.clone()).into_rpc())?;
+	io.merge(Governance::new(client.clone()).into_rpc())?;
 
 	// evm stuff
 	io.merge(
 		Eth::new(
-			Arc::clone(&client),
-			Arc::clone(&pool),
+			client.clone(),
+			pool.clone(),
 			graph.clone(),
 			Some(cennznet_runtime::TransactionConverter),
-			Arc::clone(&network),
+			network.clone(),
 			Default::default(),
-			Arc::clone(&overrides),
-			Arc::clone(&frontier_backend),
+			overrides.clone(),
+			frontier_backend.clone(),
 			is_authority,
-			Arc::clone(&block_data_cache),
+			block_data_cache.clone(),
 			fee_history_cache,
 			fee_history_limit,
 		)
@@ -301,7 +296,7 @@ where
 	if let Some(filter_pool) = filter_pool {
 		io.merge(
 			EthFilter::new(
-				Arc::clone(&client),
+				client.clone(),
 				frontier_backend,
 				filter_pool,
 				500_usize, // max stored filters
@@ -314,24 +309,15 @@ where
 
 	io.merge(
 		Net::new(
-			Arc::clone(&client),
+			client.clone(),
 			network.clone(),
 			// Whether to format the `peer_count` response as Hex (default) or not.
 			true,
 		)
 		.into_rpc(),
 	)?;
-	io.merge(Web3::new(Arc::clone(&client)).into_rpc())?;
-	io.merge(
-		EthPubSub::new(
-			pool,
-			Arc::clone(&client),
-			network,
-			subscription_task_executor,
-			overrides,
-		)
-		.into_rpc(),
-	)?;
-	io.merge(TxPool::new(Arc::clone(&client), graph.clone()).into_rpc())?;
+	io.merge(Web3::new(client.clone()).into_rpc())?;
+	io.merge(EthPubSub::new(pool, client.clone(), network, subscription_task_executor, overrides).into_rpc())?;
+	io.merge(TxPool::new(client.clone(), graph.clone()).into_rpc())?;
 	Ok(io)
 }
