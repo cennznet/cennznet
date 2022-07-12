@@ -16,34 +16,35 @@
 
 //! RPC interface for the generic asset module.
 
-pub use self::gen_client::Client as GenericAssetClient;
 use codec::{Codec, Decode, Encode};
 use crml_generic_asset::AssetInfo;
 pub use crml_generic_asset_rpc_runtime_api::GenericAssetRuntimeApi;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-#[rpc]
+#[rpc(client, server, namespace = "genericAsset")]
 pub trait GenericAssetApi<AssetId, Balance, AccountId, BlockHash, ResponseType>
 where
 	Balance: FromStr + Display,
 {
 	/// Get all assets data paired with their ids.
-	#[rpc(name = "genericAsset_registeredAssets")]
-	fn asset_meta(&self, at: Option<BlockHash>) -> Result<ResponseType>;
+	#[method(name = "registeredAssets")]
+	fn asset_meta(&self, at: Option<BlockHash>) -> RpcResult<ResponseType>;
 
-	#[rpc(name = "genericAsset_getBalance")]
+	#[method(name = "getBalance")]
 	fn get_balance(
 		&self,
 		account_id: AccountId,
 		asset_id: AssetId,
 		at: Option<BlockHash>,
-	) -> Result<BalanceInformation<Balance>>;
+	) -> RpcResult<BalanceInformation<Balance>>;
 }
 
 /// A struct that implements the [`GenericAssetApi`].
@@ -90,14 +91,8 @@ mod serde_balance {
 	}
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-	/// The call to runtime failed.
-	RuntimeError,
-}
-
 impl<C, Block, AssetId, Balance, AccountId>
-	GenericAssetApi<AssetId, Balance, AccountId, <Block as BlockT>::Hash, Vec<(AssetId, AssetInfo)>>
+	GenericAssetApiServer<AssetId, Balance, AccountId, <Block as BlockT>::Hash, Vec<(AssetId, AssetInfo)>>
 	for GenericAsset<C, (Block, AssetId, Balance, AccountId)>
 where
 	Block: BlockT,
@@ -107,16 +102,15 @@ where
 	Balance: Codec + Sync + std::marker::Send + 'static + Display + FromStr,
 	AccountId: Codec + Sync + std::marker::Send + 'static,
 {
-	fn asset_meta(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<(AssetId, AssetInfo)>> {
+	fn asset_meta(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<(AssetId, AssetInfo)>> {
 		let at = BlockId::hash(at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
 			self.client.info().best_hash));
 
-		self.client.runtime_api().asset_meta(&at).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError as i64),
-			message: "Unable to query asset meta data.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		self.client
+			.runtime_api()
+			.asset_meta(&at)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn get_balance(
@@ -124,17 +118,15 @@ where
 		account_id: AccountId,
 		asset_id: AssetId,
 		at: Option<<Block as BlockT>::Hash>,
-	) -> Result<BalanceInformation<Balance>> {
+	) -> RpcResult<BalanceInformation<Balance>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
 			self.client.info().best_hash));
 
-		let result = api.get_balance(&at, account_id, asset_id).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError as i64),
-			message: "Unable to query balances.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})?;
+		let result = api
+			.get_balance(&at, account_id, asset_id)
+			.map_err(|e| RpcError::to_call_error(e))?;
 
 		Ok(BalanceInformation {
 			reserved: result.reserved,

@@ -341,8 +341,7 @@ decl_module! {
 			T::WeightInfo::buy() * removed_count as Weight
 		}
 
-		/// Set the owner of a collection
-		/// Caller must be the current collection owner
+		/// Migrate series metadata to use new scheme
 		#[weight = T::WeightInfo::set_owner()]
 		fn migrate_to_metadata_scheme(origin, collection_id: CollectionId, series_id: SeriesId, scheme: MetadataScheme) -> DispatchResult {
 			let origin = ensure_signed(origin)?;

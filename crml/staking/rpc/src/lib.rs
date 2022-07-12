@@ -19,9 +19,10 @@
 
 use codec::Codec;
 
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
-
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -31,7 +32,7 @@ use std::sync::Arc;
 pub use crml_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 
 /// Staking custom RPC methods
-#[rpc]
+#[rpc(client, server, namespace = "staking")]
 pub trait StakingApi<BlockHash, AccountId> {
 	/// Return the currently accrued reward for the specified stash (validator or nominator)
 	///
@@ -40,8 +41,8 @@ pub trait StakingApi<BlockHash, AccountId> {
 	///
 	/// Returns error if the payee is not in the list of the stakers
 	// TODO: we should return Result<Balance>, however we need to update Plug to bring in the latest sp-rpc package before that
-	#[rpc(name = "staking_accruedPayout")]
-	fn accrued_payout(&self, stash: AccountId, at: Option<BlockHash>) -> Result<u64>;
+	#[method(name = "accruedPayout")]
+	fn accrued_payout(&self, stash: AccountId, at: Option<BlockHash>) -> RpcResult<u64>;
 }
 
 /// A struct that implements [`StakingApi`].
@@ -60,47 +61,22 @@ impl<C, P> Staking<C, P> {
 	}
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-	/// The call to runtime failed.
-	RuntimeError,
-	/// The query is not supported.
-	UnsupportedError,
-}
-
-impl From<Error> for i64 {
-	fn from(e: Error) -> i64 {
-		match e {
-			Error::RuntimeError => 1,
-			Error::UnsupportedError => 2,
-		}
-	}
-}
-
-impl<C, Block, AccountId> StakingApi<<Block as BlockT>::Hash, AccountId> for Staking<C, Block>
+impl<C, Block, AccountId> StakingApiServer<<Block as BlockT>::Hash, AccountId> for Staking<C, Block>
 where
 	Block: BlockT,
 	C: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: StakingRuntimeApi<Block, AccountId>,
 	AccountId: Codec,
 {
-	fn accrued_payout(&self, stash: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
+	fn accrued_payout(&self, stash: AccountId, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
 		let api = self.client.runtime_api();
 
 		if at.is_some() {
-			return Err(RpcError {
-				code: ErrorCode::ServerError(Error::UnsupportedError.into()),
-				message: "Unsupported query when block hash is given.".into(),
-				data: None,
-			});
+			return Err(RpcError::Custom("Unsupported query when block hash is given.".into()));
 		}
 
 		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-		api.accrued_payout(&at, &stash).map_err(|e| RpcError {
-			code: ErrorCode::ServerError(Error::RuntimeError.into()),
-			message: "Unable to accrued payout.".into(),
-			data: Some(format!("{:?}", e).into()),
-		})
+		api.accrued_payout(&at, &stash).map_err(|e| RpcError::to_call_error(e))
 	}
 }

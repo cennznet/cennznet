@@ -340,7 +340,9 @@ where
 				warn!(target: "ethy", "💎 failed to store proof: {:?}", event_proof);
 			}
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC subscriptions
-			self.event_proof_sender.notify(versioned_event_proof);
+			self.event_proof_sender
+				.notify(|| Ok::<_, ()>(versioned_event_proof))
+				.expect("forwards closure result; the closure always returns Ok; qed.");
 			// Remove from memory
 			self.witness_record.clear(witness.event_id);
 			self.gossip_validator.mark_complete(witness.event_id);

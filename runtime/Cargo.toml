@@ -2,7 +2,7 @@
 name = "cennznet-runtime"
 version = "2.2.0-rc4"
 authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 repository = "https://github.com/cennznet/cennznet"
 

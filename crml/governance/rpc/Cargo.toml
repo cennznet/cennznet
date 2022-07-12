@@ -9,9 +9,8 @@ description = "RPC interface for the governance module."
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = "18.0.0"
-jsonrpc-derive = "18.0.0"
+jsonrpsee = { version = "0.13.0", features = ["server", "macros"] }
+
 serde = { version = "1.0.101", features = ["derive"] }
 sc-client-db = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
