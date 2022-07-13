@@ -12,7 +12,7 @@ use pallet_evm_precompiles_erc20::{Erc20IdConversion, Erc20PrecompileSet, ERC20_
 use pallet_evm_precompiles_erc20_peg::Erc20PegPrecompile;
 use pallet_evm_precompiles_erc721::{Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX};
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
-use precompile_utils::{precompile_set::*, prelude::*};
+use precompile_utils::{precompile_set::*, prelude::*, NoopPrecompile};
 use sp_std::marker::PhantomData;
 
 parameter_types! {
@@ -45,7 +45,7 @@ pub type CENNZnetPrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// CENNZnet specific precompiles:
-				// PrecompileAt<AddressU64<FEE_PROXY>, ()>,
+				PrecompileAt<AddressU64<FEE_PROXY>, NoopPrecompile<R>>,
 				PrecompileAt<AddressU64<STATE_ORACLE_PRECOMPILE>, StateOraclePrecompile<EthStateOracle, R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, Erc20PegPrecompile<R>>,
 				PrecompileAt<

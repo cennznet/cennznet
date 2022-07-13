@@ -28,12 +28,14 @@ pub mod data;
 pub mod handle;
 pub mod logs;
 pub mod modifier;
+pub mod noop_precompile;
 pub mod precompile_set;
 pub mod substrate;
 
 pub use ::log::*;
 pub use data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter};
 pub use handle::PrecompileHandleExt;
+pub use noop_precompile::NoopPrecompile;
 pub use precompile_utils_macro::{generate_function_selector, keccak256};
 
 #[cfg(test)]
